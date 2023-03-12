@@ -1,0 +1,13 @@
+[package]
+name = "pimalaya"
+version = "0.0.0"
+description = "Rust library for managing your personal information (PIM)."
+authors = ["soywod <clement.douin@posteo.net>"]
+edition = "2021"
+license = "MIT"
+categories = ["compilers", "email", "network-programming", "template-engine", "text-processing"]
+keywords = ["calendar", "contact", "email", "event", "pim"]
+
+[dev-dependencies]
+
+[dependencies]
