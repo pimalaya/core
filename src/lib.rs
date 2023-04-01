@@ -12,3 +12,5 @@
 //! dream without reinventing the wheel.
 //!
 //! [PIM]: https://en.wikipedia.org/wiki/Personal_information_manager
+
+pub mod time;

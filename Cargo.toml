@@ -8,6 +8,10 @@ license = "MIT"
 categories = ["compilers", "email", "network-programming", "template-engine", "text-processing"]
 keywords = ["calendar", "contact", "email", "event", "pim"]
 
+[features]
+pomodoro = []
+default = ["pomodoro"]
+
 [dev-dependencies]
 
 [dependencies]
