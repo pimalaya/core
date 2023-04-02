@@ -2,6 +2,7 @@ mod client;
 mod request;
 mod response;
 mod server;
+mod timer;
 
 pub(crate) use request::Request;
 pub(crate) use response::Response;
