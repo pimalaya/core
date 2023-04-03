@@ -1,9 +1,10 @@
+use log::{info, trace};
 use std::{
     io::{self, prelude::*, BufReader},
     net::TcpStream,
 };
 
-use super::{Request, Response};
+use super::{request::Request, response::Response, timer::Timer};
 
 pub trait Client {
     type Handler;
@@ -13,18 +14,20 @@ pub trait Client {
     fn write(&mut self, handler: &mut Self::Handler, req: Request) -> io::Result<()>;
 
     fn start(&mut self) -> io::Result<()> {
-        println!("client: start");
+        info!("sending request to start timer");
+
         let mut handler = self.connect()?;
         self.write(&mut handler, Request::Start)
     }
 
-    fn get(&mut self) -> io::Result<usize> {
-        println!("client: get");
+    fn get(&mut self) -> io::Result<Timer> {
+        info!("sending request to get timer");
+
         let mut handler = self.connect()?;
         self.write(&mut handler, Request::Get)?;
         match self.read(&handler) {
             Ok(Response::Get(timer)) => {
-                println!("client timer: {timer}");
+                trace!("timer: {timer:#?}");
                 Ok(timer)
             }
             Ok(res) => Err(io::Error::new(
@@ -36,27 +39,24 @@ pub trait Client {
     }
 
     fn pause(&mut self) -> io::Result<()> {
-        println!("client: pause");
+        info!("sending request to pause timer");
+
         let mut handler = self.connect()?;
         self.write(&mut handler, Request::Pause)
     }
 
     fn resume(&mut self) -> io::Result<()> {
-        println!("client: resume");
+        info!("sending request to resume timer");
+
         let mut handler = self.connect()?;
         self.write(&mut handler, Request::Resume)
     }
 
     fn stop(&mut self) -> io::Result<()> {
-        println!("client: stop");
+        info!("sending request to stop timer");
+
         let mut handler = self.connect()?;
         self.write(&mut handler, Request::Stop)
-    }
-
-    fn kill(&mut self) -> io::Result<()> {
-        println!("client: kill");
-        let mut handler = self.connect()?;
-        self.write(&mut handler, Request::Kill)
     }
 }
 

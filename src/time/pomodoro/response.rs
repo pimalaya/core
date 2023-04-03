@@ -1,9 +1,11 @@
 use std::{io, str::FromStr};
 
+use super::timer::Timer;
+
 #[derive(Debug)]
 pub enum Response {
     Start,
-    Get(usize),
+    Get(Timer),
     Stop,
     Close,
 }
@@ -12,7 +14,7 @@ impl ToString for Response {
     fn to_string(&self) -> String {
         match self {
             Self::Start => String::from("start"),
-            Self::Get(timer) => format!("get {timer}"),
+            Self::Get(timer) => format!("get {}", serde_json::to_string(timer).unwrap()),
             Self::Stop => String::from("stop"),
             Self::Close => String::from("close"),
         }
@@ -28,7 +30,7 @@ impl FromStr for Response {
             Some("start") => Ok(Self::Start),
             Some("stop") => Ok(Self::Stop),
             Some("close") => Ok(Self::Close),
-            Some("get") => match iter.next().map(|s| s.parse()) {
+            Some("get") => match iter.next().map(|s| serde_json::from_str(s)) {
                 Some(Ok(timer)) => Ok(Self::Get(timer)),
                 Some(Err(err)) => Err(Self::Err::new(
                     io::ErrorKind::InvalidInput,

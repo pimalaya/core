@@ -7,7 +7,6 @@ pub enum Request {
     Pause,
     Resume,
     Stop,
-    Kill,
 }
 
 impl ToString for Request {
@@ -18,7 +17,6 @@ impl ToString for Request {
             Self::Pause => String::from("pause"),
             Self::Resume => String::from("resume"),
             Self::Stop => String::from("stop"),
-            Self::Kill => String::from("kill"),
         }
     }
 }
@@ -33,7 +31,6 @@ impl FromStr for Request {
             "pause" => Ok(Self::Pause),
             "resume" => Ok(Self::Resume),
             "stop" => Ok(Self::Stop),
-            "kill" => Ok(Self::Kill),
             unknown => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("invalid request: {unknown}"),
