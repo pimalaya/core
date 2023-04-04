@@ -1,49 +1,67 @@
 use log::{debug, error, trace, warn};
 use std::{
-    io::{self, prelude::*, BufRead, BufReader},
-    net::{TcpListener, TcpStream},
+    io,
+    ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
     thread,
     time::Duration,
 };
 
-use super::{request::Request, timer::ThreadSafeTimer};
+use super::{timer::ThreadSafeTimer, Protocol};
 
-pub trait Server {
-    fn start(&self) -> io::Result<thread::JoinHandle<()>>;
-    fn stop(&self) -> io::Result<()>;
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub enum State {
+    Running,
+    Stopping,
+    #[default]
+    Stopped,
 }
 
-pub struct TcpServer {
-    addr: String,
-    timer: ThreadSafeTimer,
-    should_stop: Arc<Mutex<bool>>,
-}
+#[derive(Clone, Debug, Default)]
+pub struct ThreadSafeState(Arc<Mutex<State>>);
 
-impl TcpServer {
-    pub fn new<A>(addr: A) -> Self
-    where
-        A: ToString,
-    {
-        Self {
-            addr: addr.to_string(),
-            timer: ThreadSafeTimer::new(),
-            should_stop: Arc::new(Mutex::new(false)),
-        }
+impl Deref for ThreadSafeState {
+    type Target = Arc<Mutex<State>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
-impl Server for TcpServer {
-    fn start(&self) -> io::Result<thread::JoinHandle<()>> {
+impl DerefMut for ThreadSafeState {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(Default)]
+pub struct Server {
+    state: ThreadSafeState,
+    timer: ThreadSafeTimer,
+    protocols: Vec<Box<dyn Protocol>>,
+}
+
+impl Server {
+    pub fn new(protocols: Vec<Box<dyn Protocol>>) -> Self {
+        Self {
+            protocols,
+            ..Self::default()
+        }
+    }
+
+    pub fn start(&self) -> io::Result<thread::JoinHandle<()>> {
         debug!("starting server");
 
         let timer = self.timer.clone();
-        let should_stop = self.should_stop.clone();
+        let state = self.state.clone();
         let tick = thread::spawn(move || {
             for timer in timer {
-                match should_stop.lock().map(|guard| *guard) {
-                    Ok(true) => break,
-                    Ok(false) => {}
+                match state.lock() {
+                    Ok(state) => match *state {
+                        State::Stopping => break,
+                        State::Stopped => break,
+                        State::Running => {}
+                    },
                     Err(err) => {
                         warn!("cannot determine if server should stop, exiting");
                         error!("{err}");
@@ -55,75 +73,24 @@ impl Server for TcpServer {
             }
         });
 
-        let timer = self.timer.clone();
-        let listener = TcpListener::bind(&self.addr)?;
-        let handle_stream = move |mut stream: TcpStream| -> io::Result<()> {
-            let mut reader = BufReader::new(&stream);
-            let mut req = String::new();
-            reader.read_line(&mut req).unwrap();
-
-            trace!("request: {req:?}");
-
-            match req.parse() {
-                Ok(Request::Start) => {
-                    debug!("starting timer");
-                    timer.start()
-                }
-                Ok(Request::Get) => {
-                    debug!("getting timer");
-
-                    let timer = timer.get()?;
-                    trace!("{timer:#?}");
-
-                    let res = format!("get {}\n", serde_json::to_string(&timer).unwrap());
-                    trace!("response: {res:?}");
-                    stream.write_all(res.as_bytes())
-                }
-                Ok(Request::Pause) => {
-                    debug!("pausing timer");
-                    timer.pause()
-                }
-                Ok(Request::Resume) => {
-                    debug!("resuming timer");
-                    timer.resume()
-                }
-                Ok(Request::Stop) => {
-                    debug!("stopping timer");
-                    timer.stop()
-                }
-                Err(err) => Err(err),
-            }
-        };
-
-        thread::spawn(move || {
-            for stream in listener.incoming() {
-                match stream {
-                    Err(err) => {
-                        warn!("skipping invalid listener stream");
-                        error!("{err}");
-                    }
-                    Ok(stream) => {
-                        if let Err(err) = handle_stream(stream) {
-                            warn!("skipping invalid request");
-                            error!("{err}");
-                        }
-                    }
-                };
-            }
-        });
+        for protocol in &self.protocols {
+            // let state = self.state.clone();
+            // let listener = TcpListener::bind(&self.addr)?;
+            protocol.bind(self.timer.clone())?;
+        }
 
         Ok(tick)
     }
 
-    fn stop(&self) -> io::Result<()> {
+    pub fn stop(&self) -> io::Result<()> {
         debug!("stopping server");
 
-        let mut should_stop = self
-            .should_stop
+        let mut state = self
+            .state
             .lock()
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
-        *should_stop = true;
+        *state = State::Stopping;
 
         Ok(())
     }

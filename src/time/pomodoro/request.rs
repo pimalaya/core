@@ -1,5 +1,3 @@
-use std::{io, str::FromStr};
-
 #[derive(Debug)]
 pub enum Request {
     Start,
@@ -17,24 +15,6 @@ impl ToString for Request {
             Self::Pause => String::from("pause"),
             Self::Resume => String::from("resume"),
             Self::Stop => String::from("stop"),
-        }
-    }
-}
-
-impl FromStr for Request {
-    type Err = io::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.trim() {
-            "start" => Ok(Self::Start),
-            "get" => Ok(Self::Get),
-            "pause" => Ok(Self::Pause),
-            "resume" => Ok(Self::Resume),
-            "stop" => Ok(Self::Stop),
-            unknown => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("invalid request: {unknown}"),
-            )),
         }
     }
 }

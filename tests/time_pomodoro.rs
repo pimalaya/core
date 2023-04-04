@@ -2,7 +2,8 @@ use std::{thread, time::Duration};
 
 use pimalaya::time::pomodoro::{
     client::{Client, TcpClient},
-    server::{Server, TcpServer},
+    protocols::Tcp,
+    server::Server,
     timer::{Cycle, State, Timer},
 };
 
@@ -11,7 +12,11 @@ fn time_pomodoro() {
     env_logger::builder().is_test(true).init();
 
     let addr = "127.0.0.1:3000";
-    let server = TcpServer::new(addr);
+    let server = Server::new(vec![Box::new(Tcp {
+        host: "127.0.0.1".into(),
+        port: 3000,
+    })]);
+
     let mut client1 = TcpClient::new(addr);
     let mut client2 = TcpClient::new(addr);
 

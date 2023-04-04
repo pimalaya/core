@@ -1,8 +1,5 @@
 use log::{info, trace};
-use std::{
-    io::{self, prelude::*, BufReader},
-    net::TcpStream,
-};
+use std::{io, net::TcpStream};
 
 use super::{request::Request, response::Response, timer::Timer};
 
@@ -81,16 +78,11 @@ impl Client for TcpClient {
         TcpStream::connect(&self.addr)
     }
 
-    fn read(&self, handler: &TcpStream) -> io::Result<Response> {
-        let mut reader = BufReader::new(handler);
-        let mut res = String::new();
-        reader.read_line(&mut res).unwrap();
-        res.parse()
-            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
+    fn read(&self, _handler: &TcpStream) -> io::Result<Response> {
+        Ok(Response::Ok)
     }
 
-    fn write(&mut self, handler: &mut TcpStream, req: Request) -> io::Result<()> {
-        handler.write_all((req.to_string() + "\n").as_bytes())?;
+    fn write(&mut self, _handler: &mut TcpStream, _req: Request) -> io::Result<()> {
         Ok(())
     }
 }
