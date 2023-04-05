@@ -11,7 +11,7 @@ const DEFAULT_SHORT_BREAK_DURATION: usize = 5 * 60;
 const DEFAULT_LONG_BREAK_DURATION: usize = 15 * 60;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Cycle {
+pub enum TimerCycle {
     #[default]
     Work1,
     ShortBreak1,
@@ -21,7 +21,7 @@ pub enum Cycle {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-pub enum State {
+pub enum TimerState {
     Running,
     Paused,
     #[default]
@@ -30,8 +30,8 @@ pub enum State {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Timer {
-    pub state: State,
-    pub cycle: Cycle,
+    pub state: TimerState,
+    pub cycle: TimerCycle,
     pub value: usize,
     pub work_duration: usize,
     pub short_break_duration: usize,
@@ -41,8 +41,8 @@ pub struct Timer {
 impl Default for Timer {
     fn default() -> Self {
         Self {
-            state: State::default(),
-            cycle: Cycle::default(),
+            state: TimerState::default(),
+            cycle: TimerCycle::default(),
             value: DEFAULT_WORK_DURATION,
             work_duration: DEFAULT_WORK_DURATION,
             short_break_duration: DEFAULT_SHORT_BREAK_DURATION,
@@ -56,33 +56,33 @@ impl Iterator for Timer {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.state {
-            State::Running if self.value <= 1 => match self.cycle {
-                Cycle::Work1 => {
-                    self.cycle = Cycle::ShortBreak1;
+            TimerState::Running if self.value <= 1 => match self.cycle {
+                TimerCycle::Work1 => {
+                    self.cycle = TimerCycle::ShortBreak1;
                     self.value = self.short_break_duration;
                 }
-                Cycle::ShortBreak1 => {
-                    self.cycle = Cycle::Work2;
+                TimerCycle::ShortBreak1 => {
+                    self.cycle = TimerCycle::Work2;
                     self.value = self.work_duration;
                 }
-                Cycle::Work2 => {
-                    self.cycle = Cycle::ShortBreak2;
+                TimerCycle::Work2 => {
+                    self.cycle = TimerCycle::ShortBreak2;
                     self.value = self.short_break_duration;
                 }
-                Cycle::ShortBreak2 => {
-                    self.cycle = Cycle::LongBreak;
+                TimerCycle::ShortBreak2 => {
+                    self.cycle = TimerCycle::LongBreak;
                     self.value = self.long_break_duration;
                 }
-                Cycle::LongBreak => {
-                    self.cycle = Cycle::Work1;
+                TimerCycle::LongBreak => {
+                    self.cycle = TimerCycle::Work1;
                     self.value = self.work_duration;
                 }
             },
-            State::Running => {
+            TimerState::Running => {
                 self.value -= 1;
             }
-            State::Paused => (),
-            State::Stopped => (),
+            TimerState::Paused => (),
+            TimerState::Stopped => (),
         }
 
         Some(self.clone())
@@ -104,8 +104,8 @@ impl ThreadSafeTimer {
                 .lock()
                 .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
-            timer.state = State::Running;
-            timer.cycle = Cycle::Work1;
+            timer.state = TimerState::Running;
+            timer.cycle = TimerCycle::Work1;
             timer.value = timer.work_duration;
         }
 
@@ -127,7 +127,7 @@ impl ThreadSafeTimer {
             .lock()
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
-        timer.state = State::Paused;
+        timer.state = TimerState::Paused;
 
         Ok(())
     }
@@ -138,7 +138,7 @@ impl ThreadSafeTimer {
             .lock()
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
-        timer.state = State::Running;
+        timer.state = TimerState::Running;
 
         Ok(())
     }
@@ -149,8 +149,8 @@ impl ThreadSafeTimer {
             .lock()
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
-        timer.state = State::Stopped;
-        timer.cycle = Cycle::Work1;
+        timer.state = TimerState::Stopped;
+        timer.cycle = TimerCycle::Work1;
         timer.value = timer.work_duration;
 
         Ok(())

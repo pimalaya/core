@@ -1,10 +1,7 @@
 use super::timer::Timer;
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Response {
     Ok,
-    Start,
-    Get(Timer),
-    Stop,
-    Close,
+    Timer(Timer),
 }

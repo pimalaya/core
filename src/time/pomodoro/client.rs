@@ -1,29 +1,39 @@
 use log::{info, trace};
-use std::{io, net::TcpStream};
+use std::io;
 
-use super::{request::Request, response::Response, timer::Timer};
+use super::{Request, Response, Timer};
+
+pub trait ClientStream<T> {
+    fn read(&self, stream: &T) -> io::Result<Response>;
+    fn write(&self, stream: &mut T, req: Request) -> io::Result<()>;
+
+    fn handle(&self, stream: &mut T, req: Request) -> io::Result<Response> {
+        self.write(stream, req)?;
+        self.read(stream)
+    }
+}
 
 pub trait Client {
-    type Handler;
+    fn send(&self, req: Request) -> io::Result<Response>;
 
-    fn connect(&self) -> io::Result<Self::Handler>;
-    fn read(&self, handler: &Self::Handler) -> io::Result<Response>;
-    fn write(&mut self, handler: &mut Self::Handler, req: Request) -> io::Result<()>;
-
-    fn start(&mut self) -> io::Result<()> {
+    fn start(&self) -> io::Result<()> {
         info!("sending request to start timer");
 
-        let mut handler = self.connect()?;
-        self.write(&mut handler, Request::Start)
+        match self.send(Request::Start) {
+            Ok(Response::Ok) => Ok(()),
+            Ok(res) => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid response: {res:?}"),
+            )),
+            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+        }
     }
 
-    fn get(&mut self) -> io::Result<Timer> {
+    fn get(&self) -> io::Result<Timer> {
         info!("sending request to get timer");
 
-        let mut handler = self.connect()?;
-        self.write(&mut handler, Request::Get)?;
-        match self.read(&handler) {
-            Ok(Response::Get(timer)) => {
+        match self.send(Request::Get) {
+            Ok(Response::Timer(timer)) => {
                 trace!("timer: {timer:#?}");
                 Ok(timer)
             }
@@ -35,54 +45,42 @@ pub trait Client {
         }
     }
 
-    fn pause(&mut self) -> io::Result<()> {
+    fn pause(&self) -> io::Result<()> {
         info!("sending request to pause timer");
 
-        let mut handler = self.connect()?;
-        self.write(&mut handler, Request::Pause)
+        match self.send(Request::Pause) {
+            Ok(Response::Ok) => Ok(()),
+            Ok(res) => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid response: {res:?}"),
+            )),
+            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+        }
     }
 
-    fn resume(&mut self) -> io::Result<()> {
+    fn resume(&self) -> io::Result<()> {
         info!("sending request to resume timer");
 
-        let mut handler = self.connect()?;
-        self.write(&mut handler, Request::Resume)
+        match self.send(Request::Resume) {
+            Ok(Response::Ok) => Ok(()),
+            Ok(res) => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid response: {res:?}"),
+            )),
+            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+        }
     }
 
-    fn stop(&mut self) -> io::Result<()> {
+    fn stop(&self) -> io::Result<()> {
         info!("sending request to stop timer");
 
-        let mut handler = self.connect()?;
-        self.write(&mut handler, Request::Stop)
-    }
-}
-
-pub struct TcpClient {
-    addr: String,
-}
-
-impl TcpClient {
-    pub fn new<A>(addr: A) -> Self
-    where
-        A: ToString,
-    {
-        let addr = addr.to_string();
-        Self { addr }
-    }
-}
-
-impl Client for TcpClient {
-    type Handler = TcpStream;
-
-    fn connect(&self) -> io::Result<Self::Handler> {
-        TcpStream::connect(&self.addr)
-    }
-
-    fn read(&self, _handler: &TcpStream) -> io::Result<Response> {
-        Ok(Response::Ok)
-    }
-
-    fn write(&mut self, _handler: &mut TcpStream, _req: Request) -> io::Result<()> {
-        Ok(())
+        match self.send(Request::Stop) {
+            Ok(Response::Ok) => Ok(()),
+            Ok(res) => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid response: {res:?}"),
+            )),
+            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+        }
     }
 }

@@ -1,86 +1,80 @@
 use std::{thread, time::Duration};
 
-use pimalaya::time::pomodoro::{
-    client::{Client, TcpClient},
-    protocols::Tcp,
-    server::Server,
-    timer::{Cycle, State, Timer},
-};
+use pimalaya::time::pomodoro::{Server, TcpBind, TcpClient, Timer, TimerCycle, TimerState};
 
 #[test]
 fn time_pomodoro() {
     env_logger::builder().is_test(true).init();
 
-    let addr = "127.0.0.1:3000";
-    let server = Server::new(vec![Box::new(Tcp {
-        host: "127.0.0.1".into(),
-        port: 3000,
-    })]);
+    let host = "127.0.0.1";
+    let port = 3000;
+    let server = Server::new([TcpBind::new(host, port)]);
 
-    let mut client1 = TcpClient::new(addr);
-    let mut client2 = TcpClient::new(addr);
+    server
+        .bind(|| {
+            let client1 = TcpClient::new(host, port);
+            let client2 = TcpClient::new(host, port);
 
-    let process = server.start().unwrap();
+            client1.start().unwrap();
+            thread::sleep(Duration::from_secs(2));
 
-    client1.start().unwrap();
-    thread::sleep(Duration::from_secs(2));
+            assert_eq!(
+                client1.get().unwrap(),
+                Timer {
+                    state: TimerState::Running,
+                    cycle: TimerCycle::Work1,
+                    value: 1498,
+                    work_duration: 1500,
+                    short_break_duration: 300,
+                    long_break_duration: 900,
+                }
+            );
 
-    assert_eq!(
-        client1.get().unwrap(),
-        Timer {
-            state: State::Running,
-            cycle: Cycle::Work1,
-            value: 1498,
-            work_duration: 1500,
-            short_break_duration: 300,
-            long_break_duration: 900,
-        }
-    );
+            client1.pause().unwrap();
+            thread::sleep(Duration::from_secs(2));
 
-    client1.pause().unwrap();
-    thread::sleep(Duration::from_secs(2));
+            assert_eq!(
+                client2.get().unwrap(),
+                Timer {
+                    state: TimerState::Paused,
+                    cycle: TimerCycle::Work1,
+                    value: 1498,
+                    work_duration: 1500,
+                    short_break_duration: 300,
+                    long_break_duration: 900,
+                }
+            );
 
-    assert_eq!(
-        client2.get().unwrap(),
-        Timer {
-            state: State::Paused,
-            cycle: Cycle::Work1,
-            value: 1498,
-            work_duration: 1500,
-            short_break_duration: 300,
-            long_break_duration: 900,
-        }
-    );
+            client1.resume().unwrap();
+            thread::sleep(Duration::from_secs(2));
 
-    client1.resume().unwrap();
-    thread::sleep(Duration::from_secs(2));
+            assert_eq!(
+                client1.get().unwrap(),
+                Timer {
+                    state: TimerState::Running,
+                    cycle: TimerCycle::Work1,
+                    value: 1496,
+                    work_duration: 1500,
+                    short_break_duration: 300,
+                    long_break_duration: 900,
+                }
+            );
 
-    assert_eq!(
-        client1.get().unwrap(),
-        Timer {
-            state: State::Running,
-            cycle: Cycle::Work1,
-            value: 1496,
-            work_duration: 1500,
-            short_break_duration: 300,
-            long_break_duration: 900,
-        }
-    );
+            client2.stop().unwrap();
 
-    client2.stop().unwrap();
+            assert_eq!(
+                client2.get().unwrap(),
+                Timer {
+                    state: TimerState::Stopped,
+                    cycle: TimerCycle::Work1,
+                    value: 1500,
+                    work_duration: 1500,
+                    short_break_duration: 300,
+                    long_break_duration: 900,
+                }
+            );
 
-    assert_eq!(
-        client2.get().unwrap(),
-        Timer {
-            state: State::Stopped,
-            cycle: Cycle::Work1,
-            value: 1500,
-            work_duration: 1500,
-            short_break_duration: 300,
-            long_break_duration: 900,
-        }
-    );
-
-    server.stop().unwrap();
-    process.join().unwrap();
+            Ok(())
+        })
+        .unwrap();
 }

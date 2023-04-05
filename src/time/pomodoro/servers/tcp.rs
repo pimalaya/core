@@ -4,16 +4,26 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::time::pomodoro::{Request, Response, ThreadSafeTimer};
+use crate::time::pomodoro::{Request, Response, ServerBind, ServerStream, ThreadSafeTimer};
 
-use super::{Protocol, ProtocolStream};
-
-pub struct Tcp {
+pub struct TcpBind {
     pub host: String,
     pub port: u16,
 }
 
-impl ProtocolStream<TcpStream> for Tcp {
+impl TcpBind {
+    pub fn new<H>(host: H, port: u16) -> Box<dyn ServerBind>
+    where
+        H: ToString,
+    {
+        Box::new(Self {
+            host: host.to_string(),
+            port,
+        })
+    }
+}
+
+impl ServerStream<TcpStream> for TcpBind {
     fn read(&self, stream: &TcpStream) -> io::Result<Request> {
         let mut reader = BufReader::new(stream);
         let mut req = String::new();
@@ -37,28 +47,25 @@ impl ProtocolStream<TcpStream> for Tcp {
     fn write(&self, stream: &mut TcpStream, res: Response) -> io::Result<()> {
         let res = match res {
             Response::Ok => String::from("ok"),
-            Response::Start => String::from("start"),
-            Response::Get(timer) => format!("get {}", serde_json::to_string(&timer).unwrap()),
-            Response::Stop => String::from("stop"),
-            Response::Close => String::from("close"),
+            Response::Timer(timer) => format!("timer {}", serde_json::to_string(&timer).unwrap()),
         };
         stream.write_all((res + "\n").as_bytes())?;
         Ok(())
     }
 }
 
-impl Protocol for Tcp {
+impl ServerBind for TcpBind {
     fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()> {
-        let listener = TcpListener::bind((self.host.as_str(), self.port))?;
+        let binder = TcpListener::bind((self.host.as_str(), self.port))?;
 
-        for stream in listener.incoming() {
+        for stream in binder.incoming() {
             match stream {
                 Err(err) => {
                     warn!("skipping invalid listener stream");
                     error!("{err}");
                 }
                 Ok(mut stream) => {
-                    if let Err(err) = self.handle_stream(timer.clone(), &mut stream) {
+                    if let Err(err) = self.handle(timer.clone(), &mut stream) {
                         warn!("skipping invalid request");
                         error!("{err}");
                     }
@@ -66,10 +73,6 @@ impl Protocol for Tcp {
             };
         }
 
-        Ok(())
-    }
-
-    fn send(&self, _timer: ThreadSafeTimer) -> io::Result<()> {
         Ok(())
     }
 }
