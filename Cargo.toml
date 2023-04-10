@@ -6,7 +6,7 @@ authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["compilers", "email", "network-programming", "template-engine", "text-processing"]
-keywords = ["calendar", "contact", "email", "event", "pomodoro", "pim"]
+keywords = ["email", "pomodoro", "event", "contact", "pim"]
 
 [features]
 default = []
