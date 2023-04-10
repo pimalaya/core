@@ -111,7 +111,7 @@ pub struct Server {
     binders: Vec<Box<dyn ServerBind>>,
 }
 
-impl<'a> Server {
+impl Server {
     pub fn new<B>(binders: B) -> Self
     where
         B: IntoIterator<Item = Box<dyn ServerBind>>,
@@ -122,7 +122,13 @@ impl<'a> Server {
         }
     }
 
-    pub fn bind(self, run: impl Fn() -> io::Result<()>) -> io::Result<()> {
+    pub fn bind(self) -> io::Result<()> {
+        self.bind_with(|| loop {
+            thread::sleep(Duration::from_secs(1));
+        })
+    }
+
+    pub fn bind_with(self, wait: impl Fn() -> io::Result<()>) -> io::Result<()> {
         debug!("starting server");
 
         self.state.running()?;
@@ -165,7 +171,7 @@ impl<'a> Server {
             }
         });
 
-        run()?;
+        wait()?;
 
         self.state.stopping()?;
 

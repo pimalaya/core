@@ -11,7 +11,7 @@ fn time_pomodoro() {
     let server = Server::new([TcpBind::new(host, port)]);
 
     server
-        .bind(|| {
+        .bind_with(|| {
             let client1 = TcpClient::new(host, port);
             let client2 = TcpClient::new(host, port);
 
