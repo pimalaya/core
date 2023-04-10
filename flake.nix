@@ -2,6 +2,7 @@
   description = "Rust library for managing your personal information (PIM).";
 
   inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-22.11";
     utils.url = "github:numtide/flake-utils";
     rust-overlay.url = "github:oxalica/rust-overlay";
     flake-compat = {

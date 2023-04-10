@@ -1,26 +1,26 @@
 [package]
 name = "pimalaya"
-version = "0.0.0"
+version = "0.0.1"
 description = "Rust library for managing your personal information (PIM)."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["compilers", "email", "network-programming", "template-engine", "text-processing"]
-keywords = ["calendar", "contact", "email", "event", "pim"]
+keywords = ["calendar", "contact", "email", "event", "pomodoro", "pim"]
 
 [features]
+default = []
+
+pomodoro-tcp-binder = []
+pomodoro-tcp-client = []
+pomodoro-tcp = ["pomodoro-tcp-binder", "pomodoro-tcp-client"]
 pomodoro = ["log", "serde", "serde_json"]
 
-pomodoro-tcp-client = []
-pomodoro-tcp-binder = []
-pomodoro-tcp = ["pomodoro-tcp-client", "pomodoro-tcp-binder"]
-
-default = ["pomodoro", "pomodoro-tcp"]
 
 [dev-dependencies]
 env_logger = "0.10.0"
 
 [dependencies]
 log = { version = "0.4", optional = true }
-serde = {version = "1.0", optional = true, features = ["derive"] }
+serde = { version = "1.0", optional = true, features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
