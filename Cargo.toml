@@ -11,10 +11,12 @@ keywords = ["email", "pomodoro", "event", "contact", "pim"]
 [features]
 default = []
 
-pomodoro-tcp-binder = []
-pomodoro-tcp-client = []
+pomodoro-tcp-binder = ["pomodoro-server"]
+pomodoro-tcp-client = ["pomodoro-client"]
 pomodoro-tcp = ["pomodoro-tcp-binder", "pomodoro-tcp-client"]
-pomodoro = ["log", "serde", "serde_json"]
+pomodoro-client = []
+pomodoro-server = []
+pomodoro = ["pomodoro-client", "pomodoro-server", "log", "serde", "serde_json"]
 
 [dev-dependencies]
 env_logger = "0.10.0"

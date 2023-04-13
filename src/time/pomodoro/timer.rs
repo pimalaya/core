@@ -28,7 +28,7 @@ pub enum TimerState {
     Stopped,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TimerEvent {
     Started,
     Began(TimerCycle),
@@ -87,12 +87,14 @@ impl fmt::Debug for Timer {
     }
 }
 
+impl Eq for Timer {}
 impl PartialEq for Timer {
     fn eq(&self, other: &Self) -> bool {
         self.state == other.state && self.cycle == other.cycle && self.value == other.value
     }
 }
 
+#[cfg(feature = "pomodoro-server")]
 impl Timer {
     pub fn fire_event(&self, event: TimerEvent) {
         if let Err(err) = (self.config.handler)(event.clone()) {
@@ -108,6 +110,7 @@ impl Timer {
     }
 }
 
+#[cfg(feature = "pomodoro-server")]
 impl Iterator for Timer {
     type Item = Timer;
 
@@ -171,9 +174,11 @@ impl Iterator for Timer {
     }
 }
 
+#[cfg(feature = "pomodoro-server")]
 #[derive(Clone, Debug, Default)]
 pub struct ThreadSafeTimer(Arc<Mutex<Timer>>);
 
+#[cfg(feature = "pomodoro-server")]
 impl ThreadSafeTimer {
     pub fn new(config: TimerConfig) -> Self {
         let mut timer = Timer::default();
@@ -227,6 +232,7 @@ impl ThreadSafeTimer {
     }
 }
 
+#[cfg(feature = "pomodoro-server")]
 impl Deref for ThreadSafeTimer {
     type Target = Arc<Mutex<Timer>>;
 
@@ -235,12 +241,14 @@ impl Deref for ThreadSafeTimer {
     }
 }
 
+#[cfg(feature = "pomodoro-server")]
 impl DerefMut for ThreadSafeTimer {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
+#[cfg(feature = "pomodoro-server")]
 impl Iterator for ThreadSafeTimer {
     type Item = ThreadSafeTimer;
 
