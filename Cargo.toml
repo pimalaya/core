@@ -8,6 +8,9 @@ license = "MIT"
 categories = ["compilers", "email", "network-programming", "template-engine", "text-processing"]
 keywords = ["email", "pomodoro", "event", "contact", "pim"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = []
 
