@@ -1,6 +1,6 @@
-use super::timer::Timer;
+use super::Timer;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Response {
     Ok,
     Timer(Timer),

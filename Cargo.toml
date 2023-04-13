@@ -16,7 +16,6 @@ pomodoro-tcp-client = []
 pomodoro-tcp = ["pomodoro-tcp-binder", "pomodoro-tcp-client"]
 pomodoro = ["log", "serde", "serde_json"]
 
-
 [dev-dependencies]
 env_logger = "0.10.0"
 

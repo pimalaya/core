@@ -1,6 +1,8 @@
 use std::{thread, time::Duration};
 
-use pimalaya::time::pomodoro::{Server, TcpBind, TcpClient, Timer, TimerCycle, TimerState};
+use pimalaya::time::pomodoro::{
+    ServerBuilder, ServerEvent, TcpBind, TcpClient, Timer, TimerCycle, TimerEvent, TimerState,
+};
 
 #[test]
 fn time_pomodoro() {
@@ -8,7 +10,17 @@ fn time_pomodoro() {
 
     let host = "127.0.0.1";
     let port = 3000;
-    let server = Server::new([TcpBind::new(host, port)]);
+    let server = ServerBuilder::new()
+        .with_server_handler(|event: ServerEvent| {
+            println!("server event: {:?}", event);
+            Ok(())
+        })
+        .with_timer_handler(|event: TimerEvent| {
+            println!("timer event: {:?}", event);
+            Ok(())
+        })
+        .with_binder(TcpBind::new(host, port))
+        .build();
 
     server
         .bind_with(|| {
@@ -22,11 +34,9 @@ fn time_pomodoro() {
                 client1.get().unwrap(),
                 Timer {
                     state: TimerState::Running,
-                    cycle: TimerCycle::Work1,
+                    cycle: TimerCycle::FirstWork,
                     value: 1498,
-                    work_duration: 1500,
-                    short_break_duration: 300,
-                    long_break_duration: 900,
+                    ..Timer::default()
                 }
             );
 
@@ -37,11 +47,9 @@ fn time_pomodoro() {
                 client2.get().unwrap(),
                 Timer {
                     state: TimerState::Paused,
-                    cycle: TimerCycle::Work1,
+                    cycle: TimerCycle::FirstWork,
                     value: 1498,
-                    work_duration: 1500,
-                    short_break_duration: 300,
-                    long_break_duration: 900,
+                    ..Timer::default()
                 }
             );
 
@@ -52,11 +60,9 @@ fn time_pomodoro() {
                 client1.get().unwrap(),
                 Timer {
                     state: TimerState::Running,
-                    cycle: TimerCycle::Work1,
+                    cycle: TimerCycle::FirstWork,
                     value: 1496,
-                    work_duration: 1500,
-                    short_break_duration: 300,
-                    long_break_duration: 900,
+                    ..Timer::default()
                 }
             );
 
@@ -66,11 +72,9 @@ fn time_pomodoro() {
                 client2.get().unwrap(),
                 Timer {
                     state: TimerState::Stopped,
-                    cycle: TimerCycle::Work1,
+                    cycle: TimerCycle::FirstWork,
                     value: 1500,
-                    work_duration: 1500,
-                    short_break_duration: 300,
-                    long_break_duration: 900,
+                    ..Timer::default()
                 }
             );
 

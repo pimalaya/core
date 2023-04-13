@@ -1,22 +1,22 @@
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use std::{
-    io,
+    fmt, io,
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
-const DEFAULT_WORK_DURATION: usize = 25 * 60;
-const DEFAULT_SHORT_BREAK_DURATION: usize = 5 * 60;
-const DEFAULT_LONG_BREAK_DURATION: usize = 15 * 60;
+pub const DEFAULT_WORK_DURATION: usize = 25 * 60;
+pub const DEFAULT_SHORT_BREAK_DURATION: usize = 5 * 60;
+pub const DEFAULT_LONG_BREAK_DURATION: usize = 15 * 60;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TimerCycle {
     #[default]
-    Work1,
-    ShortBreak1,
-    Work2,
-    ShortBreak2,
+    FirstWork,
+    FirstShortBreak,
+    SecondWork,
+    SecondShortBreak,
     LongBreak,
 }
 
@@ -29,24 +29,81 @@ pub enum TimerState {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Timer {
-    pub state: TimerState,
-    pub cycle: TimerCycle,
-    pub value: usize,
+pub enum TimerEvent {
+    Started,
+    Began(TimerCycle),
+    Running(TimerCycle),
+    Paused(TimerCycle),
+    Resumed(TimerCycle),
+    Ended(TimerCycle),
+    Stopped,
+}
+
+pub type TimerChangedHandler = Arc<dyn Fn(TimerEvent) -> io::Result<()> + Sync + Send + 'static>;
+
+#[derive(Clone)]
+pub struct TimerConfig {
     pub work_duration: usize,
     pub short_break_duration: usize,
     pub long_break_duration: usize,
+    pub handler: TimerChangedHandler,
+}
+
+impl Default for TimerConfig {
+    fn default() -> Self {
+        Self {
+            work_duration: DEFAULT_WORK_DURATION,
+            short_break_duration: DEFAULT_SHORT_BREAK_DURATION,
+            long_break_duration: DEFAULT_LONG_BREAK_DURATION,
+            handler: Arc::new(|_| Ok(())),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Timer {
+    #[serde(skip)]
+    pub config: TimerConfig,
+    pub state: TimerState,
+    pub cycle: TimerCycle,
+    pub value: usize,
 }
 
 impl Default for Timer {
     fn default() -> Self {
         Self {
+            config: TimerConfig::default(),
             state: TimerState::default(),
             cycle: TimerCycle::default(),
             value: DEFAULT_WORK_DURATION,
-            work_duration: DEFAULT_WORK_DURATION,
-            short_break_duration: DEFAULT_SHORT_BREAK_DURATION,
-            long_break_duration: DEFAULT_LONG_BREAK_DURATION,
+        }
+    }
+}
+
+impl fmt::Debug for Timer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let timer = serde_json::to_string(self).map_err(|_| fmt::Error)?;
+        write!(f, "{timer}")
+    }
+}
+
+impl PartialEq for Timer {
+    fn eq(&self, other: &Self) -> bool {
+        self.state == other.state && self.cycle == other.cycle && self.value == other.value
+    }
+}
+
+impl Timer {
+    pub fn fire_event(&self, event: TimerEvent) {
+        if let Err(err) = (self.config.handler)(event.clone()) {
+            warn!("cannot fire event {event:?}, skipping it");
+            error!("{err}");
+        }
+    }
+
+    pub fn fire_events<E: IntoIterator<Item = TimerEvent>>(&self, events: E) {
+        for event in events.into_iter() {
+            self.fire_event(event)
         }
     }
 }
@@ -57,32 +114,57 @@ impl Iterator for Timer {
     fn next(&mut self) -> Option<Self::Item> {
         match self.state {
             TimerState::Running if self.value <= 1 => match self.cycle {
-                TimerCycle::Work1 => {
-                    self.cycle = TimerCycle::ShortBreak1;
-                    self.value = self.short_break_duration;
+                TimerCycle::FirstWork => {
+                    self.cycle = TimerCycle::FirstShortBreak;
+                    self.value = self.config.short_break_duration;
+                    self.fire_events([
+                        TimerEvent::Ended(TimerCycle::FirstWork),
+                        TimerEvent::Began(TimerCycle::FirstShortBreak),
+                    ]);
                 }
-                TimerCycle::ShortBreak1 => {
-                    self.cycle = TimerCycle::Work2;
-                    self.value = self.work_duration;
+                TimerCycle::FirstShortBreak => {
+                    self.cycle = TimerCycle::SecondWork;
+                    self.value = self.config.work_duration;
+                    self.fire_events([
+                        TimerEvent::Ended(TimerCycle::FirstShortBreak),
+                        TimerEvent::Began(TimerCycle::SecondWork),
+                    ]);
                 }
-                TimerCycle::Work2 => {
-                    self.cycle = TimerCycle::ShortBreak2;
-                    self.value = self.short_break_duration;
+                TimerCycle::SecondWork => {
+                    self.cycle = TimerCycle::SecondShortBreak;
+                    self.value = self.config.short_break_duration;
+                    self.fire_events([
+                        TimerEvent::Ended(TimerCycle::SecondWork),
+                        TimerEvent::Began(TimerCycle::SecondShortBreak),
+                    ]);
                 }
-                TimerCycle::ShortBreak2 => {
+                TimerCycle::SecondShortBreak => {
                     self.cycle = TimerCycle::LongBreak;
-                    self.value = self.long_break_duration;
+                    self.value = self.config.long_break_duration;
+                    self.fire_events([
+                        TimerEvent::Ended(TimerCycle::SecondShortBreak),
+                        TimerEvent::Began(TimerCycle::LongBreak),
+                    ]);
                 }
                 TimerCycle::LongBreak => {
-                    self.cycle = TimerCycle::Work1;
-                    self.value = self.work_duration;
+                    self.cycle = TimerCycle::FirstWork;
+                    self.value = self.config.work_duration;
+                    self.fire_events([
+                        TimerEvent::Ended(TimerCycle::LongBreak),
+                        TimerEvent::Began(TimerCycle::FirstWork),
+                    ])
                 }
             },
             TimerState::Running => {
                 self.value -= 1;
+                self.fire_event(TimerEvent::Running(self.cycle.clone()));
             }
-            TimerState::Paused => (),
-            TimerState::Stopped => (),
+            TimerState::Paused => {
+                // nothing to do
+            }
+            TimerState::Stopped => {
+                // nothing to do
+            }
         }
 
         Some(self.clone())
@@ -93,67 +175,55 @@ impl Iterator for Timer {
 pub struct ThreadSafeTimer(Arc<Mutex<Timer>>);
 
 impl ThreadSafeTimer {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(config: TimerConfig) -> Self {
+        let mut timer = Timer::default();
+        timer.config = config;
+        Self(Arc::new(Mutex::new(timer)))
+    }
+
+    pub fn with_timer<T>(&self, run: impl Fn(MutexGuard<Timer>) -> T) -> io::Result<T> {
+        Ok(run(self.0.lock().map_err(|err| {
+            io::Error::new(io::ErrorKind::Other, err.to_string())
+        })?))
     }
 
     pub fn start(&self) -> io::Result<()> {
-        {
-            let mut timer = self
-                .0
-                .lock()
-                .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
-
+        self.with_timer(|mut timer| {
             timer.state = TimerState::Running;
-            timer.cycle = TimerCycle::Work1;
-            timer.value = timer.work_duration;
-        }
-
-        Ok(())
+            timer.cycle = TimerCycle::FirstWork;
+            timer.value = timer.config.work_duration;
+            timer.fire_events([
+                TimerEvent::Started,
+                TimerEvent::Began(TimerCycle::FirstWork),
+            ]);
+        })
     }
 
     pub fn get(&self) -> io::Result<Timer> {
-        let timer = self
-            .0
-            .lock()
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
-
-        Ok(timer.clone())
+        self.with_timer(|timer| timer.clone())
     }
 
     pub fn pause(&self) -> io::Result<()> {
-        let mut timer = self
-            .0
-            .lock()
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
-
-        timer.state = TimerState::Paused;
-
-        Ok(())
+        self.with_timer(|mut timer| {
+            timer.state = TimerState::Paused;
+            timer.fire_event(TimerEvent::Paused(timer.cycle.clone()));
+        })
     }
 
     pub fn resume(&self) -> io::Result<()> {
-        let mut timer = self
-            .0
-            .lock()
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
-
-        timer.state = TimerState::Running;
-
-        Ok(())
+        self.with_timer(|mut timer| {
+            timer.state = TimerState::Running;
+            timer.fire_event(TimerEvent::Resumed(timer.cycle.clone()));
+        })
     }
 
     pub fn stop(&self) -> io::Result<()> {
-        let mut timer = self
-            .0
-            .lock()
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
-
-        timer.state = TimerState::Stopped;
-        timer.cycle = TimerCycle::Work1;
-        timer.value = timer.work_duration;
-
-        Ok(())
+        self.with_timer(|mut timer| {
+            timer.state = TimerState::Stopped;
+            timer.cycle = TimerCycle::FirstWork;
+            timer.value = timer.config.work_duration;
+            timer.fire_events([TimerEvent::Ended(timer.cycle.clone()), TimerEvent::Stopped]);
+        })
     }
 }
 
