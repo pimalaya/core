@@ -1,3 +1,8 @@
+//! # TCP server binder module.
+//!
+//! This module contains the implementation of the TCP server binder,
+//! based on [`std::net::TcpStream`].
+
 use log::{error, trace, warn};
 use std::{
     io::{self, BufRead, BufReader, Write},
@@ -24,6 +29,8 @@ impl TcpBind {
 }
 
 impl ServerStream<TcpStream> for TcpBind {
+    /// Read the given [`std::net::TcpStream`] to extract the request
+    /// sent by the client.
     fn read(&self, stream: &TcpStream) -> io::Result<Request> {
         let mut reader = BufReader::new(stream);
         let mut req = String::new();
@@ -44,6 +51,7 @@ impl ServerStream<TcpStream> for TcpBind {
         }
     }
 
+    /// Write the given response to the given [`std::net::TcpStream`].
     fn write(&self, stream: &mut TcpStream, res: Response) -> io::Result<()> {
         let res = match res {
             Response::Ok => String::from("ok"),
@@ -55,6 +63,11 @@ impl ServerStream<TcpStream> for TcpBind {
 }
 
 impl ServerBind for TcpBind {
+    /// To bind, the [`TcpBind`] gets a [`std::net::TcpListener`] then
+    /// indefinitely waits for incoming requests. When a connection
+    /// comes, [`TcpBind`] retrieves the associated
+    /// [`std::net::TcpStream`] and send it to the helper
+    /// [`crate::time::pomodoro::ServerStream::handle`].
     fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()> {
         let binder = TcpListener::bind((self.host.as_str(), self.port))?;
 

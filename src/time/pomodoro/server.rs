@@ -1,3 +1,10 @@
+//! # Server module.
+//!
+//! The [`Server`] runs the timer, accepts connections from clients
+//! and sends responses. The [`Server`] accepts connections thanks to
+//! [`ServerBind`]ers. The [`Server`] should have at least one
+//! [`ServerBind`], otherwise it stops by itself.
+
 use log::{debug, error, trace, warn};
 use std::{
     io,
@@ -11,12 +18,42 @@ use super::{Request, Response, ThreadSafeTimer, TimerConfig, TimerEvent};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum ServerState {
+    /// The server is in running mode, which blocks the main process.
     Running,
+    /// The server received the order to stop.
     Stopping,
+    /// The server is stopped and will free the main process.
     #[default]
     Stopped,
 }
 
+pub struct ServerConfig {
+    handler: ServerStateChangedHandler,
+    binders: Vec<Box<dyn ServerBind>>,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            handler: Arc::new(|_| Ok(())),
+            binders: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ServerEvent {
+    Started,
+    Stopping,
+    Stopped,
+}
+
+pub type ServerStateChangedHandler =
+    Arc<dyn Fn(ServerEvent) -> io::Result<()> + Sync + Send + 'static>;
+
+/// Thread safe version of the [`ServerState`] which allows the
+/// [`Server`] to mutate its state even from a
+/// [`std::thread::spawn`]).
 #[derive(Clone, Debug, Default)]
 pub struct ThreadSafeState(Arc<Mutex<ServerState>>);
 
@@ -65,21 +102,17 @@ impl DerefMut for ThreadSafeState {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ServerEvent {
-    Started,
-    Stopping,
-    Stopped,
+/// [`ServerBind`]ers must implement this trait.
+pub trait ServerBind: Sync + Send {
+    /// Describe how the server should bind to accept connections from
+    /// clients.
+    fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()>;
 }
 
-pub type ServerStateChangedHandler =
-    Arc<dyn Fn(ServerEvent) -> io::Result<()> + Sync + Send + 'static>;
-
-pub struct ServerConfig {
-    handler: ServerStateChangedHandler,
-    binders: Vec<Box<dyn ServerBind>>,
-}
-
+/// [`ServerBind`]ers may implement this trait, but it is not
+/// mandatory. It can be seen as a helper: by implementing the
+/// [`ServerStream::read`] and the [`ServerStream::write`] functions,
+/// the trait can deduce how to handle a request.
 pub trait ServerStream<T> {
     fn read(&self, stream: &T) -> io::Result<Request>;
     fn write(&self, stream: &mut T, res: Response) -> io::Result<()>;
@@ -119,19 +152,95 @@ pub trait ServerStream<T> {
     }
 }
 
-pub trait ServerBind: Sync + Send {
-    fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()>;
+#[derive(Default)]
+pub struct Server {
+    config: ServerConfig,
+    state: ThreadSafeState,
+    timer: ThreadSafeTimer,
 }
 
-impl Default for ServerConfig {
-    fn default() -> Self {
-        Self {
-            handler: Arc::new(|_| Ok(())),
-            binders: Vec::new(),
+impl Server {
+    /// Start the server by running the timer in a dedicated thread
+    /// and running all the binders in dedicated threads. The main
+    /// thread is then blocked by the given `wait` closure.
+    pub fn bind_with(self, wait: impl Fn() -> io::Result<()>) -> io::Result<()> {
+        debug!("starting server");
+
+        let fire_event = |event: ServerEvent| {
+            if let Err(err) = (self.config.handler)(event.clone()) {
+                warn!("cannot fire event {event:?}, skipping it");
+                error!("{err}");
+            }
+        };
+
+        self.state.set_running()?;
+        fire_event(ServerEvent::Started);
+
+        // the tick represents the timer running in a separated thread
+        let state = self.state.clone();
+        let timer = self.timer.clone();
+        let tick = thread::spawn(move || {
+            for timer in timer {
+                match state.lock() {
+                    Ok(mut state) => match *state {
+                        ServerState::Stopping => {
+                            *state = ServerState::Stopped;
+                            break;
+                        }
+                        ServerState::Stopped => {
+                            break;
+                        }
+                        ServerState::Running => {
+                            // sleep 1s outside of the lock
+                        }
+                    },
+                    Err(err) => {
+                        warn!("cannot determine if server should stop, exiting");
+                        error!("{err}");
+                        break;
+                    }
+                }
+
+                trace!("timer tick: {timer:#?}");
+                thread::sleep(Duration::from_secs(1));
+            }
+        });
+
+        // start all binders in dedicated threads in order not to
+        // block the main thread
+        for binder in self.config.binders {
+            let timer = self.timer.clone();
+            thread::spawn(move || {
+                if let Err(err) = binder.bind(timer) {
+                    warn!("cannot bind, exiting");
+                    error!("{err}");
+                }
+            });
         }
+
+        wait()?;
+
+        self.state.set_stopping()?;
+        fire_event(ServerEvent::Stopping);
+
+        // wait for the timer thread to stop before exiting
+        tick.join()
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "cannot wait for timer thread"))?;
+        fire_event(ServerEvent::Stopped);
+
+        Ok(())
+    }
+
+    /// Wrapper around [`Server::bind_with`] where the `wait` closure
+    /// sleeps every second in an infinite loop.
+    pub fn bind(self) -> io::Result<()> {
+        self.bind_with(|| loop {
+            thread::sleep(Duration::from_secs(1));
+        })
     }
 }
 
+/// Convenient builder that helps you to build a [`Server`].
 #[derive(Default)]
 pub struct ServerBuilder {
     server_config: ServerConfig,
@@ -195,84 +304,5 @@ impl ServerBuilder {
             state: ThreadSafeState::new(),
             timer: ThreadSafeTimer::new(self.timer_config),
         }
-    }
-}
-
-#[derive(Default)]
-pub struct Server {
-    config: ServerConfig,
-    state: ThreadSafeState,
-    timer: ThreadSafeTimer,
-}
-
-impl Server {
-    pub fn bind(self) -> io::Result<()> {
-        self.bind_with(|| loop {
-            thread::sleep(Duration::from_secs(1));
-        })
-    }
-
-    pub fn bind_with(self, wait: impl Fn() -> io::Result<()>) -> io::Result<()> {
-        debug!("starting server");
-
-        let fire_event = |event: ServerEvent| {
-            if let Err(err) = (self.config.handler)(event.clone()) {
-                warn!("cannot fire event {event:?}, skipping it");
-                error!("{err}");
-            }
-        };
-
-        self.state.set_running()?;
-        fire_event(ServerEvent::Started);
-
-        let state = self.state.clone();
-        let timer = self.timer.clone();
-        let tick = thread::spawn(move || {
-            for timer in timer {
-                match state.lock() {
-                    Ok(mut state) => match *state {
-                        ServerState::Stopping => {
-                            *state = ServerState::Stopped;
-                            break;
-                        }
-                        ServerState::Stopped => {
-                            break;
-                        }
-                        ServerState::Running => {
-                            // sleep 1s outside of the lock
-                        }
-                    },
-                    Err(err) => {
-                        warn!("cannot determine if server should stop, exiting");
-                        error!("{err}");
-                        break;
-                    }
-                }
-
-                trace!("timer tick: {timer:#?}");
-                thread::sleep(Duration::from_secs(1));
-            }
-        });
-
-        for binder in self.config.binders {
-            let timer = self.timer.clone();
-            thread::spawn(move || {
-                if let Err(err) = binder.bind(timer) {
-                    warn!("cannot bind, exiting");
-                    error!("{err}");
-                }
-            });
-        }
-
-        wait()?;
-
-        self.state.set_stopping()?;
-        fire_event(ServerEvent::Stopping);
-
-        tick.join()
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "cannot wait for timer thread"))?;
-        fire_event(ServerEvent::Stopped);
-
-        Ok(())
     }
 }

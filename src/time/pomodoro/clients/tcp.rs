@@ -1,3 +1,8 @@
+//! # TCP client module.
+//!
+//! This module contains the implementation of the TCP client, based
+//! on [`std::net::TcpStream`].
+
 use log::trace;
 use std::{
     io::{self, BufRead, BufReader, Write},
@@ -24,6 +29,8 @@ impl TcpClient {
 }
 
 impl ClientStream<TcpStream> for TcpClient {
+    /// Read the given [`std::net::TcpStream`] to extract the response
+    /// sent by the server.
     fn read(&self, stream: &TcpStream) -> io::Result<Response> {
         let mut reader = BufReader::new(stream);
         let mut res = String::new();
@@ -56,6 +63,7 @@ impl ClientStream<TcpStream> for TcpClient {
         }
     }
 
+    /// Write the given request to the given [`std::net::TcpStream`].
     fn write(&self, stream: &mut TcpStream, req: Request) -> io::Result<()> {
         let req = match req {
             Request::Start => String::from("start"),
@@ -70,6 +78,10 @@ impl ClientStream<TcpStream> for TcpClient {
 }
 
 impl Client for TcpClient {
+    /// To send a request, the [`TcpClient`] retrieves the
+    /// [`std::net::TcpStream`] by connecting to the server, then
+    /// handles it using the helper
+    /// [`crate::time::pomodoro::ClientStream::handle`].
     fn send(&self, req: Request) -> io::Result<Response> {
         let mut stream = TcpStream::connect((self.host.as_str(), self.port))?;
         self.handle(&mut stream, req)

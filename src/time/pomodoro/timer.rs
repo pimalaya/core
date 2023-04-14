@@ -1,3 +1,11 @@
+//! # Timer module.
+//!
+//! The [`Timer`] is composed of a [`TimerCycle`] (work, short break
+//! or long break), a [`TimerState`] (running, paused or stopped) and
+//! a value (current seconds). The [`Timer`] is also an [`Iterator`],
+//! which means it knows how to increment the value and how to change
+//! between cycles.
+
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -174,6 +182,10 @@ impl Iterator for Timer {
     }
 }
 
+/// Thread safe version of the [`Timer`]. The server does not
+/// manipulate directly the [`Timer`], it uses this thread safe
+/// version instead (mainly because the timer runs in a
+/// [`std::thread::spawn`] loop).
 #[cfg(feature = "pomodoro-server")]
 #[derive(Clone, Debug, Default)]
 pub struct ThreadSafeTimer(Arc<Mutex<Timer>>);

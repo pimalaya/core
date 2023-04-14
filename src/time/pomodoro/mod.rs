@@ -14,6 +14,7 @@
 //! server using [`Request`]s and [`Response`]s, which allow them to
 //! control the timer.
 //!
+//! ```
 //! ┌────────────────────────┐
 //! │Server                  │
 //! │             ┌────────┐ │ Request ┌────────┐
@@ -35,8 +36,9 @@
 //! │             └────────┘ │         └────────┘
 //! │                        │
 //! └────────────────────────┘
-//!
 //! ```
+//!
+//! ```rust
 #![doc = include_str!("../../../examples/pomodoro-tcp.rs")]
 //! ```
 
