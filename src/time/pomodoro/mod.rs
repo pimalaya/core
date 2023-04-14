@@ -14,7 +14,7 @@
 //! server using [`Request`]s and [`Response`]s, which allow them to
 //! control the timer.
 //!
-//! ```
+//! ```ignore
 //! ┌────────────────────────┐
 //! │Server                  │
 //! │             ┌────────┐ │ Request ┌────────┐

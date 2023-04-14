@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2023-04-14
+
+### Added
+
+- `time::pomodoro`: Added code documentation with scheme.
+
 ## [0.0.2] - 2023-04-13
 
 ### Added
@@ -23,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.0] - 2023-03-12
 
 [Unreleased]: https://git.sr.ht/~soywod/pimalaya/tree/master
+[0.0.3]: https://git.sr.ht/~soywod/pimalaya/refs/v0.0.3
 [0.0.2]: https://git.sr.ht/~soywod/pimalaya/refs/v0.0.2
 [0.0.1]: https://git.sr.ht/~soywod/pimalaya/refs/v0.0.1
 [0.0.0]: https://git.sr.ht/~soywod/pimalaya/refs/v0.0.0

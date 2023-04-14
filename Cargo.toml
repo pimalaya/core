@@ -1,6 +1,6 @@
 [package]
 name = "pimalaya"
-version = "0.0.2"
+version = "0.0.3"
 description = "Rust library for managing your personal information (PIM)."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"

@@ -21,9 +21,9 @@ pub fn main() {
         .bind_with(|| {
             let client = TcpClient::new(HOST, PORT);
             client.start().unwrap();
-            thread::sleep(Duration::from_secs(3));
+            thread::sleep(Duration::from_secs(1));
             client.pause().unwrap();
-            thread::sleep(Duration::from_secs(3));
+            thread::sleep(Duration::from_secs(1));
             let timer = client.get().unwrap();
             println!("current timer: {:?}", timer);
             Ok(())
