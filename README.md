@@ -1,29 +1,62 @@
-# 💼 [Pimalaya](https://pimalaya.org/) [![Matrix](https://img.shields.io/matrix/pimalaya:matrix.org?color=success&label=chat)](https://matrix.to/#/#pimalaya:matrix.org)
+# 💼 Pimalaya [![Matrix](https://img.shields.io/matrix/pimalaya:matrix.org?color=success&label=chat)](https://matrix.to/#/#pimalaya:matrix.org)
 
-Pimalaya is an ambitious project that aims to improve open-source
-tools to better manage our personal information (as known as
+https://pimalaya.org/
+
+**Pimalaya** is an ambitious project that aims to improve open-source
+tools in order to better manage our personal information (as known as
 [PIM](https://en.wikipedia.org/wiki/Personal_information_manager)),
 which includes emails, events, calendars, contacts and more.
 
-*The main objective* of the project is to provide Rust libraries
+The **first** objective of the project is to provide Rust libraries
 containing all this PIM logic. They serve as basement for all sort of
 top-level applications: CLI, TUI, GUI, plugins, servers etc.
 
-*The second objective* is to provide quality house-made applications
-based on those libraries.
+The **second** objective is to provide quality house-made applications
+built at the top of those libraries.
+
+<table border="1">
+  <thead>
+    <tr>
+	  <th>Library</th>
+	  <th>Domain(s)</th>
+	  <th>Available applications</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+	  <td>
+	    <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/README.md">pimalaya-email</a>
+	  </td>
+	  <td>
+        Email management
+	  </td>
+	  <td>
+	    <a href="https://github.com/soywod/himalaya">CLI</a>,
+	    <a href="https://git.sr.ht/~soywod/himalaya-vim">Vim plugin</a>,
+		<a href="https://github.com/dantecatalfamo/himalaya-emacs">Emacs plugin</a>
+	  </td>
+    </tr>
+    <tr>
+	  <td>
+	    <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/pomodoro/README.md">pimalaya-pomodoro</a>
+	  </td>
+	  <td>
+        Time management<br>
+		<em>(<a href="https://en.wikipedia.org/wiki/Pomodoro_Technique">Pomodoro</a> technique)<em>
+	  </td>
+	  <td>
+	    <ul>
+		  <li>
+		    <a href="https://github.com/soywod/comodoro">CLI</a>
+		  </li>
+		</ul>
+	  </td>
+    </tr>
+  </tbody>
+</table>
 
 *Disclaimer: the project is under active development, do not use in
 production before the v1.0.0.*
-
-## Available libraries
-
-| Name                | Description                            | Available applications                                             |
-|---------------------|----------------------------------------|--------------------------------------------------------------------|
-| `pimalaya-email`    | Email management                       | - [CLI](https://github.com/soywod/himalaya)                        |
-|                     |                                        | - [Vim plugin](https://git.sr.ht/~soywod/himalaya-vim)             |
-|                     |                                        | - [Emacs plugin](https://github.com/dantecatalfamo/himalaya-emacs) |
-|---------------------|----------------------------------------|--------------------------------------------------------------------|
-| `pimalaya-pomodoro` | Time management ([Pomodoro] technique) | - [CLI](https://github.com/soywod/comodoro)                        |
 
 ## Contributing
 
@@ -70,5 +103,3 @@ European Commission in September, 2022.
 [![Ko-fi](https://img.shields.io/badge/-Ko--fi-ff5e5a?logo=Ko-fi&logoColor=ffffff)](https://ko-fi.com/soywod)
 [![Buy Me a Coffee](https://img.shields.io/badge/-Buy%20Me%20a%20Coffee-ffdd00?logo=Buy%20Me%20A%20Coffee&logoColor=000000)](https://www.buymeacoffee.com/soywod)
 [![Liberapay](https://img.shields.io/badge/-Liberapay-f6c915?logo=Liberapay&logoColor=222222)](https://liberapay.com/soywod)
-
-[Pomodoro]: https://en.wikipedia.org/wiki/Pomodoro_Technique
