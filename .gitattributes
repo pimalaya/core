@@ -1,0 +1,55 @@
+* text=auto
+
+*.rs rust diff=rust
+Cargo.lock linguist-generated=false
+
+# Older git versions try to fix line endings on images and fonts, this prevents it.
+*.png binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+# Source code
+
+*.desktop text
+*.json text
+*.md text
+*.nix text eol=lf
+*.rs text
+*.sh text eol=lf
+.gitattributes text
+.gitignore text
+LICENSE text
+
+# Build stuff
+
+*.TAG text
+*.d text
+*.ll text
+build-script-build-script-build text
+run-build-script-build-script-build text
+stderr text
+target/**/*output text
+target/**/output-* text
+target/debug/build/*/output text
+
+# Not really "binary", but not text either.
+*.cargo-lock binary
+*.timestamp binary
+
+# Binary stuff (build stuff)
+*.a binary
+*.bin binary
+*.dll binary
+*.exe binary
+*.exp binary
+*.lib binary
+*.o binary
+*.pdb binary
+*.rlib binary
+*.rmeta binary
+*.toml text
+*.txt text
+*.yml text
+/target/debug/.fingerprint/**/dep-* binary
+/target/debug/.fingerprint/**/lib-* binary
