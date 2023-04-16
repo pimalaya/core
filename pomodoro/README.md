@@ -1,48 +1,17 @@
-# 💼 [Pimalaya](https://pimalaya.org/) [![Crates.io](https://img.shields.io/crates/v/pimalaya)](https://crates.io/crates/pimalaya) [![Matrix](https://img.shields.io/matrix/pimalaya:matrix.org?color=success&label=chat)](https://matrix.to/#/#pimalaya:matrix.org)
+# 🍅 pimalaya-pomodoro
 
-Rust library for managing your personal information
-([PIM](https://en.wikipedia.org/wiki/Personal_information_manager)).
+Rust library to manage your time using the Pomodoro technique.
 
 *Disclaimer: the project is under active development, do not use in
 production before the v1.0.0.*
 
-## Motivation
-
-1. Personal information management domain lacks of good tools that can
-   communicate together.
-2. Isolated tools are either not reliable, not maintained or hard to
-   configure and they often reinvent the wheel.
-3. [Rust](https://www.rust-lang.org/) is an amazing language gaining
-   in popularity for the past years. It helps us to build fast,
-   reliable and cross-platform compatible tools.
-   
-Pimalaya aims to expose a Rust library for managing your personal
-information, so interfaces can be developed independently without
-reinventing the wheel.
-
-## Features
-
-- Email management *(soon)*
-- Time management ([Pomodoro](https://en.wikipedia.org/wiki/Pomodoro_Technique) technique)
-
-## Planned features
-
-- Task management
-- Contact management
-- Event management
-- …
-
-## Interfaces based on Pimalaya
-
-- [Himalaya](https://github.com/soywod/himalaya), a CLI for managing
-  your emails.
-- [Comodoro](https://github.com/soywod/comodoro), a CLI for managing
-  your time using the Pomodoro technique.
+*TODO*
 
 ## Contributing
 
 If you find a **bug** that [does not exist
-yet](https://todo.sr.ht/~soywod/pimalaya), please send an email at
+yet](https://todo.sr.ht/~soywod/pimalaya?search=label%3A%222%3Acomodoro%22),
+please send an email at
 [~soywod/pimalaya@todo.sr.ht](mailto:~soywod/pimalaya@todo.sr.ht).
 
 If you have a **question**, please send an email at

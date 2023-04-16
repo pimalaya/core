@@ -1,6 +1,6 @@
-# 📫 Himalaya lib
+# 📫 pimalaya-email
 
-Rust library for email management.
+Rust library to manage your emails.
 
 ```rust
 let account_config = AccountConfig {

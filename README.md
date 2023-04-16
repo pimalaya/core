@@ -7,11 +7,11 @@ tools in order to better manage our personal information (as known as
 [PIM](https://en.wikipedia.org/wiki/Personal_information_manager)),
 which includes emails, events, calendars, contacts and more.
 
-The **first** objective of the project is to provide Rust libraries
+**The first objective** of the project is to provide Rust libraries
 containing all this PIM logic. They serve as basement for all sort of
 top-level applications: CLI, TUI, GUI, plugins, servers etc.
 
-The **second** objective is to provide quality house-made applications
+**The second objective** is to provide quality house-made applications
 built at the top of those libraries.
 
 <table border="1">
