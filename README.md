@@ -31,6 +31,7 @@ built at the top of those libraries.
         Email management
 	  </td>
 	  <td>
+	    Himalaya:
 	    <a href="https://github.com/soywod/himalaya">CLI</a>,
 	    <a href="https://git.sr.ht/~soywod/himalaya-vim">Vim plugin</a>,
 		<a href="https://github.com/dantecatalfamo/himalaya-emacs">Emacs plugin</a>
@@ -45,11 +46,8 @@ built at the top of those libraries.
 		<em>(<a href="https://en.wikipedia.org/wiki/Pomodoro_Technique">Pomodoro</a> technique)<em>
 	  </td>
 	  <td>
-	    <ul>
-		  <li>
-		    <a href="https://github.com/soywod/comodoro">CLI</a>
-		  </li>
-		</ul>
+	    Comodoro:
+	    <a href="https://github.com/soywod/comodoro">CLI</a>
 	  </td>
     </tr>
   </tbody>
