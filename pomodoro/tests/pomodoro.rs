@@ -1,11 +1,11 @@
 use std::{thread, time::Duration};
 
-use pimalaya::time::pomodoro::{
+use pimalaya_pomodoro::{
     ServerBuilder, ServerEvent, TcpBind, TcpClient, Timer, TimerCycle, TimerEvent, TimerState,
 };
 
 #[test]
-fn time_pomodoro() {
+fn pomodoro() {
     env_logger::builder().is_test(true).init();
 
     let host = "127.0.0.1";

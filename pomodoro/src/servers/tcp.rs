@@ -9,7 +9,7 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::time::pomodoro::{Request, Response, ServerBind, ServerStream, ThreadSafeTimer};
+use crate::{Request, Response, ServerBind, ServerStream, ThreadSafeTimer};
 
 pub struct TcpBind {
     pub host: String,

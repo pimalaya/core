@@ -11,20 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `time::pomodoro`: Added code documentation with scheme.
+- Added code documentation with scheme.
 
 ## [0.0.2] - 2023-04-13
 
 ### Added
 
-- `time::pomodoro`: Added `ServerBuilder` struct.
-- `time::pomodoro`: Added server handler and timer handlers.
+- Added `ServerBuilder` struct.
+- Added server handler and timer handlers.
 
 ## [0.0.1] - 2023-04-10
 
 ### Added
 
-- `time::pomodoro`: Initiated pomodoro timer.
+- Initiated pomodoro timer.
 
 ## [0.0.0] - 2023-03-12
 

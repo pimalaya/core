@@ -1,4 +1,4 @@
-use pimalaya::time::pomodoro::{ServerBuilder, ServerEvent, TcpBind, TcpClient, TimerEvent};
+use pimalaya_pomodoro::{ServerBuilder, ServerEvent, TcpBind, TcpClient, TimerEvent};
 use std::{thread, time::Duration};
 
 const HOST: &str = "127.0.0.1";

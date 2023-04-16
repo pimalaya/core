@@ -9,7 +9,7 @@ use std::{
     net::TcpStream,
 };
 
-use crate::time::pomodoro::{Client, ClientStream, Request, Response, Timer};
+use crate::{Client, ClientStream, Request, Response, Timer};
 
 pub struct TcpClient {
     pub host: String,

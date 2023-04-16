@@ -1,0 +1,33 @@
+[package]
+name = "pimalaya-pomodoro"
+version = "0.0.3"
+description = "Rust library for managing your time using the Pomodoro technique."
+authors = ["soywod <clement.douin@posteo.net>"]
+edition = "2021"
+license = "MIT"
+categories = ["network-programming"]
+keywords = ["pim", "pomodoro", "time", "management", "technique"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+name = "pimalaya_pomodoro"
+
+[features]
+default = ["server", "client", "tcp"]
+
+server = []
+client = []
+
+tcp-binder = ["server"]
+tcp-client = ["client"]
+tcp = ["tcp-binder", "tcp-client"]
+
+[dev-dependencies]
+env_logger = { version = "0.10.0" }
+
+[dependencies]
+log = { version = "0.4" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }

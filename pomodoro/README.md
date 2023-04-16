@@ -1,29 +1,43 @@
-# 💼 [Pimalaya](https://pimalaya.org/) [![Matrix](https://img.shields.io/matrix/pimalaya:matrix.org?color=success&label=chat)](https://matrix.to/#/#pimalaya:matrix.org)
+# 💼 [Pimalaya](https://pimalaya.org/) [![Crates.io](https://img.shields.io/crates/v/pimalaya)](https://crates.io/crates/pimalaya) [![Matrix](https://img.shields.io/matrix/pimalaya:matrix.org?color=success&label=chat)](https://matrix.to/#/#pimalaya:matrix.org)
 
-Pimalaya is an ambitious project that aims to improve open-source
-tools to better manage our personal information (as known as
-[PIM](https://en.wikipedia.org/wiki/Personal_information_manager)),
-which includes emails, events, calendars, contacts and more.
-
-*The main objective* of the project is to provide Rust libraries
-containing all this PIM logic. They serve as basement for all sort of
-top-level applications: CLI, TUI, GUI, plugins, servers etc.
-
-*The second objective* is to provide quality house-made applications
-based on those libraries.
+Rust library for managing your personal information
+([PIM](https://en.wikipedia.org/wiki/Personal_information_manager)).
 
 *Disclaimer: the project is under active development, do not use in
 production before the v1.0.0.*
 
-## Available libraries
+## Motivation
 
-| Name                | Description                            | Available applications                                             |
-|---------------------|----------------------------------------|--------------------------------------------------------------------|
-| `pimalaya-email`    | Email management                       | - [CLI](https://github.com/soywod/himalaya)                        |
-|                     |                                        | - [Vim plugin](https://git.sr.ht/~soywod/himalaya-vim)             |
-|                     |                                        | - [Emacs plugin](https://github.com/dantecatalfamo/himalaya-emacs) |
-|---------------------|----------------------------------------|--------------------------------------------------------------------|
-| `pimalaya-pomodoro` | Time management ([Pomodoro] technique) | - [CLI](https://github.com/soywod/comodoro)                        |
+1. Personal information management domain lacks of good tools that can
+   communicate together.
+2. Isolated tools are either not reliable, not maintained or hard to
+   configure and they often reinvent the wheel.
+3. [Rust](https://www.rust-lang.org/) is an amazing language gaining
+   in popularity for the past years. It helps us to build fast,
+   reliable and cross-platform compatible tools.
+   
+Pimalaya aims to expose a Rust library for managing your personal
+information, so interfaces can be developed independently without
+reinventing the wheel.
+
+## Features
+
+- Email management *(soon)*
+- Time management ([Pomodoro](https://en.wikipedia.org/wiki/Pomodoro_Technique) technique)
+
+## Planned features
+
+- Task management
+- Contact management
+- Event management
+- …
+
+## Interfaces based on Pimalaya
+
+- [Himalaya](https://github.com/soywod/himalaya), a CLI for managing
+  your emails.
+- [Comodoro](https://github.com/soywod/comodoro), a CLI for managing
+  your time using the Pomodoro technique.
 
 ## Contributing
 
@@ -70,5 +84,3 @@ European Commission in September, 2022.
 [![Ko-fi](https://img.shields.io/badge/-Ko--fi-ff5e5a?logo=Ko-fi&logoColor=ffffff)](https://ko-fi.com/soywod)
 [![Buy Me a Coffee](https://img.shields.io/badge/-Buy%20Me%20a%20Coffee-ffdd00?logo=Buy%20Me%20A%20Coffee&logoColor=000000)](https://www.buymeacoffee.com/soywod)
 [![Liberapay](https://img.shields.io/badge/-Liberapay-f6c915?logo=Liberapay&logoColor=222222)](https://liberapay.com/soywod)
-
-[Pomodoro]: https://en.wikipedia.org/wiki/Pomodoro_Technique

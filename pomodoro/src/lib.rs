@@ -39,29 +39,29 @@
 //! ```
 //!
 //! ```rust
-#![doc = include_str!("../../../examples/pomodoro-tcp.rs")]
+#![doc = include_str!("../examples/pomodoro-tcp.rs")]
 //! ```
 
-#[cfg(feature = "pomodoro-client")]
+#[cfg(feature = "client")]
 mod client;
-#[cfg(feature = "pomodoro-client")]
+#[cfg(feature = "client")]
 mod clients;
 mod request;
 mod response;
-#[cfg(feature = "pomodoro-server")]
+#[cfg(feature = "server")]
 mod server;
-#[cfg(feature = "pomodoro-server")]
+#[cfg(feature = "server")]
 mod servers;
 mod timer;
 
-#[cfg(feature = "pomodoro-client")]
+#[cfg(feature = "client")]
 pub use client::*;
-#[cfg(feature = "pomodoro-client")]
+#[cfg(feature = "client")]
 pub use clients::*;
 pub use request::*;
 pub use response::*;
-#[cfg(feature = "pomodoro-server")]
+#[cfg(feature = "server")]
 pub use server::*;
-#[cfg(feature = "pomodoro-server")]
+#[cfg(feature = "server")]
 pub use servers::*;
 pub use timer::*;
