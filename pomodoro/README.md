@@ -12,6 +12,21 @@ examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/pomodoro/examples)
 *Disclaimer: the project is under active development, do not use in
 production before the v1.0.0.*
 
+## Development
+
+The development environment is managed by
+[Nix](https://nixos.org/download.html). Running `nix-shell` will spawn
+a shell with everything you need to get started with the lib: `cargo`,
+`cargo-watch`, `rust-bin`, `rust-analyzer`, `notmuch`…
+
+```sh
+# Start a Nix shell
+$ nix-shell
+
+# then build the lib
+$ cargo build -p pimalaya-pomodoro
+```
+
 ## Contributing
 
 If you find a **bug** that [does not exist

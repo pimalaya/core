@@ -50,7 +50,7 @@ mail-parser = "0.8.1"
 maildir = { version = "=0.6.3", features = ["mmap"] }
 mailparse = "0.14"
 md5 = "0.7.0"
-mime-msg-builder = { git = "https://git.sr.ht/~soywod/mime-msg-builder", branch = "develop" }
+mime-msg-builder = "0.1.0"
 once_cell = "1.*"
 ouroboros = "0.15"
 proc-lock = "0.4"

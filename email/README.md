@@ -2,78 +2,13 @@
 
 Rust library to manage your emails.
 
-```rust
-let account_config = AccountConfig {
-    email: "test@localhost".into(),
-    display_name: Some("Test".into()),
-    email_sender: EmailSender::Internal(SmtpConfig {
-        host: "localhost".into(),
-        port: 587,
-        starttls: Some(true),
-        login: "login".into(),
-        passwd_cmd: "echo password".into(),
-        ..Default::default()
-    }),
-    ..Default::default()
-};
-
-let imap_config = ImapConfig {
-    host: "localhost".into(),
-    port: 993,
-    starttls: Some(true),
-    login: "login".into(),
-    passwd_cmd: "echo password".into(),
-    ..Default::default()
-};
-let backend_config = BackendConfig::Imap(&imap_config);
-
-let mut backend = BackendBuilder::new().build(&account_config, &backend_config).unwrap();
-backend.list_envelopes("INBOX", 10, 0).unwrap();
-backend.move_email("INBOX", "Archives", "21").unwrap();
-backend.delete_email("INBOX", "42").unwrap();
-
-let mut sender = SenderBuilder::build(&account_config).unwrap();
-let email = Email::from("To: test2@localhost\r\nSubject: Hello\r\n\r\nContent");
-sender.send(&account_config, &email).unwrap();
-```
+See the full [API
+documentation](https://docs.rs/pimalaya-email/latest/pimalaya_email/)
+and [some
+examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/examples).
 
 *The project is under active development. Do not use in production
 before the `v1.0.0`.*
-
-## Introduction
-
-The role of this library is to extract and expose an <abbr
-title="application programming interface">API</abbr> for managing
-emails. This way, you can build clients that match the best your
-workflow without reiventing the wheel. Here the list of available
-clients built by the community:
-
-* [<abbr title="command-line
-  interface">CLI</abbr>](https://github.com/soywod/himalaya)
-* [Vim plugin](https://git.sr.ht/~soywod/himalaya-vim)
-* [Emacs plugin](https://github.com/dantecatalfamo/himalaya-emacs)
-* <abbr title="graphical user interface">GUI</abbr> (coming soon)
-* <abbr title="text-based user interfaces">TUI</abbr>
-* Web server
-* …
-
-## Features
-
-- [IMAP](https://en.wikipedia.org/wiki/Internet_Message_Access_Protocol),
-  [Maildir](https://en.wikipedia.org/wiki/Maildir) and
-  [Notmuch](https://notmuchmail.org/) backends
-- [SMTP](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol)
-  and [Sendmail](https://en.wikipedia.org/wiki/Sendmail) senders
-- List, add and delete folders (mailboxes)
-- List and search envelopes
-- Get, add, copy, move and delete emails
-- Add, set and delete flags
-- Multi-accounting
-- Folder aliases
-- <abbr title="Pretty Good Privacy">PGP</abbr> end-to-end encryption
-- <abbr title="Internet Message Access Protocol">IMAP</abbr> IDLE mode
-  for real-time notifications
-- …
 
 ## Development
 
@@ -82,12 +17,12 @@ The development environment is managed by
 a shell with everything you need to get started with the lib: `cargo`,
 `cargo-watch`, `rust-bin`, `rust-analyzer`, `notmuch`…
 
-```shell-session
-# Starts a Nix shell
+```sh
+# Start a Nix shell
 $ nix-shell
 
-# then builds the lib
-$ cargo build
+# then build the lib
+$ cargo build -p pimalaya-email
 ```
 
 ## Testing
@@ -102,12 +37,13 @@ $ docker run -it --rm \
   -e GREENMAIL_OPTS='-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled -Dgreenmail.verbose' \
   greenmail/standalone:1.6.2
   
-$ cargo test
+$ cargo test -p pimalaya-email
 ```
 
 ## Contributing
 
-If you find a **bug**, please send an email at
+If you find a **bug** that [does not exist
+yet](https://todo.sr.ht/~soywod/pimalaya), please send an email at
 [~soywod/pimalaya@todo.sr.ht](mailto:~soywod/pimalaya@todo.sr.ht).
 
 If you have a **question**, please send an email at
