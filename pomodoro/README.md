@@ -1,17 +1,21 @@
 # 🍅 pimalaya-pomodoro
 
-Rust library to manage your time using the Pomodoro technique.
+Rust library to manage your time using the
+[Pomodoro](https://en.wikipedia.org/wiki/Pomodoro_Technique)
+technique.
+
+See the full [API
+documentation](https://docs.rs/pimalaya-pomodoro/latest/pimalaya_pomodoro/)
+and [some
+examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/pomodoro/examples).
 
 *Disclaimer: the project is under active development, do not use in
 production before the v1.0.0.*
 
-*TODO*
-
 ## Contributing
 
 If you find a **bug** that [does not exist
-yet](https://todo.sr.ht/~soywod/pimalaya?search=label%3A%222%3Acomodoro%22),
-please send an email at
+yet](https://todo.sr.ht/~soywod/pimalaya), please send an email at
 [~soywod/pimalaya@todo.sr.ht](mailto:~soywod/pimalaya@todo.sr.ht).
 
 If you have a **question**, please send an email at
