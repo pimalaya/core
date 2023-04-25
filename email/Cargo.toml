@@ -57,7 +57,7 @@ proc-lock = "0.4"
 rayon = "1.6"
 regex = "1.5"
 rfc2047-decoder = "=0.2.0"
-rusqlite = { version = "0.28", features = ["bundled"] }
+rusqlite = "0.28"
 shellexpand = "2.1"
 thiserror = "1.0"
 tree_magic = "0.2"
