@@ -5,10 +5,10 @@
 use imap::extensions::idle::{stop_on_any, SetReadTimeout};
 use imap_proto::{NameAttribute, UidSetMember};
 use log::{debug, info, log_enabled, trace, Level};
-#[cfg(all(feature = "native-tls", not(feature = "rustls-tls")))]
+#[cfg(feature = "native-tls")]
 use native_tls::{TlsConnector, TlsStream as NativeTlsStream};
 use rayon::prelude::*;
-#[cfg(feature = "rustls-tls")]
+#[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
 use rustls::{
     client::{ServerCertVerified, ServerCertVerifier},
     Certificate, ClientConfig, ClientConnection, RootCertStore, StreamOwned,
@@ -152,9 +152,9 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-#[cfg(all(feature = "rustls-native-certs", feature = "rustls-tls"))]
+#[cfg(all(feature = "rustls-native-certs", not(feature = "native-tls")))]
 use once_cell::sync::Lazy;
-#[cfg(all(feature = "rustls-native-certs", feature = "rustls-tls"))]
+#[cfg(all(feature = "rustls-native-certs", not(feature = "native-tls")))]
 static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     let mut store = RootCertStore::empty();
     for cert in rustls_native_certs::load_native_certs().unwrap() {
@@ -163,9 +163,9 @@ static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     store
 });
 
-#[cfg(all(not(feature = "rustls-native-certs"), feature = "rustls-tls"))]
+#[cfg(not(feature = "rustls-native-certs"))]
 use once_cell::sync::Lazy;
-#[cfg(all(not(feature = "rustls-native-certs"), feature = "rustls-tls"))]
+#[cfg(not(feature = "rustls-native-certs"))]
 static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     let mut store = RootCertStore::empty();
     store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|cert| {
@@ -178,9 +178,9 @@ static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     store
 });
 
-#[cfg(all(feature = "native-tls", not(feature = "rustls-tls")))]
+#[cfg(feature = "native-tls")]
 pub type TlsStream = NativeTlsStream<TcpStream>;
-#[cfg(feature = "rustls-tls")]
+#[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
 pub type TlsStream = StreamOwned<ClientConnection, TcpStream>;
 
 pub enum ImapSessionStream {
@@ -308,7 +308,7 @@ impl<'a> ImapBackend<'a> {
         Result::Ok(session)
     }
 
-    #[cfg(all(feature = "native-tls", not(feature = "rustls-tls")))]
+    #[cfg(feature = "native-tls")]
     fn handshaker(
         config: &'a ImapConfig,
     ) -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
@@ -324,7 +324,7 @@ impl<'a> ImapBackend<'a> {
         }))
     }
 
-    #[cfg(feature = "rustls-tls")]
+    #[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
     fn handshaker(
         config: &'a ImapConfig,
     ) -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {

@@ -3,40 +3,37 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-22.11";
-    utils.url = "github:numtide/flake-utils";
-    rust-overlay.url = "github:oxalica/rust-overlay";
-    flake-compat = {
-      url = "github:edolstra/flake-compat";
-      flake = false;
+    flake-utils.url = "github:numtide/flake-utils";
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    naersk = {
+      url = "github:nix-community/naersk";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, utils, rust-overlay, ... }:
-    utils.lib.eachDefaultSystem
-      (system:
+  outputs = { self, nixpkgs, flake-utils, fenix, naersk, ... }:
+    flake-utils.lib.eachDefaultSystem (system: {
+      devShells.default =
         let
-          overlays = [ (import rust-overlay) ];
-          pkgs = import nixpkgs { inherit system overlays; };
-          rust-bin = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+          pkgs = import nixpkgs { inherit system; };
+          rust-toolchain = fenix.packages.${system}.fromToolchainFile {
+            file = ./rust-toolchain.toml;
+            sha256 = "eMJethw5ZLrJHmoN2/l0bIyQjoTX1NsvalWSscTixpI=";
+          };
         in
-        {
-          devShell = pkgs.mkShell {
-            nativeBuildInputs = with pkgs; [
-              # Nix LSP + formatter
+        pkgs.mkShell {
+          buildInputs = with pkgs;
+            [
+              # Nix env
               rnix-lsp
               nixpkgs-fmt
 
               # Rust env
-              openssl.dev
-              pkg-config
-              rust-bin
-              rust-analyzer
-              cargo-watch
-
-              # GPG
-              gnupg
+              rust-toolchain
             ];
-          };
-        }
-      );
+        };
+    });
 }

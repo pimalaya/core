@@ -1,6 +1,6 @@
 [package]
 name = "pimalaya-email"
-version = "0.6.0"
+version = "0.7.0"
 description = "Rust library to manage your emails."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
@@ -15,7 +15,15 @@ all-features = true
 name = "pimalaya_email"
 
 [features]
-default = ["imap-backend", "smtp-sender", "native-tls"]
+default = ["rustls-tls", "rustls-native-certs", "imap-backend", "smtp-sender"]
+
+# rustls tls
+rustls-tls = ["rustls", "webpki-roots", "imap/rustls-tls", "lettre/rustls-tls"]
+rustls-native-certs = ["dep:rustls-native-certs", "rustls-tls"]
+
+# native tls
+native-tls = ["dep:native-tls", "imap/native-tls", "lettre/native-tls"]
+native-tls-vendored = ["native-tls", "native-tls/vendored"]
 
 # backends
 imap-backend = ["imap", "imap-proto", "utf7-imap"]
@@ -23,14 +31,6 @@ notmuch-backend = ["notmuch"]
 
 # senders
 smtp-sender = []
-
-# native tls
-native-tls = ["dep:native-tls", "imap/native-tls", "lettre/native-tls"]
-native-tls-vendored = ["native-tls", "native-tls/vendored"]
-
-# rustls
-rustls-tls = ["rustls", "webpki-roots", "imap/rustls-tls", "lettre/rustls-tls"]
-rustls-native-certs = ["dep:rustls-native-certs", "rustls-tls"]
 
 [dev-dependencies]
 concat-with = "0.2"

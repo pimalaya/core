@@ -67,7 +67,7 @@ impl<'a> Smtp<'a> {
                     let builder = TlsParameters::builder(self.smtp_config.host.to_owned())
                         .dangerous_accept_invalid_certs(self.smtp_config.insecure());
 
-                    #[cfg(all(feature = "native-tls", not(feature = "rustls-tls")))]
+                    #[cfg(feature = "native-tls")]
                     let builder =
                         builder.dangerous_accept_invalid_hostnames(self.smtp_config.insecure());
 
