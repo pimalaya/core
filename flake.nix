@@ -28,9 +28,6 @@
 
             # Rust env
             rust-toolchain
-
-            # SQLite
-            sqlite
           ];
         };
 
