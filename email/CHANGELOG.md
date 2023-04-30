@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2023-05-01
+
 ### Added
 
 - Initiated `.gitattributes` file [patch#4].
@@ -30,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Returns an error if `BackendSyncBuilder::sync` cannot acquire the
   lock in order to avoid processes to block each other infinitely
   [patch#7].
+- Made `rustls` the default feature over `native-tls` to improve
+  compatibility among operating systems.
 
 ### Fixed
 
