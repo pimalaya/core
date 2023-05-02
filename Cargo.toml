@@ -2,5 +2,6 @@
 
 members = [
   "email",
+  "oauth2",
   "pomodoro",
 ]
