@@ -4,11 +4,9 @@
 
 use imap::extensions::idle::{stop_on_any, SetReadTimeout};
 use imap_proto::{NameAttribute, UidSetMember};
-use keyring::Entry;
 use log::{debug, info, log_enabled, trace, Level};
 #[cfg(feature = "native-tls")]
 use native_tls::{TlsConnector, TlsStream as NativeTlsStream};
-use pimalaya_oauth2::AuthorizationCodeGrant;
 use rayon::prelude::*;
 #[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
 use rustls::{
@@ -172,7 +170,7 @@ static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
 #[cfg(not(feature = "rustls-native-certs"))]
 use once_cell::sync::Lazy;
 
-use super::config::ImapOauth2Method;
+use super::{config::OAuth2Method, ImapAuth};
 #[cfg(not(feature = "rustls-native-certs"))]
 static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     let mut store = RootCertStore::empty();
@@ -259,17 +257,7 @@ impl<'a> ImapBackendBuilder {
         account_config: Cow<'a, AccountConfig>,
         imap_config: Cow<'a, ImapConfig>,
     ) -> Result<ImapBackend<'a>> {
-        let passwd = if let Some(_) = imap_config.oauth2 {
-            Entry::new(
-                "pimalaya-email",
-                &format!("{}-access-token", account_config.name),
-            )
-            .map_err(Error::KeyringError)?
-            .get_password()
-            .map_err(Error::KeyringError)?
-        } else {
-            imap_config.passwd()?
-        };
+        let auth = ImapAuth::new(account_config.name.clone(), imap_config.auth.clone())?;
         let sessions_pool: Vec<_> = (0..=self.sessions_pool_size).collect();
         let backend = ImapBackend {
             account_config: account_config.clone(),
@@ -279,7 +267,7 @@ impl<'a> ImapBackendBuilder {
             sessions_pool: sessions_pool
                 .par_iter()
                 .map(|_| {
-                    ImapBackend::create_session(&account_config, &imap_config, &passwd)
+                    ImapBackend::create_session(&account_config, &imap_config, &auth)
                         .map(Mutex::new)
                 })
                 .collect::<Result<Vec<_>>>()?,
@@ -289,18 +277,18 @@ impl<'a> ImapBackendBuilder {
     }
 }
 
-struct Xoauth2 {
+struct XOAuth2 {
     user: String,
     access_token: String,
 }
 
-impl Xoauth2 {
+impl XOAuth2 {
     pub fn new(user: String, access_token: String) -> Self {
         Self { user, access_token }
     }
 }
 
-impl imap::Authenticator for Xoauth2 {
+impl imap::Authenticator for XOAuth2 {
     type Response = String;
 
     fn process(&self, _: &[u8]) -> Self::Response {
@@ -311,14 +299,14 @@ impl imap::Authenticator for Xoauth2 {
     }
 }
 
-struct OauthBearer {
+struct OAuthBearer {
     user: String,
     host: String,
     port: u16,
     access_token: String,
 }
 
-impl OauthBearer {
+impl OAuthBearer {
     pub fn new(user: String, host: String, port: u16, access_token: String) -> Self {
         Self {
             user,
@@ -329,7 +317,7 @@ impl OauthBearer {
     }
 }
 
-impl imap::Authenticator for OauthBearer {
+impl imap::Authenticator for OAuthBearer {
     type Response = String;
 
     fn process(&self, _: &[u8]) -> Self::Response {
@@ -356,14 +344,11 @@ impl<'a> ImapBackend<'a> {
         ImapBackendBuilder::default().build(account_config, imap_config)
     }
 
-    fn create_session<P>(
+    fn create_session(
         account_config: &'a AccountConfig,
         imap_config: &'a ImapConfig,
-        passwd: P,
-    ) -> Result<ImapSession>
-    where
-        P: AsRef<str>,
-    {
+        auth: &'a ImapAuth,
+    ) -> Result<ImapSession> {
         let mut client_builder = imap::ClientBuilder::new(&imap_config.host, imap_config.port);
         if imap_config.starttls() {
             client_builder.starttls();
@@ -376,32 +361,25 @@ impl<'a> ImapBackend<'a> {
         }
         .map_err(Error::ConnectImapServerError)?;
 
-        let mut session = if let Some(oauth2) = &imap_config.oauth2 {
-            let access_token = Entry::new(
-                "pimalaya-email",
-                &format!("{}-access-token", account_config.name),
-            )
-            .map_err(Error::KeyringError)?
-            .get_password()
-            .map_err(Error::KeyringError)?;
-
-            match oauth2.method {
-                ImapOauth2Method::Xoauth2 => client.authenticate(
+        println!("login");
+        let mut session = match auth {
+            ImapAuth::Passwd(passwd) => client.login(&imap_config.login, passwd),
+            ImapAuth::AccessToken(OAuth2Method::XOAuth2, access_token) => {
+                println!("access_token: {:?}", access_token);
+                client.authenticate(
                     "XOAUTH2",
-                    &Xoauth2::new(imap_config.host.clone(), access_token),
-                ),
-                ImapOauth2Method::OauthBearer => client.authenticate(
-                    "OAUTHBEARER",
-                    &OauthBearer::new(
-                        account_config.email.clone(),
-                        imap_config.host.clone(),
-                        imap_config.port,
-                        access_token,
-                    ),
-                ),
+                    &XOAuth2::new(imap_config.login.clone(), access_token.clone()),
+                )
             }
-        } else {
-            client.login(&imap_config.login, passwd.as_ref())
+            ImapAuth::AccessToken(OAuth2Method::OAuthBearer, access_token) => client.authenticate(
+                "OAUTHBEARER",
+                &OAuthBearer::new(
+                    account_config.email.clone(),
+                    imap_config.host.clone(),
+                    imap_config.port,
+                    access_token.clone(),
+                ),
+            ),
         }
         .map_err(|res| Error::LoginImapServerError(res.0))?;
         session.debug = log_enabled!(Level::Trace);
@@ -606,51 +584,6 @@ impl<'a> ImapBackend<'a> {
 impl<'a> Backend for ImapBackend<'a> {
     fn name(&self) -> String {
         self.account_config.name.clone()
-    }
-
-    fn configure(&self) -> backend::Result<()> {
-        if let Some(oauth2) = &self.imap_config.oauth2 {
-            let mut builder = AuthorizationCodeGrant::new(
-                oauth2.client_id.clone(),
-                oauth2.client_secret.clone(),
-                oauth2.auth_url.clone(),
-                oauth2.token_url.clone(),
-            )
-            .map_err(Error::Oauth2Error)?;
-
-            if oauth2.pkce {
-                builder = builder.with_pkce();
-            }
-
-            for scope in &oauth2.scopes {
-                builder = builder.with_scope(scope);
-            }
-
-            let client = builder.get_client().map_err(Error::Oauth2Error)?;
-            let (redirect_url, csrf_token) = builder.get_redirect_url(&client);
-
-            println!("To enable OAuth2, click on the following link:");
-            println!("");
-            println!("{}", redirect_url.to_string());
-
-            let (access_token, refresh_token) = builder
-                .start_redirect_server(client, csrf_token)
-                .map_err(Error::Oauth2Error)?;
-
-            Entry::new("pimalaya-email", &format!("{}-access-token", self.name()))
-                .map_err(Error::KeyringError)?
-                .set_password(&access_token)
-                .map_err(Error::KeyringError)?;
-
-            if let Some(refresh_token) = &refresh_token {
-                Entry::new("pimalaya-email", &format!("{}-refresh-token", self.name()))
-                    .map_err(Error::KeyringError)?
-                    .set_password(refresh_token)
-                    .map_err(Error::KeyringError)?;
-            }
-        }
-
-        Ok(())
     }
 
     fn add_folder(&self, folder: &str) -> backend::Result<()> {

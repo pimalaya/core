@@ -52,12 +52,6 @@ pub type Result<T> = result::Result<T, Error>;
 pub trait Backend: Sync + Send {
     fn name(&self) -> String;
 
-    /// Configure the backend before usage. For example: creating
-    /// Maildir folders structure, configuring IMAP OAuth2 etc.
-    fn configure(&self) -> Result<()> {
-        Ok(())
-    }
-
     fn add_folder(&self, folder: &str) -> Result<()>;
     fn list_folders(&self) -> Result<Folders>;
     fn expunge_folder(&self, folder: &str) -> Result<()>;

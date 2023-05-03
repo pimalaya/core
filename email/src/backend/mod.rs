@@ -14,9 +14,7 @@ pub use self::backend::{
 pub use self::config::BackendConfig;
 pub use self::id_mapper::IdMapper;
 #[cfg(feature = "imap-backend")]
-pub use self::imap::{
-    ImapBackend, ImapBackendBuilder, ImapConfig, ImapOauth2Config, ImapOauth2Method,
-};
-pub use self::maildir::{MaildirBackend, MaildirConfig};
+pub use self::imap::*;
+pub use self::maildir::*;
 #[cfg(feature = "notmuch-backend")]
 pub use self::notmuch::{NotmuchBackend, NotmuchConfig};
