@@ -266,10 +266,7 @@ impl<'a> ImapBackendBuilder {
             sessions_pool_cursor: Mutex::new(0),
             sessions_pool: sessions_pool
                 .par_iter()
-                .map(|_| {
-                    ImapBackend::create_session(&account_config, &imap_config, &auth)
-                        .map(Mutex::new)
-                })
+                .map(|_| ImapBackend::create_session(&imap_config, &auth).map(Mutex::new))
                 .collect::<Result<Vec<_>>>()?,
         };
 
@@ -344,11 +341,7 @@ impl<'a> ImapBackend<'a> {
         ImapBackendBuilder::default().build(account_config, imap_config)
     }
 
-    fn create_session(
-        account_config: &'a AccountConfig,
-        imap_config: &'a ImapConfig,
-        auth: &'a ImapAuth,
-    ) -> Result<ImapSession> {
+    fn create_session(imap_config: &'a ImapConfig, auth: &'a ImapAuth) -> Result<ImapSession> {
         let mut client_builder = imap::ClientBuilder::new(&imap_config.host, imap_config.port);
         if imap_config.starttls() {
             client_builder.starttls();
@@ -361,20 +354,16 @@ impl<'a> ImapBackend<'a> {
         }
         .map_err(Error::ConnectImapServerError)?;
 
-        println!("login");
         let mut session = match auth {
             ImapAuth::Passwd(passwd) => client.login(&imap_config.login, passwd),
-            ImapAuth::AccessToken(OAuth2Method::XOAuth2, access_token) => {
-                println!("access_token: {:?}", access_token);
-                client.authenticate(
-                    "XOAUTH2",
-                    &XOAuth2::new(imap_config.login.clone(), access_token.clone()),
-                )
-            }
+            ImapAuth::AccessToken(OAuth2Method::XOAuth2, access_token) => client.authenticate(
+                "XOAUTH2",
+                &XOAuth2::new(imap_config.login.clone(), access_token.clone()),
+            ),
             ImapAuth::AccessToken(OAuth2Method::OAuthBearer, access_token) => client.authenticate(
                 "OAUTHBEARER",
                 &OAuthBearer::new(
-                    account_config.email.clone(),
+                    imap_config.login.clone(),
                     imap_config.host.clone(),
                     imap_config.port,
                     access_token.clone(),

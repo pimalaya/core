@@ -102,8 +102,7 @@ impl ImapAuthConfig {
             println!("");
             println!("{}", redirect_url.to_string());
 
-            let (access_token, refresh_token) =
-                builder.start_redirect_server(client, csrf_token)?;
+            let (access_token, refresh_token) = builder.wait_for_redirection(client, csrf_token)?;
 
             Entry::new("pimalaya-email", &format!("{}-access-token", name))?
                 .set_password(&access_token)?;

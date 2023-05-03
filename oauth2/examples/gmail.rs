@@ -1,6 +1,5 @@
-use std::env;
-
 use pimalaya_oauth2::AuthorizationCodeGrant;
+use std::env;
 
 pub fn main() {
     let client_id = env::var("CLIENT_ID").expect("Missing the CLIENT_ID environment variable.");
@@ -22,7 +21,7 @@ pub fn main() {
 
     println!("Go to: {}", redirect_url.to_string());
 
-    let (access_token, refresh_token) = builder.start_redirect_server(client, csrf_token).unwrap();
+    let (access_token, refresh_token) = builder.wait_for_redirection(client, csrf_token).unwrap();
 
     println!("access token: {:?}", access_token);
     println!("refresh token: {:?}", refresh_token);

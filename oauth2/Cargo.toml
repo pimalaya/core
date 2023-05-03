@@ -1,12 +1,12 @@
 [package]
 name = "pimalaya-oauth2"
 version = "0.0.1"
-description = "Rust library to simplify OAuth2 calls."
+description = "Rust library to simplify OAuth2 flows."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["network-programming", "authentication"]
-keywords = ["pim", "pomodoro", "authorization code grant"]
+keywords = ["pim", "oauth2", "authorization", "xoauth2", "oauthbearer"]
 
 [package.metadata.docs.rs]
 all-features = true
@@ -14,12 +14,9 @@ all-features = true
 [lib]
 name = "pimalaya_oauth2"
 
-[features]
-
-[dev-dependencies]
-env_logger = "0.10.0"
-
 [dependencies]
 log = "0.4"
-oauth2 = "4.3.0"
-thiserror = "1.0.40"
+oauth2 = "4.3"
+reqwest = { version = "0.11", default-features = false, features = ["blocking", "rustls-tls"] }
+thiserror = "1"
+url = "2.3"
