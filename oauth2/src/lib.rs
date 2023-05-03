@@ -1,6 +1,6 @@
 use oauth2::{
-    basic::BasicClient, reqwest::http_client, url::Url, AuthUrl, AuthorizationCode, ClientId,
-    ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse, TokenUrl,
+    basic::BasicClient, reqwest, url::Url, AuthUrl, AuthorizationCode, ClientId, ClientSecret,
+    CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, TokenResponse, TokenUrl,
 };
 use std::{
     io::{self, prelude::*, BufReader},
@@ -23,6 +23,8 @@ pub enum Error {
     BindRedirectServerError(String, u16, #[source] io::Error),
     #[error("cannot accept redirect server connections")]
     AcceptRedirectServerError(#[source] io::Error),
+    #[error("invalid state {0}: expected {1}")]
+    InvalidStateError(String, String),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -30,14 +32,14 @@ pub type Result<T> = result::Result<T, Error>;
 pub type AccessToken = String;
 pub type RefreshToken = Option<String>;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct AuthorizationCodeGrant {
     client_id: ClientId,
     client_secret: ClientSecret,
     auth_url: AuthUrl,
     token_url: TokenUrl,
     scopes: Vec<Scope>,
-    pkce: bool,
+    pkce: Option<(PkceCodeChallenge, PkceCodeVerifier)>,
     redirect_host: String,
     redirect_port: u16,
 }
@@ -60,7 +62,7 @@ impl AuthorizationCodeGrant {
             client_secret: ClientSecret::new(client_secret.to_string()),
             auth_url: AuthUrl::new(auth_url.to_string()).map_err(Error::BuildAuthUrlError)?,
             token_url: TokenUrl::new(token_url.to_string()).map_err(Error::BuildTokenUrlError)?,
-            pkce: false,
+            pkce: None,
             scopes: Vec::new(),
             redirect_host: String::from("localhost"),
             redirect_port: 9999,
@@ -75,8 +77,8 @@ impl AuthorizationCodeGrant {
         self
     }
 
-    pub fn with_pkce(mut self, with_pkce: bool) -> Self {
-        self.pkce = with_pkce;
+    pub fn with_pkce(mut self) -> Self {
+        self.pkce = Some(PkceCodeChallenge::new_random_sha256());
         self
     }
 
@@ -96,40 +98,46 @@ impl AuthorizationCodeGrant {
         self
     }
 
-    pub fn execute(self) -> Result<(AccessToken, RefreshToken)> {
+    pub fn get_client(&self) -> Result<BasicClient> {
         let redirect_uri = RedirectUrl::new(format!(
             "http://{}:{}",
             self.redirect_host, self.redirect_port
         ))
         .map_err(Error::BuildRedirectUrlError)?;
 
-        let (pkce_code_challenge, pkce_code_verifier) = PkceCodeChallenge::new_random_sha256();
-
         let client = BasicClient::new(
-            self.client_id,
-            Some(self.client_secret),
-            self.auth_url,
-            Some(self.token_url),
+            self.client_id.clone(),
+            Some(self.client_secret.clone()),
+            self.auth_url.clone(),
+            Some(self.token_url.clone()),
         )
         .set_redirect_uri(redirect_uri);
 
+        Ok(client)
+    }
+
+    pub fn get_redirect_url(&self, client: &BasicClient) -> (Url, CsrfToken) {
         let mut url_builder = client
             .authorize_url(CsrfToken::new_random)
-            .add_scopes(self.scopes);
+            .add_scopes(self.scopes.clone());
 
-        if self.pkce {
-            url_builder = url_builder.set_pkce_challenge(pkce_code_challenge);
+        if let Some((pkce_challenge, _)) = &self.pkce {
+            url_builder = url_builder.set_pkce_challenge(pkce_challenge.clone());
         }
 
-        let (authorize_url, csrf_state) = url_builder.url();
+        url_builder.url()
+    }
 
-        println!("Open this URL in your browser:");
-        println!("{authorize_url}");
+    pub fn start_redirect_server(
+        self,
+        client: BasicClient,
+        csrf_state: CsrfToken,
+    ) -> Result<(AccessToken, RefreshToken)> {
+        let host = self.redirect_host;
+        let port = self.redirect_port;
 
-        let (mut stream, _) = TcpListener::bind((self.redirect_host.clone(), self.redirect_port))
-            .map_err(|err| {
-                Error::BindRedirectServerError(self.redirect_host, self.redirect_port, err)
-            })?
+        let (mut stream, _) = TcpListener::bind((host.clone(), port))
+            .map_err(|err| Error::BindRedirectServerError(host, port, err))?
             .accept()
             .map_err(Error::AcceptRedirectServerError)?;
 
@@ -176,18 +184,20 @@ impl AuthorizationCodeGrant {
         );
         stream.write_all(response.as_bytes()).unwrap();
 
-        println!("Google returned the following code:\n{}\n", code.secret());
-        println!(
-            "Google returned the following state:\n{} (expected `{}`)\n",
-            state.secret(),
-            csrf_state.secret()
-        );
+        if state.secret() != csrf_state.secret() {
+            return Err(Error::InvalidStateError(
+                state.secret().to_owned(),
+                csrf_state.secret().to_owned(),
+            ));
+        }
 
         let mut builder = client.exchange_code(code);
-        if self.pkce {
-            builder = builder.set_pkce_verifier(pkce_code_verifier);
+
+        if let Some((_, pkce_verifier)) = self.pkce {
+            builder = builder.set_pkce_verifier(pkce_verifier);
         }
-        let token_response = builder.request(http_client);
+
+        let token_response = builder.request(reqwest::http_client);
 
         let access_token = token_response
             .as_ref()

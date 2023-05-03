@@ -47,6 +47,26 @@ pub struct ImapConfig {
     pub notify_query: Option<String>,
     /// Represents the watch commands.
     pub watch_cmds: Option<Vec<String>>,
+
+    /// Represents the OAuth2 config.
+    pub oauth2: Option<ImapOauth2Config>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ImapOauth2Config {
+    pub method: ImapOauth2Method,
+    pub client_id: String,
+    pub client_secret: String,
+    pub auth_url: String,
+    pub token_url: String,
+    pub pkce: bool,
+    pub scopes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum ImapOauth2Method {
+    Xoauth2,
+    OauthBearer,
 }
 
 #[cfg(feature = "imap-backend")]
