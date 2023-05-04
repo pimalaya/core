@@ -259,8 +259,8 @@ impl<'a> BackendSyncBuilder<'a> {
         let progress = &self.on_progress;
         let sync_dir = self.account_config.sync_dir()?;
         let lock_path = LockPath::Tmp(format!("himalaya-sync-{}.lock", account));
-        let guard =
-            try_lock(&lock_path).map_err(|err| Error::SyncAccountLockError(err, account.to_owned()))?;
+        let guard = try_lock(&lock_path)
+            .map_err(|err| Error::SyncAccountLockError(err, account.to_owned()))?;
 
         // init SQLite cache
 

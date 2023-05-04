@@ -148,6 +148,10 @@ pub enum Error {
     EmailError(#[from] email::Error),
     #[error(transparent)]
     MaildirBackend(#[from] backend::maildir::Error),
+    #[error(transparent)]
+    Oauth2Error(#[from] pimalaya_oauth2::Error),
+    #[error(transparent)]
+    KeyringError(#[from] keyring::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -165,6 +169,8 @@ static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
 
 #[cfg(not(feature = "rustls-native-certs"))]
 use once_cell::sync::Lazy;
+
+use super::{config::OAuth2Method, ImapAuth};
 #[cfg(not(feature = "rustls-native-certs"))]
 static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     let mut store = RootCertStore::empty();
@@ -251,20 +257,71 @@ impl<'a> ImapBackendBuilder {
         account_config: Cow<'a, AccountConfig>,
         imap_config: Cow<'a, ImapConfig>,
     ) -> Result<ImapBackend<'a>> {
-        let passwd = imap_config.passwd()?;
+        let auth = ImapAuth::new(account_config.name.clone(), imap_config.auth.clone())?;
         let sessions_pool: Vec<_> = (0..=self.sessions_pool_size).collect();
         let backend = ImapBackend {
-            account_config,
+            account_config: account_config.clone(),
             imap_config: imap_config.clone(),
             sessions_pool_size: self.sessions_pool_size.max(1),
             sessions_pool_cursor: Mutex::new(0),
             sessions_pool: sessions_pool
                 .par_iter()
-                .map(|_| ImapBackend::create_session(&imap_config, &passwd).map(Mutex::new))
+                .map(|_| ImapBackend::create_session(&imap_config, &auth).map(Mutex::new))
                 .collect::<Result<Vec<_>>>()?,
         };
 
         Ok(backend)
+    }
+}
+
+struct XOAuth2 {
+    user: String,
+    access_token: String,
+}
+
+impl XOAuth2 {
+    pub fn new(user: String, access_token: String) -> Self {
+        Self { user, access_token }
+    }
+}
+
+impl imap::Authenticator for XOAuth2 {
+    type Response = String;
+
+    fn process(&self, _: &[u8]) -> Self::Response {
+        format!(
+            "user={}\x01auth=Bearer {}\x01\x01",
+            self.user, self.access_token
+        )
+    }
+}
+
+struct OAuthBearer {
+    user: String,
+    host: String,
+    port: u16,
+    access_token: String,
+}
+
+impl OAuthBearer {
+    pub fn new(user: String, host: String, port: u16, access_token: String) -> Self {
+        Self {
+            user,
+            host,
+            port,
+            access_token,
+        }
+    }
+}
+
+impl imap::Authenticator for OAuthBearer {
+    type Response = String;
+
+    fn process(&self, _: &[u8]) -> Self::Response {
+        format!(
+            "n,a={},\x01host={}\x01port={}\x01auth=Bearer {}\x01\x01",
+            self.user, self.host, self.port, self.access_token
+        )
     }
 }
 
@@ -284,28 +341,39 @@ impl<'a> ImapBackend<'a> {
         ImapBackendBuilder::default().build(account_config, imap_config)
     }
 
-    fn create_session<P>(config: &'a ImapConfig, passwd: P) -> Result<ImapSession>
-    where
-        P: AsRef<str>,
-    {
-        let mut client_builder = imap::ClientBuilder::new(&config.host, config.port);
-        if config.starttls() {
+    fn create_session(imap_config: &'a ImapConfig, auth: &'a ImapAuth) -> Result<ImapSession> {
+        let mut client_builder = imap::ClientBuilder::new(&imap_config.host, imap_config.port);
+        if imap_config.starttls() {
             client_builder.starttls();
         }
 
-        let client = if config.ssl() {
-            client_builder.connect(Self::handshaker(config)?)
+        let client = if imap_config.ssl() {
+            client_builder.connect(Self::handshaker(imap_config)?)
         } else {
             client_builder.connect(|_, tcp| Ok(ImapSessionStream::Tcp(tcp)))
         }
         .map_err(Error::ConnectImapServerError)?;
 
-        let mut session = client
-            .login(&config.login, passwd.as_ref())
-            .map_err(|res| Error::LoginImapServerError(res.0))?;
+        let mut session = match auth {
+            ImapAuth::Passwd(passwd) => client.login(&imap_config.login, passwd),
+            ImapAuth::AccessToken(OAuth2Method::XOAuth2, access_token) => client.authenticate(
+                "XOAUTH2",
+                &XOAuth2::new(imap_config.login.clone(), access_token.clone()),
+            ),
+            ImapAuth::AccessToken(OAuth2Method::OAuthBearer, access_token) => client.authenticate(
+                "OAUTHBEARER",
+                &OAuthBearer::new(
+                    imap_config.login.clone(),
+                    imap_config.host.clone(),
+                    imap_config.port,
+                    access_token.clone(),
+                ),
+            ),
+        }
+        .map_err(|res| Error::LoginImapServerError(res.0))?;
         session.debug = log_enabled!(Level::Trace);
 
-        Result::Ok(session)
+        Ok(session)
     }
 
     #[cfg(feature = "native-tls")]
