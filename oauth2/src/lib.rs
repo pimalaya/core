@@ -250,7 +250,7 @@ impl AuthorizationCodeGrant {
         }
         let res = res
             .request(oauth2::reqwest::http_client)
-            .map_err(|err| Error::ExchangeCodeError(err))?;
+            .map_err(Error::ExchangeCodeError)?;
 
         let access_token = res.access_token().secret().clone();
         let refresh_token = res.refresh_token().map(|token| token.secret()).cloned();

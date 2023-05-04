@@ -5,7 +5,7 @@
 
 use keyring::Entry;
 use pimalaya_oauth2::AuthorizationCodeGrant;
-use std::{fmt, result, vec};
+use std::{fmt, io, result, vec};
 use thiserror::Error;
 
 use crate::process;
@@ -24,6 +24,10 @@ pub enum Error {
     BuildImapAuthKeyringError(#[from] keyring::Error),
     #[error("cannot configure imap oauth2")]
     ConfigureOAuth2Error(#[from] pimalaya_oauth2::Error),
+    #[error("cannot get oauth2 imap client secret from global keyring")]
+    GetOAuth2ImapClientSecretFromKeyring(#[source] keyring::Error),
+    #[error("cannot get oauth2 imap client secret from user")]
+    GetOAuth2ImapClientSecretFromUserError(#[source] io::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -55,34 +59,59 @@ pub struct ImapConfig {
     pub watch_cmds: Option<Vec<String>>,
 }
 
-impl ImapConfig {
-    pub fn configure<N>(&self, name: N) -> Result<()>
-    where
-        N: fmt::Display,
-    {
-        self.auth.configure(name)?;
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum ImapAuthConfig {
     #[default]
     None,
-    Passwd(String),
+    RawPasswd(String),
     PasswdCmd(String),
     OAuth2(OAuth2Config),
 }
 
 impl ImapAuthConfig {
-    pub fn configure<N>(&self, name: N) -> Result<()>
+    pub fn configure<N>(
+        &self,
+        name: N,
+        reset: bool,
+        get_client_secret: impl Fn() -> io::Result<String>,
+    ) -> Result<()>
     where
         N: fmt::Display,
     {
         if let ImapAuthConfig::OAuth2(oauth2) = self {
             let mut builder = AuthorizationCodeGrant::new(
                 oauth2.client_id.clone(),
-                oauth2.client_secret.clone(),
+                match &oauth2.client_secret {
+                    OAuth2ClientSecret::Keyring => {
+                        let entry = Entry::new(
+                            "pimalaya-email",
+                            &format!("oauth2-imap-client-secret-{name}"),
+                        )?;
+
+                        let set_client_secret = || -> Result<String> {
+                            let secret = get_client_secret()
+                                .map_err(Error::GetOAuth2ImapClientSecretFromUserError)?;
+                            entry.set_password(&secret)?;
+                            Ok(secret)
+                        };
+
+                        match entry.get_password() {
+                            _ if reset => set_client_secret()?,
+                            Err(_) => set_client_secret()?,
+                            Ok(secret) => secret,
+                        }
+                    }
+                    OAuth2ClientSecret::Cmd(cmd) => {
+                        let passwd = process::run(&cmd, &[]).map_err(Error::GetPasswdError)?;
+                        let passwd = String::from_utf8_lossy(&passwd).to_string();
+                        let passwd = passwd
+                            .lines()
+                            .next()
+                            .ok_or_else(|| Error::GetPasswdEmptyError)?;
+                        passwd.to_owned()
+                    }
+                    OAuth2ClientSecret::Raw(secret) => secret.to_owned(),
+                },
                 oauth2.auth_url.clone(),
                 oauth2.token_url.clone(),
             )?;
@@ -104,12 +133,18 @@ impl ImapAuthConfig {
 
             let (access_token, refresh_token) = builder.wait_for_redirection(client, csrf_token)?;
 
-            Entry::new("pimalaya-email", &format!("{}-access-token", name))?
-                .set_password(&access_token)?;
+            Entry::new(
+                "pimalaya-email",
+                &format!("oauth2-imap-access-token-{name}"),
+            )?
+            .set_password(&access_token)?;
 
             if let Some(refresh_token) = &refresh_token {
-                Entry::new("pimalaya-email", &format!("{}-refresh-token", name))?
-                    .set_password(refresh_token)?;
+                Entry::new(
+                    "pimalaya-email",
+                    &format!("oauth2-imap-refresh-token-{name}"),
+                )?
+                .set_password(refresh_token)?;
             }
         }
 
@@ -130,7 +165,7 @@ impl ImapAuth {
     {
         match config {
             ImapAuthConfig::None => Err(Error::BuildImapAuthMissingConfigError),
-            ImapAuthConfig::Passwd(passwd) => Ok(Self::Passwd(passwd)),
+            ImapAuthConfig::RawPasswd(passwd) => Ok(Self::Passwd(passwd)),
             ImapAuthConfig::PasswdCmd(cmd) => {
                 let passwd = process::run(&cmd, &[]).map_err(Error::GetPasswdError)?;
                 let passwd = String::from_utf8_lossy(&passwd).to_string();
@@ -141,9 +176,12 @@ impl ImapAuth {
                 Ok(Self::Passwd(passwd.to_owned()))
             }
             ImapAuthConfig::OAuth2(config) => {
-                let access_token = Entry::new("pimalaya-email", &format!("{}-access-token", name))?
-                    .get_password()
-                    .unwrap_or_default();
+                let access_token = Entry::new(
+                    "pimalaya-email",
+                    &format!("oauth2-imap-access-token-{name}"),
+                )?
+                .get_password()
+                .unwrap_or_default();
                 Ok(Self::AccessToken(config.method, access_token))
             }
         }
@@ -154,7 +192,7 @@ impl ImapAuth {
 pub struct OAuth2Config {
     pub method: OAuth2Method,
     pub client_id: String,
-    pub client_secret: String,
+    pub client_secret: OAuth2ClientSecret,
     pub auth_url: String,
     pub token_url: String,
     pub pkce: bool,
@@ -166,6 +204,13 @@ pub enum OAuth2Method {
     #[default]
     XOAuth2,
     OAuthBearer,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum OAuth2ClientSecret {
+    Keyring,
+    Cmd(String),
+    Raw(String),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
