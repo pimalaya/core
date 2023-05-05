@@ -113,41 +113,41 @@ impl<'a> Sender for Smtp<'a> {
             email = mailparse::parse_mail(&buffer).map_err(Error::ParseEmailError)?;
         };
 
+        let headers = email.get_headers();
         let envelope = Envelope::new(
-            email
-                .get_headers()
+            headers
                 .get_first_header("From")
                 .and_then(|header| addrparse_header(header).ok())
-                .and_then(|addrs| addrs.first().cloned())
+                .and_then(|addrs| addrs.into_inner().into_iter().next())
                 .and_then(|addr| match addr {
                     MailAddr::Group(group) => {
                         group.addrs.first().and_then(|addr| addr.addr.parse().ok())
                     }
                     MailAddr::Single(single) => single.addr.parse().ok(),
                 }),
-            email
-                .get_headers()
+            headers
                 .get_all_headers("To")
                 .into_iter()
-                .flat_map(|header| addrparse_header(header))
+                .chain(headers.get_all_headers("Cc").into_iter())
+                .chain(headers.get_all_headers("Bcc").into_iter())
+                .flat_map(addrparse_header)
                 .flat_map(|addrs| {
                     addrs
-                        .iter()
+                        .into_inner()
+                        .into_iter()
                         .map(|addr| match addr {
-                            MailAddr::Group(group) => group
-                                .addrs
-                                .iter()
-                                .map(|addr| addr.addr.clone())
-                                .collect::<Vec<_>>(),
-                            MailAddr::Single(single) => vec![single.addr.clone()],
+                            MailAddr::Group(group) => group.addrs.into_iter().collect::<Vec<_>>(),
+                            MailAddr::Single(single) => vec![single],
                         })
                         .collect::<Vec<_>>()
                 })
                 .flatten()
-                .flat_map(|addr| addr.parse())
+                .flat_map(|addr| addr.addr.parse())
                 .collect::<Vec<_>>(),
         )
         .map_err(Error::BuildEnvelopeError)?;
+
+        // TODO: Bcc should be removed from headers before sending the email.
 
         self.transport()?
             .send_raw(&envelope, email.raw_bytes)
