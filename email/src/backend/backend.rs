@@ -8,9 +8,11 @@ use proc_lock::{try_lock, LockPath};
 use std::{any::Any, borrow::Cow, fmt, io, result};
 use thiserror::Error;
 
+#[cfg(feature = "imap-backend")]
+use crate::ImapBackendBuilder;
 use crate::{
     account, backend, email, envelope, folder, id_mapper, AccountConfig, BackendConfig, Emails,
-    Envelope, Envelopes, Flag, Flags, Folders, ImapBackendBuilder, MaildirBackend, MaildirConfig,
+    Envelope, Envelopes, Flag, Flags, Folders, MaildirBackend, MaildirConfig,
 };
 
 #[cfg(feature = "notmuch-backend")]

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added OAuth 2.0 support for IMAP [#9].
+- Added [Secret Service] support via the [keyring] crate [#6].
+- Added `ImapAuthConfig` struct that contains config related to OAuth
+  2.0. It also contains a `configure` method to set up client secret
+  and store access token from redirect URL using [Secret Service].
+
+### Changed
+
+- Replaced `ImapConfig::passwd_cmd` with `ImapConfig::auth` which
+  takes now 4 variants:
+  - `ImapAuthConfig::None` (default)
+  - `ImapAuthConfig::RawPasswd` for raw clear password authentication
+    (not recommanded)
+  - `ImapAuthConfig::PasswdCmd` equivalent of the previous
+    `ImapConfig::passwd_cmd`
+  - `ImapAuthConfig::OAuth2` for OAuth 2.0 authentication
+
+### Removed
+
+- Removed `rustls-native-certs` cargo feature, it is now included by
+  default within the `rustls-tls` cargo feature.
+
 ## [0.7.0] - 2023-05-01
 
 ### Added
@@ -242,6 +266,8 @@ mostly comes from the [CLI](https://github.com/soywod/himalaya)
 repository.
 
 [mail-parser]: https://github.com/stalwartlabs/mail-parser
+[Secret Service]: https://specifications.freedesktop.org/secret-service/latest/
+[keyring]: https://crates.io/crates/keyring
 
 [patch#1]: https://lists.sr.ht/~soywod/himalaya-lib/%3C20220929084520.98165-1-me%40paulrouget.com%3E
 [patch#2]: https://lists.sr.ht/~soywod/pimalaya/%3C20230219010155.108114-1-me%40djha.skin%3E
@@ -251,6 +277,7 @@ repository.
 [patch#6]: https://lists.sr.ht/~soywod/pimalaya/%3C20230221185145.90120-1-me%40djha.skin%3E#%3C20230221185145.90120-2-me@djha.skin%3E
 [patch#7]: https://lists.sr.ht/~soywod/pimalaya/patches/39261
 
+[#9]: https://todo.sr.ht/~soywod/pimalaya/9
 [#20]: https://todo.sr.ht/~soywod/pimalaya/20
 [#37]: https://todo.sr.ht/~soywod/pimalaya/37
 [#44]: https://todo.sr.ht/~soywod/pimalaya/44
@@ -269,3 +296,4 @@ repository.
 [0.2.1]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.2.1
 [0.2.0]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.2.0
 [0.1.0]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.1.0
+

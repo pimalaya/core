@@ -1,3 +1,4 @@
+#[cfg(feature = "imap-backend")]
 use imap::types::{Fetch, Fetches};
 use lettre::address::AddressError;
 use log::{trace, warn};
@@ -33,9 +34,8 @@ pub enum Error {
     #[error("cannot delete local draft at {1}")]
     DeleteLocalDraftError(#[source] io::Error, PathBuf),
 
-    #[cfg(feature = "imap-backend")]
-    #[error("cannot parse email from imap fetches: empty fetches")]
-    ParseEmailFromImapFetchesEmptyError,
+    #[error("cannot parse email: empty entries")]
+    ParseEmailFromEmptyEntriesError,
 
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
@@ -568,7 +568,7 @@ impl TryFrom<Fetches> for Emails {
 
     fn try_from(fetches: Fetches) -> Result<Self> {
         if fetches.is_empty() {
-            Err(Error::ParseEmailFromImapFetchesEmptyError)
+            Err(Error::ParseEmailFromEmptyEntriesError)
         } else {
             Ok(EmailsBuilder {
                 raw: RawEmails::Fetches(fetches),
@@ -584,7 +584,7 @@ impl TryFrom<Vec<MailEntry>> for Emails {
 
     fn try_from(entries: Vec<MailEntry>) -> Result<Self> {
         if entries.is_empty() {
-            Err(Error::ParseEmailFromImapFetchesEmptyError)
+            Err(Error::ParseEmailFromEmptyEntriesError)
         } else {
             Ok(EmailsBuilder {
                 raw: RawEmails::MailEntries(entries),
