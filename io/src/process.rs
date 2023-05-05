@@ -1,6 +1,6 @@
 //! Process module.
 //!
-//! This module contains cross platform helpers around the
+//! This module contains cross-platform helpers around the
 //! `std::process` crate.
 
 use log::{debug, warn};

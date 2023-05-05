@@ -17,13 +17,13 @@ pub enum Error {
 }
 
 pub type Result<T> = result::Result<T, Error>;
+pub type EntryName = String;
 
-///
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SensitiveString {
     Raw(String),
     Cmd(Cmd),
-    Keyring(String),
+    Keyring(EntryName),
 }
 
 impl SensitiveString {
@@ -31,6 +31,18 @@ impl SensitiveString {
 
     fn get_keyring_entry<E: AsRef<str>>(entry: E) -> Result<Entry> {
         Entry::new(Self::KEYRING_SERVICE, entry.as_ref()).map_err(Error::CreateKeyringEntryError)
+    }
+
+    pub fn new_raw<R: ToString>(raw: R) -> Self {
+        Self::Raw(raw.to_string())
+    }
+
+    pub fn new_cmd<C: Into<Cmd>>(cmd: C) -> Self {
+        Self::Cmd(cmd.into())
+    }
+
+    pub fn new_keyring<E: ToString>(entry: E) -> Self {
+        Self::Keyring(entry.to_string())
     }
 
     pub fn get(&self) -> Result<String> {
@@ -46,12 +58,15 @@ impl SensitiveString {
         }
     }
 
-    pub fn set<S: AsRef<str>>(&self, sensitive_string: S) -> Result<()> {
+    pub fn set<S: ToString>(&self, sensitive_string: S) -> Result<String> {
+        let sensitive_string = sensitive_string.to_string();
+
         if let Self::Keyring(entry) = self {
-            Self::get_keyring_entry(entry)?
-                .set_password(sensitive_string.as_ref())
-                .map_err(|err| Error::SaveStringIntoKeyring(err, entry.clone()))?;
+            Self::get_keyring_entry(&entry)?
+                .set_password(&sensitive_string)
+                .map_err(|err| Error::SaveStringIntoKeyring(err, entry.clone()))?
         }
-        Ok(())
+
+        Ok(sensitive_string)
     }
 }
