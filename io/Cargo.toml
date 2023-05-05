@@ -1,0 +1,20 @@
+[package]
+name = "pimalaya-io"
+version = "0.0.1"
+description = "Rust library to manage personal information storage."
+authors = ["soywod <clement.douin@posteo.net>"]
+edition = "2021"
+license = "MIT"
+categories = ["configuration", "data structures"]
+keywords = ["pim", "storage", "password", "sensitive"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+name = "pimalaya_io"
+
+[dependencies]
+keyring = "2.0.2"
+log = "0.4"
+thiserror = "1.0"
