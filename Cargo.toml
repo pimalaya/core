@@ -2,7 +2,9 @@
 
 members = [
   "email",
+  "keyring",
   "oauth2",
   "pomodoro",
-  "io",
+  "process",
+  "secret",
 ]

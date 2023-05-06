@@ -52,7 +52,7 @@ md5 = "0.7.0"
 mime-msg-builder = "0.1.0"
 once_cell = "1.*"
 ouroboros = "0.15"
-pimalaya-io = { path = "../io" }
+pimalaya-secret = { path = "../secret" }
 pimalaya-oauth2 = { path = "../oauth2" }
 proc-lock = "0.4"
 rayon = "1.6"

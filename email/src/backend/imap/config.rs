@@ -3,9 +3,9 @@
 //! This module contains the representation of the IMAP backend
 //! configuration of the user account.
 
-use log::{debug, trace, warn};
-use pimalaya_io::{sensitive_string, SensitiveString};
+use log::warn;
 use pimalaya_oauth2::AuthorizationCodeGrant;
+use pimalaya_secret::Secret;
 use std::{io, result, vec};
 use thiserror::Error;
 
@@ -21,23 +21,23 @@ pub enum Error {
     ConfigureOAuth2Error(#[from] pimalaya_oauth2::Error),
 
     #[error("cannot get imap password from global keyring")]
-    GetPasswdError(#[source] pimalaya_io::sensitive_string::Error),
+    GetPasswdError(#[source] pimalaya_secret::Error),
     #[error("cannot get imap password: password is empty")]
     GetPasswdEmptyError,
 
     #[error("cannot get imap oauth2 access token from global keyring")]
-    GetOAuth2AccessTokenError(#[source] pimalaya_io::sensitive_string::Error),
+    GetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
     #[error("cannot set imap oauth2 access token")]
-    SetOAuth2AccessTokenError(#[source] pimalaya_io::sensitive_string::Error),
+    SetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
     #[error("cannot set imap oauth2 refresh token")]
-    SetOAuth2RefreshTokenError(#[source] pimalaya_io::sensitive_string::Error),
+    SetOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
 
     #[error("cannot get imap oauth2 client secret from user")]
     GetOAuth2ClientSecretFromUserError(#[source] io::Error),
     #[error("cannot get imap oauth2 client secret from global keyring")]
-    GetOAuth2ClientSecretFromKeyring(#[source] pimalaya_io::sensitive_string::Error),
+    GetOAuth2ClientSecretFromKeyring(#[source] pimalaya_secret::Error),
     #[error("cannot save imap oauth2 client secret into global keyring")]
-    SetOAuth2ClientSecretIntoKeyringError(#[source] pimalaya_io::sensitive_string::Error),
+    SetOAuth2ClientSecretIntoKeyringError(#[source] pimalaya_secret::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -73,7 +73,7 @@ pub struct ImapConfig {
 pub enum ImapAuthConfig {
     #[default]
     None,
-    Passwd(SensitiveString),
+    Passwd(Secret),
     OAuth2(OAuth2Config),
 }
 
@@ -93,10 +93,8 @@ impl ImapAuthConfig {
 
             let oauth2_client_secret = match oauth2.client_secret.get() {
                 _ if reset => set_client_secret(),
-                Err(sensitive_string::Error::GetStringFromKeyring(err, entry)) => {
-                    warn!("cannot find imap oauth2 client secret from keyring at {entry}");
-                    debug!("saving imap oauth2 client secret into keyring at {entry}");
-                    trace!("initial error: {err}");
+                Err(err) if err.is_get_secret_error() => {
+                    warn!("cannot find imap oauth2 client secret from keyring, setting it");
                     set_client_secret()
                 }
                 Err(err) => Err(Error::GetOAuth2ClientSecretFromKeyring(err)),
@@ -177,11 +175,11 @@ impl ImapAuth {
 pub struct OAuth2Config {
     pub method: OAuth2Method,
     pub client_id: String,
-    pub client_secret: SensitiveString,
+    pub client_secret: Secret,
     pub auth_url: String,
     pub token_url: String,
-    pub access_token: SensitiveString,
-    pub refresh_token: SensitiveString,
+    pub access_token: Secret,
+    pub refresh_token: Secret,
     pub pkce: bool,
     pub scopes: OAuth2Scopes,
 }

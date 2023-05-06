@@ -1,31 +1,22 @@
-//! Process module.
-//!
-//! This module contains cross-platform helpers around the
-//! `std::process` crate.
-
 use log::{debug, warn};
 use std::{
     env,
     io::{self, prelude::*},
     ops::Deref,
     process::{Command, Stdio},
-    result, string,
+    result,
 };
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot run command {1:?}")]
-    RunCmdError(#[source] io::Error, String),
-    #[error("cannot parse command output")]
-    ParseCmdOutputError(#[source] string::FromUtf8Error),
-    #[error("cannot spawn process for command: {1}")]
+    #[error("cannot run command: {1}")]
     SpawnProcessError(#[source] io::Error, String),
     #[error("cannot get standard input")]
     GetStdinError,
-    #[error("cannot wait for exit status code for command: {1}")]
+    #[error("cannot wait for exit status code of command: {1}")]
     WaitForExitStatusCodeError(#[source] io::Error, String),
-    #[error("cannot get unavailable exit status code for command: {0}")]
+    #[error("cannot get exit status code of command: {0}")]
     GetExitStatusCodeNotAvailableError(String),
     #[error("cannot write data to standard input")]
     WriteStdinError(#[source] io::Error),
