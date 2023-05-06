@@ -6,17 +6,15 @@
 use log::warn;
 use pimalaya_oauth2::AuthorizationCodeGrant;
 use pimalaya_secret::Secret;
-use std::{io, result, vec};
+use std::{io, result};
 use thiserror::Error;
 
-use crate::process;
+use crate::{process, OAuth2Config, OAuth2Method};
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot start the notify mode")]
     StartNotifyModeError(#[source] process::Error),
-    #[error("cannot create imap auth without config")]
-    BuildImapAuthMissingConfigError,
     #[error("cannot configure imap oauth2")]
     ConfigureOAuth2Error(#[from] pimalaya_oauth2::Error),
 
@@ -43,7 +41,7 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 
 /// Represents the IMAP backend configuration.
-#[derive(Debug, Default, Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ImapConfig {
     /// Represents the IMAP server host.
     pub host: String,
@@ -69,12 +67,16 @@ pub struct ImapConfig {
     pub watch_cmds: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ImapAuthConfig {
-    #[default]
-    None,
     Passwd(Secret),
     OAuth2(OAuth2Config),
+}
+
+impl Default for ImapAuthConfig {
+    fn default() -> Self {
+        Self::Passwd(Secret::new_raw(""))
+    }
 }
 
 impl ImapAuthConfig {
@@ -151,7 +153,6 @@ pub enum ImapAuth {
 impl ImapAuth {
     pub fn new(config: &ImapAuthConfig) -> Result<Self> {
         match config {
-            ImapAuthConfig::None => Err(Error::BuildImapAuthMissingConfigError),
             ImapAuthConfig::Passwd(passwd) => {
                 let passwd = passwd.get().map_err(Error::GetPasswdError)?;
                 let passwd = passwd
@@ -167,44 +168,6 @@ impl ImapAuth {
                     .map_err(Error::GetOAuth2AccessTokenError)?;
                 Ok(Self::OAuth2AccessToken(config.method.clone(), access_token))
             }
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct OAuth2Config {
-    pub method: OAuth2Method,
-    pub client_id: String,
-    pub client_secret: Secret,
-    pub auth_url: String,
-    pub token_url: String,
-    pub access_token: Secret,
-    pub refresh_token: Secret,
-    pub pkce: bool,
-    pub scopes: OAuth2Scopes,
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum OAuth2Method {
-    #[default]
-    XOAuth2,
-    OAuthBearer,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum OAuth2Scopes {
-    Scope(String),
-    Scopes(Vec<String>),
-}
-
-impl IntoIterator for OAuth2Scopes {
-    type Item = String;
-    type IntoIter = vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        match self {
-            Self::Scope(scope) => vec![scope].into_iter(),
-            Self::Scopes(scopes) => scopes.into_iter(),
         }
     }
 }
