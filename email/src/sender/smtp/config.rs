@@ -4,11 +4,12 @@
 //! configuration of the user account.
 
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
+use log::debug;
 use pimalaya_secret::Secret;
-use std::result;
+use std::{io, result};
 use thiserror::Error;
 
-use crate::OAuth2Config;
+use crate::{account, OAuth2Config};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -16,6 +17,9 @@ pub enum Error {
     GetPasswdError(#[source] pimalaya_secret::Error),
     #[error("cannot get smtp oauth2 access token")]
     GetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
+
+    #[error(transparent)]
+    AccountConfigError(#[from] account::config::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -45,10 +49,7 @@ impl SmtpConfig {
             self.login.clone(),
             match &self.auth {
                 SmtpAuthConfig::Passwd(secret) => secret.get().map_err(Error::GetPasswdError),
-                SmtpAuthConfig::OAuth2(oauth2) => oauth2
-                    .access_token
-                    .get()
-                    .map_err(Error::GetOAuth2AccessTokenError),
+                SmtpAuthConfig::OAuth2(oauth2) => Ok(oauth2.access_token()?),
             }?,
         ))
     }
@@ -82,5 +83,21 @@ pub enum SmtpAuthConfig {
 impl Default for SmtpAuthConfig {
     fn default() -> Self {
         Self::Passwd(Secret::new_raw(""))
+    }
+}
+
+impl SmtpAuthConfig {
+    pub fn configure(
+        &self,
+        reset: bool,
+        get_client_secret: impl Fn() -> io::Result<String>,
+    ) -> Result<()> {
+        debug!("configuring smtp backend");
+
+        if let SmtpAuthConfig::OAuth2(oauth2) = self {
+            oauth2.configure(reset, get_client_secret)?;
+        }
+
+        Ok(())
     }
 }

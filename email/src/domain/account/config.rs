@@ -6,6 +6,7 @@
 use dirs::data_dir;
 use lettre::{address::AddressError, message::Mailbox};
 use log::warn;
+use pimalaya_oauth2::AuthorizationCodeGrant;
 use pimalaya_secret::Secret;
 use shellexpand;
 use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, result, vec};
@@ -47,6 +48,23 @@ pub enum Error {
     GetXdgDataDirError,
     #[error("cannot create sync directories")]
     CreateXdgDataDirsError(#[source] io::Error),
+
+    #[error("cannot configure imap oauth2")]
+    ConfigureOAuth2Error(#[from] pimalaya_oauth2::Error),
+
+    #[error("cannot get imap oauth2 access token from global keyring")]
+    GetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
+    #[error("cannot set imap oauth2 access token")]
+    SetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
+    #[error("cannot set imap oauth2 refresh token")]
+    SetOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
+
+    #[error("cannot get imap oauth2 client secret from user")]
+    GetOAuth2ClientSecretFromUserError(#[source] io::Error),
+    #[error("cannot get imap oauth2 client secret from global keyring")]
+    GetOAuth2ClientSecretFromKeyring(#[source] pimalaya_secret::Error),
+    #[error("cannot save imap oauth2 client secret into global keyring")]
+    SetOAuth2ClientSecretIntoKeyringError(#[source] pimalaya_secret::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -180,7 +198,7 @@ impl AccountConfig {
             });
         let alias = shellexpand::full(alias).map(String::from).or_else(|err| {
             warn!("skipping shell expand for folder alias {}: {}", alias, err);
-            Ok(alias.to_string())
+            Result::Ok(alias.to_string())
         })?;
 
         Ok(alias)
@@ -293,6 +311,76 @@ pub struct OAuth2Config {
     pub refresh_token: Secret,
     pub pkce: bool,
     pub scopes: OAuth2Scopes,
+}
+
+impl OAuth2Config {
+    pub fn configure(
+        &self,
+        reset: bool,
+        get_client_secret: impl Fn() -> io::Result<String>,
+    ) -> Result<()> {
+        if self.access_token.get().is_ok() && !reset {
+            return Ok(());
+        }
+
+        let set_client_secret = || {
+            self.client_secret
+                .set(get_client_secret().map_err(Error::GetOAuth2ClientSecretFromUserError)?)
+                .map_err(Error::SetOAuth2ClientSecretIntoKeyringError)
+        };
+
+        let client_secret = match self.client_secret.get() {
+            _ if reset => set_client_secret(),
+            Err(err) if err.is_get_secret_error() => {
+                warn!("cannot find imap oauth2 client secret from keyring, setting it");
+                set_client_secret()
+            }
+            Err(err) => Err(Error::GetOAuth2ClientSecretFromKeyring(err)),
+            Ok(client_secret) => Ok(client_secret),
+        }?;
+
+        let mut builder = AuthorizationCodeGrant::new(
+            self.client_id.clone(),
+            client_secret,
+            self.auth_url.clone(),
+            self.token_url.clone(),
+        )?;
+
+        if self.pkce {
+            builder = builder.with_pkce();
+        }
+
+        for scope in self.scopes.clone() {
+            builder = builder.with_scope(scope);
+        }
+
+        let client = builder.get_client()?;
+        let (redirect_url, csrf_token) = builder.get_redirect_url(&client);
+
+        println!("To enable OAuth2, click on the following link:");
+        println!("");
+        println!("{}", redirect_url.to_string());
+
+        let (access_token, refresh_token) = builder.wait_for_redirection(client, csrf_token)?;
+
+        self.access_token
+            .set(access_token)
+            .map_err(Error::SetOAuth2AccessTokenError)?;
+
+        if let Some(refresh_token) = &refresh_token {
+            self.refresh_token
+                .set(refresh_token)
+                .map_err(Error::SetOAuth2RefreshTokenError)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn access_token(&self) -> Result<String> {
+        self.access_token
+            .get()
+            .map_err(Error::GetOAuth2AccessTokenError)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -3,39 +3,24 @@
 //! This module contains the representation of the IMAP backend
 //! configuration of the user account.
 
-use log::warn;
-use pimalaya_oauth2::AuthorizationCodeGrant;
+use log::debug;
 use pimalaya_secret::Secret;
 use std::{io, result};
 use thiserror::Error;
 
-use crate::{process, OAuth2Config, OAuth2Method};
+use crate::{account, process, OAuth2Config, OAuth2Method};
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot start the notify mode")]
     StartNotifyModeError(#[source] process::Error),
-    #[error("cannot configure imap oauth2")]
-    ConfigureOAuth2Error(#[from] pimalaya_oauth2::Error),
-
     #[error("cannot get imap password from global keyring")]
     GetPasswdError(#[source] pimalaya_secret::Error),
     #[error("cannot get imap password: password is empty")]
     GetPasswdEmptyError,
 
-    #[error("cannot get imap oauth2 access token from global keyring")]
-    GetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
-    #[error("cannot set imap oauth2 access token")]
-    SetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
-    #[error("cannot set imap oauth2 refresh token")]
-    SetOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
-
-    #[error("cannot get imap oauth2 client secret from user")]
-    GetOAuth2ClientSecretFromUserError(#[source] io::Error),
-    #[error("cannot get imap oauth2 client secret from global keyring")]
-    GetOAuth2ClientSecretFromKeyring(#[source] pimalaya_secret::Error),
-    #[error("cannot save imap oauth2 client secret into global keyring")]
-    SetOAuth2ClientSecretIntoKeyringError(#[source] pimalaya_secret::Error),
+    #[error(transparent)]
+    AccountConfigError(#[from] account::config::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -85,59 +70,10 @@ impl ImapAuthConfig {
         reset: bool,
         get_client_secret: impl Fn() -> io::Result<String>,
     ) -> Result<()> {
+        debug!("configuring imap backend");
+
         if let ImapAuthConfig::OAuth2(oauth2) = self {
-            let set_client_secret = || {
-                oauth2
-                    .client_secret
-                    .set(get_client_secret().map_err(Error::GetOAuth2ClientSecretFromUserError)?)
-                    .map_err(Error::SetOAuth2ClientSecretIntoKeyringError)
-            };
-
-            let oauth2_client_secret = match oauth2.client_secret.get() {
-                _ if reset => set_client_secret(),
-                Err(err) if err.is_get_secret_error() => {
-                    warn!("cannot find imap oauth2 client secret from keyring, setting it");
-                    set_client_secret()
-                }
-                Err(err) => Err(Error::GetOAuth2ClientSecretFromKeyring(err)),
-                Ok(client_secret) => Ok(client_secret),
-            }?;
-
-            let mut builder = AuthorizationCodeGrant::new(
-                oauth2.client_id.clone(),
-                oauth2_client_secret,
-                oauth2.auth_url.clone(),
-                oauth2.token_url.clone(),
-            )?;
-
-            if oauth2.pkce {
-                builder = builder.with_pkce();
-            }
-
-            for scope in oauth2.scopes.clone() {
-                builder = builder.with_scope(scope);
-            }
-
-            let client = builder.get_client()?;
-            let (redirect_url, csrf_token) = builder.get_redirect_url(&client);
-
-            println!("To enable OAuth2, click on the following link:");
-            println!("");
-            println!("{}", redirect_url.to_string());
-
-            let (access_token, refresh_token) = builder.wait_for_redirection(client, csrf_token)?;
-
-            oauth2
-                .access_token
-                .set(access_token)
-                .map_err(Error::SetOAuth2AccessTokenError)?;
-
-            if let Some(refresh_token) = &refresh_token {
-                oauth2
-                    .refresh_token
-                    .set(refresh_token)
-                    .map_err(Error::SetOAuth2RefreshTokenError)?;
-            }
+            oauth2.configure(reset, get_client_secret)?;
         }
 
         Ok(())
@@ -161,13 +97,10 @@ impl ImapAuth {
                     .ok_or_else(|| Error::GetPasswdEmptyError)?;
                 Ok(Self::Passwd(passwd.to_owned()))
             }
-            ImapAuthConfig::OAuth2(config) => {
-                let access_token = config
-                    .access_token
-                    .get()
-                    .map_err(Error::GetOAuth2AccessTokenError)?;
-                Ok(Self::OAuth2AccessToken(config.method.clone(), access_token))
-            }
+            ImapAuthConfig::OAuth2(config) => Ok(Self::OAuth2AccessToken(
+                config.method.clone(),
+                config.access_token()?,
+            )),
         }
     }
 }
