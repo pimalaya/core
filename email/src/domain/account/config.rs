@@ -6,8 +6,9 @@
 use dirs::data_dir;
 use lettre::{address::AddressError, message::Mailbox};
 use log::warn;
+use pimalaya_secret::Secret;
 use shellexpand;
-use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, result};
+use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, result, vec};
 use thiserror::Error;
 
 use crate::{
@@ -277,6 +278,43 @@ impl AccountConfig {
                 fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsError)?;
                 Ok(sync_dir)
             }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OAuth2Config {
+    pub method: OAuth2Method,
+    pub client_id: String,
+    pub client_secret: Secret,
+    pub auth_url: String,
+    pub token_url: String,
+    pub access_token: Secret,
+    pub refresh_token: Secret,
+    pub pkce: bool,
+    pub scopes: OAuth2Scopes,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum OAuth2Method {
+    XOAuth2,
+    OAuthBearer,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum OAuth2Scopes {
+    Scope(String),
+    Scopes(Vec<String>),
+}
+
+impl IntoIterator for OAuth2Scopes {
+    type Item = String;
+    type IntoIter = vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            Self::Scope(scope) => vec![scope].into_iter(),
+            Self::Scopes(scopes) => scopes.into_iter(),
         }
     }
 }

@@ -95,6 +95,7 @@ impl<'a> Smtp<'a> {
                 builder
                     .port(self.smtp_config.port)
                     .credentials(self.smtp_config.credentials()?)
+                    .authentication(vec![self.smtp_config.mechanism()])
                     .build(),
             );
 

@@ -111,8 +111,8 @@ impl AuthorizationCodeGrant {
             client_secret: ClientSecret::new(client_secret.to_string()),
             auth_url: AuthUrl::new(auth_url.to_string()).map_err(Error::BuildAuthUrlError)?,
             token_url: TokenUrl::new(token_url.to_string()).map_err(Error::BuildTokenUrlError)?,
-            pkce: None,
             scopes: Vec::new(),
+            pkce: None,
             redirect_host: String::from("localhost"),
             redirect_port: 9999,
         })

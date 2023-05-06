@@ -1,0 +1,19 @@
+[package]
+name = "pimalaya-process"
+version = "0.0.1"
+description = "Rust library to run processes in pipelines."
+authors = ["soywod <clement.douin@posteo.net>"]
+edition = "2021"
+license = "MIT"
+categories = ["operating systems"]
+keywords = ["pim", "process", "processes", "pipeline", "cross-platform"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+name = "pimalaya_process"
+
+[dependencies]
+log = "0.4"
+thiserror = "1.0"

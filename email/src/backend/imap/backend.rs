@@ -30,7 +30,7 @@ use utf7_imap::{decode_utf7_imap as decode_utf7, encode_utf7_imap as encode_utf7
 
 use crate::{
     account, backend, email, envelope, process, AccountConfig, Backend, Emails, Envelope,
-    Envelopes, Flag, Flags, Folder, Folders, ImapConfig,
+    Envelopes, Flag, Flags, Folder, Folders, ImapAuth, ImapConfig, OAuth2Method,
 };
 
 const ENVELOPE_QUERY: &str = "(UID FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM SUBJECT DATE)])";
@@ -150,37 +150,18 @@ pub enum Error {
     MaildirBackend(#[from] backend::maildir::Error),
     #[error(transparent)]
     Oauth2Error(#[from] pimalaya_oauth2::Error),
-    #[error(transparent)]
-    KeyringError(#[from] keyring::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
 
-#[cfg(all(feature = "rustls-native-certs", not(feature = "native-tls")))]
+#[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
 use once_cell::sync::Lazy;
-#[cfg(all(feature = "rustls-native-certs", not(feature = "native-tls")))]
+#[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
 static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     let mut store = RootCertStore::empty();
     for cert in rustls_native_certs::load_native_certs().unwrap() {
         store.add(&Certificate(cert.0)).unwrap();
     }
-    store
-});
-
-#[cfg(not(feature = "rustls-native-certs"))]
-use once_cell::sync::Lazy;
-
-use super::{config::OAuth2Method, ImapAuth};
-#[cfg(not(feature = "rustls-native-certs"))]
-static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
-    let mut store = RootCertStore::empty();
-    store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|cert| {
-        rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-            cert.subject,
-            cert.spki,
-            cert.name_constraints,
-        )
-    }));
     store
 });
 
@@ -257,7 +238,7 @@ impl<'a> ImapBackendBuilder {
         account_config: Cow<'a, AccountConfig>,
         imap_config: Cow<'a, ImapConfig>,
     ) -> Result<ImapBackend<'a>> {
-        let auth = ImapAuth::new(account_config.name.clone(), imap_config.auth.clone())?;
+        let auth = ImapAuth::new(&imap_config.auth)?;
         let sessions_pool: Vec<_> = (0..=self.sessions_pool_size).collect();
         let backend = ImapBackend {
             account_config: account_config.clone(),
@@ -356,19 +337,21 @@ impl<'a> ImapBackend<'a> {
 
         let mut session = match auth {
             ImapAuth::Passwd(passwd) => client.login(&imap_config.login, passwd),
-            ImapAuth::AccessToken(OAuth2Method::XOAuth2, access_token) => client.authenticate(
-                "XOAUTH2",
-                &XOAuth2::new(imap_config.login.clone(), access_token.clone()),
-            ),
-            ImapAuth::AccessToken(OAuth2Method::OAuthBearer, access_token) => client.authenticate(
-                "OAUTHBEARER",
-                &OAuthBearer::new(
-                    imap_config.login.clone(),
-                    imap_config.host.clone(),
-                    imap_config.port,
-                    access_token.clone(),
+            ImapAuth::OAuth2AccessToken(OAuth2Method::XOAuth2, access_token) => client
+                .authenticate(
+                    "XOAUTH2",
+                    &XOAuth2::new(imap_config.login.clone(), access_token.clone()),
                 ),
-            ),
+            ImapAuth::OAuth2AccessToken(OAuth2Method::OAuthBearer, access_token) => client
+                .authenticate(
+                    "OAUTHBEARER",
+                    &OAuthBearer::new(
+                        imap_config.login.clone(),
+                        imap_config.host.clone(),
+                        imap_config.port,
+                        access_token.clone(),
+                    ),
+                ),
         }
         .map_err(|res| Error::LoginImapServerError(res.0))?;
         session.debug = log_enabled!(Level::Trace);
