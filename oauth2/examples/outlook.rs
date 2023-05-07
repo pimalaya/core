@@ -9,12 +9,17 @@ pub fn main() {
     let builder = AuthorizationCodeGrant::new(
         client_id,
         client_secret,
-        "https://accounts.google.com/o/oauth2/v2/auth",
-        "https://www.googleapis.com/oauth2/v3/token",
+        "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        "https://login.microsoftonline.com/common/oauth2/v2.0/token",
     )
     .unwrap()
     .with_pkce()
-    .with_scope("https://mail.google.com/");
+    // for managing emails
+    .with_scope("https://outlook.office.com/IMAP.AccessAsUser.All")
+    // for sending emails
+    .with_scope("https://outlook.office.com/SMTP.Send")
+    // for refresh token
+    .with_scope("offline_access");
 
     let client = builder.get_client().unwrap();
     let (redirect_url, csrf_token) = builder.get_redirect_url(&client);
