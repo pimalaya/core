@@ -9,6 +9,8 @@ pub enum Error {
     GetSecretError(#[source] keyring::Error, String),
     #[error("cannot set keyring secret at {1}")]
     SetSecretError(#[source] keyring::Error, String),
+    #[error("cannot delete keyring secret at {1}")]
+    DeleteSecretError(#[source] keyring::Error, String),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -37,6 +39,12 @@ impl Entry {
         self.get_entry()?
             .set_password(secret.as_ref())
             .map_err(|err| Error::SetSecretError(err, self.0.clone()))
+    }
+
+    pub fn delete(&self) -> Result<()> {
+        self.get_entry()?
+            .delete_password()
+            .map_err(|err| Error::DeleteSecretError(err, self.0.clone()))
     }
 }
 

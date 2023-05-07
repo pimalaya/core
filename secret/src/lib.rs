@@ -60,4 +60,12 @@ impl Secret {
 
         Ok(secret.as_ref().to_string())
     }
+
+    pub fn delete(&self) -> Result<()> {
+        match self {
+            Self::Raw(_) => Ok(()),
+            Self::Cmd(_) => Ok(()),
+            Self::Keyring(entry) => Ok(entry.delete()?),
+        }
+    }
 }

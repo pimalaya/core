@@ -87,15 +87,21 @@ impl Default for SmtpAuthConfig {
 }
 
 impl SmtpAuthConfig {
-    pub fn configure(
-        &self,
-        reset: bool,
-        get_client_secret: impl Fn() -> io::Result<String>,
-    ) -> Result<()> {
+    pub fn reset(&self) -> Result<()> {
+        debug!("resetting smtp backend configuration");
+
+        if let Self::OAuth2(oauth2) = self {
+            oauth2.reset()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn configure(&self, get_client_secret: impl Fn() -> io::Result<String>) -> Result<()> {
         debug!("configuring smtp backend");
 
-        if let SmtpAuthConfig::OAuth2(oauth2) = self {
-            oauth2.configure(reset, get_client_secret)?;
+        if let Self::OAuth2(oauth2) = self {
+            oauth2.configure(get_client_secret)?;
         }
 
         Ok(())

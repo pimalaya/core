@@ -65,6 +65,13 @@ pub enum Error {
     GetOAuth2ClientSecretFromKeyring(#[source] pimalaya_secret::Error),
     #[error("cannot save imap oauth2 client secret into global keyring")]
     SetOAuth2ClientSecretIntoKeyringError(#[source] pimalaya_secret::Error),
+
+    #[error("cannot delete imap oauth2 client secret from global keyring")]
+    DeleteOAuth2ClientSecretError(#[source] pimalaya_secret::Error),
+    #[error("cannot delete imap oauth2 access token from global keyring")]
+    DeleteOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
+    #[error("cannot delete imap oauth2 refresh token from global keyring")]
+    DeleteOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -314,12 +321,21 @@ pub struct OAuth2Config {
 }
 
 impl OAuth2Config {
-    pub fn configure(
-        &self,
-        reset: bool,
-        get_client_secret: impl Fn() -> io::Result<String>,
-    ) -> Result<()> {
-        if self.access_token.get().is_ok() && !reset {
+    pub fn reset(&self) -> Result<()> {
+        self.client_secret
+            .delete()
+            .map_err(Error::DeleteOAuth2ClientSecretError)?;
+        self.access_token
+            .delete()
+            .map_err(Error::DeleteOAuth2AccessTokenError)?;
+        self.refresh_token
+            .delete()
+            .map_err(Error::DeleteOAuth2RefreshTokenError)?;
+        Ok(())
+    }
+
+    pub fn configure(&self, get_client_secret: impl Fn() -> io::Result<String>) -> Result<()> {
+        if self.access_token.get().is_ok() {
             return Ok(());
         }
 
@@ -330,7 +346,6 @@ impl OAuth2Config {
         };
 
         let client_secret = match self.client_secret.get() {
-            _ if reset => set_client_secret(),
             Err(err) if err.is_get_secret_error() => {
                 warn!("cannot find imap oauth2 client secret from keyring, setting it");
                 set_client_secret()
