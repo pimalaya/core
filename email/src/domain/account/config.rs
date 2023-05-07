@@ -9,7 +9,15 @@ use log::warn;
 use pimalaya_oauth2::AuthorizationCodeGrant;
 use pimalaya_secret::Secret;
 use shellexpand;
-use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, result, vec};
+use std::{
+    collections::HashMap,
+    env,
+    ffi::OsStr,
+    fs, io,
+    ops::{Deref, DerefMut},
+    path::PathBuf,
+    result, vec,
+};
 use thiserror::Error;
 
 use crate::{
@@ -56,8 +64,13 @@ pub enum Error {
     GetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
     #[error("cannot set imap oauth2 access token")]
     SetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
+    #[error("cannot delete imap oauth2 access token from global keyring")]
+    DeleteOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
+
     #[error("cannot set imap oauth2 refresh token")]
     SetOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
+    #[error("cannot delete imap oauth2 refresh token from global keyring")]
+    DeleteOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
 
     #[error("cannot get imap oauth2 client secret from user")]
     GetOAuth2ClientSecretFromUserError(#[source] io::Error),
@@ -65,13 +78,17 @@ pub enum Error {
     GetOAuth2ClientSecretFromKeyring(#[source] pimalaya_secret::Error),
     #[error("cannot save imap oauth2 client secret into global keyring")]
     SetOAuth2ClientSecretIntoKeyringError(#[source] pimalaya_secret::Error),
-
     #[error("cannot delete imap oauth2 client secret from global keyring")]
     DeleteOAuth2ClientSecretError(#[source] pimalaya_secret::Error),
-    #[error("cannot delete imap oauth2 access token from global keyring")]
-    DeleteOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
-    #[error("cannot delete imap oauth2 refresh token from global keyring")]
-    DeleteOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
+
+    #[error("cannot get imap password from user")]
+    GetPasswdFromUserError(#[source] io::Error),
+    #[error("cannot get imap password from global keyring")]
+    GetPasswdFromKeyring(#[source] pimalaya_secret::Error),
+    #[error("cannot save imap password into global keyring")]
+    SetPasswdIntoKeyringError(#[source] pimalaya_secret::Error),
+    #[error("cannot delete imap password from global keyring")]
+    DeletePasswdError(#[source] pimalaya_secret::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -307,6 +324,45 @@ impl AccountConfig {
     }
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct PasswdConfig {
+    pub passwd: Secret,
+}
+
+impl Deref for PasswdConfig {
+    type Target = Secret;
+
+    fn deref(&self) -> &Self::Target {
+        &self.passwd
+    }
+}
+
+impl DerefMut for PasswdConfig {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.passwd
+    }
+}
+
+impl PasswdConfig {
+    pub fn reset(&self) -> Result<()> {
+        self.delete().map_err(Error::DeletePasswdError)?;
+        Ok(())
+    }
+
+    pub fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
+        match self.get() {
+            Err(err) if err.is_get_secret_error() => {
+                warn!("cannot find imap oauth2 client secret from keyring, setting it");
+                let passwd = get_passwd().map_err(Error::GetPasswdFromUserError)?;
+                self.set(passwd).map_err(Error::SetPasswdIntoKeyringError)?;
+                Ok(())
+            }
+            Err(err) => Err(Error::GetPasswdFromKeyring(err)),
+            Ok(_) => Ok(()),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OAuth2Config {
     pub method: OAuth2Method,
@@ -398,8 +454,9 @@ impl OAuth2Config {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum OAuth2Method {
+    #[default]
     XOAuth2,
     OAuthBearer,
 }

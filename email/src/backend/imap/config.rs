@@ -3,12 +3,10 @@
 //! This module contains the representation of the IMAP backend
 //! configuration of the user account.
 
-use log::debug;
-use pimalaya_secret::Secret;
-use std::{io, result};
+use std::result;
 use thiserror::Error;
 
-use crate::{account, process, OAuth2Config, OAuth2Method};
+use crate::{account, process, OAuth2Config, OAuth2Method, PasswdConfig};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -18,7 +16,6 @@ pub enum Error {
     GetPasswdError(#[source] pimalaya_secret::Error),
     #[error("cannot get imap password: password is empty")]
     GetPasswdEmptyError,
-
     #[error(transparent)]
     AccountConfigError(#[from] account::config::Error),
 }
@@ -54,35 +51,13 @@ pub struct ImapConfig {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ImapAuthConfig {
-    Passwd(Secret),
+    Passwd(PasswdConfig),
     OAuth2(OAuth2Config),
 }
 
 impl Default for ImapAuthConfig {
     fn default() -> Self {
-        Self::Passwd(Secret::new_raw(""))
-    }
-}
-
-impl ImapAuthConfig {
-    pub fn reset(&self) -> Result<()> {
-        debug!("resetting imap backend configuration");
-
-        if let Self::OAuth2(oauth2) = self {
-            oauth2.reset()?;
-        }
-
-        Ok(())
-    }
-
-    pub fn configure(&self, get_client_secret: impl Fn() -> io::Result<String>) -> Result<()> {
-        debug!("configuring imap backend");
-
-        if let Self::OAuth2(oauth2) = self {
-            oauth2.configure(get_client_secret)?;
-        }
-
-        Ok(())
+        Self::Passwd(PasswdConfig::default())
     }
 }
 

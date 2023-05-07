@@ -5,11 +5,10 @@
 
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use log::debug;
-use pimalaya_secret::Secret;
 use std::{io, result};
 use thiserror::Error;
 
-use crate::{account, OAuth2Config};
+use crate::{account, OAuth2Config, PasswdConfig};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -76,13 +75,13 @@ impl SmtpConfig {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SmtpAuthConfig {
-    Passwd(Secret),
+    Passwd(PasswdConfig),
     OAuth2(OAuth2Config),
 }
 
 impl Default for SmtpAuthConfig {
     fn default() -> Self {
-        Self::Passwd(Secret::new_raw(""))
+        Self::Passwd(PasswdConfig::default())
     }
 }
 

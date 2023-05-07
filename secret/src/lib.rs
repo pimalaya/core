@@ -29,17 +29,41 @@ pub enum Secret {
     Keyring(Entry),
 }
 
+impl Default for Secret {
+    fn default() -> Self {
+        Self::new_keyring("")
+    }
+}
+
 impl Secret {
-    pub fn new_raw<R: ToString>(raw: R) -> Self {
+    pub fn new_raw<R>(raw: R) -> Self
+    where
+        R: ToString,
+    {
         Self::Raw(raw.to_string())
     }
 
-    pub fn new_cmd<C: Into<Cmd>>(cmd: C) -> Self {
+    pub fn new_cmd<C>(cmd: C) -> Self
+    where
+        C: Into<Cmd>,
+    {
         Self::Cmd(cmd.into())
     }
 
-    pub fn new_keyring<E: Into<Entry>>(entry: E) -> Self {
+    pub fn new_keyring<E>(entry: E) -> Self
+    where
+        E: Into<Entry>,
+    {
         Self::Keyring(entry.into())
+    }
+
+    pub fn replace_undefined_entry_with<E>(&mut self, entry: E)
+    where
+        E: Into<Entry>,
+    {
+        if *self == Self::default() {
+            *self = Self::new_keyring(entry)
+        }
     }
 
     pub fn get(&self) -> Result<String> {
@@ -53,7 +77,10 @@ impl Secret {
         }
     }
 
-    pub fn set<S: AsRef<str>>(&self, secret: S) -> Result<String> {
+    pub fn set<S>(&self, secret: S) -> Result<String>
+    where
+        S: AsRef<str>,
+    {
         if let Self::Keyring(entry) = self {
             entry.set(secret.as_ref())?;
         }
