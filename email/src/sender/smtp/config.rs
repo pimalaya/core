@@ -3,7 +3,7 @@
 //! This module contains the representation of the SMTP email sender
 //! configuration of the user account.
 
-use lettre::transport::smtp::authentication::{Credentials, Mechanism};
+use lettre::transport::smtp::authentication::{Credentials, Mechanism, DEFAULT_MECHANISMS};
 use log::debug;
 use std::{io, result};
 use thiserror::Error;
@@ -14,6 +14,8 @@ use crate::{account, OAuth2Config, PasswdConfig};
 pub enum Error {
     #[error("cannot get smtp password")]
     GetPasswdError(#[source] pimalaya_secret::Error),
+    #[error("cannot get smtp password: password is empty")]
+    GetPasswdEmptyError,
     #[error("cannot get smtp oauth2 access token")]
     GetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
 
@@ -47,16 +49,23 @@ impl SmtpConfig {
         Ok(Credentials::new(
             self.login.clone(),
             match &self.auth {
-                SmtpAuthConfig::Passwd(secret) => secret.get().map_err(Error::GetPasswdError),
+                SmtpAuthConfig::Passwd(passwd) => {
+                    let passwd = passwd.get().map_err(Error::GetPasswdError)?;
+                    let passwd = passwd
+                        .lines()
+                        .next()
+                        .ok_or_else(|| Error::GetPasswdEmptyError)?;
+                    Result::Ok(passwd.to_owned())
+                }
                 SmtpAuthConfig::OAuth2(oauth2) => Ok(oauth2.access_token()?),
             }?,
         ))
     }
 
-    pub fn mechanism(&self) -> Mechanism {
+    pub fn mechanisms(&self) -> Vec<Mechanism> {
         match self.auth {
-            SmtpAuthConfig::Passwd(_) => Mechanism::Login,
-            SmtpAuthConfig::OAuth2(_) => Mechanism::Xoauth2,
+            SmtpAuthConfig::Passwd(_) => DEFAULT_MECHANISMS.to_vec(),
+            SmtpAuthConfig::OAuth2(_) => vec![Mechanism::Xoauth2],
         }
     }
 
