@@ -5,7 +5,7 @@
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use log::info;
-use std::{any::Any, borrow::Cow, fmt, fs::File, io, result};
+use std::{any::Any, borrow::Cow, env, fmt, fs::OpenOptions, io, result};
 use thiserror::Error;
 
 #[cfg(feature = "imap-backend")]
@@ -20,17 +20,17 @@ use crate::NotmuchBackend;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot synchronize account {0}: synchronization not enabled")]
-    SyncAccountNotEnabledError(String),
-    #[error("cannot synchronize account {0}: cannot open lock file")]
-    SyncAccountOpenLockFileError(#[source] io::Error, String),
-    #[error("cannot synchronize account {0}: cannot lock process")]
-    SyncAccountLockFileError(#[source] FileLockError, String),
-    #[error("cannot synchronize account {0}: cannot unlock process")]
-    SyncAccountUnlockFileError(#[source] FileLockError, String),
-
     #[error("cannot build backend with an empty config")]
     BuildBackendError,
+
+    #[error("cannot synchronize account {0}: synchronization not enabled")]
+    SyncAccountNotEnabledError(String),
+    #[error("cannot synchronize account {1}: cannot open lock file")]
+    SyncAccountOpenLockFileError(#[source] io::Error, String),
+    #[error("cannot synchronize account {1}: cannot lock process")]
+    SyncAccountLockFileError(#[source] FileLockError, String),
+    #[error("cannot synchronize account {1}: cannot unlock process")]
+    SyncAccountUnlockFileError(#[source] FileLockError, String),
 
     #[error(transparent)]
     EmailError(#[from] email::Error),
@@ -263,7 +263,11 @@ impl<'a> BackendSyncBuilder<'a> {
             return Err(Error::SyncAccountNotEnabledError(account.clone()));
         }
 
-        let lock_file = File::open(format!("himalaya-sync-{}.lock", account))
+        let lock_file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(env::temp_dir().join(format!("himalaya-sync-{}.lock", account)))
             .map_err(|err| Error::SyncAccountOpenLockFileError(err, account.clone()))?;
         lock_file
             .try_lock(FileLockMode::Exclusive)
