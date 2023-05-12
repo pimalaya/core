@@ -4,9 +4,10 @@
 
 use imap::extensions::idle::{stop_on_any, SetReadTimeout};
 use imap_proto::{NameAttribute, UidSetMember};
-use log::{debug, info, log_enabled, trace, Level};
+use log::{debug, error, info, log_enabled, trace, Level};
 #[cfg(feature = "native-tls")]
 use native_tls::{TlsConnector, TlsStream as NativeTlsStream};
+use pimalaya_process::Cmd;
 use rayon::prelude::*;
 #[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
 use rustls::{
@@ -22,15 +23,14 @@ use std::{
     net::TcpStream,
     result, string,
     sync::{Mutex, MutexGuard},
-    thread,
     time::Duration,
 };
 use thiserror::Error;
 use utf7_imap::{decode_utf7_imap as decode_utf7, encode_utf7_imap as encode_utf7};
 
 use crate::{
-    account, backend, email, envelope, process, AccountConfig, Backend, Emails, Envelope,
-    Envelopes, Flag, Flags, Folder, Folders, ImapAuth, ImapConfig, OAuth2Method,
+    account, backend, email, envelope, AccountConfig, Backend, Emails, Envelope, Envelopes, Flag,
+    Flags, Folder, Folders, ImapAuth, ImapConfig, OAuth2Method,
 };
 
 const ENVELOPE_QUERY: &str = "(UID FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM SUBJECT DATE)])";
@@ -521,26 +521,22 @@ impl<'a> ImapBackend<'a> {
         }
     }
 
-    pub fn watch(&self, keepalive: u64, mbox: &str) -> Result<()> {
-        debug!("examine folder: {}", mbox);
+    pub fn watch(&self, keepalive: u64, folder: &str) -> Result<()> {
         let mut session = self.session()?;
 
+        debug!("examine folder: {}", folder);
         session
-            .examine(mbox)
-            .map_err(|err| Error::ExamineFolderError(err, mbox.to_owned()))?;
+            .examine(folder)
+            .map_err(|err| Error::ExamineFolderError(err, folder.to_owned()))?;
 
         loop {
             debug!("begin loop");
 
-            let cmds = self.imap_config.watch_cmds().clone();
-            thread::spawn(move || {
-                debug!("batch execution of {} cmd(s)", cmds.len());
-                cmds.iter().for_each(|cmd| match process::run(cmd, &[]) {
-                    // TODO: manage errors
-                    Err(_) => (),
-                    Ok(_) => (),
-                })
-            });
+            let cmds: Cmd = self.imap_config.watch_cmds().clone().into();
+            match cmds.run() {
+                Ok(res) => debug!("{res:?}"),
+                Err(err) => error!("{err}"),
+            }
 
             session
                 .idle()
