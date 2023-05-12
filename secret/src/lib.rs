@@ -71,7 +71,7 @@ impl Secret {
             Self::Raw(raw) => Ok(raw.clone()),
             Self::Cmd(cmd) => {
                 let output = cmd.run().map_err(Error::GetSecretFromCmd)?;
-                Ok(String::from_utf8_lossy(&output).to_string())
+                Ok(String::from_utf8_lossy(&output.stdout).to_string())
             }
             Self::Keyring(entry) => Ok(entry.get()?),
         }

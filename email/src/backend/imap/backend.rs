@@ -4,7 +4,7 @@
 
 use imap::extensions::idle::{stop_on_any, SetReadTimeout};
 use imap_proto::{NameAttribute, UidSetMember};
-use log::{debug, error, info, log_enabled, trace, Level};
+use log::{debug, error, info, log_enabled, trace, warn, Level};
 #[cfg(feature = "native-tls")]
 use native_tls::{TlsConnector, TlsStream as NativeTlsStream};
 use pimalaya_process::Cmd;
@@ -532,10 +532,20 @@ impl<'a> ImapBackend<'a> {
         loop {
             debug!("begin loop");
 
-            let cmds: Cmd = self.imap_config.watch_cmds().clone().into();
-            match cmds.run() {
-                Ok(res) => debug!("{res:?}"),
-                Err(err) => error!("{err}"),
+            for (i, cmd) in self.imap_config.watch_cmds().iter().enumerate() {
+                debug!("running watch command {}: {cmd}", i + 1);
+                match Cmd::from(cmd.clone()).run() {
+                    Ok(output) => {
+                        debug!("watch command {} successfully executed", i + 1);
+                        trace!("exit code: {}", output.code);
+                        trace!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+                        trace!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                    }
+                    Err(err) => {
+                        warn!("error while running command {cmd}, skipping it");
+                        warn!("{err}")
+                    }
+                }
             }
 
             session

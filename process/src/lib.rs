@@ -1,8 +1,7 @@
-use log::{debug, warn};
+use log::{error, trace, warn};
 use std::{
     env,
     io::{self, prelude::*},
-    ops::Deref,
     process::{Command, Stdio},
     result,
 };
@@ -24,31 +23,21 @@ pub enum Error {
     GetStdoutError,
     #[error("cannot read data from standard output")]
     ReadStdoutError(#[source] io::Error),
+    #[error("cannot get standard error")]
+    GetStderrError,
+    #[error("cannot read data from standard error")]
+    ReadStderrError(#[source] io::Error),
+    #[error("cannot get command output")]
+    GetOutputError(#[source] io::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CmdOutput {
-    output: Vec<u8>,
-    pub exit_code: i32,
-}
-
-impl Deref for CmdOutput {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.output
-    }
-}
-
-impl CmdOutput {
-    pub fn new<O: Into<Vec<u8>>>(output: O) -> Self {
-        Self {
-            output: output.into(),
-            exit_code: 0,
-        }
-    }
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+    pub code: i32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -62,52 +51,72 @@ impl ToString for SingleCmd {
 
 impl SingleCmd {
     fn run<I: AsRef<[u8]>>(&self, input: I) -> Result<CmdOutput> {
-        debug!("running command: {}", self.to_string());
-
-        let mut output = Vec::new();
+        trace!("running command: {}", self.to_string());
 
         let windows = cfg!(target_os = "windows")
             && !(env::var("MSYSTEM")
                 .map(|env| env.starts_with("MINGW"))
                 .unwrap_or_default());
 
-        let mut pipeline = if windows {
-            Command::new("cmd")
-                .args(&["/C", &self.0])
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
+        let (shell, arg) = if windows { ("cmd", "/C") } else { ("sh", "-c") };
+        let mut cmd = Command::new(shell);
+        let cmd = cmd.args(&[arg, &self.0]);
+
+        if input.as_ref().is_empty() {
+            let output = cmd.output().map_err(Error::GetOutputError)?;
+            let code = output
+                .status
+                .code()
+                .ok_or_else(|| Error::GetExitStatusCodeNotAvailableError(self.to_string()))?;
+            Ok(CmdOutput {
+                stdout: output.stdout,
+                stderr: output.stderr,
+                code,
+            })
         } else {
-            Command::new("sh")
-                .args(&["-c", &self.0])
+            let mut stdout = Vec::new();
+            let mut stderr = Vec::new();
+
+            let mut pipeline = cmd
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .spawn()
+                .map_err(|err| Error::SpawnProcessError(err, self.to_string()))?;
+
+            pipeline
+                .stdin
+                .as_mut()
+                .ok_or(Error::GetStdinError)?
+                .write_all(input.as_ref())
+                .map_err(Error::WriteStdinError)?;
+
+            let code = pipeline
+                .wait()
+                .map_err(|err| Error::WaitForExitStatusCodeError(err, self.to_string()))?
+                .code()
+                .ok_or_else(|| Error::GetExitStatusCodeNotAvailableError(self.to_string()))?;
+
+            pipeline
+                .stdout
+                .as_mut()
+                .ok_or(Error::GetStdoutError)?
+                .read_to_end(&mut stdout)
+                .map_err(Error::ReadStdoutError)?;
+
+            pipeline
+                .stdout
+                .as_mut()
+                .ok_or(Error::GetStderrError)?
+                .read_to_end(&mut stderr)
+                .map_err(Error::ReadStderrError)?;
+
+            Ok(CmdOutput {
+                stdout,
+                stderr,
+                code,
+            })
         }
-        .map_err(|err| Error::SpawnProcessError(err, self.to_string()))?;
-
-        pipeline
-            .stdin
-            .as_mut()
-            .ok_or(Error::GetStdinError)?
-            .write_all(input.as_ref())
-            .map_err(Error::WriteStdinError)?;
-
-        let exit_code = pipeline
-            .wait()
-            .map_err(|err| Error::WaitForExitStatusCodeError(err, self.to_string()))?
-            .code()
-            .ok_or_else(|| Error::GetExitStatusCodeNotAvailableError(self.to_string()))?;
-
-        pipeline
-            .stdout
-            .ok_or(Error::GetStdoutError)?
-            .read_to_end(&mut output)
-            .map_err(Error::ReadStdoutError)?;
-
-        Ok(CmdOutput { output, exit_code })
     }
 }
 
@@ -128,17 +137,19 @@ impl ToString for Pipeline {
 
 impl Pipeline {
     fn run<I: AsRef<[u8]>>(&self, input: I) -> Result<CmdOutput> {
-        let mut output = CmdOutput::new(input.as_ref());
+        let mut output = CmdOutput {
+            stdout: input.as_ref().to_owned(),
+            stderr: Vec::new(),
+            code: 0,
+        };
 
         for cmd in &self.0 {
-            output = cmd.run(&*output)?;
+            output = cmd.run(&output.stdout)?;
 
-            if output.exit_code != 0 {
-                warn!(
-                    "command returned non-zero status exit code {}",
-                    output.exit_code,
-                );
-                warn!("{}", String::from_utf8_lossy(&output))
+            if output.code != 0 {
+                warn!("command returned non-zero status exit code {}", output.code);
+                warn!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+                warn!("stderr: {}", String::from_utf8_lossy(&output.stderr));
             }
         }
 
