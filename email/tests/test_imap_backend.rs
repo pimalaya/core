@@ -4,7 +4,7 @@ use concat_with::concat_line;
 use std::borrow::Cow;
 
 #[cfg(feature = "imap-backend")]
-use himalaya_lib::{
+use pimalaya_email::{
     AccountConfig, Backend, CompilerBuilder, Flag, ImapBackend, ImapConfig, TplBuilder,
     DEFAULT_INBOX_FOLDER,
 };
@@ -12,6 +12,9 @@ use himalaya_lib::{
 #[cfg(feature = "imap-backend")]
 #[test]
 fn test_imap_backend() {
+    use pimalaya_email::{ImapAuthConfig, PasswdConfig};
+    use pimalaya_secret::Secret;
+
     env_logger::builder().is_test(true).init();
 
     let config = AccountConfig {
@@ -31,7 +34,9 @@ fn test_imap_backend() {
             starttls: Some(false),
             insecure: Some(true),
             login: "bob@localhost".into(),
-            passwd_cmd: "echo 'password'".into(),
+            auth: ImapAuthConfig::Passwd(PasswdConfig {
+                passwd: Secret::new_raw("password"),
+            }),
             ..ImapConfig::default()
         }),
     )

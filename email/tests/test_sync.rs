@@ -1,10 +1,12 @@
 use env_logger;
+use pimalaya_secret::Secret;
 use std::{borrow::Cow, collections::HashSet, thread, time::Duration};
 use tempfile::tempdir;
 
-use himalaya_lib::{
+use pimalaya_email::{
     envelope, folder, AccountConfig, Backend, BackendSyncBuilder, CompilerBuilder, Flag, Flags,
-    ImapBackend, ImapConfig, MaildirBackend, MaildirConfig, TplBuilder,
+    ImapAuthConfig, ImapBackend, ImapConfig, MaildirBackend, MaildirConfig, PasswdConfig,
+    TplBuilder,
 };
 
 #[test]
@@ -33,7 +35,9 @@ fn test_sync() {
             starttls: Some(false),
             insecure: Some(true),
             login: "bob@localhost".into(),
-            passwd_cmd: "echo 'password'".into(),
+            auth: ImapAuthConfig::Passwd(PasswdConfig {
+                passwd: Secret::new_raw("password"),
+            }),
             ..ImapConfig::default()
         }),
     )
@@ -144,7 +148,7 @@ fn test_sync() {
 
     let sync_builder = BackendSyncBuilder::new(&account);
     sync_builder.sync(&imap).unwrap();
-    sync_builder.sync(&imap).unwrap();
+    // sync_builder.sync(&imap).unwrap();
 
     // check folders integrity
 

@@ -31,6 +31,7 @@
             rust-toolchain
             openssl
             notmuch
+            msmtp
           ];
         };
 

@@ -3,9 +3,9 @@
 //! This module exposes the backend trait, which can be used to create
 //! custom backend implementations.
 
+use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use log::info;
-use proc_lock::{try_lock, LockPath};
-use std::{any::Any, borrow::Cow, fmt, io, result};
+use std::{any::Any, borrow::Cow, fmt, fs::File, io, result};
 use thiserror::Error;
 
 #[cfg(feature = "imap-backend")]
@@ -20,12 +20,18 @@ use crate::NotmuchBackend;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot synchronize account {0}: synchronization not enabled")]
+    SyncAccountNotEnabledError(String),
+    #[error("cannot synchronize account {0}: cannot open lock file")]
+    SyncAccountOpenLockFileError(#[source] io::Error, String),
+    #[error("cannot synchronize account {0}: cannot lock process")]
+    SyncAccountLockFileError(#[source] FileLockError, String),
+    #[error("cannot synchronize account {0}: cannot unlock process")]
+    SyncAccountUnlockFileError(#[source] FileLockError, String),
+
     #[error("cannot build backend with an empty config")]
     BuildBackendError,
-    #[error("cannot lock synchronization for account {1}")]
-    SyncAccountLockError(io::Error, String),
-    #[error("synchronization not enabled for account {0}")]
-    SyncNotEnabled(String),
+
     #[error(transparent)]
     EmailError(#[from] email::Error),
     #[error(transparent)]
@@ -254,15 +260,18 @@ impl<'a> BackendSyncBuilder<'a> {
     pub fn sync(&self, remote: &dyn Backend) -> Result<BackendSyncReport> {
         let account = &self.account_config.name;
         if !self.account_config.sync {
-            return Err(Error::SyncNotEnabled(account.clone()));
+            return Err(Error::SyncAccountNotEnabledError(account.clone()));
         }
+
+        let lock_file = File::open(format!("himalaya-sync-{}.lock", account))
+            .map_err(|err| Error::SyncAccountOpenLockFileError(err, account.clone()))?;
+        lock_file
+            .try_lock(FileLockMode::Exclusive)
+            .map_err(|err| Error::SyncAccountLockFileError(err, account.clone()))?;
 
         info!("starting synchronization");
         let progress = &self.on_progress;
         let sync_dir = self.account_config.sync_dir()?;
-        let lock_path = LockPath::Tmp(format!("himalaya-sync-{}.lock", account));
-        let guard = try_lock(&lock_path)
-            .map_err(|err| Error::SyncAccountLockError(err, account.to_owned()))?;
 
         // init SQLite cache
 
@@ -327,7 +336,9 @@ impl<'a> BackendSyncBuilder<'a> {
             remote.expunge_folder(folder)?;
         }
 
-        drop(guard);
+        lock_file
+            .unlock()
+            .map_err(|err| Error::SyncAccountUnlockFileError(err, account.clone()))?;
 
         Ok(BackendSyncReport {
             folders: folders_sync_report.folders,

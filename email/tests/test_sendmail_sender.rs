@@ -1,14 +1,19 @@
 #[cfg(feature = "imap-backend")]
 use std::{borrow::Cow, thread, time::Duration};
 
-use himalaya_lib::{AccountConfig, CompilerBuilder, Sender, Sendmail, SendmailConfig, TplBuilder};
+use pimalaya_email::{
+    AccountConfig, CompilerBuilder, Sender, Sendmail, SendmailConfig, TplBuilder,
+};
 
 #[cfg(feature = "imap-backend")]
-use himalaya_lib::{Backend, ImapBackend, ImapConfig};
+use pimalaya_email::{Backend, ImapBackend, ImapConfig};
 
 #[cfg(feature = "imap-backend")]
 #[test]
 fn test_sendmail_sender() {
+    use pimalaya_email::{ImapAuthConfig, PasswdConfig};
+    use pimalaya_secret::Secret;
+
     env_logger::builder().is_test(true).init();
 
     let account_config = AccountConfig::default();
@@ -32,7 +37,9 @@ fn test_sendmail_sender() {
             port: 3143,
             ssl: Some(false),
             login: "bob@localhost".into(),
-            passwd_cmd: "echo 'password'".into(),
+            auth: ImapAuthConfig::Passwd(PasswdConfig {
+                passwd: Secret::new_raw("password"),
+            }),
             ..ImapConfig::default()
         }),
     )

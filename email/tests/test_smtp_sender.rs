@@ -1,15 +1,18 @@
 use std::{borrow::Cow, thread, time::Duration};
 
-use himalaya_lib::{AccountConfig, CompilerBuilder, Sender, TplBuilder};
+use pimalaya_email::{AccountConfig, CompilerBuilder, Sender, TplBuilder};
 
 #[cfg(feature = "imap-backend")]
-use himalaya_lib::{Backend, ImapBackend, ImapConfig};
+use pimalaya_email::{Backend, ImapBackend, ImapConfig};
 #[cfg(feature = "smtp-sender")]
-use himalaya_lib::{Smtp, SmtpConfig};
+use pimalaya_email::{Smtp, SmtpConfig};
 
 #[cfg(all(feature = "imap-backend", feature = "smtp-sender"))]
 #[test]
 fn test_smtp_sender() {
+    use pimalaya_email::{ImapAuthConfig, PasswdConfig, SmtpAuthConfig};
+    use pimalaya_secret::Secret;
+
     env_logger::builder().is_test(true).init();
 
     let account_config = AccountConfig::default();
@@ -21,7 +24,9 @@ fn test_smtp_sender() {
         starttls: Some(false),
         insecure: Some(true),
         login: "alice@localhost".into(),
-        passwd_cmd: "echo 'password'".into(),
+        auth: SmtpAuthConfig::Passwd(PasswdConfig {
+            passwd: Secret::new_raw("password"),
+        }),
         ..SmtpConfig::default()
     };
     let mut smtp = Smtp::new(&account_config, &smtp_config);
@@ -35,7 +40,9 @@ fn test_smtp_sender() {
             starttls: Some(false),
             insecure: Some(true),
             login: "bob@localhost".into(),
-            passwd_cmd: "echo password".into(),
+            auth: ImapAuthConfig::Passwd(PasswdConfig {
+                passwd: Secret::new_raw("echo 'password'"),
+            }),
             ..ImapConfig::default()
         }),
     )

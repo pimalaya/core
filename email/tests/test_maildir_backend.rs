@@ -3,7 +3,7 @@ use maildir::Maildir;
 use std::{borrow::Cow, collections::HashMap, fs, iter::FromIterator};
 use tempfile::tempdir;
 
-use himalaya_lib::{
+use pimalaya_email::{
     AccountConfig, Backend, CompilerBuilder, Flag, Flags, MaildirBackend, MaildirConfig, TplBuilder,
 };
 
