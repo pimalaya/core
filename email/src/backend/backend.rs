@@ -11,8 +11,8 @@ use thiserror::Error;
 #[cfg(feature = "imap-backend")]
 use crate::ImapBackendBuilder;
 use crate::{
-    account, backend, email, envelope, folder, id_mapper, AccountConfig, BackendConfig, Emails,
-    Envelope, Envelopes, Flag, Flags, Folders, MaildirBackend, MaildirConfig,
+    account, backend, email, envelope, folder, AccountConfig, BackendConfig, Emails, Envelope,
+    Envelopes, Flag, Flags, Folders, MaildirBackend, MaildirConfig,
 };
 
 #[cfg(feature = "notmuch-backend")]
@@ -35,8 +35,6 @@ pub enum Error {
     #[error(transparent)]
     EmailError(#[from] email::Error),
     #[error(transparent)]
-    IdMapper(#[from] id_mapper::Error),
-    #[error(transparent)]
     ConfigError(#[from] account::config::Error),
     #[error(transparent)]
     SyncFoldersError(#[from] folder::sync::Error),
@@ -44,6 +42,8 @@ pub enum Error {
     SyncEnvelopesError(#[from] envelope::sync::Error),
     #[error(transparent)]
     SqliteError(#[from] rusqlite::Error),
+    #[error(transparent)]
+    IdAliasError(#[from] pimalaya_id_alias::Error),
 
     #[cfg(feature = "imap-backend")]
     #[error(transparent)]

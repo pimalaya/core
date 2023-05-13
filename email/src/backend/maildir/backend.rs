@@ -5,6 +5,7 @@
 
 use log::{info, trace, warn};
 use maildir::Maildir;
+use pimalaya_id_alias::IdAlias;
 use std::{
     any::Any,
     borrow::Cow,
@@ -19,7 +20,7 @@ use thiserror::Error;
 use crate::{
     account::{self, config::DEFAULT_TRASH_FOLDER},
     backend, email, AccountConfig, Backend, Emails, Envelope, Envelopes, Flag, Flags, Folder,
-    Folders, IdMapper, MaildirConfig, DEFAULT_INBOX_FOLDER,
+    Folders, MaildirConfig, DEFAULT_INBOX_FOLDER,
 };
 
 #[derive(Debug, Error)]
@@ -36,7 +37,7 @@ pub enum Error {
     #[error("cannot delete folder at {1}")]
     DeleteFolderError(#[source] io::Error, PathBuf),
     #[error(transparent)]
-    IdMapperError(#[from] backend::id_mapper::Error),
+    IdAliasError(#[from] pimalaya_id_alias::Error),
 
     #[error("cannot parse timestamp from maildir envelope: {1}")]
     ParseTimestampFromMaildirEnvelopeError(mailparse::MailParseError, String),
@@ -194,7 +195,9 @@ impl<'a> MaildirBackend<'a> {
         F: AsRef<str> + ToString,
         I: AsRef<str> + ToString,
     {
-        let internal_id = self.id_mapper(folder.as_ref())?.get_internal_id(id)?;
+        let internal_id = self
+            .id_mapper(folder.as_ref())?
+            .get_id(id.as_ref().parse::<i64>().unwrap())?;
         self.get_email_path_internal(internal_id)
     }
 
@@ -226,16 +229,12 @@ impl<'a> MaildirBackend<'a> {
             .unwrap_or_else(|_| folder.to_string())
     }
 
-    pub fn id_mapper<F>(&self, folder: F) -> Result<IdMapper>
+    pub fn id_mapper<F>(&self, folder: F) -> Result<IdAlias>
     where
         F: AsRef<str>,
     {
-        let db = rusqlite::Connection::open(&self.db_path)
-            .map_err(|err| Error::OpenDatabaseError(err, self.db_path.clone()))?;
-
-        let id_mapper = IdMapper::new(db, &self.account_config.name, folder.as_ref())?;
-
-        Ok(id_mapper)
+        let key = self.account_config.name.clone() + folder.as_ref();
+        Ok(IdAlias::new(&self.db_path, key)?)
     }
 }
 
@@ -362,7 +361,7 @@ impl<'a> Backend for MaildirBackend<'a> {
         );
 
         let mdir = self.get_mdir_from_dir(folder)?;
-        let internal_id = self.id_mapper(folder)?.get_internal_id(id)?;
+        let internal_id = self.id_mapper(folder)?.get_id(id.parse::<i64>().unwrap())?;
         let mut envelope = Envelope::try_from(
             mdir.find(&internal_id)
                 .ok_or_else(|| Error::GetEnvelopeError(id.to_owned()))?,
@@ -383,7 +382,10 @@ impl<'a> Backend for MaildirBackend<'a> {
             mdir.find(internal_id)
                 .ok_or_else(|| Error::GetEnvelopeError(internal_id.to_owned()))?,
         )?;
-        envelope.id = self.id_mapper(folder)?.get_id(internal_id)?;
+        envelope.id = self
+            .id_mapper(folder)?
+            .get_or_create_alias(internal_id)?
+            .to_string();
 
         Ok(envelope)
     }
@@ -420,7 +422,9 @@ impl<'a> Backend for MaildirBackend<'a> {
             .iter()
             .map(|envelope| {
                 Ok(Envelope {
-                    id: id_mapper.get_id(&envelope.internal_id)?,
+                    id: id_mapper
+                        .get_or_create_alias(&envelope.internal_id)?
+                        .to_string(),
                     ..envelope.clone()
                 })
             })
@@ -450,7 +454,7 @@ impl<'a> Backend for MaildirBackend<'a> {
         let internal_id = mdir
             .store_cur_with_flags(email, &flags.to_normalized_string())
             .map_err(Error::StoreWithFlagsError)?;
-        let id = self.id_mapper(folder)?.insert(internal_id)?;
+        let id = self.id_mapper(folder)?.create(internal_id)?.to_string();
 
         Ok(id)
     }
@@ -470,7 +474,7 @@ impl<'a> Backend for MaildirBackend<'a> {
         let internal_id = mdir
             .store_cur_with_flags(email, &flags.to_normalized_string())
             .map_err(Error::StoreWithFlagsError)?;
-        self.id_mapper(folder)?.insert(&internal_id)?;
+        self.id_mapper(folder)?.create(&internal_id)?;
 
         Ok(internal_id)
     }
@@ -485,7 +489,7 @@ impl<'a> Backend for MaildirBackend<'a> {
         let id_mapper = self.id_mapper(folder)?;
         let internal_ids: Vec<String> = ids
             .iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         let internal_ids: Vec<&str> = internal_ids.iter().map(String::as_str).collect();
         trace!("internal ids: {:#?}", internal_ids);
@@ -594,7 +598,7 @@ impl<'a> Backend for MaildirBackend<'a> {
         let id_mapper = self.id_mapper(from_folder)?;
         let internal_ids: Vec<String> = ids
             .iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         let internal_ids: Vec<&str> = internal_ids.iter().map(String::as_str).collect();
         trace!("internal ids: {:#?}", internal_ids);
@@ -647,7 +651,7 @@ impl<'a> Backend for MaildirBackend<'a> {
         let id_mapper = self.id_mapper(from_folder)?;
         let internal_ids: Vec<String> = ids
             .iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         let internal_ids: Vec<&str> = internal_ids.iter().map(String::as_str).collect();
         trace!("internal ids: {:#?}", internal_ids);
@@ -725,7 +729,7 @@ impl<'a> Backend for MaildirBackend<'a> {
         let id_mapper = self.id_mapper(folder)?;
         let internal_ids: Vec<String> = ids
             .iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         let internal_ids: Vec<&str> = internal_ids.iter().map(String::as_str).collect();
         trace!("internal ids: {:#?}", internal_ids);
@@ -771,7 +775,7 @@ impl<'a> Backend for MaildirBackend<'a> {
         let id_mapper = self.id_mapper(folder)?;
         let internal_ids: Vec<String> = ids
             .iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         let internal_ids: Vec<&str> = internal_ids.iter().map(String::as_str).collect();
         trace!("internal ids: {:#?}", internal_ids);
@@ -817,7 +821,7 @@ impl<'a> Backend for MaildirBackend<'a> {
         let id_mapper = self.id_mapper(folder)?;
         let internal_ids: Vec<String> = ids
             .iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         let internal_ids: Vec<&str> = internal_ids.iter().map(String::as_str).collect();
         trace!("internal ids: {:#?}", internal_ids);

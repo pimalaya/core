@@ -1,11 +1,12 @@
 use lettre::address::AddressError;
 use log::{info, trace};
+use pimalaya_id_alias::IdAlias;
 use std::{any::Any, borrow::Cow, fs, io, path::PathBuf, result};
 use thiserror::Error;
 
 use crate::{
-    account, backend, email, id_mapper, AccountConfig, Backend, Emails, Envelope, Envelopes, Flag,
-    Flags, Folder, Folders, IdMapper, NotmuchConfig,
+    account, backend, email, AccountConfig, Backend, Emails, Envelope, Envelopes, Flag, Flags,
+    Folder, Folders, NotmuchConfig,
 };
 
 #[derive(Debug, Error)]
@@ -87,11 +88,11 @@ pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
     #[error(transparent)]
-    IdMapperError(#[from] id_mapper::Error),
-    #[error(transparent)]
     EmailError(#[from] email::Error),
     #[error(transparent)]
     MaildirError(#[from] backend::maildir::Error),
+    #[error(transparent)]
+    IdAliasError(#[from] pimalaya_id_alias::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -146,13 +147,9 @@ impl<'a> NotmuchBackend<'a> {
         Ok(res)
     }
 
-    pub fn id_mapper(&self) -> Result<IdMapper> {
-        let db = rusqlite::Connection::open(&self.db_path)
-            .map_err(|err| Error::OpenDatabaseError(err, self.db_path.clone()))?;
-
-        let id_mapper = IdMapper::new(db, &self.account_config.name, "all")?;
-
-        Ok(id_mapper)
+    pub fn id_mapper(&self) -> Result<IdAlias> {
+        let key = self.account_config.name.clone() + "all";
+        Ok(IdAlias::new(&self.db_path, key)?)
     }
 
     fn _search_envelopes(&self, query: &str, page_size: usize, page: usize) -> Result<Envelopes> {
@@ -185,7 +182,9 @@ impl<'a> NotmuchBackend<'a> {
             .iter()
             .map(|envelope| {
                 Ok(Envelope {
-                    id: id_mapper.get_id(&envelope.internal_id)?,
+                    id: id_mapper
+                        .get_or_create_alias(&envelope.internal_id)?
+                        .to_string(),
                     ..envelope.clone()
                 })
             })
@@ -234,7 +233,7 @@ impl<'a> Backend for NotmuchBackend<'a> {
     fn get_envelope(&self, _folder: &str, id: &str) -> backend::Result<Envelope> {
         info!("getting notmuch envelope by id {id}");
 
-        let internal_id = self.id_mapper()?.get_internal_id(id)?;
+        let internal_id = self.id_mapper()?.get_id(id.parse::<i64>().unwrap())?;
         trace!("internal id: {internal_id}");
 
         let envelope = self.with_db(|db| {
@@ -338,7 +337,7 @@ impl<'a> Backend for NotmuchBackend<'a> {
 
         let email = self.with_db(|db| db.index_file(&path, None).map_err(Error::IndexFileError))?;
         let internal_id = email.id();
-        let id = self.id_mapper()?.insert(&internal_id)?;
+        let id = self.id_mapper()?.create(&internal_id)?.to_string();
 
         Ok(id)
     }
@@ -376,7 +375,7 @@ impl<'a> Backend for NotmuchBackend<'a> {
 
         let email = self.with_db(|db| db.index_file(&path, None).map_err(Error::IndexFileError))?;
         let internal_id = email.id();
-        self.id_mapper()?.insert(&internal_id)?;
+        self.id_mapper()?.create(&internal_id)?;
 
         Ok(internal_id.to_string())
     }
@@ -390,7 +389,7 @@ impl<'a> Backend for NotmuchBackend<'a> {
         let id_mapper = self.id_mapper()?;
         let internal_ids: Vec<String> = ids
             .into_iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         trace!("internal ids: {internal_ids:?}");
 
@@ -509,7 +508,7 @@ impl<'a> Backend for NotmuchBackend<'a> {
         let id_mapper = self.id_mapper()?;
         let internal_ids: Vec<String> = ids
             .into_iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         trace!("internal ids: {internal_ids:?}");
 
@@ -568,7 +567,7 @@ impl<'a> Backend for NotmuchBackend<'a> {
         let id_mapper = self.id_mapper()?;
         let internal_ids: Vec<String> = ids
             .into_iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         trace!("internal ids: {internal_ids:?}");
 
@@ -640,7 +639,7 @@ impl<'a> Backend for NotmuchBackend<'a> {
         let id_mapper = self.id_mapper()?;
         let internal_ids: Vec<String> = ids
             .into_iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         trace!("internal ids: {internal_ids:?}");
 
@@ -725,7 +724,7 @@ impl<'a> Backend for NotmuchBackend<'a> {
         let id_mapper = self.id_mapper()?;
         let internal_ids: Vec<String> = ids
             .into_iter()
-            .map(|id| Ok(id_mapper.get_internal_id(id)?))
+            .map(|id| Ok(id_mapper.get_id(id.parse::<i64>().unwrap())?))
             .collect::<Result<_>>()?;
         trace!("internal ids: {internal_ids:?}");
 

@@ -8,7 +8,7 @@ use notmuch::Database;
 use std::{borrow::Cow, collections::HashMap, env, fs, iter::FromIterator};
 
 #[cfg(feature = "notmuch-backend")]
-use himalaya_lib::{
+use pimalaya_email::{
     AccountConfig, Backend, CompilerBuilder, Flag, Flags, NotmuchBackend, NotmuchConfig, TplBuilder,
 };
 
