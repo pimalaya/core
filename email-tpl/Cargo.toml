@@ -1,0 +1,29 @@
+[package]
+name = "pimalaya-email-tpl"
+version = "0.1.0"
+description = "Rust library for building MIME Messages based on the Emacs MIME Meta Language."
+authors = ["soywod <clement.douin@posteo.net>"]
+edition = "2021"
+license = "MIT"
+categories = ["email", "network-programming"]
+keywords = ["email", "smtp", "mailer", "message", "sendmail"]
+
+[lib]
+name = "pimalaya_email_tpl"
+
+[dev-dependencies]
+concat-with = "0.2"
+regex = "1.7"
+tempfile = "3.3"
+
+[dependencies]
+ammonia = "3.2"
+chumsky = "0.9"
+html-escape = "0.2"
+lettre = { version = "0.10.2", default-features = false, features = ["builder", "hostname"] }
+log = "0.4"
+pimalaya-process = { path = "../process" }
+regex = "1.5"
+shellexpand = "2.1"
+thiserror = "1.0"
+tree_magic = "0.2"

@@ -4,8 +4,8 @@ use lettre::address::AddressError;
 use log::{trace, warn};
 use maildir::{MailEntry, MailEntryError};
 use mailparse::{DispositionType, MailHeaderMap, MailParseError, ParsedMail};
-use mime_msg_builder::TplBuilder;
 use ouroboros::self_referencing;
+use pimalaya_email_tpl::TplBuilder;
 use std::{fmt::Debug, io, path::PathBuf, result};
 use thiserror::Error;
 use tree_magic;
@@ -40,7 +40,7 @@ pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
     #[error(transparent)]
-    MimeMsgBuilderError(#[from] mime_msg_builder::Error),
+    MimeMsgBuilderError(#[from] pimalaya_email_tpl::Error),
     #[error("cannot decrypt encrypted email part")]
     DecryptEmailPartError(#[source] process::Error),
     #[error("cannot verify signed email part")]

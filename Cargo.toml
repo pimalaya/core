@@ -2,6 +2,7 @@
 
 members = [
   "email",
+  "email-tpl",
   "keyring",
   "oauth2",
   "pomodoro",

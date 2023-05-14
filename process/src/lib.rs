@@ -182,6 +182,12 @@ impl From<String> for Cmd {
     }
 }
 
+impl From<&str> for Cmd {
+    fn from(cmd: &str) -> Self {
+        Self::SingleCmd(SingleCmd(cmd.to_owned()))
+    }
+}
+
 impl From<Vec<String>> for Cmd {
     fn from(cmds: Vec<String>) -> Self {
         Self::Pipeline(Pipeline(cmds.into_iter().map(SingleCmd).collect()))

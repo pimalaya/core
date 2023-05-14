@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## Unreleased
 
 ### Added
 
@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed `rustls-native-certs` cargo feature, it is now included by default within the `rustls-tls` cargo feature.
+- Removed `Backend::*_internal` functions, no more aliases are used within the lib [#38].
 
 ## [0.7.0] - 2023-05-01
 
@@ -224,17 +225,18 @@ First official version of the Himalaya's library. The source code mostly comes f
 [secret service]: https://specifications.freedesktop.org/secret-service/latest/
 [keyring]: https://crates.io/crates/keyring
 
-[patch#1]: https://lists.sr.ht/~soywod/himalaya-lib/%3C20220929084520.98165-1-me%40paulrouget.com%3E
-[patch#2]: https://lists.sr.ht/~soywod/pimalaya/%3C20230219010155.108114-1-me%40djha.skin%3E
-[patch#3]: https://lists.sr.ht/~soywod/pimalaya/%3C20230219125611.1776646-1-piotr%40machura.xyz%3E
-[patch#4]: https://lists.sr.ht/~soywod/pimalaya/%3C20230220214559.945-1-me%40djha.skin%3E
-[patch#5]: https://lists.sr.ht/~soywod/pimalaya/%3C20230221185145.90120-1-me%40djha.skin%3E
-[patch#6]: https://lists.sr.ht/~soywod/pimalaya/%3C20230221185145.90120-1-me%40djha.skin%3E#%3C20230221185145.90120-2-me@djha.skin%3E
+[patch#1]: https://lists.sr.ht/~soywod/himalaya-lib/patches/35686
+[patch#2]: https://lists.sr.ht/~soywod/pimalaya/patches/39136
+[patch#3]: https://lists.sr.ht/~soywod/pimalaya/patches/39154
+[patch#4]: https://lists.sr.ht/~soywod/pimalaya/patches/39189
+[patch#5]: https://lists.sr.ht/~soywod/pimalaya/patches/39215
+[patch#6]: https://lists.sr.ht/~soywod/pimalaya/patches/39215
 [patch#7]: https://lists.sr.ht/~soywod/pimalaya/patches/39261
 
 [#9]: https://todo.sr.ht/~soywod/pimalaya/9
 [#20]: https://todo.sr.ht/~soywod/pimalaya/20
 [#37]: https://todo.sr.ht/~soywod/pimalaya/37
+[#38]: https://todo.sr.ht/~soywod/pimalaya/38
 [#44]: https://todo.sr.ht/~soywod/pimalaya/44
 [#45]: https://todo.sr.ht/~soywod/pimalaya/45
 [#46]: https://todo.sr.ht/~soywod/pimalaya/46
@@ -242,14 +244,3 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#52]: https://todo.sr.ht/~soywod/pimalaya/52
 [#57]: https://todo.sr.ht/~soywod/pimalaya/57
 [#61]: https://todo.sr.ht/~soywod/pimalaya/61
-
-[0.6.0]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.6.0
-[0.5.1]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.5.1
-[0.5.0]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.5.0
-[0.4.0]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.4.0
-[0.3.1]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.3.1
-[0.3.0]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.3.0
-[0.2.1]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.2.1
-[0.2.0]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.2.0
-[0.1.0]: https://git.sr.ht/~soywod/himalaya-lib/refs/v0.1.0
-
