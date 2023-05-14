@@ -108,6 +108,10 @@ impl<'a> NotmuchBackend<'a> {
         NotmuchBackendBuilder::new().build(account_config, backend_config)
     }
 
+    pub fn path(&self) -> PathBuf {
+        self.backend_config.db_path.to_owned()
+    }
+
     pub fn get_default_db_path() -> Result<PathBuf> {
         Ok(notmuch::Database::open_with_config(
             None as Option<PathBuf>,

@@ -119,6 +119,10 @@ impl<'a> MaildirBackend<'a> {
         Ok(maildir_backend)
     }
 
+    pub fn path(&self) -> PathBuf {
+        self.mdir.path().to_owned()
+    }
+
     fn validate_mdir_path(&self, mdir_path: PathBuf) -> Result<PathBuf> {
         if mdir_path.is_dir() {
             Ok(mdir_path)
