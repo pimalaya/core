@@ -65,8 +65,7 @@ impl Cache {
         let envelopes: Vec<Envelope> = stmt
             .query_map([account.as_ref(), folder.as_ref()], |row| {
                 Ok(Envelope {
-                    id: row.get(0)?,
-                    internal_id: row.get(1)?,
+                    id: row.get(1)?,
                     message_id: row.get(2)?,
                     flags: row
                         .get::<usize, Option<String>>(5)?
@@ -131,7 +130,7 @@ impl Cache {
                 INSERT_ENVELOPE,
                 (
                     &envelope.id,
-                    &envelope.internal_id,
+                    &envelope.id,
                     &envelope.message_id,
                     account.as_ref(),
                     folder.as_ref(),
@@ -147,7 +146,7 @@ impl Cache {
                     INSERT_ENVELOPE,
                     (
                         &envelope.id,
-                        &envelope.internal_id,
+                        &envelope.id,
                         &envelope.message_id,
                         account.as_ref(),
                         folder.as_ref(),

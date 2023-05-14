@@ -42,8 +42,6 @@ pub enum Error {
     SyncEnvelopesError(#[from] envelope::sync::Error),
     #[error(transparent)]
     SqliteError(#[from] rusqlite::Error),
-    #[error(transparent)]
-    IdAliasError(#[from] pimalaya_id_alias::Error),
 
     #[cfg(feature = "imap-backend")]
     #[error(transparent)]
@@ -67,10 +65,6 @@ pub trait Backend: Sync + Send {
     fn delete_folder(&self, folder: &str) -> Result<()>;
 
     fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope>;
-    fn get_envelope_internal(&self, folder: &str, internal_id: &str) -> Result<Envelope> {
-        self.get_envelope(folder, internal_id)
-    }
-
     fn list_envelopes(&self, folder: &str, page_size: usize, page: usize) -> Result<Envelopes>;
     fn search_envelopes(
         &self,
@@ -82,84 +76,18 @@ pub trait Backend: Sync + Send {
     ) -> Result<Envelopes>;
 
     fn add_email(&self, folder: &str, email: &[u8], flags: &Flags) -> Result<String>;
-    fn add_email_internal(&self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
-        self.add_email(folder, email, flags)
-    }
-
     fn preview_emails(&self, folder: &str, ids: Vec<&str>) -> Result<Emails>;
-    fn preview_emails_internal(&self, folder: &str, internal_ids: Vec<&str>) -> Result<Emails> {
-        self.preview_emails(folder, internal_ids)
-    }
-
     fn get_emails(&self, folder: &str, ids: Vec<&str>) -> Result<Emails>;
-    fn get_emails_internal(&self, folder: &str, internal_ids: Vec<&str>) -> Result<Emails> {
-        self.get_emails(folder, internal_ids)
-    }
-
     fn copy_emails(&self, from_folder: &str, to_folder: &str, ids: Vec<&str>) -> Result<()>;
-    fn copy_emails_internal(
-        &self,
-        from_folder: &str,
-        to_folder: &str,
-        internal_ids: Vec<&str>,
-    ) -> Result<()> {
-        self.copy_emails(from_folder, to_folder, internal_ids)
-    }
-
     fn move_emails(&self, from_folder: &str, to_folder: &str, ids: Vec<&str>) -> Result<()>;
-    fn move_emails_internal(
-        &self,
-        from_folder: &str,
-        to_folder: &str,
-        internal_ids: Vec<&str>,
-    ) -> Result<()> {
-        self.move_emails(from_folder, to_folder, internal_ids)
-    }
-
-    fn mark_emails_as_deleted(&self, folder: &str, ids: Vec<&str>) -> backend::Result<()> {
-        self.add_flags(folder, ids, &Flags::from_iter([Flag::Deleted]))
-    }
-    fn mark_emails_as_deleted_internal(
-        &self,
-        folder: &str,
-        internal_ids: Vec<&str>,
-    ) -> backend::Result<()> {
-        self.add_flags_internal(folder, internal_ids, &Flags::from_iter([Flag::Deleted]))
-    }
-
     fn delete_emails(&self, folder: &str, ids: Vec<&str>) -> Result<()>;
-    fn delete_emails_internal(&self, folder: &str, internal_ids: Vec<&str>) -> Result<()> {
-        self.delete_emails(folder, internal_ids)
-    }
 
     fn add_flags(&self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
-    fn add_flags_internal(
-        &self,
-        folder: &str,
-        internal_ids: Vec<&str>,
-        flags: &Flags,
-    ) -> Result<()> {
-        self.add_flags(folder, internal_ids, flags)
-    }
-
     fn set_flags(&self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
-    fn set_flags_internal(
-        &self,
-        folder: &str,
-        internal_ids: Vec<&str>,
-        flags: &Flags,
-    ) -> Result<()> {
-        self.set_flags(folder, internal_ids, flags)
-    }
-
     fn remove_flags(&self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
-    fn remove_flags_internal(
-        &self,
-        folder: &str,
-        internal_ids: Vec<&str>,
-        flags: &Flags,
-    ) -> Result<()> {
-        self.remove_flags(folder, internal_ids, flags)
+
+    fn mark_emails_as_deleted(&self, folder: &str, ids: Vec<&str>) -> Result<()> {
+        self.add_flags(folder, ids, &Flags::from_iter([Flag::Deleted]))
     }
 
     fn close(&self) -> Result<()> {

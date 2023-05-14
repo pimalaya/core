@@ -29,7 +29,7 @@ impl TryFrom<&Fetch<'_>> for Envelope {
 
         envelope.id = id;
 
-        envelope.internal_id = envelope.id.clone();
+        envelope.id = envelope.id.clone();
 
         envelope.flags = Flags::from(fetch.flags());
 

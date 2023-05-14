@@ -26,7 +26,7 @@ impl TryFrom<notmuch::Message> for Envelope {
 
         let mut envelope: Envelope = headers.as_bytes().into();
 
-        envelope.internal_id = msg.id().to_string();
+        envelope.id = msg.id().to_string();
 
         envelope.flags = msg.tags().flat_map(Flag::try_from).collect();
 

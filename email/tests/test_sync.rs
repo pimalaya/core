@@ -148,7 +148,7 @@ fn test_sync() {
 
     let sync_builder = BackendSyncBuilder::new(&account);
     sync_builder.sync(&imap).unwrap();
-    // sync_builder.sync(&imap).unwrap();
+    sync_builder.sync(&imap).unwrap();
 
     // check folders integrity
 
@@ -276,20 +276,20 @@ fn test_sync() {
     // remove emails and update flags from both side, sync again and
     // check integrity
 
-    imap.delete_emails_internal("INBOX", vec![&imap_inbox_envelopes[0].internal_id])
+    imap.delete_emails("INBOX", vec![&imap_inbox_envelopes[0].id])
         .unwrap();
-    imap.add_flags_internal(
+    imap.add_flags(
         "INBOX",
-        vec![&imap_inbox_envelopes[1].internal_id],
+        vec![&imap_inbox_envelopes[1].id],
         &Flags::from_iter([Flag::Draft]),
     )
     .unwrap();
     imap.expunge_folder("INBOX").unwrap();
-    mdir.delete_emails_internal("INBOX", vec![&mdir_inbox_envelopes[2].internal_id])
+    mdir.delete_emails("INBOX", vec![&mdir_inbox_envelopes[2].id])
         .unwrap();
-    mdir.add_flags_internal(
+    mdir.add_flags(
         "INBOX",
-        vec![&mdir_inbox_envelopes[1].internal_id],
+        vec![&mdir_inbox_envelopes[1].id],
         &Flags::from_iter([Flag::Flagged, Flag::Answered]),
     )
     .unwrap();

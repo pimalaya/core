@@ -130,10 +130,8 @@ impl Mailbox {
 /// subset, and is mostly used for listings.
 #[derive(Clone, Debug, Default, Eq)]
 pub struct Envelope {
-    /// Represents the identifier.
+    /// Represents the envelope identifier.
     pub id: String,
-    /// Represents the internal identifier.
-    pub internal_id: String,
     /// Represents the Message-ID header.
     pub message_id: String,
     /// Represents the flags.

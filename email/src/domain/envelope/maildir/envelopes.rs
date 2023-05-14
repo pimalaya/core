@@ -14,7 +14,7 @@ impl TryFrom<maildir::MailEntries> for Envelopes {
 
     fn try_from(entries: maildir::MailEntries) -> Result<Self> {
         Ok(Envelopes::from_iter(
-            // TODO: clean me please
+            // TODO: clean me, please
             entries
                 .collect::<Vec<_>>()
                 .into_par_iter()

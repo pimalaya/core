@@ -53,7 +53,7 @@ impl TryFrom<maildir::MailEntry> for Envelope {
 
         let mut envelope: Envelope = headers.as_slice().into();
 
-        envelope.internal_id = entry.id().to_owned();
+        envelope.id = entry.id().to_owned();
 
         envelope.flags = Flags::from(&entry);
 

@@ -241,9 +241,8 @@ impl<'a> SyncBuilder<'a> {
             let process_hunk = |hunk: &BackendHunk| {
                 Result::Ok(match hunk {
                     BackendHunk::CacheEnvelope(folder, internal_id, HunkKindRestricted::Local) => {
-                        let envelope = local
-                            .get_envelope_internal(folder, &internal_id)
-                            .map_err(Box::new)?;
+                        let envelope =
+                            local.get_envelope(folder, &internal_id).map_err(Box::new)?;
                         vec![CacheHunk::InsertEnvelope(
                             folder.clone(),
                             envelope.clone(),
@@ -252,7 +251,7 @@ impl<'a> SyncBuilder<'a> {
                     }
                     BackendHunk::CacheEnvelope(folder, internal_id, HunkKindRestricted::Remote) => {
                         let envelope = remote
-                            .get_envelope_internal(&folder, &internal_id)
+                            .get_envelope(&folder, &internal_id)
                             .map_err(Box::new)?;
                         vec![CacheHunk::InsertEnvelope(
                             folder.clone(),
@@ -268,7 +267,7 @@ impl<'a> SyncBuilder<'a> {
                         refresh_source_cache,
                     ) => {
                         let mut cache_hunks = vec![];
-                        let internal_ids = vec![envelope.internal_id.as_str()];
+                        let internal_ids = vec![envelope.id.as_str()];
                         let emails = match source {
                             HunkKindRestricted::Local => {
                                 if *refresh_source_cache {
@@ -278,7 +277,7 @@ impl<'a> SyncBuilder<'a> {
                                         TargetRestricted::Local,
                                     ))
                                 };
-                                local.preview_emails_internal(folder, internal_ids)
+                                local.preview_emails(folder, internal_ids)
                             }
                             HunkKindRestricted::Remote => {
                                 if *refresh_source_cache {
@@ -288,23 +287,22 @@ impl<'a> SyncBuilder<'a> {
                                         TargetRestricted::Remote,
                                     ))
                                 };
-                                remote.preview_emails_internal(folder, internal_ids)
+                                remote.preview_emails(folder, internal_ids)
                             }
                         }
                         .map_err(Box::new)?;
                         let emails = emails.to_vec();
                         let email = emails
                             .first()
-                            .ok_or_else(|| Error::FindEmailError(envelope.internal_id.clone()))?;
+                            .ok_or_else(|| Error::FindEmailError(envelope.id.clone()))?;
 
                         match target {
                             HunkKindRestricted::Local => {
                                 let internal_id = local
-                                    .add_email_internal(folder, email.raw()?, &envelope.flags)
+                                    .add_email(folder, email.raw()?, &envelope.flags)
                                     .map_err(Box::new)?;
-                                let envelope = local
-                                    .get_envelope_internal(folder, &internal_id)
-                                    .map_err(Box::new)?;
+                                let envelope =
+                                    local.get_envelope(folder, &internal_id).map_err(Box::new)?;
                                 cache_hunks.push(CacheHunk::InsertEnvelope(
                                     folder.clone(),
                                     envelope.clone(),
@@ -313,10 +311,10 @@ impl<'a> SyncBuilder<'a> {
                             }
                             HunkKindRestricted::Remote => {
                                 let internal_id = remote
-                                    .add_email_internal(&folder, email.raw()?, &envelope.flags)
+                                    .add_email(&folder, email.raw()?, &envelope.flags)
                                     .map_err(Box::new)?;
                                 let envelope = remote
-                                    .get_envelope_internal(&folder, &internal_id)
+                                    .get_envelope(&folder, &internal_id)
                                     .map_err(Box::new)?;
                                 cache_hunks.push(CacheHunk::InsertEnvelope(
                                     folder.clone(),
@@ -336,7 +334,7 @@ impl<'a> SyncBuilder<'a> {
                     }
                     BackendHunk::RemoveEmail(folder, internal_id, HunkKind::Local) => {
                         local
-                            .mark_emails_as_deleted_internal(folder, vec![internal_id])
+                            .mark_emails_as_deleted(folder, vec![internal_id])
                             .map_err(Box::new)?;
                         vec![]
                     }
@@ -349,7 +347,7 @@ impl<'a> SyncBuilder<'a> {
                     }
                     BackendHunk::RemoveEmail(folder, internal_id, HunkKind::Remote) => {
                         remote
-                            .mark_emails_as_deleted_internal(folder, vec![internal_id])
+                            .mark_emails_as_deleted(folder, vec![internal_id])
                             .map_err(Box::new)?;
                         vec![]
                     }
@@ -357,7 +355,7 @@ impl<'a> SyncBuilder<'a> {
                         vec![
                             CacheHunk::DeleteEnvelope(
                                 folder.clone(),
-                                envelope.internal_id.clone(),
+                                envelope.id.clone(),
                                 TargetRestricted::Local,
                             ),
                             CacheHunk::InsertEnvelope(
@@ -369,11 +367,7 @@ impl<'a> SyncBuilder<'a> {
                     }
                     BackendHunk::SetFlags(folder, envelope, HunkKind::Local) => {
                         local
-                            .set_flags_internal(
-                                folder,
-                                vec![&envelope.internal_id],
-                                &envelope.flags,
-                            )
+                            .set_flags(folder, vec![&envelope.id], &envelope.flags)
                             .map_err(Box::new)?;
                         vec![]
                     }
@@ -381,7 +375,7 @@ impl<'a> SyncBuilder<'a> {
                         vec![
                             CacheHunk::DeleteEnvelope(
                                 folder.clone(),
-                                envelope.internal_id.clone(),
+                                envelope.id.clone(),
                                 TargetRestricted::Remote,
                             ),
                             CacheHunk::InsertEnvelope(
@@ -393,11 +387,7 @@ impl<'a> SyncBuilder<'a> {
                     }
                     BackendHunk::SetFlags(folder, envelope, HunkKind::Remote) => {
                         remote
-                            .set_flags_internal(
-                                folder,
-                                vec![&envelope.internal_id],
-                                &envelope.flags,
-                            )
+                            .set_flags(folder, vec![&envelope.id], &envelope.flags)
                             .map_err(Box::new)?;
                         vec![]
                     }
@@ -525,7 +515,7 @@ where
             // remote cache.
             (None, None, Some(remote_cache), None) => patch.push(vec![BackendHunk::RemoveEmail(
                 folder.to_string(),
-                remote_cache.internal_id.clone(),
+                remote_cache.id.clone(),
                 HunkKind::RemoteCache,
             )]),
 
@@ -587,7 +577,7 @@ where
                     patch.push(vec![
                         BackendHunk::RemoveEmail(
                             folder.to_string(),
-                            remote.internal_id.clone(),
+                            remote.id.clone(),
                             HunkKind::Remote,
                         ),
                         BackendHunk::CopyEmail(
@@ -602,7 +592,7 @@ where
                     patch.push(vec![
                         BackendHunk::RemoveEmail(
                             folder.to_string(),
-                            local.internal_id.clone(),
+                            local.id.clone(),
                             HunkKind::Local,
                         ),
                         BackendHunk::CopyEmail(
@@ -630,7 +620,7 @@ where
             (None, Some(local), Some(remote_cache), None) => patch.push(vec![
                 BackendHunk::RemoveEmail(
                     folder.to_string(),
-                    remote_cache.internal_id.clone(),
+                    remote_cache.id.clone(),
                     HunkKind::RemoteCache,
                 ),
                 BackendHunk::CopyEmail(
@@ -650,7 +640,7 @@ where
             (None, Some(local), Some(remote_cache), Some(remote)) => {
                 patch.push(vec![BackendHunk::CacheEnvelope(
                     folder.to_string(),
-                    local.internal_id.clone(),
+                    local.id.clone(),
                     HunkKindRestricted::Local,
                 )]);
 
@@ -697,7 +687,7 @@ where
             // cleaned.
             (Some(local_cache), None, None, None) => patch.push(vec![BackendHunk::RemoveEmail(
                 folder.to_string(),
-                local_cache.internal_id.clone(),
+                local_cache.id.clone(),
                 HunkKind::LocalCache,
             )]),
 
@@ -714,7 +704,7 @@ where
             (Some(local_cache), None, None, Some(remote)) => patch.push(vec![
                 BackendHunk::RemoveEmail(
                     folder.to_string(),
-                    local_cache.internal_id.clone(),
+                    local_cache.id.clone(),
                     HunkKind::LocalCache,
                 ),
                 BackendHunk::CopyEmail(
@@ -733,12 +723,12 @@ where
             (Some(local_cache), None, Some(remote_cache), None) => patch.extend([
                 vec![BackendHunk::RemoveEmail(
                     folder.to_string(),
-                    local_cache.internal_id.clone(),
+                    local_cache.id.clone(),
                     HunkKind::LocalCache,
                 )],
                 vec![BackendHunk::RemoveEmail(
                     folder.to_string(),
-                    remote_cache.internal_id.clone(),
+                    remote_cache.id.clone(),
                     HunkKind::RemoteCache,
                 )],
             ]),
@@ -751,17 +741,17 @@ where
             (Some(local_cache), None, Some(remote_cache), Some(remote)) => patch.extend([
                 vec![BackendHunk::RemoveEmail(
                     folder.to_string(),
-                    local_cache.internal_id.clone(),
+                    local_cache.id.clone(),
                     HunkKind::LocalCache,
                 )],
                 vec![BackendHunk::RemoveEmail(
                     folder.to_string(),
-                    remote_cache.internal_id.clone(),
+                    remote_cache.id.clone(),
                     HunkKind::RemoteCache,
                 )],
                 vec![BackendHunk::RemoveEmail(
                     folder.to_string(),
-                    remote.internal_id.clone(),
+                    remote.id.clone(),
                     HunkKind::Remote,
                 )],
             ]),
@@ -841,7 +831,7 @@ where
 
                 patch.push(vec![BackendHunk::CacheEnvelope(
                     folder.to_string(),
-                    remote.internal_id.clone(),
+                    remote.id.clone(),
                     HunkKindRestricted::Remote,
                 )]);
             }
@@ -854,17 +844,17 @@ where
             (Some(local_cache), Some(local), Some(remote_cache), None) => patch.extend([
                 vec![BackendHunk::RemoveEmail(
                     folder.to_string(),
-                    local_cache.internal_id.clone(),
+                    local_cache.id.clone(),
                     HunkKind::LocalCache,
                 )],
                 vec![BackendHunk::RemoveEmail(
                     folder.to_string(),
-                    local.internal_id.clone(),
+                    local.id.clone(),
                     HunkKind::Local,
                 )],
                 vec![BackendHunk::RemoveEmail(
                     folder.to_string(),
-                    remote_cache.internal_id.clone(),
+                    remote_cache.id.clone(),
                     HunkKind::RemoteCache,
                 )],
             ]),
@@ -958,7 +948,7 @@ mod envelopes_sync {
         let remote = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-id".into(),
+                id: "remote-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -969,7 +959,7 @@ mod envelopes_sync {
             vec![vec![BackendHunk::CopyEmail(
                 "inbox".into(),
                 Envelope {
-                    internal_id: "remote-id".into(),
+                    id: "remote-id".into(),
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
@@ -987,7 +977,7 @@ mod envelopes_sync {
         let remote_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-cache-id".into(),
+                id: "remote-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1011,7 +1001,7 @@ mod envelopes_sync {
         let remote_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-cache-id".into(),
+                id: "remote-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1019,7 +1009,7 @@ mod envelopes_sync {
         let remote = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-id".into(),
+                id: "remote-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1030,7 +1020,7 @@ mod envelopes_sync {
             vec![vec![BackendHunk::CopyEmail(
                 "inbox".into(),
                 Envelope {
-                    internal_id: "remote-id".into(),
+                    id: "remote-id".into(),
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
@@ -1048,7 +1038,7 @@ mod envelopes_sync {
         let remote_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-cache-id".into(),
+                id: "remote-cache-id".into(),
                 flags: "seen replied".into(),
                 ..Envelope::default()
             },
@@ -1056,7 +1046,7 @@ mod envelopes_sync {
         let remote = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-id".into(),
+                id: "remote-id".into(),
                 flags: "seen flagged deleted".into(),
                 ..Envelope::default()
             },
@@ -1068,7 +1058,7 @@ mod envelopes_sync {
                 vec![BackendHunk::CopyEmail(
                     "inbox".into(),
                     Envelope {
-                        internal_id: "remote-id".into(),
+                        id: "remote-id".into(),
                         flags: "seen flagged deleted".into(),
                         ..Envelope::default()
                     },
@@ -1079,7 +1069,7 @@ mod envelopes_sync {
                 vec![BackendHunk::SetFlags(
                     "inbox".into(),
                     Envelope {
-                        internal_id: "remote-cache-id".into(),
+                        id: "remote-cache-id".into(),
                         flags: Flags::from_iter([Flag::Seen, Flag::Flagged, Flag::Deleted]),
                         ..Envelope::default()
                     },
@@ -1095,7 +1085,7 @@ mod envelopes_sync {
         let local = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-id".into(),
+                id: "local-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1108,7 +1098,7 @@ mod envelopes_sync {
             vec![vec![BackendHunk::CopyEmail(
                 "inbox".into(),
                 Envelope {
-                    internal_id: "local-id".into(),
+                    id: "local-id".into(),
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
@@ -1126,7 +1116,7 @@ mod envelopes_sync {
             (
                 "message_id-1".into(),
                 Envelope {
-                    internal_id: "local-id-1".into(),
+                    id: "local-id-1".into(),
                     flags: "seen".into(),
                     date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                     ..Envelope::default()
@@ -1135,7 +1125,7 @@ mod envelopes_sync {
             (
                 "message_id-2".into(),
                 Envelope {
-                    internal_id: "local-id-2".into(),
+                    id: "local-id-2".into(),
                     flags: "seen".into(),
                     date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                     ..Envelope::default()
@@ -1144,7 +1134,7 @@ mod envelopes_sync {
             (
                 "message_id-3".into(),
                 Envelope {
-                    internal_id: "local-id-3".into(),
+                    id: "local-id-3".into(),
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
@@ -1152,7 +1142,7 @@ mod envelopes_sync {
             (
                 "message_id-4".into(),
                 Envelope {
-                    internal_id: "local-id-4".into(),
+                    id: "local-id-4".into(),
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
@@ -1160,7 +1150,7 @@ mod envelopes_sync {
             (
                 "message_id-5".into(),
                 Envelope {
-                    internal_id: "local-id-5".into(),
+                    id: "local-id-5".into(),
                     flags: "seen".into(),
                     date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                     ..Envelope::default()
@@ -1172,7 +1162,7 @@ mod envelopes_sync {
             (
                 "message_id-1".into(),
                 Envelope {
-                    internal_id: "remote-id-1".into(),
+                    id: "remote-id-1".into(),
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
@@ -1180,7 +1170,7 @@ mod envelopes_sync {
             (
                 "message_id-2".into(),
                 Envelope {
-                    internal_id: "remote-id-2".into(),
+                    id: "remote-id-2".into(),
                     flags: "seen".into(),
                     date: "2021-01-01T00:00:00-00:00".parse().unwrap(),
                     ..Envelope::default()
@@ -1189,7 +1179,7 @@ mod envelopes_sync {
             (
                 "message_id-3".into(),
                 Envelope {
-                    internal_id: "remote-id-3".into(),
+                    id: "remote-id-3".into(),
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
@@ -1197,7 +1187,7 @@ mod envelopes_sync {
             (
                 "message_id-4".into(),
                 Envelope {
-                    internal_id: "remote-id-4".into(),
+                    id: "remote-id-4".into(),
                     flags: "seen".into(),
                     date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                     ..Envelope::default()
@@ -1206,7 +1196,7 @@ mod envelopes_sync {
             (
                 "message_id-5".into(),
                 Envelope {
-                    internal_id: "remote-id-5".into(),
+                    id: "remote-id-5".into(),
                     flags: "seen".into(),
                     date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                     ..Envelope::default()
@@ -1228,7 +1218,7 @@ mod envelopes_sync {
         assert!(patch.contains(&BackendHunk::CopyEmail(
             "inbox".into(),
             Envelope {
-                internal_id: "local-id-1".into(),
+                id: "local-id-1".into(),
                 flags: "seen".into(),
                 date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                 ..Envelope::default()
@@ -1245,7 +1235,7 @@ mod envelopes_sync {
         assert!(patch.contains(&BackendHunk::CopyEmail(
             "inbox".into(),
             Envelope {
-                internal_id: "local-id-2".into(),
+                id: "local-id-2".into(),
                 flags: "seen".into(),
                 date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                 ..Envelope::default()
@@ -1262,7 +1252,7 @@ mod envelopes_sync {
         assert!(patch.contains(&BackendHunk::CopyEmail(
             "inbox".into(),
             Envelope {
-                internal_id: "remote-id-3".into(),
+                id: "remote-id-3".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1278,7 +1268,7 @@ mod envelopes_sync {
         assert!(patch.contains(&BackendHunk::CopyEmail(
             "inbox".into(),
             Envelope {
-                internal_id: "remote-id-4".into(),
+                id: "remote-id-4".into(),
                 flags: "seen".into(),
                 date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                 ..Envelope::default()
@@ -1295,7 +1285,7 @@ mod envelopes_sync {
         assert!(patch.contains(&BackendHunk::CopyEmail(
             "inbox".into(),
             Envelope {
-                internal_id: "remote-id-5".into(),
+                id: "remote-id-5".into(),
                 flags: "seen".into(),
                 date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                 ..Envelope::default()
@@ -1312,7 +1302,7 @@ mod envelopes_sync {
         let local = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-id".into(),
+                id: "local-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1320,7 +1310,7 @@ mod envelopes_sync {
         let remote_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-id".into(),
+                id: "remote-id".into(),
                 flags: "flagged".into(),
                 ..Envelope::default()
             },
@@ -1334,7 +1324,7 @@ mod envelopes_sync {
                 BackendHunk::CopyEmail(
                     "inbox".into(),
                     Envelope {
-                        internal_id: "local-id".into(),
+                        id: "local-id".into(),
                         flags: "seen".into(),
                         ..Envelope::default()
                     },
@@ -1352,7 +1342,7 @@ mod envelopes_sync {
         let local = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-id".into(),
+                id: "local-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1360,7 +1350,7 @@ mod envelopes_sync {
         let remote_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-cache-id".into(),
+                id: "remote-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1368,7 +1358,7 @@ mod envelopes_sync {
         let remote = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-id".into(),
+                id: "remote-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1389,7 +1379,7 @@ mod envelopes_sync {
         let local_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-cache-id".into(),
+                id: "local-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1413,7 +1403,7 @@ mod envelopes_sync {
         let local_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-cache-id".into(),
+                id: "local-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1423,7 +1413,7 @@ mod envelopes_sync {
         let remote = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-id".into(),
+                id: "remote-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1440,7 +1430,7 @@ mod envelopes_sync {
                 BackendHunk::CopyEmail(
                     "inbox".into(),
                     Envelope {
-                        internal_id: "remote-id".into(),
+                        id: "remote-id".into(),
                         flags: "seen".into(),
                         ..Envelope::default()
                     },
@@ -1457,7 +1447,7 @@ mod envelopes_sync {
         let local_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-cache-id".into(),
+                id: "local-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1466,7 +1456,7 @@ mod envelopes_sync {
         let remote_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-cache-id".into(),
+                id: "remote-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1495,7 +1485,7 @@ mod envelopes_sync {
         let local_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-cache-id".into(),
+                id: "local-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1504,7 +1494,7 @@ mod envelopes_sync {
         let remote_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-cache-id".into(),
+                id: "remote-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1512,7 +1502,7 @@ mod envelopes_sync {
         let remote = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-id".into(),
+                id: "remote-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1545,7 +1535,7 @@ mod envelopes_sync {
         let local_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-cache-id".into(),
+                id: "local-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1553,7 +1543,7 @@ mod envelopes_sync {
         let local = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-id".into(),
+                id: "local-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1566,7 +1556,7 @@ mod envelopes_sync {
             vec![vec![BackendHunk::CopyEmail(
                 "inbox".into(),
                 Envelope {
-                    internal_id: "local-id".into(),
+                    id: "local-id".into(),
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
@@ -1582,7 +1572,7 @@ mod envelopes_sync {
         let local_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-cache-id".into(),
+                id: "local-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1590,7 +1580,7 @@ mod envelopes_sync {
         let local = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-id".into(),
+                id: "local-id".into(),
                 flags: "flagged".into(),
                 ..Envelope::default()
             },
@@ -1604,7 +1594,7 @@ mod envelopes_sync {
                 vec![BackendHunk::CopyEmail(
                     "inbox".into(),
                     Envelope {
-                        internal_id: "local-id".into(),
+                        id: "local-id".into(),
                         flags: "flagged".into(),
                         ..Envelope::default()
                     },
@@ -1615,7 +1605,7 @@ mod envelopes_sync {
                 vec![BackendHunk::SetFlags(
                     "inbox".into(),
                     Envelope {
-                        internal_id: "local-cache-id".into(),
+                        id: "local-cache-id".into(),
                         flags: Flags::from_iter([Flag::Flagged]),
                         ..Envelope::default()
                     },
@@ -1630,7 +1620,7 @@ mod envelopes_sync {
         let local_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-cache-id".into(),
+                id: "local-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1638,7 +1628,7 @@ mod envelopes_sync {
         let local = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-id".into(),
+                id: "local-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1647,7 +1637,7 @@ mod envelopes_sync {
         let remote = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-id".into(),
+                id: "remote-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1668,7 +1658,7 @@ mod envelopes_sync {
         let local_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-cache-id".into(),
+                id: "local-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1676,7 +1666,7 @@ mod envelopes_sync {
         let local = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "local-id".into(),
+                id: "local-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
@@ -1684,7 +1674,7 @@ mod envelopes_sync {
         let remote_cache = Envelopes::from_iter([(
             "message_id".into(),
             Envelope {
-                internal_id: "remote-cache-id".into(),
+                id: "remote-cache-id".into(),
                 flags: "seen".into(),
                 ..Envelope::default()
             },
