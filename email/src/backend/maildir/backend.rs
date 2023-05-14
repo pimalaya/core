@@ -7,7 +7,6 @@ use log::{info, trace, warn};
 use maildir::Maildir;
 use std::{
     any::Any,
-    borrow::Cow,
     env,
     ffi::OsStr,
     fs, io,
@@ -95,16 +94,13 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 
 /// Represents the maildir backend.
-pub struct MaildirBackend<'a> {
-    account_config: Cow<'a, AccountConfig>,
+pub struct MaildirBackend {
+    account_config: AccountConfig,
     mdir: maildir::Maildir,
 }
 
-impl<'a> MaildirBackend<'a> {
-    pub fn new(
-        account_config: Cow<'a, AccountConfig>,
-        backend_config: Cow<'a, MaildirConfig>,
-    ) -> Result<Self> {
+impl MaildirBackend {
+    pub fn new(account_config: AccountConfig, backend_config: MaildirConfig) -> Result<Self> {
         let path = &backend_config.root_dir;
         let mdir = Maildir::from(path.clone());
 
@@ -184,12 +180,12 @@ impl<'a> MaildirBackend<'a> {
             .unwrap_or_else(|_| folder.to_string())
     }
 
-    pub fn as_any(&self) -> &(dyn Any + 'a) {
+    pub fn as_any(&'static self) -> &(dyn Any + 'static) {
         self
     }
 }
 
-impl<'a> Backend for MaildirBackend<'a> {
+impl Backend for MaildirBackend {
     fn name(&self) -> String {
         self.account_config.name.clone()
     }
@@ -546,5 +542,9 @@ impl<'a> Backend for MaildirBackend<'a> {
         })?;
 
         Ok(())
+    }
+
+    fn as_any(&self) -> &(dyn Any) {
+        self
     }
 }

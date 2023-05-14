@@ -1,6 +1,6 @@
 use lettre::address::AddressError;
 use log::{info, trace};
-use std::{any::Any, borrow::Cow, fs, io, path::PathBuf, result};
+use std::{any::Any, fs, io, path::PathBuf, result};
 use thiserror::Error;
 
 use crate::{
@@ -95,16 +95,13 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 
 /// Represents the Notmuch backend.
-pub struct NotmuchBackend<'a> {
-    account_config: Cow<'a, AccountConfig>,
-    backend_config: Cow<'a, NotmuchConfig>,
+pub struct NotmuchBackend {
+    account_config: AccountConfig,
+    backend_config: NotmuchConfig,
 }
 
-impl<'a> NotmuchBackend<'a> {
-    pub fn new(
-        account_config: Cow<'a, AccountConfig>,
-        backend_config: Cow<'a, NotmuchConfig>,
-    ) -> Result<Self> {
+impl NotmuchBackend {
+    pub fn new(account_config: AccountConfig, backend_config: NotmuchConfig) -> Result<Self> {
         NotmuchBackendBuilder::new().build(account_config, backend_config)
     }
 
@@ -176,13 +173,9 @@ impl<'a> NotmuchBackend<'a> {
 
         Ok(envelopes)
     }
-
-    pub fn as_any(&'a self) -> &(dyn Any + 'a) {
-        self
-    }
 }
 
-impl<'a> Backend for NotmuchBackend<'a> {
+impl Backend for NotmuchBackend {
     fn name(&self) -> String {
         self.account_config.name.clone()
     }
@@ -494,6 +487,10 @@ impl<'a> Backend for NotmuchBackend<'a> {
 
         Ok(())
     }
+
+    fn as_any(&self) -> &(dyn Any) {
+        self
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -516,9 +513,9 @@ impl NotmuchBackendBuilder {
 
     pub fn build<'a>(
         self,
-        account_config: Cow<'a, AccountConfig>,
-        backend_config: Cow<'a, NotmuchConfig>,
-    ) -> Result<NotmuchBackend<'a>> {
+        account_config: AccountConfig,
+        backend_config: NotmuchConfig,
+    ) -> Result<NotmuchBackend> {
         Ok(NotmuchBackend {
             account_config,
             backend_config,

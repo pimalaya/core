@@ -16,7 +16,6 @@ use rustls::{
 };
 use std::{
     any::Any,
-    borrow::Cow,
     collections::HashSet,
     convert::TryInto,
     io::{self, Read, Write},
@@ -235,20 +234,21 @@ impl<'a> ImapBackendBuilder {
 
     pub fn build(
         &self,
-        account_config: Cow<'a, AccountConfig>,
-        imap_config: Cow<'a, ImapConfig>,
-    ) -> Result<ImapBackend<'a>> {
+        account_config: AccountConfig,
+        imap_config: ImapConfig,
+    ) -> Result<ImapBackend> {
         let auth = ImapAuth::new(&imap_config.auth)?;
         let sessions_pool: Vec<_> = (0..=self.sessions_pool_size).collect();
+        let sessions_pool = sessions_pool
+            .par_iter()
+            .map(|_| ImapBackend::create_session(&imap_config, &auth).map(Mutex::new))
+            .collect::<Result<Vec<_>>>()?;
         let backend = ImapBackend {
-            account_config: account_config.clone(),
-            imap_config: imap_config.clone(),
+            account_config,
+            imap_config,
             sessions_pool_size: self.sessions_pool_size.max(1),
             sessions_pool_cursor: Mutex::new(0),
-            sessions_pool: sessions_pool
-                .par_iter()
-                .map(|_| ImapBackend::create_session(&imap_config, &auth).map(Mutex::new))
-                .collect::<Result<Vec<_>>>()?,
+            sessions_pool,
         };
 
         Ok(backend)
@@ -306,23 +306,20 @@ impl imap::Authenticator for OAuthBearer {
     }
 }
 
-pub struct ImapBackend<'a> {
-    account_config: Cow<'a, AccountConfig>,
-    imap_config: Cow<'a, ImapConfig>,
+pub struct ImapBackend {
+    account_config: AccountConfig,
+    imap_config: ImapConfig,
     sessions_pool_size: usize,
     sessions_pool_cursor: Mutex<usize>,
     sessions_pool: Vec<Mutex<ImapSession>>,
 }
 
-impl<'a> ImapBackend<'a> {
-    pub fn new(
-        account_config: Cow<'a, AccountConfig>,
-        imap_config: Cow<'a, ImapConfig>,
-    ) -> Result<Self> {
+impl ImapBackend {
+    pub fn new(account_config: AccountConfig, imap_config: ImapConfig) -> Result<Self> {
         ImapBackendBuilder::default().build(account_config, imap_config)
     }
 
-    fn create_session(imap_config: &'a ImapConfig, auth: &'a ImapAuth) -> Result<ImapSession> {
+    fn create_session(imap_config: &ImapConfig, auth: &ImapAuth) -> Result<ImapSession> {
         let mut client_builder = imap::ClientBuilder::new(&imap_config.host, imap_config.port);
         if imap_config.starttls() {
             client_builder.starttls();
@@ -361,7 +358,7 @@ impl<'a> ImapBackend<'a> {
 
     #[cfg(feature = "native-tls")]
     fn handshaker(
-        config: &'a ImapConfig,
+        config: &ImapConfig,
     ) -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
         let builder = TlsConnector::builder()
             .danger_accept_invalid_certs(config.insecure())
@@ -377,7 +374,7 @@ impl<'a> ImapBackend<'a> {
 
     #[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
     fn handshaker(
-        config: &'a ImapConfig,
+        config: &ImapConfig,
     ) -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
         use rustls::client::WebPkiVerifier;
         use std::sync::Arc;
@@ -557,13 +554,9 @@ impl<'a> ImapBackend<'a> {
             debug!("end loop");
         }
     }
-
-    pub fn as_any(&'a self) -> &(dyn Any + 'a) {
-        self
-    }
 }
 
-impl<'a> Backend for ImapBackend<'a> {
+impl Backend for ImapBackend {
     fn name(&self) -> String {
         self.account_config.name.clone()
     }
@@ -1024,5 +1017,9 @@ impl<'a> Backend for ImapBackend<'a> {
         })?;
 
         Ok(())
+    }
+
+    fn as_any(&self) -> &(dyn Any) {
+        self
     }
 }

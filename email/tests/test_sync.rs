@@ -1,6 +1,6 @@
 use env_logger;
 use pimalaya_secret::Secret;
-use std::{borrow::Cow, collections::HashSet, thread, time::Duration};
+use std::{collections::HashSet, thread, time::Duration};
 use tempfile::tempdir;
 
 use pimalaya_email::{
@@ -27,8 +27,8 @@ fn test_sync() {
     // set up imap backend
 
     let imap = ImapBackend::new(
-        Cow::Borrowed(&account),
-        Cow::Owned(ImapConfig {
+        account.clone(),
+        ImapConfig {
             host: "localhost".into(),
             port: 3143,
             ssl: Some(false),
@@ -39,7 +39,7 @@ fn test_sync() {
                 passwd: Secret::new_raw("password"),
             }),
             ..ImapConfig::default()
-        }),
+        },
     )
     .unwrap();
 
@@ -136,10 +136,10 @@ fn test_sync() {
     // set up maildir reader
 
     let mdir = MaildirBackend::new(
-        Cow::Borrowed(&account),
-        Cow::Owned(MaildirConfig {
+        account.clone(),
+        MaildirConfig {
             root_dir: sync_dir.clone(),
-        }),
+        },
     )
     .unwrap();
 

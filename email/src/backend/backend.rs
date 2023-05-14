@@ -5,7 +5,7 @@
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use log::info;
-use std::{borrow::Cow, env, fmt, fs::OpenOptions, io, result};
+use std::{any::Any, env, fmt, fs::OpenOptions, io, result};
 use thiserror::Error;
 
 #[cfg(feature = "imap-backend")]
@@ -95,7 +95,7 @@ pub trait Backend: Sync + Send {
     }
 
     // INFO: for downcasting purpose
-    // fn as_any(&self) -> &(dyn Any);
+    fn as_any(&self) -> &(dyn Any);
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -215,10 +215,10 @@ impl<'a> BackendSyncBuilder<'a> {
         // init local Maildir
 
         let local = MaildirBackend::new(
-            Cow::Borrowed(self.account_config),
-            Cow::Owned(MaildirConfig {
+            self.account_config.clone(),
+            MaildirConfig {
                 root_dir: sync_dir.clone(),
-            }),
+            },
         )?;
 
         // apply folder aliases to the strategy
@@ -288,7 +288,7 @@ pub struct BackendBuilder {
     disable_cache: bool,
 }
 
-impl<'a> BackendBuilder {
+impl BackendBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -305,33 +305,34 @@ impl<'a> BackendBuilder {
 
     pub fn build(
         &self,
-        account_config: &'a AccountConfig,
-        backend_config: &'a BackendConfig,
-    ) -> Result<Box<dyn Backend + 'a>> {
+        account_config: AccountConfig,
+        backend_config: BackendConfig,
+    ) -> Result<Box<dyn Backend>> {
         match backend_config {
             #[cfg(feature = "imap-backend")]
             BackendConfig::Imap(imap_config) if !account_config.sync || self.disable_cache => {
                 Ok(Box::new(
                     ImapBackendBuilder::new()
                         .pool_size(self.sessions_pool_size)
-                        .build(Cow::Borrowed(account_config), Cow::Borrowed(imap_config))?,
+                        .build(account_config, imap_config)?,
                 ))
             }
             #[cfg(feature = "imap-backend")]
-            BackendConfig::Imap(_) => Ok(Box::new(MaildirBackend::new(
-                Cow::Borrowed(account_config),
-                Cow::Owned(MaildirConfig {
-                    root_dir: account_config.sync_dir()?,
-                }),
-            )?)),
+            BackendConfig::Imap(_) => {
+                let root_dir = account_config.sync_dir()?;
+                Ok(Box::new(MaildirBackend::new(
+                    account_config,
+                    MaildirConfig { root_dir },
+                )?))
+            }
             BackendConfig::Maildir(maildir_config) => Ok(Box::new(MaildirBackend::new(
-                Cow::Borrowed(account_config),
-                Cow::Borrowed(maildir_config),
+                account_config,
+                maildir_config,
             )?)),
             #[cfg(feature = "notmuch-backend")]
             BackendConfig::Notmuch(notmuch_config) => Ok(Box::new(NotmuchBackend::new(
-                Cow::Borrowed(account_config),
-                Cow::Borrowed(notmuch_config),
+                account_config,
+                notmuch_config,
             )?)),
             BackendConfig::None => Err(Error::BuildBackendError),
         }

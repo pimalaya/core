@@ -1,6 +1,5 @@
-use std::{borrow::Cow, thread, time::Duration};
-
 use pimalaya_email::{AccountConfig, CompilerBuilder, Sender, TplBuilder};
+use std::{thread, time::Duration};
 
 #[cfg(feature = "imap-backend")]
 use pimalaya_email::{Backend, ImapBackend, ImapConfig};
@@ -32,8 +31,8 @@ fn test_smtp_sender() {
     let mut smtp = Smtp::new(&account_config, &smtp_config);
 
     let imap = ImapBackend::new(
-        Cow::Borrowed(&account_config),
-        Cow::Owned(ImapConfig {
+        account_config.clone(),
+        ImapConfig {
             host: "localhost".into(),
             port: 3143,
             ssl: Some(false),
@@ -44,7 +43,7 @@ fn test_smtp_sender() {
                 passwd: Secret::new_raw("echo 'password'"),
             }),
             ..ImapConfig::default()
-        }),
+        },
     )
     .unwrap();
 

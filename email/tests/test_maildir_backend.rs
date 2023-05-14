@@ -1,6 +1,6 @@
 use concat_with::concat_line;
 use maildir::Maildir;
-use std::{borrow::Cow, collections::HashMap, fs, iter::FromIterator};
+use std::{collections::HashMap, fs, iter::FromIterator};
 use tempfile::tempdir;
 
 use pimalaya_email::{
@@ -33,18 +33,18 @@ fn test_maildir_backend() {
 
     let mdir_path = mdir.path().to_owned();
     let mdir = MaildirBackend::new(
-        Cow::Borrowed(&account_config),
-        Cow::Owned(MaildirConfig {
+        account_config.clone(),
+        MaildirConfig {
             root_dir: mdir_path.clone(),
-        }),
+        },
     )
     .unwrap();
 
     let submdir = MaildirBackend::new(
-        Cow::Borrowed(&account_config),
-        Cow::Owned(MaildirConfig {
+        account_config.clone(),
+        MaildirConfig {
             root_dir: mdir_sub.path().to_owned(),
-        }),
+        },
     )
     .unwrap();
 

@@ -1,7 +1,5 @@
 #[cfg(feature = "imap-backend")]
 use concat_with::concat_line;
-#[cfg(feature = "imap-backend")]
-use std::borrow::Cow;
 
 #[cfg(feature = "imap-backend")]
 use pimalaya_email::{
@@ -26,8 +24,8 @@ fn test_imap_backend() {
     };
 
     let imap = ImapBackend::new(
-        Cow::Borrowed(&config),
-        Cow::Owned(ImapConfig {
+        config.clone(),
+        ImapConfig {
             host: "localhost".into(),
             port: 3143,
             ssl: Some(false),
@@ -38,7 +36,7 @@ fn test_imap_backend() {
                 passwd: Secret::new_raw("password"),
             }),
             ..ImapConfig::default()
-        }),
+        },
     )
     .unwrap();
 
