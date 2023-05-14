@@ -176,6 +176,10 @@ impl<'a> NotmuchBackend<'a> {
 
         Ok(envelopes)
     }
+
+    pub fn as_any(&'a self) -> &(dyn Any + 'a) {
+        self
+    }
 }
 
 impl<'a> Backend for NotmuchBackend<'a> {
@@ -489,10 +493,6 @@ impl<'a> Backend for NotmuchBackend<'a> {
         })?;
 
         Ok(())
-    }
-
-    fn as_any(&self) -> &(dyn Any + 'a) {
-        self
     }
 }
 

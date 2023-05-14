@@ -557,6 +557,10 @@ impl<'a> ImapBackend<'a> {
             debug!("end loop");
         }
     }
+
+    pub fn as_any(&'a self) -> &(dyn Any + 'a) {
+        self
+    }
 }
 
 impl<'a> Backend for ImapBackend<'a> {
@@ -1020,9 +1024,5 @@ impl<'a> Backend for ImapBackend<'a> {
         })?;
 
         Ok(())
-    }
-
-    fn as_any(&'static self) -> &(dyn Any) {
-        self
     }
 }

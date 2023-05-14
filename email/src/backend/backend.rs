@@ -5,7 +5,7 @@
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use log::info;
-use std::{any::Any, borrow::Cow, env, fmt, fs::OpenOptions, io, result};
+use std::{borrow::Cow, env, fmt, fs::OpenOptions, io, result};
 use thiserror::Error;
 
 #[cfg(feature = "imap-backend")]
@@ -95,7 +95,7 @@ pub trait Backend: Sync + Send {
     }
 
     // INFO: for downcasting purpose
-    fn as_any(&'static self) -> &(dyn Any);
+    // fn as_any(&self) -> &(dyn Any);
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

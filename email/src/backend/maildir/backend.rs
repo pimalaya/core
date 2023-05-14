@@ -183,6 +183,10 @@ impl<'a> MaildirBackend<'a> {
             .map(|folder| folder.to_string())
             .unwrap_or_else(|_| folder.to_string())
     }
+
+    pub fn as_any(&self) -> &(dyn Any + 'a) {
+        self
+    }
 }
 
 impl<'a> Backend for MaildirBackend<'a> {
@@ -542,9 +546,5 @@ impl<'a> Backend for MaildirBackend<'a> {
         })?;
 
         Ok(())
-    }
-
-    fn as_any(&'static self) -> &(dyn Any) {
-        self
     }
 }
