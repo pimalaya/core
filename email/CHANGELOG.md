@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ImapAuthConfig::Passwd(PasswdConfig)` for password authentication
   - `ImapAuthConfig::OAuth2(OAuth2Config)` for OAuth 2.0 authentication
 - Moved `backend::id_mapper` to its own crate `pimalaya-id-alias`.
-- Renamed `EmailSender` to `Sender` in order to match `Backend`.
+- Renamed `EmailSender` to `Sender` and `AccountConfig::email_sender` to `AccountConfig::sender` in order to match `Backend`.
+- Moved backend config to `AccountConfig::backend`. They do not need to be given separately to backend and sender builders.
 - Changed `AccountConfig::*_cmd` from `String` to `pimalaya_process::Cmd`.
 
 ### Fixed
@@ -31,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed `rustls-native-certs` cargo feature, it is now included by default within the `rustls-tls` cargo feature.
 - Removed `Backend::*_internal` functions, no more aliases are used within the lib [#38].
-- Removed `AccountConfig::email_sender`.
 
 ## [0.7.0] - 2023-05-01
 

@@ -21,7 +21,10 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::{folder::sync::Strategy as SyncFoldersStrategy, EmailHooks, EmailTextPlainFormat};
+use crate::{
+    folder::sync::Strategy as SyncFoldersStrategy, BackendConfig, EmailHooks, EmailTextPlainFormat,
+    SenderConfig,
+};
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
 pub const DEFAULT_SIGNATURE_DELIM: &str = "-- \n";
@@ -158,6 +161,9 @@ pub struct AccountConfig {
     pub sync_dir: Option<PathBuf>,
     /// Represents the synchronization strategy to use for folders.
     pub sync_folders_strategy: SyncFoldersStrategy,
+
+    pub backend: BackendConfig,
+    pub sender: SenderConfig,
 }
 
 impl Default for AccountConfig {
@@ -184,6 +190,8 @@ impl Default for AccountConfig {
             sync: Default::default(),
             sync_dir: Default::default(),
             sync_folders_strategy: Default::default(),
+            backend: Default::default(),
+            sender: Default::default(),
         }
     }
 }

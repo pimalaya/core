@@ -38,11 +38,12 @@ pub trait Sender {
 pub struct SenderBuilder;
 
 impl SenderBuilder {
-    pub fn build(
-        account_config: &AccountConfig,
-        sender_config: &SenderConfig,
-    ) -> Result<Box<dyn Sender>> {
-        match sender_config {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn build(self, account_config: &AccountConfig) -> Result<Box<dyn Sender>> {
+        match &account_config.sender {
             SenderConfig::None => Err(Error::BuildUndefinedSenderError),
             #[cfg(feature = "smtp-sender")]
             SenderConfig::Smtp(smtp_config) => {

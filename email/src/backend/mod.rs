@@ -306,12 +306,8 @@ impl BackendBuilder {
         self
     }
 
-    pub fn build(
-        &self,
-        account_config: &AccountConfig,
-        backend_config: &BackendConfig,
-    ) -> Result<Box<dyn Backend>> {
-        match backend_config {
+    pub fn build(self, account_config: &AccountConfig) -> Result<Box<dyn Backend>> {
+        match &account_config.backend {
             BackendConfig::None => Err(Error::BuildBackendError),
             #[cfg(feature = "imap-backend")]
             BackendConfig::Imap(imap_config) if !account_config.sync || self.disable_cache => {
