@@ -120,7 +120,7 @@ impl SingleCmd {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Pipeline(Vec<SingleCmd>);
 
 impl ToString for Pipeline {
@@ -163,7 +163,31 @@ pub enum Cmd {
     Pipeline(Pipeline),
 }
 
+impl Default for Cmd {
+    fn default() -> Self {
+        Self::Pipeline(Pipeline::default())
+    }
+}
+
 impl Cmd {
+    pub fn replace<P, T>(mut self, from: P, to: T) -> Self
+    where
+        P: AsRef<str>,
+        T: AsRef<str>,
+    {
+        match &mut self {
+            Self::SingleCmd(SingleCmd(ref mut cmd)) => {
+                *cmd = cmd.replace(from.as_ref(), to.as_ref())
+            }
+            Self::Pipeline(Pipeline(ref mut cmds)) => {
+                for SingleCmd(ref mut cmd) in cmds {
+                    *cmd = cmd.replace(from.as_ref(), to.as_ref());
+                }
+            }
+        }
+        self
+    }
+
     pub fn run(&self) -> Result<CmdOutput> {
         self.run_with([])
     }
