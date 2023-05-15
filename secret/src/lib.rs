@@ -57,11 +57,15 @@ impl Secret {
         Self::Keyring(entry.into())
     }
 
+    pub fn is_undefined_entry(&self) -> bool {
+        *self == Self::default()
+    }
+
     pub fn replace_undefined_entry_with<E>(&mut self, entry: E)
     where
         E: Into<Entry>,
     {
-        if *self == Self::default() {
+        if self.is_undefined_entry() {
             *self = Self::new_keyring(entry)
         }
     }
