@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added OAuth 2.0 support for IMAP and SMTP [#9].
 - Added [secret service] support via the [keyring] crate [#6].
 - Added `ImapAuthConfig` struct that contains config related to OAuth 2.0. It also contains a `configure` method to set up client secret and store access token from redirect URL using [secret service].
+- Added `AccountConfig::email_sending_save_copy` to save copy of sent email [#70].
 
 ### Changed
 
@@ -19,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ImapAuthConfig::Passwd(PasswdConfig)` for password authentication
   - `ImapAuthConfig::OAuth2(OAuth2Config)` for OAuth 2.0 authentication
 - Moved `backend::id_mapper` to its own crate `pimalaya-id-alias`.
+- Renamed `EmailSender` to `Sender` in order to match `Backend`.
+- Changed `AccountConfig::*_cmd` from `String` to `pimalaya_process::Cmd`.
 
 ### Fixed
 
@@ -28,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed `rustls-native-certs` cargo feature, it is now included by default within the `rustls-tls` cargo feature.
 - Removed `Backend::*_internal` functions, no more aliases are used within the lib [#38].
+- Removed `AccountConfig::email_sender`.
 
 ## [0.7.0] - 2023-05-01
 
@@ -244,3 +248,4 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#52]: https://todo.sr.ht/~soywod/pimalaya/52
 [#57]: https://todo.sr.ht/~soywod/pimalaya/57
 [#61]: https://todo.sr.ht/~soywod/pimalaya/61
+[#70]: https://todo.sr.ht/~soywod/pimalaya/70

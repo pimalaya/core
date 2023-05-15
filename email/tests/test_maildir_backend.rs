@@ -1,14 +1,14 @@
-use concat_with::concat_line;
-use maildir::Maildir;
-use std::{collections::HashMap, fs, iter::FromIterator};
-use tempfile::tempdir;
-
-use pimalaya_email::{
-    AccountConfig, Backend, CompilerBuilder, Flag, Flags, MaildirBackend, MaildirConfig, TplBuilder,
-};
-
 #[test]
 fn test_maildir_backend() {
+    use concat_with::concat_line;
+    use maildir::Maildir;
+    use pimalaya_email::{
+        AccountConfig, Backend, CompilerBuilder, Flag, Flags, MaildirBackend, MaildirConfig,
+        TplBuilder,
+    };
+    use std::{collections::HashMap, fs, iter::FromIterator};
+    use tempfile::tempdir;
+
     env_logger::builder().is_test(true).init();
 
     // set up maildir folders

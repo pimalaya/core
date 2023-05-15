@@ -1,21 +1,16 @@
-use pimalaya_email::{AccountConfig, CompilerBuilder, Sender, TplBuilder};
-use std::{thread, time::Duration};
-
-#[cfg(feature = "imap-backend")]
-use pimalaya_email::{Backend, ImapBackend, ImapConfig};
-#[cfg(feature = "smtp-sender")]
-use pimalaya_email::{Smtp, SmtpConfig};
-
 #[cfg(all(feature = "imap-backend", feature = "smtp-sender"))]
 #[test]
 fn test_smtp_sender() {
-    use pimalaya_email::{ImapAuthConfig, PasswdConfig, SmtpAuthConfig};
+    use pimalaya_email::{
+        AccountConfig, Backend, CompilerBuilder, ImapAuthConfig, ImapBackend, ImapConfig,
+        PasswdConfig, Sender, Smtp, SmtpAuthConfig, SmtpConfig, TplBuilder,
+    };
     use pimalaya_secret::Secret;
+    use std::{thread, time::Duration};
 
     env_logger::builder().is_test(true).init();
 
     let account_config = AccountConfig::default();
-
     let smtp_config = SmtpConfig {
         host: "localhost".into(),
         port: 3025,
@@ -28,10 +23,11 @@ fn test_smtp_sender() {
         }),
         ..SmtpConfig::default()
     };
-    let mut smtp = Smtp::new(&account_config, &smtp_config);
+
+    let smtp = Smtp::new(&account_config, &smtp_config).unwrap();
 
     let imap = ImapBackend::new(
-        account_config.clone(),
+        account_config,
         ImapConfig {
             host: "localhost".into(),
             port: 3143,

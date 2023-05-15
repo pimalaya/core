@@ -13,7 +13,7 @@ use tree_magic;
 use crate::{
     account,
     envelope::{Mailbox, Mailboxes},
-    process, AccountConfig, Attachment,
+    AccountConfig, Attachment,
 };
 
 #[derive(Debug, Error)]
@@ -42,9 +42,9 @@ pub enum Error {
     #[error(transparent)]
     MimeMsgBuilderError(#[from] pimalaya_email_tpl::Error),
     #[error("cannot decrypt encrypted email part")]
-    DecryptEmailPartError(#[source] process::Error),
+    DecryptEmailPartError(#[source] pimalaya_process::Error),
     #[error("cannot verify signed email part")]
-    VerifyEmailPartError(#[source] process::Error),
+    VerifyEmailPartError(#[source] pimalaya_process::Error),
 
     // TODO: sort me
     #[error("cannot get content type of multipart")]
@@ -219,11 +219,12 @@ impl Email<'_> {
                 }
                 "application/pgp-signature" => {
                     if in_pgp_signed_part {
-                        if let Some(ref verify_cmd) = config.email_reading_verify_cmd {
+                        if let Some(verify_cmd) = config.email_reading_verify_cmd.as_ref() {
                             let signature = part.get_body_raw().map_err(Error::ParseEmailError)?;
-                            let (_, exit_code) = process::pipe(verify_cmd, &signature)
+                            let output = verify_cmd
+                                .run_with(&signature)
                                 .map_err(Error::VerifyEmailPartError)?;
-                            if exit_code != 0 {
+                            if output.code != 0 {
                                 warn!("the signature could not be verified");
                             }
                         } else {
@@ -240,14 +241,14 @@ impl Email<'_> {
                 }
                 "application/octet-stream" => {
                     if in_pgp_encrypted_part {
-                        match config.email_reading_decrypt_cmd {
-                            Some(ref decrypt_cmd) => {
+                        match config.email_reading_decrypt_cmd.as_ref() {
+                            Some(decrypt_cmd) => {
                                 let encrypted_body =
                                     part.get_body_raw().map_err(Error::ParseEmailError)?;
-                                let (decrypted_part, _) =
-                                    process::pipe(decrypt_cmd, &encrypted_body)
-                                        .map_err(Error::DecryptEmailPartError)?;
-                                let parsed = mailparse::parse_mail(&decrypted_part)
+                                let output = decrypt_cmd
+                                    .run_with(&encrypted_body)
+                                    .map_err(Error::DecryptEmailPartError)?;
+                                let parsed = mailparse::parse_mail(&output.stdout)
                                     .map_err(Error::ParseEmailError)?;
                                 tpl =
                                     Self::tpl_builder_from_parsed_rec(config, tpl, &parsed, false)?;

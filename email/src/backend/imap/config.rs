@@ -3,15 +3,16 @@
 //! This module contains the representation of the IMAP backend
 //! configuration of the user account.
 
+use pimalaya_process::Cmd;
 use std::result;
 use thiserror::Error;
 
-use crate::{account, process, OAuth2Config, OAuth2Method, PasswdConfig};
+use crate::{account, OAuth2Config, OAuth2Method, PasswdConfig};
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot start the notify mode")]
-    StartNotifyModeError(#[source] process::Error),
+    StartNotifyModeError(#[source] pimalaya_process::Error),
     #[error("cannot get imap password from global keyring")]
     GetPasswdError(#[source] pimalaya_secret::Error),
     #[error("cannot get imap password: password is empty")]
@@ -104,17 +105,18 @@ impl ImapConfig {
 
     /// Runs the IMAP notify command.
     pub fn run_notify_cmd<S: AsRef<str>>(&self, id: u32, subject: S, sender: S) -> Result<()> {
-        let mut cmd = self
+        let cmd = self
             .notify_cmd
             .clone()
             .unwrap_or_else(|| String::from("notify-send \"📫 <sender>\" \"<subject>\""));
 
-        cmd = cmd
+        let cmd: Cmd = cmd
             .replace("<id>", &id.to_string())
             .replace("<subject>", subject.as_ref())
-            .replace("<sender>", sender.as_ref());
+            .replace("<sender>", sender.as_ref())
+            .into();
 
-        process::run(&cmd, &[]).map_err(Error::StartNotifyModeError)?;
+        cmd.run().map_err(Error::StartNotifyModeError)?;
 
         Ok(())
     }

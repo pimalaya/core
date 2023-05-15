@@ -1,20 +1,15 @@
 #[cfg(feature = "notmuch-backend")]
-use concat_with::concat_line;
-#[cfg(feature = "notmuch-backend")]
-use maildir::Maildir;
-#[cfg(feature = "notmuch-backend")]
-use notmuch::Database;
-#[cfg(feature = "notmuch-backend")]
-use std::{collections::HashMap, env, fs, iter::FromIterator};
-
-#[cfg(feature = "notmuch-backend")]
-use pimalaya_email::{
-    AccountConfig, Backend, CompilerBuilder, Flag, Flags, NotmuchBackend, NotmuchConfig, TplBuilder,
-};
-
-#[cfg(feature = "notmuch-backend")]
 #[test]
 fn test_notmuch_backend() {
+    use concat_with::concat_line;
+    use maildir::Maildir;
+    use notmuch::Database;
+    use pimalaya_email::{
+        AccountConfig, Backend, CompilerBuilder, Flag, Flags, NotmuchBackend, NotmuchConfig,
+        TplBuilder,
+    };
+    use std::{collections::HashMap, env, fs, iter::FromIterator};
+
     env_logger::builder().is_test(true).init();
 
     // set up maildir folders and notmuch database

@@ -1,12 +1,10 @@
+#[cfg(feature = "native-tls")]
+pub extern crate native_tls as tls;
 #[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
 pub extern crate rustls as tls;
 
-#[cfg(feature = "native-tls")]
-pub extern crate native_tls as tls;
-
 pub mod backend;
 pub mod domain;
-pub(crate) mod process;
 pub mod sender;
 
 pub use backend::*;

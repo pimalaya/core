@@ -2,21 +2,7 @@
 //!
 //! This module contains structures related to email configuration.
 
-use crate::SendmailConfig;
-#[cfg(feature = "smtp-sender")]
-use crate::SmtpConfig;
-
-/// Represents the email sender provider.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum EmailSender {
-    #[default]
-    None,
-    #[cfg(feature = "smtp-sender")]
-    /// Represents the internal SMTP mailer library.
-    Smtp(SmtpConfig),
-    /// Represents the sendmail command.
-    Sendmail(SendmailConfig),
-}
+use pimalaya_process::Cmd;
 
 /// Represents the text/plain format as defined in the [RFC2646].
 ///
@@ -37,7 +23,7 @@ pub enum EmailTextPlainFormat {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct EmailHooks {
     /// Represents the hook called just before sending an email.
-    pub pre_send: Option<String>,
+    pub pre_send: Option<Cmd>,
 }
 
 impl EmailHooks {

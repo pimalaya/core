@@ -1,18 +1,12 @@
 #[cfg(feature = "imap-backend")]
-use std::{thread, time::Duration};
-
-use pimalaya_email::{
-    AccountConfig, CompilerBuilder, Sender, Sendmail, SendmailConfig, TplBuilder,
-};
-
-#[cfg(feature = "imap-backend")]
-use pimalaya_email::{Backend, ImapBackend, ImapConfig};
-
-#[cfg(feature = "imap-backend")]
 #[test]
 fn test_sendmail_sender() {
-    use pimalaya_email::{ImapAuthConfig, PasswdConfig};
+    use pimalaya_email::{
+        AccountConfig, Backend, CompilerBuilder, ImapAuthConfig, ImapBackend, ImapConfig,
+        PasswdConfig, Sender, Sendmail, SendmailConfig, TplBuilder,
+    };
     use pimalaya_secret::Secret;
+    use std::{thread, time::Duration};
 
     env_logger::builder().is_test(true).init();
 
@@ -27,9 +21,10 @@ fn test_sendmail_sender() {
             "--read-envelope-from",
             "--read-recipients",
         ]
-        .join(" "),
+        .join(" ")
+        .into(),
     };
-    let mut sendmail = Sendmail::new(&account_config, &sendmail_config);
+    let sendmail = Sendmail::new(&account_config, &sendmail_config);
     let imap = ImapBackend::new(
         account_config.clone(),
         ImapConfig {

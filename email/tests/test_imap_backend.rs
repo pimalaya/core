@@ -1,25 +1,20 @@
 #[cfg(feature = "imap-backend")]
-use concat_with::concat_line;
-
-#[cfg(feature = "imap-backend")]
-use pimalaya_email::{
-    AccountConfig, Backend, CompilerBuilder, Flag, ImapBackend, ImapConfig, TplBuilder,
-    DEFAULT_INBOX_FOLDER,
-};
-
-#[cfg(feature = "imap-backend")]
 #[test]
 fn test_imap_backend() {
-    use pimalaya_email::{ImapAuthConfig, PasswdConfig};
+    use concat_with::concat_line;
+    use pimalaya_email::{
+        AccountConfig, Backend, CompilerBuilder, Flag, ImapAuthConfig, ImapBackend, ImapConfig,
+        PasswdConfig, TplBuilder, DEFAULT_INBOX_FOLDER,
+    };
     use pimalaya_secret::Secret;
 
     env_logger::builder().is_test(true).init();
 
     let config = AccountConfig {
-        email_reading_decrypt_cmd: Some(String::from(
-            "gpg --decrypt --quiet --recipient-file ./tests/keys/bob.key",
-        )),
-        email_reading_verify_cmd: Some(String::from("gpg --verify --quiet")),
+        email_reading_decrypt_cmd: Some(
+            "gpg --decrypt --quiet --recipient-file ./tests/keys/bob.key".into(),
+        ),
+        email_reading_verify_cmd: Some("gpg --verify --quiet".into()),
         ..AccountConfig::default()
     };
 

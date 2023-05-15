@@ -7,6 +7,7 @@ use dirs::data_dir;
 use lettre::{address::AddressError, message::Mailbox};
 use log::warn;
 use pimalaya_oauth2::AuthorizationCodeGrant;
+use pimalaya_process::Cmd;
 use pimalaya_secret::Secret;
 use shellexpand;
 use std::{
@@ -20,10 +21,7 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::{
-    folder::sync::Strategy as SyncFoldersStrategy, process, EmailHooks, EmailSender,
-    EmailTextPlainFormat,
-};
+use crate::{folder::sync::Strategy as SyncFoldersStrategy, EmailHooks, EmailTextPlainFormat};
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
 pub const DEFAULT_SIGNATURE_DELIM: &str = "-- \n";
@@ -36,11 +34,11 @@ pub const DEFAULT_TRASH_FOLDER: &str = "Trash";
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot encrypt file using pgp")]
-    EncryptFileError(#[source] process::Error),
+    EncryptFileError(#[source] pimalaya_process::Error),
     #[error("cannot find encrypt file command from config file")]
     EncryptFileMissingCmdError,
     #[error("cannot decrypt file using pgp")]
-    DecryptFileError(#[source] process::Error),
+    DecryptFileError(#[source] pimalaya_process::Error),
     #[error("cannot find decrypt file command from config file")]
     DecryptFileMissingCmdError,
     #[error("cannot parse account address {0}")]
@@ -94,7 +92,7 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 
 /// Represents the configuration of the user account.
-#[derive(Debug, Default, Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountConfig {
     /// Represents the name of the current user account.
     pub name: String,
@@ -123,18 +121,32 @@ pub struct AccountConfig {
     /// [RFC 2646](https://www.ietf.org/rfc/rfc2646.txt).
     pub email_reading_format: EmailTextPlainFormat,
     /// Represents the command used to verify an email.
-    pub email_reading_verify_cmd: Option<String>,
+    pub email_reading_verify_cmd: Option<Cmd>,
     /// Represents the command used to decrypt an email.
-    pub email_reading_decrypt_cmd: Option<String>,
+    pub email_reading_decrypt_cmd: Option<Cmd>,
     /// Represents the command used to sign an email.
-    pub email_writing_sign_cmd: Option<String>,
+    pub email_writing_sign_cmd: Option<Cmd>,
     /// Represents the command used to encrypt an email.
-    pub email_writing_encrypt_cmd: Option<String>,
+    pub email_writing_encrypt_cmd: Option<Cmd>,
     /// Represents headers visible at the top of emails when writing
     /// them (new/reply/forward).
     pub email_writing_headers: Option<Vec<String>>,
-    /// Represents the email sender provider.
-    pub email_sender: EmailSender,
+    /// Should save a copy of the email being sent in the sent
+    /// folder. The sent folder can be customized using
+    /// `folder_aliases`. Knowing that 1) saving an email is done by
+    /// the [Backend](crate::Backend), 2) sending an email is done by
+    /// the [Sender](crate::Sender), and 3) both have no relation
+    /// together, it is the library user's responsibility to check
+    /// this option and to save the copy of the sent email.
+    ///
+    /// ```rust,ignore
+    /// AccountConfig {
+    ///     folder_aliases: HashMap::from_iter([("sent", "MyCustomSent")]),
+    ///     email_sending_save_copy: true,
+    ///     ..AccountConfig::default()
+    /// };
+    /// ```
+    pub email_sending_save_copy: bool,
     /// Represents the email hooks.
     pub email_hooks: EmailHooks,
 
@@ -146,6 +158,34 @@ pub struct AccountConfig {
     pub sync_dir: Option<PathBuf>,
     /// Represents the synchronization strategy to use for folders.
     pub sync_folders_strategy: SyncFoldersStrategy,
+}
+
+impl Default for AccountConfig {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            email: Default::default(),
+            display_name: Default::default(),
+            signature_delim: Default::default(),
+            signature: Default::default(),
+            downloads_dir: Default::default(),
+            folder_listing_page_size: Default::default(),
+            folder_aliases: Default::default(),
+            email_listing_page_size: Default::default(),
+            email_reading_headers: Default::default(),
+            email_reading_format: Default::default(),
+            email_reading_verify_cmd: Default::default(),
+            email_reading_decrypt_cmd: Default::default(),
+            email_writing_sign_cmd: Default::default(),
+            email_writing_encrypt_cmd: Default::default(),
+            email_writing_headers: Default::default(),
+            email_sending_save_copy: true,
+            email_hooks: Default::default(),
+            sync: Default::default(),
+            sync_dir: Default::default(),
+            sync_folders_strategy: Default::default(),
+        }
+    }
 }
 
 impl AccountConfig {
