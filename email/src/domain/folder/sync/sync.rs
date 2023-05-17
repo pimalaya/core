@@ -20,6 +20,12 @@ pub enum Strategy {
     Exclude(HashSet<String>),
 }
 
+impl Strategy {
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HunkKind {
     LocalCache,

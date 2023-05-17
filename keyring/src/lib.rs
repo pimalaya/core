@@ -20,6 +20,12 @@ const KEYRING_SERVICE: &str = "pimalaya";
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Entry(String);
 
+impl ToString for Entry {
+    fn to_string(&self) -> String {
+        self.0.clone()
+    }
+}
+
 impl Entry {
     fn get_entry(&self) -> Result<keyring::Entry> {
         keyring::Entry::new(KEYRING_SERVICE, &self.0)

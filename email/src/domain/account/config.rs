@@ -400,7 +400,7 @@ impl PasswdConfig {
     pub fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
         match self.get() {
             Err(err) if err.is_get_secret_error() => {
-                warn!("cannot find imap oauth2 client secret from keyring, setting it");
+                warn!("cannot find imap password from keyring, setting it");
                 let passwd = get_passwd().map_err(Error::GetPasswdFromUserError)?;
                 self.set(passwd).map_err(Error::SetPasswdIntoKeyringError)?;
                 Ok(())
@@ -411,7 +411,7 @@ impl PasswdConfig {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct OAuth2Config {
     pub method: OAuth2Method,
     pub client_id: String,
@@ -513,6 +513,12 @@ pub enum OAuth2Method {
 pub enum OAuth2Scopes {
     Scope(String),
     Scopes(Vec<String>),
+}
+
+impl Default for OAuth2Scopes {
+    fn default() -> Self {
+        Self::Scopes(Vec::new())
+    }
 }
 
 impl IntoIterator for OAuth2Scopes {

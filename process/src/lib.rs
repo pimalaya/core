@@ -169,6 +169,15 @@ impl Default for Cmd {
     }
 }
 
+impl ToString for Cmd {
+    fn to_string(&self) -> String {
+        match self {
+            Self::SingleCmd(cmd) => cmd.to_string(),
+            Self::Pipeline(pipeline) => pipeline.to_string(),
+        }
+    }
+}
+
 impl Cmd {
     pub fn replace<P, T>(mut self, from: P, to: T) -> Self
     where

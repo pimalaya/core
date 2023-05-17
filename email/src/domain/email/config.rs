@@ -18,6 +18,12 @@ pub enum EmailTextPlainFormat {
     Fixed(usize),
 }
 
+impl EmailTextPlainFormat {
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
 /// Represents the email hooks. Useful for doing extra email
 /// processing before or after sending it.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
