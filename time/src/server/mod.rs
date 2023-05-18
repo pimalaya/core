@@ -5,6 +5,11 @@
 //! [`ServerBind`]ers. The [`Server`] should have at least one
 //! [`ServerBind`], otherwise it stops by itself.
 
+#[cfg(feature = "tcp-binder")]
+mod tcp;
+#[cfg(feature = "tcp-binder")]
+pub use tcp::*;
+
 use log::{debug, error, trace, warn};
 use std::{
     io,
@@ -13,6 +18,8 @@ use std::{
     thread,
     time::Duration,
 };
+
+use crate::TimerCycle;
 
 use super::{Request, Response, ThreadSafeTimer, TimerConfig, TimerEvent};
 
@@ -130,6 +137,11 @@ pub trait ServerStream<T> {
                 let timer = timer.get()?;
                 trace!("{timer:#?}");
                 Response::Timer(timer)
+            }
+            Request::Set(duration) => {
+                debug!("setting timer");
+                timer.set(duration)?;
+                Response::Ok
             }
             Request::Pause => {
                 debug!("pausing timer");
@@ -262,6 +274,42 @@ impl ServerBuilder {
         self
     }
 
+    /// Configures the timer to follow the Pomodoro time management
+    /// method, which alternates 25 min of work and 5 min of breaks 4
+    /// times, then ends with a long break of 15 min.
+    ///
+    /// https://en.wikipedia.org/wiki/Pomodoro_Technique
+    pub fn with_pomodoro_config(mut self) -> Self {
+        let work = TimerCycle::new("Work", 25 * 60);
+        let short_break = TimerCycle::new("Short break", 5 * 60);
+        let long_break = TimerCycle::new("Long break", 15 * 60);
+
+        *self.timer_config.cycles = vec![
+            work.clone(),
+            short_break.clone(),
+            work.clone(),
+            short_break.clone(),
+            work.clone(),
+            short_break.clone(),
+            work.clone(),
+            short_break.clone(),
+            long_break,
+        ];
+        self
+    }
+
+    /// Configures the timer to follow the 52/17 time management
+    /// method, which alternates 52 min of work and 17 min of resting.
+    ///
+    /// https://en.wikipedia.org/wiki/52/17_rule
+    pub fn with_52_17_config(mut self) -> Self {
+        let work = TimerCycle::new("Work", 52 * 60);
+        let rest = TimerCycle::new("Rest", 17 * 60);
+
+        *self.timer_config.cycles = vec![work, rest];
+        self
+    }
+
     pub fn with_server_handler<H>(mut self, handler: H) -> Self
     where
         H: Fn(ServerEvent) -> io::Result<()> + Sync + Send + 'static,
@@ -283,26 +331,19 @@ impl ServerBuilder {
         self
     }
 
-    pub fn with_work_duration(mut self, duration: usize) -> Self {
-        self.timer_config.work_duration = duration;
+    pub fn with_cycle<C>(mut self, cycle: C) -> Self
+    where
+        C: Into<TimerCycle>,
+    {
+        self.timer_config.cycles.push(cycle.into());
         self
     }
 
-    pub fn with_short_break_duration(mut self, duration: usize) -> Self {
-        self.timer_config.short_break_duration = duration;
-        self
-    }
-
-    pub fn with_long_break_duration(mut self, duration: usize) -> Self {
-        self.timer_config.long_break_duration = duration;
-        self
-    }
-
-    pub fn build(self) -> Server {
-        Server {
+    pub fn build(self) -> io::Result<Server> {
+        Ok(Server {
             config: self.server_config,
             state: ThreadSafeState::new(),
-            timer: ThreadSafeTimer::new(self.timer_config),
-        }
+            timer: ThreadSafeTimer::new(self.timer_config)?,
+        })
     }
 }

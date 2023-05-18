@@ -7,6 +7,11 @@
 //! implement the [`ClientStream`] trait as well in order to reduce
 //! the complexity of the [`Client`]'s implementation.
 
+#[cfg(feature = "tcp-client")]
+mod tcp;
+#[cfg(feature = "tcp-client")]
+pub use tcp::*;
+
 use log::{info, trace};
 use std::io;
 
@@ -39,6 +44,19 @@ pub trait Client {
                 trace!("timer: {timer:#?}");
                 Ok(timer)
             }
+            Ok(res) => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid response: {res:?}"),
+            )),
+            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+        }
+    }
+
+    fn set(&self, duration: usize) -> io::Result<()> {
+        info!("sending request to set timer duration");
+
+        match self.send(Request::Set(duration)) {
+            Ok(Response::Ok) => Ok(()),
             Ok(res) => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("invalid response: {res:?}"),

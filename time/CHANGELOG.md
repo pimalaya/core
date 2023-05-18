@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Changed the name and the aim of the project. The timer is not Pomodoro-specific anymore, it became generic (which allows you to turn it into a Pomodoro timer, or whatever).
+
 ## [0.0.3] - 2023-04-14
 
 ### Added
@@ -27,9 +31,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initiated pomodoro timer.
 
 ## [0.0.0] - 2023-03-12
-
-[Unreleased]: https://git.sr.ht/~soywod/pimalaya/tree/master
-[0.0.3]: https://git.sr.ht/~soywod/pimalaya/refs/v0.0.3
-[0.0.2]: https://git.sr.ht/~soywod/pimalaya/refs/v0.0.2
-[0.0.1]: https://git.sr.ht/~soywod/pimalaya/refs/v0.0.1
-[0.0.0]: https://git.sr.ht/~soywod/pimalaya/refs/v0.0.0

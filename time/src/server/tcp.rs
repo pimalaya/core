@@ -38,15 +38,31 @@ impl ServerStream<TcpStream> for TcpBind {
 
         trace!("request: {req:?}");
 
-        match req.trim() {
-            "start" => Ok(Request::Start),
-            "get" => Ok(Request::Get),
-            "pause" => Ok(Request::Pause),
-            "resume" => Ok(Request::Resume),
-            "stop" => Ok(Request::Stop),
-            unknown => Err(io::Error::new(
+        let mut tokens = req.trim().split_whitespace();
+        match tokens.next() {
+            Some("start") => Ok(Request::Start),
+            Some("get") => Ok(Request::Get),
+            Some("set") => match tokens.next().map(|duration| duration.parse::<usize>()) {
+                Some(Ok(duration)) => Ok(Request::Set(duration)),
+                Some(Err(err)) => Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("invalid duration: {err}"),
+                )),
+                None => Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("missing duration"),
+                )),
+            },
+            Some("pause") => Ok(Request::Pause),
+            Some("resume") => Ok(Request::Resume),
+            Some("stop") => Ok(Request::Stop),
+            Some(req) => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("invalid request: {unknown}"),
+                format!("invalid request: {req}"),
+            )),
+            None => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("missing request"),
             )),
         }
     }
@@ -67,7 +83,7 @@ impl ServerBind for TcpBind {
     /// indefinitely waits for incoming requests. When a connection
     /// comes, [`TcpBind`] retrieves the associated
     /// [`std::net::TcpStream`] and send it to the helper
-    /// [`crate::time::pomodoro::ServerStream::handle`].
+    /// [`crate::ServerStream::handle`].
     fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()> {
         let binder = TcpListener::bind((self.host.as_str(), self.port))?;
 

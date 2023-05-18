@@ -1,4 +1,4 @@
-use pimalaya_pomodoro::{ServerBuilder, ServerEvent, TcpBind, TcpClient, TimerEvent};
+use pimalaya_time::{ServerBuilder, ServerEvent, TcpBind, TcpClient, TimerEvent};
 use std::{thread, time::Duration};
 
 const HOST: &str = "127.0.0.1";
@@ -15,7 +15,9 @@ pub fn main() {
             Ok(())
         })
         .with_binder(TcpBind::new(HOST, PORT))
-        .build();
+        .with_pomodoro_config()
+        .build()
+        .unwrap();
 
     server
         .bind_with(|| {

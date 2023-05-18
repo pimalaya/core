@@ -32,18 +32,14 @@ applications: CLI, TUI, GUI, plugins, servers etc.
       </td>
     </tr>
     <tr>
-      <td>pimalaya-pomodoro</td>
+      <td>pimalaya-time</td>
       <td>
         Time management
-        <br />
-        <em>
-          (<a href="https://en.wikipedia.org/wiki/Pomodoro_Technique">Pomodoro</a> technique)
-        </em>
       </td>
       <td>
-        <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/pomodoro/README.md">git</a>,
-        <a href="https://docs.rs/pimalaya-pomodoro/latest/pimalaya_pomodoro/">api</a>,
-        <a href="https://crates.io/crates/pimalaya-pomodoro">crate</a>
+        <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/README.md">git</a>,
+        <a href="https://docs.rs/pimalaya-time/latest/pimalaya_time/">api</a>,
+        <a href="https://crates.io/crates/pimalaya-time">crate</a>
       </td>
     </tr>
   </tbody>

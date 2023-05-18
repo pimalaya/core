@@ -68,6 +68,7 @@ impl ClientStream<TcpStream> for TcpClient {
         let req = match req {
             Request::Start => String::from("start"),
             Request::Get => String::from("get"),
+            Request::Set(duration) => format!("set {duration}"),
             Request::Pause => String::from("pause"),
             Request::Resume => String::from("resume"),
             Request::Stop => String::from("stop"),
@@ -80,8 +81,7 @@ impl ClientStream<TcpStream> for TcpClient {
 impl Client for TcpClient {
     /// To send a request, the [`TcpClient`] retrieves the
     /// [`std::net::TcpStream`] by connecting to the server, then
-    /// handles it using the helper
-    /// [`crate::time::pomodoro::ClientStream::handle`].
+    /// handles it using the helper [`crate::ClientStream::handle`].
     fn send(&self, req: Request) -> io::Result<Response> {
         let mut stream = TcpStream::connect((self.host.as_str(), self.port))?;
         self.handle(&mut stream, req)

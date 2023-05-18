@@ -5,7 +5,7 @@ members = [
   "email-tpl",
   "keyring",
   "oauth2",
-  "pomodoro",
   "process",
   "secret",
+  "time",
 ]

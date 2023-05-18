@@ -1,13 +1,11 @@
-# 🍅 pimalaya-pomodoro
+# ⏳ pimalaya-time
 
-Rust library to manage your time using the
-[Pomodoro](https://en.wikipedia.org/wiki/Pomodoro_Technique)
-technique.
+Rust library to manage your time.
 
 See the full [API
-documentation](https://docs.rs/pimalaya-pomodoro/latest/pimalaya_pomodoro/)
+documentation](https://docs.rs/pimalaya-time/latest/pimalaya_time/)
 and [some
-examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/pomodoro/examples).
+examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/examples).
 
 *Disclaimer: the project is under active development, do not use in
 production before the v1.0.0.*
@@ -24,7 +22,7 @@ a shell with everything you need to get started with the lib: `cargo`,
 $ nix-shell
 
 # then build the lib
-$ cargo build -p pimalaya-pomodoro
+$ cargo build -p pimalaya-time
 ```
 
 ## Contributing

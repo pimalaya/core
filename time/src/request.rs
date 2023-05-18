@@ -9,6 +9,8 @@ pub enum Request {
     Start,
     /// Request the state, the cycle and the value of the timer.
     Get,
+    /// Request to change the current timer duration.
+    Set(usize),
     /// Request to pause the timer. A paused timer freezes, which
     /// means it keeps its state, cycle and value till it get resumed.
     Pause,

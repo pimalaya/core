@@ -1,11 +1,11 @@
 use std::{thread, time::Duration};
 
-use pimalaya_pomodoro::{
+use pimalaya_time::{
     ServerBuilder, ServerEvent, TcpBind, TcpClient, Timer, TimerCycle, TimerEvent, TimerState,
 };
 
 #[test]
-fn pomodoro() {
+fn multiple_tcp_clients() {
     env_logger::builder().is_test(true).init();
 
     let host = "127.0.0.1";
@@ -20,7 +20,10 @@ fn pomodoro() {
             Ok(())
         })
         .with_binder(TcpBind::new(host, port))
-        .build();
+        .with_cycle(("Work", 3))
+        .with_cycle(("Break", 5))
+        .build()
+        .unwrap();
 
     server
         .bind_with(|| {
@@ -34,8 +37,7 @@ fn pomodoro() {
                 client1.get().unwrap(),
                 Timer {
                     state: TimerState::Running,
-                    cycle: TimerCycle::FirstWork,
-                    value: 1498,
+                    cycle: TimerCycle::new("Work", 1),
                     ..Timer::default()
                 }
             );
@@ -47,8 +49,7 @@ fn pomodoro() {
                 client2.get().unwrap(),
                 Timer {
                     state: TimerState::Paused,
-                    cycle: TimerCycle::FirstWork,
-                    value: 1498,
+                    cycle: TimerCycle::new("Work", 1),
                     ..Timer::default()
                 }
             );
@@ -60,8 +61,7 @@ fn pomodoro() {
                 client1.get().unwrap(),
                 Timer {
                     state: TimerState::Running,
-                    cycle: TimerCycle::FirstWork,
-                    value: 1496,
+                    cycle: TimerCycle::new("Break", 4),
                     ..Timer::default()
                 }
             );
@@ -72,8 +72,7 @@ fn pomodoro() {
                 client2.get().unwrap(),
                 Timer {
                     state: TimerState::Stopped,
-                    cycle: TimerCycle::FirstWork,
-                    value: 1500,
+                    cycle: TimerCycle::new("Work", 3),
                     ..Timer::default()
                 }
             );

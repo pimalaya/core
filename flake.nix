@@ -1,5 +1,5 @@
 {
-  description = "Rust library for managing your personal information (PIM).";
+  description = "Rust library to manage your personal information (PIM).";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-22.11";
