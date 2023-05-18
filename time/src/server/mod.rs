@@ -339,6 +339,17 @@ impl ServerBuilder {
         self
     }
 
+    pub fn with_cycles<C, I>(mut self, cycles: I) -> Self
+    where
+        C: Into<TimerCycle>,
+        I: IntoIterator<Item = C>,
+    {
+        for cycle in cycles {
+            self.timer_config.cycles.push(cycle.into());
+        }
+        self
+    }
+
     pub fn build(self) -> io::Result<Server> {
         Ok(Server {
             config: self.server_config,

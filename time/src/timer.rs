@@ -41,13 +41,13 @@ impl DerefMut for TimerCycles {
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TimerCycle {
     /// Custom name of the timer cycle.
-    name: String,
+    pub name: String,
     /// Duration of the timer cycle. This field has two meanings,
     /// depending on where it is used. *From the config point of
     /// view*, the duration represents the total duration of the
     /// cycle. *From the timer point of view*, the duration represents
     /// the amount of time remaining before the cycle ends.
-    duration: usize,
+    pub duration: usize,
 }
 
 impl TimerCycle {
