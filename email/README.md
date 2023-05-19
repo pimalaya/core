@@ -2,20 +2,13 @@
 
 Rust library to manage your emails.
 
-See the full [API
-documentation](https://docs.rs/pimalaya-email/latest/pimalaya_email/)
-and [some
-examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/examples).
+See the full [API documentation](https://docs.rs/pimalaya-email/latest/pimalaya_email/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/examples).
 
-*The project is under active development. Do not use in production
-before the `v1.0.0`.*
+*The project is under active development. Do not use in production before the `v1.0.0`.*
 
 ## Development
 
-The development environment is managed by
-[Nix](https://nixos.org/download.html). Running `nix-shell` will spawn
-a shell with everything you need to get started with the lib: `cargo`,
-`cargo-watch`, `rust-bin`, `rust-analyzer`, `notmuch`…
+The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`, `notmuch`…
 
 ```sh
 # Start a Nix shell
@@ -27,9 +20,7 @@ $ cargo build -p pimalaya-email
 
 ## Testing
 
-Before running the test suite you need to spawn an IMAP server. Here
-an example with [`docker`](https://www.docker.com/) and
-[`greenmail`](https://github.com/greenmail-mail-test/greenmail):
+Before running the test suite you need to spawn an IMAP server. Here an example with [`docker`](https://www.docker.com/) and [`greenmail`](https://github.com/greenmail-mail-test/greenmail):
 
 ```shell-session
 $ docker run -it --rm \
@@ -42,41 +33,23 @@ $ cargo test -p pimalaya-email
 
 ## Contributing
 
-If you find a **bug** that [does not exist
-yet](https://todo.sr.ht/~soywod/pimalaya), please send an email at
-[~soywod/pimalaya@todo.sr.ht](mailto:~soywod/pimalaya@todo.sr.ht).
+If you find a **bug** that [does not exist yet](https://todo.sr.ht/~soywod/pimalaya), please send an email at [~soywod/pimalaya@todo.sr.ht](mailto:~soywod/pimalaya@todo.sr.ht).
 
-If you have a **question**, please send an email at
-[~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht).
+If you have a **question**, please send an email at [~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht).
 
-If you want to **propose a feature** or **fix a bug**, please send a
-patch at
-[~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht)
-using [git send-email](https://git-scm.com/docs/git-send-email) (see
-[this guide](https://git-send-email.io/) on how to configure it).
+If you want to **propose a feature** or **fix a bug**, please send a patch at [~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht) using [git send-email](https://git-scm.com/docs/git-send-email) (see [this guide](https://git-send-email.io/) on how to configure it).
 
-If you want to **subscribe** to the mailing list, please send an email
-at
-[~soywod/pimalaya+subscribe@lists.sr.ht](mailto:~soywod/pimalaya+subscribe@lists.sr.ht).
+If you want to **subscribe** to the mailing list, please send an email at [~soywod/pimalaya+subscribe@lists.sr.ht](mailto:~soywod/pimalaya+subscribe@lists.sr.ht).
 
-If you want to **unsubscribe** to the mailing list, please send an
-email at
-[~soywod/pimalaya+unsubscribe@lists.sr.ht](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht).
+If you want to **unsubscribe** to the mailing list, please send an email at [~soywod/pimalaya+unsubscribe@lists.sr.ht](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht).
 
-If you want to **discuss** about the project, feel free to join the
-[Matrix](https://matrix.org/) workspace
-[#pimalaya](https://matrix.to/#/#pimalaya:matrix.org) or contact me
-directly [@soywod](https://matrix.to/#/@soywod:matrix.org).
+If you want to **discuss** about the project, feel free to join the [Matrix](https://matrix.org/) workspace [#pimalaya](https://matrix.to/#/#pimalaya:matrix.org) or contact me directly [@soywod](https://matrix.to/#/@soywod:matrix.org).
 
 ## Credits
 
 [![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/project/Himalaya/index.html)
 
-Special thanks to the
-[nlnet](https://nlnet.nl/project/Himalaya/index.html) foundation that
-helped Himalaya to receive financial support from the [NGI
-Assure](https://www.ngi.eu/ngi-projects/ngi-assure/) program of the
-European Commission in September, 2022.
+Special thanks to the [nlnet](https://nlnet.nl/project/Himalaya/index.html) foundation that helped Himalaya to receive financial support from the [NGI Assure](https://www.ngi.eu/ngi-projects/ngi-assure/) program of the European Commission in September, 2022.
 
 ## Sponsoring
 
