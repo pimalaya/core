@@ -1,7 +1,7 @@
 [package]
 name = "pimalaya-process"
-version = "0.0.1"
-description = "Rust library to run processes in pipelines."
+version = "0.0.2"
+description = "Rust library to run cross-platform compatible processes in pipelines."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
