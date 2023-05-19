@@ -1,6 +1,6 @@
 [package]
 name = "pimalaya-oauth2"
-version = "0.0.1"
+version = "0.0.2"
 description = "Rust library to simplify OAuth2 flows."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
