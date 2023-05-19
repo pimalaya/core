@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.8.0] - 2023-05-19
+
 ### Added
 
 - Added OAuth 2.0 support for IMAP and SMTP [#9].
@@ -19,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced `ImapConfig::passwd_cmd` with `ImapConfig::auth` which takes 2 variants:
   - `ImapAuthConfig::Passwd(PasswdConfig)` for password authentication
   - `ImapAuthConfig::OAuth2(OAuth2Config)` for OAuth 2.0 authentication
-- Moved `backend::id_mapper` to its own crate `pimalaya-id-alias`.
+- Moved `backend::id_mapper` to the CLI crate.
 - Renamed `EmailSender` to `Sender` and `AccountConfig::email_sender` to `AccountConfig::sender` in order to match `Backend`.
 - Moved backend config to `AccountConfig::backend`. They do not need to be given separately to backend and sender builders.
 - Changed `AccountConfig::*_cmd` from `String` to `pimalaya_process::Cmd`.
@@ -237,6 +239,7 @@ First official version of the Himalaya's library. The source code mostly comes f
 [patch#6]: https://lists.sr.ht/~soywod/pimalaya/patches/39215
 [patch#7]: https://lists.sr.ht/~soywod/pimalaya/patches/39261
 
+[#6]: https://todo.sr.ht/~soywod/pimalaya/6
 [#9]: https://todo.sr.ht/~soywod/pimalaya/9
 [#20]: https://todo.sr.ht/~soywod/pimalaya/20
 [#37]: https://todo.sr.ht/~soywod/pimalaya/37
