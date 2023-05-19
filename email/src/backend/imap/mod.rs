@@ -177,7 +177,7 @@ pub enum ImapSessionStream {
 impl SetReadTimeout for ImapSessionStream {
     fn set_read_timeout(&mut self, timeout: Option<Duration>) -> imap::Result<()> {
         match self {
-            Self::Tls(stream) => stream.set_read_timeout(timeout),
+            Self::Tls(stream) => Ok(stream.get_mut().set_read_timeout(timeout)?),
             Self::Tcp(stream) => stream.set_read_timeout(timeout),
         }
     }

@@ -21,7 +21,7 @@ fn test_imap_backend() {
     let imap = ImapBackend::new(
         config.clone(),
         ImapConfig {
-            host: "localhost".into(),
+            host: "127.0.0.1".into(),
             port: 3143,
             ssl: Some(false),
             starttls: Some(false),

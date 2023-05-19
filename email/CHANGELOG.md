@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added IP support using `rustls` `v0.21` [#80].
+
 ## [0.8.0] - 2023-05-19
 
 ### Added
@@ -252,3 +256,4 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#57]: https://todo.sr.ht/~soywod/pimalaya/57
 [#61]: https://todo.sr.ht/~soywod/pimalaya/61
 [#70]: https://todo.sr.ht/~soywod/pimalaya/70
+[#80]: https://todo.sr.ht/~soywod/pimalaya/80
