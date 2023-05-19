@@ -1,4 +1,4 @@
-use std::result;
+use std::{ops::Deref, result};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -19,6 +19,32 @@ const KEYRING_SERVICE: &str = "pimalaya";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Entry(String);
+
+impl Deref for Entry {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<String> for Entry {
+    fn from(entry: String) -> Self {
+        Self(entry)
+    }
+}
+
+impl From<&String> for Entry {
+    fn from(entry: &String) -> Self {
+        Self(entry.clone())
+    }
+}
+
+impl From<&str> for Entry {
+    fn from(entry: &str) -> Self {
+        Self(entry.to_owned())
+    }
+}
 
 impl ToString for Entry {
     fn to_string(&self) -> String {
@@ -51,23 +77,5 @@ impl Entry {
         self.get_entry()?
             .delete_password()
             .map_err(|err| Error::DeleteSecretError(err, self.0.clone()))
-    }
-}
-
-impl From<&str> for Entry {
-    fn from(entry: &str) -> Self {
-        Self(entry.to_owned())
-    }
-}
-
-impl From<&String> for Entry {
-    fn from(entry: &String) -> Self {
-        Self(entry.to_owned())
-    }
-}
-
-impl From<String> for Entry {
-    fn from(entry: String) -> Self {
-        Self(entry)
     }
 }

@@ -235,7 +235,7 @@ impl AuthorizationCodeGrant {
         };
 
         // write a basic http response in plain text
-        let res = "Authentication succeeded!";
+        let res = "Authentication successful!";
         let res = format!(
             "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
             res.len(),

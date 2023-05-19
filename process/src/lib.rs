@@ -2,6 +2,7 @@ use log::{error, trace, warn};
 use std::{
     env,
     io::{self, prelude::*},
+    ops::Deref,
     process::{Command, Stdio},
     result,
 };
@@ -43,9 +44,23 @@ pub struct CmdOutput {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SingleCmd(String);
 
+impl From<String> for SingleCmd {
+    fn from(cmd: String) -> Self {
+        Self(cmd)
+    }
+}
+
 impl ToString for SingleCmd {
     fn to_string(&self) -> String {
         self.0.clone()
+    }
+}
+
+impl Deref for SingleCmd {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -123,6 +138,12 @@ impl SingleCmd {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Pipeline(Vec<SingleCmd>);
 
+impl From<Vec<String>> for Pipeline {
+    fn from(cmd: Vec<String>) -> Self {
+        Self(cmd.into_iter().map(Into::into).collect())
+    }
+}
+
 impl ToString for Pipeline {
     fn to_string(&self) -> String {
         self.0.iter().fold(String::new(), |s, cmd| {
@@ -132,6 +153,14 @@ impl ToString for Pipeline {
                 s + "|" + &cmd.to_string()
             }
         })
+    }
+}
+
+impl Deref for Pipeline {
+    type Target = Vec<SingleCmd>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
