@@ -1,4 +1,4 @@
-use crate::lexer::part::{Prop, DISPOSITION, ENCRYPT, FILENAME, NAME, SIGN, TYPE};
+use crate::mml::tokens::{Prop, DISPOSITION, ENCRYPT, FILENAME, NAME, SIGN, TYPE};
 
 use super::{maybe_quoted_val, prelude::*, quoted_val, val};
 

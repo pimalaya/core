@@ -1,4 +1,4 @@
-use crate::lexer::tpl::Val;
+use crate::mml::tokens::Val;
 
 use super::{prelude::*, BACKSLASH, DOUBLE_QUOTE, GREATER_THAN, SPACE};
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::lexer::part::{Part, FILENAME};
+use crate::mml::tokens::{Part, FILENAME};
 
 use super::{
     disposition, encrypt, filename, multipart_type, name, part_type, prelude::*, sign, GREATER_THAN,
@@ -10,6 +10,19 @@ pub(crate) const SINGLE_PART_BEGIN: &str = "<#part";
 pub(crate) const SINGLE_PART_END: &str = "<#/part>";
 pub(crate) const MULTI_PART_BEGIN: &str = "<#multipart";
 pub(crate) const MULTI_PART_END: &str = "<#/multipart>";
+
+/// Represents the template parser. It parses MIME headers followed by
+/// parts.
+pub(crate) fn parts() -> impl Parser<char, Vec<Part>, Error = Simple<char>> {
+    choice((
+        multi_part(),
+        attachment(),
+        single_part(),
+        text_plain_part().map(Part::TextPlainPart),
+    ))
+    .repeated()
+    .then_ignore(end())
+}
 
 /// Represents the plain text part parser. It parses everything that
 /// is inside and outside (multi)parts.
@@ -139,9 +152,10 @@ mod parts {
     use concat_with::concat_line;
     use std::collections::HashMap;
 
-    use crate::lexer::part::{DISPOSITION, FILENAME, TYPE};
-
-    use super::{super::prelude::*, Part};
+    use crate::mml::{
+        parsers::prelude::*,
+        tokens::{Part, DISPOSITION, FILENAME, NAME, TYPE},
+    };
 
     #[test]
     fn single_part() {
@@ -335,6 +349,86 @@ mod parts {
                     ))
                 ]
             ))),
+        );
+    }
+
+    // Simple example from the [Emacs MML] module.
+    //
+    // [Emacs MML]: https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Simple-MML-Example.html
+    #[test]
+    fn simple_mml() {
+        assert_eq!(
+            super::parts()
+                .parse(concat_line!(
+                    "<#multipart type=alternative>",
+                    "This is a plain text part.",
+                    "<#part type=text/enriched>",
+                    "<center>This is a centered enriched part</center>",
+                    "<#/multipart>",
+                ))
+                .unwrap(),
+            vec![Part::MultiPart((
+                HashMap::from_iter([(TYPE.into(), "alternative".into())]),
+                vec![
+                    Part::TextPlainPart("This is a plain text part.".into()),
+                    Part::SinglePart((
+                        HashMap::from_iter([(TYPE.into(), "text/enriched".into())]),
+                        String::from("<center>This is a centered enriched part</center>")
+                    ))
+                ]
+            ))],
+        );
+    }
+
+    // Advanced example from the [Emacs MML] module.
+    //
+    // [Emacs MML]: https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Advanced-MML-Example.html
+    #[test]
+    fn advanced_mml() {
+        assert_eq!(
+            super::parts()
+                .parse(concat_line!(
+                    "<#multipart type=mixed>",
+                    "<#part type=image/jpeg filename=~/rms.jpg disposition=inline>",
+                    "<#multipart type=alternative>",
+                    "This is a plain text part.",
+                    "<#part type=text/enriched name=enriched.txt>",
+                    "<center>This is a centered enriched part</center>",
+                    "<#/multipart>",
+                    "This is a new plain text part.",
+                    "<#part disposition=attachment>",
+                    "This plain text part is an attachment.",
+                    "<#/multipart>",
+                ))
+                .unwrap(),
+            vec![Part::MultiPart((
+                HashMap::from_iter([(TYPE.into(), "mixed".into())]),
+                vec![
+                    Part::Attachment(HashMap::from_iter([
+                        (TYPE.into(), "image/jpeg".into()),
+                        (FILENAME.into(), "~/rms.jpg".into()),
+                        (DISPOSITION.into(), "inline".into())
+                    ])),
+                    Part::MultiPart((
+                        HashMap::from_iter([(TYPE.into(), "alternative".into())]),
+                        vec![
+                            Part::TextPlainPart("This is a plain text part.".into()),
+                            Part::SinglePart((
+                                HashMap::from_iter([
+                                    (TYPE.into(), "text/enriched".into()),
+                                    (NAME.into(), "enriched.txt".into())
+                                ]),
+                                String::from("<center>This is a centered enriched part</center>")
+                            ))
+                        ]
+                    )),
+                    Part::TextPlainPart("This is a new plain text part.".into()),
+                    Part::SinglePart((
+                        HashMap::from_iter([(DISPOSITION.into(), "attachment".into())]),
+                        String::from("This plain text part is an attachment.")
+                    ))
+                ]
+            ))]
         );
     }
 }
