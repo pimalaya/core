@@ -307,82 +307,98 @@ impl<'a> Compiler {
 #[cfg(test)]
 mod tests {
     use concat_with::concat_line;
-    use std::{collections::HashMap, io::prelude::*};
-    use tempfile::NamedTempFile;
+    use std::io::prelude::*;
+    use tempfile::Builder;
 
-    use crate::mml::{
-        compiler::Compiler,
-        parsers::{self, prelude::*},
-        tokens::Part,
-    };
+    use crate::CompilerBuilder;
 
     #[test]
-    fn attachment() {
-        let mut attachment = NamedTempFile::new().unwrap();
-        write!(attachment, "body").unwrap();
+    fn compile_text_plain() {
+        let tpl = concat_line!("Hello, world!", "");
 
-        let part = parsers::attachment()
-            .parse(format!(
-                "<#part name=custom filename={} type=application/octet-stream>",
-                attachment.path().to_string_lossy()
-            ))
+        let msg = CompilerBuilder::new()
+            .build()
+            .compile(&tpl)
+            .unwrap()
+            .message_id("message-id@localhost")
+            .date(0 as u64)
+            .write_to_string()
             .unwrap();
-        let part = Compiler::default().compile_part(part).unwrap();
 
-        let mut buf = Vec::new();
-        part.write_part(&mut buf).unwrap();
-
-        let expected = concat_line!(
-            "Content-Type: application/octet-stream\r",
-            "Content-Disposition: attachment; filename=\"custom\"\r",
-            "Content-Transfer-Encoding: base64\r",
+        let expected_msg = concat_line!(
+            "Message-ID: <message-id@localhost>\r",
+            "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
+            "Content-Type: text/plain; charset=\"utf-8\"\r",
+            "Content-Transfer-Encoding: 7bit\r",
             "\r",
-            "Ym9keQ==\r",
-            ""
+            "Hello, world!\r",
+            "",
         );
 
-        assert_eq!(String::from_utf8_lossy(&buf), expected);
+        assert_eq!(msg, expected_msg);
     }
 
     #[test]
-    fn compact_text_plain_parts() {
-        assert_eq!(vec![] as Vec<Part>, Part::compact_text_plain_parts(vec![]));
-
-        assert_eq!(
-            vec![Part::TextPlainPart("This is a plain text part.".into())],
-            Part::compact_text_plain_parts(vec![Part::TextPlainPart(
-                "This is a plain text part.".into()
-            )])
+    fn compile_text_html() {
+        let tpl = concat_line!(
+            "<#part type=\"text/html\">",
+            "<h1>Hello, world!</h1>",
+            "<#/part>",
         );
 
-        assert_eq!(
-            vec![Part::TextPlainPart(
-                "This is a plain text part.\n\nThis is a new plain text part.".into()
-            )],
-            Part::compact_text_plain_parts(vec![
-                Part::TextPlainPart("This is a plain text part.".into()),
-                Part::TextPlainPart("This is a new plain text part.".into())
-            ])
+        let msg = CompilerBuilder::new()
+            .build()
+            .compile(&tpl)
+            .unwrap()
+            .message_id("message-id@localhost")
+            .date(0 as u64)
+            .write_to_string()
+            .unwrap();
+
+        let expected_msg = concat_line!(
+            "Message-ID: <message-id@localhost>\r",
+            "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
+            "Content-Type: text/html\r",
+            "Content-Transfer-Encoding: 7bit\r",
+            "\r",
+            "<h1>Hello, world!</h1>",
         );
 
-        assert_eq!(
-            vec![
-                Part::TextPlainPart(
-                    "This is a plain text part.\n\nThis is a new plain text part.".into()
-                ),
-                Part::SinglePart((
-                    HashMap::default(),
-                    "<h1>This is a HTML text part.</h1>".into()
-                ))
-            ],
-            Part::compact_text_plain_parts(vec![
-                Part::TextPlainPart("This is a plain text part.".into()),
-                Part::SinglePart((
-                    HashMap::default(),
-                    "<h1>This is a HTML text part.</h1>".into()
-                )),
-                Part::TextPlainPart("This is a new plain text part.".into())
-            ])
+        assert_eq!(msg, expected_msg);
+    }
+
+    #[test]
+    fn compile_attachment() {
+        let mut attachment = Builder::new()
+            .prefix("attachment")
+            .suffix(".txt")
+            .rand_bytes(0)
+            .tempfile()
+            .unwrap();
+        write!(attachment, "Hello, world!").unwrap();
+        let attachment_path = attachment.path().to_string_lossy();
+
+        let tpl = format!("<#part filename=\"{attachment_path}\" type=\"text/plain\">");
+
+        let msg = CompilerBuilder::new()
+            .build()
+            .compile(&tpl)
+            .unwrap()
+            .message_id("message-id@localhost")
+            .date(0 as u64)
+            .write_to_string()
+            .unwrap();
+
+        let expected_msg = concat_line!(
+            "Message-ID: <message-id@localhost>\r",
+            "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
+            "Content-Type: text/plain\r",
+            "Content-Disposition: attachment; filename=\"attachment.txt\"\r",
+            "Content-Transfer-Encoding: 7bit\r",
+            "\r",
+            "Hello, world!",
         );
+
+        assert_eq!(msg, expected_msg);
     }
 }

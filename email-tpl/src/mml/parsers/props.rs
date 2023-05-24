@@ -22,7 +22,7 @@ pub(crate) fn multipart_type() -> impl Parser<char, Prop, Error = Simple<char>> 
 pub(crate) fn part_type() -> impl Parser<char, Prop, Error = Simple<char>> {
     just(TYPE)
         .then_ignore(just('=').padded())
-        .then(choice((val(), quoted_val())))
+        .then(choice((quoted_val(), val())))
         .padded()
         .map(|(key, val)| (key.to_string(), val.to_string()))
 }
@@ -31,7 +31,7 @@ pub(crate) fn part_type() -> impl Parser<char, Prop, Error = Simple<char>> {
 pub(crate) fn name() -> impl Parser<char, Prop, Error = Simple<char>> {
     just(NAME)
         .then_ignore(just('=').padded())
-        .then(choice((val(), quoted_val())))
+        .then(choice((quoted_val(), val())))
         .padded()
         .map(|(key, val)| (key.to_string(), val.to_string()))
 }
@@ -54,7 +54,7 @@ pub(crate) fn disposition() -> impl Parser<char, Prop, Error = Simple<char>> {
 pub(crate) fn filename() -> impl Parser<char, Prop, Error = Simple<char>> {
     just(FILENAME)
         .then_ignore(just('=').padded())
-        .then(choice((val(), quoted_val())))
+        .then(choice((quoted_val(), val())))
         .padded()
         .map(|(key, val)| (key.to_string(), val.to_string()))
 }

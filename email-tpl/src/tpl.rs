@@ -141,12 +141,18 @@ mod tests {
             "",
             "Hello, world!",
         );
-        let tpl = Tpl::interpret_with(interpreter, raw.as_bytes()).unwrap();
 
-        assert_eq!(
-            *tpl,
-            "From: from@localhost\nTo: to@localhost\nSubject: subject\n\nHello, world!"
+        let tpl = Tpl::interpret_with(interpreter, raw.as_bytes()).unwrap();
+        let expected_tpl = concat_line!(
+            "From: from@localhost",
+            "To: to@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
         );
+
+        assert_eq!(*tpl, expected_tpl);
     }
 
     #[test]
@@ -159,12 +165,17 @@ mod tests {
             "",
             "Hello, world!",
         );
-        let tpl = Tpl::interpret_with(interpreter, raw.as_bytes()).unwrap();
 
-        assert_eq!(
-            *tpl,
-            "From: from@localhost\nSubject: subject\n\nHello, world!"
+        let tpl = Tpl::interpret_with(interpreter, raw.as_bytes()).unwrap();
+        let expected_tpl = concat_line!(
+            "From: from@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
         );
+
+        assert_eq!(*tpl, expected_tpl);
     }
 
     #[test]
@@ -177,8 +188,10 @@ mod tests {
             "",
             "Hello, world!",
         );
-        let tpl = Tpl::interpret_with(interpreter, raw.as_bytes()).unwrap();
 
-        assert_eq!(*tpl, "Hello, world!");
+        let tpl = Tpl::interpret_with(interpreter, raw.as_bytes()).unwrap();
+        let expected_tpl = concat_line!("Hello, world!", "");
+
+        assert_eq!(*tpl, expected_tpl);
     }
 }

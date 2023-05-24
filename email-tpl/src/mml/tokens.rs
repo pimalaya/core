@@ -86,3 +86,52 @@ impl<'a> Part {
         compacted_parts
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::mml::tokens::Part;
+
+    #[test]
+    fn compact_text_plain_parts() {
+        assert_eq!(vec![] as Vec<Part>, Part::compact_text_plain_parts(vec![]));
+
+        assert_eq!(
+            vec![Part::TextPlainPart("This is a plain text part.".into())],
+            Part::compact_text_plain_parts(vec![Part::TextPlainPart(
+                "This is a plain text part.".into()
+            )])
+        );
+
+        assert_eq!(
+            vec![Part::TextPlainPart(
+                "This is a plain text part.\n\nThis is a new plain text part.".into()
+            )],
+            Part::compact_text_plain_parts(vec![
+                Part::TextPlainPart("This is a plain text part.".into()),
+                Part::TextPlainPart("This is a new plain text part.".into())
+            ])
+        );
+
+        assert_eq!(
+            vec![
+                Part::TextPlainPart(
+                    "This is a plain text part.\n\nThis is a new plain text part.".into()
+                ),
+                Part::SinglePart((
+                    HashMap::default(),
+                    "<h1>This is a HTML text part.</h1>".into()
+                ))
+            ],
+            Part::compact_text_plain_parts(vec![
+                Part::TextPlainPart("This is a plain text part.".into()),
+                Part::SinglePart((
+                    HashMap::default(),
+                    "<h1>This is a HTML text part.</h1>".into()
+                )),
+                Part::TextPlainPart("This is a new plain text part.".into())
+            ])
+        );
+    }
+}

@@ -51,12 +51,12 @@ pub(crate) fn text_plain_part() -> impl Parser<char, String, Error = Simple<char
 ///
 /// # Examples
 ///
-/// ```ignore
-/// // <#part filename="/absolute/path/to/file with space.ext">
-/// // <#part filename=/absolute/path/to/file.ext signed=command>
-/// // <#part filename=./relative/path/to/file.ext encrypted=command>
-/// // <#part filename=~/path/to/file.ext encrypted=command signed=command>
-/// // <#part filename=$XDG_DATA_HOME/path/to/file.ext>
+/// ```mml,ignore
+/// <#part filename="/absolute/path/to/file with space.ext">
+/// <#part filename=/absolute/path/to/file.ext signed=command>
+/// <#part filename=./relative/path/to/file.ext encrypted=command>
+/// <#part filename=~/path/to/file.ext encrypted=command signed=command>
+/// <#part filename=$XDG_DATA_HOME/path/to/file.ext>
 /// ```
 pub(crate) fn attachment() -> impl Parser<char, Part, Error = Simple<char>> {
     choice((

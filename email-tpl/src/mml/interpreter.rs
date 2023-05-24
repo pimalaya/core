@@ -1,7 +1,12 @@
 use log::warn;
-use mail_parser::{Message, MessagePart, PartType};
+use mail_parser::{Message, MessagePart, MimeHeaders, PartType};
 use pimalaya_process::Cmd;
-use std::{collections::HashSet, env, io, result};
+use std::{
+    collections::HashSet,
+    env, fs, io,
+    path::{Path, PathBuf},
+    result,
+};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -23,6 +28,8 @@ pub enum Error {
     EncryptPartError(#[from] pimalaya_process::Error),
     #[error("cannot sign multi part")]
     SignPartError(#[source] pimalaya_process::Error),
+    #[error("cannot save attachement content at {1}")]
+    WriteAttachmentError(#[source] io::Error, PathBuf),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -94,6 +101,25 @@ pub struct InterpreterBuilder {
     /// Represents the build option that removes signature from
     /// text/plain parts.
     pub remove_text_plain_parts_signature: bool,
+
+    /// If `true`, keeps multipart structure unchanged when
+    /// interpreting emails as template. Useful to see how nested
+    /// parts are structured, which part is encrypted or signed
+    /// etc. If `false`, flattens multipart structure, which means all
+    /// parts and subparts are shown at the root level.
+    pub show_multiparts: Option<bool>,
+
+    /// An attachment is interpreted this way: `<#part
+    /// filename=attachment.ext>`. If `true`, automatically creates
+    /// the file at the given filename location and transfers its raw
+    /// content to it. Directory can be customized via
+    /// `save_attachments_dir`. Useful when you need to forward an
+    /// email and to transfer attachments with it.
+    pub save_attachments: Option<bool>,
+
+    /// Saves attachments to the given directory instead of the
+    /// temporary directory given by `std::env::temp_dir()`.
+    pub save_attachments_dir: Option<PathBuf>,
 }
 
 impl<'a> InterpreterBuilder {
@@ -170,6 +196,29 @@ impl<'a> InterpreterBuilder {
         self
     }
 
+    pub fn show_multiparts(mut self) -> Self {
+        self.show_multiparts = Some(true);
+        self
+    }
+
+    pub fn hide_multiparts(mut self) -> Self {
+        self.show_multiparts = Some(false);
+        self
+    }
+
+    pub fn save_attachments(mut self, b: bool) -> Self {
+        self.save_attachments = Some(b);
+        self
+    }
+
+    pub fn save_attachments_dir<P>(mut self, p: P) -> Self
+    where
+        P: Into<PathBuf>,
+    {
+        self.save_attachments_dir = Some(p.into());
+        self
+    }
+
     pub fn build(self) -> Interpreter {
         Interpreter {
             pgp_decrypt_cmd: self
@@ -185,6 +234,9 @@ impl<'a> InterpreterBuilder {
             sanitize_text_plain_parts: self.sanitize_text_plain_parts,
             sanitize_text_html_parts: self.sanitize_text_html_parts,
             remove_text_plain_parts_signature: self.remove_text_plain_parts_signature,
+            show_multiparts: self.show_multiparts.unwrap_or(false),
+            save_attachments: self.save_attachments.unwrap_or(false),
+            save_attachments_dir: self.save_attachments_dir.unwrap_or_else(|| env::temp_dir()),
         }
     }
 }
@@ -202,13 +254,107 @@ pub struct Interpreter {
     pub sanitize_text_plain_parts: bool,
     pub sanitize_text_html_parts: bool,
     pub remove_text_plain_parts_signature: bool,
+    pub show_multiparts: bool,
+    pub save_attachments: bool,
+    pub save_attachments_dir: PathBuf,
 }
 
 impl<'a> Interpreter {
-    /// Interprets the given string template into a raw MIME Message
-    /// using [InterpreterOpts] from the builder.
     pub fn interpret(&self, msg: &Message) -> Result<String> {
-        self.interpret_part(msg.root_part())
+        self.interpret_part(msg, msg.root_part())
+    }
+
+    pub fn interpret_part(&self, msg: &Message, part: &MessagePart) -> Result<String> {
+        let mut tpl = String::new();
+
+        match &part.body {
+            PartType::Text(text) => {
+                tpl.push_str(&text);
+                tpl.push('\n');
+            }
+            PartType::Html(html) => {
+                tpl.push_str("<#part type=\"text/html\">");
+                tpl.push('\n');
+                tpl.push_str(&html);
+                tpl.push('\n');
+                tpl.push_str("<#/part>");
+                tpl.push('\n');
+            }
+            PartType::Binary(data) => {
+                println!("BIN");
+                let fname = self
+                    .save_attachments_dir
+                    .join(part.attachment_name().unwrap_or("noname"));
+
+                if self.save_attachments {
+                    fs::write(&fname, data)
+                        .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
+                }
+
+                let fname = fname.to_string_lossy();
+                let ctype = part
+                    .content_type()
+                    .and_then(|ctype| {
+                        ctype
+                            .subtype()
+                            .map(|stype| format!("{}/{stype}", ctype.ctype()))
+                    })
+                    .unwrap_or_else(|| String::from("application/octet-stream"));
+
+                tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
+                tpl.push('\n');
+            }
+            PartType::InlineBinary(data) => {
+                // save inline attachment only if attachment name exists
+                if let Some(fname) = part.attachment_name() {
+                    let fname = self.save_attachments_dir.join(fname);
+
+                    if self.save_attachments {
+                        fs::write(&fname, data)
+                            .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
+                    }
+
+                    let fname = fname.to_string_lossy();
+                    let ctype = part
+                        .content_type()
+                        .and_then(|ctype| {
+                            ctype
+                                .subtype()
+                                .map(|stype| format!("{}/{stype}", ctype.ctype()))
+                        })
+                        .unwrap_or_else(|| String::from("application/octet-stream"));
+
+                    tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
+                    tpl.push('\n');
+                }
+            }
+            PartType::Message(msg) => tpl.push_str(&self.interpret(msg)?),
+            PartType::Multipart(ids) => {
+                if self.show_multiparts {
+                    let stype = part
+                        .content_type()
+                        .and_then(|p| p.subtype())
+                        .unwrap_or("mixed");
+                    tpl.push_str(&format!("<#multipart type=\"{stype}\">"));
+                    tpl.push('\n');
+                }
+
+                for id in ids {
+                    if let Some(part) = msg.part(*id) {
+                        tpl.push_str(&self.interpret_part(msg, part)?);
+                    } else {
+                        warn!("cannot find part {id}, skipping it");
+                    }
+                }
+
+                if self.show_multiparts {
+                    tpl.push_str("<#/multipart>");
+                    tpl.push('\n');
+                }
+            }
+        }
+
+        Ok(tpl)
     }
 
     /// Builds the final PGP encrypt system command by replacing
@@ -227,19 +373,226 @@ impl<'a> Interpreter {
 
         Ok(cmd)
     }
+}
 
-    fn interpret_part(&self, part: &MessagePart) -> Result<String> {
-        let mut tpl = String::new();
+#[cfg(test)]
+mod tests {
+    use concat_with::concat_line;
+    use mail_builder::{mime::MimePart, MessageBuilder};
+    use mail_parser::Message;
 
-        match &part.body {
-            PartType::Text(text) => tpl.push_str(&text),
-            PartType::Html(_) => (),
-            PartType::Binary(_) => (),
-            PartType::InlineBinary(_) => (),
-            PartType::Message(msg) => tpl.push_str(&self.interpret(msg)?),
-            PartType::Multipart(_) => (),
-        }
+    use crate::InterpreterBuilder;
 
-        Ok(tpl)
+    #[test]
+    fn interpret_text_plain() {
+        let msg = MessageBuilder::new()
+            .from("from@localhost")
+            .to("to@localhost")
+            .subject("subject")
+            .text_body("Hello, world!")
+            .write_to_vec()
+            .unwrap();
+        let msg = Message::parse(&msg).unwrap();
+
+        let tpl = InterpreterBuilder::new().build().interpret(&msg).unwrap();
+        let expected_tpl = concat_line!("Hello, world!", "");
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn interpret_text_html() {
+        let msg = MessageBuilder::new()
+            .from("from@localhost")
+            .to("to@localhost")
+            .subject("subject")
+            .html_body("<h1>Hello, world!</h1>")
+            .write_to_vec()
+            .unwrap();
+        let msg = Message::parse(&msg).unwrap();
+
+        let tpl = InterpreterBuilder::new().build().interpret(&msg).unwrap();
+        let expected_tpl = concat_line!(
+            "<#part type=\"text/html\">",
+            "<h1>Hello, world!</h1>",
+            "<#/part>",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn interpret_attachment() {
+        let msg = MessageBuilder::new()
+            .from("from@localhost")
+            .to("to@localhost")
+            .subject("subject")
+            .text_body("Hello, world!")
+            .binary_attachment(
+                "application/octet-stream",
+                "attachment.txt",
+                "Hello, world!".as_bytes(),
+            )
+            .write_to_string()
+            .unwrap();
+        let msg = Message::parse(msg.as_bytes()).unwrap();
+
+        let tpl = InterpreterBuilder::new()
+            .save_attachments_dir("~/Downloads")
+            .build()
+            .interpret(&msg)
+            .unwrap();
+        let expected_tpl = concat_line!(
+            "Hello, world!",
+            "<#part filename=\"~/Downloads/attachment.txt\" type=\"application/octet-stream\">",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn interpret_show_multipart() {
+        let msg = MessageBuilder::new()
+            .from("from@localhost")
+            .to("to@localhost")
+            .subject("subject")
+            .body(MimePart::new_multipart(
+                "multipart/mixed",
+                vec![
+                    MimePart::new_text("Hello, world!"),
+                    MimePart::new_html("<h1>Hello, world!</h1>"),
+                ],
+            ))
+            .write_to_vec()
+            .unwrap();
+        let msg = Message::parse(&msg).unwrap();
+
+        let tpl = InterpreterBuilder::new()
+            .show_multiparts()
+            .build()
+            .interpret(&msg)
+            .unwrap();
+        let expected_tpl = concat_line!(
+            "<#multipart type=\"mixed\">",
+            "Hello, world!",
+            "<#part type=\"text/html\">",
+            "<h1>Hello, world!</h1>",
+            "<#/part>",
+            "<#/multipart>",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn interpret_hide_multipart() {
+        let msg = MessageBuilder::new()
+            .from("from@localhost")
+            .to("to@localhost")
+            .subject("subject")
+            .body(MimePart::new_multipart(
+                "multipart/mixed",
+                vec![
+                    MimePart::new_text("Hello, world!"),
+                    MimePart::new_html("<h1>Hello, world!</h1>"),
+                ],
+            ))
+            .write_to_vec()
+            .unwrap();
+        let msg = Message::parse(&msg).unwrap();
+
+        let tpl = InterpreterBuilder::new()
+            .hide_multiparts()
+            .build()
+            .interpret(&msg)
+            .unwrap();
+        let expected_tpl = concat_line!(
+            "Hello, world!",
+            "<#part type=\"text/html\">",
+            "<h1>Hello, world!</h1>",
+            "<#/part>",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn interpret_show_nested_multiparts() {
+        let msg = MessageBuilder::new()
+            .from("from@localhost")
+            .to("to@localhost")
+            .subject("subject")
+            .body(MimePart::new_multipart(
+                "multipart/mixed",
+                vec![MimePart::new_multipart(
+                    "multipart/alternative",
+                    vec![
+                        MimePart::new_text("Hello, world!"),
+                        MimePart::new_html("<h1>Hello, world!</h1>"),
+                    ],
+                )],
+            ))
+            .write_to_vec()
+            .unwrap();
+        let msg = Message::parse(&msg).unwrap();
+
+        let tpl = InterpreterBuilder::new()
+            .show_multiparts()
+            .build()
+            .interpret(&msg)
+            .unwrap();
+        let expected_tpl = concat_line!(
+            "<#multipart type=\"mixed\">",
+            "<#multipart type=\"alternative\">",
+            "Hello, world!",
+            "<#part type=\"text/html\">",
+            "<h1>Hello, world!</h1>",
+            "<#/part>",
+            "<#/multipart>",
+            "<#/multipart>",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn interpret_hide_nested_multiparts() {
+        let msg = MessageBuilder::new()
+            .from("from@localhost")
+            .to("to@localhost")
+            .subject("subject")
+            .body(MimePart::new_multipart(
+                "multipart/mixed",
+                vec![MimePart::new_multipart(
+                    "multipart/alternative",
+                    vec![
+                        MimePart::new_text("Hello, world!"),
+                        MimePart::new_html("<h1>Hello, world!</h1>"),
+                    ],
+                )],
+            ))
+            .write_to_vec()
+            .unwrap();
+        let msg = Message::parse(&msg).unwrap();
+
+        let tpl = InterpreterBuilder::new()
+            .hide_multiparts()
+            .build()
+            .interpret(&msg)
+            .unwrap();
+        let expected_tpl = concat_line!(
+            "Hello, world!",
+            "<#part type=\"text/html\">",
+            "<h1>Hello, world!</h1>",
+            "<#/part>",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
     }
 }
