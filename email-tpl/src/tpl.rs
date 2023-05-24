@@ -43,9 +43,9 @@ impl DerefMut for Tpl {
     }
 }
 
-impl From<String> for Tpl {
-    fn from(tpl: String) -> Self {
-        Self(tpl)
+impl<T: ToString> From<T> for Tpl {
+    fn from(tpl: T) -> Self {
+        Self(tpl.to_string())
     }
 }
 

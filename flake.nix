@@ -32,6 +32,8 @@
             openssl
             notmuch
             msmtp
+
+            gnupg
           ];
         };
 

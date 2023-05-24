@@ -1,12 +1,7 @@
 use log::warn;
 use mail_parser::{Message, MessagePart, MimeHeaders, PartType};
 use pimalaya_process::Cmd;
-use std::{
-    collections::HashSet,
-    env, fs, io,
-    path::{Path, PathBuf},
-    result,
-};
+use std::{collections::HashSet, env, fs, io, path::PathBuf, result};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -90,7 +85,6 @@ impl ShowHeadersStrategy {
 pub struct InterpreterBuilder {
     pub pgp_decrypt_cmd: Option<Cmd>,
     pub pgp_verify_cmd: Option<Cmd>,
-    pub pgp_verify_recipient: Option<String>,
     pub show_text_parts: ShowTextPartsStrategy,
     pub show_headers: ShowHeadersStrategy,
     pub show_text_parts_only: bool,
@@ -102,23 +96,23 @@ pub struct InterpreterBuilder {
     /// text/plain parts.
     pub remove_text_plain_parts_signature: bool,
 
-    /// If `true`, keeps multipart structure unchanged when
-    /// interpreting emails as template. Useful to see how nested
-    /// parts are structured, which part is encrypted or signed
-    /// etc. If `false`, flattens multipart structure, which means all
-    /// parts and subparts are shown at the root level.
+    /// If `true` then multipart structures are kept unchanged when
+    /// interpreting emails as template. It is useful to see how
+    /// nested parts are structured, which part is encrypted or signed
+    /// etc. If `false` then multipart structure is flatten, which
+    /// means all parts and subparts are shown at same the root level.
     pub show_multiparts: Option<bool>,
 
     /// An attachment is interpreted this way: `<#part
-    /// filename=attachment.ext>`. If `true`, automatically creates
-    /// the file at the given filename location and transfers its raw
-    /// content to it. Directory can be customized via
-    /// `save_attachments_dir`. Useful when you need to forward an
-    /// email and to transfer attachments with it.
+    /// filename=attachment.ext>`. If `true` then the file (with its
+    /// content) is automatically created at the given
+    /// filename. Directory can be customized via
+    /// `save_attachments_dir`. This option is particularly useful
+    /// when transfering an email with its attachments.
     pub save_attachments: Option<bool>,
 
     /// Saves attachments to the given directory instead of the
-    /// temporary directory given by `std::env::temp_dir()`.
+    /// default temporary one given by [`std::env::temp_dir()`].
     pub save_attachments_dir: Option<PathBuf>,
 }
 
@@ -134,22 +128,6 @@ impl<'a> InterpreterBuilder {
 
     pub fn some_pgp_decrypt_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
         self.pgp_decrypt_cmd = cmd.map(|c| c.into());
-        self
-    }
-
-    pub fn pgp_verify_recipient<R: AsRef<str>>(mut self, recipient: R) -> Self {
-        match recipient.as_ref().parse() {
-            Ok(mbox) => {
-                self.pgp_verify_recipient = Some(mbox);
-            }
-            Err(err) => {
-                warn!(
-                    "skipping invalid pgp verify recipient {}: {}",
-                    recipient.as_ref(),
-                    err
-                );
-            }
-        }
         self
     }
 
@@ -224,7 +202,6 @@ impl<'a> InterpreterBuilder {
             pgp_decrypt_cmd: self
                 .pgp_decrypt_cmd
                 .unwrap_or_else(|| "gpg --decrypt --quiet".into()),
-            pgp_verify_recipient: self.pgp_verify_recipient,
             pgp_verify_cmd: self
                 .pgp_verify_cmd
                 .unwrap_or_else(|| "gpg --verify --quiet --recipient <recipient>".into()),
@@ -246,7 +223,6 @@ impl<'a> InterpreterBuilder {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Interpreter {
     pub pgp_decrypt_cmd: Cmd,
-    pub pgp_verify_recipient: Option<String>,
     pub pgp_verify_cmd: Cmd,
     pub show_text_parts: ShowTextPartsStrategy,
     pub show_headers: ShowHeadersStrategy,
@@ -267,47 +243,66 @@ impl<'a> Interpreter {
     pub fn interpret_part(&self, msg: &Message, part: &MessagePart) -> Result<String> {
         let mut tpl = String::new();
 
-        match &part.body {
-            PartType::Text(text) => {
-                tpl.push_str(&text);
-                tpl.push('\n');
-            }
-            PartType::Html(html) => {
-                tpl.push_str("<#part type=\"text/html\">");
-                tpl.push('\n');
-                tpl.push_str(&html);
-                tpl.push('\n');
-                tpl.push_str("<#/part>");
-                tpl.push('\n');
-            }
-            PartType::Binary(data) => {
-                println!("BIN");
-                let fname = self
-                    .save_attachments_dir
-                    .join(part.attachment_name().unwrap_or("noname"));
+        let cdisp = part.content_disposition();
+        let ctype = part
+            .content_type()
+            .and_then(|ctype| {
+                ctype
+                    .subtype()
+                    .map(|stype| format!("{}/{stype}", ctype.ctype()))
+            })
+            .unwrap_or_else(|| String::from("application/octet-stream"));
 
-                if self.save_attachments {
-                    fs::write(&fname, data)
-                        .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
+        let is_attachment = cdisp.map(|cdisp| cdisp.is_attachment()).unwrap_or(false);
+        let is_inline = cdisp.map(|cdisp| cdisp.is_inline()).unwrap_or(false);
+
+        if is_attachment {
+            let fname = self
+                .save_attachments_dir
+                .join(part.attachment_name().unwrap_or("noname"));
+
+            if self.save_attachments {
+                fs::write(&fname, part.contents())
+                    .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
+            }
+
+            let fname = fname.to_string_lossy();
+            tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
+            tpl.push('\n');
+        } else if is_inline {
+            let fname = self
+                .save_attachments_dir
+                .join(part.content_id().unwrap_or("noname"));
+
+            if self.save_attachments {
+                fs::write(&fname, part.contents())
+                    .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
+            }
+
+            let fname = fname.to_string_lossy();
+
+            tpl.push_str(&format!(
+                "<#part filename=\"{fname}\" type=\"{ctype}\" disposition=\"inline\">"
+            ));
+            tpl.push('\n');
+        } else {
+            match &part.body {
+                PartType::Text(text) => {
+                    tpl.push_str(&text);
+                    tpl.push('\n');
                 }
-
-                let fname = fname.to_string_lossy();
-                let ctype = part
-                    .content_type()
-                    .and_then(|ctype| {
-                        ctype
-                            .subtype()
-                            .map(|stype| format!("{}/{stype}", ctype.ctype()))
-                    })
-                    .unwrap_or_else(|| String::from("application/octet-stream"));
-
-                tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
-                tpl.push('\n');
-            }
-            PartType::InlineBinary(data) => {
-                // save inline attachment only if attachment name exists
-                if let Some(fname) = part.attachment_name() {
-                    let fname = self.save_attachments_dir.join(fname);
+                PartType::Html(html) => {
+                    tpl.push_str("<#part type=\"text/html\">");
+                    tpl.push('\n');
+                    tpl.push_str(&html);
+                    tpl.push('\n');
+                    tpl.push_str("<#/part>");
+                    tpl.push('\n');
+                }
+                PartType::Binary(data) => {
+                    let fname = self
+                        .save_attachments_dir
+                        .join(part.attachment_name().unwrap_or("noname"));
 
                     if self.save_attachments {
                         fs::write(&fname, data)
@@ -315,63 +310,73 @@ impl<'a> Interpreter {
                     }
 
                     let fname = fname.to_string_lossy();
-                    let ctype = part
-                        .content_type()
-                        .and_then(|ctype| {
-                            ctype
-                                .subtype()
-                                .map(|stype| format!("{}/{stype}", ctype.ctype()))
-                        })
-                        .unwrap_or_else(|| String::from("application/octet-stream"));
-
                     tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
                     tpl.push('\n');
                 }
-            }
-            PartType::Message(msg) => tpl.push_str(&self.interpret(msg)?),
-            PartType::Multipart(ids) => {
-                if self.show_multiparts {
-                    let stype = part
-                        .content_type()
-                        .and_then(|p| p.subtype())
-                        .unwrap_or("mixed");
-                    tpl.push_str(&format!("<#multipart type=\"{stype}\">"));
-                    tpl.push('\n');
-                }
+                PartType::InlineBinary(data) => {
+                    let fname = self
+                        .save_attachments_dir
+                        .join(part.content_id().unwrap_or("noname"));
 
-                for id in ids {
-                    if let Some(part) = msg.part(*id) {
-                        tpl.push_str(&self.interpret_part(msg, part)?);
-                    } else {
-                        warn!("cannot find part {id}, skipping it");
+                    if self.save_attachments {
+                        fs::write(&fname, data)
+                            .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
                     }
-                }
 
-                if self.show_multiparts {
-                    tpl.push_str("<#/multipart>");
+                    let fname = fname.to_string_lossy();
+                    tpl.push_str(&format!(
+                        "<#part filename=\"{fname}\" type=\"{ctype}\" disposition=\"inline\">"
+                    ));
                     tpl.push('\n');
+                }
+                PartType::Message(msg) => tpl.push_str(&self.interpret(msg)?),
+                PartType::Multipart(ids) if ctype == "multipart/encrypted" => {
+                    let encrypted_part = msg.part(ids[1]).unwrap();
+                    let decrypted_part = self
+                        .pgp_decrypt_cmd
+                        .run_with(encrypted_part.text_contents().unwrap())
+                        .unwrap()
+                        .stdout;
+                    let msg = Message::parse(&decrypted_part).unwrap();
+                    tpl.push_str(&self.interpret(&msg)?);
+                }
+                PartType::Multipart(ids) if ctype == "multipart/signed" => {
+                    let signed_part = msg.part(ids[0]).unwrap();
+                    let signature_part = msg.part(ids[1]).unwrap();
+                    self.pgp_verify_cmd
+                        .run_with(signature_part.text_contents().unwrap())
+                        .unwrap();
+                    tpl.push_str(&self.interpret_part(&msg, signed_part)?);
+                }
+                PartType::Multipart(_) if ctype == "application/pgp-encrypted" => (),
+                PartType::Multipart(_) if ctype == "application/pgp-signature" => (),
+                PartType::Multipart(ids) => {
+                    if self.show_multiparts {
+                        let stype = part
+                            .content_type()
+                            .and_then(|p| p.subtype())
+                            .unwrap_or("mixed");
+                        tpl.push_str(&format!("<#multipart type=\"{stype}\">"));
+                        tpl.push('\n');
+                    }
+
+                    for id in ids {
+                        if let Some(part) = msg.part(*id) {
+                            tpl.push_str(&self.interpret_part(msg, part)?);
+                        } else {
+                            warn!("cannot find part {id}, skipping it");
+                        }
+                    }
+
+                    if self.show_multiparts {
+                        tpl.push_str("<#/multipart>");
+                        tpl.push('\n');
+                    }
                 }
             }
         }
 
         Ok(tpl)
-    }
-
-    /// Builds the final PGP encrypt system command by replacing
-    /// `<recipient>` occurrences with the actual recipient. Fails in
-    /// case no recipient is found.
-    fn pgp_verify_cmd(&self) -> Result<Cmd> {
-        let recipient = self
-            .pgp_verify_recipient
-            .as_ref()
-            .ok_or(Error::InterpretTplMissingRecipientError)?;
-
-        let cmd = self
-            .pgp_verify_cmd
-            .clone()
-            .replace("<recipient>", &recipient.to_string());
-
-        Ok(cmd)
     }
 }
 
@@ -429,11 +434,7 @@ mod tests {
             .to("to@localhost")
             .subject("subject")
             .text_body("Hello, world!")
-            .binary_attachment(
-                "application/octet-stream",
-                "attachment.txt",
-                "Hello, world!".as_bytes(),
-            )
+            .binary_attachment("text/plain", "attachment.txt", "Hello, world!".as_bytes())
             .write_to_string()
             .unwrap();
         let msg = Message::parse(msg.as_bytes()).unwrap();
@@ -445,7 +446,7 @@ mod tests {
             .unwrap();
         let expected_tpl = concat_line!(
             "Hello, world!",
-            "<#part filename=\"~/Downloads/attachment.txt\" type=\"application/octet-stream\">",
+            "<#part filename=\"~/Downloads/attachment.txt\" type=\"text/plain\">",
             "",
         );
 

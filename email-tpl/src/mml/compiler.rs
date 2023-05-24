@@ -141,6 +141,42 @@ impl<'a> Compiler {
         Ok(cmd)
     }
 
+    fn sign(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
+        let mut buf = Vec::new();
+        part.clone()
+            .write_part(&mut buf)
+            .map_err(Error::WriteCompiledPartToVecError)?;
+        let signature = self.pgp_sign_cmd.run_with(&buf)?.stdout;
+
+        let part = MimePart::new_multipart(
+            "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
+            vec![
+                part,
+                MimePart::new_binary("application/pgp-signature", signature),
+            ],
+        );
+
+        Ok(part)
+    }
+
+    fn encrypt(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
+        let mut buf = Vec::new();
+        part.clone()
+            .write_part(&mut buf)
+            .map_err(Error::WriteCompiledPartToVecError)?;
+        let encrypted_part = self.pgp_encrypt_cmd()?.run_with(&buf)?.stdout;
+
+        let part = MimePart::new_multipart(
+            "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
+            vec![
+                MimePart::new_binary("application/pgp-encrypted", "Version: 1".as_bytes()),
+                MimePart::new_binary("application/octet-stream", encrypted_part),
+            ],
+        );
+
+        Ok(part)
+    }
+
     fn compile_parts<P>(&self, parts: P) -> Result<MessageBuilder<'a>>
     where
         P: IntoIterator<Item = Part>,
@@ -184,24 +220,12 @@ impl<'a> Compiler {
                 }
 
                 let multi_part = match props.get(SIGN).map(String::as_str) {
-                    Some("command") => {
-                        let mut buf = Vec::new();
-                        multi_part
-                            .write_part(&mut buf)
-                            .map_err(Error::WriteCompiledPartToVecError)?;
-                        Part::sign(buf, self.pgp_sign_cmd.clone()).map_err(Error::SignPartError)
-                    }
+                    Some("command") => self.sign(multi_part),
                     _ => Ok(multi_part),
                 }?;
 
                 let multi_part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some("command") => {
-                        let mut buf = Vec::new();
-                        multi_part
-                            .write_part(&mut buf)
-                            .map_err(Error::WriteCompiledPartToVecError)?;
-                        Part::encrypt(buf, self.pgp_encrypt_cmd()?).map_err(Error::EncryptPartError)
-                    }
+                    Some("command") => self.encrypt(multi_part),
                     _ => Ok(multi_part),
                 }?;
 
@@ -224,22 +248,12 @@ impl<'a> Compiler {
                 };
 
                 part = match props.get(SIGN).map(String::as_str) {
-                    Some("command") => {
-                        let mut buf = Vec::new();
-                        part.write_part(&mut buf)
-                            .map_err(Error::WriteCompiledPartToVecError)?;
-                        Part::sign(buf, self.pgp_sign_cmd.clone()).map_err(Error::SignPartError)
-                    }
+                    Some("command") => self.sign(part),
                     _ => Ok(part),
                 }?;
 
                 part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some("command") => {
-                        let mut buf = Vec::new();
-                        part.write_part(&mut buf)
-                            .map_err(Error::WriteCompiledPartToVecError)?;
-                        Part::encrypt(buf, self.pgp_encrypt_cmd()?).map_err(Error::EncryptPartError)
-                    }
+                    Some("command") => self.encrypt(part),
                     _ => Ok(part),
                 }?;
 
@@ -278,22 +292,12 @@ impl<'a> Compiler {
                 };
 
                 part = match props.get(SIGN).map(String::as_str) {
-                    Some("command") => {
-                        let mut buf = Vec::new();
-                        part.write_part(&mut buf)
-                            .map_err(Error::WriteCompiledPartToVecError)?;
-                        Part::sign(buf, self.pgp_sign_cmd.clone()).map_err(Error::SignPartError)
-                    }
+                    Some("command") => self.sign(part),
                     _ => Ok(part),
                 }?;
 
                 part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some("command") => {
-                        let mut buf = Vec::new();
-                        part.write_part(&mut buf)
-                            .map_err(Error::WriteCompiledPartToVecError)?;
-                        Part::encrypt(buf, self.pgp_encrypt_cmd()?).map_err(Error::EncryptPartError)
-                    }
+                    Some("command") => self.encrypt(part),
                     _ => Ok(part),
                 }?;
 
