@@ -21,14 +21,14 @@ fn pgp() {
         .pgp_encrypt_recipient("bob@localhost")
         .pgp_sign_cmd(gpg("-saqu alice -o -"));
 
-    let raw_msg = tpl.compile_with(compiler).unwrap();
+    let raw_msg = tpl.compile(compiler).unwrap();
 
     let interpreter = InterpreterBuilder::new()
         .show_headers(["From", "To", "Subject"])
         .pgp_decrypt_cmd(gpg("-dq"))
         .pgp_verify_cmd(gpg("--verify -q"));
 
-    let tpl = Tpl::interpret_with(interpreter, raw_msg).unwrap();
+    let tpl = Tpl::interpret(interpreter, raw_msg).unwrap();
 
     let expected_tpl = Tpl::from(concat_line!(
         "From: alice@localhost",

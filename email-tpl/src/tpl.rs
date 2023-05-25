@@ -50,14 +50,7 @@ impl<T: ToString> From<T> for Tpl {
 }
 
 impl Tpl {
-    pub fn interpret<B>(bytes: B) -> Result<Self>
-    where
-        B: AsRef<[u8]>,
-    {
-        Self::interpret_with(Default::default(), bytes)
-    }
-
-    pub fn interpret_with<B>(interpreter: InterpreterBuilder, bytes: B) -> Result<Self>
+    pub fn interpret<B>(interpreter: InterpreterBuilder, bytes: B) -> Result<Self>
     where
         B: AsRef<[u8]>,
     {
@@ -87,11 +80,7 @@ impl Tpl {
         Ok(Tpl::from(tpl))
     }
 
-    pub fn compile(self) -> Result<Vec<u8>> {
-        self.compile_with(Default::default())
-    }
-
-    pub fn compile_with(self, compiler: CompilerBuilder) -> Result<Vec<u8>> {
+    pub fn compile(self, compiler: CompilerBuilder) -> Result<Vec<u8>> {
         let tpl = Message::parse(self.as_bytes()).ok_or(Error::ParseMessageError)?;
 
         let mml = tpl
@@ -142,7 +131,7 @@ mod tests {
             "Hello, world!",
         );
 
-        let tpl = Tpl::interpret_with(interpreter, raw.as_bytes()).unwrap();
+        let tpl = Tpl::interpret(interpreter, raw.as_bytes()).unwrap();
         let expected_tpl = concat_line!(
             "From: from@localhost",
             "To: to@localhost",
@@ -166,7 +155,7 @@ mod tests {
             "Hello, world!",
         );
 
-        let tpl = Tpl::interpret_with(interpreter, raw.as_bytes()).unwrap();
+        let tpl = Tpl::interpret(interpreter, raw.as_bytes()).unwrap();
         let expected_tpl = concat_line!(
             "From: from@localhost",
             "Subject: subject",
@@ -189,7 +178,7 @@ mod tests {
             "Hello, world!",
         );
 
-        let tpl = Tpl::interpret_with(interpreter, raw.as_bytes()).unwrap();
+        let tpl = Tpl::interpret(interpreter, raw.as_bytes()).unwrap();
         let expected_tpl = concat_line!("Hello, world!", "");
 
         assert_eq!(*tpl, expected_tpl);

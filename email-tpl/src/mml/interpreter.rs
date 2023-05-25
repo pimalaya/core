@@ -13,23 +13,23 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-/// Represents the show text parts strategy [`TplBuilder`] build
-/// option.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub enum ShowTextPartsStrategy {
-    /// Shows plain parts if exist, otherwise shows HTML parts.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub enum ShowPartsStrategy {
     #[default]
-    PlainOtherwiseHtml,
-    /// Shows plain parts then HTML parts.
-    PlainThenHtml,
-    /// Shows only plain parts.
-    PlainOnly,
-    /// Shows HTML parts if exist, otherwise shows plain parts.
-    HtmlOtherwisePlain,
-    /// Shows HTML parts then plain parts.
-    HtmlThenPlain,
-    /// Shows only HTML parts.
-    HtmlOnly,
+    All,
+    Only(HashSet<String>),
+}
+
+impl ShowPartsStrategy {
+    pub fn contains<C>(&self, ctype: C) -> bool
+    where
+        C: AsRef<str>,
+    {
+        match self {
+            Self::All => true,
+            Self::Only(set) => set.contains(ctype.as_ref()),
+        }
+    }
 }
 
 /// Represents the show headers [`TplBuilder`] build option.
@@ -86,7 +86,7 @@ pub struct InterpreterBuilder {
     remove_text_plain_parts_signature: Option<bool>,
 
     /// Defines the strategy to display text parts.
-    show_text_parts_strategy: Option<ShowTextPartsStrategy>,
+    show_parts_strategy: Option<ShowPartsStrategy>,
 
     /// Defines the strategy to display
     /// headers. [`ShowHeadersStrategy::All`] transfers all the
@@ -146,33 +146,25 @@ impl<'a> InterpreterBuilder {
         self
     }
 
-    pub fn show_plain_otherwise_html(mut self) -> Self {
-        self.show_text_parts_strategy = Some(ShowTextPartsStrategy::PlainOtherwiseHtml);
+    pub fn show_all_parts(mut self) -> Self {
+        self.show_parts_strategy = Some(ShowPartsStrategy::All);
         self
     }
 
-    pub fn show_plain_then_html(mut self) -> Self {
-        self.show_text_parts_strategy = Some(ShowTextPartsStrategy::PlainThenHtml);
-        self
-    }
+    pub fn show_parts<S: ToString, B: IntoIterator<Item = S>>(mut self, parts: B) -> Self {
+        let parts = parts.into_iter().map(|part| part.to_string()).collect();
 
-    pub fn show_plain_only(mut self) -> Self {
-        self.show_text_parts_strategy = Some(ShowTextPartsStrategy::PlainOnly);
-        self
-    }
+        match self.show_parts_strategy {
+            None | Some(ShowPartsStrategy::All) => {
+                self.show_parts_strategy = Some(ShowPartsStrategy::Only(parts));
+            }
+            Some(ShowPartsStrategy::Only(prev_parts)) => {
+                let mut prev_parts = prev_parts.clone();
+                prev_parts.extend(parts);
+                self.show_parts_strategy = Some(ShowPartsStrategy::Only(prev_parts));
+            }
+        };
 
-    pub fn show_html_otherwise_plain(mut self) -> Self {
-        self.show_text_parts_strategy = Some(ShowTextPartsStrategy::HtmlOtherwisePlain);
-        self
-    }
-
-    pub fn show_html_then_plain(mut self) -> Self {
-        self.show_text_parts_strategy = Some(ShowTextPartsStrategy::HtmlThenPlain);
-        self
-    }
-
-    pub fn show_html_only(mut self) -> Self {
-        self.show_text_parts_strategy = Some(ShowTextPartsStrategy::HtmlOnly);
         self
     }
 
@@ -181,9 +173,6 @@ impl<'a> InterpreterBuilder {
         self
     }
 
-    /// Appends headers filters to the template builder. See
-    /// [TplBuilder::show_headers] for more information about the
-    /// `show_headers` build option.
     pub fn show_headers<S: ToString, B: IntoIterator<Item = S>>(mut self, headers: B) -> Self {
         let headers = headers
             .into_iter()
@@ -269,7 +258,7 @@ impl<'a> InterpreterBuilder {
             remove_text_plain_parts_signature: self
                 .remove_text_plain_parts_signature
                 .unwrap_or_default(),
-            show_text_parts_strategy: self.show_text_parts_strategy.unwrap_or_default(),
+            show_parts_strategy: self.show_parts_strategy.unwrap_or_default(),
             show_headers_strategy: self.show_headers_strategy.unwrap_or_default(),
             show_multipart_markup: self.show_multipart_markup.unwrap_or_default(),
             show_part_markup: self.show_part_markup.unwrap_or_default(),
@@ -290,7 +279,7 @@ pub struct Interpreter {
     pub sanitize_text_plain_parts: bool,
     pub sanitize_text_html_parts: bool,
     pub remove_text_plain_parts_signature: bool,
-    pub show_text_parts_strategy: ShowTextPartsStrategy,
+    pub show_parts_strategy: ShowPartsStrategy,
     pub show_headers_strategy: ShowHeadersStrategy,
     pub show_multipart_markup: bool,
     pub show_part_markup: bool,
@@ -367,7 +356,6 @@ impl<'a> Interpreter {
     pub fn interpret_part(&self, msg: &Message, part: &MessagePart) -> Result<String> {
         let mut tpl = String::new();
 
-        let cdisp = part.content_disposition();
         let ctype = part
             .content_type()
             .and_then(|ctype| {
@@ -377,112 +365,126 @@ impl<'a> Interpreter {
             })
             .unwrap_or_else(|| String::from("application/octet-stream"));
 
+        let cdisp = part.content_disposition();
+
         let is_attachment = cdisp.map(|cdisp| cdisp.is_attachment()).unwrap_or(false);
         let is_inline = cdisp.map(|cdisp| cdisp.is_inline()).unwrap_or(false);
 
         if is_attachment {
-            let fname = self
-                .save_attachments_dir
-                .join(part.attachment_name().unwrap_or("noname"));
+            if self.show_parts_strategy.contains(&ctype) {
+                let fname = self
+                    .save_attachments_dir
+                    .join(part.attachment_name().unwrap_or("noname"));
 
-            if self.save_attachments {
-                fs::write(&fname, part.contents())
-                    .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
-            }
+                if self.save_attachments {
+                    fs::write(&fname, part.contents())
+                        .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
+                }
 
-            if self.show_part_markup {
-                let fname = fname.to_string_lossy();
-                tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
-                tpl.push('\n');
+                if self.show_part_markup {
+                    let fname = fname.to_string_lossy();
+                    tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
+                    tpl.push('\n');
+                }
             }
         } else if is_inline {
-            let fname = self
-                .save_attachments_dir
-                .join(part.content_id().unwrap_or("noname"));
+            if self.show_parts_strategy.contains(&ctype) {
+                let fname = self
+                    .save_attachments_dir
+                    .join(part.content_id().unwrap_or("noname"));
 
-            if self.save_attachments {
-                fs::write(&fname, part.contents())
-                    .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
-            }
+                if self.save_attachments {
+                    fs::write(&fname, part.contents())
+                        .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
+                }
 
-            if self.show_part_markup {
-                let fname = fname.to_string_lossy();
-                tpl.push_str(&format!(
-                    "<#part filename=\"{fname}\" type=\"{ctype}\" disposition=\"inline\">"
-                ));
-                tpl.push('\n');
+                if self.show_part_markup {
+                    let fname = fname.to_string_lossy();
+                    tpl.push_str(&format!(
+                        "<#part filename=\"{fname}\" type=\"{ctype}\" disposition=\"inline\">"
+                    ));
+                    tpl.push('\n');
+                }
             }
         } else {
             match &part.body {
                 PartType::Text(plain) => {
-                    let mut plain = plain.to_string();
+                    if self.show_parts_strategy.contains(&ctype) {
+                        let mut plain = plain.to_string();
 
-                    if self.remove_text_plain_parts_signature {
-                        plain = plain
-                            .rsplit_once("-- \n")
-                            .map(|(body, _signature)| body.to_owned())
-                            .unwrap_or(plain);
+                        if self.remove_text_plain_parts_signature {
+                            plain = plain
+                                .rsplit_once("-- \n")
+                                .map(|(body, _signature)| body.to_owned())
+                                .unwrap_or(plain);
+                        }
+
+                        if self.sanitize_text_plain_parts {
+                            plain = self.sanitize_plain(plain);
+                        }
+
+                        tpl.push_str(&plain);
+                        tpl.push('\n');
                     }
-
-                    if self.sanitize_text_plain_parts {
-                        plain = self.sanitize_plain(plain);
-                    }
-
-                    tpl.push_str(&plain);
-                    tpl.push('\n');
                 }
                 PartType::Html(html) => {
-                    let mut html = html.to_string();
+                    if self.show_parts_strategy.contains(&ctype) {
+                        let mut html = html.to_string();
 
-                    if self.show_part_markup {
-                        tpl.push_str("<#part type=\"text/html\">");
+                        if self.show_part_markup {
+                            tpl.push_str("<#part type=\"text/html\">");
+                            tpl.push('\n');
+                        }
+
+                        if self.sanitize_text_html_parts {
+                            html = self.sanitize_html(html);
+                        }
+
+                        tpl.push_str(&html);
                         tpl.push('\n');
-                    }
 
-                    if self.sanitize_text_html_parts {
-                        html = self.sanitize_html(html);
-                    }
-
-                    tpl.push_str(&html);
-                    tpl.push('\n');
-
-                    if self.show_part_markup {
-                        tpl.push_str("<#/part>");
-                        tpl.push('\n');
+                        if self.show_part_markup {
+                            tpl.push_str("<#/part>");
+                            tpl.push('\n');
+                        }
                     }
                 }
                 PartType::Binary(data) => {
-                    let fname = self
-                        .save_attachments_dir
-                        .join(part.attachment_name().unwrap_or("noname"));
+                    if self.show_parts_strategy.contains(&ctype) {
+                        let fname = self
+                            .save_attachments_dir
+                            .join(part.attachment_name().unwrap_or("noname"));
 
-                    if self.save_attachments {
-                        fs::write(&fname, data)
-                            .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
-                    }
+                        if self.save_attachments {
+                            fs::write(&fname, data)
+                                .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
+                        }
 
-                    if self.show_part_markup {
-                        let fname = fname.to_string_lossy();
-                        tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
-                        tpl.push('\n');
+                        if self.show_part_markup {
+                            let fname = fname.to_string_lossy();
+                            tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
+                            tpl.push('\n');
+                        }
                     }
                 }
                 PartType::InlineBinary(data) => {
-                    let fname = self
-                        .save_attachments_dir
-                        .join(part.content_id().unwrap_or("noname"));
+                    if self.show_parts_strategy.contains(&ctype) {
+                        let fname = self
+                            .save_attachments_dir
+                            .join(part.content_id().unwrap_or("noname"));
 
-                    if self.save_attachments {
-                        fs::write(&fname, data)
-                            .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
-                    }
+                        if self.save_attachments {
+                            fs::write(&fname, data)
+                                .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
+                        }
 
-                    if self.show_part_markup {
-                        let fname = fname.to_string_lossy();
-                        tpl.push_str(&format!(
+                        if self.show_part_markup {
+                            let fname = fname.to_string_lossy();
+                            tpl.push_str(&format!(
                             "<#part filename=\"{fname}\" type=\"{ctype}\" disposition=\"inline\">"
                         ));
-                        tpl.push('\n');
+                            tpl.push('\n');
+                        }
                     }
                 }
                 PartType::Message(msg) => tpl.push_str(&self.interpret(msg)?),
@@ -699,7 +701,36 @@ mod tests {
             .build()
             .interpret(&msg)
             .unwrap();
-        let expected_tpl = concat_line!("Hello, world!", "<h1>Hello, world!</h1>", "",);
+        let expected_tpl = concat_line!("Hello, world!", "<h1>Hello, world!</h1>", "");
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn multipart_plain_only() {
+        let msg = MessageBuilder::new()
+            .from("from@localhost")
+            .to("to@localhost")
+            .subject("subject")
+            .body(MimePart::new(
+                "multipart/alternative",
+                vec![
+                    MimePart::new("text/plain", "Hello, world!"),
+                    MimePart::new("text/html", "<h1>Hello, world!</h1>"),
+                ],
+            ))
+            .write_to_vec()
+            .unwrap();
+        let msg = Message::parse(&msg).unwrap();
+
+        let tpl = InterpreterBuilder::new()
+            .hide_multipart_markup()
+            .hide_part_markup()
+            .show_parts(["text/plain"])
+            .build()
+            .interpret(&msg)
+            .unwrap();
+        let expected_tpl = concat_line!("Hello, world!", "");
 
         assert_eq!(tpl, expected_tpl);
     }

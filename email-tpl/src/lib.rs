@@ -3,6 +3,6 @@
 mod mml;
 mod tpl;
 
-pub use mml::compiler::CompilerBuilder;
-pub use mml::interpreter::InterpreterBuilder;
+pub use mml::compiler::*;
+pub use mml::interpreter::*;
 pub use tpl::Tpl;
