@@ -1,7 +1,7 @@
 use log::warn;
 use mail_builder::{mime::MimePart, MessageBuilder};
 use pimalaya_process::Cmd;
-use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, result};
+use std::{env, ffi::OsStr, fs, io, path::PathBuf, result};
 use thiserror::Error;
 
 use crate::mml::parsers::{self, prelude::*};
@@ -148,12 +148,9 @@ impl<'a> Compiler {
             .map_err(Error::WriteCompiledPartToVecError)?;
         let signature = self.pgp_sign_cmd.run_with(&buf)?.stdout;
 
-        let part = MimePart::new_multipart(
+        let part = MimePart::new(
             "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
-            vec![
-                part,
-                MimePart::new_binary("application/pgp-signature", signature),
-            ],
+            vec![part, MimePart::new("application/pgp-signature", signature)],
         );
 
         Ok(part)
@@ -166,11 +163,11 @@ impl<'a> Compiler {
             .map_err(Error::WriteCompiledPartToVecError)?;
         let encrypted_part = self.pgp_encrypt_cmd()?.run_with(&buf)?.stdout;
 
-        let part = MimePart::new_multipart(
+        let part = MimePart::new(
             "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
             vec![
-                MimePart::new_binary("application/pgp-encrypted", "Version: 1".as_bytes()),
-                MimePart::new_binary("application/octet-stream", encrypted_part),
+                MimePart::new("application/pgp-encrypted", "Version: 1"),
+                MimePart::new("application/octet-stream", encrypted_part),
             ],
         );
 
@@ -188,7 +185,7 @@ impl<'a> Compiler {
         builder = match parts.len() {
             0 => builder.text_body(String::new()),
             1 => builder.body(self.compile_part(parts.into_iter().next().unwrap())?),
-            _ => builder.body(MimePart::new_multipart(
+            _ => builder.body(MimePart::new(
                 "multipart/mixed",
                 parts
                     .into_iter()
@@ -203,15 +200,15 @@ impl<'a> Compiler {
     fn compile_part(&self, part: Part) -> Result<MimePart<'a>> {
         match part {
             Part::MultiPart((props, parts)) => {
+                let no_parts: Vec<u8> = Vec::new();
+
                 let mut multi_part = match props.get(TYPE).map(String::as_str) {
-                    Some("mixed") | None => MimePart::new_multipart("multipart/mixed", Vec::new()),
-                    Some("alternative") => {
-                        MimePart::new_multipart("multipart/alternative", Vec::new())
-                    }
-                    Some("related") => MimePart::new_multipart("multipart/related", Vec::new()),
+                    Some("mixed") | None => MimePart::new("multipart/mixed", no_parts),
+                    Some("alternative") => MimePart::new("multipart/alternative", no_parts),
+                    Some("related") => MimePart::new("multipart/related", no_parts),
                     Some(unknown) => {
                         warn!("unknown multipart type {unknown}, falling back to mixed");
-                        MimePart::new_multipart("multipart/mixed", Vec::new())
+                        MimePart::new("multipart/mixed", no_parts)
                     }
                 };
 
@@ -233,7 +230,7 @@ impl<'a> Compiler {
             }
             Part::SinglePart((ref props, body)) => {
                 let ctype = Part::get_or_guess_content_type(props, &body);
-                let mut part = MimePart::new_binary(ctype, Cow::Owned(body.into_bytes()));
+                let mut part = MimePart::new(ctype, body);
 
                 part = match props.get(DISPOSITION).map(String::as_str) {
                     Some("inline") => part.inline(),
@@ -284,7 +281,7 @@ impl<'a> Compiler {
                 let disposition = props.get(DISPOSITION).map(String::as_str);
                 let content_type = Part::get_or_guess_content_type(props, &body);
 
-                let mut part = MimePart::new_binary(content_type, body);
+                let mut part = MimePart::new(content_type, body);
 
                 part = match disposition {
                     Some("inline") => part.inline(),
@@ -303,7 +300,7 @@ impl<'a> Compiler {
 
                 Ok(part)
             }
-            Part::TextPlainPart(body) => Ok(MimePart::new_text(body)),
+            Part::TextPlainPart(body) => Ok(MimePart::new("text/plain", body)),
         }
     }
 }
@@ -317,7 +314,7 @@ mod tests {
     use crate::CompilerBuilder;
 
     #[test]
-    fn compile_text_plain() {
+    fn plain() {
         let tpl = concat_line!("Hello, world!", "");
 
         let msg = CompilerBuilder::new()
@@ -343,7 +340,7 @@ mod tests {
     }
 
     #[test]
-    fn compile_text_html() {
+    fn html() {
         let tpl = concat_line!(
             "<#part type=\"text/html\">",
             "<h1>Hello, world!</h1>",
@@ -362,7 +359,7 @@ mod tests {
         let expected_msg = concat_line!(
             "Message-ID: <message-id@localhost>\r",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
-            "Content-Type: text/html\r",
+            "Content-Type: text/html; charset=\"utf-8\"\r",
             "Content-Transfer-Encoding: 7bit\r",
             "\r",
             "<h1>Hello, world!</h1>",
@@ -372,7 +369,7 @@ mod tests {
     }
 
     #[test]
-    fn compile_attachment() {
+    fn attachment() {
         let mut attachment = Builder::new()
             .prefix("attachment")
             .suffix(".txt")

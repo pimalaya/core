@@ -69,7 +69,7 @@ impl Tpl {
             let key = key.trim();
             let val = val.trim();
 
-            match interpreter.show_headers {
+            match interpreter.show_headers_strategy {
                 ShowHeadersStrategy::All => tpl.push_str(&format!("{key}: {val}\n")),
                 ShowHeadersStrategy::Only(ref keys) if keys.contains(key) => {
                     tpl.push_str(&format!("{key}: {val}\n"))
