@@ -1,8 +1,7 @@
 #![doc = include_str!("../README.md")]
 
-mod mml;
-mod tpl;
+pub mod mml;
+pub mod tpl;
 
-pub use mml::compiler::*;
-pub use mml::interpreter::*;
-pub use tpl::Tpl;
+pub use tpl::Interpreter as TplInterpreter;
+pub use tpl::{Error, Result, Tpl};

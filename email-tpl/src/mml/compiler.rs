@@ -11,8 +11,8 @@ use super::tokens::{Part, DISPOSITION, ENCRYPT, FILENAME, NAME, SIGN, TYPE};
 #[derive(Debug, Error)]
 pub enum Error {
     // TODO: return the original chumsky::Error
-    #[error("cannot parse template: {0}")]
-    ParseTplError(String),
+    #[error("cannot parse MML template: {0}")]
+    ParseMmlError(String),
     #[error("cannot compile template: recipient is missing")]
     CompileTplMissingRecipientError,
     #[error("cannot compile template")]
@@ -31,117 +31,70 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-/// Represents the compiler builder. It allows you to customize the
-/// template compilation using the [Builder pattern].
-///
-/// [Builder pattern]: https://en.wikipedia.org/wiki/Builder_pattern
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct CompilerBuilder {
-    /// Represents the PGP encrypt system command. Defaults to `gpg
-    /// --encrypt --armor --recipient <recipient> --quiet --output -`.
-    pgp_encrypt_cmd: Option<Cmd>,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Compiler {
+    /// Represents the PGP encrypt system command.
+    pgp_encrypt_cmd: Cmd,
 
     /// Represents the PGP encrypt recipient. By default, it will take
     /// the first address found from the "To" header of the template
     /// being compiled.
-    pgp_encrypt_recipient: Option<String>,
+    pgp_encrypt_recipient: String,
 
-    /// Represents the PGP sign system command. Defaults to `gpg
-    /// --sign --armor --quiet --output -`.
-    pgp_sign_cmd: Option<Cmd>,
+    /// Represents the PGP sign system command.
+    pgp_sign_cmd: Cmd,
 }
 
-impl<'a> CompilerBuilder {
+impl Compiler {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn pgp_encrypt_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self {
-        self.pgp_encrypt_cmd = Some(cmd.into());
+    pub fn pgp_encrypt_cmd<C>(mut self, cmd: C) -> Self
+    where
+        C: Into<Cmd>,
+    {
+        self.pgp_encrypt_cmd = cmd.into();
         self
     }
 
-    pub fn some_pgp_encrypt_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
-        self.pgp_encrypt_cmd = cmd.map(|c| c.into());
-        self
-    }
-
-    pub fn pgp_encrypt_recipient<R: AsRef<str>>(mut self, recipient: R) -> Self {
-        match recipient.as_ref().parse() {
-            Ok(mbox) => {
-                self.pgp_encrypt_recipient = Some(mbox);
-            }
-            Err(err) => {
-                warn!(
-                    "skipping invalid pgp encrypt recipient {}: {}",
-                    recipient.as_ref(),
-                    err
-                );
-            }
+    pub fn some_pgp_encrypt_cmd<C>(mut self, cmd: Option<C>) -> Self
+    where
+        C: Into<Cmd>,
+    {
+        if let Some(cmd) = cmd {
+            self.pgp_encrypt_cmd = cmd.into();
         }
         self
     }
 
-    pub fn pgp_sign_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self {
-        self.pgp_sign_cmd = Some(cmd.into());
+    pub fn pgp_encrypt_recipient<R>(mut self, recipient: R) -> Self
+    where
+        R: ToString,
+    {
+        self.pgp_encrypt_recipient = recipient.to_string();
         self
     }
 
-    pub fn some_pgp_sign_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
-        self.pgp_sign_cmd = cmd.map(|c| c.into());
+    pub fn pgp_sign_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self
+    where
+        C: Into<Cmd>,
+    {
+        self.pgp_sign_cmd = cmd.into();
         self
     }
 
-    pub fn build(self) -> Compiler {
-        Compiler {
-            pgp_encrypt_cmd: self.pgp_encrypt_cmd.unwrap_or_else(|| {
-                "gpg --encrypt --armor --recipient <recipient> --quiet --output -".into()
-            }),
-            pgp_encrypt_recipient: self.pgp_encrypt_recipient,
-            pgp_sign_cmd: self
-                .pgp_sign_cmd
-                .unwrap_or_else(|| "gpg --sign --armor --quiet --output -".into()),
+    pub fn some_pgp_sign_cmd<C>(mut self, cmd: Option<C>) -> Self
+    where
+        C: Into<Cmd>,
+    {
+        if let Some(cmd) = cmd {
+            self.pgp_sign_cmd = cmd.into();
         }
-    }
-}
-
-/// Represents the compiler options. It is the final struct passed
-/// down to the [Tpl::compile] function.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Compiler {
-    pub pgp_encrypt_cmd: Cmd,
-    pub pgp_encrypt_recipient: Option<String>,
-    pub pgp_sign_cmd: Cmd,
-}
-
-impl<'a> Compiler {
-    /// Compiles the given string template into a raw MIME Message
-    /// using [CompilerOpts] from the builder.
-    pub fn compile<T: AsRef<str>>(&self, tpl: T) -> Result<MessageBuilder<'a>> {
-        let parts = parsers::parts()
-            .parse(tpl.as_ref())
-            .map_err(|errs| Error::ParseTplError(errs[0].to_string()))?;
-        self.compile_parts(parts)
+        self
     }
 
-    /// Builds the final PGP encrypt system command by replacing
-    /// `<recipient>` occurrences with the actual recipient. Fails in
-    /// case no recipient is found.
-    fn pgp_encrypt_cmd(&self) -> Result<Cmd> {
-        let recipient = self
-            .pgp_encrypt_recipient
-            .as_ref()
-            .ok_or(Error::CompileTplMissingRecipientError)?;
-
-        let cmd = self
-            .pgp_encrypt_cmd
-            .clone()
-            .replace("<recipient>", &recipient.to_string());
-
-        Ok(cmd)
-    }
-
-    fn sign(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
+    fn sign<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
         let mut buf = Vec::new();
         part.clone()
             .write_part(&mut buf)
@@ -156,12 +109,19 @@ impl<'a> Compiler {
         Ok(part)
     }
 
-    fn encrypt(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
+    fn encrypt<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
+        let cmd = self
+            .pgp_encrypt_cmd
+            .clone()
+            .replace("<recipient>", &self.pgp_encrypt_recipient);
+
+        println!("cmd: {:?}", cmd);
+
         let mut buf = Vec::new();
         part.clone()
             .write_part(&mut buf)
             .map_err(Error::WriteCompiledPartToVecError)?;
-        let encrypted_part = self.pgp_encrypt_cmd()?.run_with(&buf)?.stdout;
+        let encrypted_part = cmd.run_with(&buf)?.stdout;
 
         let part = MimePart::new(
             "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
@@ -174,7 +134,7 @@ impl<'a> Compiler {
         Ok(part)
     }
 
-    fn compile_parts<P>(&self, parts: P) -> Result<MessageBuilder<'a>>
+    fn compile_parts<'a, P>(&self, parts: P) -> Result<MessageBuilder<'a>>
     where
         P: IntoIterator<Item = Part>,
     {
@@ -197,7 +157,7 @@ impl<'a> Compiler {
         Ok(builder)
     }
 
-    fn compile_part(&self, part: Part) -> Result<MimePart<'a>> {
+    fn compile_part<'a>(&self, part: Part) -> Result<MimePart<'a>> {
         match part {
             Part::MultiPart((props, parts)) => {
                 let no_parts: Vec<u8> = Vec::new();
@@ -303,6 +263,28 @@ impl<'a> Compiler {
             Part::TextPlainPart(body) => Ok(MimePart::new("text/plain", body)),
         }
     }
+
+    pub fn compile<'a, T>(&self, tpl: T) -> Result<MessageBuilder<'a>>
+    where
+        T: AsRef<str>,
+    {
+        self.compile_parts(
+            parsers::parts()
+                .parse(tpl.as_ref())
+                .map_err(|errs| Error::ParseMmlError(errs[0].to_string()))?,
+        )
+    }
+}
+
+impl Default for Compiler {
+    fn default() -> Self {
+        Self {
+            pgp_encrypt_cmd: "gpg --encrypt --armor --recipient <recipient> --quiet --output -"
+                .into(),
+            pgp_encrypt_recipient: Default::default(),
+            pgp_sign_cmd: "gpg --sign --armor --quiet --output -".into(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -311,23 +293,22 @@ mod tests {
     use std::io::prelude::*;
     use tempfile::Builder;
 
-    use crate::CompilerBuilder;
+    use super::Compiler;
 
     #[test]
     fn plain() {
         let tpl = concat_line!("Hello, world!", "");
 
-        let msg = CompilerBuilder::new()
-            .build()
+        let msg = Compiler::new()
             .compile(&tpl)
             .unwrap()
-            .message_id("message-id@localhost")
+            .message_id("id@localhost")
             .date(0 as u64)
             .write_to_string()
             .unwrap();
 
         let expected_msg = concat_line!(
-            "Message-ID: <message-id@localhost>\r",
+            "Message-ID: <id@localhost>\r",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
             "Content-Type: text/plain; charset=\"utf-8\"\r",
             "Content-Transfer-Encoding: 7bit\r",
@@ -347,17 +328,16 @@ mod tests {
             "<#/part>",
         );
 
-        let msg = CompilerBuilder::new()
-            .build()
+        let msg = Compiler::new()
             .compile(&tpl)
             .unwrap()
-            .message_id("message-id@localhost")
+            .message_id("id@localhost")
             .date(0 as u64)
             .write_to_string()
             .unwrap();
 
         let expected_msg = concat_line!(
-            "Message-ID: <message-id@localhost>\r",
+            "Message-ID: <id@localhost>\r",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
             "Content-Type: text/html; charset=\"utf-8\"\r",
             "Content-Transfer-Encoding: 7bit\r",
@@ -381,17 +361,16 @@ mod tests {
 
         let tpl = format!("<#part filename=\"{attachment_path}\" type=\"text/plain\">");
 
-        let msg = CompilerBuilder::new()
-            .build()
+        let msg = Compiler::new()
             .compile(&tpl)
             .unwrap()
-            .message_id("message-id@localhost")
+            .message_id("id@localhost")
             .date(0 as u64)
             .write_to_string()
             .unwrap();
 
         let expected_msg = concat_line!(
-            "Message-ID: <message-id@localhost>\r",
+            "Message-ID: <id@localhost>\r",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
             "Content-Type: text/plain\r",
             "Content-Disposition: attachment; filename=\"attachment.txt\"\r",

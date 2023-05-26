@@ -46,13 +46,15 @@ dirs = "4.0"
 html-escape = "0.2"
 lettre = { version = "=0.10.2", default-features = false, features = ["smtp-transport", "pool", "hostname", "builder", "serde"] }
 log = "0.4"
+mail-builder = { git = "https://github.com/stalwartlabs/mail-builder.git" }
 mail-parser = "0.8.1"
 maildir = { version = "=0.6.3", features = ["mmap"] }
 mailparse = "0.14"
 md5 = "0.7.0"
 once_cell = "1.*"
 ouroboros = "0.15"
-pimalaya-email-tpl = "=0.1.1"
+# pimalaya-email-tpl = "=0.1.1"
+pimalaya-email-tpl = { path = "../email-tpl" }
 pimalaya-oauth2 = "=0.0.2"
 pimalaya-process = "=0.0.2"
 pimalaya-secret = "=0.0.1"

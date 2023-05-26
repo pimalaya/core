@@ -3,5 +3,5 @@ pub mod interpreter;
 mod parsers;
 mod tokens;
 
-pub use compiler::CompilerBuilder;
-pub use interpreter::{InterpreterBuilder, ShowHeadersStrategy, ShowPartsStrategy};
+pub use compiler::Compiler;
+pub use interpreter::{Interpreter, ShowPartsStrategy};

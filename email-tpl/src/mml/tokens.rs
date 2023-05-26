@@ -23,7 +23,10 @@ pub(crate) enum Part {
 }
 
 impl<'a> Part {
-    pub(crate) fn get_or_guess_content_type<B: AsRef<[u8]>>(props: &Props, body: B) -> String {
+    pub(crate) fn get_or_guess_content_type<B>(props: &Props, body: B) -> String
+    where
+        B: AsRef<[u8]>,
+    {
         props.get(TYPE).map(String::to_string).unwrap_or_else(|| {
             let ctype = tree_magic::from_u8(body.as_ref());
             warn!("no content type found, guessing from body: {ctype}");
@@ -31,7 +34,10 @@ impl<'a> Part {
         })
     }
 
-    pub(crate) fn compact_text_plain_parts<T: AsRef<[Part]>>(parts: T) -> Vec<Part> {
+    pub(crate) fn compact_text_plain_parts<T>(parts: T) -> Vec<Part>
+    where
+        T: AsRef<[Part]>,
+    {
         let mut compacted_plain_texts = String::default();
         let mut compacted_parts = vec![];
 

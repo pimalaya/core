@@ -1,4 +1,5 @@
 use log::warn;
+use mail_builder::MessageBuilder;
 use mail_parser::{Message, MessagePart, MimeHeaders, PartType};
 use pimalaya_process::Cmd;
 use regex::Regex;
@@ -7,12 +8,17 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot save attachement content at {1}")]
+    #[error("cannot parse raw email")]
+    ParseRawEmailError,
+    #[error("cannot save attachement at {1}")]
     WriteAttachmentError(#[source] io::Error, PathBuf),
+    #[error("cannot build email")]
+    WriteMessageError(#[source] io::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
 
+/// Represents the strategy used to display emails parts.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum ShowPartsStrategy {
     #[default]
@@ -32,80 +38,43 @@ impl ShowPartsStrategy {
     }
 }
 
-/// Represents the show headers [`TplBuilder`] build option.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum ShowHeadersStrategy {
-    /// Shows all available headers in [`TplBuilder::headers`].
-    #[default]
-    All,
-    /// Shows only specific headers from [`TplBuilder::headers`] and
-    /// overrides the order [`TplBuilder::headers_order`].
-    Only(HashSet<String>),
-}
-
-impl ShowHeadersStrategy {
-    pub fn all() -> Self {
-        Self::All
-    }
-
-    pub fn only<I, H>(headers: H) -> Self
-    where
-        I: ToString,
-        H: IntoIterator<Item = I>,
-    {
-        Self::Only(HashSet::from_iter(
-            headers.into_iter().map(|h| h.to_string()),
-        ))
-    }
-
-    pub fn none() -> Self {
-        Self::Only(HashSet::default())
-    }
-}
-
-/// Represents the interpreter builder. It allows you to customize the
-/// template compilation using the [Builder pattern].
-///
-/// [Builder pattern]: https://en.wikipedia.org/wiki/Builder_pattern
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct InterpreterBuilder {
+/// The MML interpreter interprets full emails as [`crate::Tpl`]. The
+/// interpreter needs to be customized first. The customization
+/// follows the builder pattern. When the interpreter is customized,
+/// calling any function matching `interpret_*()` consumes the
+/// interpreter and generates the final [`crate::Tpl`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Interpreter {
     /// If `true` then text/plain parts are sanitized in order to be
     /// more readable: carriage returns are removed, tabulations are
     /// replaced by spaces, consecutive new line are merged and spaces
     /// are merged.
-    sanitize_text_plain_parts: Option<bool>,
+    sanitize_text_plain_parts: bool,
 
     /// If `true` then text/html parts are sanitized in order to be
     /// more readable: carriage returns are removed, tabulations are
     /// replaced by spaces, consecutive new line are merged and spaces
     /// are merged, HTML entities are decoded.
-    sanitize_text_html_parts: Option<bool>,
+    sanitize_text_html_parts: bool,
 
     /// If `true` then tries to remove signatures for text plain
     /// parts.
-    remove_text_plain_parts_signature: Option<bool>,
+    remove_text_plain_parts_signature: bool,
 
     /// Defines the strategy to display text parts.
-    show_parts_strategy: Option<ShowPartsStrategy>,
-
-    /// Defines the strategy to display
-    /// headers. [`ShowHeadersStrategy::All`] transfers all the
-    /// available headers to the interpreted template,
-    /// [`ShowHeadersStrategy::Only`] only transfers the given headers
-    /// to the interpreted template.
-    show_headers_strategy: Option<ShowHeadersStrategy>,
+    show_parts_strategy: ShowPartsStrategy,
 
     /// If `true` then multipart structures are kept unchanged when
     /// interpreting emails as template. It is useful to see how
     /// nested parts are structured, which part is encrypted or signed
     /// etc. If `false` then multipart structure is flatten, which
     /// means all parts and subparts are shown at same the root level.
-    show_multipart_markup: Option<bool>,
+    show_multipart_markup: bool,
 
     /// If `true` then part structures are kept unchanged when
     /// interpreting emails as template. It is useful to keep
     /// information about parts.
-    show_part_markup: Option<bool>,
+    show_part_markup: bool,
 
     /// An attachment is interpreted this way: `<#part
     /// filename=attachment.ext>`. If `true` then the file (with its
@@ -113,183 +82,46 @@ pub struct InterpreterBuilder {
     /// filename. Directory can be customized via
     /// `save_attachments_dir`. This option is particularly useful
     /// when transfering an email with its attachments.
-    save_attachments: Option<bool>,
+    save_attachments: bool,
 
     /// Saves attachments to the given directory instead of the
     /// default temporary one given by [`std::env::temp_dir()`].
-    save_attachments_dir: Option<PathBuf>,
+    save_attachments_dir: PathBuf,
 
     /// Command used to decrypt encrypted parts.
-    pgp_decrypt_cmd: Option<Cmd>,
+    pgp_decrypt_cmd: Cmd,
 
     /// Command used to verify signed parts.
-    pgp_verify_cmd: Option<Cmd>,
+    pgp_verify_cmd: Cmd,
 }
 
-impl<'a> InterpreterBuilder {
+impl Default for Interpreter {
+    fn default() -> Self {
+        Self {
+            sanitize_text_plain_parts: false,
+            sanitize_text_html_parts: false,
+            remove_text_plain_parts_signature: false,
+            show_parts_strategy: ShowPartsStrategy::All,
+            show_multipart_markup: false,
+            show_part_markup: false,
+            save_attachments: false,
+            save_attachments_dir: env::temp_dir(),
+            pgp_decrypt_cmd: "gpg --decrypt --quiet".into(),
+            pgp_verify_cmd: "gpg --verify --quiet --recipient <recipient>".into(),
+        }
+    }
+}
+
+impl Interpreter {
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn sanitize_text_plain_parts(mut self) -> Self {
-        self.sanitize_text_plain_parts = Some(true);
+        self.sanitize_text_plain_parts = true;
         self
     }
 
-    pub fn sanitize_text_html_parts(mut self) -> Self {
-        self.sanitize_text_html_parts = Some(true);
-        self
-    }
-
-    pub fn remove_text_plain_parts_signature(mut self) -> Self {
-        self.remove_text_plain_parts_signature = Some(true);
-        self
-    }
-
-    pub fn show_all_parts(mut self) -> Self {
-        self.show_parts_strategy = Some(ShowPartsStrategy::All);
-        self
-    }
-
-    pub fn show_parts<S: ToString, B: IntoIterator<Item = S>>(mut self, parts: B) -> Self {
-        let parts = parts.into_iter().map(|part| part.to_string()).collect();
-
-        match self.show_parts_strategy {
-            None | Some(ShowPartsStrategy::All) => {
-                self.show_parts_strategy = Some(ShowPartsStrategy::Only(parts));
-            }
-            Some(ShowPartsStrategy::Only(prev_parts)) => {
-                let mut prev_parts = prev_parts.clone();
-                prev_parts.extend(parts);
-                self.show_parts_strategy = Some(ShowPartsStrategy::Only(prev_parts));
-            }
-        };
-
-        self
-    }
-
-    pub fn show_all_headers(mut self) -> Self {
-        self.show_headers_strategy = Some(ShowHeadersStrategy::All);
-        self
-    }
-
-    pub fn show_headers<S: ToString, B: IntoIterator<Item = S>>(mut self, headers: B) -> Self {
-        let headers = headers
-            .into_iter()
-            .map(|header| header.to_string())
-            .collect();
-
-        match self.show_headers_strategy {
-            None | Some(ShowHeadersStrategy::All) => {
-                self.show_headers_strategy = Some(ShowHeadersStrategy::Only(headers));
-            }
-            Some(ShowHeadersStrategy::Only(prev_headers)) => {
-                let mut prev_headers = prev_headers.clone();
-                prev_headers.extend(headers);
-                self.show_headers_strategy = Some(ShowHeadersStrategy::Only(prev_headers));
-            }
-        };
-
-        self
-    }
-
-    pub fn hide_all_headers(mut self) -> Self {
-        self.show_headers_strategy = Some(ShowHeadersStrategy::Only(HashSet::new()));
-        self
-    }
-
-    pub fn show_multipart_markup(mut self) -> Self {
-        self.show_multipart_markup = Some(true);
-        self
-    }
-
-    pub fn hide_multipart_markup(mut self) -> Self {
-        self.show_multipart_markup = Some(false);
-        self
-    }
-
-    pub fn show_part_markup(mut self) -> Self {
-        self.show_part_markup = Some(true);
-        self
-    }
-
-    pub fn hide_part_markup(mut self) -> Self {
-        self.show_part_markup = Some(false);
-        self
-    }
-
-    pub fn save_attachments(mut self) -> Self {
-        self.save_attachments = Some(true);
-        self
-    }
-
-    pub fn save_attachments_dir<P>(mut self, p: P) -> Self
-    where
-        P: Into<PathBuf>,
-    {
-        self.save_attachments_dir = Some(p.into());
-        self
-    }
-
-    pub fn pgp_decrypt_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self {
-        self.pgp_decrypt_cmd = Some(cmd.into());
-        self
-    }
-
-    pub fn some_pgp_decrypt_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
-        self.pgp_decrypt_cmd = cmd.map(|c| c.into());
-        self
-    }
-
-    pub fn pgp_verify_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self {
-        self.pgp_verify_cmd = Some(cmd.into());
-        self
-    }
-
-    pub fn some_pgp_verify_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
-        self.pgp_verify_cmd = cmd.map(|c| c.into());
-        self
-    }
-
-    pub fn build(self) -> Interpreter {
-        Interpreter {
-            sanitize_text_plain_parts: self.sanitize_text_plain_parts.unwrap_or_default(),
-            sanitize_text_html_parts: self.sanitize_text_html_parts.unwrap_or_default(),
-            remove_text_plain_parts_signature: self
-                .remove_text_plain_parts_signature
-                .unwrap_or_default(),
-            show_parts_strategy: self.show_parts_strategy.unwrap_or_default(),
-            show_headers_strategy: self.show_headers_strategy.unwrap_or_default(),
-            show_multipart_markup: self.show_multipart_markup.unwrap_or_default(),
-            show_part_markup: self.show_part_markup.unwrap_or_default(),
-            save_attachments: self.save_attachments.unwrap_or_default(),
-            save_attachments_dir: self.save_attachments_dir.unwrap_or_else(|| env::temp_dir()),
-            pgp_decrypt_cmd: self
-                .pgp_decrypt_cmd
-                .unwrap_or_else(|| "gpg --decrypt --quiet".into()),
-            pgp_verify_cmd: self
-                .pgp_verify_cmd
-                .unwrap_or_else(|| "gpg --verify --quiet --recipient <recipient>".into()),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Interpreter {
-    pub sanitize_text_plain_parts: bool,
-    pub sanitize_text_html_parts: bool,
-    pub remove_text_plain_parts_signature: bool,
-    pub show_parts_strategy: ShowPartsStrategy,
-    pub show_headers_strategy: ShowHeadersStrategy,
-    pub show_multipart_markup: bool,
-    pub show_part_markup: bool,
-    pub save_attachments: bool,
-    pub save_attachments_dir: PathBuf,
-    pub pgp_decrypt_cmd: Cmd,
-    pub pgp_verify_cmd: Cmd,
-}
-
-impl<'a> Interpreter {
     fn sanitize_plain<P>(&self, plain: P) -> String
     where
         P: ToString,
@@ -315,6 +147,11 @@ impl<'a> Interpreter {
             .to_string();
 
         plain
+    }
+
+    pub fn sanitize_text_html_parts(mut self) -> Self {
+        self.sanitize_text_html_parts = true;
+        self
     }
 
     fn sanitize_html<H>(&self, html: H) -> String
@@ -349,11 +186,89 @@ impl<'a> Interpreter {
         html
     }
 
-    pub fn interpret(&self, msg: &Message) -> Result<String> {
-        self.interpret_part(msg, msg.root_part())
+    pub fn remove_text_plain_parts_signature(mut self) -> Self {
+        self.remove_text_plain_parts_signature = true;
+        self
     }
 
-    pub fn interpret_part(&self, msg: &Message, part: &MessagePart) -> Result<String> {
+    pub fn show_all_parts(mut self) -> Self {
+        self.show_parts_strategy = ShowPartsStrategy::All;
+        self
+    }
+
+    pub fn show_parts<S: ToString, B: IntoIterator<Item = S>>(mut self, parts: B) -> Self {
+        let parts = parts.into_iter().map(|part| part.to_string()).collect();
+
+        match &mut self.show_parts_strategy {
+            ShowPartsStrategy::All => {
+                self.show_parts_strategy = ShowPartsStrategy::Only(parts);
+            }
+            ShowPartsStrategy::Only(prev_parts) => {
+                prev_parts.extend(parts);
+            }
+        };
+
+        self
+    }
+
+    pub fn show_multipart_markup(mut self) -> Self {
+        self.show_multipart_markup = true;
+        self
+    }
+
+    pub fn hide_multipart_markup(mut self) -> Self {
+        self.show_multipart_markup = false;
+        self
+    }
+
+    pub fn show_part_markup(mut self) -> Self {
+        self.show_part_markup = true;
+        self
+    }
+
+    pub fn hide_part_markup(mut self) -> Self {
+        self.show_part_markup = false;
+        self
+    }
+
+    pub fn save_attachments(mut self) -> Self {
+        self.save_attachments = true;
+        self
+    }
+
+    pub fn save_attachments_dir<D>(mut self, dir: D) -> Self
+    where
+        D: Into<PathBuf>,
+    {
+        self.save_attachments_dir = dir.into();
+        self
+    }
+
+    pub fn pgp_decrypt_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self {
+        self.pgp_decrypt_cmd = cmd.into();
+        self
+    }
+
+    pub fn some_pgp_decrypt_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
+        if let Some(cmd) = cmd {
+            self.pgp_decrypt_cmd = cmd.into();
+        }
+        self
+    }
+
+    pub fn pgp_verify_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self {
+        self.pgp_verify_cmd = cmd.into();
+        self
+    }
+
+    pub fn some_pgp_verify_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
+        if let Some(cmd) = cmd {
+            self.pgp_verify_cmd = cmd.into();
+        }
+        self
+    }
+
+    fn interpret_part(&self, msg: &Message, part: &MessagePart) -> Result<String> {
         let mut tpl = String::new();
 
         let ctype = part
@@ -487,7 +402,7 @@ impl<'a> Interpreter {
                         }
                     }
                 }
-                PartType::Message(msg) => tpl.push_str(&self.interpret(msg)?),
+                PartType::Message(msg) => tpl.push_str(&self.interpret_msg(msg)?),
                 PartType::Multipart(ids) if ctype == "multipart/encrypted" => {
                     // TODO: clean me
                     let encrypted_part = msg.part(ids[1]).unwrap();
@@ -496,8 +411,9 @@ impl<'a> Interpreter {
                         .run_with(encrypted_part.text_contents().unwrap())
                         .unwrap()
                         .stdout;
+                    println!("decrypted_part: {:?}", decrypted_part);
                     let msg = Message::parse(&decrypted_part).unwrap();
-                    tpl.push_str(&self.interpret(&msg)?);
+                    tpl.push_str(&self.interpret_msg(&msg)?);
                 }
                 PartType::Multipart(ids) if ctype == "multipart/signed" => {
                     // TODO: clean me
@@ -538,15 +454,32 @@ impl<'a> Interpreter {
 
         Ok(tpl)
     }
+
+    /// Interprets the given [`mail_parser::Message`] as a MML string.
+    pub fn interpret_msg(&self, msg: &Message) -> Result<String> {
+        self.interpret_part(msg, msg.root_part())
+    }
+
+    /// Interprets the given bytes as a MML string.
+    pub fn interpret_bytes<B: AsRef<[u8]>>(&self, bytes: B) -> Result<String> {
+        let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseRawEmailError)?;
+        self.interpret_msg(&msg)
+    }
+
+    /// Interprets the given [`mail_builder::MessageBuilder`] as a MML
+    /// string.
+    pub fn interpret_msg_builder(&self, builder: MessageBuilder) -> Result<String> {
+        let bytes = builder.write_to_vec().map_err(Error::WriteMessageError)?;
+        self.interpret_bytes(&bytes)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use concat_with::concat_line;
     use mail_builder::{mime::MimePart, MessageBuilder};
-    use mail_parser::Message;
 
-    use crate::InterpreterBuilder;
+    use super::Interpreter;
 
     #[test]
     fn plain() {
@@ -554,12 +487,8 @@ mod tests {
             .from("from@localhost")
             .to("to@localhost")
             .subject("subject")
-            .text_body("Hello, world!")
-            .write_to_vec()
-            .unwrap();
-        let msg = Message::parse(&msg).unwrap();
-
-        let tpl = InterpreterBuilder::new().build().interpret(&msg).unwrap();
+            .text_body("Hello, world!");
+        let tpl = Interpreter::new().interpret_msg_builder(msg).unwrap();
         let expected_tpl = concat_line!("Hello, world!", "");
 
         assert_eq!(tpl, expected_tpl);
@@ -571,12 +500,8 @@ mod tests {
             .from("from@localhost")
             .to("to@localhost")
             .subject("subject")
-            .html_body("<h1>Hello, world!</h1>")
-            .write_to_vec()
-            .unwrap();
-        let msg = Message::parse(&msg).unwrap();
-
-        let tpl = InterpreterBuilder::new().build().interpret(&msg).unwrap();
+            .html_body("<h1>Hello, world!</h1>");
+        let tpl = Interpreter::new().interpret_msg_builder(msg).unwrap();
         let expected_tpl = concat_line!("<h1>Hello, world!</h1>", "");
 
         assert_eq!(tpl, expected_tpl);
@@ -588,15 +513,10 @@ mod tests {
             .from("from@localhost")
             .to("to@localhost")
             .subject("subject")
-            .html_body("<h1>Hello, world!</h1>")
-            .write_to_vec()
-            .unwrap();
-        let msg = Message::parse(&msg).unwrap();
-
-        let tpl = InterpreterBuilder::new()
+            .html_body("<h1>Hello, world!</h1>");
+        let tpl = Interpreter::new()
             .show_part_markup()
-            .build()
-            .interpret(&msg)
+            .interpret_msg_builder(msg)
             .unwrap();
         let expected_tpl = concat_line!(
             "<#part type=\"text/html\">",
@@ -614,15 +534,10 @@ mod tests {
             .from("from@localhost")
             .to("to@localhost")
             .subject("subject")
-            .html_body("<h1>Hello, world!</h1>")
-            .write_to_vec()
-            .unwrap();
-        let msg = Message::parse(&msg).unwrap();
-
-        let tpl = InterpreterBuilder::new()
+            .html_body("<h1>Hello, world!</h1>");
+        let tpl = Interpreter::new()
             .sanitize_text_html_parts()
-            .build()
-            .interpret(&msg)
+            .interpret_msg_builder(msg)
             .unwrap();
         let expected_tpl = concat_line!("Hello, world!", "");
 
@@ -636,15 +551,10 @@ mod tests {
             .to("to@localhost")
             .subject("subject")
             .text_body("Hello, world!")
-            .attachment("text/plain", "attachment.txt", "Hello, world!".as_bytes())
-            .write_to_string()
-            .unwrap();
-        let msg = Message::parse(msg.as_bytes()).unwrap();
-
-        let tpl = InterpreterBuilder::new()
+            .attachment("text/plain", "attachment.txt", "Hello, world!".as_bytes());
+        let tpl = Interpreter::new()
             .save_attachments_dir("~/Downloads")
-            .build()
-            .interpret(&msg)
+            .interpret_msg_builder(msg)
             .unwrap();
         let expected_tpl = concat_line!("Hello, world!", "");
 
@@ -658,16 +568,11 @@ mod tests {
             .to("to@localhost")
             .subject("subject")
             .text_body("Hello, world!")
-            .attachment("text/plain", "attachment.txt", "Hello, world!".as_bytes())
-            .write_to_string()
-            .unwrap();
-        let msg = Message::parse(msg.as_bytes()).unwrap();
-
-        let tpl = InterpreterBuilder::new()
+            .attachment("text/plain", "attachment.txt", "Hello, world!".as_bytes());
+        let tpl = Interpreter::new()
             .show_part_markup()
             .save_attachments_dir("~/Downloads")
-            .build()
-            .interpret(&msg)
+            .interpret_msg_builder(msg)
             .unwrap();
         let expected_tpl = concat_line!(
             "Hello, world!",
@@ -690,16 +595,11 @@ mod tests {
                     MimePart::new("text/plain", "Hello, world!"),
                     MimePart::new("text/html", "<h1>Hello, world!</h1>"),
                 ],
-            ))
-            .write_to_vec()
-            .unwrap();
-        let msg = Message::parse(&msg).unwrap();
-
-        let tpl = InterpreterBuilder::new()
+            ));
+        let tpl = Interpreter::new()
             .hide_multipart_markup()
             .hide_part_markup()
-            .build()
-            .interpret(&msg)
+            .interpret_msg_builder(msg)
             .unwrap();
         let expected_tpl = concat_line!("Hello, world!", "<h1>Hello, world!</h1>", "");
 
@@ -718,17 +618,12 @@ mod tests {
                     MimePart::new("text/plain", "Hello, world!"),
                     MimePart::new("text/html", "<h1>Hello, world!</h1>"),
                 ],
-            ))
-            .write_to_vec()
-            .unwrap();
-        let msg = Message::parse(&msg).unwrap();
-
-        let tpl = InterpreterBuilder::new()
+            ));
+        let tpl = Interpreter::new()
             .hide_multipart_markup()
             .hide_part_markup()
             .show_parts(["text/plain"])
-            .build()
-            .interpret(&msg)
+            .interpret_msg_builder(msg)
             .unwrap();
         let expected_tpl = concat_line!("Hello, world!", "");
 
@@ -747,16 +642,11 @@ mod tests {
                     MimePart::new("text/plain", "Hello, world!"),
                     MimePart::new("text/html", "<h1>Hello, world!</h1>"),
                 ],
-            ))
-            .write_to_vec()
-            .unwrap();
-        let msg = Message::parse(&msg).unwrap();
-
-        let tpl = InterpreterBuilder::new()
+            ));
+        let tpl = Interpreter::new()
             .show_multipart_markup()
             .show_part_markup()
-            .build()
-            .interpret(&msg)
+            .interpret_msg_builder(msg)
             .unwrap();
         let expected_tpl = concat_line!(
             "<#multipart type=\"mixed\">",
@@ -786,16 +676,11 @@ mod tests {
                         MimePart::new("text/html", "<h1>Hello, world!</h1>"),
                     ],
                 )],
-            ))
-            .write_to_vec()
-            .unwrap();
-        let msg = Message::parse(&msg).unwrap();
-
-        let tpl = InterpreterBuilder::new()
+            ));
+        let tpl = Interpreter::new()
             .hide_multipart_markup()
             .hide_part_markup()
-            .build()
-            .interpret(&msg)
+            .interpret_msg_builder(msg)
             .unwrap();
         let expected_tpl = concat_line!("Hello, world!", "<h1>Hello, world!</h1>", "");
 
@@ -817,16 +702,11 @@ mod tests {
                         MimePart::new("text/html", "<h1>Hello, world!</h1>"),
                     ],
                 )],
-            ))
-            .write_to_vec()
-            .unwrap();
-        let msg = Message::parse(&msg).unwrap();
-
-        let tpl = InterpreterBuilder::new()
+            ));
+        let tpl = Interpreter::new()
             .show_multipart_markup()
             .show_part_markup()
-            .build()
-            .interpret(&msg)
+            .interpret_msg_builder(msg)
             .unwrap();
         let expected_tpl = concat_line!(
             "<#multipart type=\"mixed\">",

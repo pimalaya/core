@@ -207,6 +207,15 @@ impl AccountConfig {
         ))
     }
 
+    pub fn full_address(&self) -> String {
+        let email = &self.email;
+
+        match &self.display_name {
+            Some(name) => format!("{name} <{email}>"),
+            None => email.clone(),
+        }
+    }
+
     /// Gets the downloads directory path.
     pub fn downloads_dir(&self) -> PathBuf {
         self.downloads_dir

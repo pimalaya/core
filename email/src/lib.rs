@@ -9,8 +9,5 @@ pub mod sender;
 
 pub use backend::*;
 pub use domain::*;
-pub use pimalaya_email_tpl::{
-    evaluator::CompilerBuilder,
-    tpl::{HeaderVal, ShowHeaders, ShowTextPartsStrategy, Tpl, TplBuilder},
-};
+pub use pimalaya_email_tpl::*;
 pub use sender::*;
