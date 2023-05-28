@@ -117,8 +117,8 @@ impl Interpreter {
         Self::default()
     }
 
-    pub fn sanitize_text_plain_parts(mut self) -> Self {
-        self.sanitize_text_plain_parts = true;
+    pub fn sanitize_text_plain_parts(mut self, b: bool) -> Self {
+        self.sanitize_text_plain_parts = b;
         self
     }
 
@@ -149,8 +149,8 @@ impl Interpreter {
         plain
     }
 
-    pub fn sanitize_text_html_parts(mut self) -> Self {
-        self.sanitize_text_html_parts = true;
+    pub fn sanitize_text_html_parts(mut self, b: bool) -> Self {
+        self.sanitize_text_html_parts = b;
         self
     }
 

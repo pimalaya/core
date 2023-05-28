@@ -54,18 +54,20 @@ impl Interpreter {
         Self::default()
     }
 
-    pub fn sanitize_text_plain_parts(mut self) -> Self {
-        self.mml_interpreter = self.mml_interpreter.sanitize_text_plain_parts();
+    pub fn sanitize_text_plain_parts(mut self, b: bool) -> Self {
+        self.mml_interpreter = self.mml_interpreter.sanitize_text_plain_parts(b);
         self
     }
 
-    pub fn sanitize_text_html_parts(mut self) -> Self {
-        self.mml_interpreter = self.mml_interpreter.sanitize_text_html_parts();
+    pub fn sanitize_text_html_parts(mut self, b: bool) -> Self {
+        self.mml_interpreter = self.mml_interpreter.sanitize_text_html_parts(b);
         self
     }
 
-    pub fn sanitize_text_parts(mut self) -> Self {
-        self = self.sanitize_text_plain_parts().sanitize_text_html_parts();
+    pub fn sanitize_text_parts(mut self, b: bool) -> Self {
+        self = self
+            .sanitize_text_plain_parts(b)
+            .sanitize_text_html_parts(b);
         self
     }
 
@@ -140,6 +142,16 @@ impl Interpreter {
 
     pub fn hide_part_markup(mut self) -> Self {
         self.mml_interpreter = self.mml_interpreter.hide_part_markup();
+        self
+    }
+
+    pub fn show_markup(mut self) -> Self {
+        self = self.show_multipart_markup().show_part_markup();
+        self
+    }
+
+    pub fn hide_markup(mut self) -> Self {
+        self = self.hide_multipart_markup().hide_part_markup();
         self
     }
 
