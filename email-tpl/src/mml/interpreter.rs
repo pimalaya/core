@@ -338,7 +338,7 @@ impl Interpreter {
                             plain = self.sanitize_plain(plain);
                         }
 
-                        tpl.push_str(&plain);
+                        tpl.push_str(&plain.trim());
                         tpl.push('\n');
                     }
                 }
@@ -355,7 +355,7 @@ impl Interpreter {
                             html = self.sanitize_html(html);
                         }
 
-                        tpl.push_str(&html);
+                        tpl.push_str(&html.trim());
                         tpl.push('\n');
 
                         if self.show_part_markup {

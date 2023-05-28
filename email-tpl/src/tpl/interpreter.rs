@@ -1,7 +1,7 @@
 use mail_builder::MessageBuilder;
 use mail_parser::Message;
 use pimalaya_process::Cmd;
-use std::{collections::HashSet, io, path::PathBuf, result};
+use std::{io, path::PathBuf, result};
 use thiserror::Error;
 
 use crate::{mml, Tpl};
@@ -26,7 +26,7 @@ pub enum ShowHeadersStrategy {
     #[default]
     All,
     /// Transfers only specific headers to the interpreted template.
-    Only(HashSet<String>),
+    Only(Vec<String>),
 }
 
 /// The template interpreter interprets full emails as
@@ -99,8 +99,7 @@ impl Interpreter {
             ShowHeadersStrategy::All => {
                 self.show_headers_strategy = ShowHeadersStrategy::Only(headers);
             }
-            ShowHeadersStrategy::Only(prev_headers) => {
-                let mut prev_headers = prev_headers.clone();
+            ShowHeadersStrategy::Only(mut prev_headers) => {
                 prev_headers.extend(headers);
                 self.show_headers_strategy = ShowHeadersStrategy::Only(prev_headers);
             }
@@ -109,8 +108,18 @@ impl Interpreter {
         self
     }
 
+    pub fn show_some_headers<S: ToString, B: IntoIterator<Item = S>>(
+        mut self,
+        headers: Option<B>,
+    ) -> Self {
+        if let Some(headers) = headers {
+            self = self.show_headers(headers);
+        }
+        self
+    }
+
     pub fn hide_all_headers(mut self) -> Self {
-        self.show_headers_strategy = ShowHeadersStrategy::Only(HashSet::new());
+        self.show_headers_strategy = ShowHeadersStrategy::Only(Vec::new());
         self
     }
 
@@ -172,18 +181,17 @@ impl Interpreter {
     pub fn interpret_msg(self, msg: &Message) -> Result<Tpl> {
         let mut tpl = Tpl::new();
 
-        for (key, val) in msg.headers_raw() {
-            let key = key.trim();
-            let val = val.trim();
+        let push_header = |(key, val): (&str, &str)| {
+            tpl.push_str(&format!("{}: {}\n", key.trim(), val.trim()));
+        };
 
-            match self.show_headers_strategy {
-                ShowHeadersStrategy::All => tpl.push_str(&format!("{key}: {val}\n")),
-                ShowHeadersStrategy::Only(ref keys) if keys.contains(key) => {
-                    tpl.push_str(&format!("{key}: {val}\n"))
-                }
-                ShowHeadersStrategy::Only(_) => (),
-            }
-        }
+        match self.show_headers_strategy {
+            ShowHeadersStrategy::All => msg.headers_raw().for_each(push_header),
+            ShowHeadersStrategy::Only(keys) => keys
+                .iter()
+                .filter_map(|key| msg.header_raw(key).map(|val| (key.as_str(), val)))
+                .for_each(push_header),
+        };
 
         if !tpl.is_empty() {
             tpl.push_str("\n");

@@ -2,9 +2,10 @@
 #[test]
 fn test_imap_backend() {
     use concat_with::concat_line;
+    use mail_builder::MessageBuilder;
     use pimalaya_email::{
-        AccountConfig, Backend, CompilerBuilder, Flag, ImapAuthConfig, ImapBackend, ImapConfig,
-        PasswdConfig, TplBuilder, DEFAULT_INBOX_FOLDER,
+        AccountConfig, Backend, Email, Flag, ImapAuthConfig, ImapBackend, ImapConfig, PasswdConfig,
+        Tpl, DEFAULT_INBOX_FOLDER,
     };
     use pimalaya_secret::Secret;
 
@@ -51,21 +52,20 @@ fn test_imap_backend() {
     imap.add_folder("Отправленные").unwrap();
 
     // checking that an email can be built and added
-    let email =
-        TplBuilder::default()
-            .from("alice@localhost")
-            .to("bob@localhost")
-            .subject("Signed and encrypted message")
-            .text_plain_part(concat_line!(
-                "<#part type=text/plain sign=command encrypt=command>",
-                "Signed and encrypted message!",
-                "<#/part>",
-            ))
-            .build()
-            .compile(CompilerBuilder::default().pgp_encrypt_cmd(
-                "gpg -aeqr <recipient> -o - --recipient-file ./tests/keys/bob.pub",
-            ))
-            .unwrap();
+    let email = MessageBuilder::new()
+        .from("alice@localhost")
+        .to("bob@localhost")
+        .subject("subject")
+        .text_body(concat_line!(
+            "<#part type=text/plain>",
+            "Hello, world!",
+            "<#/part>",
+        ));
+    let email = Tpl::from(email.write_to_string().unwrap())
+        .compile()
+        .unwrap()
+        .write_to_vec()
+        .unwrap();
 
     let id = imap
         .add_email("Sent", &email, &("seen".into()))
@@ -74,29 +74,34 @@ fn test_imap_backend() {
 
     // checking that the added email exists
     let emails = imap.get_emails("Sent", vec![&id]).unwrap();
-    assert_eq!(
-        concat_line!(
-            "From: alice@localhost",
-            "To: bob@localhost",
-            "",
-            "Signed and encrypted message!\r\n\r\n",
-        ),
-        *emails
-            .to_vec()
-            .first()
-            .unwrap()
-            .to_read_tpl_builder(&config)
-            .unwrap()
-            .show_headers(["From", "To"])
-            .show_text_parts_only(true)
-            .build()
+    let interpreter = Email::get_tpl_interpreter(&config);
+    let tpl = emails
+        .to_vec()
+        .first()
+        .unwrap()
+        .to_read_tpl(
+            interpreter
+                .hide_all_headers()
+                .show_headers(["From", "To"])
+                .hide_part_markup()
+                .hide_multipart_markup(),
+        )
+        .unwrap();
+    let expected_tpl = concat_line!(
+        "From: <alice@localhost>",
+        "To: <bob@localhost>",
+        "",
+        "Hello, world!",
+        "",
     );
+
+    assert_eq!(*tpl, expected_tpl);
 
     // checking that the envelope of the added email exists
     let sent = imap.list_envelopes("Sent", 0, 0).unwrap();
     assert_eq!(1, sent.len());
     assert_eq!("alice@localhost", sent[0].from.addr);
-    assert_eq!("Signed and encrypted message", sent[0].subject);
+    assert_eq!("subject", sent[0].subject);
 
     // checking that the email can be copied
     imap.copy_emails("Sent", "Отправленные", vec![&sent[0].id])

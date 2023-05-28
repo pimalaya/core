@@ -1,11 +1,11 @@
+use mail_builder::MessageBuilder;
+use pimalaya_email::Email;
+
 #[test]
 fn test_maildir_backend() {
     use concat_with::concat_line;
     use maildir::Maildir;
-    use pimalaya_email::{
-        AccountConfig, Backend, CompilerBuilder, Flag, Flags, MaildirBackend, MaildirConfig,
-        TplBuilder,
-    };
+    use pimalaya_email::{AccountConfig, Backend, Flag, Flags, MaildirBackend, MaildirConfig};
     use std::{collections::HashMap, fs, iter::FromIterator};
     use tempfile::tempdir;
 
@@ -25,7 +25,7 @@ fn test_maildir_backend() {
     if let Err(_) = fs::remove_dir_all(mdir_trash.path()) {}
     mdir_trash.create_dirs().unwrap();
 
-    let account_config = AccountConfig {
+    let config = AccountConfig {
         name: "account".into(),
         folder_aliases: HashMap::from_iter([("subdir".into(), "Subdir".into())]),
         ..AccountConfig::default()
@@ -33,7 +33,7 @@ fn test_maildir_backend() {
 
     let mdir_path = mdir.path().to_owned();
     let mdir = MaildirBackend::new(
-        account_config.clone(),
+        config.clone(),
         MaildirConfig {
             root_dir: mdir_path.clone(),
         },
@@ -41,7 +41,7 @@ fn test_maildir_backend() {
     .unwrap();
 
     let submdir = MaildirBackend::new(
-        account_config.clone(),
+        config.clone(),
         MaildirConfig {
             root_dir: mdir_sub.path().to_owned(),
         },
@@ -49,34 +49,40 @@ fn test_maildir_backend() {
     .unwrap();
 
     // check that a message can be built and added
-    let email = TplBuilder::default()
+    let email = MessageBuilder::new()
         .from("alice@localhost")
         .to("bob@localhost")
         .subject("Plain message!")
-        .text_plain_part("Plain message!")
-        .compile(CompilerBuilder::default())
+        .text_body("Plain message!")
+        .write_to_vec()
         .unwrap();
     let flags = Flags::from_iter([Flag::Seen]);
     let id = mdir.add_email("INBOX", &email, &flags).unwrap();
 
     // check that the added message exists
     let emails = mdir.get_emails("INBOX", vec![&id]).unwrap();
-    assert_eq!(
-        concat_line!(
-            "From: alice@localhost",
-            "To: bob@localhost",
-            "",
-            "Plain message!\r\n",
-        ),
-        *emails
-            .to_vec()
-            .first()
-            .unwrap()
-            .to_read_tpl_builder(&account_config)
-            .unwrap()
-            .show_headers(["From", "To"])
-            .build()
+    let interpreter = Email::get_tpl_interpreter(&config);
+    let tpl = emails
+        .to_vec()
+        .first()
+        .unwrap()
+        .to_read_tpl(
+            interpreter
+                .hide_all_headers()
+                .show_headers(["From", "To"])
+                .hide_part_markup()
+                .hide_multipart_markup(),
+        )
+        .unwrap();
+    let expected_tpl = concat_line!(
+        "From: <alice@localhost>",
+        "To: <bob@localhost>",
+        "",
+        "Plain message!",
+        "",
     );
+
+    assert_eq!(*tpl, expected_tpl);
 
     // check that the envelope of the added message exists
     let envelopes = mdir.list_envelopes("INBOX", 10, 0).unwrap();

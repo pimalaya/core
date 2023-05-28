@@ -2,11 +2,11 @@
 #[test]
 fn test_notmuch_backend() {
     use concat_with::concat_line;
+    use mail_builder::MessageBuilder;
     use maildir::Maildir;
     use notmuch::Database;
     use pimalaya_email::{
-        AccountConfig, Backend, CompilerBuilder, Flag, Flags, NotmuchBackend, NotmuchConfig,
-        TplBuilder,
+        AccountConfig, Backend, Email, Flag, Flags, NotmuchBackend, NotmuchConfig,
     };
     use std::{collections::HashMap, env, fs, iter::FromIterator};
 
@@ -24,7 +24,7 @@ fn test_notmuch_backend() {
 
     Database::create(mdir.path()).unwrap();
 
-    let account_config = AccountConfig {
+    let config = AccountConfig {
         name: "account".into(),
         folder_aliases: HashMap::from_iter([
             ("inbox".into(), "".into()),
@@ -34,7 +34,7 @@ fn test_notmuch_backend() {
     };
 
     let notmuch = NotmuchBackend::new(
-        account_config.clone(),
+        config.clone(),
         NotmuchConfig {
             db_path: mdir.path().to_owned(),
         },
@@ -42,44 +42,50 @@ fn test_notmuch_backend() {
     .unwrap();
 
     // check that a message can be added
-    let email = TplBuilder::default()
+    let email = MessageBuilder::new()
         .from("alice@localhost")
         .to("bob@localhost")
         .subject("Plain message custom!")
-        .text_plain_part("Plain message custom!")
-        .compile(CompilerBuilder::default())
+        .text_body("Plain message custom!")
+        .write_to_vec()
         .unwrap();
     let flags = Flags::from_iter([Flag::Seen]);
     notmuch.add_email("custom", &email, &flags).unwrap();
 
-    let email = TplBuilder::default()
+    let email = MessageBuilder::new()
         .from("alice@localhost")
         .to("bob@localhost")
         .subject("Plain message!")
-        .text_plain_part("Plain message!")
-        .compile(CompilerBuilder::default())
+        .text_body("Plain message!")
+        .write_to_vec()
         .unwrap();
     let flags = Flags::from_iter([Flag::custom("flag"), Flag::Seen]);
     let id = notmuch.add_email("inbox", &email, &flags).unwrap();
 
     // check that the added message exists
     let emails = notmuch.get_emails("inbox", vec![&id]).unwrap();
-    assert_eq!(
-        concat_line!(
-            "From: alice@localhost",
-            "To: bob@localhost",
-            "",
-            "Plain message!\r\n",
-        ),
-        *emails
-            .to_vec()
-            .first()
-            .unwrap()
-            .to_read_tpl_builder(&account_config)
-            .unwrap()
-            .show_headers(["From", "To"])
-            .build()
+    let interpreter = Email::get_tpl_interpreter(&config);
+    let tpl = emails
+        .to_vec()
+        .first()
+        .unwrap()
+        .to_read_tpl(
+            interpreter
+                .hide_all_headers()
+                .show_headers(["From", "To"])
+                .hide_part_markup()
+                .hide_multipart_markup(),
+        )
+        .unwrap();
+    let expected_tpl = concat_line!(
+        "From: <alice@localhost>",
+        "To: <bob@localhost>",
+        "",
+        "Plain message!",
+        "",
     );
+
+    assert_eq!(*tpl, expected_tpl);
 
     // check that the envelope of the added message exists
     let envelopes = notmuch.list_envelopes("custom", 0, 0).unwrap();

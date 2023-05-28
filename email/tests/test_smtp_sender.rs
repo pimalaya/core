@@ -1,9 +1,10 @@
 #[cfg(all(feature = "imap-backend", feature = "smtp-sender"))]
 #[test]
 fn test_smtp_sender() {
+    use mail_builder::MessageBuilder;
     use pimalaya_email::{
-        AccountConfig, Backend, CompilerBuilder, ImapAuthConfig, ImapBackend, ImapConfig,
-        PasswdConfig, Sender, Smtp, SmtpAuthConfig, SmtpConfig, TplBuilder,
+        AccountConfig, Backend, ImapAuthConfig, ImapBackend, ImapConfig, PasswdConfig, Sender,
+        Smtp, SmtpAuthConfig, SmtpConfig,
     };
     use pimalaya_secret::Secret;
     use std::{thread, time::Duration};
@@ -47,12 +48,12 @@ fn test_smtp_sender() {
     imap.purge_folder("INBOX").unwrap();
 
     // checking that an email can be built and sent
-    let email = TplBuilder::default()
+    let email = MessageBuilder::new()
         .from("alice@localhost")
         .to("bob@localhost")
         .subject("Plain message!")
-        .text_plain_part("Plain message!")
-        .compile(CompilerBuilder::default())
+        .text_body("Plain message!")
+        .write_to_vec()
         .unwrap();
     smtp.send(&email).unwrap();
 

@@ -4,8 +4,8 @@
 //! account configuration.
 
 use dirs::data_dir;
-use lettre::{address::AddressError, message::Mailbox};
 use log::warn;
+use mail_builder::headers::address::{Address, EmailAddress};
 use pimalaya_oauth2::AuthorizationCodeGrant;
 use pimalaya_process::Cmd;
 use pimalaya_secret::Secret;
@@ -50,8 +50,6 @@ pub enum Error {
     ParseAccountAddrNotFoundError(String),
     #[error("cannot parse download file name from {0}")]
     ParseDownloadFileNameError(PathBuf),
-    #[error("cannot parse address from config")]
-    ParseAddressError(#[source] AddressError),
 
     #[error("cannot get sync directory from XDG_DATA_HOME")]
     GetXdgDataDirError,
@@ -197,23 +195,11 @@ impl Default for AccountConfig {
 }
 
 impl AccountConfig {
-    /// Builds the full [RFC 2822] compliant user email address.
-    ///
-    /// [RFC 2822]: https://www.rfc-editor.org/rfc/rfc2822
-    pub fn addr(&self) -> Result<Mailbox> {
-        Ok(Mailbox::new(
-            self.display_name.clone(),
-            self.email.parse().map_err(Error::ParseAddressError)?,
-        ))
-    }
-
-    pub fn full_address(&self) -> String {
-        let email = &self.email;
-
-        match &self.display_name {
-            Some(name) => format!("{name} <{email}>"),
-            None => email.clone(),
-        }
+    pub fn address(&self) -> Address {
+        Address::Address(EmailAddress {
+            name: self.display_name.clone().map(Into::into),
+            email: self.email.clone().into(),
+        })
     }
 
     /// Gets the downloads directory path.

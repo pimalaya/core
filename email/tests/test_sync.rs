@@ -1,12 +1,12 @@
 use env_logger;
+use mail_builder::MessageBuilder;
 use pimalaya_secret::Secret;
 use std::{collections::HashSet, thread, time::Duration};
 use tempfile::tempdir;
 
 use pimalaya_email::{
-    envelope, folder, AccountConfig, Backend, BackendSyncBuilder, CompilerBuilder, Flag, Flags,
-    ImapAuthConfig, ImapBackend, ImapConfig, MaildirBackend, MaildirConfig, PasswdConfig,
-    TplBuilder,
+    envelope, folder, AccountConfig, Backend, BackendSyncBuilder, Flag, Flags, ImapAuthConfig,
+    ImapBackend, ImapConfig, MaildirBackend, MaildirConfig, PasswdConfig,
 };
 
 #[test]
@@ -53,13 +53,13 @@ fn test_sync() {
 
     imap.add_email(
         "INBOX",
-        &TplBuilder::default()
+        &MessageBuilder::new()
             .message_id("<a@localhost>")
             .from("alice@localhost")
             .to("bob@localhost")
             .subject("A")
-            .text_plain_part("A")
-            .compile(CompilerBuilder::default())
+            .text_body("A")
+            .write_to_vec()
             .unwrap(),
         &Flags::from_iter([Flag::Seen]),
     )
@@ -69,13 +69,13 @@ fn test_sync() {
 
     imap.add_email(
         "INBOX",
-        &TplBuilder::default()
+        &MessageBuilder::new()
             .message_id("<b@localhost>")
             .from("alice@localhost")
             .to("bob@localhost")
             .subject("B")
-            .text_plain_part("B")
-            .compile(CompilerBuilder::default())
+            .text_body("B")
+            .write_to_vec()
             .unwrap(),
         &Flags::from_iter([Flag::Seen, Flag::Flagged, Flag::Custom("custom".into())]),
     )
@@ -85,13 +85,13 @@ fn test_sync() {
 
     imap.add_email(
         "INBOX",
-        &TplBuilder::default()
+        &MessageBuilder::new()
             .message_id("<c@localhost>")
             .from("alice@localhost")
             .to("bob@localhost")
             .subject("C")
-            .text_plain_part("C")
-            .compile(CompilerBuilder::default())
+            .text_body("C")
+            .write_to_vec()
             .unwrap(),
         &Flags::default(),
     )
@@ -103,13 +103,13 @@ fn test_sync() {
 
     imap.add_email(
         "[Gmail]/Sent",
-        &TplBuilder::default()
+        &MessageBuilder::new()
             .message_id("<d@localhost>")
             .from("alice@localhost")
             .to("bob@localhost")
             .subject("D")
-            .text_plain_part("D")
-            .compile(CompilerBuilder::default())
+            .text_body("D")
+            .write_to_vec()
             .unwrap(),
         &Flags::default(),
     )
@@ -119,13 +119,13 @@ fn test_sync() {
 
     imap.add_email(
         "[Gmail]/Sent",
-        &TplBuilder::default()
+        &MessageBuilder::new()
             .message_id("<e@localhost>")
             .from("alice@localhost")
             .to("bob@localhost")
             .subject("E")
-            .text_plain_part("E")
-            .compile(CompilerBuilder::default())
+            .text_body("E")
+            .write_to_vec()
             .unwrap(),
         &Flags::default(),
     )
@@ -184,16 +184,16 @@ fn test_sync() {
     let emails = mdir.get_emails("INBOX", ids).unwrap();
     let emails = emails.to_vec();
     assert_eq!(3, emails.len());
-    assert_eq!("C\r\n", emails[0].parsed().unwrap().get_body().unwrap());
-    assert_eq!("B\r\n", emails[1].parsed().unwrap().get_body().unwrap());
-    assert_eq!("A\r\n", emails[2].parsed().unwrap().get_body().unwrap());
+    assert_eq!("C", emails[0].parsed().unwrap().body_text(0).unwrap());
+    assert_eq!("B", emails[1].parsed().unwrap().body_text(0).unwrap());
+    assert_eq!("A", emails[2].parsed().unwrap().body_text(0).unwrap());
 
     let ids = mdir_sent_envelopes.iter().map(|e| e.id.as_str()).collect();
     let emails = mdir.get_emails("[Gmail]/Sent", ids).unwrap();
     let emails = emails.to_vec();
     assert_eq!(2, emails.len());
-    assert_eq!("E\r\n", emails[0].parsed().unwrap().get_body().unwrap());
-    assert_eq!("D\r\n", emails[1].parsed().unwrap().get_body().unwrap());
+    assert_eq!("E", emails[0].parsed().unwrap().body_text(0).unwrap());
+    assert_eq!("D", emails[1].parsed().unwrap().body_text(0).unwrap());
 
     // check folders cache integrity
 
