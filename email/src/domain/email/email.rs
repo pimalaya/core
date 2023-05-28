@@ -430,7 +430,7 @@ impl Email<'_> {
                 .hide_all_headers()
                 .hide_multipart_markup()
                 .hide_part_markup()
-                .sanitize_text_parts()
+                .sanitize_text_parts(true)
                 .remove_text_plain_parts_signature()
                 .interpret_msg(&parsed)
                 .map_err(Error::InterpretEmailAsTplError)?;
@@ -519,7 +519,7 @@ impl Email<'_> {
             lines.push_str(
                 &TplInterpreter::new()
                     .show_headers(["Date", "From", "To", "Cc", "Subject"])
-                    .sanitize_text_parts()
+                    .sanitize_text_parts(true)
                     .interpret_msg(&parsed)
                     .map_err(Error::InterpretEmailAsTplError)?,
             );
