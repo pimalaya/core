@@ -536,7 +536,7 @@ mod tests {
             .subject("subject")
             .html_body("<h1>Hello, world!</h1>");
         let tpl = Interpreter::new()
-            .sanitize_text_html_parts()
+            .sanitize_text_html_parts(true)
             .interpret_msg_builder(msg)
             .unwrap();
         let expected_tpl = concat_line!("Hello, world!", "");
