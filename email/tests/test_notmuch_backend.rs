@@ -78,8 +78,8 @@ fn test_notmuch_backend() {
         )
         .unwrap();
     let expected_tpl = concat_line!(
-        "From: <alice@localhost>",
-        "To: <bob@localhost>",
+        "From: alice@localhost",
+        "To: bob@localhost",
         "",
         "Plain message!",
         "",

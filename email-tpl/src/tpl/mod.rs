@@ -1,3 +1,4 @@
+pub(crate) mod header;
 pub mod interpreter;
 
 pub use interpreter::{Interpreter, ShowHeadersStrategy};

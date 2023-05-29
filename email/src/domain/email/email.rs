@@ -687,7 +687,7 @@ mod tests {
         let tpl = Email::new_tpl(&config, None, None, interpreter).unwrap();
 
         let expected_tpl = concat_line!(
-            "From: \"From\" <from@localhost>",
+            "From: From <from@localhost>",
             "To: ",
             "Subject: ",
             "",
@@ -710,7 +710,7 @@ mod tests {
         let tpl = Email::new_tpl(&config, None, None, interpreter).unwrap();
 
         let expected_tpl = concat_line!(
-            "From: <from@localhost>",
+            "From: from@localhost",
             "To: ",
             "Subject: ",
             "",
@@ -884,8 +884,8 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "From: <to@localhost>",
-            "To: <from@localhost>",
+            "From: to@localhost",
+            "To: from@localhost",
             "Subject: Re: subject",
             "",
             "> Hello!",
@@ -906,7 +906,7 @@ mod tests {
             "Sender: mlist@localhost",
             "From: from@localhost",
             "To: mlist@localhost",
-            "Cc: from@localhost, cc@localhost, cc2@localhost",
+            "Cc: from@localhost,cc@localhost,cc2@localhost",
             "Bcc: bcc@localhost",
             "Subject: Re: subject",
             "",
@@ -922,8 +922,8 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "From: <to@localhost>",
-            "To: <mlist@localhost>",
+            "From: to@localhost",
+            "To: mlist@localhost",
             "Subject: Re: subject",
             "",
             "> Hello from mailing list!",
@@ -960,8 +960,8 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "From: <to@localhost>",
-            "To: <from@localhost>, <from2@localhost>",
+            "From: to@localhost",
+            "To: from@localhost,from2@localhost",
             "Subject: Re: subject",
             "",
             "> Hello back!",
@@ -999,9 +999,9 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "In-Reply-To: <id@localhost>",
-            "From: <to@localhost>",
-            "To: <from2@localhost>",
+            "In-Reply-To: id@localhost",
+            "From: to@localhost",
+            "To: from2@localhost",
             "Subject: RE:subject",
             "",
             "> Hello!",
@@ -1036,8 +1036,8 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "From: <to@localhost>",
-            "To: <from@localhost>",
+            "From: to@localhost",
+            "To: from@localhost",
             "Subject: Re: subject",
             "",
             "> Hello!",
@@ -1076,9 +1076,9 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "From: <to@localhost>",
-            "To: <from@localhost>",
-            "Cc: <to2@localhost>, <cc@localhost>, \r\n\t<cc2@localhost>",
+            "From: to@localhost",
+            "To: from@localhost",
+            "Cc: to2@localhost,cc@localhost,cc2@localhost",
             "Subject: Re: subject",
             "",
             "> Hello!",
@@ -1100,7 +1100,7 @@ mod tests {
             "From: from@localhost",
             "To: to@localhost, to2@localhost",
             "Reply-To: from2@localhost",
-            "Cc: from@localhost, from2@localhost, <to@localhost>, <cc@localhost>, <cc2@localhost>",
+            "Cc: from@localhost, from2@localhost, to@localhost, <cc@localhost>, <cc2@localhost>",
             "Bcc: bcc@localhost",
             "Subject: subject",
             "",
@@ -1116,10 +1116,10 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "In-Reply-To: <id@localhost>",
-            "From: <to@localhost>",
-            "To: <from2@localhost>",
-            "Cc: <to2@localhost>, <cc@localhost>, \r\n\t<cc2@localhost>",
+            "In-Reply-To: id@localhost",
+            "From: to@localhost",
+            "To: from2@localhost",
+            "Cc: to2@localhost,cc@localhost,cc2@localhost",
             "Subject: Re: subject",
             "",
             "> Hello!",
@@ -1138,8 +1138,8 @@ mod tests {
 
         let email = Email::from(concat_line!(
             "From: from@localhost",
-            "To: to@localhost, to2@localhost",
-            "Cc: cc@localhost, cc2@localhost",
+            "To: to@localhost,to2@localhost",
+            "Cc: cc@localhost,cc2@localhost",
             "Bcc: bcc@localhost",
             "Subject: subject",
             "",
@@ -1155,14 +1155,14 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "From: <to@localhost>",
+            "From: to@localhost",
             "To: ",
             "Subject: Fwd: subject",
             "",
             "-------- Forwarded Message --------",
             "From: from@localhost",
-            "To: to@localhost, to2@localhost",
-            "Cc: cc@localhost, cc2@localhost",
+            "To: to@localhost,to2@localhost",
+            "Cc: cc@localhost,cc2@localhost",
             "Subject: subject",
             "",
             "Hello!",
@@ -1203,7 +1203,7 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "From: <to@localhost>",
+            "From: to@localhost",
             "To: ",
             "Subject: Fwd: subject",
             "",
@@ -1213,8 +1213,8 @@ mod tests {
             "-------- Forwarded Message --------",
             "Date: Thu, 10 Nov 2022 14:26:33 +0000",
             "From: from@localhost",
-            "To: to@localhost, to2@localhost",
-            "Cc: cc@localhost, cc2@localhost",
+            "To: to@localhost,to2@localhost",
+            "Cc: cc@localhost,cc2@localhost",
             "Subject: subject",
             "",
             "Hello!",

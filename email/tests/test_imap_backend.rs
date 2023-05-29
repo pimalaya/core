@@ -88,8 +88,8 @@ fn test_imap_backend() {
         )
         .unwrap();
     let expected_tpl = concat_line!(
-        "From: <alice@localhost>",
-        "To: <bob@localhost>",
+        "From: alice@localhost",
+        "To: bob@localhost",
         "",
         "Hello, world!",
         "",

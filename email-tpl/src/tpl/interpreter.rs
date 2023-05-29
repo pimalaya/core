@@ -6,6 +6,8 @@ use thiserror::Error;
 
 use crate::{mml, Tpl};
 
+use super::header;
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse raw email")]
@@ -27,6 +29,15 @@ pub enum ShowHeadersStrategy {
     All,
     /// Transfers only specific headers to the interpreted template.
     Only(Vec<String>),
+}
+
+impl ShowHeadersStrategy {
+    pub fn contains(&self, header: &String) -> bool {
+        match self {
+            Self::All => false,
+            Self::Only(headers) => headers.contains(header),
+        }
+    }
 }
 
 /// The template interpreter interprets full emails as
@@ -92,18 +103,21 @@ impl Interpreter {
     }
 
     pub fn show_headers<S: ToString, B: IntoIterator<Item = S>>(mut self, headers: B) -> Self {
-        let headers = headers
-            .into_iter()
-            .map(|header| header.to_string())
-            .collect();
+        let next_headers = headers.into_iter().fold(Vec::new(), |mut headers, header| {
+            let header = header.to_string();
+            if !headers.contains(&header) && !self.show_headers_strategy.contains(&header) {
+                headers.push(header)
+            }
+            headers
+        });
 
         match self.show_headers_strategy {
             ShowHeadersStrategy::All => {
-                self.show_headers_strategy = ShowHeadersStrategy::Only(headers);
+                self.show_headers_strategy = ShowHeadersStrategy::Only(next_headers);
             }
-            ShowHeadersStrategy::Only(mut prev_headers) => {
-                prev_headers.extend(headers);
-                self.show_headers_strategy = ShowHeadersStrategy::Only(prev_headers);
+            ShowHeadersStrategy::Only(mut headers) => {
+                headers.extend(next_headers);
+                self.show_headers_strategy = ShowHeadersStrategy::Only(headers);
             }
         };
 
@@ -193,16 +207,19 @@ impl Interpreter {
     pub fn interpret_msg(self, msg: &Message) -> Result<Tpl> {
         let mut tpl = Tpl::new();
 
-        let push_header = |(key, val): (&str, &str)| {
-            tpl.push_str(&format!("{}: {}\n", key.trim(), val.trim()));
-        };
-
         match self.show_headers_strategy {
-            ShowHeadersStrategy::All => msg.headers_raw().for_each(push_header),
+            ShowHeadersStrategy::All => msg.headers().iter().for_each(|header| {
+                let key = header.name.as_str();
+                let val = header::display_value(&header.value);
+                tpl.push_str(&format!("{key}: {val}\n"));
+            }),
             ShowHeadersStrategy::Only(keys) => keys
                 .iter()
-                .filter_map(|key| msg.header_raw(key).map(|val| (key.as_str(), val)))
-                .for_each(push_header),
+                .filter_map(|key| msg.header(key).map(|val| (key, val)))
+                .for_each(|(key, val)| {
+                    let val = header::display_value(val);
+                    tpl.push_str(&format!("{key}: {val}\n"));
+                }),
         };
 
         if !tpl.is_empty() {
@@ -258,12 +275,12 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "Message-ID: <id@localhost>",
+            "Message-ID: id@localhost",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000",
-            "From: <from@localhost>",
-            "To: <to@localhost>",
+            "From: from@localhost",
+            "To: to@localhost",
             "Subject: subject",
-            "Content-Type: text/plain; charset=\"utf-8\"",
+            "Content-Type: text/plain; charset=utf-8",
             "Content-Transfer-Encoding: 7bit",
             "",
             "Hello, world!",
@@ -281,7 +298,25 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "From: <from@localhost>",
+            "From: from@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
+        );
+
+        assert_eq!(*tpl, expected_tpl);
+    }
+
+    #[test]
+    fn only_headers_duplicated() {
+        let tpl = Interpreter::new()
+            .show_headers(["From", "Subject", "From"])
+            .interpret_msg_builder(msg())
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: from@localhost",
             "Subject: subject",
             "",
             "Hello, world!",
