@@ -451,23 +451,23 @@ impl<'a> ReplyTplBuilder<'a> {
 
         // To
 
-        let recipients = if address::are_addresses_equal(&sender, &to) {
+        let recipients = if address::equal(&sender, &to) {
             // when replying to an email received by a mailing list
-            if address::is_address_empty(&reply_to) {
+            if address::is_empty(&reply_to) {
                 to.clone()
             } else {
                 reply_to.clone()
             }
-        } else if address::are_addresses_equal(&from, &HeaderValue::Address(me.clone())) {
+        } else if address::equal(&from, &HeaderValue::Address(me.clone())) {
             // when replying to one of your own email
             to.clone()
-        } else if address::is_address_empty(&reply_to) {
+        } else if address::is_empty(&reply_to) {
             from.clone()
         } else {
             reply_to.clone()
         };
 
-        builder = builder.to(address::into_address(recipients.clone()));
+        builder = builder.to(address::into(recipients.clone()));
 
         // Cc
 
@@ -479,8 +479,8 @@ impl<'a> ReplyTplBuilder<'a> {
                 match to {
                     HeaderValue::Address(a) => {
                         if a.address != me.address
-                            && !address::contains_address(&from, &a.address)
-                            && !address::contains_address(&recipients, &a.address)
+                            && !address::contains(&from, &a.address)
+                            && !address::contains(&recipients, &a.address)
                         {
                             addresses.push(Address::new_address(
                                 a.name.clone(),
@@ -491,8 +491,8 @@ impl<'a> ReplyTplBuilder<'a> {
                     HeaderValue::AddressList(a) => {
                         for a in a {
                             if a.address != me.address
-                                && !address::contains_address(&from, &a.address)
-                                && !address::contains_address(&recipients, &a.address)
+                                && !address::contains(&from, &a.address)
+                                && !address::contains(&recipients, &a.address)
                             {
                                 addresses.push(Address::new_address(
                                     a.name.clone(),
@@ -507,8 +507,8 @@ impl<'a> ReplyTplBuilder<'a> {
                 match cc {
                     HeaderValue::Address(a) => {
                         if a.address != me.address
-                            && !address::contains_address(&from, &a.address)
-                            && !address::contains_address(&recipients, &a.address)
+                            && !address::contains(&from, &a.address)
+                            && !address::contains(&recipients, &a.address)
                         {
                             addresses.push(Address::new_address(
                                 a.name.clone(),
@@ -519,8 +519,8 @@ impl<'a> ReplyTplBuilder<'a> {
                     HeaderValue::AddressList(a) => {
                         for a in a {
                             if a.address != me.address
-                                && !address::contains_address(&from, &a.address)
-                                && !address::contains_address(&recipients, &a.address)
+                                && !address::contains(&from, &a.address)
+                                && !address::contains(&recipients, &a.address)
                             {
                                 addresses.push(Address::new_address(
                                     a.name.clone(),

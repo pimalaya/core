@@ -2,7 +2,7 @@ use mail_builder::headers::address::Address;
 use mail_parser::HeaderValue;
 use std::borrow::Cow;
 
-pub(crate) fn is_address_empty(header: &HeaderValue) -> bool {
+pub(crate) fn is_empty(header: &HeaderValue) -> bool {
     match header {
         HeaderValue::AddressList(addresses) => addresses.is_empty(),
         HeaderValue::Group(group) => group.addresses.is_empty(),
@@ -12,7 +12,7 @@ pub(crate) fn is_address_empty(header: &HeaderValue) -> bool {
     }
 }
 
-pub(crate) fn contains_address(header: &HeaderValue, a: &Option<Cow<str>>) -> bool {
+pub(crate) fn contains(header: &HeaderValue, a: &Option<Cow<str>>) -> bool {
     match header {
         HeaderValue::Address(b) => a == &b.address,
         HeaderValue::AddressList(addresses) => addresses.iter().find(|b| a == &b.address).is_some(),
@@ -43,7 +43,7 @@ pub(crate) fn get_address_id(header: &HeaderValue) -> Vec<String> {
     }
 }
 
-pub(crate) fn into_address(header: HeaderValue) -> Address {
+pub(crate) fn into(header: HeaderValue) -> Address {
     match header {
         HeaderValue::Address(a) if a.address.is_some() => {
             Address::new_address(a.name, a.address.unwrap())
@@ -64,6 +64,6 @@ pub(crate) fn into_address(header: HeaderValue) -> Address {
     }
 }
 
-pub(crate) fn are_addresses_equal(a: &HeaderValue, b: &HeaderValue) -> bool {
+pub(crate) fn equal(a: &HeaderValue, b: &HeaderValue) -> bool {
     get_address_id(a) == get_address_id(b)
 }
