@@ -5,9 +5,7 @@ fn test_notmuch_backend() {
     use mail_builder::MessageBuilder;
     use maildir::Maildir;
     use notmuch::Database;
-    use pimalaya_email::{
-        AccountConfig, Backend, Email, Flag, Flags, NotmuchBackend, NotmuchConfig,
-    };
+    use pimalaya_email::{AccountConfig, Backend, Flag, Flags, NotmuchBackend, NotmuchConfig};
     use std::{collections::HashMap, env, fs, iter::FromIterator};
 
     env_logger::builder().is_test(true).init();
@@ -64,16 +62,11 @@ fn test_notmuch_backend() {
 
     // check that the added message exists
     let emails = notmuch.get_emails("inbox", vec![&id]).unwrap();
-    let interpreter = Email::get_tpl_interpreter(&config);
     let tpl = emails
         .to_vec()
         .first()
         .unwrap()
-        .to_read_tpl(
-            interpreter
-                .show_only_headers(["From", "To"])
-                .hide_mml_markup(),
-        )
+        .to_read_tpl(&config, |i| i.show_only_headers(["From", "To"]))
         .unwrap();
     let expected_tpl = concat_line!(
         "From: alice@localhost",

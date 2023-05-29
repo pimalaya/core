@@ -9,12 +9,14 @@ use mail_parser::{Addr, HeaderValue, Message, MimeHeaders};
 use maildir::{MailEntry, MailEntryError};
 use mailparse::{MailParseError, ParsedMail};
 use ouroboros::self_referencing;
-use pimalaya_email_tpl::{Tpl, TplInterpreter};
-use std::{borrow::Cow, fmt::Debug, io, path::PathBuf, result};
+use pimalaya_email_tpl::{ShowAttachmentsStrategy, ShowTextsStrategy, Tpl, TplInterpreter};
+use std::{fmt::Debug, io, path::PathBuf, result};
 use thiserror::Error;
 use tree_magic;
 
 use crate::{account, AccountConfig, Attachment};
+
+use super::address;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -143,394 +145,29 @@ impl Email<'_> {
             .collect())
     }
 
-    /// Preconfigures a template builder for building new emails. It
-    /// contains a "From" filled with the user's email address, an
-    /// empty "To" and "Subject" and a text/plain part containing the
-    /// user's signature (if existing). This function is useful when
-    /// you need to compose a new email from scratch.
-    pub fn new_tpl(
+    pub fn new_tpl_builder(config: &AccountConfig) -> NewTplBuilder {
+        NewTplBuilder::new(config)
+    }
+
+    pub fn to_read_tpl(
+        &self,
         config: &AccountConfig,
-        additional_headers: Option<Vec<(String, String)>>,
-        additional_body: Option<String>,
-        interpreter: TplInterpreter,
+        with_interpreter: impl Fn(TplInterpreter) -> TplInterpreter,
     ) -> Result<Tpl> {
-        let mut builder = MessageBuilder::new()
-            .from(config.address())
-            .to(Vec::<Address>::new())
-            .subject("")
-            .text_body({
-                let mut lines = String::new();
-
-                if let Some(ref body) = additional_body {
-                    lines.push_str(body);
-                    lines.push('\n');
-                }
-
-                if let Some(ref signature) = config.signature()? {
-                    lines.push_str("\n\n");
-                    lines.push_str(signature);
-                }
-
-                lines
-            });
-
-        // Additional headers
-
-        if let Some(additional_headers) = additional_headers {
-            for (key, val) in additional_headers {
-                builder = builder.header(key, Raw::new(val));
-            }
-        }
-
-        let tpl = interpreter
-            .interpret_msg_builder(builder)
-            .map_err(Error::InterpretEmailAsTplError)?;
-
-        Ok(tpl)
-    }
-
-    pub fn get_tpl_interpreter(config: &AccountConfig) -> TplInterpreter {
-        TplInterpreter::new()
-            .show_only_headers(config.email_reading_headers())
-            .some_pgp_decrypt_cmd(config.email_reading_decrypt_cmd.clone())
-            .some_pgp_verify_cmd(config.email_reading_verify_cmd.clone())
-    }
-
-    pub fn to_read_tpl(&self, interpreter: TplInterpreter) -> Result<Tpl> {
-        let tpl = interpreter
+        let interpreter = config
+            .generate_tpl_interpreter()
+            .show_only_headers(config.email_reading_headers());
+        with_interpreter(interpreter)
             .interpret_msg(self.parsed()?)
-            .map_err(Error::InterpretEmailAsTplError)?;
-
-        Ok(tpl)
+            .map_err(Error::InterpretEmailAsTplError)
     }
 
-    fn is_address_empty(header: &HeaderValue) -> bool {
-        match header {
-            HeaderValue::AddressList(addresses) => addresses.is_empty(),
-            HeaderValue::Group(group) => group.addresses.is_empty(),
-            HeaderValue::GroupList(groups) => groups.is_empty() || groups[0].addresses.is_empty(),
-            HeaderValue::Empty => true,
-            _ => false,
-        }
+    pub fn to_reply_tpl_builder<'a>(&'a self, config: &'a AccountConfig) -> ReplyTplBuilder {
+        ReplyTplBuilder::new(self, config)
     }
 
-    fn contains_address(header: &HeaderValue, a: &Option<Cow<str>>) -> bool {
-        match header {
-            HeaderValue::Address(b) => a == &b.address,
-            HeaderValue::AddressList(addresses) => {
-                addresses.iter().find(|b| a == &b.address).is_some()
-            }
-            HeaderValue::Group(group) => group.addresses.iter().find(|b| a == &b.address).is_some(),
-            HeaderValue::GroupList(groups) => groups
-                .iter()
-                .find(|group| group.addresses.iter().find(|b| a == &b.address).is_some())
-                .is_some(),
-            _ => false,
-        }
-    }
-
-    fn get_address_id(header: &HeaderValue) -> Vec<String> {
-        match header {
-            HeaderValue::Address(a) => {
-                vec![a.address.clone().unwrap_or_default().to_string()]
-            }
-            HeaderValue::AddressList(addresses) => addresses
-                .iter()
-                .map(|a| a.address.clone().unwrap_or_default().to_string())
-                .collect(),
-            HeaderValue::Group(group) => vec![group.name.clone().unwrap_or_default().to_string()],
-            HeaderValue::GroupList(groups) => groups
-                .iter()
-                .map(|group| group.name.clone().unwrap_or_default().to_string())
-                .collect(),
-            _ => Vec::new(),
-        }
-    }
-
-    fn into_address(header: HeaderValue) -> Address {
-        match header {
-            HeaderValue::Address(a) if a.address.is_some() => {
-                Address::new_address(a.name, a.address.unwrap())
-            }
-            HeaderValue::AddressList(a) => Address::new_list(
-                a.into_iter()
-                    .filter_map(|a| a.address.map(|email| Address::new_address(a.name, email)))
-                    .collect(),
-            ),
-            HeaderValue::Group(g) => Address::new_group(
-                g.name,
-                g.addresses
-                    .into_iter()
-                    .filter_map(|a| a.address.map(|email| Address::new_address(a.name, email)))
-                    .collect(),
-            ),
-            _ => Address::new_list(Vec::new()),
-        }
-    }
-
-    fn are_addresses_equal(a: &HeaderValue, b: &HeaderValue) -> bool {
-        Self::get_address_id(a) == Self::get_address_id(b)
-    }
-
-    pub fn to_reply_tpl(
-        &self,
-        config: &AccountConfig,
-        additional_headers: Option<Vec<(String, String)>>,
-        additional_body: Option<String>,
-        interpreter: TplInterpreter,
-        all: bool,
-    ) -> Result<Tpl> {
-        let parsed = self.parsed()?;
-        let mut builder = MessageBuilder::new();
-
-        let me = Addr::new(Some(&config.name), &config.email);
-
-        let sender = parsed.header("Sender").unwrap_or(&HeaderValue::Empty);
-        let from = parsed.header("From").unwrap_or(&HeaderValue::Empty);
-        let to = parsed.header("To").unwrap_or(&HeaderValue::Empty);
-        let reply_to = parsed.header("Reply-To").unwrap_or(&HeaderValue::Empty);
-
-        // In-Reply-To
-
-        match parsed.header("Message-ID") {
-            Some(HeaderValue::Text(message_id)) => {
-                builder = builder.in_reply_to(vec![message_id.clone()]);
-            }
-            Some(HeaderValue::TextList(message_id)) => {
-                builder = builder.in_reply_to(message_id.clone());
-            }
-            _ => (),
-        }
-
-        // From
-
-        builder = builder.from(config.address());
-
-        // To
-
-        let recipients = if Self::are_addresses_equal(&sender, &to) {
-            // when replying to an email received by a mailing list
-            if Self::is_address_empty(&reply_to) {
-                to.clone()
-            } else {
-                reply_to.clone()
-            }
-        } else if Self::are_addresses_equal(&from, &HeaderValue::Address(me.clone())) {
-            // when replying to one of your own email
-            to.clone()
-        } else if Self::is_address_empty(&reply_to) {
-            from.clone()
-        } else {
-            reply_to.clone()
-        };
-
-        builder = builder.to(Self::into_address(recipients.clone()));
-
-        // Cc
-
-        if all {
-            builder = builder.cc({
-                let cc = parsed.header("Cc").unwrap_or(&HeaderValue::Empty);
-                let mut addresses = Vec::new();
-
-                match to {
-                    HeaderValue::Address(a) => {
-                        if a.address != me.address
-                            && !Self::contains_address(&from, &a.address)
-                            && !Self::contains_address(&recipients, &a.address)
-                        {
-                            addresses.push(Address::new_address(
-                                a.name.clone(),
-                                a.address.clone().unwrap(),
-                            ));
-                        }
-                    }
-                    HeaderValue::AddressList(a) => {
-                        for a in a {
-                            if a.address != me.address
-                                && !Self::contains_address(&from, &a.address)
-                                && !Self::contains_address(&recipients, &a.address)
-                            {
-                                addresses.push(Address::new_address(
-                                    a.name.clone(),
-                                    a.address.clone().unwrap(),
-                                ));
-                            }
-                        }
-                    }
-                    _ => (),
-                }
-
-                match cc {
-                    HeaderValue::Address(a) => {
-                        if a.address != me.address
-                            && !Self::contains_address(&from, &a.address)
-                            && !Self::contains_address(&recipients, &a.address)
-                        {
-                            addresses.push(Address::new_address(
-                                a.name.clone(),
-                                a.address.clone().unwrap(),
-                            ));
-                        }
-                    }
-                    HeaderValue::AddressList(a) => {
-                        for a in a {
-                            if a.address != me.address
-                                && !Self::contains_address(&from, &a.address)
-                                && !Self::contains_address(&recipients, &a.address)
-                            {
-                                addresses.push(Address::new_address(
-                                    a.name.clone(),
-                                    a.address.clone().unwrap(),
-                                ));
-                            }
-                        }
-                    }
-                    _ => (),
-                }
-
-                Address::new_list(addresses)
-            });
-        }
-
-        // Subject
-
-        let subject = parsed
-            .header("Subject")
-            .cloned()
-            .map(|h| h.unwrap_text())
-            .unwrap_or_default();
-
-        builder = builder.subject(if subject.to_lowercase().starts_with("re:") {
-            subject
-        } else {
-            format!("Re: {subject}").into()
-        });
-
-        // Additional headers
-
-        if let Some(additional_headers) = additional_headers {
-            for (key, val) in additional_headers {
-                builder = builder.header(key, Raw::new(val));
-            }
-        }
-
-        // Body
-
-        builder = builder.text_body({
-            let mut lines = String::from("\n\n");
-
-            if let Some(ref body) = additional_body {
-                lines.push_str(body);
-                lines.push('\n');
-            }
-
-            let body = TplInterpreter::new()
-                .hide_all_headers()
-                .hide_mml_markup()
-                .remove_text_plain_parts_signature()
-                .interpret_msg(&parsed)
-                .map_err(Error::InterpretEmailAsTplError)?;
-
-            for line in body.trim().lines() {
-                lines.push('>');
-                if !line.starts_with('>') {
-                    lines.push(' ')
-                }
-                lines.push_str(&line);
-                lines.push('\n');
-            }
-
-            if let Some(ref signature) = config.signature()? {
-                lines.push('\n');
-                lines.push_str(signature);
-            }
-
-            lines.trim_end().to_owned()
-        });
-
-        let tpl = interpreter
-            .interpret_msg_builder(builder)
-            .map_err(Error::InterpretEmailAsTplError)?;
-
-        Ok(tpl)
-    }
-
-    pub fn to_forward_tpl(
-        &self,
-        config: &AccountConfig,
-        additional_headers: Option<Vec<(String, String)>>,
-        additional_body: Option<String>,
-        interpreter: TplInterpreter,
-    ) -> Result<Tpl> {
-        let parsed = self.parsed()?;
-        let mut builder = MessageBuilder::new();
-
-        // From
-
-        builder = builder.from(config.address());
-
-        // To
-
-        builder = builder.to(Vec::<Address>::new());
-
-        // Subject
-
-        let subject = parsed
-            .header("Subject")
-            .cloned()
-            .map(|h| h.unwrap_text())
-            .unwrap_or_default();
-
-        builder = builder.subject(if subject.to_lowercase().starts_with("fwd:") {
-            subject
-        } else {
-            format!("Fwd: {subject}").into()
-        });
-
-        // Additional headers
-
-        if let Some(additional_headers) = additional_headers {
-            for (key, val) in additional_headers {
-                builder = builder.header(key, Raw::new(val));
-            }
-        }
-
-        // Body
-
-        builder = builder.text_body({
-            let mut lines = String::from("\n");
-
-            if let Some(ref body) = additional_body {
-                lines.push('\n');
-                lines.push_str(body);
-                lines.push('\n');
-            }
-
-            if let Some(ref signature) = config.signature()? {
-                lines.push('\n');
-                lines.push_str(signature);
-                lines.push('\n');
-            }
-
-            lines.push_str("\n-------- Forwarded Message --------\n");
-
-            lines.push_str(
-                &TplInterpreter::new()
-                    .show_only_headers(["Date", "From", "To", "Cc", "Subject"])
-                    .hide_mml_markup()
-                    .interpret_msg(&parsed)
-                    .map_err(Error::InterpretEmailAsTplError)?,
-            );
-
-            lines.trim_end().to_owned()
-        });
-
-        let tpl = interpreter
-            .interpret_msg_builder(builder)
-            .map_err(Error::InterpretEmailAsTplError)?;
-
-        Ok(tpl)
+    pub fn to_forward_tpl_builder<'a>(&'a self, config: &'a AccountConfig) -> ForwardTplBuilder {
+        ForwardTplBuilder::new(self, config)
     }
 }
 
@@ -588,6 +225,518 @@ impl<'a> From<&'a mut MailEntry> for Email<'a> {
 impl<'a> From<&'a str> for Email<'a> {
     fn from(str: &'a str) -> Self {
         str.as_bytes().into()
+    }
+}
+
+pub struct NewTplBuilder<'a> {
+    config: &'a AccountConfig,
+    headers: Vec<(String, String)>,
+    body: String,
+    pub thread_interpreter: TplInterpreter,
+    pub interpreter: TplInterpreter,
+    reply_all: bool,
+}
+
+impl<'a> NewTplBuilder<'a> {
+    pub fn new(config: &'a AccountConfig) -> Self {
+        Self {
+            config,
+            headers: Vec::new(),
+            body: String::new(),
+            interpreter: config
+                .generate_tpl_interpreter()
+                .show_only_headers(config.email_writing_headers()),
+            thread_interpreter: config
+                .generate_tpl_interpreter()
+                .hide_all_headers()
+                .show_plain_texts_signature(false)
+                .show_attachments(ShowAttachmentsStrategy::None),
+            reply_all: false,
+        }
+    }
+
+    pub fn headers<K, V>(mut self, headers: impl IntoIterator<Item = (K, V)>) -> Self
+    where
+        K: ToString,
+        V: ToString,
+    {
+        self.headers.extend(
+            headers
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.to_string())),
+        );
+        self
+    }
+
+    pub fn some_headers<K, V>(mut self, headers: Option<impl IntoIterator<Item = (K, V)>>) -> Self
+    where
+        K: ToString,
+        V: ToString,
+    {
+        if let Some(headers) = headers {
+            self = self.headers(headers);
+        }
+        self
+    }
+
+    pub fn body(mut self, body: impl ToString) -> Self {
+        self.body = body.to_string();
+        self
+    }
+
+    pub fn some_body(mut self, body: Option<impl ToString>) -> Self {
+        if let Some(body) = body {
+            self = self.body(body)
+        }
+        self
+    }
+
+    pub fn interpreter(mut self, interpreter: TplInterpreter) -> Self {
+        self.interpreter = interpreter;
+        self
+    }
+
+    pub fn thread_interpreter(mut self, interpreter: TplInterpreter) -> Self {
+        self.thread_interpreter = interpreter;
+        self
+    }
+
+    pub fn reply_all(mut self, all: bool) -> Self {
+        self.reply_all = all;
+        self
+    }
+
+    pub fn build(self) -> Result<Tpl> {
+        let mut builder = MessageBuilder::new()
+            .from(self.config.address())
+            .to(Vec::<Address>::new())
+            .subject("")
+            .text_body({
+                let mut lines = String::new();
+
+                if !self.body.is_empty() {
+                    lines.push_str(&self.body);
+                    lines.push('\n');
+                }
+
+                if let Some(ref signature) = self.config.signature()? {
+                    lines.push_str("\n\n");
+                    lines.push_str(signature);
+                }
+
+                lines
+            });
+
+        // Additional headers
+
+        for (key, val) in self.headers {
+            builder = builder.header(key, Raw::new(val));
+        }
+
+        let tpl = self
+            .interpreter
+            .interpret_msg_builder(builder)
+            .map_err(Error::InterpretEmailAsTplError)?;
+
+        Ok(tpl)
+    }
+}
+
+pub struct ReplyTplBuilder<'a> {
+    email: &'a Email<'a>,
+    config: &'a AccountConfig,
+    headers: Vec<(String, String)>,
+    body: String,
+    pub thread_interpreter: TplInterpreter,
+    pub interpreter: TplInterpreter,
+    reply_all: bool,
+}
+
+impl<'a> ReplyTplBuilder<'a> {
+    pub fn new(email: &'a Email, config: &'a AccountConfig) -> Self {
+        Self {
+            email,
+            config,
+            headers: Vec::new(),
+            body: String::new(),
+            interpreter: config
+                .generate_tpl_interpreter()
+                .show_only_headers(config.email_writing_headers()),
+            thread_interpreter: config
+                .generate_tpl_interpreter()
+                .hide_all_headers()
+                .show_plain_texts_signature(false)
+                .show_attachments(ShowAttachmentsStrategy::None),
+            reply_all: false,
+        }
+    }
+
+    pub fn headers<K, V>(mut self, headers: impl IntoIterator<Item = (K, V)>) -> Self
+    where
+        K: ToString,
+        V: ToString,
+    {
+        self.headers.extend(
+            headers
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.to_string())),
+        );
+        self
+    }
+
+    pub fn some_headers<K, V>(mut self, headers: Option<impl IntoIterator<Item = (K, V)>>) -> Self
+    where
+        K: ToString,
+        V: ToString,
+    {
+        if let Some(headers) = headers {
+            self = self.headers(headers);
+        }
+        self
+    }
+
+    pub fn body(mut self, body: impl ToString) -> Self {
+        self.body = body.to_string();
+        self
+    }
+
+    pub fn some_body(mut self, body: Option<impl ToString>) -> Self {
+        if let Some(body) = body {
+            self = self.body(body)
+        }
+        self
+    }
+
+    pub fn interpreter(mut self, interpreter: TplInterpreter) -> Self {
+        self.interpreter = interpreter;
+        self
+    }
+
+    pub fn thread_interpreter(mut self, interpreter: TplInterpreter) -> Self {
+        self.thread_interpreter = interpreter;
+        self
+    }
+
+    pub fn reply_all(mut self, all: bool) -> Self {
+        self.reply_all = all;
+        self
+    }
+
+    pub fn build(self) -> Result<Tpl> {
+        let parsed = self.email.parsed()?;
+        let mut builder = MessageBuilder::new();
+
+        let me = Addr::new(Some(&self.config.name), &self.config.email);
+
+        let sender = parsed.header("Sender").unwrap_or(&HeaderValue::Empty);
+        let from = parsed.header("From").unwrap_or(&HeaderValue::Empty);
+        let to = parsed.header("To").unwrap_or(&HeaderValue::Empty);
+        let reply_to = parsed.header("Reply-To").unwrap_or(&HeaderValue::Empty);
+
+        // In-Reply-To
+
+        match parsed.header("Message-ID") {
+            Some(HeaderValue::Text(message_id)) => {
+                builder = builder.in_reply_to(vec![message_id.clone()]);
+            }
+            Some(HeaderValue::TextList(message_id)) => {
+                builder = builder.in_reply_to(message_id.clone());
+            }
+            _ => (),
+        }
+
+        // From
+
+        builder = builder.from(self.config.address());
+
+        // To
+
+        let recipients = if address::are_addresses_equal(&sender, &to) {
+            // when replying to an email received by a mailing list
+            if address::is_address_empty(&reply_to) {
+                to.clone()
+            } else {
+                reply_to.clone()
+            }
+        } else if address::are_addresses_equal(&from, &HeaderValue::Address(me.clone())) {
+            // when replying to one of your own email
+            to.clone()
+        } else if address::is_address_empty(&reply_to) {
+            from.clone()
+        } else {
+            reply_to.clone()
+        };
+
+        builder = builder.to(address::into_address(recipients.clone()));
+
+        // Cc
+
+        if self.reply_all {
+            builder = builder.cc({
+                let cc = parsed.header("Cc").unwrap_or(&HeaderValue::Empty);
+                let mut addresses = Vec::new();
+
+                match to {
+                    HeaderValue::Address(a) => {
+                        if a.address != me.address
+                            && !address::contains_address(&from, &a.address)
+                            && !address::contains_address(&recipients, &a.address)
+                        {
+                            addresses.push(Address::new_address(
+                                a.name.clone(),
+                                a.address.clone().unwrap(),
+                            ));
+                        }
+                    }
+                    HeaderValue::AddressList(a) => {
+                        for a in a {
+                            if a.address != me.address
+                                && !address::contains_address(&from, &a.address)
+                                && !address::contains_address(&recipients, &a.address)
+                            {
+                                addresses.push(Address::new_address(
+                                    a.name.clone(),
+                                    a.address.clone().unwrap(),
+                                ));
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+
+                match cc {
+                    HeaderValue::Address(a) => {
+                        if a.address != me.address
+                            && !address::contains_address(&from, &a.address)
+                            && !address::contains_address(&recipients, &a.address)
+                        {
+                            addresses.push(Address::new_address(
+                                a.name.clone(),
+                                a.address.clone().unwrap(),
+                            ));
+                        }
+                    }
+                    HeaderValue::AddressList(a) => {
+                        for a in a {
+                            if a.address != me.address
+                                && !address::contains_address(&from, &a.address)
+                                && !address::contains_address(&recipients, &a.address)
+                            {
+                                addresses.push(Address::new_address(
+                                    a.name.clone(),
+                                    a.address.clone().unwrap(),
+                                ));
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+
+                Address::new_list(addresses)
+            });
+        }
+
+        // Subject
+
+        let subject = parsed
+            .header("Subject")
+            .cloned()
+            .map(|h| h.unwrap_text())
+            .unwrap_or_default();
+
+        builder = builder.subject(if subject.to_lowercase().starts_with("re:") {
+            subject
+        } else {
+            format!("Re: {subject}").into()
+        });
+
+        // Additional headers
+
+        for (key, val) in self.headers {
+            builder = builder.header(key, Raw::new(val));
+        }
+
+        // Body
+
+        builder = builder.text_body({
+            let mut lines = String::from("\n\n");
+
+            if !self.body.is_empty() {
+                lines.push_str(&self.body);
+                lines.push('\n');
+            }
+
+            let body = self
+                .thread_interpreter
+                .interpret_msg(&parsed)
+                .map_err(Error::InterpretEmailAsTplError)?;
+
+            for line in body.trim().lines() {
+                lines.push('>');
+                if !line.starts_with('>') {
+                    lines.push(' ')
+                }
+                lines.push_str(&line);
+                lines.push('\n');
+            }
+
+            if let Some(ref signature) = self.config.signature()? {
+                lines.push('\n');
+                lines.push_str(signature);
+            }
+
+            lines.trim_end().to_owned()
+        });
+
+        let tpl = self
+            .interpreter
+            .interpret_msg_builder(builder)
+            .map_err(Error::InterpretEmailAsTplError)?;
+
+        Ok(tpl)
+    }
+}
+
+pub struct ForwardTplBuilder<'a> {
+    email: &'a Email<'a>,
+    config: &'a AccountConfig,
+    headers: Vec<(String, String)>,
+    body: String,
+    pub interpreter: TplInterpreter,
+    pub thread_interpreter: TplInterpreter,
+}
+
+impl<'a> ForwardTplBuilder<'a> {
+    pub fn new(email: &'a Email, config: &'a AccountConfig) -> Self {
+        Self {
+            email,
+            config,
+            headers: Vec::new(),
+            body: String::new(),
+            thread_interpreter: config
+                .generate_tpl_interpreter()
+                .show_only_headers(["Date", "From", "To", "Cc", "Subject"])
+                .show_texts(ShowTextsStrategy::Plain)
+                .show_attachments(ShowAttachmentsStrategy::None),
+            interpreter: config
+                .generate_tpl_interpreter()
+                .show_only_headers(config.email_writing_headers()),
+        }
+    }
+
+    pub fn headers<K, V>(mut self, headers: impl IntoIterator<Item = (K, V)>) -> Self
+    where
+        K: ToString,
+        V: ToString,
+    {
+        self.headers.extend(
+            headers
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.to_string())),
+        );
+        self
+    }
+
+    pub fn some_headers<K, V>(mut self, headers: Option<impl IntoIterator<Item = (K, V)>>) -> Self
+    where
+        K: ToString,
+        V: ToString,
+    {
+        if let Some(headers) = headers {
+            self = self.headers(headers);
+        }
+        self
+    }
+
+    pub fn body(mut self, body: impl ToString) -> Self {
+        self.body = body.to_string();
+        self
+    }
+
+    pub fn some_body(mut self, body: Option<impl ToString>) -> Self {
+        if let Some(body) = body {
+            self = self.body(body)
+        }
+        self
+    }
+
+    pub fn interpreter(mut self, interpreter: TplInterpreter) -> Self {
+        self.interpreter = interpreter;
+        self
+    }
+
+    pub fn thread_interpreter(mut self, interpreter: TplInterpreter) -> Self {
+        self.thread_interpreter = interpreter;
+        self
+    }
+
+    pub fn build(self) -> Result<Tpl> {
+        let parsed = self.email.parsed()?;
+        let mut builder = MessageBuilder::new();
+
+        // From
+
+        builder = builder.from(self.config.address());
+
+        // To
+
+        builder = builder.to(Vec::<Address>::new());
+
+        // Subject
+
+        let subject = parsed
+            .header("Subject")
+            .cloned()
+            .map(|h| h.unwrap_text())
+            .unwrap_or_default();
+
+        builder = builder.subject(if subject.to_lowercase().starts_with("fwd:") {
+            subject
+        } else {
+            format!("Fwd: {subject}").into()
+        });
+
+        // Additional headers
+
+        for (key, val) in self.headers {
+            builder = builder.header(key, Raw::new(val));
+        }
+
+        // Body
+
+        builder = builder.text_body({
+            let mut lines = String::from("\n");
+
+            if !self.body.is_empty() {
+                lines.push('\n');
+                lines.push_str(&self.body);
+                lines.push('\n');
+            }
+
+            if let Some(ref signature) = self.config.signature()? {
+                lines.push('\n');
+                lines.push_str(signature);
+                lines.push('\n');
+            }
+
+            lines.push_str("\n-------- Forwarded Message --------\n");
+
+            lines.push_str(
+                &self
+                    .thread_interpreter
+                    .interpret_msg(&parsed)
+                    .map_err(Error::InterpretEmailAsTplError)?,
+            );
+
+            lines.trim_end().to_owned()
+        });
+
+        let tpl = self
+            .interpreter
+            .interpret_msg_builder(builder)
+            .map_err(Error::InterpretEmailAsTplError)?;
+
+        Ok(tpl)
     }
 }
 
@@ -675,15 +824,14 @@ mod tests {
     use crate::{AccountConfig, Email};
 
     #[test]
-    fn new_tpl() {
+    fn new_tpl_builder() {
         let config = AccountConfig {
             display_name: Some("From".into()),
             email: "from@localhost".into(),
             ..AccountConfig::default()
         };
 
-        let interpreter = Email::get_tpl_interpreter(&config);
-        let tpl = Email::new_tpl(&config, None, None, interpreter).unwrap();
+        let tpl = Email::new_tpl_builder(&config).build().unwrap();
 
         let expected_tpl = concat_line!(
             "From: From <from@localhost>",
@@ -698,15 +846,14 @@ mod tests {
     }
 
     #[test]
-    fn new_tpl_with_signature() {
+    fn new_tpl_builder_with_signature() {
         let config = AccountConfig {
             email: "from@localhost".into(),
             signature: Some("Regards,".into()),
             ..AccountConfig::default()
         };
 
-        let interpreter = Email::get_tpl_interpreter(&config);
-        let tpl = Email::new_tpl(&config, None, None, interpreter).unwrap();
+        let tpl = Email::new_tpl_builder(&config).build().unwrap();
 
         let expected_tpl = concat_line!(
             "From: from@localhost",
@@ -737,8 +884,7 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config);
-        let tpl = email.to_read_tpl(interpreter).unwrap();
+        let tpl = email.to_read_tpl(&config, |i| i).unwrap();
 
         let expected_tpl = concat_line!(
             "From: from@localhost",
@@ -769,8 +915,9 @@ mod tests {
             "Regards,"
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config).show_all_headers();
-        let tpl = email.to_read_tpl(interpreter).unwrap();
+        let tpl = email
+            .to_read_tpl(&config, |i| i.show_all_headers())
+            .unwrap();
 
         let expected_tpl = concat_line!(
             "From: from@localhost",
@@ -801,14 +948,17 @@ mod tests {
             "Regards,"
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config).show_only_headers([
-            // existing headers
-            "Subject",
-            "To",
-            // nonexisting header
-            "Content-Type",
-        ]);
-        let tpl = email.to_read_tpl(interpreter).unwrap();
+        let tpl = email
+            .to_read_tpl(&config, |i| {
+                i.show_only_headers([
+                    // existing headers
+                    "Subject",
+                    "To",
+                    // nonexisting header
+                    "Content-Type",
+                ])
+            })
+            .unwrap();
 
         let expected_tpl = concat_line!(
             "Subject: subject",
@@ -843,11 +993,14 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config).show_additional_headers([
-            "Subject", // existing headers
-            "Cc", "Bcc", // nonexisting headers
-        ]);
-        let tpl = email.to_read_tpl(interpreter).unwrap();
+        let tpl = email
+            .to_read_tpl(&config, |i| {
+                i.show_additional_headers([
+                    "Subject", // existing headers
+                    "Cc", "Bcc", // nonexisting headers
+                ])
+            })
+            .unwrap();
 
         let expected_tpl = concat_line!(
             "X-Custom: custom",
@@ -864,7 +1017,7 @@ mod tests {
     }
 
     #[test]
-    fn to_reply_tpl() {
+    fn to_reply_tpl_builder() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -884,10 +1037,7 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config);
-        let tpl = email
-            .to_reply_tpl(&config, None, None, interpreter, false)
-            .unwrap();
+        let tpl = email.to_reply_tpl_builder(&config).build().unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -905,7 +1055,7 @@ mod tests {
     }
 
     #[test]
-    fn to_reply_tpl_from_mailing_list() {
+    fn to_reply_tpl_builder_from_mailing_list() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -925,10 +1075,7 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config);
-        let tpl = email
-            .to_reply_tpl(&config, None, None, interpreter, false)
-            .unwrap();
+        let tpl = email.to_reply_tpl_builder(&config).build().unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -945,7 +1092,7 @@ mod tests {
     }
 
     #[test]
-    fn to_reply_tpl_when_from_is_sender() {
+    fn to_reply_tpl_builder_when_from_is_sender() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -965,10 +1112,7 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config);
-        let tpl = email
-            .to_reply_tpl(&config, None, None, interpreter, false)
-            .unwrap();
+        let tpl = email.to_reply_tpl_builder(&config).build().unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -985,7 +1129,7 @@ mod tests {
     }
 
     #[test]
-    fn to_reply_tpl_with_reply_to() {
+    fn to_reply_tpl_builder_with_reply_to() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -1006,15 +1150,12 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config);
-        let tpl = email
-            .to_reply_tpl(&config, None, None, interpreter, false)
-            .unwrap();
+        let tpl = email.to_reply_tpl_builder(&config).build().unwrap();
 
         let expected_tpl = concat_line!(
-            "In-Reply-To: id@localhost",
             "From: to@localhost",
             "To: from2@localhost",
+            "In-Reply-To: id@localhost",
             "Subject: RE:subject",
             "",
             "",
@@ -1027,7 +1168,7 @@ mod tests {
     }
 
     #[test]
-    fn to_reply_tpl_with_signature() {
+    fn to_reply_tpl_builder_with_signature() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             signature: Some("Cordialement,\n".into()),
@@ -1045,10 +1186,7 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config);
-        let tpl = email
-            .to_reply_tpl(&config, None, None, interpreter, false)
-            .unwrap();
+        let tpl = email.to_reply_tpl_builder(&config).build().unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -1068,7 +1206,7 @@ mod tests {
     }
 
     #[test]
-    fn to_reply_all_tpl() {
+    fn to_reply_all_tpl_builder() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -1087,9 +1225,10 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config);
         let tpl = email
-            .to_reply_tpl(&config, None, None, interpreter, true)
+            .to_reply_tpl_builder(&config)
+            .reply_all(true)
+            .build()
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -1108,7 +1247,7 @@ mod tests {
     }
 
     #[test]
-    fn to_reply_all_tpl_with_reply_to() {
+    fn to_reply_all_tpl_builder_with_reply_to() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -1129,15 +1268,16 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config);
         let tpl = email
-            .to_reply_tpl(&config, None, None, interpreter, true)
+            .to_reply_tpl_builder(&config)
+            .reply_all(true)
+            .build()
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "In-Reply-To: id@localhost",
             "From: to@localhost",
             "To: from2@localhost",
+            "In-Reply-To: id@localhost",
             "Cc: to2@localhost,cc@localhost,cc2@localhost",
             "Subject: Re: subject",
             "",
@@ -1151,7 +1291,7 @@ mod tests {
     }
 
     #[test]
-    fn to_forward_tpl() {
+    fn to_forward_tpl_builder() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -1170,10 +1310,7 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config);
-        let tpl = email
-            .to_forward_tpl(&config, None, None, interpreter)
-            .unwrap();
+        let tpl = email.to_forward_tpl_builder(&config).build().unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -1199,7 +1336,7 @@ mod tests {
     }
 
     #[test]
-    fn to_forward_tpl_with_date_and_signature() {
+    fn to_forward_tpl_builder_with_date_and_signature() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             signature: Some("Cordialement,".into()),
@@ -1220,10 +1357,7 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config);
-        let tpl = email
-            .to_forward_tpl(&config, None, None, interpreter)
-            .unwrap();
+        let tpl = email.to_forward_tpl_builder(&config).build().unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",

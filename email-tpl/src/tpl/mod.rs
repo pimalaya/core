@@ -1,7 +1,7 @@
 pub(crate) mod header;
 pub mod interpreter;
 
-pub use interpreter::{Interpreter, ShowHeadersStrategy};
+pub use interpreter::{Interpreter as TplInterpreter, ShowHeadersStrategy};
 
 use mail_builder::{headers::raw::Raw, MessageBuilder};
 use mail_parser::Message;

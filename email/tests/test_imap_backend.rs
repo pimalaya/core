@@ -4,8 +4,8 @@ fn test_imap_backend() {
     use concat_with::concat_line;
     use mail_builder::MessageBuilder;
     use pimalaya_email::{
-        AccountConfig, Backend, Email, Flag, ImapAuthConfig, ImapBackend, ImapConfig, PasswdConfig,
-        Tpl, DEFAULT_INBOX_FOLDER,
+        AccountConfig, Backend, Flag, ImapAuthConfig, ImapBackend, ImapConfig, PasswdConfig, Tpl,
+        DEFAULT_INBOX_FOLDER,
     };
     use pimalaya_secret::Secret;
 
@@ -74,16 +74,11 @@ fn test_imap_backend() {
 
     // checking that the added email exists
     let emails = imap.get_emails("Sent", vec![&id]).unwrap();
-    let interpreter = Email::get_tpl_interpreter(&config);
     let tpl = emails
         .to_vec()
         .first()
         .unwrap()
-        .to_read_tpl(
-            interpreter
-                .show_only_headers(["From", "To"])
-                .hide_mml_markup(),
-        )
+        .to_read_tpl(&config, |i| i.show_only_headers(["From", "To"]))
         .unwrap();
     let expected_tpl = concat_line!(
         "From: alice@localhost",

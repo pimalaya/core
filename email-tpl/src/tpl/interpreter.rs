@@ -4,10 +4,7 @@ use pimalaya_process::Cmd;
 use std::{io, path::PathBuf, result};
 use thiserror::Error;
 
-use crate::{
-    mml::{self, ShowPartsStrategy},
-    Tpl,
-};
+use crate::{mml, ShowAttachmentsStrategy, ShowTextsStrategy, Tpl};
 
 use super::header;
 
@@ -55,9 +52,7 @@ pub struct Interpreter {
     /// headers to the interpreted template,
     /// [`ShowHeadersStrategy::Only`] only transfers the given headers
     /// to the interpreted template.
-    show_headers_strategy: ShowHeadersStrategy,
-
-    additional_headers: Vec<(String, String)>,
+    show_headers: ShowHeadersStrategy,
 
     /// Inner reference to the [MML interpreter](crate::mml::Interpreter).
     mml_interpreter: mml::Interpreter,
@@ -68,46 +63,13 @@ impl Interpreter {
         Self::default()
     }
 
-    pub fn show_text_plain_parts_signature(mut self, b: bool) -> Self {
-        self.mml_interpreter = self.mml_interpreter.show_text_plain_parts_signature(b);
-        self
-    }
-
-    pub fn remove_text_plain_parts_signature(mut self) -> Self {
-        self.mml_interpreter = self.mml_interpreter.remove_text_plain_parts_signature();
-        self
-    }
-
-    pub fn show_parts(mut self, s: ShowPartsStrategy) -> Self {
-        self.mml_interpreter = self.mml_interpreter.show_parts(s);
-        self
-    }
-
-    pub fn show_all_parts(mut self) -> Self {
-        self.mml_interpreter = self.mml_interpreter.show_all_parts();
-        self
-    }
-
-    pub fn show_only_parts<S: ToString, P: IntoIterator<Item = S>>(mut self, parts: P) -> Self {
-        self.mml_interpreter = self.mml_interpreter.show_only_parts(parts);
-        self
-    }
-
-    pub fn show_additional_parts<S: ToString, P: IntoIterator<Item = S>>(
-        mut self,
-        parts: P,
-    ) -> Self {
-        self.mml_interpreter = self.mml_interpreter.show_additional_parts(parts);
-        self
-    }
-
     pub fn show_headers(mut self, s: ShowHeadersStrategy) -> Self {
-        self.show_headers_strategy = s;
+        self.show_headers = s;
         self
     }
 
     pub fn show_all_headers(mut self) -> Self {
-        self.show_headers_strategy = ShowHeadersStrategy::All;
+        self.show_headers = ShowHeadersStrategy::All;
         self
     }
 
@@ -119,7 +81,7 @@ impl Interpreter {
             }
             headers
         });
-        self.show_headers_strategy = ShowHeadersStrategy::Only(headers);
+        self.show_headers = ShowHeadersStrategy::Only(headers);
         self
     }
 
@@ -129,15 +91,15 @@ impl Interpreter {
     ) -> Self {
         let next_headers = headers.into_iter().fold(Vec::new(), |mut headers, header| {
             let header = header.to_string();
-            if !headers.contains(&header) && !self.show_headers_strategy.contains(&header) {
+            if !headers.contains(&header) && !self.show_headers.contains(&header) {
                 headers.push(header)
             }
             headers
         });
 
-        match &mut self.show_headers_strategy {
+        match &mut self.show_headers {
             ShowHeadersStrategy::All => {
-                self.show_headers_strategy = ShowHeadersStrategy::Only(next_headers);
+                self.show_headers = ShowHeadersStrategy::Only(next_headers);
             }
             ShowHeadersStrategy::Only(headers) => {
                 headers.extend(next_headers);
@@ -147,48 +109,28 @@ impl Interpreter {
         self
     }
 
-    pub fn show_some_additional_headers<S: ToString, B: IntoIterator<Item = S>>(
-        mut self,
-        headers: Option<B>,
-    ) -> Self {
-        if let Some(headers) = headers {
-            self = self.show_additional_headers(headers);
-        }
-        self
-    }
-
     pub fn hide_all_headers(mut self) -> Self {
-        self.show_headers_strategy = ShowHeadersStrategy::Only(Vec::new());
+        self.show_headers = ShowHeadersStrategy::Only(Vec::new());
         self
     }
 
-    pub fn show_mml_multipart_markup(mut self, b: bool) -> Self {
-        self.mml_interpreter = self.mml_interpreter.show_mml_multipart_markup(b);
+    pub fn show_multiparts(mut self, b: bool) -> Self {
+        self.mml_interpreter = self.mml_interpreter.show_multiparts(b);
         self
     }
 
-    pub fn hide_mml_multipart_markup(mut self) -> Self {
-        self.mml_interpreter = self.mml_interpreter.hide_mml_multipart_markup();
+    pub fn show_texts(mut self, s: ShowTextsStrategy) -> Self {
+        self.mml_interpreter = self.mml_interpreter.show_texts(s);
         self
     }
 
-    pub fn show_mml_part_markup(mut self, b: bool) -> Self {
-        self.mml_interpreter = self.mml_interpreter.show_mml_part_markup(b);
+    pub fn show_plain_texts_signature(mut self, b: bool) -> Self {
+        self.mml_interpreter = self.mml_interpreter.show_plain_texts_signature(b);
         self
     }
 
-    pub fn hide_mml_part_markup(mut self) -> Self {
-        self.mml_interpreter = self.mml_interpreter.hide_mml_part_markup();
-        self
-    }
-
-    pub fn show_mml_markup(mut self, b: bool) -> Self {
-        self = self.show_mml_multipart_markup(b).show_mml_part_markup(b);
-        self
-    }
-
-    pub fn hide_mml_markup(mut self) -> Self {
-        self = self.hide_mml_multipart_markup().hide_mml_part_markup();
+    pub fn show_attachments(mut self, s: ShowAttachmentsStrategy) -> Self {
+        self.mml_interpreter = self.mml_interpreter.show_attachments(s);
         self
     }
 
@@ -230,7 +172,7 @@ impl Interpreter {
     pub fn interpret_msg(self, msg: &Message) -> Result<Tpl> {
         let mut tpl = Tpl::new();
 
-        match self.show_headers_strategy {
+        match self.show_headers {
             ShowHeadersStrategy::All => msg.headers().iter().for_each(|header| {
                 let key = header.name.as_str();
                 let val = header::display_value(&header.value);

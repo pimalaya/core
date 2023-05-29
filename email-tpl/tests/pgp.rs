@@ -1,5 +1,5 @@
 use concat_with::concat_line;
-use pimalaya_email_tpl::{tpl::Interpreter as TplInterpreter, Tpl};
+use pimalaya_email_tpl::{Tpl, TplInterpreter};
 
 fn gpg(args: &str) -> String {
     String::from("gpg --no-default-keyring --keyring ../.keyring.gpg ") + args

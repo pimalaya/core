@@ -1,5 +1,4 @@
 use mail_builder::MessageBuilder;
-use pimalaya_email::Email;
 
 #[test]
 fn test_maildir_backend() {
@@ -61,16 +60,11 @@ fn test_maildir_backend() {
 
     // check that the added message exists
     let emails = mdir.get_emails("INBOX", vec![&id]).unwrap();
-    let interpreter = Email::get_tpl_interpreter(&config);
     let tpl = emails
         .to_vec()
         .first()
         .unwrap()
-        .to_read_tpl(
-            interpreter
-                .show_only_headers(["From", "To"])
-                .hide_mml_markup(),
-        )
+        .to_read_tpl(&config, |i| i.show_only_headers(["From", "To"]))
         .unwrap();
     let expected_tpl = concat_line!(
         "From: alice@localhost",

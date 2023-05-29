@@ -6,6 +6,7 @@
 use dirs::data_dir;
 use log::warn;
 use mail_builder::headers::address::{Address, EmailAddress};
+use pimalaya_email_tpl::TplInterpreter;
 use pimalaya_oauth2::AuthorizationCodeGrant;
 use pimalaya_process::Cmd;
 use pimalaya_secret::Secret;
@@ -295,34 +296,22 @@ impl AccountConfig {
         self.email_reading_headers
             .as_ref()
             .map(ToOwned::to_owned)
+            .unwrap_or_else(|| vec!["From".into(), "To".into(), "Cc".into(), "Subject".into()])
+    }
+
+    pub fn email_writing_headers(&self) -> Vec<String> {
+        self.email_writing_headers
+            .as_ref()
+            .map(ToOwned::to_owned)
             .unwrap_or_else(|| {
                 vec![
-                    "In-Reply-To".into(),
                     "From".into(),
                     "To".into(),
-                    "Reply-To".into(),
+                    "In-Reply-To".into(),
                     "Cc".into(),
                     "Subject".into(),
                 ]
             })
-    }
-
-    pub fn email_writing_headers<I: ToString, H: IntoIterator<Item = I>>(
-        &self,
-        more_headers: H,
-    ) -> Vec<String> {
-        let mut headers = self
-            .email_reading_headers
-            .as_ref()
-            .map(ToOwned::to_owned)
-            .unwrap_or_default();
-        headers.extend(
-            more_headers
-                .into_iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>(),
-        );
-        headers
     }
 
     pub fn signature(&self) -> Result<Option<String>> {
@@ -373,6 +362,13 @@ impl AccountConfig {
                 Ok(sync_dir)
             }
         }
+    }
+
+    pub fn generate_tpl_interpreter(&self) -> TplInterpreter {
+        TplInterpreter::new()
+            .some_pgp_decrypt_cmd(self.email_reading_decrypt_cmd.clone())
+            .some_pgp_verify_cmd(self.email_reading_verify_cmd.clone())
+            .save_attachments_dir(self.downloads_dir())
     }
 }
 
