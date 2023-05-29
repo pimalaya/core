@@ -34,21 +34,18 @@ impl<'a> Part {
         })
     }
 
-    pub(crate) fn compact_text_plain_parts<T>(parts: T) -> Vec<Part>
-    where
-        T: AsRef<[Part]>,
-    {
+    pub(crate) fn compact_text_plain_parts(parts: Vec<Part>) -> Vec<Part> {
         let mut compacted_plain_texts = String::default();
         let mut compacted_parts = vec![];
 
-        for part in parts.as_ref() {
+        for part in parts {
             if let Part::TextPlainPart(plain) = part {
                 if !compacted_plain_texts.is_empty() {
                     compacted_plain_texts.push_str("\n\n");
                 }
-                compacted_plain_texts.push_str(plain);
+                compacted_plain_texts.push_str(&plain);
             } else {
-                compacted_parts.push(part.clone())
+                compacted_parts.push(part)
             }
         }
 
@@ -67,44 +64,71 @@ mod tests {
     use crate::mml::tokens::Part;
 
     #[test]
-    fn compact_text_plain_parts() {
-        assert_eq!(vec![] as Vec<Part>, Part::compact_text_plain_parts(vec![]));
+    fn compact_empty_parts() {
+        let parts = Vec::<Part>::new();
+
+        let expected_compacted_parts = Vec::<Part>::new();
 
         assert_eq!(
-            vec![Part::TextPlainPart("This is a plain text part.".into())],
-            Part::compact_text_plain_parts(vec![Part::TextPlainPart(
-                "This is a plain text part.".into()
-            )])
+            Part::compact_text_plain_parts(parts),
+            expected_compacted_parts
         );
+    }
+
+    #[test]
+    fn compact_one_plain_text_part() {
+        let parts = vec![Part::TextPlainPart("This is a plain text part.".into())];
+
+        let expected_compacted_parts =
+            vec![Part::TextPlainPart("This is a plain text part.".into())];
 
         assert_eq!(
-            vec![Part::TextPlainPart(
-                "This is a plain text part.\n\nThis is a new plain text part.".into()
-            )],
-            Part::compact_text_plain_parts(vec![
-                Part::TextPlainPart("This is a plain text part.".into()),
-                Part::TextPlainPart("This is a new plain text part.".into())
-            ])
+            Part::compact_text_plain_parts(parts),
+            expected_compacted_parts
         );
+    }
+
+    #[test]
+    fn compact_adjacent_plain_text_parts() {
+        let parts = vec![
+            Part::TextPlainPart("This is a plain text part.".into()),
+            Part::TextPlainPart("This is a new plain text part.".into()),
+        ];
+
+        let expected_compacted_parts = vec![Part::TextPlainPart(
+            "This is a plain text part.\n\nThis is a new plain text part.".into(),
+        )];
 
         assert_eq!(
-            vec![
-                Part::TextPlainPart(
-                    "This is a plain text part.\n\nThis is a new plain text part.".into()
-                ),
-                Part::SinglePart((
-                    HashMap::default(),
-                    "<h1>This is a HTML text part.</h1>".into()
-                ))
-            ],
-            Part::compact_text_plain_parts(vec![
-                Part::TextPlainPart("This is a plain text part.".into()),
-                Part::SinglePart((
-                    HashMap::default(),
-                    "<h1>This is a HTML text part.</h1>".into()
-                )),
-                Part::TextPlainPart("This is a new plain text part.".into())
-            ])
+            Part::compact_text_plain_parts(parts),
+            expected_compacted_parts
+        );
+    }
+
+    #[test]
+    fn compact_non_adjacent_text_plain_parts() {
+        let parts = vec![
+            Part::TextPlainPart("This is a plain text part.".into()),
+            Part::SinglePart((
+                HashMap::default(),
+                "<h1>This is a HTML text part.</h1>".into(),
+            )),
+            Part::TextPlainPart("This is a new plain text part.".into()),
+        ];
+
+        let expected_compacted_parts = vec![
+            Part::TextPlainPart(
+                "This is a plain text part.\n\nThis is a new plain text part.".into(),
+            ),
+            Part::SinglePart((
+                HashMap::default(),
+                "<h1>This is a HTML text part.</h1>".into(),
+            )),
+        ];
+
+        assert_eq!(
+            Part::compact_text_plain_parts(parts),
+            expected_compacted_parts,
         );
     }
 }

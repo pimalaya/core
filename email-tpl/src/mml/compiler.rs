@@ -115,8 +115,6 @@ impl Compiler {
             .clone()
             .replace("<recipient>", &self.pgp_encrypt_recipient);
 
-        println!("cmd: {:?}", cmd);
-
         let mut buf = Vec::new();
         part.clone()
             .write_part(&mut buf)
@@ -134,11 +132,8 @@ impl Compiler {
         Ok(part)
     }
 
-    fn compile_parts<'a, P>(&self, parts: P) -> Result<MessageBuilder<'a>>
-    where
-        P: IntoIterator<Item = Part>,
-    {
-        let parts: Vec<Part> = parts.into_iter().collect();
+    fn compile_parts<'a>(&self, parts: Vec<Part>) -> Result<MessageBuilder<'a>> {
+        let parts = Part::compact_text_plain_parts(parts);
 
         let mut builder = MessageBuilder::new();
 
@@ -167,7 +162,7 @@ impl Compiler {
                     Some("alternative") => MimePart::new("multipart/alternative", no_parts),
                     Some("related") => MimePart::new("multipart/related", no_parts),
                     Some(unknown) => {
-                        warn!("unknown multipart type {unknown}, falling back to mixed");
+                        warn!("unknown multipart type {unknown}, fall back to mixed");
                         MimePart::new("multipart/mixed", no_parts)
                     }
                 };

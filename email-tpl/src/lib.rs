@@ -3,5 +3,7 @@
 pub mod mml;
 pub mod tpl;
 
-pub use tpl::Interpreter as TplInterpreter;
-pub use tpl::{Error, Result, Tpl};
+pub use mml::interpreter::ShowPartsStrategy;
+pub use tpl::{
+    interpreter::ShowHeadersStrategy, Error, Interpreter as TplInterpreter, Result, Tpl,
+};
