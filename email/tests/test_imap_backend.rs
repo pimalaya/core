@@ -81,10 +81,8 @@ fn test_imap_backend() {
         .unwrap()
         .to_read_tpl(
             interpreter
-                .hide_all_headers()
-                .show_headers(["From", "To"])
-                .hide_part_markup()
-                .hide_multipart_markup(),
+                .show_only_headers(["From", "To"])
+                .hide_mml_markup(),
         )
         .unwrap();
     let expected_tpl = concat_line!(

@@ -295,7 +295,16 @@ impl AccountConfig {
         self.email_reading_headers
             .as_ref()
             .map(ToOwned::to_owned)
-            .unwrap_or_default()
+            .unwrap_or_else(|| {
+                vec![
+                    "In-Reply-To".into(),
+                    "From".into(),
+                    "To".into(),
+                    "Reply-To".into(),
+                    "Cc".into(),
+                    "Subject".into(),
+                ]
+            })
     }
 
     pub fn email_writing_headers<I: ToString, H: IntoIterator<Item = I>>(

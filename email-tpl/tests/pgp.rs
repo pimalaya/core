@@ -24,7 +24,7 @@ fn pgp() {
         .unwrap();
 
     let tpl = TplInterpreter::new()
-        .show_headers(["From", "To", "Subject"])
+        .show_only_headers(["From", "To", "Subject"])
         .pgp_decrypt_cmd(gpg("-dq"))
         .pgp_verify_cmd(gpg("--verify -q"))
         .interpret_msg_builder(builder)

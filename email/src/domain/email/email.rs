@@ -191,10 +191,9 @@ impl Email<'_> {
 
     pub fn get_tpl_interpreter(config: &AccountConfig) -> TplInterpreter {
         TplInterpreter::new()
+            .show_only_headers(config.email_reading_headers())
             .some_pgp_decrypt_cmd(config.email_reading_decrypt_cmd.clone())
             .some_pgp_verify_cmd(config.email_reading_verify_cmd.clone())
-            .show_headers(["In-Reply-To", "From", "To", "Reply-To", "Cc", "Subject"])
-            .show_some_headers(config.email_reading_headers.as_ref())
     }
 
     pub fn to_read_tpl(&self, interpreter: TplInterpreter) -> Result<Tpl> {
@@ -428,9 +427,7 @@ impl Email<'_> {
 
             let body = TplInterpreter::new()
                 .hide_all_headers()
-                .hide_multipart_markup()
-                .hide_part_markup()
-                .sanitize_text_parts(true)
+                .hide_mml_markup()
                 .remove_text_plain_parts_signature()
                 .interpret_msg(&parsed)
                 .map_err(Error::InterpretEmailAsTplError)?;
@@ -520,10 +517,8 @@ impl Email<'_> {
 
             lines.push_str(
                 &TplInterpreter::new()
-                    .hide_all_headers()
-                    .show_headers(["Date", "From", "To", "Cc", "Subject"])
-                    .hide_markup()
-                    .sanitize_text_parts(true)
+                    .show_only_headers(["Date", "From", "To", "Cc", "Subject"])
+                    .hide_mml_markup()
                     .interpret_msg(&parsed)
                     .map_err(Error::InterpretEmailAsTplError)?,
             );
@@ -806,15 +801,13 @@ mod tests {
             "Regards,"
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config)
-            .hide_all_headers()
-            .show_headers([
-                // existing headers
-                "Subject",
-                "To",
-                // nonexisting header
-                "Content-Type",
-            ]);
+        let interpreter = Email::get_tpl_interpreter(&config).show_only_headers([
+            // existing headers
+            "Subject",
+            "To",
+            // nonexisting header
+            "Content-Type",
+        ]);
         let tpl = email.to_read_tpl(interpreter).unwrap();
 
         let expected_tpl = concat_line!(
@@ -834,7 +827,7 @@ mod tests {
     #[test]
     fn to_read_tpl_with_email_reading_headers() {
         let config = AccountConfig {
-            email_reading_headers: Some(vec!["From".into()]),
+            email_reading_headers: Some(vec!["X-Custom".into()]),
             ..AccountConfig::default()
         };
 
@@ -842,6 +835,7 @@ mod tests {
             "From: from@localhost",
             "To: to@localhost",
             "Subject: subject",
+            "X-Custom: custom",
             "",
             "Hello!",
             "",
@@ -849,16 +843,22 @@ mod tests {
             "Regards,",
         ));
 
-        let interpreter = Email::get_tpl_interpreter(&config)
-            .hide_all_headers()
-            .show_headers([
-                "Subject", // existing headers
-                "Cc", "Bcc", // nonexisting headers
-            ]);
+        let interpreter = Email::get_tpl_interpreter(&config).show_additional_headers([
+            "Subject", // existing headers
+            "Cc", "Bcc", // nonexisting headers
+        ]);
         let tpl = email.to_read_tpl(interpreter).unwrap();
 
-        let expected_tpl =
-            concat_line!("Subject: subject", "", "Hello!", "", "-- ", "Regards,", "");
+        let expected_tpl = concat_line!(
+            "X-Custom: custom",
+            "Subject: subject",
+            "",
+            "Hello!",
+            "",
+            "-- ",
+            "Regards,",
+            ""
+        );
 
         assert_eq!(*tpl, expected_tpl);
     }
