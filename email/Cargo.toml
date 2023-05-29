@@ -47,7 +47,7 @@ html-escape = "0.2"
 lettre = { version = "=0.10.2", default-features = false, features = ["smtp-transport", "pool", "hostname", "builder", "serde"] }
 log = "0.4"
 mail-builder = { git = "https://github.com/stalwartlabs/mail-builder.git" }
-mail-parser = "0.8.1"
+mail-parser = "=0.8.2"
 maildir = { version = "=0.6.3", features = ["mmap"] }
 mailparse = "0.14"
 md5 = "0.7.0"
