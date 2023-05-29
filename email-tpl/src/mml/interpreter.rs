@@ -325,7 +325,7 @@ impl Interpreter {
             match &part.body {
                 PartType::Text(plain) => {
                     if self.show_parts_strategy.contains(&ctype) {
-                        let mut plain = plain.to_string();
+                        let mut plain = plain.replace("\r", "");
 
                         if self.remove_text_plain_parts_signature {
                             plain = plain
@@ -338,13 +338,13 @@ impl Interpreter {
                             plain = self.sanitize_plain(plain);
                         }
 
-                        tpl.push_str(&plain.trim());
+                        tpl.push_str(&plain);
                         tpl.push('\n');
                     }
                 }
                 PartType::Html(html) => {
                     if self.show_parts_strategy.contains(&ctype) {
-                        let mut html = html.to_string();
+                        let mut html = html.replace("\r", "");
 
                         if self.show_part_markup {
                             tpl.push_str("<#part type=\"text/html\">");
@@ -355,7 +355,7 @@ impl Interpreter {
                             html = self.sanitize_html(html);
                         }
 
-                        tpl.push_str(&html.trim());
+                        tpl.push_str(&html);
                         tpl.push('\n');
 
                         if self.show_part_markup {

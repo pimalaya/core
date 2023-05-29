@@ -419,7 +419,7 @@ impl Email<'_> {
         // Body
 
         builder = builder.text_body({
-            let mut lines = String::new();
+            let mut lines = String::from("\n\n");
 
             if let Some(ref body) = additional_body {
                 lines.push_str(body);
@@ -435,12 +435,12 @@ impl Email<'_> {
                 .interpret_msg(&parsed)
                 .map_err(Error::InterpretEmailAsTplError)?;
 
-            for line in body.lines() {
+            for line in body.trim().lines() {
                 lines.push('>');
                 if !line.starts_with('>') {
                     lines.push(' ')
                 }
-                lines.push_str(line.trim_end_matches('\r'));
+                lines.push_str(&line);
                 lines.push('\n');
             }
 
@@ -449,7 +449,7 @@ impl Email<'_> {
                 lines.push_str(signature);
             }
 
-            lines
+            lines.trim_end().to_owned()
         });
 
         let tpl = interpreter
@@ -505,6 +505,7 @@ impl Email<'_> {
             let mut lines = String::from("\n");
 
             if let Some(ref body) = additional_body {
+                lines.push('\n');
                 lines.push_str(body);
                 lines.push('\n');
             }
@@ -512,19 +513,22 @@ impl Email<'_> {
             if let Some(ref signature) = config.signature()? {
                 lines.push('\n');
                 lines.push_str(signature);
+                lines.push('\n');
             }
 
-            lines.push_str("\n\n-------- Forwarded Message --------\n");
+            lines.push_str("\n-------- Forwarded Message --------\n");
 
             lines.push_str(
                 &TplInterpreter::new()
+                    .hide_all_headers()
                     .show_headers(["Date", "From", "To", "Cc", "Subject"])
+                    .hide_markup()
                     .sanitize_text_parts(true)
                     .interpret_msg(&parsed)
                     .map_err(Error::InterpretEmailAsTplError)?,
             );
 
-            lines
+            lines.trim_end().to_owned()
         });
 
         let tpl = interpreter
@@ -714,6 +718,8 @@ mod tests {
             "To: ",
             "Subject: ",
             "",
+            "",
+            "",
             "-- ",
             "Regards,",
             "",
@@ -734,7 +740,6 @@ mod tests {
             "",
             "-- ",
             "Regards,",
-            "",
         ));
 
         let interpreter = Email::get_tpl_interpreter(&config);
@@ -872,10 +877,11 @@ mod tests {
             "Bcc: bcc@localhost",
             "Subject: subject",
             "",
-            "Hello!",
+            "Hello,",
+            "World!",
             "",
             "-- ",
-            "Regards,"
+            "Regards,",
         ));
 
         let interpreter = Email::get_tpl_interpreter(&config);
@@ -888,7 +894,10 @@ mod tests {
             "To: from@localhost",
             "Subject: Re: subject",
             "",
-            "> Hello!",
+            "",
+            "",
+            "> Hello,",
+            "> World!",
             "",
         );
 
@@ -913,7 +922,7 @@ mod tests {
             "Hello from mailing list!",
             "",
             "-- ",
-            "Regards,"
+            "Regards,",
         ));
 
         let interpreter = Email::get_tpl_interpreter(&config);
@@ -926,8 +935,10 @@ mod tests {
             "To: mlist@localhost",
             "Subject: Re: subject",
             "",
+            "",
+            "",
             "> Hello from mailing list!",
-            ""
+            "",
         );
 
         assert_eq!(*tpl, expected_tpl);
@@ -951,7 +962,7 @@ mod tests {
             "Hello back!",
             "",
             "-- ",
-            "Regards,"
+            "Regards,",
         ));
 
         let interpreter = Email::get_tpl_interpreter(&config);
@@ -964,8 +975,10 @@ mod tests {
             "To: from@localhost,from2@localhost",
             "Subject: Re: subject",
             "",
+            "",
+            "",
             "> Hello back!",
-            ""
+            "",
         );
 
         assert_eq!(*tpl, expected_tpl);
@@ -990,7 +1003,7 @@ mod tests {
             "Hello!",
             "",
             "-- ",
-            "Regards,"
+            "Regards,",
         ));
 
         let interpreter = Email::get_tpl_interpreter(&config);
@@ -1004,8 +1017,10 @@ mod tests {
             "To: from2@localhost",
             "Subject: RE:subject",
             "",
+            "",
+            "",
             "> Hello!",
-            ""
+            "",
         );
 
         assert_eq!(*tpl, expected_tpl);
@@ -1015,7 +1030,7 @@ mod tests {
     fn to_reply_tpl_with_signature() {
         let config = AccountConfig {
             email: "to@localhost".into(),
-            signature: Some("Cordialement,".into()),
+            signature: Some("Cordialement,\n".into()),
             ..AccountConfig::default()
         };
 
@@ -1027,7 +1042,7 @@ mod tests {
             "Hello!",
             "",
             "-- ",
-            "Regards,"
+            "Regards,",
         ));
 
         let interpreter = Email::get_tpl_interpreter(&config);
@@ -1039,6 +1054,8 @@ mod tests {
             "From: to@localhost",
             "To: from@localhost",
             "Subject: Re: subject",
+            "",
+            "",
             "",
             "> Hello!",
             "",
@@ -1067,7 +1084,7 @@ mod tests {
             "Hello!",
             "",
             "-- ",
-            "Regards,"
+            "Regards,",
         ));
 
         let interpreter = Email::get_tpl_interpreter(&config);
@@ -1081,8 +1098,10 @@ mod tests {
             "Cc: to2@localhost,cc@localhost,cc2@localhost",
             "Subject: Re: subject",
             "",
+            "",
+            "",
             "> Hello!",
-            ""
+            "",
         );
 
         assert_eq!(*tpl, expected_tpl);
@@ -1107,7 +1126,7 @@ mod tests {
             "Hello!",
             "",
             "-- ",
-            "Regards,"
+            "Regards,",
         ));
 
         let interpreter = Email::get_tpl_interpreter(&config);
@@ -1122,8 +1141,10 @@ mod tests {
             "Cc: to2@localhost,cc@localhost,cc2@localhost",
             "Subject: Re: subject",
             "",
+            "",
+            "",
             "> Hello!",
-            ""
+            "",
         );
 
         assert_eq!(*tpl, expected_tpl);
@@ -1146,7 +1167,7 @@ mod tests {
             "Hello!",
             "",
             "-- ",
-            "Regards,"
+            "Regards,",
         ));
 
         let interpreter = Email::get_tpl_interpreter(&config);
@@ -1158,6 +1179,8 @@ mod tests {
             "From: to@localhost",
             "To: ",
             "Subject: Fwd: subject",
+            "",
+            "",
             "",
             "-------- Forwarded Message --------",
             "From: from@localhost",
@@ -1194,7 +1217,7 @@ mod tests {
             "Hello!",
             "",
             "-- ",
-            "Regards,"
+            "Regards,",
         ));
 
         let interpreter = Email::get_tpl_interpreter(&config);
@@ -1206,6 +1229,8 @@ mod tests {
             "From: to@localhost",
             "To: ",
             "Subject: Fwd: subject",
+            "",
+            "",
             "",
             "-- ",
             "Cordialement,",
