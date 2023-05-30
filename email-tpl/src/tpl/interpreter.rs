@@ -4,7 +4,7 @@ use pimalaya_process::Cmd;
 use std::{io, path::PathBuf, result};
 use thiserror::Error;
 
-use crate::{mml, ShowAttachmentsStrategy, ShowTextsStrategy, Tpl};
+use crate::{mml, FilterParts, Tpl};
 
 use super::header;
 
@@ -119,8 +119,8 @@ impl Interpreter {
         self
     }
 
-    pub fn show_texts(mut self, s: ShowTextsStrategy) -> Self {
-        self.mml_interpreter = self.mml_interpreter.show_texts(s);
+    pub fn filter_parts(mut self, f: FilterParts) -> Self {
+        self.mml_interpreter = self.mml_interpreter.filter_parts(f);
         self
     }
 
@@ -129,8 +129,13 @@ impl Interpreter {
         self
     }
 
-    pub fn show_attachments(mut self, s: ShowAttachmentsStrategy) -> Self {
-        self.mml_interpreter = self.mml_interpreter.show_attachments(s);
+    pub fn show_attachments(mut self, b: bool) -> Self {
+        self.mml_interpreter = self.mml_interpreter.show_attachments(b);
+        self
+    }
+
+    pub fn show_inline_attachments(mut self, b: bool) -> Self {
+        self.mml_interpreter = self.mml_interpreter.show_inline_attachments(b);
         self
     }
 
@@ -196,7 +201,8 @@ impl Interpreter {
             .interpret_msg(msg)
             .map_err(Error::InterpretMmlError)?;
 
-        tpl.push_str(&mml);
+        tpl.push_str(mml.trim_end());
+        tpl.push('\n');
 
         Ok(tpl)
     }

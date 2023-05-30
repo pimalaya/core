@@ -9,7 +9,7 @@ use mail_parser::{Addr, HeaderValue, Message, MimeHeaders};
 use maildir::{MailEntry, MailEntryError};
 use mailparse::{MailParseError, ParsedMail};
 use ouroboros::self_referencing;
-use pimalaya_email_tpl::{ShowAttachmentsStrategy, ShowTextsStrategy, Tpl, TplInterpreter};
+use pimalaya_email_tpl::{Tpl, TplInterpreter};
 use std::{fmt::Debug, io, path::PathBuf, result};
 use thiserror::Error;
 use tree_magic;
@@ -250,7 +250,7 @@ impl<'a> NewTplBuilder<'a> {
                 .generate_tpl_interpreter()
                 .hide_all_headers()
                 .show_plain_texts_signature(false)
-                .show_attachments(ShowAttachmentsStrategy::None),
+                .show_attachments(false),
             reply_all: false,
         }
     }
@@ -366,7 +366,7 @@ impl<'a> ReplyTplBuilder<'a> {
                 .generate_tpl_interpreter()
                 .hide_all_headers()
                 .show_plain_texts_signature(false)
-                .show_attachments(ShowAttachmentsStrategy::None),
+                .show_attachments(false),
             reply_all: false,
         }
     }
@@ -613,14 +613,13 @@ impl<'a> ForwardTplBuilder<'a> {
             config,
             headers: Vec::new(),
             body: String::new(),
-            thread_interpreter: config
-                .generate_tpl_interpreter()
-                .show_only_headers(["Date", "From", "To", "Cc", "Subject"])
-                .show_texts(ShowTextsStrategy::Plain)
-                .show_attachments(ShowAttachmentsStrategy::None),
             interpreter: config
                 .generate_tpl_interpreter()
                 .show_only_headers(config.email_writing_headers()),
+            thread_interpreter: config
+                .generate_tpl_interpreter()
+                .show_only_headers(["Date", "From", "To", "Cc", "Subject"])
+                .save_attachments(true),
         }
     }
 
@@ -874,6 +873,7 @@ mod tests {
     fn to_read_tpl() {
         let config = AccountConfig::default();
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "From: from@localhost",
             "To: to@localhost",
             "Subject: subject",
@@ -905,6 +905,7 @@ mod tests {
     fn to_read_tpl_with_show_all_headers() {
         let config = AccountConfig::default();
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "From: from@localhost",
             "To: to@localhost",
             "Subject: subject",
@@ -920,6 +921,7 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
+            "Content-Type: text/plain",
             "From: from@localhost",
             "To: to@localhost",
             "Subject: subject",
@@ -938,6 +940,7 @@ mod tests {
     fn to_read_tpl_with_show_only_headers() {
         let config = AccountConfig::default();
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "From: from@localhost",
             "To: to@localhost",
             "Subject: subject",
@@ -955,7 +958,7 @@ mod tests {
                     "Subject",
                     "To",
                     // nonexisting header
-                    "Content-Type",
+                    "Content-Disposition",
                 ])
             })
             .unwrap();
@@ -982,6 +985,7 @@ mod tests {
         };
 
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "From: from@localhost",
             "To: to@localhost",
             "Subject: subject",
@@ -1024,6 +1028,7 @@ mod tests {
         };
 
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "From: from@localhost",
             "To: to@localhost, to2@localhost",
             "Cc: cc@localhost, cc2@localhost",
@@ -1062,6 +1067,7 @@ mod tests {
         };
 
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "Sender: mlist@localhost",
             "From: from@localhost",
             "To: mlist@localhost",
@@ -1099,6 +1105,7 @@ mod tests {
         };
 
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "From: to@localhost",
             "Reply-To: reply-to@localhost",
             "To: from@localhost, from2@localhost",
@@ -1136,6 +1143,7 @@ mod tests {
         };
 
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "Message-ID: <id@localhost>",
             "From: from@localhost",
             "To: to@localhost, to2@localhost",
@@ -1176,6 +1184,7 @@ mod tests {
         };
 
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "From: from@localhost",
             "To: to@localhost",
             "Subject: subject",
@@ -1213,6 +1222,7 @@ mod tests {
         };
 
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "From: from@localhost",
             "To: to@localhost, to2@localhost",
             "Cc: from@localhost, to@localhost, cc@localhost, cc2@localhost",
@@ -1254,6 +1264,7 @@ mod tests {
         };
 
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "Message-ID: <id@localhost>",
             "From: from@localhost",
             "To: to@localhost, to2@localhost",
@@ -1298,6 +1309,7 @@ mod tests {
         };
 
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "From: from@localhost",
             "To: to@localhost,to2@localhost",
             "Cc: cc@localhost,cc2@localhost",
@@ -1344,6 +1356,7 @@ mod tests {
         };
 
         let email = Email::from(concat_line!(
+            "Content-Type: text/plain",
             "Date: Thu, 10 Nov 2022 14:26:33 +0000",
             "From: from@localhost",
             "To: to@localhost, to2@localhost",

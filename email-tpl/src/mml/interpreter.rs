@@ -1,9 +1,7 @@
 use log::warn;
 use mail_builder::MessageBuilder;
-use mail_parser::{
-    decoders::html::{html_to_text, text_to_html},
-    Message, MessagePart, MimeHeaders, PartType,
-};
+use mail_parser::{Message, MessagePart, MimeHeaders, PartType};
+use nanohtml2text::html2text;
 use pimalaya_process::Cmd;
 use std::{env, fs, io, path::PathBuf, result};
 use thiserror::Error;
@@ -24,108 +22,45 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-/// Represents the strategy used to display text parts.
+/// Filters parts to show by MIME type.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum ShowTextsStrategy {
-    /// Shows all `text/*` parts.
-    All,
-    /// Shows all `text/*` parts except `text/html` ones.
-    AllExceptHtml,
-    /// Shows only `text/plain` parts.
+pub enum FilterParts {
+    /// Shows all parts. This filter enables MML markup since multiple
+    /// parts with different MIME types can be mixed together, which
+    /// can be hard to navigate through.
     #[default]
-    Plain,
-    /// Shows only `text/plain` parts converted to HTML (content
-    /// wrapped into `<html><body></body></html>`).
-    PlainConvertedToHtml,
-    /// Shows only `text/html` parts.
-    Html,
-    /// Shows only `text/html` parts converted to plain (all the
-    /// markup is removed).
-    HtmlConvertedToPlain,
-    /// Hides all text parts.
-    None,
+    All,
+    /// Shows only parts matching the given MIME type. This filter
+    /// disables MML markup since only one MIME type is shown.
+    Only(String),
+    /// Shows only parts matching the given list of MIME types. This
+    /// filter enables MML markup since multiple parts with different
+    /// MIME types can be mixed together, which can be hard to
+    /// navigate through.
+    Include(Vec<String>),
+    /// Shows all parts except those matching the given list of MIME
+    /// types. This filter enables MML markup since multiple parts
+    /// with different MIME types can be mixed together, which can be
+    /// hard to navigate through.
+    Exclude(Vec<String>),
 }
 
-impl ShowTextsStrategy {
-    pub fn allow_plain(&self) -> bool {
-        match self {
-            Self::All => true,
-            Self::AllExceptHtml => true,
-            Self::Plain => true,
-            Self::PlainConvertedToHtml => true,
-            Self::Html => false,
-            Self::HtmlConvertedToPlain => false,
-            Self::None => false,
-        }
-    }
-
-    pub fn allow_html(&self) -> bool {
-        match self {
-            Self::All => true,
-            Self::AllExceptHtml => true,
-            Self::Plain => false,
-            Self::PlainConvertedToHtml => false,
-            Self::Html => true,
-            Self::HtmlConvertedToPlain => true,
-            Self::None => false,
-        }
-    }
-
-    pub fn allow_conversion(&self) -> bool {
+impl FilterParts {
+    pub fn only(&self, ctype: impl AsRef<str>) -> bool {
         match self {
             Self::All => false,
-            Self::AllExceptHtml => false,
-            Self::Plain => false,
-            Self::PlainConvertedToHtml => true,
-            Self::Html => false,
-            Self::HtmlConvertedToPlain => true,
-            Self::None => false,
+            Self::Only(this_ctype) => this_ctype == ctype.as_ref(),
+            Self::Include(_) => false,
+            Self::Exclude(_) => false,
         }
     }
 
-    pub fn allow_mml_markup(&self) -> bool {
+    pub fn contains(&self, ctype: impl ToString + AsRef<str>) -> bool {
         match self {
             Self::All => true,
-            Self::AllExceptHtml => true,
-            Self::Plain => false,
-            Self::PlainConvertedToHtml => false,
-            Self::Html => false,
-            Self::HtmlConvertedToPlain => false,
-            Self::None => false,
-        }
-    }
-}
-
-/// Represents the strategy used to display attachments.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum ShowAttachmentsStrategy {
-    /// Shows all kind of attachments.
-    #[default]
-    All,
-    /// Shows only attachments.
-    Attachment,
-    /// Shows only inline attachments.
-    Inline,
-    /// Hides all attachments.
-    None,
-}
-
-impl ShowAttachmentsStrategy {
-    pub fn allow_attachment(&self) -> bool {
-        match self {
-            Self::All => true,
-            Self::Attachment => true,
-            Self::Inline => false,
-            Self::None => false,
-        }
-    }
-
-    pub fn allow_inline(&self) -> bool {
-        match self {
-            Self::All => true,
-            Self::Attachment => false,
-            Self::Inline => true,
-            Self::None => false,
+            Self::Only(this_ctype) => this_ctype == ctype.as_ref(),
+            Self::Include(ctypes) => ctypes.contains(&ctype.to_string()),
+            Self::Exclude(ctypes) => !ctypes.contains(&ctype.to_string()),
         }
     }
 }
@@ -143,15 +78,20 @@ pub struct Interpreter {
     /// shown at the same top level.
     show_multiparts: bool,
 
-    /// Represents the strategy used to display text parts.
-    show_texts: ShowTextsStrategy,
+    /// Filters parts to show by MIME type.
+    filter_parts: FilterParts,
 
     /// If `false` then tries to remove signatures for text plain
     /// parts starting by the standard delimiter `-- \n`.
     show_plain_texts_signature: bool,
 
-    /// Represents the strategy used to display attachments.
-    show_attachments: ShowAttachmentsStrategy,
+    /// If `true` then shows attachments at the end of the body as MML
+    /// part.
+    show_attachments: bool,
+
+    /// If `true` then shows inline attachments at the end of the body
+    /// as MML part.
+    show_inline_attachments: bool,
 
     /// An attachment is interpreted this way: `<#part
     /// filename=attachment.ext>`. If `true` then the file (with its
@@ -176,9 +116,10 @@ impl Default for Interpreter {
     fn default() -> Self {
         Self {
             show_multiparts: false,
-            show_texts: ShowTextsStrategy::default(),
+            filter_parts: FilterParts::default(),
             show_plain_texts_signature: true,
-            show_attachments: ShowAttachmentsStrategy::default(),
+            show_attachments: true,
+            show_inline_attachments: true,
             save_attachments: false,
             save_attachments_dir: env::temp_dir(),
             pgp_decrypt_cmd: "gpg --decrypt --quiet".into(),
@@ -197,8 +138,8 @@ impl Interpreter {
         self
     }
 
-    pub fn show_texts(mut self, s: ShowTextsStrategy) -> Self {
-        self.show_texts = s;
+    pub fn filter_parts(mut self, f: FilterParts) -> Self {
+        self.filter_parts = f;
         self
     }
 
@@ -207,8 +148,13 @@ impl Interpreter {
         self
     }
 
-    pub fn show_attachments(mut self, s: ShowAttachmentsStrategy) -> Self {
-        self.show_attachments = s;
+    pub fn show_attachments(mut self, b: bool) -> Self {
+        self.show_attachments = b;
+        self
+    }
+
+    pub fn show_inline_attachments(mut self, b: bool) -> Self {
+        self.show_inline_attachments = b;
         self
     }
 
@@ -249,125 +195,202 @@ impl Interpreter {
         self
     }
 
-    fn interpret_part(&self, msg: &Message, part: &MessagePart) -> Result<String> {
+    fn interpret_attachment(&self, ctype: &str, part: &MessagePart, data: &[u8]) -> Result<String> {
         let mut tpl = String::new();
 
-        let ctype = part
-            .content_type()
-            .and_then(|ctype| {
-                ctype
-                    .subtype()
-                    .map(|stype| format!("{}/{stype}", ctype.ctype()))
-            })
-            .unwrap_or_else(|| String::from("application/octet-stream"));
-
-        let cdisp = part.content_disposition();
-        let is_attachment = cdisp.map(|cdisp| cdisp.is_attachment()).unwrap_or(false);
-
-        if is_attachment && self.show_attachments.allow_attachment() {
+        if self.show_attachments && self.filter_parts.contains(&ctype) {
             let fname = self
                 .save_attachments_dir
                 .join(part.attachment_name().unwrap_or("noname"));
 
             if self.save_attachments {
-                fs::write(&fname, part.contents())
+                fs::write(&fname, data)
                     .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
             }
 
             let fname = fname.to_string_lossy();
-            tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
-            tpl.push('\n');
+            tpl = format!("<#part type={ctype} filename=\"{fname}\">\n\n");
+        }
 
+        Ok(tpl)
+    }
+
+    fn interpret_inline_attachment(
+        &self,
+        ctype: &str,
+        part: &MessagePart,
+        data: &[u8],
+    ) -> Result<String> {
+        let mut tpl = String::new();
+
+        if self.show_inline_attachments && self.filter_parts.contains(&ctype) {
+            let ctype = get_ctype(part);
+            let fname = self.save_attachments_dir.join(
+                part.attachment_name()
+                    .or(part.content_id())
+                    .unwrap_or("noname"),
+            );
+
+            if self.save_attachments {
+                fs::write(&fname, data)
+                    .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
+            }
+
+            let fname = fname.to_string_lossy();
+            tpl = format!("<#part type={ctype} disposition=inline filename=\"{fname}\">\n\n");
+        }
+
+        Ok(tpl)
+    }
+
+    fn interpret_text(&self, ctype: &str, text: &str) -> String {
+        let mut tpl = String::new();
+
+        if self.filter_parts.contains(ctype) {
+            let text = text.replace("\r", "");
+
+            if self.filter_parts.only(&ctype) {
+                tpl.push_str(text.trim_end());
+            } else {
+                tpl.push_str(&format!("<#part type={ctype}>\n"));
+                tpl.push_str(text.trim_end());
+                tpl.push_str("\n<#/part>");
+            }
+            tpl.push_str("\n\n");
+        }
+
+        tpl
+    }
+
+    fn interpret_text_plain(&self, plain: &str) -> String {
+        let mut tpl = String::new();
+
+        if self.filter_parts.contains("text/plain") {
+            let mut plain = plain.replace("\r", "");
+
+            if !self.show_plain_texts_signature {
+                plain = plain
+                    .rsplit_once("-- \n")
+                    .map(|(body, _signature)| body.to_owned())
+                    .unwrap_or(plain);
+            }
+
+            tpl.push_str(plain.trim_end());
+            tpl.push_str("\n\n");
+        }
+
+        tpl
+    }
+
+    fn interpret_text_html(&self, html: &str) -> String {
+        let mut tpl = String::new();
+
+        if self.filter_parts.contains("text/html") {
+            if self.filter_parts.only("text/html") {
+                tpl.push_str(html.replace("\r", "").trim_end());
+            } else {
+                tpl.push_str("<#part type=text/html>\n");
+                tpl.push_str(html2text(html).trim_end());
+                tpl.push_str("\n<#/part>");
+            }
+            tpl.push_str("\n\n");
+        }
+
+        tpl
+    }
+
+    fn interpret_part(&self, msg: &Message, part: &MessagePart) -> Result<String> {
+        let mut tpl = String::new();
+
+        let ctype = get_ctype(part);
+        let cdisp = part.content_disposition();
+
+        // Check first for attachments because body part type does not
+        // reflect the real type of the part: a text/plain attachment
+        // is considered by mail-parser to have a text body part type
+        // instead of binary.
+
+        let is_attachment = cdisp.map(|cdisp| cdisp.is_attachment()).unwrap_or(false);
+        if is_attachment {
+            tpl.push_str(&self.interpret_attachment(&ctype, part, part.contents())?);
             return Ok(tpl);
         }
 
+        let is_inline = cdisp.map(|cdisp| cdisp.is_inline()).unwrap_or(false);
+        if is_inline {
+            tpl.push_str(&self.interpret_inline_attachment(&ctype, part, part.contents())?);
+            return Ok(tpl);
+        }
+
+        // Now we can check the body part type.
+
         match &part.body {
-            PartType::Text(plain) => {
-                if self.show_texts.allow_plain() {
-                    let mut plain = plain.replace("\r", "");
-
-                    if !self.show_plain_texts_signature {
-                        plain = plain
-                            .rsplit_once("-- \n")
-                            .map(|(body, _signature)| body.to_owned())
-                            .unwrap_or(plain);
-                    }
-
-                    if self.show_texts.allow_conversion() {
-                        plain = text_to_html(&plain);
-                    }
-
-                    if self.show_texts.allow_mml_markup() {
-                        tpl.push_str(&format!("<#part type=\"{ctype}\">"));
-                        tpl.push('\n');
-                    }
-
-                    tpl.push_str(&plain);
-                    tpl.push('\n');
-
-                    if self.show_texts.allow_mml_markup() {
-                        tpl.push_str(&format!("<#/part>"));
-                        tpl.push('\n');
-                    }
-                }
+            PartType::Text(plain) if ctype == "text/plain" => {
+                tpl.push_str(&self.interpret_text_plain(plain));
+            }
+            PartType::Text(text) => {
+                tpl.push_str(&self.interpret_text(&ctype, text));
             }
             PartType::Html(html) => {
-                if self.show_texts.allow_html() {
-                    let mut html = html.replace("\r", "");
-
-                    if self.show_texts.allow_conversion() {
-                        html = html_to_text(&html);
-                    }
-
-                    if self.show_texts.allow_mml_markup() {
-                        tpl.push_str(&format!("<#part type=\"{ctype}\">"));
-                        tpl.push('\n');
-                    }
-
-                    tpl.push_str(&html);
-                    tpl.push('\n');
-
-                    if self.show_texts.allow_mml_markup() {
-                        tpl.push_str(&format!("<#/part>"));
-                        tpl.push('\n');
-                    }
-                }
+                tpl.push_str(&self.interpret_text_html(html));
             }
             PartType::Binary(data) => {
-                if self.show_attachments.allow_attachment() {
-                    let fname = self
-                        .save_attachments_dir
-                        .join(part.attachment_name().unwrap_or("noname"));
-
-                    if self.save_attachments {
-                        fs::write(&fname, data)
-                            .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
-                    }
-
-                    let fname = fname.to_string_lossy();
-                    tpl.push_str(&format!("<#part filename=\"{fname}\" type=\"{ctype}\">"));
-                    tpl.push('\n');
-                }
+                tpl.push_str(&self.interpret_attachment(&ctype, part, data)?);
             }
             PartType::InlineBinary(data) => {
-                if self.show_attachments.allow_inline() {
-                    let fname = self
-                        .save_attachments_dir
-                        .join(part.content_id().unwrap_or("noname"));
+                tpl.push_str(&self.interpret_inline_attachment(&ctype, part, data)?);
+            }
+            PartType::Message(msg) => {
+                tpl.push_str(&self.interpret_msg(msg)?);
+            }
+            PartType::Multipart(ids) if ctype == "multipart/alternative" => {
+                let mut parts = ids.into_iter().filter_map(|id| msg.part(*id));
 
-                    if self.save_attachments {
-                        fs::write(&fname, data)
-                            .map_err(|err| Error::WriteAttachmentError(err, fname.clone()))?;
-                    }
+                let part = match &self.filter_parts {
+                    FilterParts::All => parts
+                        .clone()
+                        .find_map(|part| match &part.body {
+                            PartType::Text(plain) if get_ctype(part) == "text/plain" => {
+                                Some(Ok(self.interpret_text_plain(plain)))
+                            }
+                            _ => None,
+                        })
+                        .or_else(|| {
+                            parts.clone().find_map(|part| match &part.body {
+                                PartType::Html(html) => Some(Ok(self.interpret_text_html(html))),
+                                _ => None,
+                            })
+                        })
+                        .or_else(|| {
+                            parts.clone().find_map(|part| {
+                                let ctype = get_ctype(part);
+                                match &part.body {
+                                    PartType::Text(text) => {
+                                        Some(Ok(self.interpret_text(&ctype, text)))
+                                    }
+                                    _ => None,
+                                }
+                            })
+                        })
+                        .or_else(|| parts.next().map(|part| self.interpret_part(msg, part))),
+                    FilterParts::Only(ctype) => parts
+                        .clone()
+                        .find(|part| &get_ctype(part) == ctype)
+                        .map(|part| self.interpret_part(msg, part)),
+                    FilterParts::Include(ctypes) => parts
+                        .clone()
+                        .find(|part| ctypes.contains(&get_ctype(part)))
+                        .map(|part| self.interpret_part(msg, part)),
+                    FilterParts::Exclude(ctypes) => parts
+                        .clone()
+                        .find(|part| !ctypes.contains(&get_ctype(part)))
+                        .map(|part| self.interpret_part(msg, part)),
+                };
 
-                    let fname = fname.to_string_lossy();
-                    tpl.push_str(&format!(
-                        "<#part filename=\"{fname}\" type=\"{ctype}\" disposition=\"inline\">"
-                    ));
-                    tpl.push('\n');
+                if let Some(part) = part {
+                    tpl.push_str(&part?);
                 }
             }
-            PartType::Message(msg) => tpl.push_str(&self.interpret_msg(msg)?),
             PartType::Multipart(ids) if ctype == "multipart/encrypted" => {
                 let encrypted_part = msg.part(ids[1]).unwrap();
                 let decrypted_part = self
@@ -386,16 +409,19 @@ impl Interpreter {
                     .map_err(Error::VerifyPartError)?;
                 tpl.push_str(&self.interpret_part(&msg, signed_part)?);
             }
-            PartType::Multipart(_) if ctype == "application/pgp-encrypted" => (),
-            PartType::Multipart(_) if ctype == "application/pgp-signature" => (),
+            PartType::Multipart(_) if ctype == "application/pgp-encrypted" => {
+                // TODO: check if content matches "Version: 1"
+            }
+            PartType::Multipart(_) if ctype == "application/pgp-signature" => {
+                // TODO: verify signature
+            }
             PartType::Multipart(ids) => {
                 if self.show_multiparts {
                     let stype = part
                         .content_type()
                         .and_then(|p| p.subtype())
                         .unwrap_or("mixed");
-                    tpl.push_str(&format!("<#multipart type=\"{stype}\">"));
-                    tpl.push('\n');
+                    tpl.push_str(&format!("<#multipart type={stype}>\n\n"));
                 }
 
                 for id in ids {
@@ -407,8 +433,7 @@ impl Interpreter {
                 }
 
                 if self.show_multiparts {
-                    tpl.push_str("<#/multipart>");
-                    tpl.push('\n');
+                    tpl.push_str("<#/multipart>\n\n");
                 }
             }
         }
@@ -435,46 +460,50 @@ impl Interpreter {
     }
 }
 
+fn get_ctype(part: &MessagePart) -> String {
+    part.content_type()
+        .and_then(|ctype| {
+            ctype
+                .subtype()
+                .map(|stype| format!("{}/{stype}", ctype.ctype()))
+        })
+        .unwrap_or_else(|| String::from("application/octet-stream"))
+}
+
 #[cfg(test)]
 mod tests {
     use concat_with::concat_line;
     use mail_builder::{mime::MimePart, MessageBuilder};
 
-    use super::Interpreter;
+    use super::{FilterParts, Interpreter};
 
     #[test]
-    fn show_nested_multiparts() {
+    fn nested_multiparts() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
-            vec![MimePart::new(
-                "multipart/alternative",
-                vec![
-                    MimePart::new("text/plain", "This is a plain text part."),
-                    MimePart::new("text/html", "<h1>This is a HTML text part.</h1>"),
-                ],
-            )],
+            vec![
+                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new(
+                    "multipart/related",
+                    vec![
+                        MimePart::new("text/plain", "This is a second plain text part."),
+                        MimePart::new("text/plain", "This is a third plain text part."),
+                    ],
+                ),
+            ],
         ));
 
         let tpl = Interpreter::new()
-            .show_multiparts(false)
             .interpret_msg_builder(builder.clone())
             .unwrap();
 
-        let expected_tpl = concat_line!("This is a plain text part.", "");
-
-        assert_eq!(tpl, expected_tpl);
-
-        let tpl = Interpreter::new()
-            .show_multiparts(true)
-            .interpret_msg_builder(builder)
-            .unwrap();
-
         let expected_tpl = concat_line!(
-            "<#multipart type=\"mixed\">",
-            "<#multipart type=\"alternative\">",
             "This is a plain text part.",
-            "<#/multipart>",
-            "<#/multipart>",
+            "",
+            "This is a second plain text part.",
+            "",
+            "This is a third plain text part.",
+            "",
             "",
         );
 
@@ -482,188 +511,286 @@ mod tests {
     }
 
     #[test]
-    fn plain() {
-        let msg = MessageBuilder::new().text_body("Hello, world!");
-        let tpl = Interpreter::new().interpret_msg_builder(msg).unwrap();
-        let expected_tpl = concat_line!("Hello, world!", "");
+    fn nested_multiparts_with_markup() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/mixed",
+            vec![
+                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new(
+                    "multipart/related",
+                    vec![
+                        MimePart::new("text/plain", "This is a second plain text part."),
+                        MimePart::new("text/plain", "This is a third plain text part."),
+                    ],
+                ),
+            ],
+        ));
+
+        let tpl = Interpreter::new()
+            .show_multiparts(true)
+            .interpret_msg_builder(builder.clone())
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "<#multipart type=mixed>",
+            "",
+            "This is a plain text part.",
+            "",
+            "<#multipart type=related>",
+            "",
+            "This is a second plain text part.",
+            "",
+            "This is a third plain text part.",
+            "",
+            "<#/multipart>",
+            "",
+            "<#/multipart>",
+            "",
+            "",
+        );
 
         assert_eq!(tpl, expected_tpl);
     }
 
-    // #[test]
-    // fn html() {
-    //     let msg = MessageBuilder::new()
-    //         .from("from@localhost")
-    //         .to("to@localhost")
-    //         .subject("subject")
-    //         .html_body("<h1>Hello, world!</h1>");
+    #[test]
+    fn all_text() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/mixed",
+            vec![
+                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+            ],
+        ));
 
-    //     let tpl = Interpreter::new().interpret_msg_builder(msg).unwrap();
+        let tpl = Interpreter::new()
+            .interpret_msg_builder(builder.clone())
+            .unwrap();
 
-    //     let expected_tpl = concat_line!("<h1>Hello, world!</h1>", "");
+        let expected_tpl = concat_line!(
+            "This is a plain text part.",
+            "",
+            "<#part type=text/html>",
+            "This is a <HTML> text part.",
+            "<#/part>",
+            "",
+            "<#part type=text/json>",
+            "{\"type\": \"This is a JSON text part.\"}",
+            "<#/part>",
+            "",
+            "",
+        );
 
-    //     assert_eq!(tpl, expected_tpl);
-    // }
+        assert_eq!(tpl, expected_tpl);
+    }
 
-    // #[test]
-    // fn html_with_markup() {
-    //     let msg = MessageBuilder::new()
-    //         .from("from@localhost")
-    //         .to("to@localhost")
-    //         .subject("subject")
-    //         .html_body("<h1>Hello, world!</h1>");
+    #[test]
+    fn only_text_plain() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/mixed",
+            vec![
+                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new(
+                    "text/html",
+                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>",
+                ),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+            ],
+        ));
 
-    //     let tpl = Interpreter::new()
-    //         .show_mml_part_markup(true)
-    //         .interpret_msg_builder(msg)
-    //         .unwrap();
+        let tpl = Interpreter::new()
+            .filter_parts(FilterParts::Only("text/plain".into()))
+            .interpret_msg_builder(builder.clone())
+            .unwrap();
 
-    //     let expected_tpl = concat_line!(
-    //         "<#part type=\"text/html\">",
-    //         "<h1>Hello, world!</h1>",
-    //         "<#/part>",
-    //         "",
-    //     );
+        let expected_tpl = concat_line!("This is a plain text part.", "", "");
 
-    //     assert_eq!(tpl, expected_tpl);
-    // }
+        assert_eq!(tpl, expected_tpl);
+    }
 
-    // #[test]
-    // fn attachment() {
-    //     let msg = MessageBuilder::new()
-    //         .from("from@localhost")
-    //         .to("to@localhost")
-    //         .subject("subject")
-    //         .text_body("Hello, world!")
-    //         .attachment("text/plain", "attachment.txt", "Hello, world!".as_bytes());
-    //     let tpl = Interpreter::new()
-    //         .save_attachments_dir("~/Downloads")
-    //         .interpret_msg_builder(msg)
-    //         .unwrap();
-    //     let expected_tpl = concat_line!("Hello, world!", "");
+    #[test]
+    fn only_text_html() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/mixed",
+            vec![
+                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new(
+                    "text/html",
+                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>",
+                ),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+            ],
+        ));
 
-    //     assert_eq!(tpl, expected_tpl);
-    // }
+        let tpl = Interpreter::new()
+            .filter_parts(FilterParts::Only("text/html".into()))
+            .interpret_msg_builder(builder.clone())
+            .unwrap();
 
-    // #[test]
-    // fn attachment_with_markup() {
-    //     let msg = MessageBuilder::new()
-    //         .from("from@localhost")
-    //         .to("to@localhost")
-    //         .subject("subject")
-    //         .text_body("Hello, world!")
-    //         .attachment("text/plain", "attachment.txt", "Hello, world!".as_bytes());
-    //     let tpl = Interpreter::new()
-    //         .show_mml_part_markup(true)
-    //         .save_attachments_dir("~/Downloads")
-    //         .interpret_msg_builder(msg)
-    //         .unwrap();
-    //     let expected_tpl = concat_line!(
-    //         "Hello, world!",
-    //         "<#part filename=\"~/Downloads/attachment.txt\" type=\"text/plain\">",
-    //         "",
-    //     );
+        let expected_tpl = concat_line!("<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>", "", "");
 
-    //     assert_eq!(tpl, expected_tpl);
-    // }
+        assert_eq!(tpl, expected_tpl);
+    }
 
-    // #[test]
-    // fn show_multiparts() {
-    //     let msg = MessageBuilder::new()
-    //         .from("from@localhost")
-    //         .to("to@localhost")
-    //         .subject("subject")
-    //         .body(MimePart::new(
-    //             "multipart/mixed",
-    //             vec![
-    //                 MimePart::new("text/plain", "Hello, world!"),
-    //                 MimePart::new("text/html", "<h1>Hello, world!</h1>"),
-    //             ],
-    //         ));
-    //     let tpl = Interpreter::new()
-    //         .hide_mml_markup()
-    //         .interpret_msg_builder(msg)
-    //         .unwrap();
-    //     let expected_tpl = concat_line!("Hello, world!", "<h1>Hello, world!</h1>", "");
+    #[test]
+    fn only_text_other() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/mixed",
+            vec![
+                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new(
+                    "text/html",
+                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>",
+                ),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+            ],
+        ));
 
-    //     assert_eq!(tpl, expected_tpl);
-    // }
+        let tpl = Interpreter::new()
+            .filter_parts(FilterParts::Only("text/json".into()))
+            .interpret_msg_builder(builder.clone())
+            .unwrap();
 
-    // #[test]
-    // fn multipart_plain_only() {
-    //     let msg = MessageBuilder::new()
-    //         .from("from@localhost")
-    //         .to("to@localhost")
-    //         .subject("subject")
-    //         .body(MimePart::new(
-    //             "multipart/alternative",
-    //             vec![
-    //                 MimePart::new("text/plain", "Hello, world!"),
-    //                 MimePart::new("text/html", "<h1>Hello, world!</h1>"),
-    //             ],
-    //         ));
-    //     let tpl = Interpreter::new()
-    //         .hide_mml_markup()
-    //         .show_only_parts(["text/plain"])
-    //         .interpret_msg_builder(msg)
-    //         .unwrap();
-    //     let expected_tpl = concat_line!("Hello, world!", "");
+        let expected_tpl = concat_line!("{\"type\": \"This is a JSON text part.\"}", "", "");
 
-    //     assert_eq!(tpl, expected_tpl);
-    // }
+        assert_eq!(tpl, expected_tpl);
+    }
 
-    // #[test]
-    // fn multipart_with_markups() {
-    //     let msg = MessageBuilder::new()
-    //         .from("from@localhost")
-    //         .to("to@localhost")
-    //         .subject("subject")
-    //         .body(MimePart::new(
-    //             "multipart/mixed",
-    //             vec![
-    //                 MimePart::new("text/plain", "Hello, world!"),
-    //                 MimePart::new("text/html", "<h1>Hello, world!</h1>"),
-    //             ],
-    //         ));
-    //     let tpl = Interpreter::new()
-    //         .show_mml_markup(true)
-    //         .interpret_msg_builder(msg)
-    //         .unwrap();
-    //     let expected_tpl = concat_line!(
-    //         "<#multipart type=\"mixed\">",
-    //         "Hello, world!",
-    //         "<#part type=\"text/html\">",
-    //         "<h1>Hello, world!</h1>",
-    //         "<#/part>",
-    //         "<#/multipart>",
-    //         "",
-    //     );
+    #[test]
+    fn multipart_alternative_text_all_without_plain() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/alternative",
+            vec![
+                MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+            ],
+        ));
 
-    //     assert_eq!(tpl, expected_tpl);
-    // }
+        let tpl = Interpreter::new()
+            .interpret_msg_builder(builder.clone())
+            .unwrap();
 
-    // #[test]
-    // fn nested_multipart() {
-    //     let msg = MessageBuilder::new()
-    //         .from("from@localhost")
-    //         .to("to@localhost")
-    //         .subject("subject")
-    //         .body(MimePart::new(
-    //             "multipart/mixed",
-    //             vec![MimePart::new(
-    //                 "multipart/alternative",
-    //                 vec![
-    //                     MimePart::new("text/plain", "Hello, world!"),
-    //                     MimePart::new("text/html", "<h1>Hello, world!</h1>"),
-    //                 ],
-    //             )],
-    //         ));
-    //     let tpl = Interpreter::new()
-    //         .hide_mml_markup()
-    //         .interpret_msg_builder(msg)
-    //         .unwrap();
-    //     let expected_tpl = concat_line!("Hello, world!", "<h1>Hello, world!</h1>", "");
+        let expected_tpl = concat_line!(
+            "<#part type=text/html>",
+            "This is a <HTML> text part.",
+            "<#/part>",
+            "",
+            ""
+        );
 
-    //     assert_eq!(tpl, expected_tpl);
-    // }
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn multipart_alternative_text_all_without_plain_nor_html() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/alternative",
+            vec![MimePart::new(
+                "text/json",
+                "{\"type\": \"This is a JSON text part.\"}",
+            )],
+        ));
+
+        let tpl = Interpreter::new()
+            .interpret_msg_builder(builder.clone())
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "<#part type=text/json>",
+            "{\"type\": \"This is a JSON text part.\"}",
+            "<#/part>",
+            "",
+            ""
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn multipart_alternative_text_all() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/alternative",
+            vec![
+                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new(
+                    "text/html",
+                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>",
+                ),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+            ],
+        ));
+
+        let tpl = Interpreter::new()
+            .interpret_msg_builder(builder.clone())
+            .unwrap();
+
+        let expected_tpl = concat_line!("This is a plain text part.", "", "");
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn multipart_alternative_text_html_only() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/alternative",
+            vec![
+                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new(
+                    "text/html",
+                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>",
+                ),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+            ],
+        ));
+
+        let tpl = Interpreter::new()
+            .filter_parts(FilterParts::Only("text/html".into()))
+            .interpret_msg_builder(builder.clone())
+            .unwrap();
+
+        let expected_tpl = concat_line!("<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>", "", "");
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn attachment() {
+        let builder = MessageBuilder::new().attachment(
+            "text/plain",
+            "attachment.txt",
+            "Hello, world!".as_bytes(),
+        );
+
+        let tpl = Interpreter::new()
+            .save_attachments_dir("~/Downloads")
+            .interpret_msg_builder(builder)
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "<#part type=text/plain filename=\"~/Downloads/attachment.txt\">",
+            "",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn inline_attachment() {
+        let builder =
+            MessageBuilder::new().inline("text/plain", "attachment", "Hello, world!".as_bytes());
+
+        let tpl = Interpreter::new()
+            .save_attachments_dir("~/Downloads")
+            .interpret_msg_builder(builder)
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "<#part type=text/plain disposition=inline filename=\"~/Downloads/attachment\">",
+            "",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
 }

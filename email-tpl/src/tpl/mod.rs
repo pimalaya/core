@@ -148,6 +148,8 @@ impl Tpl {
             .compile(&mml)
             .map_err(Error::CompileMmlError)?;
 
+        builder = builder.header("MIME-Version", Raw::new("1.0"));
+
         for (key, val) in tpl.headers_raw() {
             let key = key.trim().to_owned();
             let val = Raw::new(val.trim().to_owned());

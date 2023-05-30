@@ -318,16 +318,18 @@ impl AccountConfig {
         let delim = self
             .signature_delim
             .as_ref()
-            .map(|s| s.as_str())
+            .map(String::as_str)
             .unwrap_or(DEFAULT_SIGNATURE_DELIM);
-        let signature = self.signature.as_ref();
 
-        Ok(signature
+        let signature = self.signature.as_ref();
+        let signature = signature
             .and_then(|sig| shellexpand::full(sig).ok())
             .map(String::from)
             .and_then(|sig| fs::read_to_string(sig).ok())
             .or_else(|| signature.map(ToOwned::to_owned))
-            .map(|sig| format!("{}{}", delim, sig)))
+            .map(|sig| format!("{}{}", delim, sig.trim()));
+
+        Ok(signature)
     }
 
     pub fn sync(&self) -> bool {

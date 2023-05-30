@@ -4,4 +4,4 @@ mod parsers;
 mod tokens;
 
 pub use compiler::Compiler;
-pub use interpreter::{Interpreter, ShowAttachmentsStrategy, ShowTextsStrategy};
+pub use interpreter::{FilterParts, Interpreter};
