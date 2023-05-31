@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2023-05-31
+
+### Added
+
+- Added parsing template from raw message support. Parsing is done via the `TplInterpreter` builder, and functions `TplInterpreter::interpret_*` return the parsed template.
+
+### Changed
+
+- Replaced `lettre` by `mail-builder` and `mail-parser`.
+- Use crate `nanohtml2text` instead of manual html to plain transform using ammonia, html-escape and regex.
+- Moved MML stuff in its own `mml` module, to be as close as what provides the Emacs MML module. The `tpl` module contains stuff related to template. A template is just an email composed of headers and one unique plain text part. This plain text part can be written in MML.
+- Compiler options are now attached to the `Tpl` structure.
+
 ## [0.1.1] - 2023-05-19
 
 ### Changed

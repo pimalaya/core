@@ -6,7 +6,7 @@ authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["email", "network-programming"]
-keywords = ["email", "smtp", "mailer", "message", "sendmail"]
+keywords = ["email", "template", "mml", "emacs", "mime"]
 
 [lib]
 name = "pimalaya_email_tpl"
