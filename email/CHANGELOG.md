@@ -5,11 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [Unreleased]
 
 ### Added
 
 - Added IP support using `rustls` `v0.21` [#80].
+- Added `AccountConfig::generate_tpl_interpreter` function to generate a template interpreter with default options based on the config (pgp encrypt, pgp verify and attachments dir).
+
+### Changed
+
+- Changed `AccountConfig::addr` return type from `lettre::Mailbox` to `mail_builder::Address`.
+- Changed `AccountConfig::email_reading_headers` default values to `["From", "To", "Cc", "Subject"]`.
+- Changed `AccountConfig::email_writing_headers` default values to `["From", "To", "In-Reply-To", "Cc", "Subject"]`.
+- Removed noise around signature by trimming it.
+- Changed `Email::parsed` return type from `mailparse::ParsedMail` to `mail_parser::Message`.
+- Changed `Email::new_tpl_builder` return type from `Result<TplBuilder>` to `NewTplBuilder`.
+- Renamed `Email::to_read_tpl_builder` to `Email::to_read_tpl` which returns now a `Result<Tpl>` directly.
+- Changed `Email::to_reply_tpl_builder` return type from `Result<TplBuilder>` to `ReplyTplBuilder`.
+- Changed `Email::to_forward_tpl_builder` return type from `Result<TplBuilder>` to `ForwardTplBuilder`.
+
+### Fixed
+
+- Fixed notmuch path not being expanded correctly.
+- Fixed `.notmuch` folder created by `notmuch new` command being treated as a folder. Because it is a folder starting by a dot, it was considered as a Maildir++ folder (which is not).
 
 ## [0.8.0] - 2023-05-19
 

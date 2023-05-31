@@ -196,7 +196,7 @@ impl Default for AccountConfig {
 }
 
 impl AccountConfig {
-    pub fn address(&self) -> Address {
+    pub fn addr(&self) -> Address {
         Address::Address(EmailAddress {
             name: self.display_name.clone().map(Into::into),
             email: self.email.clone().into(),

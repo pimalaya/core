@@ -1,7 +1,6 @@
 # 📫 pimalaya-email-tpl
 
-Rust library for building MIME Messages based on the [Emacs MIME Meta
-Language]((https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html)):
+Rust library for interpreting and compiling MIME Messages based on the [Emacs MIME Meta Language](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html):
 
 > Creating a MIME message is boring and non-trivial. Therefore, a
 > library called mml has been defined that parses a language called
@@ -45,8 +44,7 @@ Content-Transfer-Encoding: 7bit
 
 ## Definition
 
-From the
-[documentation](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/MML-Definition.html):
+From the [documentation](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/MML-Definition.html):
 
 > The MML language is very simple. It looks a bit like an SGML
 > application, but it’s not.
@@ -65,25 +63,22 @@ From the
 > but that’s not necessary unless the value contains white space. So
 > ‘filename=/home/user/#hello$^yes’ is perfectly valid.
 
+## Features
+
+- Interpret raw emails as template using the `TplInterpreter` builder
+- Compile templates as raw emails using the template compiler builder
+- Multiple parts support `<#multipart>…<#/multipart>`
+- Inline part support `<#part text=mime/type>…<#/part>`
+- Attachment support `<#part filename=/path/to/attachment.ext>`
+- PGP support using system commands (encrypt, decrypt, sign, verify)
+
 ## Examples
 
-See
-[`./examples`](https://git.sr.ht/~soywod/rust-mml/tree/master/item/examples):
+See [`./examples`](https://git.sr.ht/~soywod/pimalaya/tree/master/item/email-tpl/examples):
 
 ```sh
 cargo run --example
 ```
-
-## Features
-
-* Template builder
-* Multipart support `<#multipart>…<#/multipart>`
-* SinglePart support `<#part>…<#/part>`
-* Attachment support `<#part filename=…>`
-* Part encryption using custom system commands (default: `gpg
-  --encrypt --armor --recipient <recipient> --quiet --output -`)
-* Part signing using custom system commands (default: `gpg --sign
-  --armor --quiet --output -`)
 
 ## Development
 

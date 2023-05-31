@@ -308,7 +308,7 @@ impl<'a> NewTplBuilder<'a> {
 
     pub fn build(self) -> Result<Tpl> {
         let mut builder = MessageBuilder::new()
-            .from(self.config.address())
+            .from(self.config.addr())
             .to(Vec::<Address>::new())
             .subject("")
             .text_body({
@@ -447,7 +447,7 @@ impl<'a> ReplyTplBuilder<'a> {
 
         // From
 
-        builder = builder.from(self.config.address());
+        builder = builder.from(self.config.addr());
 
         // To
 
@@ -675,7 +675,7 @@ impl<'a> ForwardTplBuilder<'a> {
 
         // From
 
-        builder = builder.from(self.config.address());
+        builder = builder.from(self.config.addr());
 
         // To
 
