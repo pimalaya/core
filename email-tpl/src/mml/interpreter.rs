@@ -350,14 +350,16 @@ impl Interpreter {
                     FilterParts::All => parts
                         .clone()
                         .find_map(|part| match &part.body {
-                            PartType::Text(plain) if get_ctype(part) == "text/plain" => {
+                            PartType::Text(plain) if is_plain(part) && !plain.trim().is_empty() => {
                                 Some(Ok(self.interpret_text_plain(plain)))
                             }
                             _ => None,
                         })
                         .or_else(|| {
                             parts.clone().find_map(|part| match &part.body {
-                                PartType::Html(html) => Some(Ok(self.interpret_text_html(html))),
+                                PartType::Html(html) if !html.trim().is_empty() => {
+                                    Some(Ok(self.interpret_text_html(html)))
+                                }
                                 _ => None,
                             })
                         })
@@ -365,7 +367,7 @@ impl Interpreter {
                             parts.clone().find_map(|part| {
                                 let ctype = get_ctype(part);
                                 match &part.body {
-                                    PartType::Text(text) => {
+                                    PartType::Text(text) if !text.trim().is_empty() => {
                                         Some(Ok(self.interpret_text(&ctype, text)))
                                     }
                                     _ => None,
@@ -468,6 +470,10 @@ fn get_ctype(part: &MessagePart) -> String {
                 .map(|stype| format!("{}/{stype}", ctype.ctype()))
         })
         .unwrap_or_else(|| String::from("application/octet-stream"))
+}
+
+fn is_plain(part: &MessagePart) -> bool {
+    get_ctype(part) == "text/plain"
 }
 
 #[cfg(test)]
@@ -661,6 +667,32 @@ mod tests {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/alternative",
             vec![
+                MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+            ],
+        ));
+
+        let tpl = Interpreter::new()
+            .interpret_msg_builder(builder.clone())
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "<#part type=text/html>",
+            "This is a <HTML> text part.",
+            "<#/part>",
+            "",
+            ""
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[test]
+    fn multipart_alternative_text_all_with_empty_plain() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/alternative",
+            vec![
+                MimePart::new("text/plain", "    \n\n"),
                 MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>"),
                 MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
             ],
