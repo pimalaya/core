@@ -301,28 +301,7 @@ impl Interpreter {
 
     fn interpret_part(&self, msg: &Message, part: &MessagePart) -> Result<String> {
         let mut tpl = String::new();
-
         let ctype = get_ctype(part);
-        let cdisp = part.content_disposition();
-
-        // Check first for attachments because body part type does not
-        // reflect the real type of the part: a text/plain attachment
-        // is considered by mail-parser to have a text body part type
-        // instead of binary.
-
-        let is_attachment = cdisp.map(|cdisp| cdisp.is_attachment()).unwrap_or(false);
-        if is_attachment {
-            tpl.push_str(&self.interpret_attachment(&ctype, part, part.contents())?);
-            return Ok(tpl);
-        }
-
-        let is_inline = cdisp.map(|cdisp| cdisp.is_inline()).unwrap_or(false);
-        if is_inline {
-            tpl.push_str(&self.interpret_inline_attachment(&ctype, part, part.contents())?);
-            return Ok(tpl);
-        }
-
-        // Now we can check the body part type.
 
         match &part.body {
             PartType::Text(plain) if ctype == "text/plain" => {
@@ -788,7 +767,7 @@ mod tests {
     #[test]
     fn attachment() {
         let builder = MessageBuilder::new().attachment(
-            "text/plain",
+            "application/octet-stream",
             "attachment.txt",
             "Hello, world!".as_bytes(),
         );
@@ -799,26 +778,7 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "<#part type=text/plain filename=\"~/Downloads/attachment.txt\">",
-            "",
-            "",
-        );
-
-        assert_eq!(tpl, expected_tpl);
-    }
-
-    #[test]
-    fn inline_attachment() {
-        let builder =
-            MessageBuilder::new().inline("text/plain", "attachment", "Hello, world!".as_bytes());
-
-        let tpl = Interpreter::new()
-            .save_attachments_dir("~/Downloads")
-            .interpret_msg_builder(builder)
-            .unwrap();
-
-        let expected_tpl = concat_line!(
-            "<#part type=text/plain disposition=inline filename=\"~/Downloads/attachment\">",
+            "<#part type=application/octet-stream filename=\"~/Downloads/attachment.txt\">",
             "",
             "",
         );
