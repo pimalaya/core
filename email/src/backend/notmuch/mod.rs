@@ -110,7 +110,13 @@ impl NotmuchBackend {
     }
 
     pub fn path(&self) -> PathBuf {
-        self.backend_config.db_path.to_owned()
+        self.backend_config
+            .db_path
+            .to_str()
+            .and_then(|path| shellexpand::full(path).ok())
+            .map(|path| PathBuf::from(path.to_string()))
+            .and_then(|path| path.canonicalize().ok())
+            .unwrap_or_else(|| self.backend_config.db_path.clone())
     }
 
     pub fn get_default_db_path() -> Result<PathBuf> {
@@ -129,13 +135,7 @@ impl NotmuchBackend {
     where
         F: Fn(&notmuch::Database) -> Result<T>,
     {
-        let path = self.backend_config.db_path.to_str();
-        let path = path
-            .and_then(|path| shellexpand::full(path).ok())
-            .map(|path| PathBuf::from(path.to_string()))
-            .and_then(|path| path.canonicalize().ok())
-            .unwrap_or_else(|| self.backend_config.db_path.clone());
-
+        let path = self.path();
         let db = notmuch::Database::open_with_config(
             Some(&path),
             notmuch::DatabaseMode::ReadWrite,
@@ -283,7 +283,7 @@ impl Backend for NotmuchBackend {
         );
 
         let folder = self.account_config.folder_alias(folder)?;
-        let path = self.backend_config.db_path.join(folder);
+        let path = self.path().join(folder);
         let mdir = maildir::Maildir::from(
             path.canonicalize()
                 .map_err(|err| Error::CanonicalizePath(err, path.clone()))?,

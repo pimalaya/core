@@ -229,6 +229,10 @@ impl Backend for MaildirBackend {
                 .ok_or_else(|| Error::ParseSubdirError(dir.path().to_owned()))?
                 .to_string();
 
+            if name == "notmuch" {
+                continue;
+            }
+
             folders.push(Folder {
                 delim: String::from("/"),
                 name: self.decode_folder(&name),
