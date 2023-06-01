@@ -29,11 +29,13 @@
 
             # Rust env
             rust-toolchain
-            openssl
-            notmuch
-            msmtp
+            cargo-watch
 
+            # Email env
             gnupg
+            msmtp
+            notmuch
+            openssl
           ];
         };
 

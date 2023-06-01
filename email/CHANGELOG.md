@@ -23,11 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `Email::to_read_tpl_builder` to `Email::to_read_tpl` which returns now a `Result<Tpl>` directly.
 - Changed `Email::to_reply_tpl_builder` return type from `Result<TplBuilder>` to `ReplyTplBuilder`.
 - Changed `Email::to_forward_tpl_builder` return type from `Result<TplBuilder>` to `ForwardTplBuilder`.
+- Renamed `backend::imap::Error::ListEnvelopesOutOfBounds` by `BuildPageRangeOutOfBoundsError`.
 
 ### Fixed
 
 - Fixed notmuch path not being expanded correctly.
 - Fixed `.notmuch` folder created by `notmuch new` command being treated as a folder. Because it is a folder starting by a dot, it was considered as a Maildir++ folder (which is not).
+- Fixed IMAP pagination error when listing envelopes [#76].
 
 ## [0.8.0] - 2023-05-19
 
@@ -274,4 +276,5 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#57]: https://todo.sr.ht/~soywod/pimalaya/57
 [#61]: https://todo.sr.ht/~soywod/pimalaya/61
 [#70]: https://todo.sr.ht/~soywod/pimalaya/70
+[#76]: https://todo.sr.ht/~soywod/pimalaya/76
 [#80]: https://todo.sr.ht/~soywod/pimalaya/80

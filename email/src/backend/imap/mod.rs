@@ -58,7 +58,7 @@ pub enum Error {
     #[error("cannot get imap envelope of email {0}")]
     GetEnvelopeError(String),
     #[error("cannot list imap envelopes: page {0} out of bounds")]
-    ListEnvelopesOutOfBounds(usize),
+    BuildPageRangeOutOfBoundsError(usize),
     #[error("cannot fetch new imap envelopes")]
     FetchNewEnvelopesError(#[source] imap::Error),
     #[error("cannot search new imap envelopes")]
@@ -702,32 +702,7 @@ impl Backend for ImapBackend {
             return Ok(Envelopes::default());
         }
 
-        let page_cursor = page * page_size;
-        if page_cursor >= folder_size {
-            return Err(Error::ListEnvelopesOutOfBounds(page + 1))?;
-        }
-
-        let range = if page_size == 0 {
-            String::from("1:*")
-        } else {
-            let page_size = page_size.min(folder_size);
-            let mut count = 1;
-            let mut cursor = folder_size - (folder_size.min(page_cursor));
-            let mut range = cursor.to_string();
-            while cursor > 0 && count < page_size {
-                count += 1;
-                cursor -= 1;
-                if count > 1 {
-                    range.push(',');
-                }
-                range.push_str(&cursor.to_string());
-            }
-            range
-        };
-        trace!("page: {page}");
-        trace!("page size: {page_size}");
-        trace!("seq range: {range}");
-
+        let range = build_page_range(page, page_size, folder_size)?;
         let fetches = session
             .fetch(&range, ENVELOPE_QUERY)
             .map_err(|err| Error::FetchEmailsByUidRangeError(err, range))?;
@@ -1021,5 +996,72 @@ impl Backend for ImapBackend {
 
     fn as_any(&self) -> &(dyn Any) {
         self
+    }
+}
+
+pub fn build_page_range(page: usize, page_size: usize, size: usize) -> Result<String> {
+    let page_cursor = page * page_size;
+    if page_cursor >= size {
+        return Err(Error::BuildPageRangeOutOfBoundsError(page + 1))?;
+    }
+
+    let range = if page_size == 0 {
+        String::from("1:*")
+    } else {
+        let page_size = page_size.min(size);
+        let mut count = 1;
+        let mut cursor = size - (size.min(page_cursor));
+        let mut range = cursor.to_string();
+        while cursor > 1 && count < page_size {
+            count += 1;
+            cursor -= 1;
+            if count > 1 {
+                range.push(',');
+            }
+            range.push_str(&cursor.to_string());
+        }
+        range
+    };
+
+    Ok(range)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn build_page_range_out_of_bounds() {
+        // page * page_size < size
+        assert_eq!(super::build_page_range(0, 5, 5).unwrap(), "5,4,3,2,1");
+
+        // page * page_size = size
+        assert!(matches!(
+            super::build_page_range(1, 5, 5).unwrap_err(),
+            super::Error::BuildPageRangeOutOfBoundsError(2),
+        ));
+
+        // page * page_size > size
+        assert!(matches!(
+            super::build_page_range(2, 5, 5).unwrap_err(),
+            super::Error::BuildPageRangeOutOfBoundsError(3),
+        ));
+    }
+
+    #[test]
+    fn build_page_range_page_size_0() {
+        assert_eq!(super::build_page_range(0, 0, 3).unwrap(), "1:*");
+        assert_eq!(super::build_page_range(1, 0, 4).unwrap(), "1:*");
+        assert_eq!(super::build_page_range(2, 0, 5).unwrap(), "1:*");
+    }
+
+    #[test]
+    fn build_page_range_page_size_smaller_than_size() {
+        assert_eq!(super::build_page_range(0, 3, 5).unwrap(), "5,4,3");
+        assert_eq!(super::build_page_range(1, 3, 5).unwrap(), "2,1");
+        assert_eq!(super::build_page_range(1, 4, 5).unwrap(), "1");
+    }
+
+    #[test]
+    fn build_page_range_page_bigger_than_size() {
+        assert_eq!(super::build_page_range(0, 10, 5).unwrap(), "5,4,3,2,1");
     }
 }
