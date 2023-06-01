@@ -4,6 +4,7 @@ pub use config::NotmuchConfig;
 
 use lettre::address::AddressError;
 use log::{info, trace};
+use maildirpp::Maildir;
 use std::{any::Any, fs, io, path::PathBuf, result};
 use thiserror::Error;
 
@@ -21,7 +22,7 @@ pub enum Error {
     #[error("cannot get default notmuch database path")]
     GetDefaultDatabasePathError(#[source] notmuch::Error),
     #[error("cannot store notmuch email to folder {1}")]
-    StoreWithFlagsError(#[source] maildir::MaildirError, PathBuf),
+    StoreWithFlagsError(#[source] maildirpp::Error, PathBuf),
     #[error("cannot find notmuch email")]
     FindMaildirEmailById,
     #[error("cannot parse notmuch envelope date {1}")]
@@ -284,7 +285,7 @@ impl Backend for NotmuchBackend {
 
         let folder = self.account_config.folder_alias(folder)?;
         let path = self.path().join(folder);
-        let mdir = maildir::Maildir::from(
+        let mdir = Maildir::from(
             path.canonicalize()
                 .map_err(|err| Error::CanonicalizePath(err, path.clone()))?,
         );

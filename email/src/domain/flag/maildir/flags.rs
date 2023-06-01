@@ -1,7 +1,7 @@
 use crate::{Flag, Flags};
 
-impl From<&maildir::MailEntry> for Flags {
-    fn from(entry: &maildir::MailEntry) -> Self {
+impl From<&maildirpp::MailEntry> for Flags {
+    fn from(entry: &maildirpp::MailEntry) -> Self {
         entry.flags().chars().flat_map(Flag::try_from).collect()
     }
 }

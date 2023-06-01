@@ -3,7 +3,7 @@ pub mod config;
 pub use config::MaildirConfig;
 
 use log::{info, trace, warn};
-use maildir::Maildir;
+use maildirpp::Maildir;
 use std::{
     any::Any,
     env,
@@ -30,7 +30,7 @@ pub enum Error {
     #[error("cannot open maildir database at {1}")]
     OpenDatabaseError(#[source] rusqlite::Error, PathBuf),
     #[error("cannot init maildir folders structure at {1}")]
-    InitFoldersStructureError(#[source] io::Error, PathBuf),
+    InitFoldersStructureError(#[source] maildirpp::Error, PathBuf),
     #[error("cannot delete folder at {1}")]
     DeleteFolderError(#[source] io::Error, PathBuf),
 
@@ -56,9 +56,9 @@ pub enum Error {
     #[error("cannot get maildir message {0}")]
     GetMsgError(String),
     #[error("cannot decode maildir entry")]
-    DecodeEntryError(#[source] io::Error),
+    DecodeEntryError(#[source] maildirpp::Error),
     #[error("cannot parse maildir message")]
-    ParseMsgError(#[source] maildir::MailEntryError),
+    ParseMsgError(#[source] maildirpp::Error),
     #[error("cannot decode header {0}")]
     DecodeHeaderError(#[source] rfc2047_decoder::Error, String),
     #[error("cannot parse maildir message header {0}")]
@@ -66,23 +66,23 @@ pub enum Error {
     #[error("cannot create maildir subdirectory {1}")]
     CreateSubdirError(#[source] io::Error, String),
     #[error("cannot decode maildir subdirectory")]
-    GetSubdirEntryError(#[source] io::Error),
+    GetSubdirEntryError(#[source] maildirpp::Error),
     #[error("cannot get current directory")]
     GetCurrentDirError(#[source] io::Error),
     #[error("cannot store maildir message with flags")]
-    StoreWithFlagsError(#[source] maildir::MaildirError),
+    StoreWithFlagsError(#[source] maildirpp::Error),
     #[error("cannot copy maildir message")]
-    CopyEmailError(#[source] io::Error),
+    CopyEmailError(#[source] maildirpp::Error),
     #[error("cannot move maildir message")]
     MoveMsgError(#[source] io::Error),
     #[error("cannot delete maildir message")]
-    DeleteEmailError(#[source] io::Error),
+    DeleteEmailError(#[source] maildirpp::Error),
     #[error("cannot add maildir flags")]
-    AddFlagsError(#[source] io::Error),
+    AddFlagsError(#[source] maildirpp::Error),
     #[error("cannot set maildir flags")]
-    SetFlagsError(#[source] io::Error),
+    SetFlagsError(#[source] maildirpp::Error),
     #[error("cannot remove maildir flags")]
-    RemoveFlagsError(#[source] io::Error),
+    RemoveFlagsError(#[source] maildirpp::Error),
 
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
@@ -95,7 +95,7 @@ pub type Result<T> = result::Result<T, Error>;
 /// Represents the maildir backend.
 pub struct MaildirBackend {
     account_config: AccountConfig,
-    mdir: maildir::Maildir,
+    mdir: Maildir,
 }
 
 impl MaildirBackend {
@@ -384,7 +384,7 @@ impl Backend for MaildirBackend {
 
         let mdir = self.get_mdir_from_dir(folder)?;
 
-        let mut emails: Vec<(usize, maildir::MailEntry)> = mdir
+        let mut emails: Vec<(usize, maildirpp::MailEntry)> = mdir
             .list_cur()
             .filter_map(|entry| match entry {
                 Ok(entry) => internal_ids

@@ -1,5 +1,6 @@
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::{trace, warn};
+use mail_parser::Message;
 use std::ops;
 
 use crate::Flags;
@@ -154,7 +155,7 @@ impl From<&[u8]> for Envelope {
     fn from(raw: &[u8]) -> Self {
         let mut envelope = Self::default();
 
-        match mail_parser::Message::parse(raw) {
+        match Message::parse(raw) {
             None => {
                 warn!("cannot parse envelope from headers, skipping it");
                 trace!("{:#?}", String::from_utf8_lossy(raw))

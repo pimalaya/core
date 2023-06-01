@@ -6,7 +6,6 @@ use mail_builder::{
     MessageBuilder,
 };
 use mail_parser::{Addr, HeaderValue, Message, MimeHeaders};
-use maildir::{MailEntry, MailEntryError};
 use mailparse::{MailParseError, ParsedMail};
 use ouroboros::self_referencing;
 use pimalaya_email_tpl::{Tpl, TplInterpreter};
@@ -21,7 +20,7 @@ use super::address;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse email")]
-    GetMailEntryError(#[source] MailEntryError),
+    GetMailEntryError(#[source] maildirpp::Error),
 
     #[error("cannot get parsed version of email: {0}")]
     GetParsedEmailError(String),
@@ -70,8 +69,6 @@ pub enum Error {
 
 #[derive(Debug, Error)]
 enum ParsedBuilderError {
-    #[error("cannot parse email")]
-    MailEntryError(#[source] MailEntryError),
     #[error("cannot parse raw email")]
     ParseRawEmailError,
 }
@@ -83,7 +80,6 @@ enum RawEmail<'a> {
     Slice(&'a [u8]),
     #[cfg(feature = "imap-backend")]
     Fetch(&'a Fetch<'a>),
-    MailEntry(&'a mut MailEntry),
 }
 
 #[self_referencing]
@@ -108,13 +104,6 @@ impl Email<'_> {
             #[cfg(feature = "imap-backend")]
             RawEmail::Fetch(fetch) => Message::parse(fetch.body().unwrap_or_default())
                 .ok_or(ParsedBuilderError::ParseRawEmailError),
-            RawEmail::MailEntry(entry) => Message::parse(
-                entry
-                    .parsed()
-                    .map_err(ParsedBuilderError::MailEntryError)?
-                    .raw_bytes,
-            )
-            .ok_or(ParsedBuilderError::ParseRawEmailError),
         }
     }
 
@@ -212,10 +201,10 @@ impl<'a> From<&'a Fetch<'a>> for Email<'a> {
     }
 }
 
-impl<'a> From<&'a mut MailEntry> for Email<'a> {
-    fn from(entry: &'a mut MailEntry) -> Self {
+impl<'a> From<&'a mut maildirpp::MailEntry> for Email<'a> {
+    fn from(entry: &'a mut maildirpp::MailEntry) -> Self {
         EmailBuilder {
-            raw: RawEmail::MailEntry(entry),
+            raw: RawEmail::Vec(entry.body().unwrap_or_default()),
             parsed_builder: Email::parsed_builder,
         }
         .build()
@@ -743,7 +732,7 @@ enum RawEmails {
     Vec(Vec<Vec<u8>>),
     #[cfg(feature = "imap-backend")]
     Fetches(Fetches),
-    MailEntries(Vec<MailEntry>),
+    MailEntries(Vec<maildirpp::MailEntry>),
 }
 
 #[self_referencing]
@@ -800,10 +789,10 @@ impl TryFrom<Fetches> for Emails {
     }
 }
 
-impl TryFrom<Vec<MailEntry>> for Emails {
+impl TryFrom<Vec<maildirpp::MailEntry>> for Emails {
     type Error = Error;
 
-    fn try_from(entries: Vec<MailEntry>) -> Result<Self> {
+    fn try_from(entries: Vec<maildirpp::MailEntry>) -> Result<Self> {
         if entries.is_empty() {
             Err(Error::ParseEmailFromEmptyEntriesError)
         } else {

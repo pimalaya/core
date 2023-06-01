@@ -3,7 +3,7 @@ use mail_builder::MessageBuilder;
 #[test]
 fn test_maildir_backend() {
     use concat_with::concat_line;
-    use maildir::Maildir;
+    use maildirpp::Maildir;
     use pimalaya_email::{AccountConfig, Backend, Flag, Flags, MaildirBackend, MaildirConfig};
     use std::{collections::HashMap, fs, iter::FromIterator};
     use tempfile::tempdir;

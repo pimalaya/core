@@ -9,10 +9,10 @@ use crate::{
     Envelope, Envelopes,
 };
 
-impl TryFrom<maildir::MailEntries> for Envelopes {
+impl TryFrom<maildirpp::MailEntries> for Envelopes {
     type Error = Error;
 
-    fn try_from(entries: maildir::MailEntries) -> Result<Self> {
+    fn try_from(entries: maildirpp::MailEntries) -> Result<Self> {
         Ok(Envelopes::from_iter(
             // TODO: clean me, please
             entries

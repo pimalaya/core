@@ -3,7 +3,7 @@
 fn test_notmuch_backend() {
     use concat_with::concat_line;
     use mail_builder::MessageBuilder;
-    use maildir::Maildir;
+    use maildirpp::Maildir;
     use notmuch::Database;
     use pimalaya_email::{AccountConfig, Backend, Flag, Flags, NotmuchBackend, NotmuchConfig};
     use std::{collections::HashMap, env, fs, iter::FromIterator};
