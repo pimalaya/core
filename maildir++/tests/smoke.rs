@@ -1,3 +1,4 @@
+use mail_parser::Message;
 use maildirpp::{Error, Maildir};
 use percent_encoding::percent_decode;
 use std::fs;
@@ -84,20 +85,22 @@ fn maildir_count() {
 fn maildir_list() {
     with_maildir(MAILDIR_NAME, |maildir| {
         let mut iter = maildir.list_new();
-        let first = iter.next().unwrap().unwrap();
-        assert_eq!(first.id(), "1463941010.5f7fa6dd4922c183dc457d033deee9d7");
-        assert_eq!(first.subject(), Some("test"));
-        assert_eq!(first.is_seen(), false);
-        let second = iter.next();
-        assert!(second.is_none());
+        let entry1 = iter.next().unwrap().unwrap();
+        let msg1 = Message::parse(entry1.headers()).unwrap();
+        assert_eq!(entry1.id(), "1463941010.5f7fa6dd4922c183dc457d033deee9d7");
+        assert_eq!(msg1.subject(), Some("test"));
+        assert_eq!(entry1.is_seen(), false);
+        let second_entry = iter.next();
+        assert!(second_entry.is_none());
 
         let mut iter = maildir.list_cur();
-        let first = iter.next().unwrap().unwrap();
-        assert_eq!(first.id(), "1463868505.38518452d49213cb409aa1db32f53184");
-        assert_eq!(first.subject(), Some("test"));
-        assert_eq!(first.is_seen(), true);
-        let second = iter.next();
-        assert!(second.is_none());
+        let entry1 = iter.next().unwrap().unwrap();
+        let msg1 = Message::parse(entry1.headers()).unwrap();
+        assert_eq!(entry1.id(), "1463868505.38518452d49213cb409aa1db32f53184");
+        assert_eq!(msg1.subject(), Some("test"));
+        assert_eq!(entry1.is_seen(), true);
+        let entry2 = iter.next();
+        assert!(entry2.is_none());
     })
 }
 
@@ -182,7 +185,9 @@ fn check_copy_and_move() {
             assert!(submaildir.find(id).is_none());
             // also check that the failed self-copy a few lines up didn't corrupt the
             // message file.
-            assert!(maildir.find(id).unwrap().date().is_some());
+            let body = maildir.find(id).unwrap().body().unwrap();
+            let msg = Message::parse(&body).unwrap();
+            assert!(msg.date().is_some());
 
             // copy the message from "maildir" to "submaildir"
             maildir.copy_to(id, &submaildir).unwrap();
@@ -262,15 +267,10 @@ fn check_store_new() {
         let entry = maildir.find(&id);
         assert!(entry.is_some());
 
+        let msg = entry.unwrap().body().unwrap();
+        let msg = Message::parse(&msg).unwrap();
         assert_eq!(
-            entry
-                .unwrap()
-                .raw()
-                .unwrap()
-                .parsed()
-                .unwrap()
-                .body_text(0)
-                .unwrap(),
+            msg.body_text(0).unwrap(),
             "Today is Boomtime, the 59th day of Discord in the YOLD 3183"
         );
     });

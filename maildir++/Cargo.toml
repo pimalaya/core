@@ -9,13 +9,12 @@ categories = ["email", "filesystem"]
 keywords = ["pim", "email", "maildir", "maildir++"]
 
 [dev-dependencies]
+mail-parser = "0.8"
+percent-encoding = "1.0.1"
 tempfile = "3.0.8"
 walkdir = "2.2.7"
-percent-encoding = "1.0.1"
 
 [dependencies]
 gethostname = "0.4"
 log = "0.4"
-mail-parser = "0.8"
-ouroboros = "0.15"
 thiserror = "1.0"

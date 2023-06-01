@@ -1,6 +1,4 @@
 use gethostname::gethostname;
-use mail_parser::{DateTime, Header, Message};
-use ouroboros::self_referencing;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 #[cfg(windows)]
@@ -47,41 +45,16 @@ pub type Result<T> = result::Result<T, Error>;
 /// load the content of the email file into memory - however,
 /// that may happen upon calling functions that require parsing
 /// the email.
-pub struct Email {
+pub struct MailEntry {
     id: String,
     flags: String,
     path: PathBuf,
-    headers: EmailHeaders,
+    headers: Vec<u8>,
 }
 
-impl Email {
+impl MailEntry {
     pub fn id(&self) -> &str {
         &self.id
-    }
-
-    pub fn headers(&self) -> Option<&[Header]> {
-        self.headers
-            .borrow_parsed()
-            .as_ref()
-            .map(|msg| msg.headers())
-    }
-
-    pub fn subject(&self) -> Option<&str> {
-        self.headers
-            .borrow_parsed()
-            .as_ref()
-            .and_then(|msg| msg.subject())
-    }
-
-    pub fn date(&self) -> Option<&DateTime> {
-        self.headers
-            .borrow_parsed()
-            .as_ref()
-            .and_then(|msg| msg.date())
-    }
-
-    pub fn raw(&self) -> Result<RawEmail> {
-        Ok(fs::read(&self.path)?.into())
     }
 
     pub fn flags(&self) -> &str {
@@ -115,27 +88,13 @@ impl Email {
     pub fn path(&self) -> &PathBuf {
         &self.path
     }
-}
 
-#[self_referencing]
-pub struct EmailHeaders {
-    raw: Vec<u8>,
-    #[borrows(raw)]
-    #[covariant]
-    parsed: Option<Message<'this>>,
-}
-
-pub struct RawEmail(Vec<u8>);
-
-impl RawEmail {
-    pub fn parsed(&self) -> Option<Message> {
-        Message::parse(&self.0)
+    pub fn headers(&self) -> &[u8] {
+        &self.headers
     }
-}
 
-impl From<Vec<u8>> for RawEmail {
-    fn from(raw: Vec<u8>) -> Self {
-        Self(raw)
+    pub fn body(&self) -> Result<Vec<u8>> {
+        Ok(fs::read(&self.path)?)
     }
 }
 
@@ -151,15 +110,15 @@ enum Subfolder {
 /// file system properties on a particular entry, or if an
 /// invalid file was found in the maildir. Files starting with
 /// a dot (.) character in the maildir folder are ignored.
-pub struct Emails {
+pub struct MailEntries {
     path: PathBuf,
     subfolder: Subfolder,
     readdir: Option<ReadDir>,
 }
 
-impl Emails {
-    fn new(path: PathBuf, subfolder: Subfolder) -> Emails {
-        Emails {
+impl MailEntries {
+    fn new(path: PathBuf, subfolder: Subfolder) -> MailEntries {
+        MailEntries {
             path,
             subfolder,
             readdir: None,
@@ -167,10 +126,10 @@ impl Emails {
     }
 }
 
-impl Iterator for Emails {
-    type Item = Result<Email>;
+impl Iterator for MailEntries {
+    type Item = Result<MailEntry>;
 
-    fn next(&mut self) -> Option<Result<Email>> {
+    fn next(&mut self) -> Option<Result<MailEntry>> {
         if self.readdir.is_none() {
             let mut dir_path = self.path.clone();
             dir_path.push(match self.subfolder {
@@ -203,15 +162,11 @@ impl Iterator for Emails {
                 if id.is_none() || flags.is_none() {
                     return Err(Error::GetSubfolderNameError);
                 }
-                Ok(Some(Email {
+                Ok(Some(MailEntry {
                     id: String::from(id.unwrap()),
                     flags: String::from(flags.unwrap()),
                     path: entry.path(),
-                    headers: EmailHeadersBuilder {
-                        raw: read_headers(entry.path())?,
-                        parsed_builder: |raw: &Vec<u8>| Message::parse(raw),
-                    }
-                    .build(),
+                    headers: read_headers(entry.path())?,
                 }))
             });
             return match result {
@@ -316,16 +271,16 @@ impl Maildir {
     /// maildir folder. The order of messages in the iterator
     /// is not specified, and is not guaranteed to be stable
     /// over multiple invocations of this method.
-    pub fn list_new(&self) -> Emails {
-        Emails::new(self.path.clone(), Subfolder::New)
+    pub fn list_new(&self) -> MailEntries {
+        MailEntries::new(self.path.clone(), Subfolder::New)
     }
 
     /// Returns an iterator over the messages inside the `cur`
     /// maildir folder. The order of messages in the iterator
     /// is not specified, and is not guaranteed to be stable
     /// over multiple invocations of this method.
-    pub fn list_cur(&self) -> Emails {
-        Emails::new(self.path.clone(), Subfolder::Cur)
+    pub fn list_cur(&self) -> MailEntries {
+        MailEntries::new(self.path.clone(), Subfolder::Cur)
     }
 
     /// Returns an iterator over the maildir subdirectories.
@@ -396,8 +351,8 @@ impl Maildir {
     /// Tries to find the message with the given id in the
     /// maildir. This searches both the `new` and the `cur`
     /// folders.
-    pub fn find(&self, id: &str) -> Option<Email> {
-        let filter = |entry: &Result<Email>| match *entry {
+    pub fn find(&self, id: &str) -> Option<MailEntry> {
+        let filter = |entry: &Result<MailEntry>| match *entry {
             Err(_) => false,
             Ok(ref e) => e.id() == id,
         };
@@ -419,7 +374,7 @@ impl Maildir {
     where
         F: Fn(&str) -> String,
     {
-        let filter = |entry: &Result<Email>| match *entry {
+        let filter = |entry: &Result<MailEntry>| match *entry {
             Err(_) => false,
             Ok(ref e) => e.id() == id,
         };
