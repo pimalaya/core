@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.1] - 2023-06-02
+
 ### Added
 
-- Forked crate from [maildir] and adjust code to replace `mailparse` by `mail-parser` and to remove mutable borrows.
+- Forked crate from [maildir], adjust code to remove mutable borrows and `mailparse`.
 
 [maildir]: https://github.com/staktrace/maildir

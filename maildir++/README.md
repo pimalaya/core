@@ -2,7 +2,7 @@
 
 Rust library to manipulate [Maildir++](http://www.courier-mta.org/imap/README.maildirquota.html) emails.
 
-This library is a fork from the great [maildir](https://github.com/staktrace/maildir) library that replaces [mailparse](https://github.com/staktrace/mailparse) by [mail-parser](https://github.com/stalwartlabs/mail-parser) and removes mutable borrows. See [#35](https://github.com/staktrace/maildir/issues/35) and [#37](https://github.com/staktrace/maildir/issues/37).
+This library is a fork from the great [maildir](https://github.com/staktrace/maildir) library that removes [mailparse](https://github.com/staktrace/mailparse) (which make the lib email parser agnostic) and removes mutable borrows. See [#35](https://github.com/staktrace/maildir/issues/35) and [#37](https://github.com/staktrace/maildir/issues/37).
 
 ## Development
 
