@@ -4,6 +4,7 @@ members = [
   "email",
   "email-tpl",
   "keyring",
+  "maildir++",
   "oauth2",
   "process",
   "secret",
