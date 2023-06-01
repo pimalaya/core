@@ -19,7 +19,7 @@ https://pimalaya.org/
   <tbody>
     <tr>
       <td>pimalaya-email</td>
-      <td>Email management</td>
+      <td>Email</td>
       <td>
         <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/README.md">git</a>,
         <a href="https://docs.rs/pimalaya-email/latest/pimalaya_email/">api</a>,
@@ -28,7 +28,7 @@ https://pimalaya.org/
     </tr>
     <tr>
       <td>pimalaya-email-tpl</td>
-      <td>Email management</td>
+      <td>Email</td>
       <td>
         <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/email-tpl/README.md">git</a>,
         <a href="https://docs.rs/pimalaya-email-tpl/latest/pimalaya_email_tpl/">api</a>,
@@ -37,9 +37,7 @@ https://pimalaya.org/
     </tr>
     <tr>
       <td>pimalaya-time</td>
-      <td>
-        Time management
-      </td>
+      <td>Time</td>
       <td>
         <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/README.md">git</a>,
         <a href="https://docs.rs/pimalaya-time/latest/pimalaya_time/">api</a>,
@@ -65,15 +63,17 @@ https://pimalaya.org/
       <td>email, email-tpl</td>
       <td>
         CLI (<a href="https://github.com/soywod/himalaya">git</a>, <a href="https://pimalaya.org/himalaya/">doc</a>),
-        <a href="https://git.sr.ht/~soywod/himalaya-vim">Vim plugin</a>,
-        <a href="https://github.com/dantecatalfamo/himalaya-emacs">Emacs plugin</a>
+        <a href="https://git.sr.ht/~soywod/himalaya-vim">Vim</a>,
+        <a href="https://github.com/dantecatalfamo/himalaya-emacs">Emacs</a>,
+        <a href="https://www.raycast.com/jns/himalaya">Raycast</a>
       </td>
     </tr>
     <tr>
       <td>Comodoro</td>
       <td>time</td>
       <td>
-        CLI (<a href="https://github.com/soywod/comodoro">git</a>, <a href="https://pimalaya.org/comodoro/">doc</a>)
+        CLI (<a href="https://github.com/soywod/comodoro">git</a>, <a href="https://pimalaya.org/comodoro/">doc</a>),
+        <a href="https://www.raycast.com/jns/comodoro">Raycast</a>
       </td>
     </tr>
   </tbody>
