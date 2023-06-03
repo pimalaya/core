@@ -1,4 +1,4 @@
-# 📫 Maildir++ [![docs.rs](https://img.shields.io/docsrs/maildirpp)](https://docs.rs/maildirpp/latest/maildirpp/)
+# 📫 Maildir++ [![crates.io](https://img.shields.io/crates/v/maildirpp)](https://crates.io/crates/maildirpp) [![docs.rs](https://img.shields.io/docsrs/maildirpp)](https://docs.rs/maildirpp/latest/maildirpp/)
 
 Rust library to manipulate [Maildir++](http://www.courier-mta.org/imap/README.maildirquota.html) emails.
 
@@ -13,7 +13,7 @@ The development environment is managed by [Nix](https://nixos.org/download.html)
 $ nix-shell
 
 # then build the lib
-$ cargo build -p maildir++
+$ cargo build -p maildirpp
 ```
 
 ## Contributing
