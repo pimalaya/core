@@ -1,7 +1,6 @@
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::{trace, warn};
 use mail_parser::Message;
-use std::ops;
 
 use crate::Flags;
 
@@ -9,73 +8,34 @@ use crate::Flags;
 //     s.serialize_str(&date.to_rfc3339())
 // }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Mailboxes(Vec<Mailbox>);
+// #[derive(Clone, Debug, Default, Eq, PartialEq)]
+// pub struct Mailboxes(Vec<Mailbox>);
 
-impl ops::Deref for Mailboxes {
-    type Target = Vec<Mailbox>;
+// impl ops::Deref for Mailboxes {
+//     type Target = Vec<Mailbox>;
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+//     fn deref(&self) -> &Self::Target {
+//         &self.0
+//     }
+// }
 
-impl ops::DerefMut for Mailboxes {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
+// impl ops::DerefMut for Mailboxes {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.0
+//     }
+// }
 
-impl ToString for Mailboxes {
-    fn to_string(&self) -> String {
-        self.iter().fold(String::new(), |mut mboxes, mbox| {
-            if !mboxes.is_empty() {
-                mboxes.push_str(", ")
-            }
-            mboxes.push_str(&mbox.to_string());
-            mboxes
-        })
-    }
-}
-
-impl From<Vec<&mailparse::MailHeader<'_>>> for Mailboxes {
-    fn from(headers: Vec<&mailparse::MailHeader>) -> Self {
-        let mut mboxes = Self::default();
-
-        for header in headers {
-            match mailparse::addrparse_header(header) {
-                Err(err) => warn!("skipping invalid addresses {:?}: {}", header, err),
-                Ok(addrs) => {
-                    for addr in addrs.iter() {
-                        match addr {
-                            mailparse::MailAddr::Group(group) => match group.addrs.first() {
-                                None => (),
-                                Some(single) => mboxes.push(Mailbox::new(
-                                    single.display_name.clone(),
-                                    single.addr.clone(),
-                                )),
-                            },
-                            mailparse::MailAddr::Single(single) => mboxes.push(Mailbox::new(
-                                single.display_name.clone(),
-                                single.addr.clone(),
-                            )),
-                        }
-                    }
-                }
-            }
-        }
-
-        mboxes
-    }
-}
-
-impl FromIterator<Mailbox> for Mailboxes {
-    fn from_iter<T: IntoIterator<Item = Mailbox>>(iter: T) -> Self {
-        let mut mailboxes = Mailboxes::default();
-        mailboxes.extend(iter);
-        mailboxes
-    }
-}
+// impl ToString for Mailboxes {
+//     fn to_string(&self) -> String {
+//         self.iter().fold(String::new(), |mut mboxes, mbox| {
+//             if !mboxes.is_empty() {
+//                 mboxes.push_str(", ")
+//             }
+//             mboxes.push_str(&mbox.to_string());
+//             mboxes
+//         })
+//     }
+// }
 
 #[derive(Clone, Debug, Default, Eq)]
 pub struct Mailbox {
@@ -95,12 +55,6 @@ impl ToString for Mailbox {
             Some(name) => format!("{name} <{}>", self.addr),
             None => self.addr.clone(),
         }
-    }
-}
-
-impl From<lettre::message::Mailbox> for Mailbox {
-    fn from(mbox: lettre::message::Mailbox) -> Self {
-        Self::new(mbox.name, mbox.email.to_string())
     }
 }
 

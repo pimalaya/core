@@ -5,11 +5,9 @@ pub use config::{ImapAuth, ImapAuthConfig, ImapConfig};
 use imap::extensions::idle::{stop_on_any, SetReadTimeout};
 use imap_proto::{NameAttribute, UidSetMember};
 use log::{debug, error, info, log_enabled, trace, warn, Level};
-#[cfg(feature = "native-tls")]
-use native_tls::{TlsConnector, TlsStream as NativeTlsStream};
+use once_cell::sync::Lazy;
 use pimalaya_process::Cmd;
 use rayon::prelude::*;
-#[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
 use rustls::{
     client::{ServerCertVerified, ServerCertVerifier},
     Certificate, ClientConfig, ClientConnection, RootCertStore, StreamOwned,
@@ -107,8 +105,6 @@ pub enum Error {
     DecodeSenderHostFromImapEnvelopeError(rfc2047_decoder::Error),
     #[error("cannot decode date from imap envelope")]
     DecodeDateFromImapEnvelopeError(rfc2047_decoder::Error),
-    #[error("cannot parse timestamp from imap envelope: {1}")]
-    ParseTimestampFromImapEnvelopeError(mailparse::MailParseError, String),
     #[error("cannot parse imap sort criterion {0}")]
     ParseSortCriterionError(String),
     #[error("cannot decode subject of imap email {1}")]
@@ -128,7 +124,7 @@ pub enum Error {
     #[error("cannot lock imap sessions pool cursor: {0}")]
     LockSessionsPoolCursorError(String),
     #[error("cannot create tls connector")]
-    CreateTlsConnectorError(#[source] tls::Error),
+    CreateTlsConnectorError(#[source] rustls::Error),
     #[error("cannot connect to imap server")]
     ConnectImapServerError(#[source] imap::Error),
     #[error("cannot login to imap server")]
@@ -153,9 +149,6 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-#[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
-use once_cell::sync::Lazy;
-#[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
 static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     let mut store = RootCertStore::empty();
     for cert in rustls_native_certs::load_native_certs().unwrap() {
@@ -164,9 +157,6 @@ static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     store
 });
 
-#[cfg(feature = "native-tls")]
-pub type TlsStream = NativeTlsStream<TcpStream>;
-#[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
 pub type TlsStream = StreamOwned<ClientConnection, TcpStream>;
 
 pub enum ImapSessionStream {
@@ -356,23 +346,6 @@ impl ImapBackend {
         Ok(session)
     }
 
-    #[cfg(feature = "native-tls")]
-    fn handshaker(
-        config: &ImapConfig,
-    ) -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
-        let builder = TlsConnector::builder()
-            .danger_accept_invalid_certs(config.insecure())
-            .danger_accept_invalid_hostnames(config.insecure())
-            .build()
-            .map_err(Error::CreateTlsConnectorError)?;
-
-        Ok(Box::new(move |domain, tcp| {
-            let connector = TlsConnector::connect(&builder, domain, tcp)?;
-            Ok(ImapSessionStream::Tls(connector))
-        }))
-    }
-
-    #[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
     fn handshaker(
         config: &ImapConfig,
     ) -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
@@ -385,11 +358,11 @@ impl ImapBackend {
                 &self,
                 _end_entity: &Certificate,
                 _intermediates: &[Certificate],
-                _server_name: &tls::ServerName,
+                _server_name: &rustls::ServerName,
                 _scts: &mut dyn Iterator<Item = &[u8]>,
                 _ocsp_response: &[u8],
                 _now: std::time::SystemTime,
-            ) -> result::Result<tls::client::ServerCertVerified, tls::Error> {
+            ) -> result::Result<rustls::client::ServerCertVerified, rustls::Error> {
                 Ok(ServerCertVerified::assertion())
             }
 

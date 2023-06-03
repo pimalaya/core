@@ -3,12 +3,12 @@
 //! This module contains the representation of the SMTP email sender
 //! configuration of the user account.
 
-use lettre::transport::smtp::authentication::{Credentials, Mechanism, DEFAULT_MECHANISMS};
 use log::debug;
+use mail_send::Credentials;
 use std::{io, result};
 use thiserror::Error;
 
-use crate::{account, OAuth2Config, PasswdConfig};
+use crate::{account, OAuth2Config, OAuth2Method, PasswdConfig};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -45,28 +45,23 @@ pub struct SmtpConfig {
 }
 
 impl SmtpConfig {
-    pub fn credentials(&self) -> Result<Credentials> {
-        Ok(Credentials::new(
-            self.login.clone(),
-            match &self.auth {
-                SmtpAuthConfig::Passwd(passwd) => {
-                    let passwd = passwd.get().map_err(Error::GetPasswdError)?;
-                    let passwd = passwd
-                        .lines()
-                        .next()
-                        .ok_or_else(|| Error::GetPasswdEmptyError)?;
-                    Result::Ok(passwd.to_owned())
+    pub fn credentials(&self) -> Result<Credentials<String>> {
+        Ok(match &self.auth {
+            SmtpAuthConfig::Passwd(passwd) => {
+                let passwd = passwd.get().map_err(Error::GetPasswdError)?;
+                let passwd = passwd
+                    .lines()
+                    .next()
+                    .ok_or_else(|| Error::GetPasswdEmptyError)?;
+                Credentials::new(self.login.clone(), passwd.to_owned())
+            }
+            SmtpAuthConfig::OAuth2(oauth2) => match oauth2.method {
+                OAuth2Method::XOAuth2 => {
+                    Credentials::new_xoauth2(self.login.clone(), oauth2.access_token()?)
                 }
-                SmtpAuthConfig::OAuth2(oauth2) => Ok(oauth2.access_token()?),
-            }?,
-        ))
-    }
-
-    pub fn mechanisms(&self) -> Vec<Mechanism> {
-        match self.auth {
-            SmtpAuthConfig::Passwd(_) => DEFAULT_MECHANISMS.to_vec(),
-            SmtpAuthConfig::OAuth2(_) => vec![Mechanism::Xoauth2],
-        }
+                OAuth2Method::OAuthBearer => Credentials::new_oauth(oauth2.access_token()?),
+            },
+        })
     }
 
     pub fn ssl(&self) -> bool {

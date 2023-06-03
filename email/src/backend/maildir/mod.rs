@@ -34,9 +34,6 @@ pub enum Error {
     #[error("cannot delete folder at {1}")]
     DeleteFolderError(#[source] io::Error, PathBuf),
 
-    #[error("cannot parse timestamp from maildir envelope: {1}")]
-    ParseTimestampFromMaildirEnvelopeError(mailparse::MailParseError, String),
-
     #[error("cannot parse header date as timestamp")]
     ParseDateHeaderError,
     #[error("cannot get envelope by short hash {0}")]
@@ -61,8 +58,6 @@ pub enum Error {
     ParseMsgError(#[source] maildirpp::Error),
     #[error("cannot decode header {0}")]
     DecodeHeaderError(#[source] rfc2047_decoder::Error, String),
-    #[error("cannot parse maildir message header {0}")]
-    ParseHeaderError(#[source] mailparse::MailParseError, String),
     #[error("cannot create maildir subdirectory {1}")]
     CreateSubdirError(#[source] io::Error, String),
     #[error("cannot decode maildir subdirectory")]

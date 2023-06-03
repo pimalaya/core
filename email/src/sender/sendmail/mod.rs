@@ -1,7 +1,7 @@
 pub mod config;
 pub use config::SendmailConfig;
 
-use mailparse::MailParseError;
+use mail_parser::Message;
 use pimalaya_process::Cmd;
 use std::result;
 use thiserror::Error;
@@ -15,7 +15,7 @@ pub enum Error {
     #[error("cannot execute pre-send hook")]
     ExecutePreSendHookError(#[source] pimalaya_process::Error),
     #[error("cannot parse email before sending")]
-    ParseEmailError(#[source] MailParseError),
+    ParseEmailError,
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -36,19 +36,19 @@ impl Sendmail {
 
 impl Sender for Sendmail {
     fn send(&self, email: &[u8]) -> sender::Result<()> {
-        let mut email = mailparse::parse_mail(email).map_err(Error::ParseEmailError)?;
+        let mut email = Message::parse(&email).ok_or(Error::ParseEmailError)?;
         let buffer;
 
         if let Some(cmd) = self.hooks.pre_send.as_ref() {
             buffer = cmd
-                .run_with(email.raw_bytes)
+                .run_with(email.raw_message())
                 .map_err(Error::ExecutePreSendHookError)?
                 .stdout;
-            email = mailparse::parse_mail(&buffer).map_err(Error::ParseEmailError)?;
+            email = Message::parse(&buffer).ok_or(Error::ParseEmailError)?;
         };
 
         self.cmd
-            .run_with(email.raw_bytes)
+            .run_with(email.raw_message())
             .map_err(Error::RunSendmailCmdError)?;
 
         Ok(())

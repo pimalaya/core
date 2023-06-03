@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `Email::to_reply_tpl_builder` return type from `Result<TplBuilder>` to `ReplyTplBuilder`.
 - Changed `Email::to_forward_tpl_builder` return type from `Result<TplBuilder>` to `ForwardTplBuilder`.
 - Renamed `backend::imap::Error::ListEnvelopesOutOfBounds` by `BuildPageRangeOutOfBoundsError`.
+- Replaced [lettre] by [mail-send], [mailparse] by [mail-parser] and [maildir] by [maildirpp].
+- Removed `native-tls` support, `rustls-tls` is now the only TLS provider available. Removed in consequence `native-tls`, `rustls-tls` and `rustls-native-certs` cargo features.
 
 ### Fixed
 
@@ -253,9 +255,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 First official version of the Himalaya's library. The source code mostly comes from the [CLI](https://github.com/soywod/himalaya) repository.
 
-[mail-parser]: https://github.com/stalwartlabs/mail-parser
-[secret service]: https://specifications.freedesktop.org/secret-service/latest/
 [keyring]: https://crates.io/crates/keyring
+[lettre]: https://github.com/lettre/lettre
+[mail-parser]: https://github.com/stalwartlabs/mail-parser
+[mail-send]: https://github.com/stalwartlabs/mail-send
+[maildir]: https://github.com/staktrace/maildir
+[maildirpp]: https://crates.io/crates/maildirpp
+[secret service]: https://specifications.freedesktop.org/secret-service/latest/
 
 [patch#1]: https://lists.sr.ht/~soywod/himalaya-lib/patches/35686
 [patch#2]: https://lists.sr.ht/~soywod/pimalaya/patches/39136

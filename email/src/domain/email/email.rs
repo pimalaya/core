@@ -1,12 +1,10 @@
 #[cfg(feature = "imap-backend")]
 use imap::types::{Fetch, Fetches};
-use lettre::address::AddressError;
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
 };
 use mail_parser::{Addr, HeaderValue, Message, MimeHeaders};
-use mailparse::{MailParseError, ParsedMail};
 use ouroboros::self_referencing;
 use pimalaya_email_tpl::{Tpl, TplInterpreter};
 use std::{fmt::Debug, io, path::PathBuf, result};
@@ -25,13 +23,9 @@ pub enum Error {
     #[error("cannot get parsed version of email: {0}")]
     GetParsedEmailError(String),
     #[error("cannot parse email")]
-    ParseEmailError(#[source] MailParseError),
-    #[error("cannot parse email body")]
-    ParseEmailBodyError(#[source] MailParseError),
+    ParseEmailError,
     #[error("cannot parse email: raw email is empty")]
     ParseEmailEmptyRawError,
-    #[error("cannot parse message or address")]
-    ParseEmailAddressError(#[from] AddressError),
     #[error("cannot delete local draft at {1}")]
     DeleteLocalDraftError(#[source] io::Error, PathBuf),
 
@@ -51,10 +45,6 @@ pub enum Error {
     #[error("cannot find encrypted part of multipart")]
     GetEncryptedPartMultipartError,
     #[error("cannot parse encrypted part of multipart")]
-    ParseEncryptedPartError(#[source] mailparse::MailParseError),
-    #[error("cannot get body from encrypted part")]
-    GetEncryptedPartBodyError(#[source] mailparse::MailParseError),
-    #[error("cannot write encrypted part to temporary file")]
     WriteEncryptedPartBodyError(#[source] io::Error),
     #[error("cannot write encrypted part to temporary file")]
     DecryptPartError(#[source] account::config::Error),
@@ -174,16 +164,6 @@ impl<'a> From<&'a [u8]> for Email<'a> {
     fn from(bytes: &'a [u8]) -> Self {
         EmailBuilder {
             raw: RawEmail::Slice(bytes),
-            parsed_builder: Email::parsed_builder,
-        }
-        .build()
-    }
-}
-
-impl<'a> From<ParsedMail<'a>> for Email<'a> {
-    fn from(parsed: ParsedMail<'a>) -> Self {
-        EmailBuilder {
-            raw: RawEmail::Slice(parsed.raw_bytes),
             parsed_builder: Email::parsed_builder,
         }
         .build()

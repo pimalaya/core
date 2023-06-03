@@ -39,16 +39,8 @@ pub const DEFAULT_TRASH_FOLDER: &str = "Trash";
 pub enum Error {
     #[error("cannot encrypt file using pgp")]
     EncryptFileError(#[source] pimalaya_process::Error),
-    #[error("cannot find encrypt file command from config file")]
-    EncryptFileMissingCmdError,
     #[error("cannot decrypt file using pgp")]
     DecryptFileError(#[source] pimalaya_process::Error),
-    #[error("cannot find decrypt file command from config file")]
-    DecryptFileMissingCmdError,
-    #[error("cannot parse account address {0}")]
-    ParseAccountAddrError(#[source] mailparse::MailParseError, String),
-    #[error("cannot find account address in {0}")]
-    ParseAccountAddrNotFoundError(String),
     #[error("cannot parse download file name from {0}")]
     ParseDownloadFileNameError(PathBuf),
 

@@ -2,7 +2,6 @@ pub mod config;
 
 pub use config::NotmuchConfig;
 
-use lettre::address::AddressError;
 use log::{info, trace};
 use maildirpp::Maildir;
 use std::{any::Any, fs, io, path::PathBuf, result};
@@ -25,10 +24,6 @@ pub enum Error {
     StoreWithFlagsError(#[source] maildirpp::Error, PathBuf),
     #[error("cannot find notmuch email")]
     FindMaildirEmailById,
-    #[error("cannot parse notmuch envelope date {1}")]
-    ParseTimestampFromEnvelopeError(#[source] mailparse::MailParseError, String),
-    #[error("cannot parse notmuch sender {1}")]
-    ParseSenderError(#[source] mailparse::MailParseError, String),
     #[error("cannot open notmuch database at {1}")]
     OpenDatabaseError(#[source] rusqlite::Error, PathBuf),
     #[error("cannot find notmuch email")]
@@ -48,8 +43,6 @@ pub enum Error {
     FindMsgHeaderError(String),
     #[error("cannot find notmuch message sender")]
     FindSenderError,
-    #[error("cannot parse notmuch message senders {1}")]
-    ParseSendersError(#[source] AddressError, String),
     #[error("cannot open default notmuch database")]
     OpenDefaultNotmuchDatabaseError(#[source] notmuch::Error),
     #[error("cannot open notmuch database at {1}")]
@@ -80,8 +73,6 @@ pub enum Error {
     FindMsgEmptyError,
     #[error("cannot read notmuch raw message from file")]
     ReadMsgError(#[source] io::Error),
-    #[error("cannot parse notmuch raw message")]
-    ParseMsgError(#[source] mailparse::MailParseError),
     #[error("cannot delete notmuch message")]
     DelMsgError(#[source] notmuch::Error),
     #[error("cannot add notmuch tag")]
