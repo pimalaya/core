@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2023-06-03
+
 ### Added
 
 - Added IP support using `rustls` `v0.21` [#80].
