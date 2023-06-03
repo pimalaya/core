@@ -1,6 +1,6 @@
 [package]
 name = "pimalaya-time"
-version = "0.0.1"
+version = "0.0.2"
 description = "Rust library to manage your time."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
