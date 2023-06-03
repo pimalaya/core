@@ -1,11 +1,11 @@
 [package]
 name = "pimalaya-email-tpl"
-version = "0.2.0"
+version = "0.2.1"
 description = "Rust library for representing MIME Messages as Emacs MIME Meta Language templates."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
-categories = ["email", "network-programming"]
+categories = ["email", "text processing"]
 keywords = ["email", "template", "mml", "emacs", "mime"]
 
 [lib]
@@ -18,7 +18,7 @@ tempfile = "3.3"
 [dependencies]
 chumsky = "0.9"
 log = "0.4"
-mail-builder = { git = "https://github.com/stalwartlabs/mail-builder.git" }
+mail-builder = "=0.3.0"
 mail-parser = "=0.8.2"
 nanohtml2text = "0.1"
 pimalaya-process = "=0.0.2"

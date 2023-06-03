@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2023-06-03
+
 ### Added
 
 - Added parsing template from raw message support. Parsing is done via the `TplInterpreter` builder, and functions `TplInterpreter::interpret_*` return the parsed template.
 
 ### Changed
 
-- Replaced `lettre` by `mail-builder` and `mail-parser`.
-- Use crate `nanohtml2text` instead of manual html to plain transform using ammonia, html-escape and regex.
+- Replaced [lettre] by [mail-builder] and [mail-parser].
+- Use crate [nanohtml2text] instead of manual html to plain transform using ammonia, html-escape and regex.
 - Moved MML stuff in its own `mml` module, to be as close as what provides the Emacs MML module. The `tpl` module contains stuff related to template. A template is just an email composed of headers and one unique plain text part. This plain text part can be written in MML.
 - Compiler options are now attached to the `Tpl` structure.
 
@@ -41,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Emacs MML]: https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/MML-Definition.html
 [lettre]: https://github.com/lettre/lettre
+[mail-builder]: https://github.com/stalwartlabs/mail-builder
+[mail-parser]: https://github.com/stalwartlabs/mail-parser
+[nanohtml2text]: https://crates.io/crates/nanohtml2text
 
 [#32]: https://todo.sr.ht/~soywod/pimalaya/32
 [#49]: https://todo.sr.ht/~soywod/pimalaya/49

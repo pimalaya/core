@@ -1,6 +1,6 @@
 [package]
 name = "maildirpp"
-version = "0.0.2"
+version = "0.0.3"
 description = "Rust library to manipulate Maildir++ emails."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"

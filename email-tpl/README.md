@@ -2,9 +2,7 @@
 
 Rust library for interpreting and compiling MIME Messages based on the [Emacs MIME Meta Language](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html):
 
-> Creating a MIME message is boring and non-trivial. Therefore, a
-> library called mml has been defined that parses a language called
-> MML (MIME Meta Language) and generates MIME messages.
+> Creating a MIME message is boring and non-trivial. Therefore, a library called mml has been defined that parses a language called MML (MIME Meta Language) and generates MIME messages.
 
 ```eml
 From: alice@localhost
@@ -46,22 +44,13 @@ Content-Transfer-Encoding: 7bit
 
 From the [documentation](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/MML-Definition.html):
 
-> The MML language is very simple. It looks a bit like an SGML
-> application, but it’s not.
+> The MML language is very simple. It looks a bit like an SGML application, but it’s not.
 > 
-> The main concept of MML is the part. Each part can be of a different
-> type or use a different charset. The way to delineate a part is with
-> a ‘<#part ...>’ tag. Multipart parts can be introduced with the
-> ‘<#multipart ...>’ tag. Parts are ended by the ‘<#/part>’ or
-> ‘<#/multipart>’ tags. Parts started with the ‘<#part ...>’ tags are
-> also closed by the next open tag.
+> The main concept of MML is the part. Each part can be of a different type or use a different charset. The way to delineate a part is with a ‘<#part ...>’ tag. Multipart parts can be introduced with the ‘<#multipart ...>’ tag. Parts are ended by the ‘<#/part>’ or ‘<#/multipart>’ tags. Parts started with the ‘<#part ...>’ tags are also closed by the next open tag.
 > 
 > […]
 > 
-> Each tag can contain zero or more parameters on the form
-> ‘parameter=value’. The values may be enclosed in quotation marks,
-> but that’s not necessary unless the value contains white space. So
-> ‘filename=/home/user/#hello$^yes’ is perfectly valid.
+> Each tag can contain zero or more parameters on the form ‘parameter=value’. The values may be enclosed in quotation marks, but that’s not necessary unless the value contains white space. So ‘filename=/home/user/#hello$^yes’ is perfectly valid.
 
 ## Features
 
@@ -82,10 +71,7 @@ cargo run --example
 
 ## Development
 
-The development environment is managed by
-[Nix](https://nixos.org/download.html). Running `nix-shell` will spawn
-a shell with everything you need to get started with the lib: `cargo`,
-`cargo-watch`, `rust-bin`, `rust-analyzer`, `notmuch`…
+The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`, `notmuch`…
 
 ```sh
 # Start a Nix shell
@@ -97,41 +83,23 @@ $ cargo build -p pimalaya-email-tpl
 
 ## Contributing
 
-If you find a **bug** that [does not exist
-yet](https://todo.sr.ht/~soywod/pimalaya), please send an email at
-[~soywod/pimalaya@todo.sr.ht](mailto:~soywod/pimalaya@todo.sr.ht).
+If you find a **bug** that [does not exist yet](https://todo.sr.ht/~soywod/pimalaya), please send an email at [~soywod/pimalaya@todo.sr.ht](mailto:~soywod/pimalaya@todo.sr.ht).
 
-If you have a **question**, please send an email at
-[~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht).
+If you have a **question**, please send an email at [~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht).
 
-If you want to **propose a feature** or **fix a bug**, please send a
-patch at
-[~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht)
-using [git send-email](https://git-scm.com/docs/git-send-email) (see
-[this guide](https://git-send-email.io/) on how to configure it).
+If you want to **propose a feature** or **fix a bug**, please send a patch at [~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht) using [git send-email](https://git-scm.com/docs/git-send-email) (see [this guide](https://git-send-email.io/) on how to configure it).
 
-If you want to **subscribe** to the mailing list, please send an email
-at
-[~soywod/pimalaya+subscribe@lists.sr.ht](mailto:~soywod/pimalaya+subscribe@lists.sr.ht).
+If you want to **subscribe** to the mailing list, please send an email at [~soywod/pimalaya+subscribe@lists.sr.ht](mailto:~soywod/pimalaya+subscribe@lists.sr.ht).
 
-If you want to **unsubscribe** to the mailing list, please send an
-email at
-[~soywod/pimalaya+unsubscribe@lists.sr.ht](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht).
+If you want to **unsubscribe** to the mailing list, please send an email at [~soywod/pimalaya+unsubscribe@lists.sr.ht](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht).
 
-If you want to **discuss** about the project, feel free to join the
-[Matrix](https://matrix.org/) workspace
-[#pimalaya](https://matrix.to/#/#pimalaya:matrix.org) or contact me
-directly [@soywod](https://matrix.to/#/@soywod:matrix.org).
+If you want to **discuss** about the project, feel free to join the [Matrix](https://matrix.org/) workspace [#pimalaya](https://matrix.to/#/#pimalaya:matrix.org) or contact me directly [@soywod](https://matrix.to/#/@soywod:matrix.org).
 
 ## Credits
 
 [![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/project/Himalaya/index.html)
 
-Special thanks to the
-[nlnet](https://nlnet.nl/project/Himalaya/index.html) foundation that
-helped Himalaya to receive financial support from the [NGI
-Assure](https://www.ngi.eu/ngi-projects/ngi-assure/) program of the
-European Commission in September, 2022.
+Special thanks to the [nlnet](https://nlnet.nl/project/Himalaya/index.html) foundation that helped Himalaya to receive financial support from the [NGI Assure](https://www.ngi.eu/ngi-projects/ngi-assure/) program of the European Commission in September, 2022.
 
 ## Sponsoring
 
