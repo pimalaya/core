@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added Refresh Access Token flow builder.
+
+### Changed
+
+- `AuthorizationCodeFlow::wait_for_redirection` takes now a reference to a `BasicClient`.
+
 ## [0.0.2] - 2023-05-19
 
 ### Added
