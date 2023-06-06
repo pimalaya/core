@@ -1,12 +1,12 @@
 [package]
 name = "pimalaya-keyring"
-version = "0.0.1"
+version = "0.0.2"
 description = "Rust library to manage keyring for the Pimalaya project."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["configuration", "database interfaces"]
-keywords = ["pim", "keyring", "password-manager", "secret"]
+keywords = ["pim", "keyring", "password", "secret", "token"]
 
 [package.metadata.docs.rs]
 all-features = true
@@ -14,7 +14,11 @@ all-features = true
 [lib]
 name = "pimalaya_keyring"
 
+[dev-dependencies]
+env_logger = "0.10"
+keyring = "2.0"
+
 [dependencies]
-keyring = "2.0.2"
+keyring = "2.0"
 log = "0.4"
 thiserror = "1.0"

@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2023-06-06
+
+### Added
+
+- Added debug logs.
+- Added comments.
+- Added one basic example.
+
 ## [0.0.1] - 2023-05-18
 
 ### Added
 
-- Imported process code from `pimalaya-email`.
+- Imported keyring code from `pimalaya-email`.
