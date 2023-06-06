@@ -1,5 +1,4 @@
-use keyring;
-use pimalaya_keyring::{Entry, Error};
+use pimalaya_keyring::Entry;
 
 const KEY: &str = "key";
 const VAL: &str = "val";
@@ -17,8 +16,5 @@ fn main() {
 
     // delete entry
     entry.delete().unwrap();
-    match entry.get() {
-        Err(Error::GetSecretError(keyring::Error::NoEntry, key)) if key == KEY => (),
-        res => panic!("unexpected result {res:?}"),
-    }
+    assert_eq!(entry.find().unwrap(), None);
 }

@@ -1,3 +1,4 @@
+pub use keyring::Error as KeyringError;
 use log::debug;
 use std::{ops::Deref, result};
 use thiserror::Error;
@@ -5,13 +6,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get keyring entry {1}")]
-    GetEntryError(#[source] keyring::Error, String),
-    #[error("cannot get keyring secret at {1}")]
-    GetSecretError(#[source] keyring::Error, String),
-    #[error("cannot set keyring secret at {1}")]
-    SetSecretError(#[source] keyring::Error, String),
-    #[error("cannot delete keyring secret at {1}")]
-    DeleteSecretError(#[source] keyring::Error, String),
+    GetEntryError(#[source] KeyringError, String),
+    #[error("cannot get keyring secret for entry {1}")]
+    GetSecretError(#[source] KeyringError, String),
+    #[error("cannot set keyring secret for entry {1}")]
+    SetSecretError(#[source] KeyringError, String),
+    #[error("cannot delete keyring secret for entry {1}")]
+    DeleteSecretError(#[source] KeyringError, String),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -42,6 +43,18 @@ impl Entry {
         self.get_entry()?
             .get_password()
             .map_err(|err| Error::GetSecretError(err, self.0.clone()))
+    }
+
+    /// Find the secret from the user's global keyring. Similar to
+    /// [`Entry::get`], except that it returns None in case the entry
+    /// is not found.
+    pub fn find(&self) -> Result<Option<String>> {
+        debug!("finding keyring secret for entry {:?}", self.0);
+        match self.get_entry()?.get_password() {
+            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(err) => Err(Error::GetSecretError(err, self.0.clone())),
+            Ok(secret) => Ok(Some(secret)),
+        }
     }
 
     /// (Re)set the secret from the user's global keyring.
