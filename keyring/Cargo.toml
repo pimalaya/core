@@ -1,6 +1,6 @@
 [package]
 name = "pimalaya-keyring"
-version = "0.0.3"
+version = "0.0.4"
 description = "Rust library to manage keyring for the Pimalaya project."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"

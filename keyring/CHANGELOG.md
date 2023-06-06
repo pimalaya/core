@@ -7,11 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.4] - 2023-06-06
+
+### Added
+
+- Added `Entry::get_key`.
+- Added `Error::FindSecretError`.
+- Implemented `Into<String>` for `Entry`.
+
+### Changed
+
+- Renamed `Entry::get` by `get_secret`.
+- Renamed `Entry::find` by `find_secret`.
+- Renamed `Entry::set` by `set_secret`.
+- Renamed `Entry::delete` by `delete_secret`.
+- Changed error returned by `Entry::find_secret` from `Error::GetSecretError` to `FindSecretError`.
+
 ## [0.0.3] - 2023-06-06
 
 ### Added
 
-- Added `Entry::find` function.
+- Added `Entry::find`.
 - Exposed `keyring::Error` as `KeyringError`.
 
 ## [0.0.2] - 2023-06-06
