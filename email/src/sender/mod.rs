@@ -31,7 +31,7 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 
 pub trait Sender {
-    fn send(&self, msg: &[u8]) -> Result<()>;
+    fn send(&mut self, msg: &[u8]) -> Result<()>;
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

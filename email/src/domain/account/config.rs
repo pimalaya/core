@@ -412,7 +412,7 @@ impl PasswdConfig {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OAuth2Config {
     pub method: OAuth2Method,
     pub client_id: String,
@@ -427,7 +427,33 @@ pub struct OAuth2Config {
     pub redirect_port: u16,
 }
 
+impl Default for OAuth2Config {
+    fn default() -> Self {
+        Self {
+            method: Default::default(),
+            client_id: Default::default(),
+            client_secret: Default::default(),
+            auth_url: Default::default(),
+            token_url: Default::default(),
+            access_token: Default::default(),
+            refresh_token: Default::default(),
+            pkce: Default::default(),
+            scopes: Default::default(),
+            redirect_host: Self::default_redirect_host(),
+            redirect_port: Self::default_redirect_port(),
+        }
+    }
+}
+
 impl OAuth2Config {
+    pub fn default_redirect_host() -> String {
+        String::from("localhost")
+    }
+
+    pub fn default_redirect_port() -> u16 {
+        9999
+    }
+
     pub fn reset(&self) -> Result<()> {
         self.client_secret
             .delete_keyring_entry_secret()

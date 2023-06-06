@@ -1,14 +1,14 @@
 pub mod config;
-pub use config::{SmtpAuthConfig, SmtpConfig};
 
 use mail_parser::{HeaderValue, Message};
 use mail_send::{smtp::message as smtp, SmtpClientBuilder};
-use std::{collections::HashSet, result, sync::Mutex};
+use std::{collections::HashSet, io, result};
 use thiserror::Error;
 use tokio::{net::TcpStream, runtime::Runtime};
 use tokio_rustls::client::TlsStream;
 
 use crate::{account, email, sender, AccountConfig, EmailHooks, Sender};
+pub use config::{SmtpAuthConfig, SmtpConfig};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -28,6 +28,8 @@ pub enum Error {
     ConnectError(#[source] mail_send::Error),
     #[error("cannot lock smtp client")]
     LockClientError(String),
+    #[error("cannot get async runtime")]
+    GetAsyncRuntimeError(#[source] io::Error),
 
     #[error(transparent)]
     SmtpConfigError(#[from] sender::smtp::config::Error),
@@ -45,128 +47,78 @@ pub enum SmtpClient {
 }
 
 impl SmtpClient {
-    pub async fn send<'a>(&mut self, msg: impl smtp::IntoMessage<'a>) -> Result<()> {
-        let task = match self {
+    pub async fn send<'a>(&mut self, msg: impl smtp::IntoMessage<'a>) -> mail_send::Result<()> {
+        match self {
             Self::Tcp(client) => client.send(msg).await,
             Self::Tls(client) => client.send(msg).await,
-        };
-
-        task.map_err(Error::SendError)
+        }
     }
 }
 
 pub struct Smtp {
+    config: SmtpConfig,
     hooks: EmailHooks,
-    client: Mutex<SmtpClient>,
     runtime: Runtime,
+    client_builder: SmtpClientBuilder<String>,
+    client: SmtpClient,
 }
 
 impl Smtp {
-    pub fn new(account_config: &AccountConfig, config: &SmtpConfig) -> Result<Self> {
+    pub fn new(account_config: &AccountConfig, smtp_config: &SmtpConfig) -> Result<Self> {
+        let config = smtp_config.to_owned();
         let hooks = account_config.email_hooks.clone();
-        let runtime = Runtime::new().unwrap();
+        let runtime = Runtime::new().map_err(Error::GetAsyncRuntimeError)?;
 
-        let mut builder = SmtpClientBuilder::new(config.host.clone(), config.port)
-            .implicit_tls(!config.starttls())
-            .credentials(config.credentials()?);
+        let mut client_builder = SmtpClientBuilder::new(smtp_config.host.clone(), smtp_config.port)
+            .implicit_tls(!smtp_config.starttls());
 
-        if config.insecure() {
-            builder = builder.allow_invalid_certs();
+        if smtp_config.insecure() {
+            client_builder = client_builder.allow_invalid_certs();
         }
 
-        let client = if config.ssl() {
+        let (client_builder, client) =
+            Self::get_client_with_builder(smtp_config, &runtime, client_builder)?;
+
+        Ok(Self {
+            config,
+            hooks,
+            runtime,
+            client_builder,
+            client,
+        })
+    }
+
+    fn get_client_with_builder(
+        smtp_config: &SmtpConfig,
+        runtime: &Runtime,
+        mut client_builder: SmtpClientBuilder<String>,
+    ) -> Result<(SmtpClientBuilder<String>, SmtpClient)> {
+        client_builder = client_builder.credentials(smtp_config.credentials()?);
+
+        let client = if smtp_config.ssl() {
             SmtpClient::Tls(
                 runtime
-                    .block_on(builder.connect())
+                    .block_on(client_builder.connect())
                     .map_err(Error::ConnectError)?,
             )
         } else {
             SmtpClient::Tcp(
                 runtime
-                    .block_on(builder.connect_plain())
+                    .block_on(client_builder.connect_plain())
                     .map_err(Error::ConnectPlainError)?,
             )
         };
 
-        Ok(Self {
-            hooks,
-            client: Mutex::new(client),
-            runtime,
-        })
+        Ok((client_builder, client))
     }
 
-    fn into_smtp_msg<'a>(msg: Message<'a>) -> Result<smtp::Message> {
-        let mut mail_from = None;
-        let mut rcpt_to = HashSet::new();
-
-        for header in msg.headers() {
-            let key = header.name();
-            let val = header.value();
-
-            if key.eq_ignore_ascii_case("from") {
-                if let HeaderValue::Address(addr) = val {
-                    if let Some(email) = &addr.address {
-                        mail_from = email.to_string().into();
-                    }
-                }
-            } else if key.eq_ignore_ascii_case("to")
-                || key.eq_ignore_ascii_case("cc")
-                || key.eq_ignore_ascii_case("bcc")
-            {
-                match val {
-                    HeaderValue::Address(addr) => {
-                        if let Some(email) = &addr.address {
-                            rcpt_to.insert(email.to_string());
-                        }
-                    }
-                    HeaderValue::AddressList(addrs) => {
-                        for addr in addrs {
-                            if let Some(email) = &addr.address {
-                                rcpt_to.insert(email.to_string());
-                            }
-                        }
-                    }
-                    HeaderValue::Group(group) => {
-                        for addr in &group.addresses {
-                            if let Some(email) = &addr.address {
-                                rcpt_to.insert(email.to_string());
-                            }
-                        }
-                    }
-                    HeaderValue::GroupList(groups) => {
-                        for group in groups {
-                            for addr in &group.addresses {
-                                if let Some(email) = &addr.address {
-                                    rcpt_to.insert(email.to_string());
-                                }
-                            }
-                        }
-                    }
-                    _ => (),
-                }
-            }
-        }
-
-        if rcpt_to.is_empty() {
-            return Err(Error::SendEmailMissingToError);
-        }
-
-        Ok(smtp::Message {
-            mail_from: mail_from.ok_or(Error::SendEmailMissingFromError)?.into(),
-            rcpt_to: rcpt_to
-                .into_iter()
-                .map(|email| smtp::Address {
-                    email: email.into(),
-                    parameters: Default::default(),
-                })
-                .collect(),
-            body: msg.raw_message.into(),
-        })
+    fn block_on_send(&mut self, email: Message) -> Result<()> {
+        self.runtime
+            .block_on(self.client.send(into_smtp_msg(email)?))
+            .map_err(Error::SendError)
     }
-}
 
-impl Sender for Smtp {
-    fn send(&self, email: &[u8]) -> sender::Result<()> {
+    fn send(&mut self, email: &[u8]) -> Result<()> {
         let mut email = Message::parse(&email).ok_or(Error::ParseEmailError)?;
         let buffer;
 
@@ -178,14 +130,104 @@ impl Sender for Smtp {
             email = Message::parse(&buffer).ok_or(Error::ParseEmailError)?;
         };
 
-        let email = Self::into_smtp_msg(email)?;
-        self.runtime.block_on(
-            self.client
-                .lock()
-                .map_err(|err| Error::LockClientError(err.to_string()))?
-                .send(email),
-        )?;
+        match self.config.auth.clone() {
+            SmtpAuthConfig::Passwd(_) => self.block_on_send(email),
+            SmtpAuthConfig::OAuth2(oauth2) => {
+                let client_builder = self.client_builder.clone();
+                self.block_on_send(email.clone()).or_else(|err| match err {
+                    Error::SendError(mail_send::Error::AuthenticationFailed(_)) => {
+                        oauth2.refresh_access_token()?;
 
-        Ok(())
+                        let (client_builder, client) = Self::get_client_with_builder(
+                            &self.config,
+                            &self.runtime,
+                            client_builder.credentials(self.config.credentials()?),
+                        )?;
+
+                        self.client_builder = client_builder;
+                        self.client = client;
+                        self.block_on_send(email)
+                    }
+                    err => Err(err),
+                })
+            }
+        }
     }
+}
+
+impl Sender for Smtp {
+    fn send(&mut self, email: &[u8]) -> sender::Result<()> {
+        Ok(self.send(email)?)
+    }
+}
+
+fn into_smtp_msg<'a>(msg: Message<'a>) -> Result<smtp::Message<'a>> {
+    let mut mail_from = None;
+    let mut rcpt_to = HashSet::new();
+
+    for header in msg.headers() {
+        let key = header.name();
+        let val = header.value();
+
+        if key.eq_ignore_ascii_case("from") {
+            if let HeaderValue::Address(addr) = val {
+                if let Some(email) = &addr.address {
+                    mail_from = email.to_string().into();
+                }
+            }
+        } else if key.eq_ignore_ascii_case("to")
+            || key.eq_ignore_ascii_case("cc")
+            || key.eq_ignore_ascii_case("bcc")
+        {
+            match val {
+                HeaderValue::Address(addr) => {
+                    if let Some(email) = &addr.address {
+                        rcpt_to.insert(email.to_string());
+                    }
+                }
+                HeaderValue::AddressList(addrs) => {
+                    for addr in addrs {
+                        if let Some(email) = &addr.address {
+                            rcpt_to.insert(email.to_string());
+                        }
+                    }
+                }
+                HeaderValue::Group(group) => {
+                    for addr in &group.addresses {
+                        if let Some(email) = &addr.address {
+                            rcpt_to.insert(email.to_string());
+                        }
+                    }
+                }
+                HeaderValue::GroupList(groups) => {
+                    for group in groups {
+                        for addr in &group.addresses {
+                            if let Some(email) = &addr.address {
+                                rcpt_to.insert(email.to_string());
+                            }
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+
+    if rcpt_to.is_empty() {
+        return Err(Error::SendEmailMissingToError);
+    }
+
+    let msg = smtp::Message {
+        mail_from: mail_from.ok_or(Error::SendEmailMissingFromError)?.into(),
+        rcpt_to: rcpt_to
+            .into_iter()
+            .map(|email| smtp::Address {
+                email: email.into(),
+                parameters: Default::default(),
+            })
+            .collect(),
+        body: msg.raw_message.into(),
+    };
+
+    Ok(msg)
 }

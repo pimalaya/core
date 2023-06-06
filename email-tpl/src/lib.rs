@@ -3,5 +3,5 @@
 pub mod mml;
 pub mod tpl;
 
-pub use mml::*;
-pub use tpl::*;
+pub use mml::FilterParts;
+pub use tpl::{ShowHeadersStrategy, Tpl, TplInterpreter};

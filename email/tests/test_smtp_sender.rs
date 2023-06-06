@@ -25,7 +25,7 @@ fn test_smtp_sender() {
         ..SmtpConfig::default()
     };
 
-    let smtp = Smtp::new(&account_config, &smtp_config).unwrap();
+    let mut smtp = Smtp::new(&account_config, &smtp_config).unwrap();
 
     let imap = ImapBackend::new(
         account_config,

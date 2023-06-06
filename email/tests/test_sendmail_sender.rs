@@ -25,7 +25,7 @@ fn test_sendmail_sender() {
         .join(" ")
         .into(),
     };
-    let sendmail = Sendmail::new(&account_config, &sendmail_config);
+    let mut sendmail = Sendmail::new(&account_config, &sendmail_config);
     let imap = ImapBackend::new(
         account_config.clone(),
         ImapConfig {

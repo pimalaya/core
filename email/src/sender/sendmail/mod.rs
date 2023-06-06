@@ -1,5 +1,4 @@
 pub mod config;
-pub use config::SendmailConfig;
 
 use mail_parser::Message;
 use pimalaya_process::Cmd;
@@ -7,6 +6,7 @@ use std::result;
 use thiserror::Error;
 
 use crate::{sender, AccountConfig, EmailHooks, Sender};
+pub use config::SendmailConfig;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -35,7 +35,7 @@ impl Sendmail {
 }
 
 impl Sender for Sendmail {
-    fn send(&self, email: &[u8]) -> sender::Result<()> {
+    fn send(&mut self, email: &[u8]) -> sender::Result<()> {
         let mut email = Message::parse(&email).ok_or(Error::ParseEmailError)?;
         let buffer;
 
