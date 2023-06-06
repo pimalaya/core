@@ -6,8 +6,9 @@ use oauth2::{
     reqwest::http_client,
     RefreshToken, RequestTokenError, StandardErrorResponse, TokenResponse,
 };
-use std::result;
 use thiserror::Error;
+
+use crate::Result;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -20,11 +21,10 @@ pub enum Error {
     ),
 }
 
-pub type Result<T> = result::Result<T, Error>;
-
 /// OAuth 2.0 Refresh Access Token flow builder. The builder is empty
 /// for now but scopes will be added in the future. This flow exchange
-/// a refresh token for a new pair of access token and refresh token.
+/// a refresh token for a new pair of access token and maybe a refresh
+/// token.
 #[derive(Debug)]
 pub struct RefreshAccessToken;
 

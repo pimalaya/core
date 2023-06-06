@@ -1,6 +1,6 @@
 # pimalaya-oauth2
 
-Rust library to simplify OAuth2 flows.
+Rust library to simplify OAuth 2.0 flows.
 
 See the full [API documentation](https://docs.rs/pimalaya-oauth2/latest/pimalaya_oauth2/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/oauth2/examples).
 
