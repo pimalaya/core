@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Implemented OAuth 2.0 refresh token flow, which means that access token are now automatically refreshed.
+
+### Changed
+
+- Added `OAuth2Config::redirect_host` and `OAuth2Config::redirect_port`, which means OAuth 2.0 redirect server host and port can be customized.
+
+### Removed
+
+- Removed `ImapConfig`.
+
 ## [0.9.0] - 2023-06-03
 
 ### Added

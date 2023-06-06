@@ -7,16 +7,12 @@ use pimalaya_process::Cmd;
 use std::result;
 use thiserror::Error;
 
-use crate::{account, OAuth2Config, OAuth2Method, PasswdConfig};
+use crate::{account, OAuth2Config, PasswdConfig};
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot start the notify mode")]
     StartNotifyModeError(#[source] pimalaya_process::Error),
-    #[error("cannot get imap password from global keyring")]
-    GetPasswdError(#[source] pimalaya_secret::Error),
-    #[error("cannot get imap password: password is empty")]
-    GetPasswdEmptyError,
     #[error(transparent)]
     AccountConfigError(#[from] account::config::Error),
 }
@@ -59,31 +55,6 @@ pub enum ImapAuthConfig {
 impl Default for ImapAuthConfig {
     fn default() -> Self {
         Self::Passwd(PasswdConfig::default())
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ImapAuth {
-    Passwd(String),
-    OAuth2AccessToken(OAuth2Method, String),
-}
-
-impl ImapAuth {
-    pub fn new(config: &ImapAuthConfig) -> Result<Self> {
-        match config {
-            ImapAuthConfig::Passwd(passwd) => {
-                let passwd = passwd.get().map_err(Error::GetPasswdError)?;
-                let passwd = passwd
-                    .lines()
-                    .next()
-                    .ok_or_else(|| Error::GetPasswdEmptyError)?;
-                Ok(Self::Passwd(passwd.to_owned()))
-            }
-            ImapAuthConfig::OAuth2(config) => Ok(Self::OAuth2AccessToken(
-                config.method.clone(),
-                config.access_token()?,
-            )),
-        }
     }
 }
 

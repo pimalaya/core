@@ -1,8 +1,11 @@
 pub mod config;
 
-pub use config::{ImapAuth, ImapAuthConfig, ImapConfig};
+pub use config::{ImapAuthConfig, ImapConfig};
 
-use imap::extensions::idle::{stop_on_any, SetReadTimeout};
+use imap::{
+    extensions::idle::{stop_on_any, SetReadTimeout},
+    Client,
+};
 use imap_proto::{NameAttribute, UidSetMember};
 use log::{debug, error, info, log_enabled, trace, warn, Level};
 use once_cell::sync::Lazy;
@@ -128,11 +131,17 @@ pub enum Error {
     #[error("cannot connect to imap server")]
     ConnectImapServerError(#[source] imap::Error),
     #[error("cannot login to imap server")]
-    LoginImapServerError(#[source] imap::Error),
+    LoginError(#[source] imap::Error),
+    #[error("cannot authenticate to imap server")]
+    AuthenticateError(#[source] imap::Error),
     #[error("cannot start the idle mode")]
     StartIdleModeError(#[source] imap::Error),
     #[error("cannot close imap session")]
     CloseImapSessionError(#[source] imap::Error),
+    #[error("cannot get imap password from global keyring")]
+    GetPasswdError(#[source] pimalaya_secret::Error),
+    #[error("cannot get imap password: password is empty")]
+    GetPasswdEmptyError,
 
     // Other error forwarding
     #[error(transparent)]
@@ -143,8 +152,6 @@ pub enum Error {
     EmailError(#[from] email::Error),
     #[error(transparent)]
     MaildirBackend(#[from] backend::maildir::Error),
-    #[error(transparent)]
-    Oauth2Error(#[from] pimalaya_oauth2::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -227,12 +234,11 @@ impl<'a> ImapBackendBuilder {
         account_config: AccountConfig,
         imap_config: ImapConfig,
     ) -> Result<ImapBackend> {
-        let auth = ImapAuth::new(&imap_config.auth)?;
         let sessions_pool: Vec<_> = (0..=self.sessions_pool_size).collect();
-        let sessions_pool = sessions_pool
+        let sessions_pool: Vec<_> = sessions_pool
             .par_iter()
-            .map(|_| ImapBackend::create_session(&imap_config, &auth).map(Mutex::new))
-            .collect::<Result<Vec<_>>>()?;
+            .map(|_| ImapBackend::create_session(&imap_config).map(Mutex::new))
+            .collect::<Result<_>>()?;
         let backend = ImapBackend {
             account_config,
             imap_config,
@@ -309,38 +315,77 @@ impl ImapBackend {
         ImapBackendBuilder::default().build(account_config, imap_config)
     }
 
-    fn create_session(imap_config: &ImapConfig, auth: &ImapAuth) -> Result<ImapSession> {
-        let mut client_builder = imap::ClientBuilder::new(&imap_config.host, imap_config.port);
-        if imap_config.starttls() {
+    fn create_client(config: &ImapConfig) -> Result<Client<ImapSessionStream>> {
+        let mut client_builder = imap::ClientBuilder::new(&config.host, config.port);
+
+        if config.starttls() {
             client_builder.starttls();
         }
 
-        let client = if imap_config.ssl() {
-            client_builder.connect(Self::handshaker(imap_config)?)
+        let client = if config.ssl() {
+            client_builder.connect(Self::handshaker(config)?)
         } else {
             client_builder.connect(|_, tcp| Ok(ImapSessionStream::Tcp(tcp)))
         }
         .map_err(Error::ConnectImapServerError)?;
 
-        let mut session = match auth {
-            ImapAuth::Passwd(passwd) => client.login(&imap_config.login, passwd),
-            ImapAuth::OAuth2AccessToken(OAuth2Method::XOAuth2, access_token) => client
-                .authenticate(
-                    "XOAUTH2",
-                    &XOAuth2::new(imap_config.login.clone(), access_token.clone()),
-                ),
-            ImapAuth::OAuth2AccessToken(OAuth2Method::OAuthBearer, access_token) => client
-                .authenticate(
-                    "OAUTHBEARER",
-                    &OAuthBearer::new(
-                        imap_config.login.clone(),
-                        imap_config.host.clone(),
-                        imap_config.port,
-                        access_token.clone(),
-                    ),
-                ),
-        }
-        .map_err(|res| Error::LoginImapServerError(res.0))?;
+        Ok(client)
+    }
+
+    fn create_session(imap_config: &ImapConfig) -> Result<ImapSession> {
+        let mut session = match &imap_config.auth {
+            ImapAuthConfig::Passwd(passwd) => {
+                debug!("creating session using login and password");
+                let passwd = passwd.get().map_err(Error::GetPasswdError)?;
+                let passwd = passwd
+                    .lines()
+                    .next()
+                    .ok_or_else(|| Error::GetPasswdEmptyError)?;
+                Self::create_client(imap_config)?
+                    .login(&imap_config.login, passwd)
+                    .map_err(|res| Error::LoginError(res.0))
+            }
+            ImapAuthConfig::OAuth2(oauth2_config) => match oauth2_config.method {
+                OAuth2Method::XOAuth2 => {
+                    debug!("creating session using xoauth2");
+                    let authenticate = |access_token: String| -> Result<ImapSession> {
+                        let xoauth2 = XOAuth2::new(imap_config.login.clone(), access_token);
+                        Self::create_client(imap_config)?
+                            .authenticate("XOAUTH2", &xoauth2)
+                            .map_err(|(err, _client)| Error::AuthenticateError(err))
+                    };
+                    authenticate(oauth2_config.access_token()?).or_else(|_| {
+                        // TODO: instead of creating a new client, we should reuse the one given with the error.
+                        // This will be possible once this PR is merged:
+                        // https://github.com/jonhoo/rust-imap/pull/231
+                        warn!("error while authenticating user, trying to refresh access token");
+                        Ok(oauth2_config.refresh_access_token()?).and_then(authenticate)
+                    })
+                }
+                OAuth2Method::OAuthBearer => {
+                    debug!("creating session using oauthbearer");
+                    let authenticate = |access_token: String| -> Result<ImapSession> {
+                        let bearer = OAuthBearer::new(
+                            imap_config.login.clone(),
+                            imap_config.host.clone(),
+                            imap_config.port,
+                            access_token,
+                        );
+                        Self::create_client(imap_config)?
+                            .authenticate("OAUTHBEARER", &bearer)
+                            .map_err(|(err, _client)| Error::AuthenticateError(err))
+                    };
+                    authenticate(oauth2_config.access_token()?).or_else(|_| {
+                        // TODO: instead of creating a new client, we should reuse the one given with the error.
+                        // This will be possible once this PR is merged:
+                        // https://github.com/jonhoo/rust-imap/pull/231
+                        warn!("error while authenticating user, trying to refresh access token");
+                        Ok(oauth2_config.refresh_access_token()?).and_then(authenticate)
+                    })
+                }
+            },
+        }?;
+
         session.debug = log_enabled!(Level::Trace);
 
         Ok(session)

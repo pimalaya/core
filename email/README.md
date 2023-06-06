@@ -26,7 +26,7 @@ Before running the test suite you need to spawn an IMAP server. Here an example 
 $ docker run -it --rm \
   -p 3025:3025 -p 3110:3110 -p 3143:3143 -p 3465:3465 -p 3993:3993 -p 3995:3995 \
   -e GREENMAIL_OPTS='-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled -Dgreenmail.verbose' \
-  greenmail/standalone:1.6.2
+  greenmail/standalone:2.0.0
   
 $ cargo test -p pimalaya-email
 ```

@@ -7,7 +7,7 @@ use dirs::data_dir;
 use log::warn;
 use mail_builder::headers::address::{Address, EmailAddress};
 use pimalaya_email_tpl::TplInterpreter;
-use pimalaya_oauth2::AuthorizationCodeGrant;
+use pimalaya_oauth2::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use pimalaya_process::Cmd;
 use pimalaya_secret::Secret;
 use shellexpand;
@@ -50,7 +50,7 @@ pub enum Error {
     CreateXdgDataDirsError(#[source] io::Error),
 
     #[error("cannot configure imap oauth2")]
-    ConfigureOAuth2Error(#[from] pimalaya_oauth2::Error),
+    OAuth2AuthorizationCodeGrantError(#[from] pimalaya_oauth2::Error),
 
     #[error("cannot get imap oauth2 access token from global keyring")]
     GetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
@@ -59,6 +59,8 @@ pub enum Error {
     #[error("cannot delete imap oauth2 access token from global keyring")]
     DeleteOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
 
+    #[error("cannot get imap oauth2 refresh token")]
+    GetOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
     #[error("cannot set imap oauth2 refresh token")]
     SetOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
     #[error("cannot delete imap oauth2 refresh token from global keyring")]
@@ -81,6 +83,9 @@ pub enum Error {
     SetPasswdIntoKeyringError(#[source] pimalaya_secret::Error),
     #[error("cannot delete imap password from global keyring")]
     DeletePasswdError(#[source] pimalaya_secret::Error),
+
+    #[error("cannot refresh imap oauth2 access token")]
+    RefreshOAuth2AccessTokenError(#[source] pimalaya_oauth2::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -387,20 +392,22 @@ impl DerefMut for PasswdConfig {
 
 impl PasswdConfig {
     pub fn reset(&self) -> Result<()> {
-        self.delete().map_err(Error::DeletePasswdError)?;
+        self.delete_keyring_entry_secret()
+            .map_err(Error::DeletePasswdError)?;
         Ok(())
     }
 
     pub fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
-        match self.get() {
-            Err(err) if err.is_get_secret_error() => {
+        match self.find() {
+            Ok(None) => {
                 warn!("cannot find imap password from keyring, setting it");
                 let passwd = get_passwd().map_err(Error::GetPasswdFromUserError)?;
-                self.set(passwd).map_err(Error::SetPasswdIntoKeyringError)?;
+                self.set_keyring_entry_secret(passwd)
+                    .map_err(Error::SetPasswdIntoKeyringError)?;
                 Ok(())
             }
-            Err(err) => Err(Error::GetPasswdFromKeyring(err)),
             Ok(_) => Ok(()),
+            Err(err) => Err(Error::GetPasswdFromKeyring(err)),
         }
     }
 }
@@ -416,18 +423,20 @@ pub struct OAuth2Config {
     pub refresh_token: Secret,
     pub pkce: bool,
     pub scopes: OAuth2Scopes,
+    pub redirect_host: String,
+    pub redirect_port: u16,
 }
 
 impl OAuth2Config {
     pub fn reset(&self) -> Result<()> {
         self.client_secret
-            .delete()
+            .delete_keyring_entry_secret()
             .map_err(Error::DeleteOAuth2ClientSecretError)?;
         self.access_token
-            .delete()
+            .delete_keyring_entry_secret()
             .map_err(Error::DeleteOAuth2AccessTokenError)?;
         self.refresh_token
-            .delete()
+            .delete_keyring_entry_secret()
             .map_err(Error::DeleteOAuth2RefreshTokenError)?;
         Ok(())
     }
@@ -439,54 +448,101 @@ impl OAuth2Config {
 
         let set_client_secret = || {
             self.client_secret
-                .set(get_client_secret().map_err(Error::GetOAuth2ClientSecretFromUserError)?)
+                .set_keyring_entry_secret(
+                    get_client_secret().map_err(Error::GetOAuth2ClientSecretFromUserError)?,
+                )
                 .map_err(Error::SetOAuth2ClientSecretIntoKeyringError)
         };
 
-        let client_secret = match self.client_secret.get() {
-            Err(err) if err.is_get_secret_error() => {
+        let client_secret = match self.client_secret.find() {
+            Ok(None) => {
                 warn!("cannot find imap oauth2 client secret from keyring, setting it");
                 set_client_secret()
             }
+            Ok(Some(client_secret)) => Ok(client_secret),
             Err(err) => Err(Error::GetOAuth2ClientSecretFromKeyring(err)),
-            Ok(client_secret) => Ok(client_secret),
         }?;
 
-        let mut builder = AuthorizationCodeGrant::new(
+        let client = Client::new(
             self.client_id.clone(),
             client_secret,
             self.auth_url.clone(),
             self.token_url.clone(),
-        )?;
+        )?
+        .with_redirect_host(self.redirect_host.clone())
+        .with_redirect_port(self.redirect_port)
+        .build()?;
+
+        let mut auth_code_grant = AuthorizationCodeGrant::new()
+            .with_redirect_host(self.redirect_host.clone())
+            .with_redirect_port(self.redirect_port);
 
         if self.pkce {
-            builder = builder.with_pkce();
+            auth_code_grant = auth_code_grant.with_pkce();
         }
 
         for scope in self.scopes.clone() {
-            builder = builder.with_scope(scope);
+            auth_code_grant = auth_code_grant.with_scope(scope);
         }
 
-        let client = builder.get_client()?;
-        let (redirect_url, csrf_token) = builder.get_redirect_url(&client);
+        let (redirect_url, csrf_token) = auth_code_grant.get_redirect_url(&client);
 
         println!("To enable OAuth2, click on the following link:");
         println!("");
         println!("{}", redirect_url.to_string());
 
-        let (access_token, refresh_token) = builder.wait_for_redirection(client, csrf_token)?;
+        let (access_token, refresh_token) =
+            auth_code_grant.wait_for_redirection(&client, csrf_token)?;
 
         self.access_token
-            .set(access_token)
+            .set_keyring_entry_secret(access_token)
             .map_err(Error::SetOAuth2AccessTokenError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
-                .set(refresh_token)
+                .set_keyring_entry_secret(refresh_token)
                 .map_err(Error::SetOAuth2RefreshTokenError)?;
         }
 
         Ok(())
+    }
+
+    pub fn refresh_access_token(&self) -> Result<String> {
+        let client_secret = self
+            .client_secret
+            .get()
+            .map_err(Error::GetOAuth2ClientSecretFromKeyring)?;
+
+        let client = Client::new(
+            self.client_id.clone(),
+            client_secret,
+            self.auth_url.clone(),
+            self.token_url.clone(),
+        )?
+        .with_redirect_host(self.redirect_host.clone())
+        .with_redirect_port(self.redirect_port)
+        .build()?;
+
+        let refresh_token = self
+            .refresh_token
+            .get()
+            .map_err(Error::GetOAuth2RefreshTokenError)?;
+
+        let (access_token, refresh_token) = RefreshAccessToken::new()
+            .refresh_access_token(&client, refresh_token)
+            .map_err(Error::RefreshOAuth2AccessTokenError)?;
+
+        self.access_token
+            .set_keyring_entry_secret(&access_token)
+            .map_err(Error::SetOAuth2AccessTokenError)?;
+
+        if let Some(refresh_token) = &refresh_token {
+            self.refresh_token
+                .set_keyring_entry_secret(refresh_token)
+                .map_err(Error::SetOAuth2RefreshTokenError)?;
+        }
+
+        Ok(access_token)
     }
 
     pub fn access_token(&self) -> Result<String> {
