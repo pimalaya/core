@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2023-06-06
+
+### Added
+
+- Added logs and comments.
+- Added `Secret::find`.
+
+### Changed
+
+- Renamed `Secret::Keyring` by `KeyringEntry`.
+- Added `Secret::Undefined` variant, which is now the default variant.
+- Renamed `Secret::new_keyring` by `new_keyring_entry`.
+- Renamed `Secret::is_undefined_entry` by `is_undefined`.
+- Renamed `Secret::replace_undefined_entry_with` by `set_keyring_entry_if_undefined`.
+- Renamed `Secret::set` by `set_keyring_entry_secret`.
+- Renamed `Secret::delete` by `delete_keyring_entry_secret`.
+
+### Removed
+
+- Removed `Error::is_get_secret_error`, use `Secret::find` instead.
+
 ## [0.0.1] - 2023-05-19
 
 ### Added

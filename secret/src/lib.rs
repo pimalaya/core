@@ -1,3 +1,4 @@
+use log::{debug, trace, warn};
 use pimalaya_keyring::Entry;
 use pimalaya_process::Cmd;
 use std::result;
@@ -5,98 +6,122 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot get secret: secret not defined")]
+    GetSecretFromUndefinedError,
     #[error("cannot get secret from command")]
     GetSecretFromCmd(#[source] pimalaya_process::Error),
+
     #[error(transparent)]
     KeyringError(#[from] pimalaya_keyring::Error),
 }
 
-impl Error {
-    pub fn is_get_secret_error(&self) -> bool {
-        matches!(
-            self,
-            Self::KeyringError(pimalaya_keyring::Error::GetSecretError(_, _))
-        )
-    }
-}
-
 pub type Result<T> = result::Result<T, Error>;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum Secret {
+    /// The secret is contained in a raw string, usually not safe to
+    /// use and so not recommended.
     Raw(String),
-    Cmd(Cmd),
-    Keyring(Entry),
-}
 
-impl Default for Secret {
-    fn default() -> Self {
-        Self::new_keyring("")
-    }
+    /// The secret is exposed by the given shell command.
+    Cmd(Cmd),
+
+    /// The secret is contained in the given user's global keyring
+    /// entry.
+    KeyringEntry(Entry),
+
+    /// The secret is not defined.
+    #[default]
+    Undefined,
 }
 
 impl Secret {
-    pub fn new_raw<R>(raw: R) -> Self
-    where
-        R: ToString,
-    {
+    /// Create a new [`Secret`] from the given raw string.
+    pub fn new_raw(raw: impl ToString) -> Self {
         Self::Raw(raw.to_string())
     }
 
-    pub fn new_cmd<C>(cmd: C) -> Self
-    where
-        C: Into<Cmd>,
-    {
+    /// Create a new [`Secret`] from the given shell command.
+    pub fn new_cmd(cmd: impl Into<Cmd>) -> Self {
         Self::Cmd(cmd.into())
     }
 
-    pub fn new_keyring<E>(entry: E) -> Self
-    where
-        E: Into<Entry>,
-    {
-        Self::Keyring(entry.into())
+    /// Create a new [`Secret`] from the given keyring entry.
+    pub fn new_keyring_entry(entry: impl Into<Entry>) -> Self {
+        Self::KeyringEntry(entry.into())
     }
 
-    pub fn is_undefined_entry(&self) -> bool {
-        *self == Self::default()
+    /// Return `true` if the [`Secret`] is not defined.
+    pub fn is_undefined(&self) -> bool {
+        let is_undefined = matches!(self, Self::Undefined);
+        trace!("is secret undefined: {is_undefined}");
+        is_undefined
     }
 
-    pub fn replace_undefined_entry_with<E>(&mut self, entry: E)
-    where
-        E: Into<Entry>,
-    {
-        if self.is_undefined_entry() {
-            *self = Self::new_keyring(entry)
-        }
-    }
-
+    /// Get the secret value of the [`Secret`].
     pub fn get(&self) -> Result<String> {
+        debug!("getting secret");
         match self {
             Self::Raw(raw) => Ok(raw.clone()),
             Self::Cmd(cmd) => {
                 let output = cmd.run().map_err(Error::GetSecretFromCmd)?;
                 Ok(String::from_utf8_lossy(&output.stdout).to_string())
             }
-            Self::Keyring(entry) => Ok(entry.get()?),
+            Self::KeyringEntry(entry) => Ok(entry.get_secret()?),
+            Self::Undefined => Err(Error::GetSecretFromUndefinedError),
         }
     }
 
-    pub fn set<S>(&self, secret: S) -> Result<String>
-    where
-        S: AsRef<str>,
-    {
-        if let Self::Keyring(entry) = self {
-            entry.set(secret.as_ref())?;
+    /// Find the secret value of the [`Secret`]. Return None if not
+    /// found (mostly for the keyring entry variant).
+    pub fn find(&self) -> Result<Option<String>> {
+        debug!("finding secret");
+        match self {
+            Self::Raw(raw) => Ok(Some(raw.clone())),
+            Self::Cmd(cmd) => {
+                let output = cmd.run().map_err(Error::GetSecretFromCmd)?;
+                Ok(Some(String::from_utf8_lossy(&output.stdout).to_string()))
+            }
+            Self::KeyringEntry(entry) => Ok(entry.find_secret()?),
+            Self::Undefined => Err(Error::GetSecretFromUndefinedError),
+        }
+    }
+
+    /// (Re)set the keyring entry secret of the [`Secret`].
+    pub fn set_keyring_entry_secret(&self, secret: impl AsRef<str>) -> Result<String> {
+        debug!("setting keyring entry secret");
+
+        if let Self::KeyringEntry(entry) = self {
+            entry.set_secret(secret.as_ref())?;
+        } else {
+            warn!("secret not a keyring entry, skipping")
         }
 
         Ok(secret.as_ref().to_string())
     }
 
-    pub fn delete(&self) -> Result<()> {
-        match self {
-            Self::Raw(_) => Ok(()),
-            Self::Cmd(_) => Ok(()),
-            Self::Keyring(entry) => Ok(entry.delete()?),
+    /// Transform an undefined [`Secret`] into a keyring entry one,
+    /// otherwise do nothing.
+    pub fn set_keyring_entry_if_undefined(&mut self, entry: impl Into<Entry>) {
+        debug!("replacing undefined secret by keyring entry");
+
+        if let Self::Undefined = self {
+            *self = Self::new_keyring_entry(entry)
+        } else {
+            warn!("secret is already defined, skipping")
         }
+    }
+
+    /// Delete the keyring entry secret of the [`Secret`].
+    pub fn delete_keyring_entry_secret(&self) -> Result<()> {
+        debug!("deleting keyring entry secret");
+
+        if let Self::KeyringEntry(entry) = self {
+            entry.delete_secret()?;
+        } else {
+            warn!("secret not a keyring entry, skipping")
+        }
+
+        Ok(())
     }
 }
