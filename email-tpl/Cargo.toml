@@ -1,6 +1,6 @@
 [package]
 name = "pimalaya-email-tpl"
-version = "0.2.1"
+version = "0.2.1-beta"
 description = "Rust library for representing MIME Messages as Emacs MIME Meta Language templates."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"

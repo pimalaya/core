@@ -1,6 +1,6 @@
 [package]
 name = "pimalaya-email"
-version = "0.9.1"
+version = "0.9.1-beta"
 description = "Rust library to manage your emails."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
