@@ -7,7 +7,7 @@ pub mod notmuch;
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use log::info;
-use std::{borrow::Cow, env, fmt, fs::OpenOptions, io, result};
+use std::{any::Any, borrow::Cow, env, fmt, fs::OpenOptions, io, result};
 use thiserror::Error;
 
 pub use self::config::BackendConfig;
@@ -97,6 +97,8 @@ pub trait Backend<'a> {
     fn close(&mut self) -> Result<()> {
         Ok(())
     }
+
+    fn as_any(&self) -> &(dyn Any + 'a);
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -346,7 +348,7 @@ impl<'a> BackendBuilder<'a> {
         }
     }
 
-    pub fn build_into(self) -> Result<Box<dyn Backend<'a> + 'a>> {
+    pub fn into_build(self) -> Result<Box<dyn Backend<'a> + 'a>> {
         match self.account_config.backend.clone() {
             BackendConfig::None => Err(Error::BuildBackendError),
             #[cfg(feature = "imap-backend")]

@@ -9,15 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Implemented OAuth 2.0 refresh token flow, which means that access token are now automatically refreshed.
+- Implemented OAuth 2.0 refresh token flow for IMAP and SMTP, which means that access tokens are now automatically refreshed.
+- Added `OAuth2Config::redirect_host` and `OAuth2Config::redirect_port`, which means OAuth 2.0 redirect server host and port can be customized.
 
 ### Changed
 
-- Added `OAuth2Config::redirect_host` and `OAuth2Config::redirect_port`, which means OAuth 2.0 redirect server host and port can be customized.
+- Changed `Backend` and `Sender` trait: functions now borrow &self as mut.
 
 ### Removed
 
-- Removed `ImapConfig`.
+- Removed `ImapAuth`.
+- Removed `Backend` restriction `Sync` and `Send`, because maintaining a session pool with `Mutex` was too much of a burden. Instead, `Backend` holds now a single session and exposes a `try_clone` method to duplicate itself. Behind the scene it just recreates a new backend with a new session.
+- Removed `ImapBackendBuilder`.
 
 ## [0.9.0] - 2023-06-03
 

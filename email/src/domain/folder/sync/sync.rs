@@ -189,7 +189,7 @@ impl<'a> SyncBuilder<'a> {
         let remote_folders: FoldersName = HashSet::from_iter(
             remote_builder
                 .build()
-                .unwrap()
+                .map_err(Box::new)?
                 .list_folders()
                 .map_err(Box::new)?
                 .iter()
@@ -249,7 +249,7 @@ impl<'a> SyncBuilder<'a> {
                     Hunk::CreateFolder(ref folder, HunkKind::Local) => {
                         local
                             .try_clone()
-                            .unwrap()
+                            .map_err(Box::new)?
                             .add_folder(folder)
                             .map_err(Box::new)?;
                         vec![]
@@ -263,7 +263,7 @@ impl<'a> SyncBuilder<'a> {
                     Hunk::CreateFolder(ref folder, HunkKind::Remote) => {
                         remote_builder
                             .build()
-                            .unwrap()
+                            .map_err(Box::new)?
                             .add_folder(&folder)
                             .map_err(Box::new)?;
                         vec![]
@@ -277,7 +277,7 @@ impl<'a> SyncBuilder<'a> {
                     Hunk::DeleteFolder(ref folder, HunkKind::Local) => {
                         local
                             .try_clone()
-                            .unwrap()
+                            .map_err(Box::new)?
                             .delete_folder(folder)
                             .map_err(Box::new)?;
                         vec![]
@@ -291,7 +291,7 @@ impl<'a> SyncBuilder<'a> {
                     Hunk::DeleteFolder(ref folder, HunkKind::Remote) => {
                         remote_builder
                             .build()
-                            .unwrap()
+                            .map_err(Box::new)?
                             .delete_folder(&folder)
                             .map_err(Box::new)?;
                         vec![]

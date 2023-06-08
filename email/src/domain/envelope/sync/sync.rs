@@ -202,7 +202,7 @@ impl<'a> SyncBuilder<'a> {
         let remote_envelopes: Envelopes = HashMap::from_iter(
             remote_builder
                 .build()
-                .unwrap()
+                .map_err(Box::new)?
                 .list_envelopes(&folder, 0, 0)
                 .or_else(|err| {
                     if self.dry_run {
@@ -248,7 +248,7 @@ impl<'a> SyncBuilder<'a> {
                     BackendHunk::CacheEnvelope(folder, internal_id, HunkKindRestricted::Local) => {
                         let envelope = local
                             .try_clone()
-                            .unwrap()
+                            .map_err(Box::new)?
                             .get_envelope(folder, &internal_id)
                             .map_err(Box::new)?;
                         vec![CacheHunk::InsertEnvelope(
@@ -260,7 +260,7 @@ impl<'a> SyncBuilder<'a> {
                     BackendHunk::CacheEnvelope(folder, internal_id, HunkKindRestricted::Remote) => {
                         let envelope = remote_builder
                             .build()
-                            .unwrap()
+                            .map_err(Box::new)?
                             .get_envelope(&folder, &internal_id)
                             .map_err(Box::new)?;
                         vec![CacheHunk::InsertEnvelope(
@@ -289,7 +289,7 @@ impl<'a> SyncBuilder<'a> {
                                 };
                                 local
                                     .try_clone()
-                                    .unwrap()
+                                    .map_err(Box::new)?
                                     .preview_emails(folder, internal_ids)
                             }
                             HunkKindRestricted::Remote => {
@@ -302,7 +302,7 @@ impl<'a> SyncBuilder<'a> {
                                 };
                                 remote_builder
                                     .build()
-                                    .unwrap()
+                                    .map_err(Box::new)?
                                     .preview_emails(folder, internal_ids)
                             }
                         }
@@ -314,7 +314,7 @@ impl<'a> SyncBuilder<'a> {
 
                         match target {
                             HunkKindRestricted::Local => {
-                                let mut local = local.try_clone().unwrap();
+                                let mut local = local.try_clone().map_err(Box::new)?;
                                 let internal_id = local
                                     .add_email(folder, email.raw()?, &envelope.flags)
                                     .map_err(Box::new)?;
@@ -327,7 +327,7 @@ impl<'a> SyncBuilder<'a> {
                                 ));
                             }
                             HunkKindRestricted::Remote => {
-                                let mut remote = remote_builder.build().unwrap();
+                                let mut remote = remote_builder.build().map_err(Box::new)?;
                                 let internal_id = remote
                                     .add_email(&folder, email.raw()?, &envelope.flags)
                                     .map_err(Box::new)?;
@@ -353,7 +353,7 @@ impl<'a> SyncBuilder<'a> {
                     BackendHunk::RemoveEmail(folder, internal_id, HunkKind::Local) => {
                         local
                             .try_clone()
-                            .unwrap()
+                            .map_err(Box::new)?
                             .mark_emails_as_deleted(folder, vec![internal_id])
                             .map_err(Box::new)?;
                         vec![]
@@ -368,7 +368,7 @@ impl<'a> SyncBuilder<'a> {
                     BackendHunk::RemoveEmail(folder, internal_id, HunkKind::Remote) => {
                         remote_builder
                             .build()
-                            .unwrap()
+                            .map_err(Box::new)?
                             .mark_emails_as_deleted(folder, vec![internal_id])
                             .map_err(Box::new)?;
                         vec![]
@@ -390,7 +390,7 @@ impl<'a> SyncBuilder<'a> {
                     BackendHunk::SetFlags(folder, envelope, HunkKind::Local) => {
                         local
                             .try_clone()
-                            .unwrap()
+                            .map_err(Box::new)?
                             .set_flags(folder, vec![&envelope.id], &envelope.flags)
                             .map_err(Box::new)?;
                         vec![]
@@ -412,7 +412,7 @@ impl<'a> SyncBuilder<'a> {
                     BackendHunk::SetFlags(folder, envelope, HunkKind::Remote) => {
                         remote_builder
                             .build()
-                            .unwrap()
+                            .map_err(Box::new)?
                             .set_flags(folder, vec![&envelope.id], &envelope.flags)
                             .map_err(Box::new)?;
                         vec![]

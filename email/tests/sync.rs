@@ -41,7 +41,7 @@ fn sync() {
     let mut imap = imap_builder
         .clone()
         .with_cache_disabled(true)
-        .build_into()
+        .into_build()
         .unwrap();
 
     // set up maildir reader

@@ -29,8 +29,6 @@ impl TryFrom<&Fetch<'_>> for Envelope {
 
         envelope.id = id;
 
-        envelope.id = envelope.id.clone();
-
         envelope.flags = Flags::from(fetch.flags());
 
         trace!("imap envelope: {envelope:#?}");

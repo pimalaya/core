@@ -5,6 +5,7 @@ pub use config::MaildirConfig;
 use log::{info, trace, warn};
 use maildirpp::Maildir;
 use std::{
+    any::Any,
     borrow::Cow,
     env,
     ffi::OsStr,
@@ -546,5 +547,9 @@ impl<'a> Backend<'a> for MaildirBackend<'a> {
         })?;
 
         Ok(())
+    }
+
+    fn as_any(&self) -> &(dyn Any + 'a) {
+        self
     }
 }

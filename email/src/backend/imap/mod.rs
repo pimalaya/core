@@ -13,6 +13,7 @@ use rustls::{
     Certificate, ClientConfig, ClientConnection, RootCertStore, StreamOwned,
 };
 use std::{
+    any::Any,
     borrow::Cow,
     collections::HashSet,
     convert::TryInto,
@@ -1047,6 +1048,10 @@ impl<'a> Backend<'a> for ImapBackend<'a> {
             Error::CloseError,
         )?;
         Ok(())
+    }
+
+    fn as_any(&self) -> &(dyn Any + 'a) {
+        self
     }
 }
 
