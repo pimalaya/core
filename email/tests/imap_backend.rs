@@ -4,10 +4,11 @@ fn test_imap_backend() {
     use concat_with::concat_line;
     use mail_builder::MessageBuilder;
     use pimalaya_email::{
-        AccountConfig, Backend, Flag, ImapAuthConfig, ImapBackend, ImapConfig, PasswdConfig, Tpl,
-        DEFAULT_INBOX_FOLDER,
+        AccountConfig, BackendBuilder, BackendConfig, Flag, ImapAuthConfig, ImapConfig,
+        PasswdConfig, Tpl, DEFAULT_INBOX_FOLDER,
     };
     use pimalaya_secret::Secret;
+    use std::borrow::Cow;
 
     env_logger::builder().is_test(true).init();
 
@@ -16,12 +17,7 @@ fn test_imap_backend() {
             "gpg --decrypt --quiet --recipient-file ./tests/keys/bob.key".into(),
         ),
         email_reading_verify_cmd: Some("gpg --verify --quiet".into()),
-        ..AccountConfig::default()
-    };
-
-    let imap = ImapBackend::new(
-        config.clone(),
-        ImapConfig {
+        backend: BackendConfig::Imap(ImapConfig {
             host: "127.0.0.1".into(),
             port: 3143,
             ssl: Some(false),
@@ -32,9 +28,12 @@ fn test_imap_backend() {
                 passwd: Secret::new_raw("password"),
             }),
             ..ImapConfig::default()
-        },
-    )
-    .unwrap();
+        }),
+        ..AccountConfig::default()
+    };
+
+    let imap_builder = BackendBuilder::new(Cow::Borrowed(&config));
+    let mut imap = imap_builder.build().unwrap();
 
     // setting up folders
 

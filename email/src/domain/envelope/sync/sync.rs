@@ -5,7 +5,10 @@ use std::{
     fmt,
 };
 
-use crate::{flag, AccountConfig, Backend, BackendSyncProgressEvent, Envelope, MaildirBackend};
+use crate::{
+    flag, AccountConfig, Backend, BackendBuilder, BackendSyncProgressEvent, Envelope,
+    MaildirBackend,
+};
 
 use super::{Cache, Error, Result};
 
@@ -146,8 +149,8 @@ impl<'a> SyncBuilder<'a> {
         &self,
         folder: F,
         conn: &mut rusqlite::Connection,
-        local: &MaildirBackend,
-        remote: &dyn Backend,
+        local: &mut MaildirBackend,
+        remote_builder: &BackendBuilder<'a>,
     ) -> Result<SyncReport>
     where
         F: ToString,
@@ -197,7 +200,9 @@ impl<'a> SyncBuilder<'a> {
         self.try_progress(BackendSyncProgressEvent::GetRemoteEnvelopes);
 
         let remote_envelopes: Envelopes = HashMap::from_iter(
-            remote
+            remote_builder
+                .build()
+                .unwrap()
                 .list_envelopes(&folder, 0, 0)
                 .or_else(|err| {
                     if self.dry_run {
@@ -241,8 +246,11 @@ impl<'a> SyncBuilder<'a> {
             let process_hunk = |hunk: &BackendHunk| {
                 Result::Ok(match hunk {
                     BackendHunk::CacheEnvelope(folder, internal_id, HunkKindRestricted::Local) => {
-                        let envelope =
-                            local.get_envelope(folder, &internal_id).map_err(Box::new)?;
+                        let envelope = local
+                            .try_clone()
+                            .unwrap()
+                            .get_envelope(folder, &internal_id)
+                            .map_err(Box::new)?;
                         vec![CacheHunk::InsertEnvelope(
                             folder.clone(),
                             envelope.clone(),
@@ -250,7 +258,9 @@ impl<'a> SyncBuilder<'a> {
                         )]
                     }
                     BackendHunk::CacheEnvelope(folder, internal_id, HunkKindRestricted::Remote) => {
-                        let envelope = remote
+                        let envelope = remote_builder
+                            .build()
+                            .unwrap()
                             .get_envelope(&folder, &internal_id)
                             .map_err(Box::new)?;
                         vec![CacheHunk::InsertEnvelope(
@@ -277,7 +287,10 @@ impl<'a> SyncBuilder<'a> {
                                         TargetRestricted::Local,
                                     ))
                                 };
-                                local.preview_emails(folder, internal_ids)
+                                local
+                                    .try_clone()
+                                    .unwrap()
+                                    .preview_emails(folder, internal_ids)
                             }
                             HunkKindRestricted::Remote => {
                                 if *refresh_source_cache {
@@ -287,7 +300,10 @@ impl<'a> SyncBuilder<'a> {
                                         TargetRestricted::Remote,
                                     ))
                                 };
-                                remote.preview_emails(folder, internal_ids)
+                                remote_builder
+                                    .build()
+                                    .unwrap()
+                                    .preview_emails(folder, internal_ids)
                             }
                         }
                         .map_err(Box::new)?;
@@ -298,6 +314,7 @@ impl<'a> SyncBuilder<'a> {
 
                         match target {
                             HunkKindRestricted::Local => {
+                                let mut local = local.try_clone().unwrap();
                                 let internal_id = local
                                     .add_email(folder, email.raw()?, &envelope.flags)
                                     .map_err(Box::new)?;
@@ -310,6 +327,7 @@ impl<'a> SyncBuilder<'a> {
                                 ));
                             }
                             HunkKindRestricted::Remote => {
+                                let mut remote = remote_builder.build().unwrap();
                                 let internal_id = remote
                                     .add_email(&folder, email.raw()?, &envelope.flags)
                                     .map_err(Box::new)?;
@@ -334,6 +352,8 @@ impl<'a> SyncBuilder<'a> {
                     }
                     BackendHunk::RemoveEmail(folder, internal_id, HunkKind::Local) => {
                         local
+                            .try_clone()
+                            .unwrap()
                             .mark_emails_as_deleted(folder, vec![internal_id])
                             .map_err(Box::new)?;
                         vec![]
@@ -346,7 +366,9 @@ impl<'a> SyncBuilder<'a> {
                         )]
                     }
                     BackendHunk::RemoveEmail(folder, internal_id, HunkKind::Remote) => {
-                        remote
+                        remote_builder
+                            .build()
+                            .unwrap()
                             .mark_emails_as_deleted(folder, vec![internal_id])
                             .map_err(Box::new)?;
                         vec![]
@@ -367,6 +389,8 @@ impl<'a> SyncBuilder<'a> {
                     }
                     BackendHunk::SetFlags(folder, envelope, HunkKind::Local) => {
                         local
+                            .try_clone()
+                            .unwrap()
                             .set_flags(folder, vec![&envelope.id], &envelope.flags)
                             .map_err(Box::new)?;
                         vec![]
@@ -386,7 +410,9 @@ impl<'a> SyncBuilder<'a> {
                         ]
                     }
                     BackendHunk::SetFlags(folder, envelope, HunkKind::Remote) => {
-                        remote
+                        remote_builder
+                            .build()
+                            .unwrap()
                             .set_flags(folder, vec![&envelope.id], &envelope.flags)
                             .map_err(Box::new)?;
                         vec![]

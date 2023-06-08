@@ -5,11 +5,11 @@ pub use config::MaildirConfig;
 use log::{info, trace, warn};
 use maildirpp::Maildir;
 use std::{
-    any::Any,
+    borrow::Cow,
     env,
     ffi::OsStr,
     fs, io,
-    path::{self, PathBuf},
+    path::{self, Path, PathBuf},
     result,
 };
 use thiserror::Error;
@@ -88,29 +88,32 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 
 /// Represents the maildir backend.
-pub struct MaildirBackend {
-    account_config: AccountConfig,
+pub struct MaildirBackend<'a> {
+    account_config: Cow<'a, AccountConfig>,
+    mdir_config: Cow<'a, MaildirConfig>,
     mdir: Maildir,
 }
 
-impl MaildirBackend {
-    pub fn new(account_config: AccountConfig, backend_config: MaildirConfig) -> Result<Self> {
-        let path = &backend_config.root_dir;
+impl<'a> MaildirBackend<'a> {
+    pub fn new(
+        account_config: Cow<'a, AccountConfig>,
+        mdir_config: Cow<'a, MaildirConfig>,
+    ) -> Result<Self> {
+        let path = &mdir_config.root_dir;
         let mdir = Maildir::from(path.clone());
 
         mdir.create_dirs()
             .map_err(|err| Error::InitFoldersStructureError(err, path.clone()))?;
 
-        let maildir_backend = Self {
+        Ok(Self {
             account_config,
+            mdir_config,
             mdir,
-        };
-
-        Ok(maildir_backend)
+        })
     }
 
-    pub fn path(&self) -> PathBuf {
-        self.mdir.path().to_owned()
+    pub fn path(&self) -> &Path {
+        self.mdir.path()
     }
 
     fn validate_mdir_path(&self, mdir_path: PathBuf) -> Result<PathBuf> {
@@ -173,18 +176,21 @@ impl MaildirBackend {
             .map(|folder| folder.to_string())
             .unwrap_or_else(|_| folder.to_string())
     }
-
-    pub fn as_any(&'static self) -> &(dyn Any + 'static) {
-        self
-    }
 }
 
-impl Backend for MaildirBackend {
+impl<'a> Backend<'a> for MaildirBackend<'a> {
     fn name(&self) -> String {
         self.account_config.name.clone()
     }
 
-    fn add_folder(&self, folder: &str) -> backend::Result<()> {
+    fn try_clone(&'a self) -> backend::Result<Box<dyn Backend + 'a>> {
+        Ok(Box::new(Self::new(
+            self.account_config.clone(),
+            self.mdir_config.clone(),
+        )?))
+    }
+
+    fn add_folder(&mut self, folder: &str) -> backend::Result<()> {
         info!("adding maildir folder {}", folder);
 
         let path = match self.account_config.folder_alias(folder)?.as_str() {
@@ -204,7 +210,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn list_folders(&self) -> backend::Result<Folders> {
+    fn list_folders(&mut self) -> backend::Result<Folders> {
         info!("listing maildir folders");
 
         let mut folders = Folders::default();
@@ -240,7 +246,7 @@ impl Backend for MaildirBackend {
         Ok(folders)
     }
 
-    fn expunge_folder(&self, folder: &str) -> backend::Result<()> {
+    fn expunge_folder(&mut self, folder: &str) -> backend::Result<()> {
         info!("expunging maildir folder {}", folder);
 
         let mdir = self.get_mdir_from_dir(folder)?;
@@ -264,7 +270,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn purge_folder(&self, folder: &str) -> backend::Result<()> {
+    fn purge_folder(&mut self, folder: &str) -> backend::Result<()> {
         info!("purging maildir folder {}", folder);
 
         let mdir = self.get_mdir_from_dir(folder)?;
@@ -281,7 +287,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn delete_folder(&self, folder: &str) -> backend::Result<()> {
+    fn delete_folder(&mut self, folder: &str) -> backend::Result<()> {
         info!("deleting maildir folder {}", folder);
 
         let path = match self.account_config.folder_alias(folder)?.as_str() {
@@ -299,7 +305,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn get_envelope(&self, folder: &str, internal_id: &str) -> backend::Result<Envelope> {
+    fn get_envelope(&mut self, folder: &str, internal_id: &str) -> backend::Result<Envelope> {
         info!(
             "getting maildir envelope by internal id {} from folder {}",
             internal_id, folder
@@ -315,7 +321,7 @@ impl Backend for MaildirBackend {
     }
 
     fn list_envelopes(
-        &self,
+        &mut self,
         folder: &str,
         page_size: usize,
         page: usize,
@@ -347,7 +353,7 @@ impl Backend for MaildirBackend {
     }
 
     fn search_envelopes(
-        &self,
+        &mut self,
         _folder: &str,
         _query: &str,
         _sort: &str,
@@ -357,7 +363,7 @@ impl Backend for MaildirBackend {
         Err(Error::SearchEnvelopesUnimplementedError)?
     }
 
-    fn add_email(&self, folder: &str, email: &[u8], flags: &Flags) -> backend::Result<String> {
+    fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> backend::Result<String> {
         info!(
             "adding email to folder {folder} with flags {flags}",
             flags = flags.to_string()
@@ -371,7 +377,7 @@ impl Backend for MaildirBackend {
         Ok(internal_id)
     }
 
-    fn preview_emails(&self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<Emails> {
+    fn preview_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<Emails> {
         info!(
             "previewing maildir emails by internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),
@@ -403,7 +409,7 @@ impl Backend for MaildirBackend {
         Ok(emails)
     }
 
-    fn get_emails(&self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<Emails> {
+    fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<Emails> {
         info!(
             "getting maildir emails by internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),
@@ -416,7 +422,7 @@ impl Backend for MaildirBackend {
     }
 
     fn copy_emails(
-        &self,
+        &mut self,
         from_folder: &str,
         to_folder: &str,
         internal_ids: Vec<&str>,
@@ -439,7 +445,7 @@ impl Backend for MaildirBackend {
     }
 
     fn move_emails(
-        &self,
+        &mut self,
         from_folder: &str,
         to_folder: &str,
         internal_ids: Vec<&str>,
@@ -461,7 +467,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn delete_emails(&self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<()> {
+    fn delete_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<()> {
         info!(
             "deleting internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),
@@ -477,7 +483,7 @@ impl Backend for MaildirBackend {
     }
 
     fn add_flags(
-        &self,
+        &mut self,
         folder: &str,
         internal_ids: Vec<&str>,
         flags: &Flags,
@@ -499,7 +505,7 @@ impl Backend for MaildirBackend {
     }
 
     fn set_flags(
-        &self,
+        &mut self,
         folder: &str,
         internal_ids: Vec<&str>,
         flags: &Flags,
@@ -521,7 +527,7 @@ impl Backend for MaildirBackend {
     }
 
     fn remove_flags(
-        &self,
+        &mut self,
         folder: &str,
         internal_ids: Vec<&str>,
         flags: &Flags,
@@ -540,9 +546,5 @@ impl Backend for MaildirBackend {
         })?;
 
         Ok(())
-    }
-
-    fn as_any(&self) -> &(dyn Any) {
-        self
     }
 }

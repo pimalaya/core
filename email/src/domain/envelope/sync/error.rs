@@ -23,6 +23,8 @@ pub enum Error {
     EmailError(#[from] email::Error),
     #[error(transparent)]
     BackendError(#[from] Box<backend::Error>),
+    #[error(transparent)]
+    MaildirBackendError(#[from] backend::maildir::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;

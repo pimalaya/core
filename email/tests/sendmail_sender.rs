@@ -1,34 +1,17 @@
-#[cfg(feature = "imap-backend")]
-#[test]
-fn test_sendmail_sender() {
-    use mail_builder::MessageBuilder;
-    use pimalaya_email::{
-        AccountConfig, Backend, ImapAuthConfig, ImapBackend, ImapConfig, PasswdConfig, Sender,
-        Sendmail, SendmailConfig,
-    };
-    use pimalaya_secret::Secret;
-    use std::{thread, time::Duration};
+use mail_builder::MessageBuilder;
+use pimalaya_email::{
+    AccountConfig, BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig, PasswdConfig,
+    SenderBuilder, SenderConfig, SendmailConfig,
+};
+use pimalaya_secret::Secret;
+use std::{borrow::Cow, thread, time::Duration};
 
+#[test]
+fn sendmail_sender() {
     env_logger::builder().is_test(true).init();
 
-    let account_config = AccountConfig::default();
-    let sendmail_config = SendmailConfig {
-        cmd: [
-            "msmtp",
-            "--host localhost",
-            "--port 3025",
-            "--user=alice@localhost",
-            "--passwordeval='echo password'",
-            "--read-envelope-from",
-            "--read-recipients",
-        ]
-        .join(" ")
-        .into(),
-    };
-    let mut sendmail = Sendmail::new(&account_config, &sendmail_config);
-    let imap = ImapBackend::new(
-        account_config.clone(),
-        ImapConfig {
+    let config = AccountConfig {
+        backend: BackendConfig::Imap(ImapConfig {
             host: "localhost".into(),
             port: 3143,
             ssl: Some(false),
@@ -37,9 +20,28 @@ fn test_sendmail_sender() {
                 passwd: Secret::new_raw("password"),
             }),
             ..ImapConfig::default()
-        },
-    )
-    .unwrap();
+        }),
+        sender: SenderConfig::Sendmail(SendmailConfig {
+            cmd: [
+                "msmtp",
+                "--host localhost",
+                "--port 3025",
+                "--user=alice@localhost",
+                "--passwordeval='echo password'",
+                "--read-envelope-from",
+                "--read-recipients",
+            ]
+            .join(" ")
+            .into(),
+        }),
+        ..AccountConfig::default()
+    };
+
+    let imap_builder = BackendBuilder::new(Cow::Borrowed(&config));
+    let mut imap = imap_builder.build().unwrap();
+
+    let sendmail_builder = SenderBuilder::new(Cow::Borrowed(&config));
+    let mut sendmail = sendmail_builder.build().unwrap();
 
     // setting up folders
     imap.purge_folder("INBOX").unwrap();

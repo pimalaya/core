@@ -1,34 +1,26 @@
 use env_logger;
 use mail_builder::MessageBuilder;
 use pimalaya_secret::Secret;
-use std::{collections::HashSet, thread, time::Duration};
+use std::{borrow::Cow, collections::HashSet, thread, time::Duration};
 use tempfile::tempdir;
 
 use pimalaya_email::{
-    envelope, folder, AccountConfig, Backend, BackendSyncBuilder, Flag, Flags, ImapAuthConfig,
-    ImapBackend, ImapConfig, MaildirBackend, MaildirConfig, PasswdConfig,
+    envelope, folder, AccountConfig, Backend, BackendBuilder, BackendConfig, BackendSyncBuilder,
+    Flag, Flags, ImapAuthConfig, ImapConfig, MaildirBackend, MaildirConfig, PasswdConfig,
 };
 
 #[test]
-fn test_sync() {
+fn sync() {
     env_logger::builder().is_test(true).init();
 
-    // set up account
+    // set up config
 
     let sync_dir = tempdir().unwrap().path().join("sync-dir");
-
-    let account = AccountConfig {
+    let config = AccountConfig {
         name: "account".into(),
         sync: true,
         sync_dir: Some(sync_dir.clone()),
-        ..AccountConfig::default()
-    };
-
-    // set up imap backend
-
-    let imap = ImapBackend::new(
-        account.clone(),
-        ImapConfig {
+        backend: BackendConfig::Imap(ImapConfig {
             host: "localhost".into(),
             port: 3143,
             ssl: Some(false),
@@ -39,17 +31,39 @@ fn test_sync() {
                 passwd: Secret::new_raw("password"),
             }),
             ..ImapConfig::default()
-        },
+        }),
+        ..AccountConfig::default()
+    };
+
+    // set up imap
+
+    let mut imap_builder = BackendBuilder::new(Cow::Borrowed(&config));
+    let mut imap = imap_builder
+        .clone()
+        .with_cache_disabled(true)
+        .build_into()
+        .unwrap();
+
+    // set up maildir reader
+
+    let mut mdir = MaildirBackend::new(
+        Cow::Borrowed(&config),
+        Cow::Owned(MaildirConfig {
+            root_dir: sync_dir.clone(),
+        }),
     )
     .unwrap();
 
     // set up folders
 
+    if let Err(_) = imap.delete_folder("[Gmail]/Sent") {}
+    if let Err(_) = imap.delete_folder("Trash") {}
+    imap.purge_folder("INBOX").unwrap();
     imap.add_folder("[Gmail]/Sent").unwrap();
     imap.add_folder("Trash").unwrap();
 
-    // add three emails to folder INBOX with delay (in order to have a
-    // different date)
+    // add three emails to folder INBOX with delay (in order to have
+    // different dates)
 
     imap.add_email(
         "INBOX",
@@ -133,22 +147,12 @@ fn test_sync() {
 
     let imap_sent_envelopes = imap.list_envelopes("[Gmail]/Sent", 0, 0).unwrap();
 
-    // set up maildir reader
-
-    let mdir = MaildirBackend::new(
-        account.clone(),
-        MaildirConfig {
-            root_dir: sync_dir.clone(),
-        },
-    )
-    .unwrap();
-
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
 
-    let sync_builder = BackendSyncBuilder::new(&account);
-    sync_builder.sync(&imap).unwrap();
-    sync_builder.sync(&imap).unwrap();
+    let sync_builder = BackendSyncBuilder::new(&config);
+    sync_builder.sync(&mut imap_builder).unwrap();
+    sync_builder.sync(&mut imap_builder).unwrap();
 
     // check folders integrity
 
@@ -157,18 +161,25 @@ fn test_sync() {
         .unwrap()
         .iter()
         .map(|f| f.name.clone())
-        .collect::<Vec<_>>();
+        .collect::<HashSet<_>>();
+
+    assert_eq!(
+        imap_folders,
+        HashSet::from_iter([
+            "INBOX".to_owned(),
+            "Trash".to_owned(),
+            "[Gmail]/Sent".to_owned()
+        ])
+    );
+
     let mdir_folders = mdir
         .list_folders()
         .unwrap()
         .iter()
         .map(|f| f.name.clone())
-        .collect::<Vec<_>>();
+        .collect::<HashSet<_>>();
 
-    assert!(imap_folders.contains(&String::from("INBOX")));
-    assert!(imap_folders.contains(&String::from("[Gmail]/Sent")));
-    assert!(mdir_folders.contains(&String::from("INBOX")));
-    assert!(mdir_folders.contains(&String::from("[Gmail]/Sent")));
+    assert_eq!(imap_folders, mdir_folders);
 
     // check maildir envelopes integrity
 
@@ -201,7 +212,7 @@ fn test_sync() {
 
     let local_folders_cached = folder::sync::Cache::list_local_folders(
         &mut conn,
-        &account.name,
+        &config.name,
         &folder::sync::Strategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
@@ -210,7 +221,7 @@ fn test_sync() {
 
     let local_folders_cached = folder::sync::Cache::list_local_folders(
         &mut conn,
-        &account.name,
+        &config.name,
         &folder::sync::Strategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
@@ -219,7 +230,7 @@ fn test_sync() {
 
     let local_folders_cached = folder::sync::Cache::list_local_folders(
         &mut conn,
-        &account.name,
+        &config.name,
         &folder::sync::Strategy::All,
     )
     .unwrap();
@@ -228,7 +239,7 @@ fn test_sync() {
 
     let remote_folders_cached = folder::sync::Cache::list_remote_folders(
         &mut conn,
-        &account.name,
+        &config.name,
         &folder::sync::Strategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
@@ -237,7 +248,7 @@ fn test_sync() {
 
     let remote_folders_cached = folder::sync::Cache::list_remote_folders(
         &mut conn,
-        &account.name,
+        &config.name,
         &folder::sync::Strategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
@@ -246,7 +257,7 @@ fn test_sync() {
 
     let remote_folders_cached = folder::sync::Cache::list_remote_folders(
         &mut conn,
-        &account.name,
+        &config.name,
         &folder::sync::Strategy::All,
     )
     .unwrap();
@@ -256,18 +267,18 @@ fn test_sync() {
     // check envelopes cache integrity
 
     let mdir_inbox_envelopes_cached =
-        envelope::sync::Cache::list_local_envelopes(&mut conn, &account.name, "INBOX").unwrap();
+        envelope::sync::Cache::list_local_envelopes(&mut conn, &config.name, "INBOX").unwrap();
     let imap_inbox_envelopes_cached =
-        envelope::sync::Cache::list_remote_envelopes(&mut conn, &account.name, "INBOX").unwrap();
+        envelope::sync::Cache::list_remote_envelopes(&mut conn, &config.name, "INBOX").unwrap();
 
     assert_eq!(mdir_inbox_envelopes, mdir_inbox_envelopes_cached);
     assert_eq!(imap_inbox_envelopes, imap_inbox_envelopes_cached);
 
     let mdir_sent_envelopes_cached =
-        envelope::sync::Cache::list_local_envelopes(&mut conn, &account.name, "[Gmail]/Sent")
+        envelope::sync::Cache::list_local_envelopes(&mut conn, &config.name, "[Gmail]/Sent")
             .unwrap();
     let imap_sent_envelopes_cached =
-        envelope::sync::Cache::list_remote_envelopes(&mut conn, &account.name, "[Gmail]/Sent")
+        envelope::sync::Cache::list_remote_envelopes(&mut conn, &config.name, "[Gmail]/Sent")
             .unwrap();
 
     assert_eq!(mdir_sent_envelopes, mdir_sent_envelopes_cached);
@@ -295,7 +306,7 @@ fn test_sync() {
     .unwrap();
     mdir.expunge_folder("INBOX").unwrap();
 
-    let report = sync_builder.sync(&imap).unwrap();
+    let report = sync_builder.sync(&mut imap_builder).unwrap();
     assert_eq!(
         report.folders,
         HashSet::from_iter(["INBOX".into(), "[Gmail]/Sent".into(), "Trash".into()])
@@ -306,17 +317,10 @@ fn test_sync() {
     assert_eq!(imap_envelopes, mdir_envelopes);
 
     let cached_mdir_envelopes =
-        envelope::sync::Cache::list_local_envelopes(&mut conn, &account.name, "INBOX").unwrap();
+        envelope::sync::Cache::list_local_envelopes(&mut conn, &config.name, "INBOX").unwrap();
     assert_eq!(cached_mdir_envelopes, mdir_envelopes);
 
     let cached_imap_envelopes =
-        envelope::sync::Cache::list_remote_envelopes(&mut conn, &account.name, "INBOX").unwrap();
+        envelope::sync::Cache::list_remote_envelopes(&mut conn, &config.name, "INBOX").unwrap();
     assert_eq!(cached_imap_envelopes, imap_envelopes);
-
-    // clean up
-
-    imap.purge_folder("INBOX").unwrap();
-    imap.delete_folder("[Gmail]/Sent").unwrap();
-    imap.delete_folder("Trash").unwrap();
-    imap.close().unwrap();
 }

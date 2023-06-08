@@ -1,8 +1,8 @@
 use log::{debug, info, trace, warn};
 use rayon::prelude::*;
-use std::{collections::HashSet, fmt};
+use std::{borrow::Cow, collections::HashSet, fmt};
 
-use crate::{AccountConfig, Backend, BackendSyncProgressEvent, MaildirBackend};
+use crate::{AccountConfig, Backend, BackendBuilder, BackendSyncProgressEvent, MaildirBackend};
 
 use super::{Cache, Error, Result};
 
@@ -80,18 +80,19 @@ pub struct SyncReport {
 }
 
 pub struct SyncBuilder<'a> {
-    account_config: &'a AccountConfig,
+    account_config: Cow<'a, AccountConfig>,
     on_progress: Box<dyn Fn(BackendSyncProgressEvent) -> Result<()> + Sync + Send + 'a>,
     strategy: Strategy,
     dry_run: bool,
 }
 
 impl<'a> SyncBuilder<'a> {
-    pub fn new(account_config: &'a AccountConfig) -> Self {
+    pub fn new(account_config: Cow<'a, AccountConfig>) -> Self {
+        let strategy = account_config.sync_folders_strategy.clone();
         Self {
             account_config,
             on_progress: Box::new(|_| Ok(())),
-            strategy: account_config.sync_folders_strategy.clone(),
+            strategy,
             dry_run: false,
         }
     }
@@ -124,8 +125,8 @@ impl<'a> SyncBuilder<'a> {
     pub fn sync(
         &self,
         conn: &mut rusqlite::Connection,
-        local: &MaildirBackend,
-        remote: &dyn Backend,
+        local: &mut MaildirBackend,
+        remote_builder: &BackendBuilder<'a>,
     ) -> Result<SyncReport> {
         let account = &self.account_config.name;
         info!("starting folders synchronization of account {account}");
@@ -186,7 +187,9 @@ impl<'a> SyncBuilder<'a> {
         self.try_progress(BackendSyncProgressEvent::GetRemoteFolders);
 
         let remote_folders: FoldersName = HashSet::from_iter(
-            remote
+            remote_builder
+                .build()
+                .unwrap()
                 .list_folders()
                 .map_err(Box::new)?
                 .iter()
@@ -244,7 +247,11 @@ impl<'a> SyncBuilder<'a> {
                         )]
                     }
                     Hunk::CreateFolder(ref folder, HunkKind::Local) => {
-                        local.add_folder(folder).map_err(Box::new)?;
+                        local
+                            .try_clone()
+                            .unwrap()
+                            .add_folder(folder)
+                            .map_err(Box::new)?;
                         vec![]
                     }
                     Hunk::CreateFolder(ref folder, HunkKind::RemoteCache) => {
@@ -254,7 +261,11 @@ impl<'a> SyncBuilder<'a> {
                         )]
                     }
                     Hunk::CreateFolder(ref folder, HunkKind::Remote) => {
-                        remote.add_folder(&folder).map_err(Box::new)?;
+                        remote_builder
+                            .build()
+                            .unwrap()
+                            .add_folder(&folder)
+                            .map_err(Box::new)?;
                         vec![]
                     }
                     Hunk::DeleteFolder(ref folder, HunkKind::LocalCache) => {
@@ -264,7 +275,11 @@ impl<'a> SyncBuilder<'a> {
                         )]
                     }
                     Hunk::DeleteFolder(ref folder, HunkKind::Local) => {
-                        local.delete_folder(folder).map_err(Box::new)?;
+                        local
+                            .try_clone()
+                            .unwrap()
+                            .delete_folder(folder)
+                            .map_err(Box::new)?;
                         vec![]
                     }
                     Hunk::DeleteFolder(ref folder, HunkKind::RemoteCache) => {
@@ -274,7 +289,11 @@ impl<'a> SyncBuilder<'a> {
                         )]
                     }
                     Hunk::DeleteFolder(ref folder, HunkKind::Remote) => {
-                        remote.delete_folder(&folder).map_err(Box::new)?;
+                        remote_builder
+                            .build()
+                            .unwrap()
+                            .delete_folder(&folder)
+                            .map_err(Box::new)?;
                         vec![]
                     }
                 })

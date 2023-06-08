@@ -1,13 +1,14 @@
 pub mod config;
 
+use futures::executor::block_on;
 use mail_parser::{HeaderValue, Message};
 use mail_send::{smtp::message as smtp, SmtpClientBuilder};
-use std::{collections::HashSet, io, result};
+use std::{borrow::Cow, collections::HashSet, result};
 use thiserror::Error;
-use tokio::{net::TcpStream, runtime::Runtime};
+use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 
-use crate::{account, email, sender, AccountConfig, EmailHooks, Sender};
+use crate::{account, sender, AccountConfig, Sender};
 pub use config::{SmtpAuthConfig, SmtpConfig};
 
 #[derive(Debug, Error)]
@@ -23,20 +24,14 @@ pub enum Error {
     #[error("cannot send email: missing recipient")]
     SendEmailMissingToError,
     #[error("cannot connect to smtp server")]
-    ConnectPlainError(#[source] mail_send::Error),
+    ConnectTcpError(#[source] mail_send::Error),
     #[error("cannot connect to smtp server using tls")]
-    ConnectError(#[source] mail_send::Error),
-    #[error("cannot lock smtp client")]
-    LockClientError(String),
-    #[error("cannot get async runtime")]
-    GetAsyncRuntimeError(#[source] io::Error),
+    ConnectTlsError(#[source] mail_send::Error),
 
-    #[error(transparent)]
-    SmtpConfigError(#[from] sender::smtp::config::Error),
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
     #[error(transparent)]
-    EmailError(#[from] email::email::Error),
+    SmtpConfigError(#[from] sender::smtp::config::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -55,74 +50,95 @@ impl SmtpClient {
     }
 }
 
-pub struct Smtp {
-    config: SmtpConfig,
-    hooks: EmailHooks,
-    runtime: Runtime,
+pub struct Smtp<'a> {
+    account_config: Cow<'a, AccountConfig>,
+    smtp_config: Cow<'a, SmtpConfig>,
     client_builder: SmtpClientBuilder<String>,
     client: SmtpClient,
 }
 
-impl Smtp {
-    pub fn new(account_config: &AccountConfig, smtp_config: &SmtpConfig) -> Result<Self> {
-        let config = smtp_config.to_owned();
-        let hooks = account_config.email_hooks.clone();
-        let runtime = Runtime::new().map_err(Error::GetAsyncRuntimeError)?;
-
+impl<'a> Smtp<'a> {
+    pub fn new(
+        account_config: Cow<'a, AccountConfig>,
+        smtp_config: Cow<'a, SmtpConfig>,
+    ) -> Result<Self> {
         let mut client_builder = SmtpClientBuilder::new(smtp_config.host.clone(), smtp_config.port)
+            .credentials(smtp_config.credentials()?)
             .implicit_tls(!smtp_config.starttls());
 
         if smtp_config.insecure() {
             client_builder = client_builder.allow_invalid_certs();
         }
 
-        let (client_builder, client) =
-            Self::get_client_with_builder(smtp_config, &runtime, client_builder)?;
+        let (client_builder, client) = block_on(Self::build_client(&smtp_config, client_builder))?;
 
         Ok(Self {
-            config,
-            hooks,
-            runtime,
+            account_config,
+            smtp_config,
             client_builder,
             client,
         })
     }
 
-    fn get_client_with_builder(
+    async fn build_client(
         smtp_config: &SmtpConfig,
-        runtime: &Runtime,
         mut client_builder: SmtpClientBuilder<String>,
     ) -> Result<(SmtpClientBuilder<String>, SmtpClient)> {
-        client_builder = client_builder.credentials(smtp_config.credentials()?);
-
-        let client = if smtp_config.ssl() {
-            SmtpClient::Tls(
-                runtime
-                    .block_on(client_builder.connect())
-                    .map_err(Error::ConnectError)?,
-            )
-        } else {
-            SmtpClient::Tcp(
-                runtime
-                    .block_on(client_builder.connect_plain())
-                    .map_err(Error::ConnectPlainError)?,
-            )
-        };
-
-        Ok((client_builder, client))
+        match (&smtp_config.auth, smtp_config.ssl()) {
+            (SmtpAuthConfig::Passwd(_), false) => {
+                let client = Self::build_tcp_client(&client_builder).await?;
+                Ok((client_builder, client))
+            }
+            (SmtpAuthConfig::Passwd(_), true) => {
+                let client = Self::build_tls_client(&client_builder).await?;
+                Ok((client_builder, client))
+            }
+            (SmtpAuthConfig::OAuth2(oauth2_config), false) => {
+                match Self::build_tcp_client(&client_builder).await {
+                    Ok(client) => Ok((client_builder, client)),
+                    Err(Error::ConnectTcpError(mail_send::Error::AuthenticationFailed(_))) => {
+                        oauth2_config.refresh_access_token()?;
+                        client_builder = client_builder.credentials(smtp_config.credentials()?);
+                        let client = Self::build_tcp_client(&client_builder).await?;
+                        Ok((client_builder, client))
+                    }
+                    Err(err) => Err(err),
+                }
+            }
+            (SmtpAuthConfig::OAuth2(oauth2_config), true) => {
+                match Self::build_tls_client(&client_builder).await {
+                    Ok(client) => Ok((client_builder, client)),
+                    Err(Error::ConnectTlsError(mail_send::Error::AuthenticationFailed(_))) => {
+                        oauth2_config.refresh_access_token()?;
+                        client_builder = client_builder.credentials(smtp_config.credentials()?);
+                        let client = Self::build_tls_client(&client_builder).await?;
+                        Ok((client_builder, client))
+                    }
+                    Err(err) => Err(err),
+                }
+            }
+        }
     }
 
-    fn block_on_send(&mut self, email: Message) -> Result<()> {
-        self.runtime
-            .block_on(self.client.send(into_smtp_msg(email)?))
-            .map_err(Error::SendError)
+    async fn build_tcp_client(client_builder: &SmtpClientBuilder<String>) -> Result<SmtpClient> {
+        match client_builder.connect_plain().await {
+            Ok(client) => Ok(SmtpClient::Tcp(client)),
+            Err(err) => Err(Error::ConnectTcpError(err)),
+        }
     }
 
-    fn send(&mut self, email: &[u8]) -> Result<()> {
+    async fn build_tls_client(client_builder: &SmtpClientBuilder<String>) -> Result<SmtpClient> {
+        match client_builder.connect().await {
+            Ok(client) => Ok(SmtpClient::Tls(client)),
+            Err(err) => Err(Error::ConnectTlsError(err)),
+        }
+    }
+
+    async fn send(&mut self, email: &[u8]) -> Result<()> {
         let mut email = Message::parse(&email).ok_or(Error::ParseEmailError)?;
         let buffer;
 
-        if let Some(cmd) = self.hooks.pre_send.as_ref() {
+        if let Some(cmd) = self.account_config.email_hooks.pre_send.as_ref() {
             buffer = cmd
                 .run_with(email.raw_message())
                 .map_err(Error::ExecutePreSendHookError)?
@@ -130,34 +146,41 @@ impl Smtp {
             email = Message::parse(&buffer).ok_or(Error::ParseEmailError)?;
         };
 
-        match self.config.auth.clone() {
-            SmtpAuthConfig::Passwd(_) => self.block_on_send(email),
-            SmtpAuthConfig::OAuth2(oauth2) => {
-                let client_builder = self.client_builder.clone();
-                self.block_on_send(email.clone()).or_else(|err| match err {
-                    Error::SendError(mail_send::Error::AuthenticationFailed(_)) => {
-                        oauth2.refresh_access_token()?;
-
-                        let (client_builder, client) = Self::get_client_with_builder(
-                            &self.config,
-                            &self.runtime,
-                            client_builder.credentials(self.config.credentials()?),
-                        )?;
-
-                        self.client_builder = client_builder;
-                        self.client = client;
-                        self.block_on_send(email)
+        match &self.smtp_config.auth {
+            SmtpAuthConfig::Passwd(_) => self
+                .client
+                .send(into_smtp_msg(email)?)
+                .await
+                .map_err(Error::SendError),
+            SmtpAuthConfig::OAuth2(oauth2_config) => {
+                match self.client.send(into_smtp_msg(email.clone())?).await {
+                    Ok(()) => Ok(()),
+                    Err(mail_send::Error::AuthenticationFailed(_)) => {
+                        oauth2_config.refresh_access_token()?;
+                        self.client_builder = self
+                            .client_builder
+                            .clone()
+                            .credentials(self.smtp_config.credentials()?);
+                        self.client = if self.smtp_config.ssl() {
+                            Self::build_tls_client(&self.client_builder).await
+                        } else {
+                            Self::build_tcp_client(&self.client_builder).await
+                        }?;
+                        self.client
+                            .send(into_smtp_msg(email)?)
+                            .await
+                            .map_err(Error::SendError)
                     }
-                    err => Err(err),
-                })
+                    Err(err) => Err(Error::SendError(err)),
+                }
             }
         }
     }
 }
 
-impl Sender for Smtp {
+impl Sender for Smtp<'_> {
     fn send(&mut self, email: &[u8]) -> sender::Result<()> {
-        Ok(self.send(email)?)
+        Ok(block_on(self.send(email))?)
     }
 }
 

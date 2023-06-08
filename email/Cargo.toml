@@ -36,6 +36,7 @@ ammonia = "3.2"
 chrono = "0.4"
 convert_case = "0.5"
 dirs = "4.0"
+futures = "0.3"
 html-escape = "0.2"
 log = "0.4"
 mail-builder = "=0.3.0"
@@ -56,7 +57,7 @@ rustls = { version = "0.21", features = ["dangerous_configuration"] }
 rustls-native-certs = "0.6"
 shellexpand = "2.1"
 thiserror = "1.0"
-tokio = { version = "1.23", default-features = false, features = ["rt"] }
+tokio = { version = "1.23", default-features = false, features = ["macros"] }
 tokio-rustls = "0.24"
 tree_magic = "0.2"
 urlencoding = "2.1"

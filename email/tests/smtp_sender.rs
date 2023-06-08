@@ -1,35 +1,17 @@
-#[cfg(all(feature = "imap-backend", feature = "smtp-sender"))]
-#[test]
-fn test_smtp_sender() {
+#[tokio::test(flavor = "multi_thread")]
+async fn smtp_sender() {
     use mail_builder::MessageBuilder;
     use pimalaya_email::{
-        AccountConfig, Backend, ImapAuthConfig, ImapBackend, ImapConfig, PasswdConfig, Sender,
-        Smtp, SmtpAuthConfig, SmtpConfig,
+        AccountConfig, BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig, PasswdConfig,
+        SenderBuilder, SenderConfig, SmtpAuthConfig, SmtpConfig,
     };
     use pimalaya_secret::Secret;
-    use std::{thread, time::Duration};
+    use std::{borrow::Cow, time::Duration};
 
     env_logger::builder().is_test(true).init();
 
-    let account_config = AccountConfig::default();
-    let smtp_config = SmtpConfig {
-        host: "localhost".into(),
-        port: 3025,
-        ssl: Some(false),
-        starttls: Some(false),
-        insecure: Some(true),
-        login: "alice@localhost".into(),
-        auth: SmtpAuthConfig::Passwd(PasswdConfig {
-            passwd: Secret::new_raw("password"),
-        }),
-        ..SmtpConfig::default()
-    };
-
-    let mut smtp = Smtp::new(&account_config, &smtp_config).unwrap();
-
-    let imap = ImapBackend::new(
-        account_config,
-        ImapConfig {
+    let config = AccountConfig {
+        backend: BackendConfig::Imap(ImapConfig {
             host: "localhost".into(),
             port: 3143,
             ssl: Some(false),
@@ -40,9 +22,27 @@ fn test_smtp_sender() {
                 passwd: Secret::new_raw("echo 'password'"),
             }),
             ..ImapConfig::default()
-        },
-    )
-    .unwrap();
+        }),
+        sender: SenderConfig::Smtp(SmtpConfig {
+            host: "localhost".into(),
+            port: 3025,
+            ssl: Some(false),
+            starttls: Some(false),
+            insecure: Some(true),
+            login: "alice@localhost".into(),
+            auth: SmtpAuthConfig::Passwd(PasswdConfig {
+                passwd: Secret::new_raw("password"),
+            }),
+            ..SmtpConfig::default()
+        }),
+        ..AccountConfig::default()
+    };
+
+    let imap_builder = BackendBuilder::new(Cow::Borrowed(&config));
+    let mut imap = imap_builder.build().unwrap();
+
+    let smtp_builder = SenderBuilder::new(Cow::Borrowed(&config));
+    let mut smtp = smtp_builder.build().unwrap();
 
     // setting up folders
     imap.purge_folder("INBOX").unwrap();
@@ -57,7 +57,7 @@ fn test_smtp_sender() {
         .unwrap();
     smtp.send(&email).unwrap();
 
-    thread::sleep(Duration::from_secs(1));
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
     // checking that the envelope of the sent email exists
     let envelopes = imap.list_envelopes("INBOX", 10, 0).unwrap();
@@ -69,5 +69,4 @@ fn test_smtp_sender() {
     // clean up
 
     imap.purge_folder("INBOX").unwrap();
-    imap.close().unwrap();
 }

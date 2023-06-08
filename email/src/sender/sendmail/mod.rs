@@ -1,11 +1,10 @@
 pub mod config;
 
 use mail_parser::Message;
-use pimalaya_process::Cmd;
-use std::result;
+use std::{borrow::Cow, result};
 use thiserror::Error;
 
-use crate::{sender, AccountConfig, EmailHooks, Sender};
+use crate::{sender, AccountConfig, Sender};
 pub use config::SendmailConfig;
 
 #[derive(Debug, Error)]
@@ -20,26 +19,27 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-pub struct Sendmail {
-    hooks: EmailHooks,
-    cmd: Cmd,
+pub struct Sendmail<'a> {
+    account_config: Cow<'a, AccountConfig>,
+    sendmail_config: Cow<'a, SendmailConfig>,
 }
 
-impl Sendmail {
-    pub fn new(account_config: &AccountConfig, sendmail_config: &SendmailConfig) -> Self {
+impl<'a> Sendmail<'a> {
+    pub fn new(
+        account_config: Cow<'a, AccountConfig>,
+        sendmail_config: Cow<'a, SendmailConfig>,
+    ) -> Self {
         Self {
-            hooks: account_config.email_hooks.clone(),
-            cmd: sendmail_config.cmd.clone(),
+            account_config,
+            sendmail_config,
         }
     }
-}
 
-impl Sender for Sendmail {
-    fn send(&mut self, email: &[u8]) -> sender::Result<()> {
+    pub fn send(&mut self, email: &[u8]) -> Result<()> {
         let mut email = Message::parse(&email).ok_or(Error::ParseEmailError)?;
         let buffer;
 
-        if let Some(cmd) = self.hooks.pre_send.as_ref() {
+        if let Some(cmd) = self.account_config.email_hooks.pre_send.as_ref() {
             buffer = cmd
                 .run_with(email.raw_message())
                 .map_err(Error::ExecutePreSendHookError)?
@@ -47,10 +47,17 @@ impl Sender for Sendmail {
             email = Message::parse(&buffer).ok_or(Error::ParseEmailError)?;
         };
 
-        self.cmd
+        self.sendmail_config
+            .cmd
             .run_with(email.raw_message())
             .map_err(Error::RunSendmailCmdError)?;
 
         Ok(())
+    }
+}
+
+impl Sender for Sendmail<'_> {
+    fn send(&mut self, email: &[u8]) -> sender::Result<()> {
+        Ok(self.send(email)?)
     }
 }

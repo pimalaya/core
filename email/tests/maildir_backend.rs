@@ -1,4 +1,5 @@
 use mail_builder::MessageBuilder;
+use std::borrow::Cow;
 
 #[test]
 fn test_maildir_backend() {
@@ -31,19 +32,19 @@ fn test_maildir_backend() {
     };
 
     let mdir_path = mdir.path().to_owned();
-    let mdir = MaildirBackend::new(
-        config.clone(),
-        MaildirConfig {
+    let mut mdir = MaildirBackend::new(
+        Cow::Borrowed(&config),
+        Cow::Owned(MaildirConfig {
             root_dir: mdir_path.clone(),
-        },
+        }),
     )
     .unwrap();
 
-    let submdir = MaildirBackend::new(
-        config.clone(),
-        MaildirConfig {
-            root_dir: mdir_sub.path().to_owned(),
-        },
+    let mut submdir = MaildirBackend::new(
+        Cow::Borrowed(&config),
+        Cow::Owned(MaildirConfig {
+            root_dir: mdir_path.clone(),
+        }),
     )
     .unwrap();
 

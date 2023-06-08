@@ -5,18 +5,17 @@ pub mod maildir;
 #[cfg(feature = "notmuch-backend")]
 pub mod notmuch;
 
+use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
+use log::info;
+use std::{borrow::Cow, env, fmt, fs::OpenOptions, io, result};
+use thiserror::Error;
+
 pub use self::config::BackendConfig;
 #[cfg(feature = "imap-backend")]
 pub use self::imap::*;
 pub use self::maildir::*;
 #[cfg(feature = "notmuch-backend")]
 pub use self::notmuch::*;
-
-use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
-use log::info;
-use std::{any::Any, env, fmt, fs::OpenOptions, io, result};
-use thiserror::Error;
-
 use crate::{
     account, email, envelope, folder, AccountConfig, Emails, Envelope, Envelopes, Flag, Flags,
     Folders,
@@ -58,19 +57,21 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-pub trait Backend: Sync + Send {
+pub trait Backend<'a> {
     fn name(&self) -> String;
 
-    fn add_folder(&self, folder: &str) -> Result<()>;
-    fn list_folders(&self) -> Result<Folders>;
-    fn expunge_folder(&self, folder: &str) -> Result<()>;
-    fn purge_folder(&self, folder: &str) -> Result<()>;
-    fn delete_folder(&self, folder: &str) -> Result<()>;
+    fn try_clone(&'a self) -> Result<Box<dyn Backend + 'a>>;
 
-    fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope>;
-    fn list_envelopes(&self, folder: &str, page_size: usize, page: usize) -> Result<Envelopes>;
+    fn add_folder(&mut self, folder: &str) -> Result<()>;
+    fn list_folders(&mut self) -> Result<Folders>;
+    fn expunge_folder(&mut self, folder: &str) -> Result<()>;
+    fn purge_folder(&mut self, folder: &str) -> Result<()>;
+    fn delete_folder(&mut self, folder: &str) -> Result<()>;
+
+    fn get_envelope(&mut self, folder: &str, id: &str) -> Result<Envelope>;
+    fn list_envelopes(&mut self, folder: &str, page_size: usize, page: usize) -> Result<Envelopes>;
     fn search_envelopes(
-        &self,
+        &mut self,
         folder: &str,
         query: &str,
         sort: &str,
@@ -78,27 +79,24 @@ pub trait Backend: Sync + Send {
         page: usize,
     ) -> Result<Envelopes>;
 
-    fn add_email(&self, folder: &str, email: &[u8], flags: &Flags) -> Result<String>;
-    fn preview_emails(&self, folder: &str, ids: Vec<&str>) -> Result<Emails>;
-    fn get_emails(&self, folder: &str, ids: Vec<&str>) -> Result<Emails>;
-    fn copy_emails(&self, from_folder: &str, to_folder: &str, ids: Vec<&str>) -> Result<()>;
-    fn move_emails(&self, from_folder: &str, to_folder: &str, ids: Vec<&str>) -> Result<()>;
-    fn delete_emails(&self, folder: &str, ids: Vec<&str>) -> Result<()>;
+    fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String>;
+    fn preview_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<Emails>;
+    fn get_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<Emails>;
+    fn copy_emails(&mut self, from_folder: &str, to_folder: &str, ids: Vec<&str>) -> Result<()>;
+    fn move_emails(&mut self, from_folder: &str, to_folder: &str, ids: Vec<&str>) -> Result<()>;
+    fn delete_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<()>;
 
-    fn add_flags(&self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
-    fn set_flags(&self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
-    fn remove_flags(&self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
+    fn add_flags(&mut self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
+    fn set_flags(&mut self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
+    fn remove_flags(&mut self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
 
-    fn mark_emails_as_deleted(&self, folder: &str, ids: Vec<&str>) -> Result<()> {
+    fn mark_emails_as_deleted(&mut self, folder: &str, ids: Vec<&str>) -> Result<()> {
         self.add_flags(folder, ids, &Flags::from_iter([Flag::Deleted]))
     }
 
-    fn close(&self) -> Result<()> {
+    fn close(&mut self) -> Result<()> {
         Ok(())
     }
-
-    // INFO: for downcasting purpose
-    fn as_any(&self) -> &(dyn Any);
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -154,18 +152,19 @@ pub struct BackendSyncReport {
 }
 
 pub struct BackendSyncBuilder<'a> {
-    account_config: &'a AccountConfig,
+    account_config: Cow<'a, AccountConfig>,
     on_progress: Box<dyn Fn(BackendSyncProgressEvent) -> Result<()> + Sync + Send + 'a>,
     folders_strategy: folder::sync::Strategy,
     dry_run: bool,
 }
 
 impl<'a> BackendSyncBuilder<'a> {
-    pub fn new(account_config: &'a AccountConfig) -> Self {
+    pub fn new(account_config: Cow<'a, AccountConfig>) -> Self {
+        let folders_strategy = account_config.sync_folders_strategy.clone();
         Self {
             account_config,
             on_progress: Box::new(|_| Ok(())),
-            folders_strategy: account_config.sync_folders_strategy.clone(),
+            folders_strategy,
             dry_run: false,
         }
     }
@@ -183,12 +182,19 @@ impl<'a> BackendSyncBuilder<'a> {
         self
     }
 
+    pub fn some_folders_strategy(mut self, strategy: Option<folder::sync::Strategy>) -> Self {
+        if let Some(strategy) = strategy {
+            self.folders_strategy = strategy;
+        }
+        self
+    }
+
     pub fn dry_run(mut self, dry_run: bool) -> Self {
         self.dry_run = dry_run;
         self
     }
 
-    pub fn sync(&self, remote: &dyn Backend) -> Result<BackendSyncReport> {
+    pub fn sync(&self, remote_builder: &mut BackendBuilder<'a>) -> Result<BackendSyncReport> {
         let account = &self.account_config.name;
         if !self.account_config.sync {
             return Err(Error::SyncAccountNotEnabledError(account.clone()));
@@ -207,6 +213,8 @@ impl<'a> BackendSyncBuilder<'a> {
         info!("starting synchronization");
         let progress = &self.on_progress;
         let sync_dir = self.account_config.sync_dir()?;
+        remote_builder.disable_cache(true);
+        let mut remote = remote_builder.build()?;
 
         // init SQLite cache
 
@@ -217,11 +225,11 @@ impl<'a> BackendSyncBuilder<'a> {
 
         // init local Maildir
 
-        let local = MaildirBackend::new(
-            self.account_config.clone(),
-            MaildirConfig {
+        let mut local = MaildirBackend::new(
+            Cow::Borrowed(&self.account_config),
+            Cow::Owned(MaildirConfig {
                 root_dir: sync_dir.clone(),
-            },
+            }),
         )?;
 
         // apply folder aliases to the strategy
@@ -241,13 +249,13 @@ impl<'a> BackendSyncBuilder<'a> {
             ),
         };
 
-        let folders_sync_report = folder::SyncBuilder::new(self.account_config)
+        let folders_sync_report = folder::SyncBuilder::new(Cow::Borrowed(&self.account_config))
             .on_progress(|data| Ok(progress(data).map_err(Box::new)?))
             .strategy(folders_strategy)
             .dry_run(self.dry_run)
-            .sync(&mut conn, &local, remote)?;
+            .sync(&mut conn, &mut local, remote_builder)?;
 
-        let envelopes = envelope::SyncBuilder::new(self.account_config)
+        let envelopes = envelope::SyncBuilder::new(&self.account_config)
             .on_progress(|data| Ok(progress(data).map_err(Box::new)?))
             .dry_run(self.dry_run);
 
@@ -260,7 +268,7 @@ impl<'a> BackendSyncBuilder<'a> {
                 folder_num + 1,
                 folders_sync_report.folders.len(),
             ))?;
-            let report = envelopes.sync(folder, &mut conn, &local, remote)?;
+            let report = envelopes.sync(folder, &mut conn, &mut local, remote_builder)?;
             envelopes_patch.extend(report.patch);
             envelopes_cache_patch.0.extend(report.cache_patch.0);
             if let Some(err) = report.cache_patch.1 {
@@ -286,48 +294,79 @@ impl<'a> BackendSyncBuilder<'a> {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct BackendBuilder {
-    sessions_pool_size: usize,
+pub struct BackendBuilder<'a> {
+    account_config: Cow<'a, AccountConfig>,
     disable_cache: bool,
 }
 
-impl BackendBuilder {
-    pub fn new() -> Self {
-        Self::default()
+impl<'a> BackendBuilder<'a> {
+    pub fn new(account_config: Cow<'a, AccountConfig>) -> Self {
+        Self {
+            account_config,
+            disable_cache: false,
+        }
     }
 
-    pub fn sessions_pool_size(mut self, pool_size: usize) -> Self {
-        self.sessions_pool_size = pool_size;
-        self
-    }
-
-    pub fn disable_cache(mut self, disable_cache: bool) -> Self {
+    pub fn with_cache_disabled(mut self, disable_cache: bool) -> Self {
         self.disable_cache = disable_cache;
         self
     }
 
-    pub fn build(self, account_config: &AccountConfig) -> Result<Box<dyn Backend>> {
-        match &account_config.backend {
+    pub fn disable_cache(&mut self, disable_cache: bool) {
+        self.disable_cache = disable_cache;
+    }
+
+    pub fn build(&'a self) -> Result<Box<dyn Backend + 'a>> {
+        match &self.account_config.backend {
             BackendConfig::None => Err(Error::BuildBackendError),
             #[cfg(feature = "imap-backend")]
-            BackendConfig::Imap(imap_config) if !account_config.sync || self.disable_cache => {
-                Ok(Box::new(
-                    ImapBackendBuilder::new()
-                        .pool_size(self.sessions_pool_size)
-                        .build(account_config.clone(), imap_config.clone())?,
-                ))
+            BackendConfig::Imap(imap_config) if !self.account_config.sync || self.disable_cache => {
+                Ok(Box::new(ImapBackend::new(
+                    Cow::Borrowed(&self.account_config),
+                    Cow::Borrowed(imap_config),
+                )?))
             }
             #[cfg(feature = "imap-backend")]
             BackendConfig::Imap(_) => {
-                let root_dir = account_config.sync_dir()?;
+                let root_dir = self.account_config.sync_dir()?;
                 Ok(Box::new(MaildirBackend::new(
-                    account_config.clone(),
-                    MaildirConfig { root_dir },
+                    Cow::Borrowed(&self.account_config),
+                    Cow::Owned(MaildirConfig { root_dir }),
                 )?))
             }
-            BackendConfig::Maildir(maildir_config) => Ok(Box::new(MaildirBackend::new(
+            BackendConfig::Maildir(mdir_config) => Ok(Box::new(MaildirBackend::new(
+                Cow::Borrowed(&self.account_config),
+                Cow::Borrowed(mdir_config),
+            )?)),
+            #[cfg(feature = "notmuch-backend")]
+            BackendConfig::Notmuch(notmuch_config) => Ok(Box::new(NotmuchBackend::new(
                 account_config.clone(),
-                maildir_config.clone(),
+                notmuch_config.clone(),
+            )?)),
+        }
+    }
+
+    pub fn build_into(self) -> Result<Box<dyn Backend<'a> + 'a>> {
+        match self.account_config.backend.clone() {
+            BackendConfig::None => Err(Error::BuildBackendError),
+            #[cfg(feature = "imap-backend")]
+            BackendConfig::Imap(imap_config) if !self.account_config.sync || self.disable_cache => {
+                Ok(Box::new(ImapBackend::new(
+                    self.account_config,
+                    Cow::Owned(imap_config),
+                )?))
+            }
+            #[cfg(feature = "imap-backend")]
+            BackendConfig::Imap(_) => {
+                let root_dir = self.account_config.sync_dir()?;
+                Ok(Box::new(MaildirBackend::new(
+                    self.account_config,
+                    Cow::Owned(MaildirConfig { root_dir }),
+                )?))
+            }
+            BackendConfig::Maildir(mdir_config) => Ok(Box::new(MaildirBackend::new(
+                self.account_config,
+                Cow::Owned(mdir_config),
             )?)),
             #[cfg(feature = "notmuch-backend")]
             BackendConfig::Notmuch(notmuch_config) => Ok(Box::new(NotmuchBackend::new(
