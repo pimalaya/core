@@ -13,6 +13,10 @@ use crate::{account, OAuth2Config, PasswdConfig};
 pub enum Error {
     #[error("cannot start the notify mode")]
     StartNotifyModeError(#[source] pimalaya_process::Error),
+    #[error("cannot get imap password from global keyring")]
+    GetPasswdError(#[source] pimalaya_secret::Error),
+    #[error("cannot get imap password: password is empty")]
+    GetPasswdEmptyError,
     #[error(transparent)]
     AccountConfigError(#[from] account::config::Error),
 }
@@ -44,18 +48,6 @@ pub struct ImapConfig {
     pub notify_query: Option<String>,
     /// Represents the watch commands.
     pub watch_cmds: Option<Vec<String>>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ImapAuthConfig {
-    Passwd(PasswdConfig),
-    OAuth2(OAuth2Config),
-}
-
-impl Default for ImapAuthConfig {
-    fn default() -> Self {
-        Self::Passwd(PasswdConfig::default())
-    }
 }
 
 impl ImapConfig {
@@ -104,5 +96,37 @@ impl ImapConfig {
             .as_ref()
             .cloned()
             .unwrap_or_else(|| Vec::new())
+    }
+
+    pub fn build_credentials(&self) -> Result<String> {
+        self.auth.build_credentials()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ImapAuthConfig {
+    Passwd(PasswdConfig),
+    OAuth2(OAuth2Config),
+}
+
+impl Default for ImapAuthConfig {
+    fn default() -> Self {
+        Self::Passwd(PasswdConfig::default())
+    }
+}
+
+impl ImapAuthConfig {
+    pub fn build_credentials(&self) -> Result<String> {
+        match self {
+            ImapAuthConfig::Passwd(passwd) => {
+                let passwd = passwd.get().map_err(Error::GetPasswdError)?;
+                let passwd = passwd
+                    .lines()
+                    .next()
+                    .ok_or_else(|| Error::GetPasswdEmptyError)?;
+                Ok(passwd.to_owned())
+            }
+            ImapAuthConfig::OAuth2(oauth2_config) => Ok(oauth2_config.access_token()?),
+        }
     }
 }

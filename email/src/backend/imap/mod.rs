@@ -13,12 +13,12 @@ use rustls::{
     Certificate, ClientConfig, ClientConnection, RootCertStore, StreamOwned,
 };
 use std::{
-    any::Any,
     borrow::Cow,
     collections::HashSet,
     convert::TryInto,
     io::{self, Read, Write},
     net::TcpStream,
+    ops::Deref,
     result, string,
     time::Duration,
 };
@@ -259,6 +259,7 @@ impl Authenticator for OAuthBearer {
 pub struct ImapBackend<'a> {
     account_config: Cow<'a, AccountConfig>,
     imap_config: Cow<'a, ImapConfig>,
+    default_credentials: Option<String>,
     session: ImapSession,
 }
 
@@ -266,19 +267,24 @@ impl<'a> ImapBackend<'a> {
     pub fn new(
         account_config: Cow<'a, AccountConfig>,
         imap_config: Cow<'a, ImapConfig>,
+        default_credentials: Option<String>,
     ) -> Result<ImapBackend<'a>> {
         let session = match &imap_config.auth {
-            ImapAuthConfig::Passwd(_) => Self::build_session(&imap_config),
+            ImapAuthConfig::Passwd(_) => {
+                Self::build_session(&imap_config, default_credentials.clone())
+            }
             ImapAuthConfig::OAuth2(oauth2_config) => {
-                Self::build_session(&imap_config).or_else(|err| match err {
-                    Error::AuthenticateError(imap::Error::Parse(
-                        imap::error::ParseError::Authentication(_, _),
-                    )) => {
-                        warn!("error while authenticating user, refreshing access token");
-                        oauth2_config.refresh_access_token()?;
-                        Self::build_session(&imap_config)
+                Self::build_session(&imap_config, default_credentials.clone()).or_else(|err| {
+                    match err {
+                        Error::AuthenticateError(imap::Error::Parse(
+                            imap::error::ParseError::Authentication(_, _),
+                        )) => {
+                            warn!("error while authenticating user, refreshing access token");
+                            oauth2_config.refresh_access_token()?;
+                            Self::build_session(&imap_config, None)
+                        }
+                        err => Err(err),
                     }
-                    err => Err(err),
                 })
             }
         }?;
@@ -286,8 +292,61 @@ impl<'a> ImapBackend<'a> {
         Ok(Self {
             account_config,
             imap_config,
+            default_credentials,
             session,
         })
+    }
+
+    fn build_session(imap_config: &ImapConfig, credentials: Option<String>) -> Result<ImapSession> {
+        let mut session = match &imap_config.auth {
+            ImapAuthConfig::Passwd(passwd) => {
+                debug!("creating session using login and password");
+                let passwd = match credentials {
+                    Some(passwd) => passwd,
+                    None => passwd
+                        .get()
+                        .map_err(Error::GetPasswdError)?
+                        .lines()
+                        .next()
+                        .ok_or_else(|| Error::GetPasswdEmptyError)?
+                        .to_owned(),
+                };
+                Self::build_client(imap_config)?
+                    .login(&imap_config.login, passwd)
+                    .map_err(|res| Error::LoginError(res.0))
+            }
+            ImapAuthConfig::OAuth2(oauth2_config) => {
+                let access_token = match credentials {
+                    Some(access_token) => access_token,
+                    None => oauth2_config.access_token()?,
+                };
+                match oauth2_config.method {
+                    OAuth2Method::XOAuth2 => {
+                        debug!("creating session using xoauth2");
+                        let xoauth2 = XOAuth2::new(imap_config.login.clone(), access_token);
+                        Self::build_client(imap_config)?
+                            .authenticate("XOAUTH2", &xoauth2)
+                            .map_err(|(err, _client)| Error::AuthenticateError(err))
+                    }
+                    OAuth2Method::OAuthBearer => {
+                        debug!("creating session using oauthbearer");
+                        let bearer = OAuthBearer::new(
+                            imap_config.login.clone(),
+                            imap_config.host.clone(),
+                            imap_config.port,
+                            access_token,
+                        );
+                        Self::build_client(imap_config)?
+                            .authenticate("OAUTHBEARER", &bearer)
+                            .map_err(|(err, _client)| Error::AuthenticateError(err))
+                    }
+                }
+            }
+        }?;
+
+        session.debug = log_enabled!(Level::Trace);
+
+        Ok(session)
     }
 
     fn build_client(imap_config: &ImapConfig) -> Result<Client<ImapSessionStream>> {
@@ -305,48 +364,6 @@ impl<'a> ImapBackend<'a> {
         .map_err(Error::ConnectError)?;
 
         Ok(client)
-    }
-
-    fn build_session(imap_config: &ImapConfig) -> Result<ImapSession> {
-        let mut session = match &imap_config.auth {
-            ImapAuthConfig::Passwd(passwd) => {
-                debug!("creating session using login and password");
-                let passwd = passwd.get().map_err(Error::GetPasswdError)?;
-                let passwd = passwd
-                    .lines()
-                    .next()
-                    .ok_or_else(|| Error::GetPasswdEmptyError)?;
-                Self::build_client(imap_config)?
-                    .login(&imap_config.login, passwd)
-                    .map_err(|res| Error::LoginError(res.0))
-            }
-            ImapAuthConfig::OAuth2(oauth2_config) => match oauth2_config.method {
-                OAuth2Method::XOAuth2 => {
-                    debug!("creating session using xoauth2");
-                    let xoauth2 =
-                        XOAuth2::new(imap_config.login.clone(), oauth2_config.access_token()?);
-                    Self::build_client(imap_config)?
-                        .authenticate("XOAUTH2", &xoauth2)
-                        .map_err(|(err, _client)| Error::AuthenticateError(err))
-                }
-                OAuth2Method::OAuthBearer => {
-                    debug!("creating session using oauthbearer");
-                    let bearer = OAuthBearer::new(
-                        imap_config.login.clone(),
-                        imap_config.host.clone(),
-                        imap_config.port,
-                        oauth2_config.access_token()?,
-                    );
-                    Self::build_client(imap_config)?
-                        .authenticate("OAUTHBEARER", &bearer)
-                        .map_err(|(err, _client)| Error::AuthenticateError(err))
-                }
-            },
-        }?;
-
-        session.debug = log_enabled!(Level::Trace);
-
-        Ok(session)
     }
 
     fn handshaker(
@@ -412,7 +429,7 @@ impl<'a> ImapBackend<'a> {
                     imap::Error::Parse(imap::error::ParseError::Authentication(_, _)) => {
                         warn!("error while authenticating user, refreshing access token");
                         oauth2_config.refresh_access_token()?;
-                        self.session = Self::build_session(&self.imap_config)?;
+                        self.session = Self::build_session(&self.imap_config, None)?;
                         action(&mut self.session).map_err(map_err)
                     }
                     err => Err(map_err(err)),
@@ -551,15 +568,16 @@ impl<'a> ImapBackend<'a> {
     }
 }
 
-impl<'a> Backend<'a> for ImapBackend<'a> {
+impl Backend for ImapBackend<'_> {
     fn name(&self) -> String {
         self.account_config.name.clone()
     }
 
-    fn try_clone(&'a self) -> backend::Result<Box<dyn Backend + 'a>> {
+    fn try_clone(&self) -> backend::Result<Box<dyn Backend + '_>> {
         Ok(Box::new(Self::new(
-            self.account_config.clone(),
-            self.imap_config.clone(),
+            Cow::Owned(self.account_config.deref().clone()),
+            Cow::Owned(self.imap_config.deref().clone()),
+            self.default_credentials.clone(),
         )?))
     }
 
@@ -1042,16 +1060,14 @@ impl<'a> Backend<'a> for ImapBackend<'a> {
         debug!("closing imap backend session");
         self.with_session(
             |session| {
-                session.close()?;
-                session.logout()
+                session
+                    .check()
+                    .and_then(|()| session.close())
+                    .or(imap::Result::Ok(()))
             },
             Error::CloseError,
         )?;
         Ok(())
-    }
-
-    fn as_any(&self) -> &(dyn Any + 'a) {
-        self
     }
 }
 
@@ -1059,7 +1075,7 @@ impl Drop for ImapBackend<'_> {
     fn drop(&mut self) {
         if let Err(err) = self.close() {
             warn!("cannot close imap session, skipping it");
-            error!("cannot clone imap session: {err:?}");
+            error!("cannot close imap session: {err:?}");
         }
     }
 }

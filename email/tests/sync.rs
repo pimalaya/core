@@ -37,7 +37,7 @@ fn sync() {
 
     // set up imap
 
-    let mut imap_builder = BackendBuilder::new(Cow::Borrowed(&config));
+    let imap_builder = BackendBuilder::new(Cow::Borrowed(&config));
     let mut imap = imap_builder
         .clone()
         .with_cache_disabled(true)
@@ -150,9 +150,9 @@ fn sync() {
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
 
-    let sync_builder = BackendSyncBuilder::new(&config);
-    sync_builder.sync(&mut imap_builder).unwrap();
-    sync_builder.sync(&mut imap_builder).unwrap();
+    let sync_builder = BackendSyncBuilder::new(Cow::Borrowed(&config), imap_builder).unwrap();
+    sync_builder.sync().unwrap();
+    sync_builder.sync().unwrap();
 
     // check folders integrity
 
@@ -306,7 +306,7 @@ fn sync() {
     .unwrap();
     mdir.expunge_folder("INBOX").unwrap();
 
-    let report = sync_builder.sync(&mut imap_builder).unwrap();
+    let report = sync_builder.sync().unwrap();
     assert_eq!(
         report.folders,
         HashSet::from_iter(["INBOX".into(), "[Gmail]/Sent".into(), "Trash".into()])

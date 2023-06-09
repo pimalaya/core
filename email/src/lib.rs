@@ -4,7 +4,7 @@ pub mod sender;
 
 pub use backend::{
     Backend, BackendBuilder, BackendConfig, BackendSyncBuilder, BackendSyncProgressEvent,
-    BackendSyncReport, MaildirBackend, MaildirConfig,
+    BackendSyncReport, MaildirBackend, MaildirBackendBuilder, MaildirConfig,
 };
 #[cfg(feature = "imap-backend")]
 pub use backend::{ImapAuthConfig, ImapBackend, ImapConfig};

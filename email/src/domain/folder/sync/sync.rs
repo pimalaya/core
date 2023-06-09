@@ -2,7 +2,9 @@ use log::{debug, info, trace, warn};
 use rayon::prelude::*;
 use std::{borrow::Cow, collections::HashSet, fmt};
 
-use crate::{AccountConfig, Backend, BackendBuilder, BackendSyncProgressEvent, MaildirBackend};
+use crate::{
+    AccountConfig, Backend, BackendBuilder, BackendSyncProgressEvent, MaildirBackendBuilder,
+};
 
 use super::{Cache, Error, Result};
 
@@ -125,8 +127,8 @@ impl<'a> SyncBuilder<'a> {
     pub fn sync(
         &self,
         conn: &mut rusqlite::Connection,
-        local: &mut MaildirBackend,
-        remote_builder: &BackendBuilder<'a>,
+        local_builder: &MaildirBackendBuilder,
+        remote_builder: &BackendBuilder,
     ) -> Result<SyncReport> {
         let account = &self.account_config.name;
         info!("starting folders synchronization of account {account}");
@@ -144,7 +146,8 @@ impl<'a> SyncBuilder<'a> {
         self.try_progress(BackendSyncProgressEvent::GetLocalFolders);
 
         let local_folders: FoldersName = HashSet::from_iter(
-            local
+            local_builder
+                .build()?
                 .list_folders()
                 .map_err(Box::new)?
                 .iter()
@@ -247,9 +250,8 @@ impl<'a> SyncBuilder<'a> {
                         )]
                     }
                     Hunk::CreateFolder(ref folder, HunkKind::Local) => {
-                        local
-                            .try_clone()
-                            .map_err(Box::new)?
+                        local_builder
+                            .build()?
                             .add_folder(folder)
                             .map_err(Box::new)?;
                         vec![]
@@ -275,9 +277,8 @@ impl<'a> SyncBuilder<'a> {
                         )]
                     }
                     Hunk::DeleteFolder(ref folder, HunkKind::Local) => {
-                        local
-                            .try_clone()
-                            .map_err(Box::new)?
+                        local_builder
+                            .build()?
                             .delete_folder(folder)
                             .map_err(Box::new)?;
                         vec![]

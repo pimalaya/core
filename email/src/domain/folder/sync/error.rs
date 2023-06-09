@@ -11,6 +11,8 @@ pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
     #[error(transparent)]
+    MaildirBackendError(#[from] backend::maildir::Error),
+    #[error(transparent)]
     BackendError(#[from] Box<backend::Error>),
 }
 

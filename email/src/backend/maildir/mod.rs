@@ -1,20 +1,19 @@
 pub mod config;
 
-pub use config::MaildirConfig;
-
 use log::{info, trace, warn};
 use maildirpp::Maildir;
 use std::{
-    any::Any,
     borrow::Cow,
     env,
     ffi::OsStr,
     fs, io,
+    ops::Deref,
     path::{self, Path, PathBuf},
     result,
 };
 use thiserror::Error;
 
+pub use self::config::MaildirConfig;
 use crate::{
     account::{self, config::DEFAULT_TRASH_FOLDER},
     backend, email, AccountConfig, Backend, Emails, Envelope, Envelopes, Flag, Flags, Folder,
@@ -179,15 +178,15 @@ impl<'a> MaildirBackend<'a> {
     }
 }
 
-impl<'a> Backend<'a> for MaildirBackend<'a> {
+impl Backend for MaildirBackend<'_> {
     fn name(&self) -> String {
         self.account_config.name.clone()
     }
 
-    fn try_clone(&'a self) -> backend::Result<Box<dyn Backend + 'a>> {
+    fn try_clone(&self) -> backend::Result<Box<dyn Backend + '_>> {
         Ok(Box::new(Self::new(
-            self.account_config.clone(),
-            self.mdir_config.clone(),
+            Cow::Owned(self.account_config.deref().clone()),
+            Cow::Owned(self.mdir_config.deref().clone()),
         )?))
     }
 
@@ -548,8 +547,29 @@ impl<'a> Backend<'a> for MaildirBackend<'a> {
 
         Ok(())
     }
+}
 
-    fn as_any(&self) -> &(dyn Any + 'a) {
-        self
+/// Represents the maildir backend builder.
+pub struct MaildirBackendBuilder<'a> {
+    account_config: Cow<'a, AccountConfig>,
+    mdir_config: Cow<'a, MaildirConfig>,
+}
+
+impl<'a> MaildirBackendBuilder<'a> {
+    pub fn new(
+        account_config: Cow<'a, AccountConfig>,
+        mdir_config: Cow<'a, MaildirConfig>,
+    ) -> Self {
+        Self {
+            account_config,
+            mdir_config,
+        }
+    }
+
+    pub fn build(&self) -> Result<MaildirBackend> {
+        Ok(MaildirBackend::new(
+            Cow::Borrowed(&self.account_config),
+            Cow::Borrowed(&self.mdir_config),
+        )?)
     }
 }
