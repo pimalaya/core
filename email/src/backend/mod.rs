@@ -60,7 +60,7 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-pub trait Backend: Send {
+pub trait Backend {
     fn name(&self) -> String;
 
     fn try_clone(&self) -> Result<Box<dyn Backend + '_>>;
@@ -364,8 +364,8 @@ impl<'a> BackendBuilder<'a> {
             )?)),
             #[cfg(feature = "notmuch-backend")]
             BackendConfig::Notmuch(notmuch_config) => Ok(Box::new(NotmuchBackend::new(
-                account_config.clone(),
-                notmuch_config.clone(),
+                Cow::Borrowed(&self.account_config),
+                Cow::Borrowed(notmuch_config),
             )?)),
         }
     }
@@ -395,8 +395,8 @@ impl<'a> BackendBuilder<'a> {
             )?)),
             #[cfg(feature = "notmuch-backend")]
             BackendConfig::Notmuch(notmuch_config) => Ok(Box::new(NotmuchBackend::new(
-                account_config.clone(),
-                notmuch_config.clone(),
+                self.account_config,
+                Cow::Owned(notmuch_config),
             )?)),
         }
     }

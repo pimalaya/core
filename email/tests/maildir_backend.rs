@@ -2,7 +2,7 @@ use mail_builder::MessageBuilder;
 use std::borrow::Cow;
 
 #[test]
-fn test_maildir_backend() {
+fn maildir_backend() {
     use concat_with::concat_line;
     use maildirpp::Maildir;
     use pimalaya_email::{AccountConfig, Backend, Flag, Flags, MaildirBackend, MaildirConfig};
