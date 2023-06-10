@@ -3,7 +3,7 @@ pub mod config;
 use log::{error, info, trace, warn};
 use maildirpp::Maildir;
 use notmuch::{Database, DatabaseMode};
-use std::{borrow::Cow, fs, io, ops::Deref, path::PathBuf, result};
+use std::{any::Any, fs, io, path::PathBuf, result};
 use thiserror::Error;
 
 pub use self::config::NotmuchConfig;
@@ -91,17 +91,14 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 
 /// Represents the Notmuch backend.
-pub struct NotmuchBackend<'a> {
-    account_config: Cow<'a, AccountConfig>,
-    notmuch_config: Cow<'a, NotmuchConfig>,
+pub struct NotmuchBackend {
+    account_config: AccountConfig,
+    notmuch_config: NotmuchConfig,
     db: Database,
 }
 
-impl<'a> NotmuchBackend<'a> {
-    pub fn new(
-        account_config: Cow<'a, AccountConfig>,
-        notmuch_config: Cow<'a, NotmuchConfig>,
-    ) -> Result<Self> {
+impl NotmuchBackend {
+    pub fn new(account_config: AccountConfig, notmuch_config: NotmuchConfig) -> Result<Self> {
         let path = Self::path_from(&notmuch_config);
         let db = Database::open_with_config(
             Some(&path),
@@ -177,16 +174,9 @@ impl<'a> NotmuchBackend<'a> {
     }
 }
 
-impl Backend for NotmuchBackend<'_> {
+impl Backend for NotmuchBackend {
     fn name(&self) -> String {
         self.account_config.name.clone()
-    }
-
-    fn try_clone(&self) -> backend::Result<Box<dyn Backend + '_>> {
-        Ok(Box::new(Self::new(
-            Cow::Owned(self.account_config.deref().clone()),
-            Cow::Owned(self.notmuch_config.deref().clone()),
-        )?))
     }
 
     fn add_folder(&mut self, _folder: &str) -> backend::Result<()> {
@@ -500,9 +490,20 @@ impl Backend for NotmuchBackend<'_> {
     fn close(&mut self) -> backend::Result<()> {
         Ok(self.db.close().map_err(Error::CloseDatabaseError)?)
     }
+
+    fn try_clone(&self) -> backend::Result<Box<dyn Backend>> {
+        Ok(Box::new(Self::new(
+            self.account_config.clone(),
+            self.notmuch_config.clone(),
+        )?))
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
-impl Drop for NotmuchBackend<'_> {
+impl Drop for NotmuchBackend {
     fn drop(&mut self) {
         if let Err(err) = self.close() {
             warn!("cannot close notmuch database, skipping it");
@@ -511,16 +512,13 @@ impl Drop for NotmuchBackend<'_> {
     }
 }
 
-pub struct NotmuchBackendBuilder<'a> {
-    account_config: Cow<'a, AccountConfig>,
-    mdir_config: Cow<'a, NotmuchConfig>,
+pub struct NotmuchBackendBuilder {
+    account_config: AccountConfig,
+    mdir_config: NotmuchConfig,
 }
 
-impl<'a> NotmuchBackendBuilder<'a> {
-    pub fn new(
-        account_config: Cow<'a, AccountConfig>,
-        mdir_config: Cow<'a, NotmuchConfig>,
-    ) -> Self {
+impl NotmuchBackendBuilder {
+    pub fn new(account_config: AccountConfig, mdir_config: NotmuchConfig) -> Self {
         Self {
             account_config,
             mdir_config,
@@ -529,8 +527,8 @@ impl<'a> NotmuchBackendBuilder<'a> {
 
     pub fn build(&self) -> Result<NotmuchBackend> {
         Ok(NotmuchBackend::new(
-            Cow::Borrowed(&self.account_config),
-            Cow::Borrowed(&self.mdir_config),
+            self.account_config.clone(),
+            self.mdir_config.clone(),
         )?)
     }
 }

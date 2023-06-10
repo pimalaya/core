@@ -1,7 +1,7 @@
 use env_logger;
 use mail_builder::MessageBuilder;
 use pimalaya_secret::Secret;
-use std::{borrow::Cow, collections::HashSet, thread, time::Duration};
+use std::{collections::HashSet, thread, time::Duration};
 use tempfile::tempdir;
 
 use pimalaya_email::{
@@ -37,7 +37,7 @@ fn sync() {
 
     // set up imap
 
-    let imap_builder = BackendBuilder::new(Cow::Borrowed(&config));
+    let imap_builder = BackendBuilder::new(config.clone());
     let mut imap = imap_builder
         .clone()
         .with_cache_disabled(true)
@@ -47,18 +47,22 @@ fn sync() {
     // set up maildir reader
 
     let mut mdir = MaildirBackend::new(
-        Cow::Borrowed(&config),
-        Cow::Owned(MaildirConfig {
+        config.clone(),
+        MaildirConfig {
             root_dir: sync_dir.clone(),
-        }),
+        },
     )
     .unwrap();
 
     // set up folders
 
-    if let Err(_) = imap.delete_folder("[Gmail]/Sent") {}
-    if let Err(_) = imap.delete_folder("Trash") {}
-    imap.purge_folder("INBOX").unwrap();
+    for folder in imap.list_folders().unwrap().iter() {
+        match folder.name.as_str() {
+            "INBOX" => imap.purge_folder("INBOX").unwrap(),
+            folder => imap.delete_folder(folder).unwrap(),
+        }
+    }
+
     imap.add_folder("[Gmail]/Sent").unwrap();
     imap.add_folder("Trash").unwrap();
 
@@ -150,7 +154,7 @@ fn sync() {
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
 
-    let sync_builder = BackendSyncBuilder::new(Cow::Borrowed(&config), imap_builder).unwrap();
+    let sync_builder = BackendSyncBuilder::new(config.clone(), imap_builder).unwrap();
     sync_builder.sync().unwrap();
     sync_builder.sync().unwrap();
 

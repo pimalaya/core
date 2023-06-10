@@ -1,11 +1,11 @@
 pub mod config;
 
 use mail_parser::Message;
-use std::{borrow::Cow, result};
+use std::result;
 use thiserror::Error;
 
+pub use self::config::SendmailConfig;
 use crate::{sender, AccountConfig, Sender};
-pub use config::SendmailConfig;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -19,16 +19,13 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-pub struct Sendmail<'a> {
-    account_config: Cow<'a, AccountConfig>,
-    sendmail_config: Cow<'a, SendmailConfig>,
+pub struct Sendmail {
+    account_config: AccountConfig,
+    sendmail_config: SendmailConfig,
 }
 
-impl<'a> Sendmail<'a> {
-    pub fn new(
-        account_config: Cow<'a, AccountConfig>,
-        sendmail_config: Cow<'a, SendmailConfig>,
-    ) -> Self {
+impl Sendmail {
+    pub fn new(account_config: AccountConfig, sendmail_config: SendmailConfig) -> Self {
         Self {
             account_config,
             sendmail_config,
@@ -56,7 +53,7 @@ impl<'a> Sendmail<'a> {
     }
 }
 
-impl Sender for Sendmail<'_> {
+impl Sender for Sendmail {
     fn send(&mut self, email: &[u8]) -> sender::Result<()> {
         Ok(self.send(email)?)
     }

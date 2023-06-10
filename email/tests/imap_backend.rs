@@ -5,10 +5,9 @@ fn test_imap_backend() {
     use mail_builder::MessageBuilder;
     use pimalaya_email::{
         AccountConfig, BackendBuilder, BackendConfig, Flag, ImapAuthConfig, ImapConfig,
-        PasswdConfig, Tpl, DEFAULT_INBOX_FOLDER,
+        PasswdConfig, Tpl,
     };
     use pimalaya_secret::Secret;
-    use std::borrow::Cow;
 
     env_logger::builder().is_test(true).init();
 
@@ -32,16 +31,14 @@ fn test_imap_backend() {
         ..AccountConfig::default()
     };
 
-    let imap_builder = BackendBuilder::new(Cow::Borrowed(&config));
+    let imap_builder = BackendBuilder::new(config.clone());
     let mut imap = imap_builder.build().unwrap();
 
     // setting up folders
 
     for folder in imap.list_folders().unwrap().iter() {
-        imap.purge_folder(&folder.name).unwrap();
-
         match folder.name.as_str() {
-            DEFAULT_INBOX_FOLDER => (),
+            "INBOX" => imap.purge_folder("INBOX").unwrap(),
             folder => imap.delete_folder(folder).unwrap(),
         }
     }
@@ -148,12 +145,4 @@ fn test_imap_backend() {
     imap.expunge_folder("Trash").unwrap();
     let trash = imap.list_envelopes("Trash", 0, 0).unwrap();
     assert_eq!(0, trash.len());
-
-    // clean up
-
-    imap.purge_folder("INBOX").unwrap();
-    imap.delete_folder("Sent").unwrap();
-    imap.delete_folder("Trash").unwrap();
-    imap.delete_folder("Отправленные").unwrap();
-    imap.close().unwrap();
 }

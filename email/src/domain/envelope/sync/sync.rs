@@ -113,9 +113,9 @@ pub struct SyncReport {
 
 pub struct SyncRunner<'a> {
     id: usize,
-    local_builder: &'a MaildirBackendBuilder<'a>,
-    remote_builder: &'a BackendBuilder<'a>,
-    on_progress: &'a (dyn Fn(BackendSyncProgressEvent) -> Result<()> + Sync + Send),
+    local_builder: &'a MaildirBackendBuilder,
+    remote_builder: &'a BackendBuilder,
+    on_progress: &'a (dyn Fn(BackendSyncProgressEvent) -> Result<()> + Sync + Send + 'a),
     patch: &'a Mutex<Patch>,
 }
 
@@ -343,13 +343,13 @@ impl SyncRunner<'_> {
 }
 
 pub struct SyncBuilder<'a> {
-    account_config: &'a AccountConfig,
+    account_config: AccountConfig,
     dry_run: bool,
     on_progress: Box<dyn Fn(BackendSyncProgressEvent) -> Result<()> + Sync + Send + 'a>,
 }
 
 impl<'a> SyncBuilder<'a> {
-    pub fn new(account_config: &'a AccountConfig) -> Self {
+    pub fn new(account_config: AccountConfig) -> Self {
         Self {
             account_config,
             dry_run: false,
@@ -378,11 +378,11 @@ impl<'a> SyncBuilder<'a> {
     }
 
     pub fn sync<F>(
-        &'a self,
+        &self,
         folder: F,
         conn: &mut rusqlite::Connection,
-        local_builder: &'a MaildirBackendBuilder,
-        remote_builder: &'a BackendBuilder,
+        local_builder: &MaildirBackendBuilder,
+        remote_builder: &BackendBuilder,
     ) -> Result<SyncReport>
     where
         F: ToString,

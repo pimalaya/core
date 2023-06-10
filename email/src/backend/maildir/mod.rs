@@ -3,11 +3,10 @@ pub mod config;
 use log::{info, trace, warn};
 use maildirpp::Maildir;
 use std::{
-    borrow::Cow,
+    any::Any,
     env,
     ffi::OsStr,
     fs, io,
-    ops::Deref,
     path::{self, Path, PathBuf},
     result,
 };
@@ -22,6 +21,8 @@ use crate::{
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot create maildir backend: maildir not initialized")]
+    InitError,
     #[error("cannot open maildir email file at {1}")]
     OpenEmailFileError(#[source] io::Error, PathBuf),
     #[error("cannot read maildir email line at {1}")]
@@ -88,17 +89,14 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 
 /// Represents the maildir backend.
-pub struct MaildirBackend<'a> {
-    account_config: Cow<'a, AccountConfig>,
-    mdir_config: Cow<'a, MaildirConfig>,
+pub struct MaildirBackend {
+    account_config: AccountConfig,
+    mdir_config: MaildirConfig,
     mdir: Maildir,
 }
 
-impl<'a> MaildirBackend<'a> {
-    pub fn new(
-        account_config: Cow<'a, AccountConfig>,
-        mdir_config: Cow<'a, MaildirConfig>,
-    ) -> Result<Self> {
+impl MaildirBackend {
+    pub fn new(account_config: AccountConfig, mdir_config: MaildirConfig) -> Result<Self> {
         let path = &mdir_config.root_dir;
         let mdir = Maildir::from(path.clone());
 
@@ -178,16 +176,9 @@ impl<'a> MaildirBackend<'a> {
     }
 }
 
-impl Backend for MaildirBackend<'_> {
+impl Backend for MaildirBackend {
     fn name(&self) -> String {
         self.account_config.name.clone()
-    }
-
-    fn try_clone(&self) -> backend::Result<Box<dyn Backend + '_>> {
-        Ok(Box::new(Self::new(
-            Cow::Owned(self.account_config.deref().clone()),
-            Cow::Owned(self.mdir_config.deref().clone()),
-        )?))
     }
 
     fn add_folder(&mut self, folder: &str) -> backend::Result<()> {
@@ -547,19 +538,27 @@ impl Backend for MaildirBackend<'_> {
 
         Ok(())
     }
+
+    fn try_clone(&self) -> backend::Result<Box<dyn Backend>> {
+        Ok(Box::new(Self::new(
+            self.account_config.clone(),
+            self.mdir_config.clone(),
+        )?))
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 /// Represents the maildir backend builder.
-pub struct MaildirBackendBuilder<'a> {
-    account_config: Cow<'a, AccountConfig>,
-    mdir_config: Cow<'a, MaildirConfig>,
+pub struct MaildirBackendBuilder {
+    account_config: AccountConfig,
+    mdir_config: MaildirConfig,
 }
 
-impl<'a> MaildirBackendBuilder<'a> {
-    pub fn new(
-        account_config: Cow<'a, AccountConfig>,
-        mdir_config: Cow<'a, MaildirConfig>,
-    ) -> Self {
+impl MaildirBackendBuilder {
+    pub fn new(account_config: AccountConfig, mdir_config: MaildirConfig) -> Self {
         Self {
             account_config,
             mdir_config,
@@ -568,8 +567,8 @@ impl<'a> MaildirBackendBuilder<'a> {
 
     pub fn build(&self) -> Result<MaildirBackend> {
         Ok(MaildirBackend::new(
-            Cow::Borrowed(&self.account_config),
-            Cow::Borrowed(&self.mdir_config),
+            self.account_config.clone(),
+            self.mdir_config.clone(),
         )?)
     }
 }

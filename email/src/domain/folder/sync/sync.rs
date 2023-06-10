@@ -1,6 +1,6 @@
 use log::{debug, info, trace, warn};
 use rayon::prelude::*;
-use std::{borrow::Cow, collections::HashSet, fmt};
+use std::{collections::HashSet, fmt};
 
 use crate::{
     AccountConfig, Backend, BackendBuilder, BackendSyncProgressEvent, MaildirBackendBuilder,
@@ -82,14 +82,14 @@ pub struct SyncReport {
 }
 
 pub struct SyncBuilder<'a> {
-    account_config: Cow<'a, AccountConfig>,
+    account_config: AccountConfig,
     on_progress: Box<dyn Fn(BackendSyncProgressEvent) -> Result<()> + Sync + Send + 'a>,
     strategy: Strategy,
     dry_run: bool,
 }
 
 impl<'a> SyncBuilder<'a> {
-    pub fn new(account_config: Cow<'a, AccountConfig>) -> Self {
+    pub fn new(account_config: AccountConfig) -> Self {
         let strategy = account_config.sync_folders_strategy.clone();
         Self {
             account_config,

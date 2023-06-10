@@ -3,7 +3,7 @@ pub mod sendmail;
 #[cfg(feature = "smtp-sender")]
 pub mod smtp;
 
-use std::{borrow::Cow, result};
+use std::result;
 use thiserror::Error;
 
 pub use self::config::SenderConfig;
@@ -34,41 +34,40 @@ pub trait Sender {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SenderBuilder<'a> {
-    account_config: Cow<'a, AccountConfig>,
+pub struct SenderBuilder {
+    account_config: AccountConfig,
 }
 
-impl<'a> SenderBuilder<'a> {
-    pub fn new(account_config: Cow<'a, AccountConfig>) -> Self {
+impl SenderBuilder {
+    pub fn new(account_config: AccountConfig) -> Self {
         Self { account_config }
     }
 
-    pub fn build_into(self) -> Result<Box<dyn Sender + 'a>> {
+    pub fn build_into(self) -> Result<Box<dyn Sender>> {
         match self.account_config.sender.clone() {
             SenderConfig::None => Err(Error::BuildUndefinedSenderError),
             #[cfg(feature = "smtp-sender")]
-            SenderConfig::Smtp(smtp_config) => Ok(Box::new(Smtp::new(
-                self.account_config,
-                Cow::Owned(smtp_config),
-            )?)),
+            SenderConfig::Smtp(smtp_config) => {
+                Ok(Box::new(Smtp::new(self.account_config, smtp_config)?))
+            }
             SenderConfig::Sendmail(sendmail_config) => Ok(Box::new(Sendmail::new(
                 self.account_config,
-                Cow::Owned(sendmail_config),
+                sendmail_config,
             ))),
         }
     }
 
-    pub fn build(&'a self) -> Result<Box<dyn Sender + 'a>> {
+    pub fn build(&self) -> Result<Box<dyn Sender>> {
         match &self.account_config.sender {
             SenderConfig::None => Err(Error::BuildUndefinedSenderError),
             #[cfg(feature = "smtp-sender")]
             SenderConfig::Smtp(smtp_config) => Ok(Box::new(Smtp::new(
-                Cow::Borrowed(&self.account_config),
-                Cow::Borrowed(smtp_config),
+                self.account_config.clone(),
+                smtp_config.clone(),
             )?)),
             SenderConfig::Sendmail(sendmail_config) => Ok(Box::new(Sendmail::new(
-                Cow::Borrowed(&self.account_config),
-                Cow::Borrowed(sendmail_config),
+                self.account_config.clone(),
+                sendmail_config.clone(),
             ))),
         }
     }

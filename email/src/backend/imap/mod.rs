@@ -13,12 +13,11 @@ use rustls::{
     Certificate, ClientConfig, ClientConnection, RootCertStore, StreamOwned,
 };
 use std::{
-    borrow::Cow,
+    any::Any,
     collections::HashSet,
     convert::TryInto,
     io::{self, Read, Write},
     net::TcpStream,
-    ops::Deref,
     result, string,
     time::Duration,
 };
@@ -35,6 +34,9 @@ const ENVELOPE_QUERY: &str = "(UID FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FRO
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("cannot create imap backend: imap not initialized")]
+    InitError,
+
     // Folders
     #[error("cannot create imap folder {1}")]
     CreateFolderError(#[source] imap::Error, String),
@@ -256,19 +258,19 @@ impl Authenticator for OAuthBearer {
     }
 }
 
-pub struct ImapBackend<'a> {
-    account_config: Cow<'a, AccountConfig>,
-    imap_config: Cow<'a, ImapConfig>,
+pub struct ImapBackend {
+    account_config: AccountConfig,
+    imap_config: ImapConfig,
     default_credentials: Option<String>,
     session: ImapSession,
 }
 
-impl<'a> ImapBackend<'a> {
+impl ImapBackend {
     pub fn new(
-        account_config: Cow<'a, AccountConfig>,
-        imap_config: Cow<'a, ImapConfig>,
+        account_config: AccountConfig,
+        imap_config: ImapConfig,
         default_credentials: Option<String>,
-    ) -> Result<ImapBackend<'a>> {
+    ) -> Result<ImapBackend> {
         let session = match &imap_config.auth {
             ImapAuthConfig::Passwd(_) => {
                 Self::build_session(&imap_config, default_credentials.clone())
@@ -568,17 +570,9 @@ impl<'a> ImapBackend<'a> {
     }
 }
 
-impl Backend for ImapBackend<'_> {
+impl Backend for ImapBackend {
     fn name(&self) -> String {
         self.account_config.name.clone()
-    }
-
-    fn try_clone(&self) -> backend::Result<Box<dyn Backend + '_>> {
-        Ok(Box::new(Self::new(
-            Cow::Owned(self.account_config.deref().clone()),
-            Cow::Owned(self.imap_config.deref().clone()),
-            self.default_credentials.clone(),
-        )?))
     }
 
     fn add_folder(&mut self, folder: &str) -> backend::Result<()> {
@@ -1069,9 +1063,21 @@ impl Backend for ImapBackend<'_> {
         )?;
         Ok(())
     }
+
+    fn try_clone(&self) -> backend::Result<Box<dyn Backend>> {
+        Ok(Box::new(Self::new(
+            self.account_config.clone(),
+            self.imap_config.clone(),
+            self.default_credentials.clone(),
+        )?))
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
-impl Drop for ImapBackend<'_> {
+impl Drop for ImapBackend {
     fn drop(&mut self) {
         if let Err(err) = self.close() {
             warn!("cannot close imap session, skipping it");

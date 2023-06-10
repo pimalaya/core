@@ -1,9 +1,10 @@
 pub mod config;
 
 use futures::executor::block_on;
+use log::error;
 use mail_parser::{HeaderValue, Message};
 use mail_send::{smtp::message as smtp, SmtpClientBuilder};
-use std::{borrow::Cow, collections::HashSet, result};
+use std::{collections::HashSet, result};
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
@@ -50,18 +51,15 @@ impl SmtpClient {
     }
 }
 
-pub struct Smtp<'a> {
-    account_config: Cow<'a, AccountConfig>,
-    smtp_config: Cow<'a, SmtpConfig>,
+pub struct Smtp {
+    account_config: AccountConfig,
+    smtp_config: SmtpConfig,
     client_builder: SmtpClientBuilder<String>,
     client: SmtpClient,
 }
 
-impl<'a> Smtp<'a> {
-    pub fn new(
-        account_config: Cow<'a, AccountConfig>,
-        smtp_config: Cow<'a, SmtpConfig>,
-    ) -> Result<Self> {
+impl Smtp {
+    pub fn new(account_config: AccountConfig, smtp_config: SmtpConfig) -> Result<Self> {
         let mut client_builder = SmtpClientBuilder::new(smtp_config.host.clone(), smtp_config.port)
             .credentials(smtp_config.credentials()?)
             .implicit_tls(!smtp_config.starttls());
@@ -102,7 +100,10 @@ impl<'a> Smtp<'a> {
                         let client = Self::build_tcp_client(&client_builder).await?;
                         Ok((client_builder, client))
                     }
-                    Err(err) => Err(err),
+                    Err(err) => {
+                        error!("{err:?}");
+                        Err(err)
+                    }
                 }
             }
             (SmtpAuthConfig::OAuth2(oauth2_config), true) => {
@@ -178,7 +179,7 @@ impl<'a> Smtp<'a> {
     }
 }
 
-impl Sender for Smtp<'_> {
+impl Sender for Smtp {
     fn send(&mut self, email: &[u8]) -> sender::Result<()> {
         Ok(block_on(self.send(email))?)
     }

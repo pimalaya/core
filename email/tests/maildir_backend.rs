@@ -1,9 +1,7 @@
-use mail_builder::MessageBuilder;
-use std::borrow::Cow;
-
 #[test]
 fn maildir_backend() {
     use concat_with::concat_line;
+    use mail_builder::MessageBuilder;
     use maildirpp::Maildir;
     use pimalaya_email::{AccountConfig, Backend, Flag, Flags, MaildirBackend, MaildirConfig};
     use std::{collections::HashMap, fs, iter::FromIterator};
@@ -33,18 +31,18 @@ fn maildir_backend() {
 
     let mdir_path = mdir.path().to_owned();
     let mut mdir = MaildirBackend::new(
-        Cow::Borrowed(&config),
-        Cow::Owned(MaildirConfig {
+        config.clone(),
+        MaildirConfig {
             root_dir: mdir_path.clone(),
-        }),
+        },
     )
     .unwrap();
 
     let mut submdir = MaildirBackend::new(
-        Cow::Borrowed(&config),
-        Cow::Owned(MaildirConfig {
+        config.clone(),
+        MaildirConfig {
             root_dir: mdir_path.clone(),
-        }),
+        },
     )
     .unwrap();
 

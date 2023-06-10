@@ -6,7 +6,7 @@ fn notmuch_backend() {
     use maildirpp::Maildir;
     use notmuch::Database;
     use pimalaya_email::{AccountConfig, Backend, Flag, Flags, NotmuchBackend, NotmuchConfig};
-    use std::{borrow::Cow, collections::HashMap, env, fs, iter::FromIterator};
+    use std::{collections::HashMap, env, fs, iter::FromIterator};
 
     env_logger::builder().is_test(true).init();
 
@@ -32,10 +32,10 @@ fn notmuch_backend() {
     };
 
     let mut notmuch = NotmuchBackend::new(
-        Cow::Borrowed(&config),
-        Cow::Owned(NotmuchConfig {
+        config.clone(),
+        NotmuchConfig {
             db_path: mdir.path().to_owned(),
-        }),
+        },
     )
     .unwrap();
 
