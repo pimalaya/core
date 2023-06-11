@@ -37,7 +37,7 @@ use crate::Flags;
 //     }
 // }
 
-#[derive(Clone, Debug, Default, Eq)]
+#[derive(Clone, Debug, Default, Eq, Hash)]
 pub struct Mailbox {
     pub name: Option<String>,
     pub addr: String,
@@ -83,7 +83,7 @@ impl Mailbox {
 
 /// Represents the message envelope. The envelope is just a message
 /// subset, and is mostly used for listings.
-#[derive(Clone, Debug, Default, Eq)]
+#[derive(Clone, Debug, Default, Eq, Hash)]
 pub struct Envelope {
     /// Represents the envelope identifier.
     pub id: String,

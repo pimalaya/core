@@ -1,4 +1,4 @@
-use log::{debug, error, info, trace, warn};
+use log::{error, info, trace, warn};
 use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -15,7 +15,7 @@ use super::{Cache, Error, Result};
 
 pub type Envelopes = HashMap<String, Envelope>;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum HunkKind {
     LocalCache,
     Local,
@@ -34,7 +34,7 @@ impl fmt::Display for HunkKind {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum HunkKindRestricted {
     Local,
     Remote,
@@ -56,7 +56,7 @@ type Target = HunkKind;
 type TargetRestricted = HunkKindRestricted;
 type RefreshSourceCache = bool;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum BackendHunk {
     CacheEnvelope(FolderName, InternalId, SourceRestricted),
     CopyEmail(
@@ -68,12 +68,6 @@ pub enum BackendHunk {
     ),
     RemoveEmail(FolderName, InternalId, Target),
     SetFlags(FolderName, Envelope, Target),
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum CacheHunk {
-    InsertEnvelope(FolderName, Envelope, TargetRestricted),
-    DeleteEnvelope(FolderName, InternalId, TargetRestricted),
 }
 
 impl fmt::Display for BackendHunk {
@@ -103,7 +97,25 @@ impl fmt::Display for BackendHunk {
     }
 }
 
+impl BackendHunk {
+    pub fn folder(&self) -> &str {
+        match self {
+            Self::CacheEnvelope(folder, _, _) => folder.as_str(),
+            Self::CopyEmail(folder, _, _, _, _) => folder.as_str(),
+            Self::RemoveEmail(folder, _, _) => folder.as_str(),
+            Self::SetFlags(folder, _, _) => folder.as_str(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum CacheHunk {
+    InsertEnvelope(FolderName, Envelope, TargetRestricted),
+    DeleteEnvelope(FolderName, InternalId, TargetRestricted),
+}
+
 pub type Patch = Vec<Vec<BackendHunk>>;
+pub type Patches = HashMap<FolderName, Patch>;
 
 #[derive(Debug, Default)]
 pub struct SyncReport {
@@ -123,7 +135,8 @@ impl SyncRunner<'_> {
     fn try_progress(&self, evt: BackendSyncProgressEvent) {
         let progress = &self.on_progress;
         if let Err(err) = progress(evt.clone()) {
-            warn!("error while emitting event {evt}: {err}");
+            warn!("error while emitting event {evt:?}, skipping it");
+            error!("error while emitting event: {err:?}");
         }
     }
 
@@ -138,12 +151,7 @@ impl SyncRunner<'_> {
                 Ok(None) => break,
                 Ok(Some(hunks)) => {
                     for hunk in hunks {
-                        let hunk_str = hunk.to_string();
-
-                        debug!("{hunk_str}");
-                        trace!("sync runner {} processing hunk: {hunk:?}", self.id);
-
-                        self.try_progress(BackendSyncProgressEvent::ProcessEnvelopeHunk(hunk_str));
+                        trace!("sync runner {} processing envelope hunk: {hunk:?}", self.id);
 
                         let mut process_hunk = |hunk: &BackendHunk| {
                             Ok(match hunk {
@@ -325,7 +333,7 @@ impl SyncRunner<'_> {
 
                         match process_hunk(&hunk) {
                             Ok(cache_hunks) => {
-                                report.patch.push((hunk, None));
+                                report.patch.push((hunk.clone(), None));
                                 report.cache_patch.0.extend(cache_hunks);
                             }
                             Err(err) => {
@@ -333,6 +341,8 @@ impl SyncRunner<'_> {
                                 report.patch.push((hunk.clone(), Some(err)));
                             }
                         };
+
+                        self.try_progress(BackendSyncProgressEvent::ProcessEnvelopeHunk(hunk));
                     }
                 }
             }
@@ -373,22 +383,21 @@ impl<'a> SyncBuilder<'a> {
     fn try_progress(&self, evt: BackendSyncProgressEvent) {
         let progress = &self.on_progress;
         if let Err(err) = progress(evt.clone()) {
-            warn!("error while emitting event {evt}: {err}");
+            warn!("error while emitting event {evt:?}, skipping it");
+            error!("error while emitting event: {err:?}");
         }
     }
 
-    pub fn sync<F>(
+    pub fn build_patch(
         &self,
-        folder: F,
-        conn: &mut rusqlite::Connection,
+        folder: impl ToString,
+        db_builder: impl Fn() -> Result<rusqlite::Connection>,
         local_builder: &MaildirBackendBuilder,
         remote_builder: &BackendBuilder,
-    ) -> Result<SyncReport>
-    where
-        F: ToString,
-    {
+    ) -> Result<Patch> {
         let account = &self.account_config.name;
         let folder = folder.to_string();
+        let conn = &mut db_builder()?;
         info!("synchronizing {folder} envelopes of account {account}");
 
         self.try_progress(BackendSyncProgressEvent::GetLocalCachedEnvelopes);
@@ -450,8 +459,6 @@ impl<'a> SyncBuilder<'a> {
 
         trace!("remote envelopes: {:#?}", remote_envelopes);
 
-        self.try_progress(BackendSyncProgressEvent::BuildEnvelopesPatch);
-
         let patch = build_patch(
             &folder,
             local_envelopes_cached,
@@ -460,12 +467,24 @@ impl<'a> SyncBuilder<'a> {
             remote_envelopes,
         );
 
-        self.try_progress(BackendSyncProgressEvent::ProcessEnvelopesPatch(
-            patch.iter().fold(0, |len, hunks| len + hunks.len()),
+        trace!("envelopes patch: {:#?}", patch);
+
+        self.try_progress(BackendSyncProgressEvent::EnvelopesDiffPatchBuilt(
+            folder.clone(),
+            patch.clone(),
         ));
 
-        debug!("envelopes patch: {:#?}", patch);
+        Ok(patch)
+    }
 
+    pub fn sync(
+        &self,
+        patch: Patch,
+        conn: &mut rusqlite::Connection,
+        local_builder: &MaildirBackendBuilder,
+        remote_builder: &BackendBuilder,
+    ) -> Result<SyncReport> {
+        let account = &self.account_config.name;
         let mut report = SyncReport::default();
 
         if self.dry_run {
@@ -500,6 +519,10 @@ impl<'a> SyncBuilder<'a> {
                     r1.cache_patch.0.extend(r2.cache_patch.0);
                     r1
                 });
+
+            self.try_progress(BackendSyncProgressEvent::ProcessEnvelopeCachePatch(
+                report.cache_patch.0.clone(),
+            ));
 
             let mut process_cache_patch = || {
                 let tx = conn.transaction()?;

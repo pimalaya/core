@@ -6,8 +6,15 @@ pub mod maildir;
 pub mod notmuch;
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
-use log::info;
-use std::{any::Any, env, fmt, fs::OpenOptions, io, result};
+use log::{error, info, warn};
+use rayon::prelude::*;
+use std::{
+    any::Any,
+    collections::{HashMap, HashSet},
+    env, fmt,
+    fs::OpenOptions,
+    io, result,
+};
 use thiserror::Error;
 
 pub use self::config::BackendConfig;
@@ -105,43 +112,61 @@ pub trait Backend {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BackendSyncProgressEvent {
+    BuildFoldersDiffPatch,
     GetLocalCachedFolders,
     GetLocalFolders,
     GetRemoteCachedFolders,
     GetRemoteFolders,
-    BuildFoldersPatch,
-    ProcessFoldersPatch(usize),
-    ProcessFolderHunk(String),
+    SynchronizeFolders(HashMap<folder::sync::FolderName, folder::sync::Patch>),
+    SynchronizeFolder(folder::sync::Hunk),
 
-    StartEnvelopesSync(String, usize, usize),
+    BuildEnvelopesDiffPatches(folder::sync::FoldersName),
+    EnvelopesDiffPatchBuilt(folder::sync::FolderName, envelope::sync::Patch),
     GetLocalCachedEnvelopes,
     GetLocalEnvelopes,
     GetRemoteCachedEnvelopes,
     GetRemoteEnvelopes,
-    BuildEnvelopesPatch,
-    ProcessEnvelopesPatch(usize),
-    ProcessEnvelopeHunk(String),
+    ProcessEnvelopePatches(HashMap<folder::sync::FolderName, envelope::sync::Patch>),
+    ProcessEnvelopeHunk(envelope::sync::BackendHunk),
+    ProcessEnvelopeCachePatch(Vec<envelope::sync::CacheHunk>),
+
+    ExpungeFolders(folder::sync::FoldersName),
+    FolderExpunged(folder::sync::FolderName),
 }
 
 impl fmt::Display for BackendSyncProgressEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::BuildFoldersDiffPatch => write!(f, "Building folders diff patch"),
             Self::GetLocalCachedFolders => write!(f, "Getting local cached folders"),
             Self::GetLocalFolders => write!(f, "Getting local folders"),
             Self::GetRemoteCachedFolders => write!(f, "Getting remote cached folders"),
             Self::GetRemoteFolders => write!(f, "Getting remote folders"),
-            Self::BuildFoldersPatch => write!(f, "Building folders patch"),
-            Self::ProcessFoldersPatch(n) => write!(f, "Processing {n} hunks of folders patch"),
-            Self::ProcessFolderHunk(s) => write!(f, "Processing folder hunk: {s}"),
-
-            Self::StartEnvelopesSync(_, _, _) => write!(f, "Starting envelopes synchronization"),
+            Self::SynchronizeFolders(patches) => {
+                let x = patches.values().fold(0, |sum, patch| sum + patch.len());
+                let y = patches.len();
+                write!(f, "Processing {x} patches of {y} folders")
+            }
+            Self::SynchronizeFolder(hunk) => write!(f, "{hunk}"),
+            Self::BuildEnvelopesDiffPatches(folders) => {
+                let n = folders.len();
+                write!(f, "Building envelopes diff patch for {n} folders")
+            }
+            Self::EnvelopesDiffPatchBuilt(folder, patch) => {
+                let n = patch.iter().fold(0, |sum, patch| sum + patch.len());
+                write!(f, "Built {n} envelopes diff patch for folder {folder}")
+            }
             Self::GetLocalCachedEnvelopes => write!(f, "Getting local cached envelopes"),
             Self::GetLocalEnvelopes => write!(f, "Getting local envelopes"),
             Self::GetRemoteCachedEnvelopes => write!(f, "Getting remote cached envelopes"),
             Self::GetRemoteEnvelopes => write!(f, "Getting remote envelopes"),
-            Self::BuildEnvelopesPatch => write!(f, "Building envelopes patch"),
-            Self::ProcessEnvelopesPatch(n) => write!(f, "Processing {n} hunks of envelopes patch"),
-            Self::ProcessEnvelopeHunk(s) => write!(f, "Processing envelope hunk: {s}"),
+            Self::ProcessEnvelopePatches(_patches) => {
+                write!(f, "Processing envelope patches")
+            }
+            Self::ProcessEnvelopeHunk(hunk) => write!(f, "{hunk}"),
+            Self::ProcessEnvelopeCachePatch(_patch) => write!(f, "Processing envelope cache patch"),
+            Self::ExpungeFolders(folders) => write!(f, "Expunging {} folders", folders.len()),
+            Self::FolderExpunged(folder) => write!(f, "Folder {folder} successfully expunged"),
         }
     }
 }
@@ -152,7 +177,10 @@ pub struct BackendSyncReport {
     pub folders_patch: Vec<(folder::sync::Hunk, Option<folder::sync::Error>)>,
     pub folders_cache_patch: (Vec<folder::sync::CacheHunk>, Option<folder::sync::Error>),
     pub envelopes_patch: Vec<(envelope::sync::BackendHunk, Option<envelope::sync::Error>)>,
-    pub envelopes_cache_patch: (Vec<envelope::sync::CacheHunk>, Vec<envelope::sync::Error>),
+    pub envelopes_cache_patch: (
+        Vec<envelope::sync::CacheHunk>,
+        Option<envelope::sync::Error>,
+    ),
 }
 
 pub struct BackendSyncBuilder<'a> {
@@ -202,6 +230,15 @@ impl<'a> BackendSyncBuilder<'a> {
         self
     }
 
+    fn try_progress(&self, evt: BackendSyncProgressEvent) {
+        let progress = &self.on_progress;
+
+        if let Err(err) = progress(evt.clone()) {
+            warn!("error while emitting event {evt:?}, skipping it");
+            error!("error while emitting event: {err:?}");
+        }
+    }
+
     pub fn sync(&self) -> Result<BackendSyncReport> {
         let account = &self.account_config.name;
         if !self.account_config.sync {
@@ -222,14 +259,13 @@ impl<'a> BackendSyncBuilder<'a> {
         let progress = &self.on_progress;
         let sync_dir = self.account_config.sync_dir()?;
 
-        let mut remote = self.remote_builder.build()?;
-
         // init SQLite cache
 
-        let mut conn = rusqlite::Connection::open(sync_dir.join(".sync.sqlite"))?;
+        let db_builder = || Ok(rusqlite::Connection::open(sync_dir.join(".sync.sqlite"))?);
+        let conn = &mut db_builder()?;
 
-        folder::sync::Cache::init(&mut conn)?;
-        envelope::sync::Cache::init(&mut conn)?;
+        folder::sync::Cache::init(conn)?;
+        envelope::sync::Cache::init(conn)?;
 
         // init local Maildir
 
@@ -239,7 +275,6 @@ impl<'a> BackendSyncBuilder<'a> {
                 root_dir: sync_dir.clone(),
             },
         );
-        let mut local = local_builder.build()?;
 
         // apply folder aliases to the strategy
         let folders_strategy = match &self.folders_strategy {
@@ -258,46 +293,76 @@ impl<'a> BackendSyncBuilder<'a> {
             ),
         };
 
+        self.try_progress(BackendSyncProgressEvent::BuildFoldersDiffPatch);
+
         let folders_sync_report = folder::SyncBuilder::new(self.account_config.clone())
             .on_progress(|data| Ok(progress(data).map_err(Box::new)?))
             .strategy(folders_strategy)
             .dry_run(self.dry_run)
-            .sync(&mut conn, &local_builder, &self.remote_builder)?;
+            .sync(conn, &local_builder, &self.remote_builder)?;
+        let folders = folders_sync_report.folders.clone();
 
         let envelopes = envelope::SyncBuilder::new(self.account_config.clone())
             .on_progress(|data| Ok(progress(data).map_err(Box::new)?))
             .dry_run(self.dry_run);
 
-        let mut envelopes_patch = Vec::new();
-        let mut envelopes_cache_patch = (Vec::new(), Vec::new());
+        self.try_progress(BackendSyncProgressEvent::BuildEnvelopesDiffPatches(
+            folders.clone(),
+        ));
 
-        for (folder_num, folder) in folders_sync_report.folders.iter().enumerate() {
-            progress(BackendSyncProgressEvent::StartEnvelopesSync(
-                folder.clone(),
-                folder_num + 1,
-                folders_sync_report.folders.len(),
-            ))?;
-            let report = envelopes.sync(folder, &mut conn, &local_builder, &self.remote_builder)?;
-            envelopes_patch.extend(report.patch);
-            envelopes_cache_patch.0.extend(report.cache_patch.0);
-            if let Some(err) = report.cache_patch.1 {
-                envelopes_cache_patch.1.push(err);
-            }
+        let envelopes_patches = HashMap::from_iter(
+            folders
+                .par_iter()
+                .map(|folder| {
+                    Ok((
+                        folder.clone(),
+                        envelopes.build_patch(
+                            folder,
+                            &db_builder,
+                            &local_builder,
+                            &self.remote_builder,
+                        )?,
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()?,
+        );
 
-            local.expunge_folder(folder)?;
-            remote.expunge_folder(folder)?;
-        }
+        let envelopes_patch = envelopes_patches
+            .values()
+            .cloned()
+            .flatten()
+            .collect::<HashSet<_>>();
+
+        self.try_progress(BackendSyncProgressEvent::ProcessEnvelopePatches(
+            envelopes_patches,
+        ));
+
+        let envelopes_sync_report = envelopes.sync(
+            Vec::from_iter(envelopes_patch),
+            conn,
+            &local_builder,
+            &self.remote_builder,
+        )?;
+
+        self.try_progress(BackendSyncProgressEvent::ExpungeFolders(folders.clone()));
+
+        folders.par_iter().try_for_each(|folder| {
+            local_builder.build()?.expunge_folder(folder)?;
+            self.remote_builder.build()?.expunge_folder(folder)?;
+            self.try_progress(BackendSyncProgressEvent::FolderExpunged(folder.clone()));
+            Result::Ok(())
+        })?;
 
         lock_file
             .unlock()
             .map_err(|err| Error::SyncAccountUnlockFileError(err, account.clone()))?;
 
         Ok(BackendSyncReport {
-            folders: folders_sync_report.folders,
+            folders,
             folders_patch: folders_sync_report.patch,
             folders_cache_patch: folders_sync_report.cache_patch,
-            envelopes_patch,
-            envelopes_cache_patch,
+            envelopes_patch: envelopes_sync_report.patch,
+            envelopes_cache_patch: envelopes_sync_report.cache_patch,
         })
     }
 }

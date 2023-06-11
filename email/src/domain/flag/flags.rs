@@ -1,4 +1,9 @@
-use std::{collections::HashSet, ops, str::FromStr};
+use std::{
+    collections::HashSet,
+    hash::{Hash, Hasher},
+    ops,
+    str::FromStr,
+};
 
 use crate::Flag;
 
@@ -7,6 +12,14 @@ use super::{Error, Result};
 /// Represents the list of flags.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Flags(pub HashSet<Flag>);
+
+impl Hash for Flags {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for flag in self.iter() {
+            flag.hash(state)
+        }
+    }
+}
 
 impl ToString for Flags {
     fn to_string(&self) -> String {
