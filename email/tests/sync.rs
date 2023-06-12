@@ -214,7 +214,7 @@ fn sync() {
 
     let mut conn = rusqlite::Connection::open(sync_dir.join(".sync.sqlite")).unwrap();
 
-    let local_folders_cached = folder::sync::Cache::list_local_folders(
+    let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
         &mut conn,
         &config.name,
         &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
@@ -223,7 +223,7 @@ fn sync() {
     assert!(!local_folders_cached.contains("INBOX"));
     assert!(local_folders_cached.contains("[Gmail]/Sent"));
 
-    let local_folders_cached = folder::sync::Cache::list_local_folders(
+    let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
         &mut conn,
         &config.name,
         &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
@@ -232,7 +232,7 @@ fn sync() {
     assert!(local_folders_cached.contains("INBOX"));
     assert!(!local_folders_cached.contains("[Gmail]/Sent"));
 
-    let local_folders_cached = folder::sync::Cache::list_local_folders(
+    let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
         &mut conn,
         &config.name,
         &folder::sync::FolderSyncStrategy::All,
@@ -241,7 +241,7 @@ fn sync() {
     assert!(local_folders_cached.contains("INBOX"));
     assert!(local_folders_cached.contains("[Gmail]/Sent"));
 
-    let remote_folders_cached = folder::sync::Cache::list_remote_folders(
+    let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
         &mut conn,
         &config.name,
         &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
@@ -250,7 +250,7 @@ fn sync() {
     assert!(!remote_folders_cached.contains("INBOX"));
     assert!(remote_folders_cached.contains("[Gmail]/Sent"));
 
-    let remote_folders_cached = folder::sync::Cache::list_remote_folders(
+    let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
         &mut conn,
         &config.name,
         &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
@@ -259,7 +259,7 @@ fn sync() {
     assert!(remote_folders_cached.contains("INBOX"));
     assert!(!remote_folders_cached.contains("[Gmail]/Sent"));
 
-    let remote_folders_cached = folder::sync::Cache::list_remote_folders(
+    let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
         &mut conn,
         &config.name,
         &folder::sync::FolderSyncStrategy::All,
@@ -271,19 +271,27 @@ fn sync() {
     // check envelopes cache integrity
 
     let mdir_inbox_envelopes_cached =
-        envelope::sync::Cache::list_local_envelopes(&mut conn, &config.name, "INBOX").unwrap();
+        envelope::sync::EnvelopeSyncCache::list_local_envelopes(&mut conn, &config.name, "INBOX")
+            .unwrap();
     let imap_inbox_envelopes_cached =
-        envelope::sync::Cache::list_remote_envelopes(&mut conn, &config.name, "INBOX").unwrap();
+        envelope::sync::EnvelopeSyncCache::list_remote_envelopes(&mut conn, &config.name, "INBOX")
+            .unwrap();
 
     assert_eq!(mdir_inbox_envelopes, mdir_inbox_envelopes_cached);
     assert_eq!(imap_inbox_envelopes, imap_inbox_envelopes_cached);
 
-    let mdir_sent_envelopes_cached =
-        envelope::sync::Cache::list_local_envelopes(&mut conn, &config.name, "[Gmail]/Sent")
-            .unwrap();
-    let imap_sent_envelopes_cached =
-        envelope::sync::Cache::list_remote_envelopes(&mut conn, &config.name, "[Gmail]/Sent")
-            .unwrap();
+    let mdir_sent_envelopes_cached = envelope::sync::EnvelopeSyncCache::list_local_envelopes(
+        &mut conn,
+        &config.name,
+        "[Gmail]/Sent",
+    )
+    .unwrap();
+    let imap_sent_envelopes_cached = envelope::sync::EnvelopeSyncCache::list_remote_envelopes(
+        &mut conn,
+        &config.name,
+        "[Gmail]/Sent",
+    )
+    .unwrap();
 
     assert_eq!(mdir_sent_envelopes, mdir_sent_envelopes_cached);
     assert_eq!(imap_sent_envelopes, imap_sent_envelopes_cached);
@@ -321,10 +329,12 @@ fn sync() {
     assert_eq!(imap_envelopes, mdir_envelopes);
 
     let cached_mdir_envelopes =
-        envelope::sync::Cache::list_local_envelopes(&mut conn, &config.name, "INBOX").unwrap();
+        envelope::sync::EnvelopeSyncCache::list_local_envelopes(&mut conn, &config.name, "INBOX")
+            .unwrap();
     assert_eq!(cached_mdir_envelopes, mdir_envelopes);
 
     let cached_imap_envelopes =
-        envelope::sync::Cache::list_remote_envelopes(&mut conn, &config.name, "INBOX").unwrap();
+        envelope::sync::EnvelopeSyncCache::list_remote_envelopes(&mut conn, &config.name, "INBOX")
+            .unwrap();
     assert_eq!(cached_imap_envelopes, imap_envelopes);
 }

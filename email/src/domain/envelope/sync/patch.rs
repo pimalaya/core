@@ -1,5 +1,6 @@
-use log::{error, info, trace, warn};
+use log::{debug, error, info, warn};
 use rayon::prelude::*;
+use rusqlite::Connection;
 use std::{
     collections::{HashMap, HashSet},
     sync::Mutex,
@@ -14,6 +15,7 @@ use super::*;
 
 pub type Envelopes = HashMap<String, Envelope>;
 pub type EnvelopeSyncPatch = HashSet<Vec<EnvelopeSyncHunk>>;
+pub type EnvelopeSyncCachePatch = Vec<EnvelopeSyncCacheHunk>;
 
 pub struct EnvelopeSyncPatchManager<'a> {
     account_config: &'a AccountConfig,
@@ -41,28 +43,30 @@ impl<'a> EnvelopeSyncPatchManager<'a> {
     }
 
     pub fn build_patch(&self, folder: impl ToString) -> Result<EnvelopeSyncPatch> {
+        info!("building envelope sync patch");
+
         let folder = folder.to_string();
         let account = &self.account_config.name;
         let conn = &mut self.account_config.sync_db_builder()?;
-        info!("synchronizing {folder} envelopes of account {account}");
 
         self.on_progress
             .emit(BackendSyncProgressEvent::GetLocalCachedEnvelopes);
 
         let mut local = self.local_builder.build()?;
-        let mut remote = self.remote_builder.build().map_err(Box::new)?;
+        let mut remote = self.remote_builder.build()?;
 
+        debug!("getting local cached envelopes");
         let local_envelopes_cached: Envelopes = HashMap::from_iter(
-            Cache::list_local_envelopes(conn, account, &folder)?
+            EnvelopeSyncCache::list_local_envelopes(conn, account, &folder)?
                 .iter()
                 .map(|envelope| (envelope.message_id.clone(), envelope.clone())),
         );
-
-        trace!("local envelopes cached: {:#?}", local_envelopes_cached);
+        debug!("{local_envelopes_cached:#?}");
 
         self.on_progress
             .emit(BackendSyncProgressEvent::GetLocalEnvelopes);
 
+        debug!("getting local envelopes");
         let local_envelopes: Envelopes = HashMap::from_iter(
             local
                 .list_envelopes(&folder, 0, 0)
@@ -70,29 +74,29 @@ impl<'a> EnvelopeSyncPatchManager<'a> {
                     if self.dry_run {
                         Ok(Default::default())
                     } else {
-                        Err(Box::new(err))
+                        Err(err)
                     }
                 })?
                 .iter()
                 .map(|envelope| (envelope.message_id.clone(), envelope.clone())),
         );
-
-        trace!("local envelopes: {:#?}", local_envelopes);
+        debug!("{local_envelopes:#?}");
 
         self.on_progress
             .emit(BackendSyncProgressEvent::GetRemoteCachedEnvelopes);
 
+        debug!("getting remote cached envelopes");
         let remote_envelopes_cached: Envelopes = HashMap::from_iter(
-            Cache::list_remote_envelopes(conn, account, &folder)?
+            EnvelopeSyncCache::list_remote_envelopes(conn, account, &folder)?
                 .iter()
                 .map(|envelope| (envelope.message_id.clone(), envelope.clone())),
         );
-
-        trace!("remote envelopes cached: {:#?}", remote_envelopes_cached);
+        debug!("{remote_envelopes_cached:#?}");
 
         self.on_progress
             .emit(BackendSyncProgressEvent::GetRemoteEnvelopes);
 
+        debug!("getting remote envelopes");
         let remote_envelopes: Envelopes = HashMap::from_iter(
             remote
                 .list_envelopes(&folder, 0, 0)
@@ -100,15 +104,15 @@ impl<'a> EnvelopeSyncPatchManager<'a> {
                     if self.dry_run {
                         Ok(Default::default())
                     } else {
-                        Err(Box::new(err))
+                        Err(err)
                     }
                 })?
                 .iter()
                 .map(|envelope| (envelope.message_id.clone(), envelope.clone())),
         );
+        debug!("{remote_envelopes:#?}");
 
-        trace!("remote envelopes: {:#?}", remote_envelopes);
-
+        debug!("building envelopes sync patch");
         let patch = build_patch(
             &folder,
             local_envelopes_cached,
@@ -116,11 +120,10 @@ impl<'a> EnvelopeSyncPatchManager<'a> {
             remote_envelopes_cached,
             remote_envelopes,
         );
-
-        trace!("envelopes patch: {:#?}", patch);
+        debug!("{patch:#?}");
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::EnvelopesDiffPatchBuilt(
+            .emit(BackendSyncProgressEvent::EnvelopePatchBuilt(
                 folder.clone(),
                 patch.clone(),
             ));
@@ -130,14 +133,16 @@ impl<'a> EnvelopeSyncPatchManager<'a> {
 
     pub fn apply_patch(
         &self,
-        conn: &mut rusqlite::Connection,
+        conn: &mut Connection,
         patch: EnvelopeSyncPatch,
     ) -> Result<EnvelopeSyncReport> {
+        info!("applying envelope sync patch");
+
         let account = &self.account_config.name;
         let mut report = EnvelopeSyncReport::default();
 
         if self.dry_run {
-            info!("dry run enabled, skipping envelopes patch");
+            warn!("dry run enabled, skipping patch");
             report.patch = patch
                 .into_iter()
                 .flatten()
@@ -146,6 +151,7 @@ impl<'a> EnvelopeSyncPatchManager<'a> {
         } else {
             let patch = Mutex::new(Vec::from_iter(patch));
 
+            debug!("starting envelope sync runners");
             let mut report = (0..16)
                 .into_par_iter()
                 .map(|id| EnvelopeSyncRunner {
@@ -158,8 +164,8 @@ impl<'a> EnvelopeSyncPatchManager<'a> {
                 .filter_map(|runner| match runner.run() {
                     Ok(report) => Some(report),
                     Err(err) => {
-                        warn!("error while starting envelope sync runner, skipping it");
-                        error!("error while starting envelope sync runner: {err:?}");
+                        warn!("error while starting envelope sync runner, skipping it: {err:?}");
+                        error!("{err}");
                         None
                     }
                 })
@@ -170,7 +176,7 @@ impl<'a> EnvelopeSyncPatchManager<'a> {
                 });
 
             self.on_progress
-                .emit(BackendSyncProgressEvent::ProcessEnvelopeCachePatch(
+                .emit(BackendSyncProgressEvent::ApplyEnvelopeCachePatch(
                     report.cache_patch.0.clone(),
                 ));
 
@@ -178,22 +184,38 @@ impl<'a> EnvelopeSyncPatchManager<'a> {
                 let tx = conn.transaction()?;
                 for hunk in &report.cache_patch.0 {
                     match hunk {
-                        EnvelopeSyncCacheHunk::InsertEnvelope(folder, envelope, Target::Local) => {
-                            Cache::insert_local_envelope(&tx, account, folder, envelope.clone())?
+                        EnvelopeSyncCacheHunk::Insert(folder, envelope, Target::Local) => {
+                            EnvelopeSyncCache::insert_local_envelope(
+                                &tx,
+                                account,
+                                folder,
+                                envelope.clone(),
+                            )?
                         }
-                        EnvelopeSyncCacheHunk::InsertEnvelope(folder, envelope, Target::Remote) => {
-                            Cache::insert_remote_envelope(&tx, account, folder, envelope.clone())?
+                        EnvelopeSyncCacheHunk::Insert(folder, envelope, Target::Remote) => {
+                            EnvelopeSyncCache::insert_remote_envelope(
+                                &tx,
+                                account,
+                                folder,
+                                envelope.clone(),
+                            )?
                         }
-                        EnvelopeSyncCacheHunk::DeleteEnvelope(
-                            folder,
-                            internal_id,
-                            Target::Local,
-                        ) => Cache::delete_local_envelope(&tx, account, folder, internal_id)?,
-                        EnvelopeSyncCacheHunk::DeleteEnvelope(
-                            folder,
-                            internal_id,
-                            Target::Remote,
-                        ) => Cache::delete_remote_envelope(&tx, account, folder, internal_id)?,
+                        EnvelopeSyncCacheHunk::Delete(folder, internal_id, Target::Local) => {
+                            EnvelopeSyncCache::delete_local_envelope(
+                                &tx,
+                                account,
+                                folder,
+                                internal_id,
+                            )?
+                        }
+                        EnvelopeSyncCacheHunk::Delete(folder, internal_id, Target::Remote) => {
+                            EnvelopeSyncCache::delete_remote_envelope(
+                                &tx,
+                                account,
+                                folder,
+                                internal_id,
+                            )?
+                        }
                     }
                 }
                 tx.commit()?;
@@ -201,12 +223,12 @@ impl<'a> EnvelopeSyncPatchManager<'a> {
             };
 
             if let Err(err) = process_cache_patch() {
-                warn!("error while processing cache patch: {err}");
+                warn!("error while applying envelope cache patch: {err:?}");
+                error!("{err}");
                 report.cache_patch.1 = Some(err);
             }
         }
-
-        trace!("sync report: {:#?}", report);
+        debug!("{report:#?}");
 
         Ok(report)
     }
@@ -249,7 +271,7 @@ pub fn build_patch(
             // new email has been added remote side and needs to be
             // cached remote side + copied local side.
             (None, None, None, Some(remote)) => {
-                patch.insert(vec![EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                patch.insert(vec![EnvelopeSyncHunk::CopyThenCache(
                     folder.to_string(),
                     remote.clone(),
                     Source::Remote,
@@ -264,7 +286,7 @@ pub fn build_patch(
             // an email is outdated and needs to be removed from the
             // remote cache.
             (None, None, Some(remote_cache), None) => {
-                patch.insert(vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                patch.insert(vec![EnvelopeSyncHunk::Uncache(
                     folder.to_string(),
                     remote_cache.id.clone(),
                     Target::Remote,
@@ -281,7 +303,7 @@ pub fn build_patch(
             //
             // TODO: make this behaviour customizable.
             (None, None, Some(remote_cache), Some(remote)) => {
-                patch.insert(vec![EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                patch.insert(vec![EnvelopeSyncHunk::CopyThenCache(
                     folder.to_string(),
                     remote.clone(),
                     Source::Remote,
@@ -307,7 +329,7 @@ pub fn build_patch(
             // new email has been added local side and needs to be
             // added cached local side + added remote sides.
             (None, Some(local), None, None) => {
-                patch.insert(vec![EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                patch.insert(vec![EnvelopeSyncHunk::CopyThenCache(
                     folder.to_string(),
                     local.clone(),
                     Source::Local,
@@ -329,12 +351,12 @@ pub fn build_patch(
             (None, Some(local), None, Some(remote)) => {
                 if local.date > remote.date {
                     patch.insert(vec![
-                        EnvelopeSyncHunk::RemoveEmail(
+                        EnvelopeSyncHunk::Delete(
                             folder.to_string(),
                             remote.id.clone(),
                             Target::Remote,
                         ),
-                        EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                        EnvelopeSyncHunk::CopyThenCache(
                             folder.to_string(),
                             local.clone(),
                             Source::Local,
@@ -344,12 +366,12 @@ pub fn build_patch(
                     ]);
                 } else {
                     patch.insert(vec![
-                        EnvelopeSyncHunk::RemoveEmail(
+                        EnvelopeSyncHunk::Delete(
                             folder.to_string(),
                             local.id.clone(),
                             Target::Local,
                         ),
-                        EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                        EnvelopeSyncHunk::CopyThenCache(
                             folder.to_string(),
                             remote.clone(),
                             Source::Remote,
@@ -373,12 +395,12 @@ pub fn build_patch(
             // TODO: make this behaviour customizable.
             (None, Some(local), Some(remote_cache), None) => {
                 patch.insert(vec![
-                    EnvelopeSyncHunk::DeleteCachedEnvelope(
+                    EnvelopeSyncHunk::Uncache(
                         folder.to_string(),
                         remote_cache.id.clone(),
                         Target::Remote,
                     ),
-                    EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                    EnvelopeSyncHunk::CopyThenCache(
                         folder.to_string(),
                         local.clone(),
                         Source::Local,
@@ -394,7 +416,7 @@ pub fn build_patch(
             // which means the local cache misses an email and needs
             // to be updated. Flags also need to be synchronized.
             (None, Some(local), Some(remote_cache), Some(remote)) => {
-                patch.insert(vec![EnvelopeSyncHunk::GetEnvelopeThenCacheIt(
+                patch.insert(vec![EnvelopeSyncHunk::GetThenCache(
                     folder.to_string(),
                     local.id.clone(),
                     Source::Local,
@@ -403,7 +425,7 @@ pub fn build_patch(
                 let flags = flag::sync_all(None, Some(local), Some(remote_cache), Some(remote));
 
                 if local.flags != flags {
-                    patch.insert(vec![EnvelopeSyncHunk::SetFlags(
+                    patch.insert(vec![EnvelopeSyncHunk::UpdateFlags(
                         folder.to_string(),
                         Envelope {
                             flags: flags.clone(),
@@ -425,7 +447,7 @@ pub fn build_patch(
                 }
 
                 if remote.flags != flags {
-                    patch.insert(vec![EnvelopeSyncHunk::SetFlags(
+                    patch.insert(vec![EnvelopeSyncHunk::UpdateFlags(
                         folder.to_string(),
                         Envelope {
                             flags: flags.clone(),
@@ -442,7 +464,7 @@ pub fn build_patch(
             // the local cache has an outdated email and need to be
             // cleaned.
             (Some(local_cache), None, None, None) => {
-                patch.insert(vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                patch.insert(vec![EnvelopeSyncHunk::Uncache(
                     folder.to_string(),
                     local_cache.id.clone(),
                     Target::Local,
@@ -461,12 +483,12 @@ pub fn build_patch(
             // TODO: make this behaviour customizable.
             (Some(local_cache), None, None, Some(remote)) => {
                 patch.insert(vec![
-                    EnvelopeSyncHunk::DeleteCachedEnvelope(
+                    EnvelopeSyncHunk::Uncache(
                         folder.to_string(),
                         local_cache.id.clone(),
                         Target::Local,
                     ),
-                    EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                    EnvelopeSyncHunk::CopyThenCache(
                         folder.to_string(),
                         remote.clone(),
                         Source::Remote,
@@ -481,12 +503,12 @@ pub fn build_patch(
             // The message_id only exists in both caches, which means caches
             // have an outdated email and need to be cleaned up.
             (Some(local_cache), None, Some(remote_cache), None) => patch.extend([
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     folder.to_string(),
                     local_cache.id.clone(),
                     Target::Local,
                 )],
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     folder.to_string(),
                     remote_cache.id.clone(),
                     Target::Remote,
@@ -499,17 +521,17 @@ pub fn build_patch(
             // means an email has been removed local side and needs to
             // be removed everywhere else.
             (Some(local_cache), None, Some(remote_cache), Some(remote)) => patch.extend([
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     folder.to_string(),
                     local_cache.id.clone(),
                     Target::Local,
                 )],
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     folder.to_string(),
                     remote_cache.id.clone(),
                     Target::Remote,
                 )],
-                vec![EnvelopeSyncHunk::RemoveEmail(
+                vec![EnvelopeSyncHunk::Delete(
                     folder.to_string(),
                     remote.id.clone(),
                     Target::Remote,
@@ -527,7 +549,7 @@ pub fn build_patch(
             //
             // TODO: make this behaviour customizable.
             (Some(local_cache), Some(local), None, None) => {
-                patch.insert(vec![EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                patch.insert(vec![EnvelopeSyncHunk::CopyThenCache(
                     folder.to_string(),
                     local.clone(),
                     Source::Local,
@@ -568,7 +590,7 @@ pub fn build_patch(
                 }
 
                 if local.flags != flags {
-                    patch.insert(vec![EnvelopeSyncHunk::SetFlags(
+                    patch.insert(vec![EnvelopeSyncHunk::UpdateFlags(
                         folder.to_string(),
                         Envelope {
                             flags: flags.clone(),
@@ -579,7 +601,7 @@ pub fn build_patch(
                 }
 
                 if remote.flags != flags {
-                    patch.insert(vec![EnvelopeSyncHunk::SetFlags(
+                    patch.insert(vec![EnvelopeSyncHunk::UpdateFlags(
                         folder.to_string(),
                         Envelope {
                             flags: flags.clone(),
@@ -589,7 +611,7 @@ pub fn build_patch(
                     )]);
                 }
 
-                patch.insert(vec![EnvelopeSyncHunk::GetEnvelopeThenCacheIt(
+                patch.insert(vec![EnvelopeSyncHunk::GetThenCache(
                     folder.to_string(),
                     remote.id.clone(),
                     Source::Remote,
@@ -602,17 +624,17 @@ pub fn build_patch(
             // means an email has been removed remote side and needs
             // to be removed everywhere else.
             (Some(local_cache), Some(local), Some(remote_cache), None) => patch.extend([
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     folder.to_string(),
                     local_cache.id.clone(),
                     Target::Local,
                 )],
-                vec![EnvelopeSyncHunk::RemoveEmail(
+                vec![EnvelopeSyncHunk::Delete(
                     folder.to_string(),
                     local.id.clone(),
                     Target::Local,
                 )],
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     folder.to_string(),
                     remote_cache.id.clone(),
                     Target::Remote,
@@ -643,7 +665,7 @@ pub fn build_patch(
                 }
 
                 if local.flags != flags {
-                    patch.insert(vec![EnvelopeSyncHunk::SetFlags(
+                    patch.insert(vec![EnvelopeSyncHunk::UpdateFlags(
                         folder.to_string(),
                         Envelope {
                             flags: flags.clone(),
@@ -665,7 +687,7 @@ pub fn build_patch(
                 }
 
                 if remote.flags != flags {
-                    patch.insert(vec![EnvelopeSyncHunk::SetFlags(
+                    patch.insert(vec![EnvelopeSyncHunk::UpdateFlags(
                         folder.to_string(),
                         Envelope {
                             flags: flags.clone(),
@@ -719,7 +741,7 @@ mod tests {
 
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
-            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::CopyEmailThenCacheIt(
+            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::CopyThenCache(
                 "inbox".into(),
                 Envelope {
                     id: "remote-id".into(),
@@ -749,7 +771,7 @@ mod tests {
 
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
-            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::Uncache(
                 "inbox".into(),
                 "remote-cache-id".into(),
                 Target::Remote
@@ -780,7 +802,7 @@ mod tests {
 
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
-            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::CopyEmailThenCacheIt(
+            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::CopyThenCache(
                 "inbox".into(),
                 Envelope {
                     id: "remote-id".into(),
@@ -818,7 +840,7 @@ mod tests {
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
             EnvelopeSyncPatch::from_iter([
-                vec![EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                vec![EnvelopeSyncHunk::CopyThenCache(
                     "inbox".into(),
                     Envelope {
                         id: "remote-id".into(),
@@ -858,7 +880,7 @@ mod tests {
 
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
-            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::CopyEmailThenCacheIt(
+            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::CopyThenCache(
                 "inbox".into(),
                 Envelope {
                     id: "local-id".into(),
@@ -973,12 +995,12 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(patch.len(), 10);
-        assert!(patch.contains(&EnvelopeSyncHunk::RemoveEmail(
+        assert!(patch.contains(&EnvelopeSyncHunk::Delete(
             "inbox".into(),
             "remote-id-1".into(),
             Target::Remote
         )));
-        assert!(patch.contains(&EnvelopeSyncHunk::CopyEmailThenCacheIt(
+        assert!(patch.contains(&EnvelopeSyncHunk::CopyThenCache(
             "inbox".into(),
             Envelope {
                 id: "local-id-1".into(),
@@ -990,12 +1012,12 @@ mod tests {
             Target::Remote,
             true,
         )));
-        assert!(patch.contains(&EnvelopeSyncHunk::RemoveEmail(
+        assert!(patch.contains(&EnvelopeSyncHunk::Delete(
             "inbox".into(),
             "remote-id-2".into(),
             Target::Remote
         )));
-        assert!(patch.contains(&EnvelopeSyncHunk::CopyEmailThenCacheIt(
+        assert!(patch.contains(&EnvelopeSyncHunk::CopyThenCache(
             "inbox".into(),
             Envelope {
                 id: "local-id-2".into(),
@@ -1007,12 +1029,12 @@ mod tests {
             Target::Remote,
             true,
         )));
-        assert!(patch.contains(&EnvelopeSyncHunk::RemoveEmail(
+        assert!(patch.contains(&EnvelopeSyncHunk::Delete(
             "inbox".into(),
             "local-id-3".into(),
             Target::Local
         )));
-        assert!(patch.contains(&EnvelopeSyncHunk::CopyEmailThenCacheIt(
+        assert!(patch.contains(&EnvelopeSyncHunk::CopyThenCache(
             "inbox".into(),
             Envelope {
                 id: "remote-id-3".into(),
@@ -1023,12 +1045,12 @@ mod tests {
             Target::Local,
             true,
         )));
-        assert!(patch.contains(&EnvelopeSyncHunk::RemoveEmail(
+        assert!(patch.contains(&EnvelopeSyncHunk::Delete(
             "inbox".into(),
             "local-id-4".into(),
             Target::Local
         )));
-        assert!(patch.contains(&EnvelopeSyncHunk::CopyEmailThenCacheIt(
+        assert!(patch.contains(&EnvelopeSyncHunk::CopyThenCache(
             "inbox".into(),
             Envelope {
                 id: "remote-id-4".into(),
@@ -1040,12 +1062,12 @@ mod tests {
             Target::Local,
             true,
         )));
-        assert!(patch.contains(&EnvelopeSyncHunk::RemoveEmail(
+        assert!(patch.contains(&EnvelopeSyncHunk::Delete(
             "inbox".into(),
             "local-id-5".into(),
             Target::Local
         )));
-        assert!(patch.contains(&EnvelopeSyncHunk::CopyEmailThenCacheIt(
+        assert!(patch.contains(&EnvelopeSyncHunk::CopyThenCache(
             "inbox".into(),
             Envelope {
                 id: "remote-id-5".into(),
@@ -1083,12 +1105,8 @@ mod tests {
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
             EnvelopeSyncPatch::from_iter([vec![
-                EnvelopeSyncHunk::DeleteCachedEnvelope(
-                    "inbox".into(),
-                    "remote-id".into(),
-                    Target::Remote
-                ),
-                EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                EnvelopeSyncHunk::Uncache("inbox".into(), "remote-id".into(), Target::Remote),
+                EnvelopeSyncHunk::CopyThenCache(
                     "inbox".into(),
                     Envelope {
                         id: "local-id".into(),
@@ -1133,7 +1151,7 @@ mod tests {
 
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
-            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::GetEnvelopeThenCacheIt(
+            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::GetThenCache(
                 "inbox".into(),
                 "local-id".into(),
                 Target::Local,
@@ -1157,7 +1175,7 @@ mod tests {
 
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
-            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::Uncache(
                 "inbox".into(),
                 "local-cache-id".into(),
                 Target::Local
@@ -1189,12 +1207,8 @@ mod tests {
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
             EnvelopeSyncPatch::from_iter([vec![
-                EnvelopeSyncHunk::DeleteCachedEnvelope(
-                    "inbox".into(),
-                    "local-cache-id".into(),
-                    Target::Local
-                ),
-                EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                EnvelopeSyncHunk::Uncache("inbox".into(), "local-cache-id".into(), Target::Local),
+                EnvelopeSyncHunk::CopyThenCache(
                     "inbox".into(),
                     Envelope {
                         id: "remote-id".into(),
@@ -1233,12 +1247,12 @@ mod tests {
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
             EnvelopeSyncPatch::from_iter([
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     "inbox".into(),
                     "local-cache-id".into(),
                     Target::Local
                 )],
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     "inbox".into(),
                     "remote-cache-id".into(),
                     Target::Remote
@@ -1278,17 +1292,17 @@ mod tests {
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
             EnvelopeSyncPatch::from_iter([
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     "inbox".into(),
                     "local-cache-id".into(),
                     Target::Local,
                 )],
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     "inbox".into(),
                     "remote-cache-id".into(),
                     Target::Remote,
                 )],
-                vec![EnvelopeSyncHunk::RemoveEmail(
+                vec![EnvelopeSyncHunk::Delete(
                     "inbox".into(),
                     "remote-id".into(),
                     Target::Remote
@@ -1320,7 +1334,7 @@ mod tests {
 
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
-            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::CopyEmailThenCacheIt(
+            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::CopyThenCache(
                 "inbox".into(),
                 Envelope {
                     id: "local-id".into(),
@@ -1358,7 +1372,7 @@ mod tests {
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
             EnvelopeSyncPatch::from_iter([
-                vec![EnvelopeSyncHunk::CopyEmailThenCacheIt(
+                vec![EnvelopeSyncHunk::CopyThenCache(
                     "inbox".into(),
                     Envelope {
                         id: "local-id".into(),
@@ -1412,7 +1426,7 @@ mod tests {
 
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
-            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::GetEnvelopeThenCacheIt(
+            EnvelopeSyncPatch::from_iter([vec![EnvelopeSyncHunk::GetThenCache(
                 "inbox".into(),
                 "remote-id".into(),
                 Target::Remote,
@@ -1451,17 +1465,17 @@ mod tests {
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
             EnvelopeSyncPatch::from_iter([
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     "inbox".into(),
                     "local-cache-id".into(),
                     Target::Local,
                 )],
-                vec![EnvelopeSyncHunk::RemoveEmail(
+                vec![EnvelopeSyncHunk::Delete(
                     "inbox".into(),
                     "local-id".into(),
                     Target::Local
                 )],
-                vec![EnvelopeSyncHunk::DeleteCachedEnvelope(
+                vec![EnvelopeSyncHunk::Uncache(
                     "inbox".into(),
                     "remote-cache-id".into(),
                     Target::Remote,

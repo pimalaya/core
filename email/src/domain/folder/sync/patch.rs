@@ -9,6 +9,8 @@ use crate::{
 
 use super::*;
 
+pub type FolderSyncCachePatch = Vec<FolderSyncCacheHunk>;
+
 pub struct FolderSyncPatchManager<'a> {
     account_config: &'a AccountConfig,
     local_builder: &'a MaildirBackendBuilder,
@@ -46,7 +48,7 @@ impl<'a> FolderSyncPatchManager<'a> {
             .emit(BackendSyncProgressEvent::GetLocalCachedFolders);
 
         let local_folders_cached: FoldersName = HashSet::from_iter(
-            Cache::list_local_folders(conn, account, &self.strategy)?
+            FolderSyncCache::list_local_folders(conn, account, &self.strategy)?
                 .iter()
                 .cloned(),
         );
@@ -59,8 +61,7 @@ impl<'a> FolderSyncPatchManager<'a> {
         let local_folders: FoldersName = HashSet::from_iter(
             self.local_builder
                 .build()?
-                .list_folders()
-                .map_err(Box::new)?
+                .list_folders()?
                 .iter()
                 // TODO: instead of fetching all the folders then
                 // filtering them here, it could be better to filter
@@ -92,7 +93,7 @@ impl<'a> FolderSyncPatchManager<'a> {
             .emit(BackendSyncProgressEvent::GetRemoteCachedFolders);
 
         let remote_folders_cached: FoldersName = HashSet::from_iter(
-            Cache::list_remote_folders(conn, account, &self.strategy)?
+            FolderSyncCache::list_remote_folders(conn, account, &self.strategy)?
                 .iter()
                 .cloned(),
         );
@@ -104,10 +105,8 @@ impl<'a> FolderSyncPatchManager<'a> {
 
         let remote_folders: FoldersName = HashSet::from_iter(
             self.remote_builder
-                .build()
-                .map_err(Box::new)?
-                .list_folders()
-                .map_err(Box::new)?
+                .build()?
+                .list_folders()?
                 .iter()
                 // TODO: instead of fetching all the folders then
                 // filtering them here, it could be better to filter
@@ -143,7 +142,7 @@ impl<'a> FolderSyncPatchManager<'a> {
         );
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::SynchronizeFolders(
+            .emit(BackendSyncProgressEvent::ApplyFolderPatches(
                 patches.clone(),
             ));
 
@@ -178,63 +177,51 @@ impl<'a> FolderSyncPatchManager<'a> {
                 .into_par_iter()
                 .flat_map(|(_folder, patch)| patch)
                 .fold(FolderSyncReport::default, |mut report, ref hunk| {
-                    trace!("processing hunk: {hunk:?}");
+                    debug!("processing folder hunk: {hunk:?}");
+
                     self.on_progress
-                        .emit(BackendSyncProgressEvent::SynchronizeFolder(hunk.clone()));
+                        .emit(BackendSyncProgressEvent::ApplyFolderHunk(hunk.clone()));
+
                     let process_hunk = |hunk: &FolderSyncHunk| {
                         Result::Ok(match hunk {
-                            FolderSyncHunk::CacheFolder(folder, Destination::Local) => {
-                                vec![FolderSyncCacheHunk::CreateFolder(
+                            FolderSyncHunk::Cache(folder, Destination::Local) => {
+                                vec![FolderSyncCacheHunk::Insert(
                                     folder.clone(),
                                     Destination::Local,
                                 )]
                             }
-                            FolderSyncHunk::CreateFolder(ref folder, Destination::Local) => {
-                                self.local_builder
-                                    .build()?
-                                    .add_folder(folder)
-                                    .map_err(Box::new)?;
+                            FolderSyncHunk::Create(ref folder, Destination::Local) => {
+                                self.local_builder.build()?.add_folder(folder)?;
                                 vec![]
                             }
-                            FolderSyncHunk::CacheFolder(ref folder, Destination::Remote) => {
-                                vec![FolderSyncCacheHunk::CreateFolder(
+                            FolderSyncHunk::Cache(ref folder, Destination::Remote) => {
+                                vec![FolderSyncCacheHunk::Insert(
                                     folder.clone(),
                                     Destination::Remote,
                                 )]
                             }
-                            FolderSyncHunk::CreateFolder(ref folder, Destination::Remote) => {
-                                self.remote_builder
-                                    .build()
-                                    .map_err(Box::new)?
-                                    .add_folder(&folder)
-                                    .map_err(Box::new)?;
+                            FolderSyncHunk::Create(ref folder, Destination::Remote) => {
+                                self.remote_builder.build()?.add_folder(&folder)?;
                                 vec![]
                             }
-                            FolderSyncHunk::DeleteCachedFolder(ref folder, Destination::Local) => {
-                                vec![FolderSyncCacheHunk::DeleteFolder(
+                            FolderSyncHunk::Uncache(ref folder, Destination::Local) => {
+                                vec![FolderSyncCacheHunk::Delete(
                                     folder.clone(),
                                     Destination::Local,
                                 )]
                             }
-                            FolderSyncHunk::DeleteFolder(ref folder, Destination::Local) => {
-                                self.local_builder
-                                    .build()?
-                                    .delete_folder(folder)
-                                    .map_err(Box::new)?;
+                            FolderSyncHunk::Delete(ref folder, Destination::Local) => {
+                                self.local_builder.build()?.delete_folder(folder)?;
                                 vec![]
                             }
-                            FolderSyncHunk::DeleteCachedFolder(ref folder, Destination::Remote) => {
-                                vec![FolderSyncCacheHunk::DeleteFolder(
+                            FolderSyncHunk::Uncache(ref folder, Destination::Remote) => {
+                                vec![FolderSyncCacheHunk::Delete(
                                     folder.clone(),
                                     Destination::Remote,
                                 )]
                             }
-                            FolderSyncHunk::DeleteFolder(ref folder, Destination::Remote) => {
-                                self.remote_builder
-                                    .build()
-                                    .map_err(Box::new)?
-                                    .delete_folder(&folder)
-                                    .map_err(Box::new)?;
+                            FolderSyncHunk::Delete(ref folder, Destination::Remote) => {
+                                self.remote_builder.build()?.delete_folder(&folder)?;
                                 vec![]
                             }
                         })
@@ -246,8 +233,8 @@ impl<'a> FolderSyncPatchManager<'a> {
                             report.cache_patch.0.extend(cache_hunks);
                         }
                         Err(err) => {
-                            warn!("error while processing hunk {hunk:?}, skipping it");
-                            error!("error while processing hunk: {err:?}");
+                            warn!("error while processing hunk {hunk:?}, skipping it: {err:?}");
+                            error!("{err}");
                             report.patch.push((hunk.clone(), Some(err)));
                         }
                     };
@@ -264,17 +251,17 @@ impl<'a> FolderSyncPatchManager<'a> {
                 let tx = conn.transaction()?;
                 for hunk in &report.cache_patch.0 {
                     match hunk {
-                        FolderSyncCacheHunk::CreateFolder(folder, Destination::Local) => {
-                            Cache::insert_local_folder(&tx, account, folder)?;
+                        FolderSyncCacheHunk::Insert(folder, Destination::Local) => {
+                            FolderSyncCache::insert_local_folder(&tx, account, folder)?;
                         }
-                        FolderSyncCacheHunk::CreateFolder(folder, Destination::Remote) => {
-                            Cache::insert_remote_folder(&tx, account, folder)?;
+                        FolderSyncCacheHunk::Insert(folder, Destination::Remote) => {
+                            FolderSyncCache::insert_remote_folder(&tx, account, folder)?;
                         }
-                        FolderSyncCacheHunk::DeleteFolder(folder, Destination::Local) => {
-                            Cache::delete_local_folder(&tx, account, folder)?;
+                        FolderSyncCacheHunk::Delete(folder, Destination::Local) => {
+                            FolderSyncCache::delete_local_folder(&tx, account, folder)?;
                         }
-                        FolderSyncCacheHunk::DeleteFolder(folder, Destination::Remote) => {
-                            Cache::delete_remote_folder(&tx, account, folder)?;
+                        FolderSyncCacheHunk::Delete(folder, Destination::Remote) => {
+                            FolderSyncCache::delete_remote_folder(&tx, account, folder)?;
                         }
                     }
                 }
@@ -324,99 +311,87 @@ pub fn build_patch(
 
             // 0001
             (None, None, None, Some(_)) => vec![
-                FolderSyncHunk::CacheFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::CreateFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::CacheFolder(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Cache(folder.clone(), Destination::Local),
+                FolderSyncHunk::Create(folder.clone(), Destination::Local),
+                FolderSyncHunk::Cache(folder.clone(), Destination::Remote),
             ],
 
             // 0010
             (None, None, Some(_), None) => {
-                vec![FolderSyncHunk::DeleteCachedFolder(
-                    folder.clone(),
-                    Destination::Remote,
-                )]
+                vec![FolderSyncHunk::Uncache(folder.clone(), Destination::Remote)]
             }
 
             // 0011
             (None, None, Some(_), Some(_)) => vec![
-                FolderSyncHunk::CacheFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::CreateFolder(folder.clone(), Destination::Local),
+                FolderSyncHunk::Cache(folder.clone(), Destination::Local),
+                FolderSyncHunk::Create(folder.clone(), Destination::Local),
             ],
 
             // 0100
             //
             (None, Some(_), None, None) => vec![
-                FolderSyncHunk::CacheFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::CacheFolder(folder.clone(), Destination::Remote),
-                FolderSyncHunk::CreateFolder(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Cache(folder.clone(), Destination::Local),
+                FolderSyncHunk::Cache(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Create(folder.clone(), Destination::Remote),
             ],
 
             // 0101
             (None, Some(_), None, Some(_)) => vec![
-                FolderSyncHunk::CacheFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::CacheFolder(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Cache(folder.clone(), Destination::Local),
+                FolderSyncHunk::Cache(folder.clone(), Destination::Remote),
             ],
 
             // 0110
             (None, Some(_), Some(_), None) => vec![
-                FolderSyncHunk::CacheFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::CreateFolder(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Cache(folder.clone(), Destination::Local),
+                FolderSyncHunk::Create(folder.clone(), Destination::Remote),
             ],
 
             // 0111
             (None, Some(_), Some(_), Some(_)) => {
-                vec![FolderSyncHunk::CacheFolder(
-                    folder.clone(),
-                    Destination::Local,
-                )]
+                vec![FolderSyncHunk::Cache(folder.clone(), Destination::Local)]
             }
 
             // 1000
             (Some(_), None, None, None) => {
-                vec![FolderSyncHunk::DeleteCachedFolder(
-                    folder.clone(),
-                    Destination::Local,
-                )]
+                vec![FolderSyncHunk::Uncache(folder.clone(), Destination::Local)]
             }
 
             // 1001
             (Some(_), None, None, Some(_)) => vec![
-                FolderSyncHunk::CreateFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::CacheFolder(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Create(folder.clone(), Destination::Local),
+                FolderSyncHunk::Cache(folder.clone(), Destination::Remote),
             ],
 
             // 1010
             (Some(_), None, Some(_), None) => vec![
-                FolderSyncHunk::DeleteCachedFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::DeleteCachedFolder(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Uncache(folder.clone(), Destination::Local),
+                FolderSyncHunk::Uncache(folder.clone(), Destination::Remote),
             ],
 
             // 1011
             (Some(_), None, Some(_), Some(_)) => vec![
-                FolderSyncHunk::DeleteCachedFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::DeleteCachedFolder(folder.clone(), Destination::Remote),
-                FolderSyncHunk::DeleteFolder(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Uncache(folder.clone(), Destination::Local),
+                FolderSyncHunk::Uncache(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Delete(folder.clone(), Destination::Remote),
             ],
 
             // 1100
             (Some(_), Some(_), None, None) => vec![
-                FolderSyncHunk::CacheFolder(folder.clone(), Destination::Remote),
-                FolderSyncHunk::CreateFolder(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Cache(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Create(folder.clone(), Destination::Remote),
             ],
 
             // 1101
             (Some(_), Some(_), None, Some(_)) => {
-                vec![FolderSyncHunk::CacheFolder(
-                    folder.clone(),
-                    Destination::Remote,
-                )]
+                vec![FolderSyncHunk::Cache(folder.clone(), Destination::Remote)]
             }
 
             // 1110
             (Some(_), Some(_), Some(_), None) => vec![
-                FolderSyncHunk::DeleteCachedFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::DeleteFolder(folder.clone(), Destination::Local),
-                FolderSyncHunk::DeleteCachedFolder(folder.clone(), Destination::Remote),
+                FolderSyncHunk::Uncache(folder.clone(), Destination::Local),
+                FolderSyncHunk::Delete(folder.clone(), Destination::Local),
+                FolderSyncHunk::Uncache(folder.clone(), Destination::Remote),
             ],
 
             // 1111
@@ -461,9 +436,9 @@ mod tests {
             HashMap::from_iter([(
                 "folder".into(),
                 vec![
-                    FolderSyncHunk::CacheFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::CreateFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::CacheFolder("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Cache("folder".into(), Destination::Local),
+                    FolderSyncHunk::Create("folder".into(), Destination::Local),
+                    FolderSyncHunk::Cache("folder".into(), Destination::Remote),
                 ]
             )]),
         );
@@ -478,7 +453,7 @@ mod tests {
             ),
             HashMap::from_iter([(
                 "folder".into(),
-                vec![FolderSyncHunk::DeleteCachedFolder(
+                vec![FolderSyncHunk::Uncache(
                     "folder".into(),
                     Destination::Remote
                 )],
@@ -496,8 +471,8 @@ mod tests {
             HashMap::from_iter([((
                 "folder".into(),
                 vec![
-                    FolderSyncHunk::CacheFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::CreateFolder("folder".into(), Destination::Local),
+                    FolderSyncHunk::Cache("folder".into(), Destination::Local),
+                    FolderSyncHunk::Create("folder".into(), Destination::Local),
                 ],
             ))]),
         );
@@ -513,9 +488,9 @@ mod tests {
             HashMap::from_iter([((
                 "folder".into(),
                 vec![
-                    FolderSyncHunk::CacheFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::CacheFolder("folder".into(), Destination::Remote),
-                    FolderSyncHunk::CreateFolder("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Cache("folder".into(), Destination::Local),
+                    FolderSyncHunk::Cache("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Create("folder".into(), Destination::Remote),
                 ],
             ))]),
         );
@@ -531,8 +506,8 @@ mod tests {
             HashMap::from_iter([((
                 "folder".into(),
                 vec![
-                    FolderSyncHunk::CacheFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::CacheFolder("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Cache("folder".into(), Destination::Local),
+                    FolderSyncHunk::Cache("folder".into(), Destination::Remote),
                 ],
             ))]),
         );
@@ -548,8 +523,8 @@ mod tests {
             HashMap::from_iter([((
                 "folder".into(),
                 vec![
-                    FolderSyncHunk::CacheFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::CreateFolder("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Cache("folder".into(), Destination::Local),
+                    FolderSyncHunk::Create("folder".into(), Destination::Remote),
                 ],
             ))]),
         );
@@ -564,10 +539,7 @@ mod tests {
             ),
             HashMap::from_iter([((
                 "folder".into(),
-                vec![FolderSyncHunk::CacheFolder(
-                    "folder".into(),
-                    Destination::Local
-                )],
+                vec![FolderSyncHunk::Cache("folder".into(), Destination::Local)],
             ))]),
         );
 
@@ -581,10 +553,7 @@ mod tests {
             ),
             HashMap::from_iter([((
                 "folder".into(),
-                vec![FolderSyncHunk::DeleteCachedFolder(
-                    "folder".into(),
-                    Destination::Local
-                )],
+                vec![FolderSyncHunk::Uncache("folder".into(), Destination::Local)],
             ))]),
         );
 
@@ -599,8 +568,8 @@ mod tests {
             HashMap::from_iter([((
                 "folder".into(),
                 vec![
-                    FolderSyncHunk::CreateFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::CacheFolder("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Create("folder".into(), Destination::Local),
+                    FolderSyncHunk::Cache("folder".into(), Destination::Remote),
                 ],
             ))]),
         );
@@ -616,8 +585,8 @@ mod tests {
             HashMap::from_iter([((
                 "folder".into(),
                 vec![
-                    FolderSyncHunk::DeleteCachedFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::DeleteCachedFolder("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Uncache("folder".into(), Destination::Local),
+                    FolderSyncHunk::Uncache("folder".into(), Destination::Remote),
                 ],
             ))]),
         );
@@ -633,9 +602,9 @@ mod tests {
             HashMap::from_iter([((
                 "folder".into(),
                 vec![
-                    FolderSyncHunk::DeleteCachedFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::DeleteCachedFolder("folder".into(), Destination::Remote),
-                    FolderSyncHunk::DeleteFolder("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Uncache("folder".into(), Destination::Local),
+                    FolderSyncHunk::Uncache("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Delete("folder".into(), Destination::Remote),
                 ],
             ))]),
         );
@@ -651,8 +620,8 @@ mod tests {
             HashMap::from_iter([((
                 "folder".into(),
                 vec![
-                    FolderSyncHunk::CacheFolder("folder".into(), Destination::Remote),
-                    FolderSyncHunk::CreateFolder("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Cache("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Create("folder".into(), Destination::Remote),
                 ],
             ))]),
         );
@@ -667,10 +636,7 @@ mod tests {
             ),
             HashMap::from_iter([((
                 "folder".into(),
-                vec![FolderSyncHunk::CacheFolder(
-                    "folder".into(),
-                    Destination::Remote
-                )],
+                vec![FolderSyncHunk::Cache("folder".into(), Destination::Remote)],
             ))]),
         );
 
@@ -685,9 +651,9 @@ mod tests {
             HashMap::from_iter([((
                 "folder".into(),
                 vec![
-                    FolderSyncHunk::DeleteCachedFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::DeleteFolder("folder".into(), Destination::Local),
-                    FolderSyncHunk::DeleteCachedFolder("folder".into(), Destination::Remote),
+                    FolderSyncHunk::Uncache("folder".into(), Destination::Local),
+                    FolderSyncHunk::Delete("folder".into(), Destination::Local),
+                    FolderSyncHunk::Uncache("folder".into(), Destination::Remote),
                 ],
             ))]),
         );

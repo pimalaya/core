@@ -11,6 +11,12 @@ pub use email::{
     Attachment, Email, EmailHooks, EmailTextPlainFormat, Emails, ForwardTplBuilder, NewTplBuilder,
     ReplyTplBuilder,
 };
-pub use envelope::{Envelope, EnvelopeSyncPatch, EnvelopeSyncPatchManager, Envelopes};
+pub use envelope::{
+    Envelope, EnvelopeSyncCache, EnvelopeSyncCacheHunk, EnvelopeSyncCachePatch, EnvelopeSyncHunk,
+    EnvelopeSyncPatch, EnvelopeSyncPatchManager, Envelopes,
+};
 pub use flag::{Flag, Flags};
-pub use folder::{Folder, FolderSyncPatch, FolderSyncPatchManager, Folders};
+pub use folder::{
+    Folder, FolderSyncCache, FolderSyncCacheHunk, FolderSyncCachePatch, FolderSyncHunk,
+    FolderSyncPatch, FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy, Folders,
+};

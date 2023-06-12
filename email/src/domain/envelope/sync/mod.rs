@@ -4,9 +4,9 @@ mod patch;
 mod report;
 mod runner;
 
-pub use self::cache::Cache;
+pub use self::cache::EnvelopeSyncCache;
 pub use self::hunk::{EnvelopeSyncCacheHunk, EnvelopeSyncHunk};
-pub use self::patch::{EnvelopeSyncPatch, EnvelopeSyncPatchManager};
+pub use self::patch::{EnvelopeSyncCachePatch, EnvelopeSyncPatch, EnvelopeSyncPatchManager};
 pub use self::report::EnvelopeSyncReport;
 pub use self::runner::EnvelopeSyncRunner;
 use crate::{
@@ -33,7 +33,7 @@ pub enum Error {
     #[error(transparent)]
     EmailError(#[from] email::Error),
     #[error(transparent)]
-    BackendError(#[from] Box<backend::Error>),
+    BackendError(#[from] backend::Error),
     #[error(transparent)]
     MaildirBackendError(#[from] backend::maildir::Error),
 }

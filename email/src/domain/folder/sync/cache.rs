@@ -43,9 +43,9 @@ const SELECT_FOLDERS_NOT_IN: &str = "
     AND name NOT IN (!)
 ";
 
-pub struct Cache;
+pub struct FolderSyncCache;
 
-impl Cache {
+impl FolderSyncCache {
     const LOCAL_SUFFIX: &str = ":cache";
 
     pub fn init(conn: &mut Connection) -> Result<()> {

@@ -42,9 +42,9 @@ const SELECT_ENVELOPES: &str = "
     ORDER BY date DESC
 ";
 
-pub struct Cache;
+pub struct EnvelopeSyncCache;
 
-impl Cache {
+impl EnvelopeSyncCache {
     const LOCAL_SUFFIX: &str = ":cache";
 
     pub fn init(conn: &mut Connection) -> Result<()> {

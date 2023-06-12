@@ -8,4 +8,7 @@ pub mod sync;
 
 pub use self::folder::*;
 pub use self::folders::*;
-pub use self::sync::{FolderSyncPatch, FolderSyncPatchManager};
+pub use self::sync::{
+    FolderSyncCache, FolderSyncCacheHunk, FolderSyncCachePatch, FolderSyncHunk, FolderSyncPatch,
+    FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy,
+};

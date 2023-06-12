@@ -1,5 +1,5 @@
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -15,8 +15,10 @@ use crate::{
         self,
         sync::{FolderName, FoldersName},
     },
-    AccountConfig, Backend, BackendBuilder, EnvelopeSyncPatch, EnvelopeSyncPatchManager,
-    FolderSyncPatch, FolderSyncPatchManager, MaildirBackendBuilder, MaildirConfig,
+    AccountConfig, Backend, BackendBuilder, EnvelopeSyncCache, EnvelopeSyncCacheHunk,
+    EnvelopeSyncCachePatch, EnvelopeSyncHunk, EnvelopeSyncPatch, EnvelopeSyncPatchManager,
+    FolderSyncCache, FolderSyncCacheHunk, FolderSyncHunk, FolderSyncPatchManager,
+    FolderSyncPatches, FolderSyncStrategy, MaildirBackendBuilder, MaildirConfig,
 };
 
 use super::maildir;
@@ -61,30 +63,28 @@ impl fmt::Display for Destination {
     }
 }
 
-pub type Id = String;
 pub type Source = Destination;
 pub type Target = Destination;
-pub type RefreshSourceCache = bool;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BackendSyncProgressEvent {
-    BuildFoldersDiffPatch,
+    BuildFolderPatch,
     GetLocalCachedFolders,
     GetLocalFolders,
     GetRemoteCachedFolders,
     GetRemoteFolders,
-    SynchronizeFolders(HashMap<folder::sync::FolderName, FolderSyncPatch>),
-    SynchronizeFolder(folder::sync::FolderSyncHunk),
+    ApplyFolderPatches(FolderSyncPatches),
+    ApplyFolderHunk(FolderSyncHunk),
 
-    BuildEnvelopesDiffPatches(folder::sync::FoldersName),
-    EnvelopesDiffPatchBuilt(folder::sync::FolderName, EnvelopeSyncPatch),
+    BuildEnvelopePatch(FoldersName),
+    EnvelopePatchBuilt(FolderName, EnvelopeSyncPatch),
     GetLocalCachedEnvelopes,
     GetLocalEnvelopes,
     GetRemoteCachedEnvelopes,
     GetRemoteEnvelopes,
-    ProcessEnvelopePatches(HashMap<folder::sync::FolderName, EnvelopeSyncPatch>),
-    ProcessEnvelopeHunk(envelope::sync::EnvelopeSyncHunk),
-    ProcessEnvelopeCachePatch(Vec<envelope::sync::EnvelopeSyncCacheHunk>),
+    ApplyEnvelopePatches(HashMap<FolderName, EnvelopeSyncPatch>),
+    ApplyEnvelopeHunk(EnvelopeSyncHunk),
+    ApplyEnvelopeCachePatch(EnvelopeSyncCachePatch),
 
     ExpungeFolders(FoldersName),
     FolderExpunged(FolderName),
@@ -93,22 +93,22 @@ pub enum BackendSyncProgressEvent {
 impl fmt::Display for BackendSyncProgressEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::BuildFoldersDiffPatch => write!(f, "Building folders diff patch"),
+            Self::BuildFolderPatch => write!(f, "Building folders diff patch"),
             Self::GetLocalCachedFolders => write!(f, "Getting local cached folders"),
             Self::GetLocalFolders => write!(f, "Getting local folders"),
             Self::GetRemoteCachedFolders => write!(f, "Getting remote cached folders"),
             Self::GetRemoteFolders => write!(f, "Getting remote folders"),
-            Self::SynchronizeFolders(patches) => {
+            Self::ApplyFolderPatches(patches) => {
                 let x = patches.values().fold(0, |sum, patch| sum + patch.len());
                 let y = patches.len();
                 write!(f, "Processing {x} patches of {y} folders")
             }
-            Self::SynchronizeFolder(hunk) => write!(f, "{hunk}"),
-            Self::BuildEnvelopesDiffPatches(folders) => {
+            Self::ApplyFolderHunk(hunk) => write!(f, "{hunk}"),
+            Self::BuildEnvelopePatch(folders) => {
                 let n = folders.len();
                 write!(f, "Building envelopes diff patch for {n} folders")
             }
-            Self::EnvelopesDiffPatchBuilt(folder, patch) => {
+            Self::EnvelopePatchBuilt(folder, patch) => {
                 let n = patch.iter().fold(0, |sum, patch| sum + patch.len());
                 write!(f, "Built {n} envelopes diff patch for folder {folder}")
             }
@@ -116,11 +116,13 @@ impl fmt::Display for BackendSyncProgressEvent {
             Self::GetLocalEnvelopes => write!(f, "Getting local envelopes"),
             Self::GetRemoteCachedEnvelopes => write!(f, "Getting remote cached envelopes"),
             Self::GetRemoteEnvelopes => write!(f, "Getting remote envelopes"),
-            Self::ProcessEnvelopePatches(_patches) => {
+            Self::ApplyEnvelopePatches(_patches) => {
                 write!(f, "Processing envelope patches")
             }
-            Self::ProcessEnvelopeHunk(hunk) => write!(f, "{hunk}"),
-            Self::ProcessEnvelopeCachePatch(_patch) => write!(f, "Processing envelope cache patch"),
+            Self::ApplyEnvelopeHunk(hunk) => write!(f, "{hunk}"),
+            Self::ApplyEnvelopeCachePatch(_patch) => {
+                write!(f, "Processing envelope cache patch")
+            }
             Self::ExpungeFolders(folders) => write!(f, "Expunging {} folders", folders.len()),
             Self::FolderExpunged(folder) => write!(f, "Folder {folder} successfully expunged"),
         }
@@ -129,20 +131,11 @@ impl fmt::Display for BackendSyncProgressEvent {
 
 #[derive(Debug, Default)]
 pub struct BackendSyncReport {
-    pub folders: folder::sync::FoldersName,
-    pub folders_patch: Vec<(folder::sync::FolderSyncHunk, Option<folder::sync::Error>)>,
-    pub folders_cache_patch: (
-        Vec<folder::sync::FolderSyncCacheHunk>,
-        Option<folder::sync::Error>,
-    ),
-    pub envelopes_patch: Vec<(
-        envelope::sync::EnvelopeSyncHunk,
-        Option<envelope::sync::Error>,
-    )>,
-    pub envelopes_cache_patch: (
-        Vec<envelope::sync::EnvelopeSyncCacheHunk>,
-        Option<envelope::sync::Error>,
-    ),
+    pub folders: FoldersName,
+    pub folders_patch: Vec<(FolderSyncHunk, Option<folder::sync::Error>)>,
+    pub folders_cache_patch: (Vec<FolderSyncCacheHunk>, Option<folder::sync::Error>),
+    pub envelopes_patch: Vec<(EnvelopeSyncHunk, Option<envelope::sync::Error>)>,
+    pub envelopes_cache_patch: (Vec<EnvelopeSyncCacheHunk>, Option<envelope::sync::Error>),
 }
 
 pub struct BackendSyncProgress<'a>(
@@ -161,6 +154,7 @@ impl<'a> BackendSyncProgress<'a> {
     }
 
     pub fn emit(&self, evt: BackendSyncProgressEvent) {
+        debug!("emitting sync progress event {evt:?}");
         if let Err(err) = (self.0)(evt.clone()) {
             warn!("error while emitting backend sync event {evt:?}, skipping it");
             error!("error while emitting backend sync event: {err:?}");
@@ -172,7 +166,7 @@ pub struct BackendSyncBuilder<'a> {
     account_config: AccountConfig,
     remote_builder: BackendBuilder,
     on_progress: BackendSyncProgress<'a>,
-    folders_strategy: folder::sync::FolderSyncStrategy,
+    folders_strategy: FolderSyncStrategy,
     dry_run: bool,
 }
 
@@ -203,15 +197,12 @@ impl<'a> BackendSyncBuilder<'a> {
         self
     }
 
-    pub fn with_folders_strategy(mut self, strategy: folder::sync::FolderSyncStrategy) -> Self {
+    pub fn with_folders_strategy(mut self, strategy: FolderSyncStrategy) -> Self {
         self.folders_strategy = strategy;
         self
     }
 
-    pub fn with_some_folders_strategy(
-        mut self,
-        strategy: Option<folder::sync::FolderSyncStrategy>,
-    ) -> Self {
+    pub fn with_some_folders_strategy(mut self, strategy: Option<FolderSyncStrategy>) -> Self {
         if let Some(strategy) = strategy {
             self.folders_strategy = strategy;
         }
@@ -220,31 +211,32 @@ impl<'a> BackendSyncBuilder<'a> {
 
     pub fn sync(&self) -> Result<BackendSyncReport> {
         let account = &self.account_config.name;
+        info!("starting synchronization of account {account}");
+
         if !self.account_config.sync {
+            warn!("sync feature not enabled for account {account}, aborting");
             return Err(Error::SyncAccountNotEnabledError(account.clone()));
         }
+
+        let lock_file_path = env::temp_dir().join(format!("himalaya-sync-{}.lock", account));
+        debug!("locking sync file {lock_file_path:?}");
 
         let lock_file = OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
-            .open(env::temp_dir().join(format!("himalaya-sync-{}.lock", account)))
+            .open(lock_file_path)
             .map_err(|err| Error::SyncAccountOpenLockFileError(err, account.clone()))?;
         lock_file
             .try_lock(FileLockMode::Exclusive)
             .map_err(|err| Error::SyncAccountLockFileError(err, account.clone()))?;
 
-        info!("starting synchronization");
         let sync_dir = self.account_config.sync_dir()?;
 
-        // init SQLite cache
-
+        debug!("initializing folder and envelope cache");
         let conn = &mut self.account_config.sync_db_builder()?;
-
-        folder::sync::Cache::init(conn)?;
-        envelope::sync::Cache::init(conn)?;
-
-        // init local Maildir
+        FolderSyncCache::init(conn)?;
+        EnvelopeSyncCache::init(conn)?;
 
         let local_builder = MaildirBackendBuilder::new(
             self.account_config.clone(),
@@ -253,29 +245,25 @@ impl<'a> BackendSyncBuilder<'a> {
             },
         );
 
-        // apply folder aliases to the strategy
+        debug!("applying folder aliases to the folder sync strategy");
         let folders_strategy = match &self.folders_strategy {
-            folder::sync::FolderSyncStrategy::All => folder::sync::FolderSyncStrategy::All,
-            folder::sync::FolderSyncStrategy::Include(folders) => {
-                folder::sync::FolderSyncStrategy::Include(
-                    folders
-                        .iter()
-                        .map(|folder| Ok(self.account_config.folder_alias(folder)?))
-                        .collect::<Result<_>>()?,
-                )
-            }
-            folder::sync::FolderSyncStrategy::Exclude(folders) => {
-                folder::sync::FolderSyncStrategy::Exclude(
-                    folders
-                        .iter()
-                        .map(|folder| Ok(self.account_config.folder_alias(folder)?))
-                        .collect::<Result<_>>()?,
-                )
-            }
+            FolderSyncStrategy::All => FolderSyncStrategy::All,
+            FolderSyncStrategy::Include(folders) => FolderSyncStrategy::Include(
+                folders
+                    .iter()
+                    .map(|folder| Ok(self.account_config.folder_alias(folder)?))
+                    .collect::<Result<_>>()?,
+            ),
+            FolderSyncStrategy::Exclude(folders) => FolderSyncStrategy::Exclude(
+                folders
+                    .iter()
+                    .map(|folder| Ok(self.account_config.folder_alias(folder)?))
+                    .collect::<Result<_>>()?,
+            ),
         };
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::BuildFoldersDiffPatch);
+            .emit(BackendSyncProgressEvent::BuildFolderPatch);
 
         let folder_sync_patch_manager = FolderSyncPatchManager::new(
             &self.account_config,
@@ -285,11 +273,23 @@ impl<'a> BackendSyncBuilder<'a> {
             &self.on_progress,
             self.dry_run,
         );
+
+        debug!("building folder sync patch");
         let folder_sync_patch = folder_sync_patch_manager.build_patch()?;
+        debug!("{folder_sync_patch:#?}");
+
+        debug!("applying folder sync patch");
         let folder_sync_report = folder_sync_patch_manager.apply_patch(folder_sync_patch)?;
+        debug!("{folder_sync_report:#?}");
+
         let folders = folder_sync_report.folders.clone();
 
-        let envelope_patch_manager = EnvelopeSyncPatchManager::new(
+        self.on_progress
+            .emit(BackendSyncProgressEvent::BuildEnvelopePatch(
+                folders.clone(),
+            ));
+
+        let envelope_sync_patch_manager = EnvelopeSyncPatchManager::new(
             &self.account_config,
             &local_builder,
             &self.remote_builder,
@@ -297,37 +297,38 @@ impl<'a> BackendSyncBuilder<'a> {
             self.dry_run,
         );
 
-        self.on_progress
-            .emit(BackendSyncProgressEvent::BuildEnvelopesDiffPatches(
-                folders.clone(),
-            ));
-
-        let envelopes_patches = HashMap::from_iter(
+        debug!("building envelope sync patch");
+        let envelope_sync_patches = HashMap::from_iter(
             folders
                 .par_iter()
                 .map(|folder| {
-                    let patch = envelope_patch_manager.build_patch(folder)?;
+                    let patch = envelope_sync_patch_manager.build_patch(folder)?;
                     Ok((folder.clone(), patch))
                 })
                 .collect::<Result<Vec<_>>>()?,
         );
+        debug!("{envelope_sync_patches:#?}");
 
-        let envelopes_patch = envelopes_patches
+        let envelope_sync_patch = envelope_sync_patches
             .values()
             .cloned()
             .flatten()
             .collect::<HashSet<_>>();
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::ProcessEnvelopePatches(
-                envelopes_patches,
+            .emit(BackendSyncProgressEvent::ApplyEnvelopePatches(
+                envelope_sync_patches,
             ));
 
-        let envelopes_sync_report = envelope_patch_manager.apply_patch(conn, envelopes_patch)?;
+        debug!("applying envelope sync patch");
+        let envelope_sync_report =
+            envelope_sync_patch_manager.apply_patch(conn, envelope_sync_patch)?;
+        debug!("{envelope_sync_report:#?}");
 
         self.on_progress
             .emit(BackendSyncProgressEvent::ExpungeFolders(folders.clone()));
 
+        debug!("expunging folders");
         folders.par_iter().try_for_each(|folder| {
             local_builder.build()?.expunge_folder(folder)?;
             self.remote_builder.build()?.expunge_folder(folder)?;
@@ -336,16 +337,21 @@ impl<'a> BackendSyncBuilder<'a> {
             Result::Ok(())
         })?;
 
+        debug!("unlocking sync file");
         lock_file
             .unlock()
             .map_err(|err| Error::SyncAccountUnlockFileError(err, account.clone()))?;
 
-        Ok(BackendSyncReport {
+        debug!("building final sync report");
+        let sync_report = BackendSyncReport {
             folders,
             folders_patch: folder_sync_report.patch,
             folders_cache_patch: folder_sync_report.cache_patch,
-            envelopes_patch: envelopes_sync_report.patch,
-            envelopes_cache_patch: envelopes_sync_report.cache_patch,
-        })
+            envelopes_patch: envelope_sync_report.patch,
+            envelopes_cache_patch: envelope_sync_report.cache_patch,
+        };
+        debug!("{sync_report:#?}");
+
+        Ok(sync_report)
     }
 }
