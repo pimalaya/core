@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local};
-use log::warn;
-use rusqlite::types::Value;
+use log::{error, warn};
+use rusqlite::{types::Value, Connection, Transaction};
 
 use crate::{envelope::Mailbox, Envelope, Envelopes};
 
@@ -47,20 +47,16 @@ pub struct Cache;
 impl Cache {
     const LOCAL_SUFFIX: &str = ":cache";
 
-    pub fn init(conn: &mut rusqlite::Connection) -> Result<()> {
+    pub fn init(conn: &mut Connection) -> Result<()> {
         conn.execute(CREATE_ENVELOPES_TABLE, ())?;
         Ok(())
     }
 
-    fn list_envelopes<A, F>(
-        conn: &mut rusqlite::Connection,
-        account: A,
-        folder: F,
-    ) -> Result<Envelopes>
-    where
-        A: AsRef<str>,
-        F: AsRef<str>,
-    {
+    fn list_envelopes(
+        conn: &mut Connection,
+        account: impl AsRef<str>,
+        folder: impl AsRef<str>,
+    ) -> Result<Envelopes> {
         let mut stmt = conn.prepare(SELECT_ENVELOPES)?;
         let envelopes: Vec<Envelope> = stmt
             .query_map([account.as_ref(), folder.as_ref()], |row| {
@@ -79,7 +75,8 @@ impl Cache {
                         match DateTime::parse_from_rfc3339(&date) {
                             Ok(date) => date.with_timezone(&Local),
                             Err(err) => {
-                                warn!("invalid date {}, skipping it: {}", date, err);
+                                warn!("invalid date {date}, skipping it");
+                                error!("invalid date {date}: {err:?}");
                                 DateTime::default()
                             }
                         }
@@ -91,40 +88,28 @@ impl Cache {
         Ok(Envelopes::from_iter(envelopes))
     }
 
-    pub fn list_local_envelopes<N, F>(
-        conn: &mut rusqlite::Connection,
-        name: N,
-        folder: F,
-    ) -> Result<Envelopes>
-    where
-        N: ToString,
-        F: AsRef<str>,
-    {
+    pub fn list_local_envelopes(
+        conn: &mut Connection,
+        name: impl ToString,
+        folder: impl AsRef<str>,
+    ) -> Result<Envelopes> {
         Self::list_envelopes(conn, name.to_string() + Self::LOCAL_SUFFIX, folder)
     }
 
-    pub fn list_remote_envelopes<N, F>(
-        conn: &mut rusqlite::Connection,
-        name: N,
-        folder: F,
-    ) -> Result<Envelopes>
-    where
-        N: AsRef<str>,
-        F: AsRef<str>,
-    {
+    pub fn list_remote_envelopes(
+        conn: &mut Connection,
+        name: impl AsRef<str>,
+        folder: impl AsRef<str>,
+    ) -> Result<Envelopes> {
         Self::list_envelopes(conn, name, folder)
     }
 
-    fn insert_envelope<A, F>(
-        transaction: &rusqlite::Transaction,
-        account: A,
-        folder: F,
+    fn insert_envelope(
+        transaction: &Transaction,
+        account: impl AsRef<str>,
+        folder: impl AsRef<str>,
         envelope: Envelope,
-    ) -> Result<()>
-    where
-        A: AsRef<str>,
-        F: AsRef<str>,
-    {
+    ) -> Result<()> {
         if envelope.flags.is_empty() {
             transaction.execute(
                 INSERT_ENVELOPE,
@@ -162,43 +147,30 @@ impl Cache {
         Ok(())
     }
 
-    pub fn insert_local_envelope<N, F>(
-        tx: &rusqlite::Transaction,
-        name: N,
-        folder: F,
+    pub fn insert_local_envelope(
+        tx: &Transaction,
+        name: impl ToString,
+        folder: impl AsRef<str>,
         envelope: Envelope,
-    ) -> Result<()>
-    where
-        N: ToString,
-        F: AsRef<str>,
-    {
+    ) -> Result<()> {
         Self::insert_envelope(tx, name.to_string() + Self::LOCAL_SUFFIX, folder, envelope)
     }
 
-    pub fn insert_remote_envelope<N, F>(
-        tx: &rusqlite::Transaction,
-        name: N,
-        folder: F,
+    pub fn insert_remote_envelope(
+        tx: &Transaction,
+        name: impl AsRef<str>,
+        folder: impl AsRef<str>,
         envelope: Envelope,
-    ) -> Result<()>
-    where
-        N: AsRef<str>,
-        F: AsRef<str>,
-    {
+    ) -> Result<()> {
         Self::insert_envelope(tx, name, folder, envelope)
     }
 
-    fn delete_envelope<A, F, I>(
-        tx: &rusqlite::Transaction,
-        account: A,
-        folder: F,
-        internal_id: I,
-    ) -> Result<()>
-    where
-        A: AsRef<str>,
-        F: AsRef<str>,
-        I: AsRef<str>,
-    {
+    fn delete_envelope(
+        tx: &Transaction,
+        account: impl AsRef<str>,
+        folder: impl AsRef<str>,
+        internal_id: impl AsRef<str>,
+    ) -> Result<()> {
         tx.execute(
             DELETE_ENVELOPE,
             [account.as_ref(), folder.as_ref(), internal_id.as_ref()],
@@ -206,17 +178,12 @@ impl Cache {
         Ok(())
     }
 
-    pub fn delete_local_envelope<N, F, I>(
-        tx: &rusqlite::Transaction,
-        name: N,
-        folder: F,
-        internal_id: I,
-    ) -> Result<()>
-    where
-        N: ToString,
-        F: AsRef<str>,
-        I: AsRef<str>,
-    {
+    pub fn delete_local_envelope(
+        tx: &Transaction,
+        name: impl ToString,
+        folder: impl AsRef<str>,
+        internal_id: impl AsRef<str>,
+    ) -> Result<()> {
         Self::delete_envelope(
             tx,
             name.to_string() + Self::LOCAL_SUFFIX,
@@ -225,17 +192,12 @@ impl Cache {
         )
     }
 
-    pub fn delete_remote_envelope<N, F, I>(
-        tx: &rusqlite::Transaction,
-        name: N,
-        folder: F,
-        internal_id: I,
-    ) -> Result<()>
-    where
-        N: AsRef<str>,
-        F: AsRef<str>,
-        I: AsRef<str>,
-    {
+    pub fn delete_remote_envelope(
+        tx: &Transaction,
+        name: impl AsRef<str>,
+        folder: impl AsRef<str>,
+        internal_id: impl AsRef<str>,
+    ) -> Result<()> {
         Self::delete_envelope(tx, name, folder, internal_id)
     }
 }

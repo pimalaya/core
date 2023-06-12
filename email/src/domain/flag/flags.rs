@@ -15,9 +15,9 @@ pub struct Flags(pub HashSet<Flag>);
 
 impl Hash for Flags {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        for flag in self.iter() {
-            flag.hash(state)
-        }
+        let mut flags = Vec::from_iter(self.iter());
+        flags.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        flags.hash(state)
     }
 }
 

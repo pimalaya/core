@@ -10,7 +10,7 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 
 /// Represents the flag variants.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd)]
 pub enum Flag {
     Seen,
     Answered,

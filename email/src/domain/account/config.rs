@@ -23,8 +23,8 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    folder::sync::Strategy as SyncFoldersStrategy, BackendConfig, EmailHooks, EmailTextPlainFormat,
-    SenderConfig,
+    folder::sync::FolderSyncStrategy as SyncFoldersStrategy, BackendConfig, EmailHooks,
+    EmailTextPlainFormat, SenderConfig,
 };
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
@@ -37,6 +37,8 @@ pub const DEFAULT_TRASH_FOLDER: &str = "Trash";
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot open the synchronization database")]
+    BuildSyncDatabaseError(#[source] rusqlite::Error),
     #[error("cannot encrypt file using pgp")]
     EncryptFileError(#[source] pimalaya_process::Error),
     #[error("cannot decrypt file using pgp")]
@@ -361,6 +363,11 @@ impl AccountConfig {
                 Ok(sync_dir)
             }
         }
+    }
+
+    pub fn sync_db_builder(&self) -> Result<rusqlite::Connection> {
+        rusqlite::Connection::open(self.sync_dir()?.join(".sync.sqlite"))
+            .map_err(Error::BuildSyncDatabaseError)
     }
 
     pub fn generate_tpl_interpreter(&self) -> TplInterpreter {

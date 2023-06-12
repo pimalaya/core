@@ -217,7 +217,7 @@ fn sync() {
     let local_folders_cached = folder::sync::Cache::list_local_folders(
         &mut conn,
         &config.name,
-        &folder::sync::Strategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
+        &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
     assert!(!local_folders_cached.contains("INBOX"));
@@ -226,7 +226,7 @@ fn sync() {
     let local_folders_cached = folder::sync::Cache::list_local_folders(
         &mut conn,
         &config.name,
-        &folder::sync::Strategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
+        &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
     assert!(local_folders_cached.contains("INBOX"));
@@ -235,7 +235,7 @@ fn sync() {
     let local_folders_cached = folder::sync::Cache::list_local_folders(
         &mut conn,
         &config.name,
-        &folder::sync::Strategy::All,
+        &folder::sync::FolderSyncStrategy::All,
     )
     .unwrap();
     assert!(local_folders_cached.contains("INBOX"));
@@ -244,7 +244,7 @@ fn sync() {
     let remote_folders_cached = folder::sync::Cache::list_remote_folders(
         &mut conn,
         &config.name,
-        &folder::sync::Strategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
+        &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
     assert!(!remote_folders_cached.contains("INBOX"));
@@ -253,7 +253,7 @@ fn sync() {
     let remote_folders_cached = folder::sync::Cache::list_remote_folders(
         &mut conn,
         &config.name,
-        &folder::sync::Strategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
+        &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
     assert!(remote_folders_cached.contains("INBOX"));
@@ -262,7 +262,7 @@ fn sync() {
     let remote_folders_cached = folder::sync::Cache::list_remote_folders(
         &mut conn,
         &config.name,
-        &folder::sync::Strategy::All,
+        &folder::sync::FolderSyncStrategy::All,
     )
     .unwrap();
     assert!(remote_folders_cached.contains("INBOX"));

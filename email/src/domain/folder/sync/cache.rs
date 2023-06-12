@@ -1,7 +1,8 @@
 pub use rusqlite::Error;
+use rusqlite::{Connection, Transaction};
 use std::collections::HashSet;
 
-use super::{sync, FoldersName, Result};
+use super::{FolderSyncStrategy, FoldersName, Result};
 
 const CREATE_FOLDERS_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS folders (
@@ -47,15 +48,12 @@ pub struct Cache;
 impl Cache {
     const LOCAL_SUFFIX: &str = ":cache";
 
-    pub fn init(conn: &mut rusqlite::Connection) -> Result<()> {
+    pub fn init(conn: &mut Connection) -> Result<()> {
         conn.execute(CREATE_FOLDERS_TABLE, ())?;
         Ok(())
     }
 
-    fn list_all_folders<A>(conn: &mut rusqlite::Connection, account: A) -> Result<FoldersName>
-    where
-        A: AsRef<str>,
-    {
+    fn list_all_folders(conn: &mut Connection, account: impl AsRef<str>) -> Result<FoldersName> {
         let mut stmt = conn.prepare(SELECT_ALL_FOLDERS)?;
         let folders: Vec<String> = stmt
             .query_map([account.as_ref()], |row| row.get(0))?
@@ -64,15 +62,12 @@ impl Cache {
         Ok(FoldersName::from_iter(folders))
     }
 
-    fn list_folders_with<A>(
-        conn: &mut rusqlite::Connection,
-        account: A,
+    fn list_folders_with(
+        conn: &mut Connection,
+        account: impl AsRef<str>,
         folders: &HashSet<String>,
         query: &str,
-    ) -> Result<FoldersName>
-    where
-        A: AsRef<str>,
-    {
+    ) -> Result<FoldersName> {
         let folders = folders
             .iter()
             .map(|f| format!("{f:#?}"))
@@ -88,25 +83,22 @@ impl Cache {
         Ok(FoldersName::from_iter(folders))
     }
 
-    pub fn list_local_folders<A>(
-        conn: &mut rusqlite::Connection,
-        account: A,
-        strategy: &sync::Strategy,
-    ) -> Result<FoldersName>
-    where
-        A: ToString,
-    {
+    pub fn list_local_folders(
+        conn: &mut Connection,
+        account: impl ToString,
+        strategy: &FolderSyncStrategy,
+    ) -> Result<FoldersName> {
         match strategy {
-            sync::Strategy::All => {
+            FolderSyncStrategy::All => {
                 Self::list_all_folders(conn, account.to_string() + Self::LOCAL_SUFFIX)
             }
-            sync::Strategy::Include(folders) => Self::list_folders_with(
+            FolderSyncStrategy::Include(folders) => Self::list_folders_with(
                 conn,
                 account.to_string() + Self::LOCAL_SUFFIX,
                 folders,
                 SELECT_FOLDERS_IN,
             ),
-            sync::Strategy::Exclude(folders) => Self::list_folders_with(
+            FolderSyncStrategy::Exclude(folders) => Self::list_folders_with(
                 conn,
                 account.to_string() + Self::LOCAL_SUFFIX,
                 folders,
@@ -115,88 +107,69 @@ impl Cache {
         }
     }
 
-    pub fn list_remote_folders<A>(
-        conn: &mut rusqlite::Connection,
-        account: A,
-        strategy: &sync::Strategy,
-    ) -> Result<FoldersName>
-    where
-        A: AsRef<str>,
-    {
+    pub fn list_remote_folders(
+        conn: &mut Connection,
+        account: impl AsRef<str>,
+        strategy: &FolderSyncStrategy,
+    ) -> Result<FoldersName> {
         match strategy {
-            sync::Strategy::All => Self::list_all_folders(conn, account),
-            sync::Strategy::Include(folders) => {
+            FolderSyncStrategy::All => Self::list_all_folders(conn, account),
+            FolderSyncStrategy::Include(folders) => {
                 Self::list_folders_with(conn, account, folders, SELECT_FOLDERS_IN)
             }
-            sync::Strategy::Exclude(folders) => {
+            FolderSyncStrategy::Exclude(folders) => {
                 Self::list_folders_with(conn, account, folders, SELECT_FOLDERS_NOT_IN)
             }
         }
     }
 
-    fn insert_folder<A, F>(tx: &rusqlite::Transaction, account: A, folder: F) -> Result<()>
-    where
-        A: AsRef<str>,
-        F: AsRef<str>,
-    {
+    fn insert_folder(
+        tx: &Transaction,
+        account: impl AsRef<str>,
+        folder: impl AsRef<str>,
+    ) -> Result<()> {
         tx.execute(INSERT_FOLDER, [account.as_ref(), folder.as_ref()])?;
         Ok(())
     }
 
-    pub fn insert_local_folder<A, F>(
-        tx: &rusqlite::Transaction,
-        account: A,
-        folder: F,
-    ) -> Result<()>
-    where
-        A: ToString,
-        F: AsRef<str>,
-    {
+    pub fn insert_local_folder(
+        tx: &Transaction,
+        account: impl ToString,
+        folder: impl AsRef<str>,
+    ) -> Result<()> {
         Self::insert_folder(tx, account.to_string() + Self::LOCAL_SUFFIX, folder)
     }
 
-    pub fn insert_remote_folder<A, F>(
-        tx: &rusqlite::Transaction,
-        account: A,
-        folder: F,
-    ) -> Result<()>
-    where
-        A: AsRef<str>,
-        F: AsRef<str>,
-    {
+    pub fn insert_remote_folder(
+        tx: &Transaction,
+        account: impl AsRef<str>,
+        folder: impl AsRef<str>,
+    ) -> Result<()> {
         Self::insert_folder(tx, account, folder)
     }
 
-    fn delete_folder<A, F>(tx: &rusqlite::Transaction, account: A, folder: F) -> Result<()>
-    where
-        A: AsRef<str>,
-        F: AsRef<str>,
-    {
+    fn delete_folder(
+        tx: &Transaction,
+        account: impl AsRef<str>,
+        folder: impl AsRef<str>,
+    ) -> Result<()> {
         tx.execute(DELETE_FOLDER, [account.as_ref(), folder.as_ref()])?;
         Ok(())
     }
 
-    pub fn delete_local_folder<A, F>(
-        tx: &rusqlite::Transaction,
-        account: A,
-        folder: F,
-    ) -> Result<()>
-    where
-        A: ToString,
-        F: AsRef<str>,
-    {
+    pub fn delete_local_folder(
+        tx: &Transaction,
+        account: impl ToString,
+        folder: impl AsRef<str>,
+    ) -> Result<()> {
         Self::delete_folder(tx, account.to_string() + Self::LOCAL_SUFFIX, folder)
     }
 
-    pub fn delete_remote_folder<A, F>(
-        tx: &rusqlite::Transaction,
-        account: A,
-        folder: F,
-    ) -> Result<()>
-    where
-        A: AsRef<str>,
-        F: AsRef<str>,
-    {
+    pub fn delete_remote_folder(
+        tx: &Transaction,
+        account: impl AsRef<str>,
+        folder: impl AsRef<str>,
+    ) -> Result<()> {
         Self::delete_folder(tx, account, folder)
     }
 }

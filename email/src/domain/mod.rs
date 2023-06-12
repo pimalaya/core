@@ -11,6 +11,6 @@ pub use email::{
     Attachment, Email, EmailHooks, EmailTextPlainFormat, Emails, ForwardTplBuilder, NewTplBuilder,
     ReplyTplBuilder,
 };
-pub use envelope::{Envelope, Envelopes};
+pub use envelope::{Envelope, EnvelopeSyncPatch, EnvelopeSyncPatchManager, Envelopes};
 pub use flag::{Flag, Flags};
-pub use folder::{Folder, Folders};
+pub use folder::{Folder, FolderSyncPatch, FolderSyncPatchManager, Folders};
