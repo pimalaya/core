@@ -491,13 +491,6 @@ impl Backend for NotmuchBackend {
         Ok(self.db.close().map_err(Error::CloseDatabaseError)?)
     }
 
-    fn try_clone(&self) -> backend::Result<Box<dyn Backend>> {
-        Ok(Box::new(Self::new(
-            self.account_config.clone(),
-            self.notmuch_config.clone(),
-        )?))
-    }
-
     fn as_any(&self) -> &dyn Any {
         self
     }

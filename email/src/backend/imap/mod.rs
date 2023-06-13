@@ -261,7 +261,6 @@ impl Authenticator for OAuthBearer {
 pub struct ImapBackend {
     account_config: AccountConfig,
     imap_config: ImapConfig,
-    default_credentials: Option<String>,
     session: ImapSession,
 }
 
@@ -294,7 +293,6 @@ impl ImapBackend {
         Ok(Self {
             account_config,
             imap_config,
-            default_credentials,
             session,
         })
     }
@@ -1062,14 +1060,6 @@ impl Backend for ImapBackend {
             Error::CloseError,
         )?;
         Ok(())
-    }
-
-    fn try_clone(&self) -> backend::Result<Box<dyn Backend>> {
-        Ok(Box::new(Self::new(
-            self.account_config.clone(),
-            self.imap_config.clone(),
-            self.default_credentials.clone(),
-        )?))
     }
 
     fn as_any(&self) -> &dyn Any {

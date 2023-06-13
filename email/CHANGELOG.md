@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2023-06-13
+
 ### Added
 
 - Implemented OAuth 2.0 refresh token flow for IMAP and SMTP, which means that access tokens are now automatically refreshed.
@@ -14,12 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Changed `Backend` and `Sender` trait: functions now borrow &self as mut.
+- Changed `Backend` and `Sender` trait: functions now borrow `&self` as `mut`.
+- Renamed `BackendSyncProgressEvent` events name.
+- Renamed sync related structs by prefixing them with their domain. For example, `folder::sync::Cache` became `FolderSyncCache`.
 
 ### Removed
 
 - Removed `ImapAuth`.
-- Removed `Backend` restriction `Sync` and `Send`, because maintaining a session pool with `Mutex` was too much of a burden. Instead, `Backend` holds now a single session and exposes a `try_clone` method to duplicate itself. Behind the scene it just recreates a new backend with a new session.
+- Removed `Backend` derivations `Sync` and `Send`, because maintaining a session pool with `Mutex` was too much of a burden. Instead, backends can be duplicated using `BackendBuilder`. Behind the scene it just recreates a new backend with a new session.
 - Removed `ImapBackendBuilder`.
 
 ## [0.9.0] - 2023-06-03

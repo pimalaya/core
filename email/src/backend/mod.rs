@@ -84,7 +84,6 @@ pub trait Backend {
         Ok(())
     }
 
-    fn try_clone(&self) -> Result<Box<dyn Backend>>;
     fn as_any(&self) -> &dyn Any;
 }
 

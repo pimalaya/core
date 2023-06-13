@@ -88,10 +88,8 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-/// Represents the maildir backend.
 pub struct MaildirBackend {
     account_config: AccountConfig,
-    mdir_config: MaildirConfig,
     mdir: Maildir,
 }
 
@@ -105,7 +103,6 @@ impl MaildirBackend {
 
         Ok(Self {
             account_config,
-            mdir_config,
             mdir,
         })
     }
@@ -539,19 +536,11 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn try_clone(&self) -> backend::Result<Box<dyn Backend>> {
-        Ok(Box::new(Self::new(
-            self.account_config.clone(),
-            self.mdir_config.clone(),
-        )?))
-    }
-
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-/// Represents the maildir backend builder.
 pub struct MaildirBackendBuilder {
     account_config: AccountConfig,
     mdir_config: MaildirConfig,
