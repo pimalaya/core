@@ -1,3 +1,4 @@
+pub mod flag;
 #[cfg(feature = "imap-backend")]
 pub mod imap;
 pub mod maildir;
@@ -10,11 +11,14 @@ use log::{trace, warn};
 use mail_parser::Message;
 use std::ops;
 
-use crate::{AccountConfig, Flags};
+use crate::AccountConfig;
 
-pub use self::sync::{
-    EnvelopeSyncCache, EnvelopeSyncCacheHunk, EnvelopeSyncCachePatch, EnvelopeSyncHunk,
-    EnvelopeSyncPatch, EnvelopeSyncPatchManager, EnvelopeSyncReport,
+pub use self::{
+    flag::{Flag, Flags},
+    sync::{
+        EnvelopeSyncCache, EnvelopeSyncCacheHunk, EnvelopeSyncCachePatch, EnvelopeSyncHunk,
+        EnvelopeSyncPatch, EnvelopeSyncPatchManager, EnvelopeSyncReport,
+    },
 };
 
 /// Represents the list of envelopes.

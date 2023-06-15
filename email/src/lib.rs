@@ -1,7 +1,6 @@
 pub mod account;
 pub mod backend;
 pub mod email;
-pub mod flag;
 pub mod folder;
 pub mod sender;
 
@@ -27,8 +26,6 @@ pub use email::{
     Attachment, Email, EmailHooks, EmailTextPlainFormat, Emails, ForwardTplBuilder, NewTplBuilder,
     ReplyTplBuilder,
 };
-#[doc(inline)]
-pub use flag::{Flag, Flags};
 #[doc(inline)]
 pub use folder::{
     Folder, FolderSyncCache, FolderSyncCacheHunk, FolderSyncCachePatch, FolderSyncHunk,
