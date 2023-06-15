@@ -26,8 +26,8 @@ use utf7_imap::{decode_utf7_imap as decode_utf7, encode_utf7_imap as encode_utf7
 
 pub use self::config::{ImapAuthConfig, ImapConfig};
 use crate::{
-    account, backend, email, envelope, AccountConfig, Backend, Emails, Envelope, Envelopes, Flag,
-    Flags, Folder, Folders, OAuth2Method,
+    account, backend, email, envelope, AccountConfig, Backend, Envelope, Envelopes, Flag, Flags,
+    Folder, Folders, Messages, OAuth2Method,
 };
 
 const ENVELOPE_QUERY: &str = "(UID FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM SUBJECT DATE)])";
@@ -856,7 +856,7 @@ impl Backend for ImapBackend {
         Ok(uid.to_string())
     }
 
-    fn preview_emails(&mut self, folder: &str, uids: Vec<&str>) -> backend::Result<Emails> {
+    fn preview_emails(&mut self, folder: &str, uids: Vec<&str>) -> backend::Result<Messages> {
         let uids = uids.join(",");
         info!("previewing imap emails {uids} from folder {folder}");
 
@@ -873,10 +873,10 @@ impl Backend for ImapBackend {
             |err| Error::FetchEmailsByUidRangeError(err, uids.clone()),
         )?;
 
-        Ok(Emails::try_from(fetches)?)
+        Ok(Messages::try_from(fetches)?)
     }
 
-    fn get_emails(&mut self, folder: &str, uids: Vec<&str>) -> backend::Result<Emails> {
+    fn get_emails(&mut self, folder: &str, uids: Vec<&str>) -> backend::Result<Messages> {
         let uids = uids.join(",");
         info!("getting imap emails {uids} from folder {folder}");
 
@@ -893,7 +893,7 @@ impl Backend for ImapBackend {
             |err| Error::FetchEmailsByUidRangeError(err, uids.clone()),
         )?;
 
-        Ok(Emails::try_from(fetches)?)
+        Ok(Messages::try_from(fetches)?)
     }
 
     fn copy_emails(

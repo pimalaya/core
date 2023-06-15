@@ -9,10 +9,11 @@ pub use self::hunk::{EnvelopeSyncCacheHunk, EnvelopeSyncHunk};
 pub use self::patch::{EnvelopeSyncCachePatch, EnvelopeSyncPatch, EnvelopeSyncPatchManager};
 pub use self::report::EnvelopeSyncReport;
 pub use self::runner::EnvelopeSyncRunner;
+use crate::message;
 use crate::{
     account,
     backend::{self, sync::Destination},
-    email, flag, AccountConfig, Backend, BackendBuilder, Envelope, MaildirBackendBuilder,
+    flag, AccountConfig, Backend, BackendBuilder, Envelope, MaildirBackendBuilder,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -31,7 +32,7 @@ pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
     #[error(transparent)]
-    EmailError(#[from] email::Error),
+    EmailError(#[from] message::Error),
     #[error(transparent)]
     BackendError(#[from] backend::Error),
     #[error(transparent)]

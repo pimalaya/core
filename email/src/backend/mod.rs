@@ -19,7 +19,7 @@ pub use self::notmuch::*;
 pub use self::sync::{
     BackendSyncBuilder, BackendSyncProgress, BackendSyncProgressEvent, BackendSyncReport,
 };
-use crate::{account, email, AccountConfig, Emails, Envelope, Envelopes, Flag, Flags, Folders};
+use crate::{account, message, AccountConfig, Envelope, Envelopes, Flag, Flags, Folders, Messages};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -29,7 +29,7 @@ pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
     #[error(transparent)]
-    EmailError(#[from] email::Error),
+    MessageError(#[from] message::Error),
     #[cfg(feature = "imap-backend")]
     #[error(transparent)]
     ImapBackendError(#[from] imap::Error),
@@ -66,8 +66,8 @@ pub trait Backend {
     ) -> Result<Envelopes>;
 
     fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String>;
-    fn preview_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<Emails>;
-    fn get_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<Emails>;
+    fn preview_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<Messages>;
+    fn get_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<Messages>;
     fn copy_emails(&mut self, from_folder: &str, to_folder: &str, ids: Vec<&str>) -> Result<()>;
     fn move_emails(&mut self, from_folder: &str, to_folder: &str, ids: Vec<&str>) -> Result<()>;
     fn delete_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<()>;

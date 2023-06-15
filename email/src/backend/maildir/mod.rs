@@ -15,8 +15,8 @@ use thiserror::Error;
 pub use self::config::MaildirConfig;
 use crate::{
     account::{self, config::DEFAULT_TRASH_FOLDER},
-    backend, email, AccountConfig, Backend, Emails, Envelope, Envelopes, Flag, Flags, Folder,
-    Folders, DEFAULT_INBOX_FOLDER,
+    backend, message, AccountConfig, Backend, Envelope, Envelopes, Flag, Flags, Folder, Folders,
+    Messages, DEFAULT_INBOX_FOLDER,
 };
 
 #[derive(Debug, Error)]
@@ -83,7 +83,7 @@ pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
     #[error(transparent)]
-    EmailError(#[from] email::Error),
+    MessageError(#[from] message::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -365,7 +365,11 @@ impl Backend for MaildirBackend {
         Ok(internal_id)
     }
 
-    fn preview_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<Emails> {
+    fn preview_emails(
+        &mut self,
+        folder: &str,
+        internal_ids: Vec<&str>,
+    ) -> backend::Result<Messages> {
         info!(
             "previewing maildir emails by internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),
@@ -388,7 +392,7 @@ impl Backend for MaildirBackend {
             .collect();
         emails.sort_by_key(|(pos, _)| *pos);
 
-        let emails: Emails = emails
+        let emails: Messages = emails
             .into_iter()
             .map(|(_, entry)| entry)
             .collect::<Vec<_>>()
@@ -397,7 +401,7 @@ impl Backend for MaildirBackend {
         Ok(emails)
     }
 
-    fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<Emails> {
+    fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<Messages> {
         info!(
             "getting maildir emails by internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),

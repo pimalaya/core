@@ -1,7 +1,5 @@
 use log::debug;
-use std::{env, fs, path::PathBuf};
-
-use crate::email::{Error, Result};
+use std::{env, fs, io, path::PathBuf};
 
 pub fn local_draft_path() -> PathBuf {
     let path = env::temp_dir().join("himalaya-draft.eml");
@@ -9,8 +7,8 @@ pub fn local_draft_path() -> PathBuf {
     path
 }
 
-pub fn remove_local_draft() -> Result<()> {
+pub fn remove_local_draft() -> io::Result<()> {
     let path = local_draft_path();
-    fs::remove_file(&path).map_err(|err| Error::DeleteLocalDraftError(err, path))?;
+    fs::remove_file(&path)?;
     Ok(())
 }
