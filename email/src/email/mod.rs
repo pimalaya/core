@@ -3,9 +3,9 @@
 //! This module contains everything related to emails.
 
 pub(crate) mod address;
-pub mod attachment;
 pub mod config;
 pub mod envelope;
+pub mod message;
 pub mod utils;
 
 #[cfg(feature = "imap-backend")]
@@ -25,12 +25,12 @@ use crate::{account, AccountConfig};
 
 #[doc(inline)]
 pub use self::{
-    attachment::Attachment,
     config::{EmailHooks, EmailTextPlainFormat},
     envelope::{
         Envelope, EnvelopeSyncCache, EnvelopeSyncCacheHunk, EnvelopeSyncCachePatch,
         EnvelopeSyncHunk, EnvelopeSyncPatch, EnvelopeSyncPatchManager, Envelopes,
     },
+    message::*,
     utils::*,
 };
 
