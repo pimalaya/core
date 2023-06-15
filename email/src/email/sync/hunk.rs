@@ -10,7 +10,7 @@ pub type Id = String;
 pub type RefreshSourceCache = bool;
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
-pub enum EnvelopeSyncHunk {
+pub enum EmailSyncHunk {
     GetThenCache(FolderName, Id, Source),
     CopyThenCache(FolderName, Envelope, Source, Target, RefreshSourceCache),
     UpdateCachedFlags(FolderName, Envelope, Target),
@@ -19,7 +19,7 @@ pub enum EnvelopeSyncHunk {
     Delete(FolderName, Id, Target),
 }
 
-impl fmt::Display for EnvelopeSyncHunk {
+impl fmt::Display for EmailSyncHunk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::GetThenCache(_folder, id, source) => {
@@ -49,7 +49,7 @@ impl fmt::Display for EnvelopeSyncHunk {
     }
 }
 
-impl EnvelopeSyncHunk {
+impl EmailSyncHunk {
     pub fn folder(&self) -> &str {
         match self {
             Self::GetThenCache(folder, _, _) => folder.as_str(),
@@ -63,7 +63,7 @@ impl EnvelopeSyncHunk {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum EnvelopeSyncCacheHunk {
+pub enum EmailSyncCacheHunk {
     Insert(FolderName, Envelope, Target),
     Delete(FolderName, Id, Target),
 }

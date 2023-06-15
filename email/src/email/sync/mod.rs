@@ -1,22 +1,27 @@
-pub mod cache;
+mod cache;
 mod hunk;
 mod patch;
 mod report;
 mod runner;
 
-pub use self::cache::EnvelopeSyncCache;
-pub use self::hunk::{EnvelopeSyncCacheHunk, EnvelopeSyncHunk};
-pub use self::patch::{EnvelopeSyncCachePatch, EnvelopeSyncPatch, EnvelopeSyncPatchManager};
-pub use self::report::EnvelopeSyncReport;
-pub use self::runner::EnvelopeSyncRunner;
-use crate::message;
+use std::result;
+use thiserror::Error;
+
 use crate::{
     account,
     backend::{self, sync::Destination},
-    flag, AccountConfig, Backend, BackendBuilder, Envelope, MaildirBackendBuilder,
+    message, AccountConfig, Backend, BackendBuilder, Envelope, MaildirBackendBuilder,
 };
 
-#[derive(Debug, thiserror::Error)]
+pub use self::{
+    cache::EmailSyncCache,
+    hunk::{EmailSyncCacheHunk, EmailSyncHunk},
+    patch::{EmailSyncCachePatch, EmailSyncPatch, EmailSyncPatchManager},
+    report::EmailSyncReport,
+    runner::EmailSyncRunner,
+};
+
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot find email by internal id {0}")]
     FindEmailError(String),
@@ -39,4 +44,4 @@ pub enum Error {
     MaildirBackendError(#[from] backend::maildir::Error),
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = result::Result<T, Error>;

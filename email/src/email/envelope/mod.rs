@@ -4,7 +4,6 @@ pub mod imap;
 pub mod maildir;
 #[cfg(feature = "notmuch-backend")]
 pub mod notmuch;
-pub mod sync;
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::{trace, warn};
@@ -13,13 +12,7 @@ use std::ops;
 
 use crate::AccountConfig;
 
-pub use self::{
-    flag::{Flag, Flags},
-    sync::{
-        EnvelopeSyncCache, EnvelopeSyncCacheHunk, EnvelopeSyncCachePatch, EnvelopeSyncHunk,
-        EnvelopeSyncPatch, EnvelopeSyncPatchManager, EnvelopeSyncReport,
-    },
-};
+pub use self::flag::{Flag, Flags};
 
 /// Represents the list of envelopes.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

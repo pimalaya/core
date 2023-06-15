@@ -5,8 +5,9 @@ use std::{collections::HashSet, thread, time::Duration};
 use tempfile::tempdir;
 
 use pimalaya_email::{
-    envelope, folder, AccountConfig, Backend, BackendBuilder, BackendConfig, BackendSyncBuilder,
-    Flag, Flags, ImapAuthConfig, ImapConfig, MaildirBackend, MaildirConfig, PasswdConfig,
+    folder, AccountConfig, Backend, BackendBuilder, BackendConfig, BackendSyncBuilder,
+    EmailSyncCache, Flag, Flags, ImapAuthConfig, ImapConfig, MaildirBackend, MaildirConfig,
+    PasswdConfig,
 };
 
 #[test]
@@ -271,27 +272,17 @@ fn sync() {
     // check envelopes cache integrity
 
     let mdir_inbox_envelopes_cached =
-        envelope::sync::EnvelopeSyncCache::list_local_envelopes(&mut conn, &config.name, "INBOX")
-            .unwrap();
+        EmailSyncCache::list_local_envelopes(&mut conn, &config.name, "INBOX").unwrap();
     let imap_inbox_envelopes_cached =
-        envelope::sync::EnvelopeSyncCache::list_remote_envelopes(&mut conn, &config.name, "INBOX")
-            .unwrap();
+        EmailSyncCache::list_remote_envelopes(&mut conn, &config.name, "INBOX").unwrap();
 
     assert_eq!(mdir_inbox_envelopes, mdir_inbox_envelopes_cached);
     assert_eq!(imap_inbox_envelopes, imap_inbox_envelopes_cached);
 
-    let mdir_sent_envelopes_cached = envelope::sync::EnvelopeSyncCache::list_local_envelopes(
-        &mut conn,
-        &config.name,
-        "[Gmail]/Sent",
-    )
-    .unwrap();
-    let imap_sent_envelopes_cached = envelope::sync::EnvelopeSyncCache::list_remote_envelopes(
-        &mut conn,
-        &config.name,
-        "[Gmail]/Sent",
-    )
-    .unwrap();
+    let mdir_sent_envelopes_cached =
+        EmailSyncCache::list_local_envelopes(&mut conn, &config.name, "[Gmail]/Sent").unwrap();
+    let imap_sent_envelopes_cached =
+        EmailSyncCache::list_remote_envelopes(&mut conn, &config.name, "[Gmail]/Sent").unwrap();
 
     assert_eq!(mdir_sent_envelopes, mdir_sent_envelopes_cached);
     assert_eq!(imap_sent_envelopes, imap_sent_envelopes_cached);
@@ -329,12 +320,10 @@ fn sync() {
     assert_eq!(imap_envelopes, mdir_envelopes);
 
     let cached_mdir_envelopes =
-        envelope::sync::EnvelopeSyncCache::list_local_envelopes(&mut conn, &config.name, "INBOX")
-            .unwrap();
+        EmailSyncCache::list_local_envelopes(&mut conn, &config.name, "INBOX").unwrap();
     assert_eq!(cached_mdir_envelopes, mdir_envelopes);
 
     let cached_imap_envelopes =
-        envelope::sync::EnvelopeSyncCache::list_remote_envelopes(&mut conn, &config.name, "INBOX")
-            .unwrap();
+        EmailSyncCache::list_remote_envelopes(&mut conn, &config.name, "INBOX").unwrap();
     assert_eq!(cached_imap_envelopes, imap_envelopes);
 }

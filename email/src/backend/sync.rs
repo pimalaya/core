@@ -10,15 +10,15 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    account, envelope,
+    account, email,
     folder::{
         self,
         sync::{FolderName, FoldersName},
     },
-    AccountConfig, Backend, BackendBuilder, EnvelopeSyncCache, EnvelopeSyncCacheHunk,
-    EnvelopeSyncCachePatch, EnvelopeSyncHunk, EnvelopeSyncPatch, EnvelopeSyncPatchManager,
-    FolderSyncCache, FolderSyncCacheHunk, FolderSyncHunk, FolderSyncPatchManager,
-    FolderSyncPatches, FolderSyncStrategy, MaildirBackendBuilder, MaildirConfig,
+    AccountConfig, Backend, BackendBuilder, EmailSyncCache, EmailSyncCacheHunk,
+    EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch, EmailSyncPatchManager, FolderSyncCache,
+    FolderSyncCacheHunk, FolderSyncHunk, FolderSyncPatchManager, FolderSyncPatches,
+    FolderSyncStrategy, MaildirBackendBuilder, MaildirConfig,
 };
 
 use super::maildir;
@@ -37,9 +37,9 @@ pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
     #[error(transparent)]
-    SyncFoldersError(#[from] folder::sync::Error),
+    FolderSyncError(#[from] folder::sync::Error),
     #[error(transparent)]
-    SyncEnvelopesError(#[from] envelope::sync::Error),
+    EmailSyncError(#[from] email::sync::Error),
     #[error(transparent)]
     BackendError(#[from] super::Error),
     #[error(transparent)]
@@ -77,14 +77,14 @@ pub enum BackendSyncProgressEvent {
     ApplyFolderHunk(FolderSyncHunk),
 
     BuildEnvelopePatch(FoldersName),
-    EnvelopePatchBuilt(FolderName, EnvelopeSyncPatch),
+    EnvelopePatchBuilt(FolderName, EmailSyncPatch),
     GetLocalCachedEnvelopes,
     GetLocalEnvelopes,
     GetRemoteCachedEnvelopes,
     GetRemoteEnvelopes,
-    ApplyEnvelopePatches(HashMap<FolderName, EnvelopeSyncPatch>),
-    ApplyEnvelopeHunk(EnvelopeSyncHunk),
-    ApplyEnvelopeCachePatch(EnvelopeSyncCachePatch),
+    ApplyEnvelopePatches(HashMap<FolderName, EmailSyncPatch>),
+    ApplyEnvelopeHunk(EmailSyncHunk),
+    ApplyEnvelopeCachePatch(EmailSyncCachePatch),
 
     ExpungeFolders(FoldersName),
     FolderExpunged(FolderName),
@@ -134,8 +134,8 @@ pub struct BackendSyncReport {
     pub folders: FoldersName,
     pub folders_patch: Vec<(FolderSyncHunk, Option<folder::sync::Error>)>,
     pub folders_cache_patch: (Vec<FolderSyncCacheHunk>, Option<folder::sync::Error>),
-    pub envelopes_patch: Vec<(EnvelopeSyncHunk, Option<envelope::sync::Error>)>,
-    pub envelopes_cache_patch: (Vec<EnvelopeSyncCacheHunk>, Option<envelope::sync::Error>),
+    pub emails_patch: Vec<(EmailSyncHunk, Option<email::sync::Error>)>,
+    pub emails_cache_patch: (Vec<EmailSyncCacheHunk>, Option<email::sync::Error>),
 }
 
 pub struct BackendSyncProgress<'a>(
@@ -236,7 +236,7 @@ impl<'a> BackendSyncBuilder<'a> {
         debug!("initializing folder and envelope cache");
         let conn = &mut self.account_config.sync_db_builder()?;
         FolderSyncCache::init(conn)?;
-        EnvelopeSyncCache::init(conn)?;
+        EmailSyncCache::init(conn)?;
 
         let local_builder = MaildirBackendBuilder::new(
             self.account_config.clone(),
@@ -289,7 +289,7 @@ impl<'a> BackendSyncBuilder<'a> {
                 folders.clone(),
             ));
 
-        let envelope_sync_patch_manager = EnvelopeSyncPatchManager::new(
+        let envelope_sync_patch_manager = EmailSyncPatchManager::new(
             &self.account_config,
             &local_builder,
             &self.remote_builder,
@@ -347,8 +347,8 @@ impl<'a> BackendSyncBuilder<'a> {
             folders,
             folders_patch: folder_sync_report.patch,
             folders_cache_patch: folder_sync_report.cache_patch,
-            envelopes_patch: envelope_sync_report.patch,
-            envelopes_cache_patch: envelope_sync_report.cache_patch,
+            emails_patch: envelope_sync_report.patch,
+            emails_cache_patch: envelope_sync_report.cache_patch,
         };
         debug!("{sync_report:#?}");
 

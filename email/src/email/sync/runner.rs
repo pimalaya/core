@@ -7,17 +7,17 @@ use crate::{
 
 use super::*;
 
-pub struct EnvelopeSyncRunner<'a> {
+pub struct EmailSyncRunner<'a> {
     pub id: usize,
     pub local_builder: &'a MaildirBackendBuilder,
     pub remote_builder: &'a BackendBuilder,
     pub on_progress: &'a BackendSyncProgress<'a>,
-    pub patch: &'a Mutex<Vec<Vec<EnvelopeSyncHunk>>>,
+    pub patch: &'a Mutex<Vec<Vec<EmailSyncHunk>>>,
 }
 
-impl EnvelopeSyncRunner<'_> {
-    pub fn run(&self) -> Result<EnvelopeSyncReport> {
-        let mut report = EnvelopeSyncReport::default();
+impl EmailSyncRunner<'_> {
+    pub fn run(&self) -> Result<EmailSyncReport> {
+        let mut report = EmailSyncReport::default();
         let mut local = self.local_builder.build()?;
         let mut remote = self.remote_builder.build()?;
 
@@ -29,33 +29,33 @@ impl EnvelopeSyncRunner<'_> {
                     for hunk in hunks {
                         trace!("sync runner {} processing envelope hunk: {hunk:?}", self.id);
 
-                        let mut process_hunk = |hunk: &EnvelopeSyncHunk| {
+                        let mut process_hunk = |hunk: &EmailSyncHunk| {
                             Ok(match hunk {
-                                EnvelopeSyncHunk::GetThenCache(
+                                EmailSyncHunk::GetThenCache(
                                     folder,
                                     internal_id,
                                     Destination::Local,
                                 ) => {
                                     let envelope = local.get_envelope(&folder, &internal_id)?;
-                                    vec![EnvelopeSyncCacheHunk::Insert(
+                                    vec![EmailSyncCacheHunk::Insert(
                                         folder.clone(),
                                         envelope.clone(),
                                         Destination::Local,
                                     )]
                                 }
-                                EnvelopeSyncHunk::GetThenCache(
+                                EmailSyncHunk::GetThenCache(
                                     folder,
                                     internal_id,
                                     Destination::Remote,
                                 ) => {
                                     let envelope = remote.get_envelope(&folder, &internal_id)?;
-                                    vec![EnvelopeSyncCacheHunk::Insert(
+                                    vec![EmailSyncCacheHunk::Insert(
                                         folder.clone(),
                                         envelope.clone(),
                                         Destination::Remote,
                                     )]
                                 }
-                                EnvelopeSyncHunk::CopyThenCache(
+                                EmailSyncHunk::CopyThenCache(
                                     folder,
                                     envelope,
                                     source,
@@ -67,7 +67,7 @@ impl EnvelopeSyncRunner<'_> {
                                     let emails = match source {
                                         Destination::Local => {
                                             if *refresh_source_cache {
-                                                cache_hunks.push(EnvelopeSyncCacheHunk::Insert(
+                                                cache_hunks.push(EmailSyncCacheHunk::Insert(
                                                     folder.clone(),
                                                     envelope.clone(),
                                                     Destination::Local,
@@ -77,7 +77,7 @@ impl EnvelopeSyncRunner<'_> {
                                         }
                                         Destination::Remote => {
                                             if *refresh_source_cache {
-                                                cache_hunks.push(EnvelopeSyncCacheHunk::Insert(
+                                                cache_hunks.push(EmailSyncCacheHunk::Insert(
                                                     folder.clone(),
                                                     envelope.clone(),
                                                     Destination::Remote,
@@ -101,7 +101,7 @@ impl EnvelopeSyncRunner<'_> {
                                             )?;
                                             let envelope =
                                                 local.get_envelope(&folder, &internal_id)?;
-                                            cache_hunks.push(EnvelopeSyncCacheHunk::Insert(
+                                            cache_hunks.push(EmailSyncCacheHunk::Insert(
                                                 folder.clone(),
                                                 envelope.clone(),
                                                 Destination::Local,
@@ -115,7 +115,7 @@ impl EnvelopeSyncRunner<'_> {
                                             )?;
                                             let envelope =
                                                 remote.get_envelope(&folder, &internal_id)?;
-                                            cache_hunks.push(EnvelopeSyncCacheHunk::Insert(
+                                            cache_hunks.push(EmailSyncCacheHunk::Insert(
                                                 folder.clone(),
                                                 envelope.clone(),
                                                 Destination::Remote,
@@ -124,63 +124,51 @@ impl EnvelopeSyncRunner<'_> {
                                     };
                                     cache_hunks
                                 }
-                                EnvelopeSyncHunk::Uncache(
-                                    folder,
-                                    internal_id,
-                                    Destination::Local,
-                                ) => {
-                                    vec![EnvelopeSyncCacheHunk::Delete(
+                                EmailSyncHunk::Uncache(folder, internal_id, Destination::Local) => {
+                                    vec![EmailSyncCacheHunk::Delete(
                                         folder.clone(),
                                         internal_id.clone(),
                                         Destination::Local,
                                     )]
                                 }
-                                EnvelopeSyncHunk::Delete(
-                                    folder,
-                                    internal_id,
-                                    Destination::Local,
-                                ) => {
+                                EmailSyncHunk::Delete(folder, internal_id, Destination::Local) => {
                                     local.mark_emails_as_deleted(&folder, vec![&internal_id])?;
                                     vec![]
                                 }
-                                EnvelopeSyncHunk::Uncache(
+                                EmailSyncHunk::Uncache(
                                     folder,
                                     internal_id,
                                     Destination::Remote,
                                 ) => {
-                                    vec![EnvelopeSyncCacheHunk::Delete(
+                                    vec![EmailSyncCacheHunk::Delete(
                                         folder.clone(),
                                         internal_id.clone(),
                                         Destination::Remote,
                                     )]
                                 }
-                                EnvelopeSyncHunk::Delete(
-                                    folder,
-                                    internal_id,
-                                    Destination::Remote,
-                                ) => {
+                                EmailSyncHunk::Delete(folder, internal_id, Destination::Remote) => {
                                     remote.mark_emails_as_deleted(&folder, vec![&internal_id])?;
                                     vec![]
                                 }
-                                EnvelopeSyncHunk::UpdateCachedFlags(
+                                EmailSyncHunk::UpdateCachedFlags(
                                     folder,
                                     envelope,
                                     Destination::Local,
                                 ) => {
                                     vec![
-                                        EnvelopeSyncCacheHunk::Delete(
+                                        EmailSyncCacheHunk::Delete(
                                             folder.clone(),
                                             envelope.id.clone(),
                                             Destination::Local,
                                         ),
-                                        EnvelopeSyncCacheHunk::Insert(
+                                        EmailSyncCacheHunk::Insert(
                                             folder.clone(),
                                             envelope.clone(),
                                             Destination::Local,
                                         ),
                                     ]
                                 }
-                                EnvelopeSyncHunk::UpdateFlags(
+                                EmailSyncHunk::UpdateFlags(
                                     folder,
                                     envelope,
                                     Destination::Local,
@@ -192,25 +180,25 @@ impl EnvelopeSyncRunner<'_> {
                                     )?;
                                     vec![]
                                 }
-                                EnvelopeSyncHunk::UpdateCachedFlags(
+                                EmailSyncHunk::UpdateCachedFlags(
                                     folder,
                                     envelope,
                                     Destination::Remote,
                                 ) => {
                                     vec![
-                                        EnvelopeSyncCacheHunk::Delete(
+                                        EmailSyncCacheHunk::Delete(
                                             folder.clone(),
                                             envelope.id.clone(),
                                             Destination::Remote,
                                         ),
-                                        EnvelopeSyncCacheHunk::Insert(
+                                        EmailSyncCacheHunk::Insert(
                                             folder.clone(),
                                             envelope.clone(),
                                             Destination::Remote,
                                         ),
                                     ]
                                 }
-                                EnvelopeSyncHunk::UpdateFlags(
+                                EmailSyncHunk::UpdateFlags(
                                     folder,
                                     envelope,
                                     Destination::Remote,
