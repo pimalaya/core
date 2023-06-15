@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2023-06-15
+
+### Changed
+
+- Added space between list of addresses (after the comma).
+
 ## [0.2.1] - 2023-06-10
 
 ### Fixed

@@ -30,7 +30,7 @@ fn display_addr(addr: &Addr) -> String {
 fn display_addrs(addrs: &[Addr]) -> String {
     addrs.iter().fold(String::new(), |mut addrs, addr| {
         if !addrs.is_empty() {
-            addrs.push(',');
+            addrs.push_str(", ");
         }
         addrs.push_str(&display_addr(addr));
         addrs
@@ -141,7 +141,7 @@ mod tests {
 
         assert_eq!(
             super::display_addrs(&addrs),
-            "unknown,test@localhost,Test <test@localhost>"
+            "unknown, test@localhost, Test <test@localhost>"
         );
     }
 
@@ -177,7 +177,7 @@ mod tests {
 
         assert_eq!(
             super::display_group(&group),
-            "Test:unknown,test@localhost,Test <test@localhost>;"
+            "Test:unknown, test@localhost, Test <test@localhost>;"
         );
     }
 
@@ -208,7 +208,7 @@ mod tests {
 
         assert_eq!(
             super::display_groups(&groups),
-            "Test:unknown; Test:test@localhost,Test <test@localhost>;"
+            "Test:unknown; Test:test@localhost, Test <test@localhost>;"
         );
     }
 
