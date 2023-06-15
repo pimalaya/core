@@ -1,12 +1,14 @@
 use mail_parser::{Addr, ContentType, Group, HeaderValue};
 use std::borrow::Cow;
 
-pub(crate) fn display_value(val: &HeaderValue) -> String {
+pub(crate) fn display_value(key: &str, val: &HeaderValue) -> String {
     match val {
         HeaderValue::Address(addr) => display_addr(addr),
         HeaderValue::AddressList(addrs) => display_addrs(addrs),
         HeaderValue::Group(group) => display_group(group),
         HeaderValue::GroupList(groups) => display_groups(groups),
+        HeaderValue::Text(id) if key == "Message-ID" => format!("<{id}>"),
+        HeaderValue::Text(id) if key == "In-Reply-To" => format!("<{id}>"),
         HeaderValue::Text(text) => text.to_string(),
         HeaderValue::TextList(texts) => display_texts(texts),
         HeaderValue::DateTime(datetime) => datetime.to_rfc822(),

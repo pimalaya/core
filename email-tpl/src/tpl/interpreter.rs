@@ -180,14 +180,14 @@ impl Interpreter {
         match self.show_headers {
             ShowHeadersStrategy::All => msg.headers().iter().for_each(|header| {
                 let key = header.name.as_str();
-                let val = header::display_value(&header.value);
+                let val = header::display_value(key, &header.value);
                 tpl.push_str(&format!("{key}: {val}\n"));
             }),
             ShowHeadersStrategy::Only(keys) => keys
                 .iter()
                 .filter_map(|key| msg.header(key).map(|val| (key, val)))
                 .for_each(|(key, val)| {
-                    let val = header::display_value(val);
+                    let val = header::display_value(key, val);
                     tpl.push_str(&format!("{key}: {val}\n"));
                 }),
         };
@@ -231,6 +231,7 @@ mod tests {
     fn msg() -> MessageBuilder<'static> {
         MessageBuilder::new()
             .message_id("id@localhost")
+            .in_reply_to("reply-id@localhost")
             .date(0 as u64)
             .from("from@localhost")
             .to("to@localhost")
@@ -246,7 +247,8 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "Message-ID: id@localhost",
+            "Message-ID: <id@localhost>",
+            "In-Reply-To: <reply-id@localhost>",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000",
             "From: from@localhost",
             "To: to@localhost",

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2023-06-15
+
+### Fixed
+
+- Fixed missing `<` and `>` when displaying `Message-ID` and `In-Reply-To` headers.
+
 ## [0.2.2] - 2023-06-15
 
 ### Changed
