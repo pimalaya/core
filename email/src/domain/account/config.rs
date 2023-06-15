@@ -115,6 +115,12 @@ pub struct AccountConfig {
 
     /// Represents the page size when listing emails.
     pub email_listing_page_size: Option<usize>,
+    /// Custom format for displaying envelopes date. See [`chrono::format::strftime`] for supported formats.
+    pub email_listing_datetime_fmt: Option<String>,
+    /// If `true`, transform envelopes date timezone to the user's local one.
+    /// For example, if the user's local timezone is UTC, the envelope date `2023-06-15T09:00:00+02:00` becomes `2023-06-15T07:00:00-00:00`.
+    pub email_listing_datetime_local_tz: Option<bool>,
+
     /// Represents headers visible at the top of emails when reading
     /// them.
     pub email_reading_headers: Option<Vec<String>>,
@@ -176,6 +182,8 @@ impl Default for AccountConfig {
             folder_listing_page_size: Default::default(),
             folder_aliases: Default::default(),
             email_listing_page_size: Default::default(),
+            email_listing_datetime_fmt: Default::default(),
+            email_listing_datetime_local_tz: Default::default(),
             email_reading_headers: Default::default(),
             email_reading_format: Default::default(),
             email_reading_verify_cmd: Default::default(),
@@ -375,6 +383,16 @@ impl AccountConfig {
             .some_pgp_decrypt_cmd(self.email_reading_decrypt_cmd.clone())
             .some_pgp_verify_cmd(self.email_reading_verify_cmd.clone())
             .save_attachments_dir(self.downloads_dir())
+    }
+
+    pub fn email_listing_datetime_fmt(&self) -> String {
+        self.email_listing_datetime_fmt
+            .clone()
+            .unwrap_or(String::from("%F %R%:z"))
+    }
+
+    pub fn email_listing_datetime_local_tz(&self) -> bool {
+        self.email_listing_datetime_local_tz.unwrap_or_default()
     }
 }
 

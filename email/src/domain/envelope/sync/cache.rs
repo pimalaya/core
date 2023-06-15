@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local};
+use chrono::DateTime;
 use log::{error, warn};
 use rusqlite::{types::Value, Connection, Transaction};
 
@@ -73,7 +73,7 @@ impl EnvelopeSyncCache {
                     date: {
                         let date: String = row.get(8)?;
                         match DateTime::parse_from_rfc3339(&date) {
-                            Ok(date) => date.with_timezone(&Local),
+                            Ok(date) => date,
                             Err(err) => {
                                 warn!("invalid date {date}, skipping it");
                                 error!("invalid date {date}: {err:?}");

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `AccountConfig::email_listing_datetime_fmt` to customize envelopes datetime format. See format spec at <https://docs.rs/chrono/latest/chrono/format/strftime/index.html>.
+- Added `AccountConfig::email_listing_local_datetime` to transform envelopes datetime's timezone to the user's local one. For example, if the user's local is set to `UTC`, the envelope date `2023-06-15T09:00:00+02:00` becomes `2023-06-15T07:00:00-00:00`.
+
+### Changed
+
+- Changed `Envelope::date` from `DateTime<Local>` to `DateTime<FixedOffset>` in order to keep the original timezone. Timezone can be adjusted with the new option `AccountConfig::email_listing_local_datetime`.
+
+### Fixed
+
+- Fixed missing `<` and `>` around `Message-ID` and `In-Reply-To` headers.
+
 ## [0.10.0] - 2023-06-13
 
 ### Added

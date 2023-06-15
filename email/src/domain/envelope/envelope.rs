@@ -2,7 +2,7 @@ use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::{trace, warn};
 use mail_parser::Message;
 
-use crate::Flags;
+use crate::{AccountConfig, Flags};
 
 // fn date<S: Serializer>(date: &DateTime<Local>, s: S) -> Result<S::Ok, S::Error> {
 //     s.serialize_str(&date.to_rfc3339())
@@ -96,7 +96,7 @@ pub struct Envelope {
     /// Represents the Subject header.
     pub subject: String,
     /// Represents the Date header.
-    pub date: DateTime<Local>,
+    pub date: DateTime<FixedOffset>,
 }
 
 impl PartialEq for Envelope {
@@ -202,7 +202,6 @@ impl Envelope {
                 date.minute as u32,
                 date.second as u32,
             )
-            .map(|date| date.with_timezone(&Local))
             .earliest()
             .unwrap_or_else(|| {
                 warn!("cannot parse date {}, skipping it", date);
@@ -224,5 +223,17 @@ impl Envelope {
                 self.date = DateTime::default();
             }
         };
+    }
+
+    pub fn format_date(&self, config: &AccountConfig) -> String {
+        let fmt = config.email_listing_datetime_fmt();
+
+        let date = if config.email_listing_datetime_local_tz() {
+            self.date.with_timezone(&Local).format(&fmt)
+        } else {
+            self.date.format(&fmt)
+        };
+
+        date.to_string()
     }
 }

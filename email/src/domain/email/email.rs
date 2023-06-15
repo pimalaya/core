@@ -1092,7 +1092,7 @@ mod tests {
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
-            "To: from@localhost,from2@localhost",
+            "To: from@localhost, from2@localhost",
             "Subject: Re: subject",
             "",
             "",
@@ -1105,6 +1105,7 @@ mod tests {
     }
 
     #[test]
+    // TODO: In-Reply-To not valid, waiting for https://github.com/stalwartlabs/mail-parser/issues/53.
     fn to_reply_tpl_builder_with_reply_to() {
         let config = AccountConfig {
             email: "to@localhost".into(),
@@ -1132,7 +1133,7 @@ mod tests {
         let expected_tpl = concat_line!(
             "From: to@localhost",
             "To: from2@localhost",
-            "In-Reply-To: id@localhost",
+            "In-Reply-To: <id@localhost>",
             "Subject: RE:subject",
             "",
             "",
@@ -1213,7 +1214,7 @@ mod tests {
         let expected_tpl = concat_line!(
             "From: to@localhost",
             "To: from@localhost",
-            "Cc: to2@localhost,cc@localhost,cc2@localhost",
+            "Cc: to2@localhost, cc@localhost, cc2@localhost",
             "Subject: Re: subject",
             "",
             "",
@@ -1257,8 +1258,8 @@ mod tests {
         let expected_tpl = concat_line!(
             "From: to@localhost",
             "To: from2@localhost",
-            "In-Reply-To: id@localhost",
-            "Cc: to2@localhost,cc@localhost,cc2@localhost",
+            "In-Reply-To: <id@localhost>",
+            "Cc: to2@localhost, cc@localhost, cc2@localhost",
             "Subject: Re: subject",
             "",
             "",
@@ -1280,8 +1281,8 @@ mod tests {
         let email = Email::from(concat_line!(
             "Content-Type: text/plain",
             "From: from@localhost",
-            "To: to@localhost,to2@localhost",
-            "Cc: cc@localhost,cc2@localhost",
+            "To: to@localhost, to2@localhost",
+            "Cc: cc@localhost, cc2@localhost",
             "Bcc: bcc@localhost",
             "Subject: subject",
             "",
@@ -1302,8 +1303,8 @@ mod tests {
             "",
             "-------- Forwarded Message --------",
             "From: from@localhost",
-            "To: to@localhost,to2@localhost",
-            "Cc: cc@localhost,cc2@localhost",
+            "To: to@localhost, to2@localhost",
+            "Cc: cc@localhost, cc2@localhost",
             "Subject: subject",
             "",
             "Hello!",
@@ -1354,8 +1355,8 @@ mod tests {
             "-------- Forwarded Message --------",
             "Date: Thu, 10 Nov 2022 14:26:33 +0000",
             "From: from@localhost",
-            "To: to@localhost,to2@localhost",
-            "Cc: cc@localhost,cc2@localhost",
+            "To: to@localhost, to2@localhost",
+            "Cc: cc@localhost, cc2@localhost",
             "Subject: subject",
             "",
             "Hello!",
