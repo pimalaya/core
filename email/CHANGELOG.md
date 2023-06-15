@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2023-06-15
+
 ### Added
 
 - Added `AccountConfig::email_listing_datetime_fmt` to customize envelopes datetime format. See format spec at <https://docs.rs/chrono/latest/chrono/format/strftime/index.html>.
