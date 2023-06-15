@@ -1,15 +1,19 @@
-//! Notmuch folder module.
-//!
-//! This module provides Notmuch types and conversion utilities
-//! related to the envelope
-
 use log::{debug, trace};
-use notmuch;
 
 use crate::{
     backend::notmuch::{Error, Result},
-    Envelope, Flag,
+    Envelope, Envelopes, Flag,
 };
+
+impl TryFrom<notmuch::Messages> for Envelopes {
+    type Error = Error;
+
+    fn try_from(fetches: notmuch::Messages) -> Result<Self> {
+        fetches
+            .map(Envelope::try_from)
+            .collect::<Result<Envelopes>>()
+    }
+}
 
 impl TryFrom<notmuch::Message> for Envelope {
     type Error = Error;

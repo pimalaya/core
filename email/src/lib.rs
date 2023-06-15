@@ -1,7 +1,6 @@
 pub mod account;
 pub mod backend;
 pub mod email;
-pub mod envelope;
 pub mod flag;
 pub mod folder;
 pub mod sender;
@@ -24,13 +23,9 @@ pub use backend::{ImapAuthConfig, ImapBackend, ImapConfig};
 pub use backend::{NotmuchBackend, NotmuchBackendBuilder, NotmuchConfig};
 #[doc(inline)]
 pub use email::{
+    envelope::{self, *},
     Attachment, Email, EmailHooks, EmailTextPlainFormat, Emails, ForwardTplBuilder, NewTplBuilder,
     ReplyTplBuilder,
-};
-#[doc(inline)]
-pub use envelope::{
-    Envelope, EnvelopeSyncCache, EnvelopeSyncCacheHunk, EnvelopeSyncCachePatch, EnvelopeSyncHunk,
-    EnvelopeSyncPatch, EnvelopeSyncPatchManager, Envelopes,
 };
 #[doc(inline)]
 pub use flag::{Flag, Flags};

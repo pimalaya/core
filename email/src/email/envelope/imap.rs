@@ -1,12 +1,48 @@
-//! Message sort criteria module.
-//!
-//! This module regroups everything related to deserialization of
-//! message sort criteria.
-use imap;
-
+use imap::types::{Fetch, Fetches};
+use log::{debug, trace};
 use std::{convert::TryFrom, ops::Deref};
 
-use crate::backend::imap::Error;
+use crate::{
+    backend::imap::{Error, Result},
+    Envelope, Envelopes, Flags,
+};
+
+impl TryFrom<Fetches> for Envelopes {
+    type Error = Error;
+
+    fn try_from(fetches: Fetches) -> Result<Self> {
+        fetches
+            .iter()
+            .rev()
+            .map(Envelope::try_from)
+            .collect::<Result<Envelopes>>()
+    }
+}
+
+impl TryFrom<&Fetch<'_>> for Envelope {
+    type Error = Error;
+
+    fn try_from(fetch: &Fetch) -> Result<Self> {
+        debug!("trying to parse envelope from imap fetch");
+
+        let id = fetch
+            .uid
+            .ok_or_else(|| Error::GetUidError(fetch.message))?
+            .to_string();
+
+        let mut envelope: Envelope = fetch
+            .header()
+            .ok_or(Error::GetHeadersFromFetchError(id.clone()))?
+            .into();
+
+        envelope.id = id;
+
+        envelope.flags = Flags::from(fetch.flags());
+
+        trace!("imap envelope: {envelope:#?}");
+        Ok(envelope)
+    }
+}
 
 pub type ImapSortCriterion<'a> = imap::extensions::sort::SortCriterion<'a>;
 
@@ -25,7 +61,7 @@ impl<'a> Deref for SortCriteria<'a> {
 impl<'a> TryFrom<&'a str> for SortCriteria<'a> {
     type Error = Error;
 
-    fn try_from(criteria_str: &'a str) -> Result<Self, Self::Error> {
+    fn try_from(criteria_str: &'a str) -> Result<Self> {
         let mut criteria = vec![];
         for criterion_str in criteria_str.split(" ") {
             criteria.push(match criterion_str.trim() {

@@ -1,8 +1,47 @@
+#[cfg(feature = "imap-backend")]
+pub mod imap;
+pub mod maildir;
+#[cfg(feature = "notmuch-backend")]
+pub mod notmuch;
+pub mod sync;
+
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::{trace, warn};
 use mail_parser::Message;
+use std::ops;
 
 use crate::{AccountConfig, Flags};
+
+pub use self::sync::{
+    EnvelopeSyncCache, EnvelopeSyncCacheHunk, EnvelopeSyncCachePatch, EnvelopeSyncHunk,
+    EnvelopeSyncPatch, EnvelopeSyncPatchManager, EnvelopeSyncReport,
+};
+
+/// Represents the list of envelopes.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct Envelopes(Vec<Envelope>);
+
+impl ops::Deref for Envelopes {
+    type Target = Vec<Envelope>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl ops::DerefMut for Envelopes {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl FromIterator<Envelope> for Envelopes {
+    fn from_iter<T: IntoIterator<Item = Envelope>>(iter: T) -> Self {
+        let mut envelopes = Envelopes::default();
+        envelopes.extend(iter);
+        envelopes
+    }
+}
 
 // fn date<S: Serializer>(date: &DateTime<Local>, s: S) -> Result<S::Ok, S::Error> {
 //     s.serialize_str(&date.to_rfc3339())
