@@ -2,7 +2,7 @@ use chrono::DateTime;
 use log::{error, warn};
 use rusqlite::{types::Value, Connection, Transaction};
 
-use crate::{envelope::Mailbox, Envelope, Envelopes};
+use crate::{envelope::Address, Envelope, Envelopes};
 
 use super::Result;
 
@@ -68,7 +68,9 @@ impl EmailSyncCache {
                         .unwrap_or_default()
                         .as_str()
                         .into(),
-                    from: Mailbox::new_nameless(row.get::<usize, String>(6)?),
+                    from: Address::new_nameless(row.get::<usize, String>(6)?),
+                    // TODO: add recipient to the database schema
+                    to: Address::default(),
                     subject: row.get(7)?,
                     date: {
                         let date: String = row.get(8)?;

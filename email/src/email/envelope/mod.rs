@@ -1,3 +1,4 @@
+pub mod address;
 pub mod flag;
 #[cfg(feature = "imap-backend")]
 pub mod imap;
@@ -10,126 +11,34 @@ use log::warn;
 use mail_parser::HeaderValue;
 use std::ops::{Deref, DerefMut};
 
-use crate::{AccountConfig, Message};
+use crate::{AccountConfig, Flags, Message};
 
-pub use self::flag::{Flag, Flags};
+pub use self::address::Address;
 
-/// Wrapper around the list of envelopes.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Envelopes(Vec<Envelope>);
-
-impl Deref for Envelopes {
-    type Target = Vec<Envelope>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Envelopes {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl FromIterator<Envelope> for Envelopes {
-    fn from_iter<T: IntoIterator<Item = Envelope>>(iter: T) -> Self {
-        Envelopes(iter.into_iter().collect())
-    }
-}
-
-// fn date<S: Serializer>(date: &DateTime<Local>, s: S) -> Result<S::Ok, S::Error> {
-//     s.serialize_str(&date.to_rfc3339())
-// }
-
-// #[derive(Clone, Debug, Default, Eq, PartialEq)]
-// pub struct Mailboxes(Vec<Mailbox>);
-
-// impl ops::Deref for Mailboxes {
-//     type Target = Vec<Mailbox>;
-
-//     fn deref(&self) -> &Self::Target {
-//         &self.0
-//     }
-// }
-
-// impl ops::DerefMut for Mailboxes {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.0
-//     }
-// }
-
-// impl ToString for Mailboxes {
-//     fn to_string(&self) -> String {
-//         self.iter().fold(String::new(), |mut mboxes, mbox| {
-//             if !mboxes.is_empty() {
-//                 mboxes.push_str(", ")
-//             }
-//             mboxes.push_str(&mbox.to_string());
-//             mboxes
-//         })
-//     }
-// }
-
-#[derive(Clone, Debug, Default, Eq, Hash)]
-pub struct Mailbox {
-    pub name: Option<String>,
-    pub addr: String,
-}
-
-impl PartialEq for Mailbox {
-    fn eq(&self, other: &Self) -> bool {
-        self.addr == other.addr
-    }
-}
-
-impl ToString for Mailbox {
-    fn to_string(&self) -> String {
-        match &self.name {
-            Some(name) => format!("{name} <{}>", self.addr),
-            None => self.addr.clone(),
-        }
-    }
-}
-
-impl Mailbox {
-    pub fn new(name: Option<impl ToString>, address: impl ToString) -> Self {
-        Self {
-            name: name.map(|name| name.to_string()),
-            addr: address.to_string(),
-        }
-    }
-
-    pub fn new_nameless(address: impl ToString) -> Self {
-        Self {
-            name: None,
-            addr: address.to_string(),
-        }
-    }
-}
-
-/// The email's envelope is composed of an identifier, some flags, and
-/// few headers taken from the email's content (message).
+/// The email envelope is composed of an identifier, some flags, and
+/// few headers taken from the email content (message).
 #[derive(Clone, Debug, Default, Eq, Hash)]
 pub struct Envelope {
-    /// The shape of the envelope identifier may differ depending on the backend.
+    /// The shape of the envelope identifier may vary depending on the backend.
     /// For IMAP backend, it is an stringified auto-incremented integer.
-    /// For Notmuch backend it is a stringified hash.
+    /// For Notmuch backend it is a Git-like hash.
     pub id: String,
-    /// The Message-ID header from the email's content (message).
+    /// The Message-ID header from the email message.
     pub message_id: String,
     /// The envelope flags.
     pub flags: Flags,
-    /// The From header from the email's content (message).
-    pub from: Mailbox,
-    /// The Subject header from the email's content (message).
+    /// The first address from the email message header From.
+    pub from: Address,
+    /// The first address from the email message header To.
+    pub to: Address,
+    /// The Subject header from the email message.
     pub subject: String,
-    /// The Date header from the email's content (message).
+    /// The Date header from the email message.
     pub date: DateTime<FixedOffset>,
 }
 
 impl Envelope {
-    /// Parse an envelope from an identifier, some flags and a message.
+    /// Build an envelope from an identifier, some [`crate::Flags`] and a [`crate::Message`].
     pub fn from_msg(id: impl ToString, flags: Flags, msg: Message) -> Envelope {
         let mut envelope = Envelope {
             id: id.to_string(),
@@ -142,7 +51,7 @@ impl Envelope {
                 HeaderValue::Address(addr) if addr.address.is_some() => {
                     let name = addr.name.as_ref().map(|name| name.to_string());
                     let email = addr.address.as_ref().map(|name| name.to_string()).unwrap();
-                    envelope.from = Mailbox::new(name, email);
+                    envelope.from = Address::new(name, email);
                 }
                 HeaderValue::AddressList(addrs)
                     if !addrs.is_empty() && addrs[0].address.is_some() =>
@@ -153,7 +62,7 @@ impl Envelope {
                         .as_ref()
                         .map(|name| name.to_string())
                         .unwrap();
-                    envelope.from = Mailbox::new(name, email);
+                    envelope.from = Address::new(name, email);
                 }
                 HeaderValue::Group(group)
                     if !group.addresses.is_empty() && group.addresses[0].address.is_some() =>
@@ -164,7 +73,7 @@ impl Envelope {
                         .as_ref()
                         .map(|name| name.to_string())
                         .unwrap();
-                    envelope.from = Mailbox::new(name, email)
+                    envelope.from = Address::new(name, email)
                 }
                 HeaderValue::GroupList(groups)
                     if !groups.is_empty()
@@ -177,7 +86,7 @@ impl Envelope {
                         .as_ref()
                         .map(|name| name.to_string())
                         .unwrap();
-                    envelope.from = Mailbox::new(name, email)
+                    envelope.from = Address::new(name, email)
                 }
                 _ => {
                     warn!("cannot extract envelope sender from message header, skipping it");
@@ -198,6 +107,8 @@ impl Envelope {
                 // messages without Message-ID to still being
                 // synchronized.
                 .unwrap_or_else(|| envelope.date.to_rfc3339());
+        } else {
+            warn!("cannot parse message header, skipping it");
         };
 
         envelope
@@ -254,5 +165,29 @@ impl Envelope {
 impl PartialEq for Envelope {
     fn eq(&self, other: &Self) -> bool {
         self.message_id == other.message_id
+    }
+}
+
+/// Wrapper around a list of email envelopes.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct Envelopes(Vec<Envelope>);
+
+impl Deref for Envelopes {
+    type Target = Vec<Envelope>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Envelopes {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl FromIterator<Envelope> for Envelopes {
+    fn from_iter<T: IntoIterator<Item = Envelope>>(iter: T) -> Self {
+        Envelopes(iter.into_iter().collect())
     }
 }

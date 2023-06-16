@@ -14,7 +14,7 @@ pub use self::{
     config::{EmailHooks, EmailTextPlainFormat},
     envelope::{
         flag::{self, Flag, Flags},
-        Envelope, Envelopes,
+        Address, Envelope, Envelopes,
     },
     message::*,
     sync::{
