@@ -1,7 +1,7 @@
 //! Module dedicated to email messages.
 
 pub mod attachment;
-pub mod tpl;
+pub mod template;
 
 #[cfg(feature = "imap-backend")]
 use imap::types::{Fetch, Fetches};
@@ -15,7 +15,7 @@ use tree_magic;
 use crate::{account, AccountConfig};
 
 pub use self::attachment::Attachment;
-pub use self::tpl::*;
+pub use self::template::*;
 
 #[derive(Debug, Error)]
 pub enum Error {

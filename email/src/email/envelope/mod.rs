@@ -1,4 +1,8 @@
 //! Module dedicated to email envelopes.
+//!
+//! The email envelope is composed of an identifier, some
+//! [flags](self::Flags), and few headers taken from the email
+//! [message](crate::Message).
 
 pub mod address;
 pub mod flag;
@@ -19,8 +23,9 @@ pub use self::address::Address;
 
 /// The email envelope.
 ///
-/// The email envelope is composed of an identifier, some flags, and
-/// few headers taken from the email content (message).
+/// The email envelope is composed of an identifier, some
+/// [flags](self::Flags), and few headers taken from the email
+/// [message](crate::Message).
 #[derive(Clone, Debug, Default, Eq, Hash)]
 pub struct Envelope {
     /// The shape of the envelope identifier may vary depending on the backend.
@@ -42,7 +47,8 @@ pub struct Envelope {
 }
 
 impl Envelope {
-    /// Build an envelope from an identifier, some [`crate::Flags`] and a [`crate::Message`].
+    /// Build an envelope from an identifier, some
+    /// [flags](self::Flags) and a [message](super::Message).
     pub fn from_msg(id: impl ToString, flags: Flags, msg: Message) -> Envelope {
         let mut envelope = Envelope {
             id: id.to_string(),
@@ -149,8 +155,8 @@ impl Envelope {
         }
     }
 
-    /// Format the envelope date according to the [`crate::AccountConfig`]
-    /// datetime format and timezone.
+    /// Format the envelope date according to the datetime format and
+    /// timezone from the [account configuration](crate::AccountConfig).
     pub fn format_date(&self, config: &AccountConfig) -> String {
         let fmt = config.email_listing_datetime_fmt();
 

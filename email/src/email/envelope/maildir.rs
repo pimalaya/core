@@ -1,3 +1,5 @@
+//! Module dedicated to Maildir email envelopes.
+
 use log::{debug, warn};
 use maildirpp::{MailEntries, MailEntry};
 use rayon::prelude::*;

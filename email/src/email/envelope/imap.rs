@@ -1,3 +1,5 @@
+//! Module dedicated to IMAP email envelopes.
+
 use imap::{
     extensions::sort::SortCriterion,
     types::{Fetch, Fetches},

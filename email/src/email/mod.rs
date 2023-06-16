@@ -1,4 +1,15 @@
 //! Module dedicated to emails.
+//!
+//! An email is composed of two things:
+//!
+//! - The [envelope], which contains an identifier, some
+//!   [flags](envelope::flag::Flags) and few headers.
+//!
+//! - The [message], which is the raw content of the
+//!   email (header + body).
+//!
+//! This module also contains stuff related to email
+//! [configuration](config) and [synchronization](sync).
 
 pub mod config;
 pub mod envelope;

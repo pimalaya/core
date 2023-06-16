@@ -1,3 +1,5 @@
+//! Module dedicated to Notmuch email envelopes.
+
 use log::{debug, warn};
 
 use crate::{Envelope, Envelopes, Flags, Message};
