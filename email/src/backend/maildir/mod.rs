@@ -1,6 +1,6 @@
 pub mod config;
 
-use log::{info, trace, warn};
+use log::{debug, info, trace, warn};
 use maildirpp::Maildir;
 use std::{
     any::Any,
@@ -314,15 +314,16 @@ impl Backend for MaildirBackend {
         page_size: usize,
         page: usize,
     ) -> backend::Result<Envelopes> {
-        info!("listing maildir envelopes of folder {}", folder);
-        trace!("page size: {}", page_size);
-        trace!("page: {}", page);
+        info!("listing maildir envelopes of folder {folder}");
+        debug!("page size: {page_size}");
+        debug!("page: {page}");
 
         let mdir = self.get_mdir_from_dir(folder)?;
-        let mut envelopes = Envelopes::try_from(mdir.list_cur())?;
+        let mut envelopes = Envelopes::from(mdir.list_cur());
+        debug!("maildir envelopes: {envelopes:#?}");
 
         let page_begin = page * page_size;
-        trace!("page begin: {}", page_begin);
+        debug!("page begin: {}", page_begin);
         if page_begin > envelopes.len() {
             return Err(Error::GetEnvelopesOutOfBoundsError(page_begin + 1))?;
         }
@@ -332,7 +333,7 @@ impl Backend for MaildirBackend {
         } else {
             page_begin + page_size
         });
-        trace!("page end: {}", page_end);
+        debug!("page end: {}", page_end);
 
         envelopes.sort_by(|a, b| b.date.partial_cmp(&a.date).unwrap());
         *envelopes = envelopes[page_begin..page_end].into();

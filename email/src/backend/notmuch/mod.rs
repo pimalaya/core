@@ -6,11 +6,12 @@ use notmuch::{Database, DatabaseMode};
 use std::{any::Any, fs, io, path::PathBuf, result};
 use thiserror::Error;
 
-pub use self::config::NotmuchConfig;
 use crate::{
-    account, backend, email, AccountConfig, Backend, Emails, Envelope, Envelopes, Flag, Flags,
-    Folder, Folders,
+    account, backend, email, AccountConfig, Backend, Envelope, Envelopes, Flag, Flags, Folder,
+    Folders, Messages,
 };
+
+pub use self::config::NotmuchConfig;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -147,12 +148,12 @@ impl NotmuchBackend {
             .create_query(query)
             .map_err(Error::BuildQueryError)?;
 
-        let mut envelopes = Envelopes::try_from(
+        let mut envelopes = Envelopes::from(
             query_builder
                 .search_messages()
                 .map_err(Error::SearchEnvelopesError)?,
-        )?;
-        trace!("envelopes: {envelopes:#?}");
+        );
+        trace!("notmuch envelopes: {envelopes:#?}");
 
         let page_begin = page * page_size;
         trace!("page begin: {}", page_begin);
@@ -308,13 +309,13 @@ impl Backend for NotmuchBackend {
         &mut self,
         _folder: &str,
         internal_ids: Vec<&str>,
-    ) -> backend::Result<Emails> {
+    ) -> backend::Result<Messages> {
         info!(
             "previewing notmuch emails by internal ids {ids}",
             ids = internal_ids.join(", ")
         );
 
-        let emails: Emails = internal_ids
+        let msgs: Messages = internal_ids
             .iter()
             .map(|internal_id| {
                 let email_filepath = self
@@ -329,10 +330,10 @@ impl Backend for NotmuchBackend {
             .collect::<Result<Vec<_>>>()?
             .into();
 
-        Ok(emails)
+        Ok(msgs)
     }
 
-    fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<Emails> {
+    fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<Messages> {
         info!(
             "getting notmuch emails by internal ids {ids}",
             ids = internal_ids.join(", ")

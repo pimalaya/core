@@ -7,8 +7,8 @@ pub mod notmuch;
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::{trace, warn};
-use mail_parser::Message;
-use std::ops;
+use mail_parser::{HeaderValue, Message};
+use std::ops::{Deref, DerefMut};
 
 use crate::AccountConfig;
 
@@ -18,7 +18,7 @@ pub use self::flag::{Flag, Flags};
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Envelopes(Vec<Envelope>);
 
-impl ops::Deref for Envelopes {
+impl Deref for Envelopes {
     type Target = Vec<Envelope>;
 
     fn deref(&self) -> &Self::Target {
@@ -26,7 +26,7 @@ impl ops::Deref for Envelopes {
     }
 }
 
-impl ops::DerefMut for Envelopes {
+impl DerefMut for Envelopes {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -152,12 +152,12 @@ impl From<&[u8]> for Envelope {
             }
             Some(email) => {
                 match email.from() {
-                    mail_parser::HeaderValue::Address(addr) if addr.address.is_some() => {
+                    HeaderValue::Address(addr) if addr.address.is_some() => {
                         let name = addr.name.as_ref().map(|name| name.to_string());
                         let email = addr.address.as_ref().map(|name| name.to_string()).unwrap();
                         envelope.from = Mailbox::new(name, email);
                     }
-                    mail_parser::HeaderValue::AddressList(addrs)
+                    HeaderValue::AddressList(addrs)
                         if !addrs.is_empty() && addrs[0].address.is_some() =>
                     {
                         let name = addrs[0].name.as_ref().map(|name| name.to_string());
@@ -168,7 +168,7 @@ impl From<&[u8]> for Envelope {
                             .unwrap();
                         envelope.from = Mailbox::new(name, email);
                     }
-                    mail_parser::HeaderValue::Group(group)
+                    HeaderValue::Group(group)
                         if !group.addresses.is_empty() && group.addresses[0].address.is_some() =>
                     {
                         let name = group.name.as_ref().map(|name| name.to_string());
@@ -179,7 +179,7 @@ impl From<&[u8]> for Envelope {
                             .unwrap();
                         envelope.from = Mailbox::new(name, email)
                     }
-                    mail_parser::HeaderValue::GroupList(groups)
+                    HeaderValue::GroupList(groups)
                         if !groups.is_empty()
                             && !groups[0].addresses.is_empty()
                             && groups[0].addresses[0].address.is_some() =>

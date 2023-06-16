@@ -1,7 +1,10 @@
 pub mod config;
 
 use imap::{
-    extensions::idle::{stop_on_any, SetReadTimeout},
+    extensions::{
+        idle::{stop_on_any, SetReadTimeout},
+        sort::SortCharset,
+    },
     Authenticator, Client,
 };
 use imap_proto::{NameAttribute, UidSetMember};
@@ -15,7 +18,6 @@ use rustls::{
 use std::{
     any::Any,
     collections::HashSet,
-    convert::TryInto,
     io::{self, Read, Write},
     net::TcpStream,
     result, string,
@@ -711,7 +713,7 @@ impl Backend for ImapBackend {
         info!("listing imap envelopes from folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         let folder_size = self
             .with_session(
@@ -719,21 +721,22 @@ impl Backend for ImapBackend {
                 |err| Error::SelectFolderError(err, folder.to_owned()),
             )?
             .exists as usize;
-        trace!("folder size: {folder_size}");
+        debug!("folder size: {folder_size}");
 
         if folder_size == 0 {
             return Ok(Envelopes::default());
         }
 
         let range = build_page_range(page, page_size, folder_size)?;
+        debug!("page range: {range}");
 
         let fetches = self.with_session(
             |session| session.fetch(&range, ENVELOPE_QUERY),
             |err| Error::FetchEmailsByUidRangeError(err, range.clone()),
         )?;
 
-        let envelopes = Envelopes::try_from(fetches)?;
-        trace!("imap envelopes: {envelopes:#?}");
+        let envelopes = Envelopes::from(fetches);
+        debug!("imap envelopes: {envelopes:#?}");
 
         Ok(envelopes)
     }
@@ -772,9 +775,9 @@ impl Backend for ImapBackend {
             .map(ToString::to_string)
             .collect()
         } else {
-            let sort: envelope::imap::SortCriteria = sort.try_into()?;
+            let sort: envelope::imap::SortCriteria = sort.parse()?;
             self.with_session(
-                |session| session.uid_sort(&sort, imap::extensions::sort::SortCharset::Utf8, query),
+                |session| session.uid_sort(&sort, SortCharset::Utf8, query),
                 |err| Error::SortEnvelopesError(err, folder.to_owned(), query.to_owned()),
             )?
             .iter()
@@ -807,8 +810,8 @@ impl Backend for ImapBackend {
             |err| Error::FetchEmailsByUidRangeError(err, uid_range.clone()),
         )?;
 
-        let envelopes = Envelopes::try_from(fetches)?;
-        trace!("imap envelopes: {envelopes:#?}");
+        let envelopes = Envelopes::from(fetches);
+        debug!("imap envelopes: {envelopes:#?}");
 
         Ok(envelopes)
     }
