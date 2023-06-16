@@ -6,15 +6,15 @@ pub mod maildir;
 pub mod notmuch;
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
-use log::{trace, warn};
-use mail_parser::{HeaderValue, Message};
+use log::warn;
+use mail_parser::HeaderValue;
 use std::ops::{Deref, DerefMut};
 
-use crate::AccountConfig;
+use crate::{AccountConfig, Message};
 
 pub use self::flag::{Flag, Flags};
 
-/// Represents the list of envelopes.
+/// Wrapper around the list of envelopes.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Envelopes(Vec<Envelope>);
 
@@ -34,9 +34,7 @@ impl DerefMut for Envelopes {
 
 impl FromIterator<Envelope> for Envelopes {
     fn from_iter<T: IntoIterator<Item = Envelope>>(iter: T) -> Self {
-        let mut envelopes = Envelopes::default();
-        envelopes.extend(iter);
-        envelopes
+        Envelopes(iter.into_iter().collect())
     }
 }
 
@@ -95,21 +93,14 @@ impl ToString for Mailbox {
 }
 
 impl Mailbox {
-    pub fn new<N, A>(name: Option<N>, address: A) -> Self
-    where
-        N: ToString,
-        A: ToString,
-    {
+    pub fn new(name: Option<impl ToString>, address: impl ToString) -> Self {
         Self {
             name: name.map(|name| name.to_string()),
             addr: address.to_string(),
         }
     }
 
-    pub fn new_nameless<A>(address: A) -> Self
-    where
-        A: ToString,
-    {
+    pub fn new_nameless(address: impl ToString) -> Self {
         Self {
             name: None,
             addr: address.to_string(),
@@ -117,106 +108,103 @@ impl Mailbox {
     }
 }
 
-/// Represents the message envelope. The envelope is just a message
-/// subset, and is mostly used for listings.
+/// The email's envelope is composed of an identifier, some flags, and
+/// few headers taken from the email's content (message).
 #[derive(Clone, Debug, Default, Eq, Hash)]
 pub struct Envelope {
-    /// Represents the envelope identifier.
+    /// The shape of the envelope identifier may differ depending on the backend.
+    /// For IMAP backend, it is an stringified auto-incremented integer.
+    /// For Notmuch backend it is a stringified hash.
     pub id: String,
-    /// Represents the Message-ID header.
+    /// The Message-ID header from the email's content (message).
     pub message_id: String,
-    /// Represents the flags.
+    /// The envelope flags.
     pub flags: Flags,
-    /// Represents the first sender.
+    /// The From header from the email's content (message).
     pub from: Mailbox,
-    /// Represents the Subject header.
+    /// The Subject header from the email's content (message).
     pub subject: String,
-    /// Represents the Date header.
+    /// The Date header from the email's content (message).
     pub date: DateTime<FixedOffset>,
 }
 
-impl PartialEq for Envelope {
-    fn eq(&self, other: &Self) -> bool {
-        self.message_id == other.message_id
-    }
-}
+impl Envelope {
+    /// Parse an envelope from an identifier, some flags and a message.
+    pub fn from_msg(id: impl ToString, flags: Flags, msg: Message) -> Envelope {
+        let mut envelope = Envelope {
+            id: id.to_string(),
+            flags,
+            ..Default::default()
+        };
 
-impl From<&[u8]> for Envelope {
-    fn from(raw: &[u8]) -> Self {
-        let mut envelope = Self::default();
+        if let Ok(msg) = msg.parsed() {
+            match msg.from() {
+                HeaderValue::Address(addr) if addr.address.is_some() => {
+                    let name = addr.name.as_ref().map(|name| name.to_string());
+                    let email = addr.address.as_ref().map(|name| name.to_string()).unwrap();
+                    envelope.from = Mailbox::new(name, email);
+                }
+                HeaderValue::AddressList(addrs)
+                    if !addrs.is_empty() && addrs[0].address.is_some() =>
+                {
+                    let name = addrs[0].name.as_ref().map(|name| name.to_string());
+                    let email = addrs[0]
+                        .address
+                        .as_ref()
+                        .map(|name| name.to_string())
+                        .unwrap();
+                    envelope.from = Mailbox::new(name, email);
+                }
+                HeaderValue::Group(group)
+                    if !group.addresses.is_empty() && group.addresses[0].address.is_some() =>
+                {
+                    let name = group.name.as_ref().map(|name| name.to_string());
+                    let email = group.addresses[0]
+                        .address
+                        .as_ref()
+                        .map(|name| name.to_string())
+                        .unwrap();
+                    envelope.from = Mailbox::new(name, email)
+                }
+                HeaderValue::GroupList(groups)
+                    if !groups.is_empty()
+                        && !groups[0].addresses.is_empty()
+                        && groups[0].addresses[0].address.is_some() =>
+                {
+                    let name = groups[0].name.as_ref().map(|name| name.to_string());
+                    let email = groups[0].addresses[0]
+                        .address
+                        .as_ref()
+                        .map(|name| name.to_string())
+                        .unwrap();
+                    envelope.from = Mailbox::new(name, email)
+                }
+                _ => {
+                    warn!("cannot extract envelope sender from message header, skipping it");
+                }
+            };
 
-        match Message::parse(raw) {
-            None => {
-                warn!("cannot parse envelope from headers, skipping it");
-                trace!("{:#?}", String::from_utf8_lossy(raw))
-            }
-            Some(email) => {
-                match email.from() {
-                    HeaderValue::Address(addr) if addr.address.is_some() => {
-                        let name = addr.name.as_ref().map(|name| name.to_string());
-                        let email = addr.address.as_ref().map(|name| name.to_string()).unwrap();
-                        envelope.from = Mailbox::new(name, email);
-                    }
-                    HeaderValue::AddressList(addrs)
-                        if !addrs.is_empty() && addrs[0].address.is_some() =>
-                    {
-                        let name = addrs[0].name.as_ref().map(|name| name.to_string());
-                        let email = addrs[0]
-                            .address
-                            .as_ref()
-                            .map(|name| name.to_string())
-                            .unwrap();
-                        envelope.from = Mailbox::new(name, email);
-                    }
-                    HeaderValue::Group(group)
-                        if !group.addresses.is_empty() && group.addresses[0].address.is_some() =>
-                    {
-                        let name = group.name.as_ref().map(|name| name.to_string());
-                        let email = group.addresses[0]
-                            .address
-                            .as_ref()
-                            .map(|name| name.to_string())
-                            .unwrap();
-                        envelope.from = Mailbox::new(name, email)
-                    }
-                    HeaderValue::GroupList(groups)
-                        if !groups.is_empty()
-                            && !groups[0].addresses.is_empty()
-                            && groups[0].addresses[0].address.is_some() =>
-                    {
-                        let name = groups[0].name.as_ref().map(|name| name.to_string());
-                        let email = groups[0].addresses[0]
-                            .address
-                            .as_ref()
-                            .map(|name| name.to_string())
-                            .unwrap();
-                        envelope.from = Mailbox::new(name, email)
-                    }
-                    _ => {
-                        warn!("cannot extract envelope sender from headers, skipping it");
-                        trace!("{:#?}", email.from());
-                    }
-                };
+            envelope.subject = msg.subject().map(ToOwned::to_owned).unwrap_or_default();
 
-                envelope.subject = email.subject().map(ToOwned::to_owned).unwrap_or_default();
+            match msg.date() {
+                Some(date) => envelope.set_date(date),
+                None => warn!("cannot extract envelope date from message header, skipping it"),
+            };
 
-                match email.date() {
-                    Some(date) => envelope.set_date(date),
-                    None => warn!("cannot extract envelope date from headers, skipping it"),
-                };
-
-                envelope.message_id = email
-                    .message_id()
-                    .map(|message_id| format!("<{message_id}>"))
-                    .unwrap_or_else(|| envelope.date.to_rfc3339());
-            }
-        }
+            envelope.message_id = msg
+                .message_id()
+                .map(|message_id| format!("<{message_id}>"))
+                // NOTE: this is useful for the sync to prevent
+                // messages without Message-ID to still being
+                // synchronized.
+                .unwrap_or_else(|| envelope.date.to_rfc3339());
+        };
 
         envelope
     }
-}
 
-impl Envelope {
+    /// Transform a [`mail_parser::DateTime`] into a fixed offset [`chrono::DateTime`]
+    /// and add it to the current envelope.
     pub fn set_date(&mut self, date: &mail_parser::DateTime) {
         self.date = {
             let tz_secs = (date.tz_hour as i32) * 3600 + (date.tz_minute as i32) * 60;
@@ -225,7 +213,7 @@ impl Envelope {
             let tz = match FixedOffset::east_opt(tz_sign * tz_secs) {
                 Some(tz) => tz,
                 None => {
-                    warn!("invalid timezone {} secs, falling back to 0", tz_secs);
+                    warn!("invalid timezone seconds {tz_secs}, falling back to 0");
                     FixedOffset::east_opt(0).unwrap()
                 }
             };
@@ -240,27 +228,14 @@ impl Envelope {
             )
             .earliest()
             .unwrap_or_else(|| {
-                warn!("cannot parse date {}, skipping it", date);
+                warn!("cannot parse envelope date {date}, skipping it");
                 DateTime::default()
             })
         }
     }
 
-    pub fn set_raw_date(&mut self, data: &[u8]) {
-        match mail_parser::parsers::MessageStream::new(data).parse_date() {
-            mail_parser::HeaderValue::DateTime(ref date) => {
-                self.set_date(date);
-            }
-            _ => {
-                warn!(
-                    "cannot parse raw date {}, skipping it",
-                    String::from_utf8_lossy(&data.to_vec()),
-                );
-                self.date = DateTime::default();
-            }
-        };
-    }
-
+    /// Format the envelope date according to the [`crate::AccountConfig`]
+    /// datetime format and timezone.
     pub fn format_date(&self, config: &AccountConfig) -> String {
         let fmt = config.email_listing_datetime_fmt();
 
@@ -271,5 +246,13 @@ impl Envelope {
         };
 
         date.to_string()
+    }
+}
+
+// NOTE: this is useful for the sync, not sure how relevant it is for
+// the rest.
+impl PartialEq for Envelope {
+    fn eq(&self, other: &Self) -> bool {
+        self.message_id == other.message_id
     }
 }

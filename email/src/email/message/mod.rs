@@ -20,8 +20,6 @@ pub enum Error {
     #[error("cannot parse email")]
     GetMailEntryError(#[source] maildirpp::Error),
 
-    #[error("cannot get parsed version of email: {0}")]
-    GetParsedEmailError(String),
     #[error("cannot parse email")]
     ParseEmailError,
     #[error("cannot parse email: raw email is empty")]
@@ -51,12 +49,9 @@ pub enum Error {
 
     #[error("cannot interpret email as template")]
     InterpretEmailAsTplError(#[source] pimalaya_email_tpl::tpl::interpreter::Error),
-}
 
-#[derive(Debug, Error)]
-enum ParsedBuilderError {
-    #[error("cannot parse raw email")]
-    ParseRawEmailError,
+    #[error("cannot parse email message")]
+    ParseEmailMessageError,
 }
 
 type Result<T> = result::Result<T, Error>;
@@ -72,21 +67,16 @@ pub struct Message<'a> {
     raw: RawMessage<'a>,
     #[borrows(mut raw)]
     #[covariant]
-    parsed: result::Result<mail_parser::Message<'this>, ParsedBuilderError>,
+    parsed: Option<mail_parser::Message<'this>>,
 }
 
 impl Message<'_> {
-    fn parsed_builder<'a>(
-        raw: &'a mut RawMessage,
-    ) -> result::Result<mail_parser::Message<'a>, ParsedBuilderError> {
+    fn parsed_builder<'a>(raw: &'a mut RawMessage) -> Option<mail_parser::Message<'a>> {
         match raw {
-            RawMessage::Cow(bytes) => {
-                mail_parser::Message::parse(bytes).ok_or(ParsedBuilderError::ParseRawEmailError)
-            }
+            RawMessage::Cow(bytes) => mail_parser::Message::parse(bytes),
             #[cfg(feature = "imap-backend")]
             RawMessage::Fetch(fetch) => {
                 mail_parser::Message::parse(fetch.body().unwrap_or_default())
-                    .ok_or(ParsedBuilderError::ParseRawEmailError)
             }
         }
     }
@@ -94,7 +84,7 @@ impl Message<'_> {
     pub fn parsed(&self) -> Result<&mail_parser::Message> {
         self.borrow_parsed()
             .as_ref()
-            .map_err(|err| Error::GetParsedEmailError(err.to_string()))
+            .ok_or(Error::ParseEmailMessageError)
     }
 
     pub fn raw(&self) -> Result<&[u8]> {

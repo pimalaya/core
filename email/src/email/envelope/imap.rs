@@ -2,49 +2,35 @@ use imap::{
     extensions::sort::SortCriterion,
     types::{Fetch, Fetches},
 };
-use log::{debug, warn};
-use std::{convert::TryFrom, ops::Deref, result, str::FromStr};
+use std::{ops::Deref, result, str::FromStr};
 
-use crate::{backend::imap::Error, Envelope, Envelopes, Flags};
+use crate::{backend::imap::Error, Envelope, Envelopes, Flags, Message};
 
 type Result<T> = result::Result<T, Error>;
 
 impl From<Fetches> for Envelopes {
     fn from(fetches: Fetches) -> Self {
-        fetches
-            .iter()
-            .rev()
-            .filter_map(|fetch| match Envelope::try_from(fetch) {
-                Ok(envelope) => Some(envelope),
-                Err(err) => {
-                    warn!("cannot parse imap envelope, skipping it: {err}");
-                    debug!("cannot parse imap envelope: {err:?}");
-                    None
-                }
-            })
-            .collect()
+        fetches.iter().rev().map(Envelope::from).collect()
     }
 }
 
-impl TryFrom<&Fetch<'_>> for Envelope {
-    type Error = Error;
-
-    fn try_from(fetch: &Fetch) -> Result<Self> {
+impl From<&Fetch<'_>> for Envelope {
+    fn from(fetch: &Fetch) -> Self {
         let id = fetch
             .uid
-            .ok_or_else(|| Error::GetUidError(fetch.message))?
+            .expect("UID should be included in the IMAP fetch")
             .to_string();
 
-        let mut envelope: Envelope = fetch
+        let flags = Flags::from(fetch.flags());
+
+        // parse a fake message from the fetch header in order to
+        // extract the envelope
+        let msg: Message = fetch
             .header()
-            .ok_or(Error::GetHeadersFromFetchError(id.clone()))?
+            .expect("Header should be included in the IMAP fetch")
             .into();
 
-        envelope.id = id;
-
-        envelope.flags = Flags::from(fetch.flags());
-
-        Ok(envelope)
+        Envelope::from_msg(id, flags, msg)
     }
 }
 

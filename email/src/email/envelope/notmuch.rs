@@ -1,9 +1,6 @@
 use log::{debug, warn};
-use std::result;
 
-use crate::{backend::notmuch::Error, Envelope, Envelopes, Flag};
-
-type Result<T> = result::Result<T, Error>;
+use crate::{Envelope, Envelopes, Flag, Message};
 
 impl From<notmuch::Messages> for Envelopes {
     fn from(msgs: notmuch::Messages) -> Self {
@@ -19,33 +16,36 @@ impl From<notmuch::Messages> for Envelopes {
     }
 }
 
-impl TryFrom<notmuch::Message> for Envelope {
-    type Error = Error;
+impl From<notmuch::Message> for Envelope {
+    fn from(msg: notmuch::Message) -> Self {
+        let id = msg.id();
+        // TODO: move this to the flag module
+        let flags = msg.tags().flat_map(Flag::try_from).collect();
 
-    fn try_from(msg: notmuch::Message) -> Result<Self> {
-        let message_id = get_header(&msg, "Message-ID")?;
-        let subject = get_header(&msg, "Subject")?;
-        let from = get_header(&msg, "From")?;
-        let date = get_header(&msg, "Date")?;
-
+        let message_id = get_header(&msg, "Message-ID");
+        let subject = get_header(&msg, "Subject");
+        let from = get_header(&msg, "From");
+        let date = get_header(&msg, "Date");
         let headers = [message_id, subject, from, date].join("\r\n") + "\r\n\r\n";
 
-        let mut envelope: Envelope = headers.as_bytes().into();
+        // parse a fake message from the built header in order to
+        // extract the envelope
+        let msg: Message = headers.as_bytes().into();
 
-        envelope.id = msg.id().to_string();
-
-        envelope.flags = msg.tags().flat_map(Flag::try_from).collect();
-
-        Ok(envelope)
+        Envelope::from_msg(id, flags, msg)
     }
 }
 
-fn get_header(msg: &notmuch::Message, key: impl AsRef<str>) -> Result<String> {
-    let val = msg
-        .header(key.as_ref())
-        .map_err(|err| Error::GetHeaderError(err, key.as_ref().to_string()))?
-        .unwrap_or_default()
-        .to_string();
-
-    Ok(format!("{key}: {val}", key = key.as_ref()))
+fn get_header(msg: &notmuch::Message, key: impl AsRef<str>) -> String {
+    let key = key.as_ref();
+    let val = match msg.header(key) {
+        Ok(Some(val)) => val,
+        Ok(None) => Default::default(),
+        Err(err) => {
+            warn!("cannot get header {key} from notmuch message, skipping it: {err}");
+            debug!("cannot get header {key} from notmuch message: {err:?}");
+            Default::default()
+        }
+    };
+    format!("{key}: {val}")
 }

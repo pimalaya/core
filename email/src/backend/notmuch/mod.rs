@@ -214,13 +214,13 @@ impl Backend for NotmuchBackend {
     fn get_envelope(&mut self, _folder: &str, internal_id: &str) -> backend::Result<Envelope> {
         info!("getting notmuch envelope by internal id {internal_id}");
 
-        let envelope = Envelope::try_from(
-            self.db
-                .find_message(&internal_id)
-                .map_err(Error::FindEmailError)?
-                .ok_or_else(|| Error::FindMsgEmptyError)?,
-        )?;
-        trace!("envelope: {envelope:#?}");
+        let envelope: Envelope = self
+            .db
+            .find_message(&internal_id)
+            .map_err(Error::FindEmailError)?
+            .ok_or_else(|| Error::FindMsgEmptyError)?
+            .into();
+        trace!("notmuch envelope: {envelope:#?}");
 
         Ok(envelope)
     }

@@ -52,8 +52,6 @@ pub enum Error {
     ExpungeFolderError(#[source] imap::Error, String),
     #[error("cannot delete imap folder {1}")]
     DeleteFolderError(#[source] imap::Error, String),
-    #[error("cannot get headers from imap email {0}")]
-    GetHeadersFromFetchError(String),
     #[error("cannot parse headers of imap email {0}")]
     ParseHeadersOfFetchError(String),
 
@@ -116,8 +114,6 @@ pub enum Error {
     DecodeSubjectError(#[source] rfc2047_decoder::Error, String),
     #[error("cannot get imap sender of email {0}")]
     GetSenderError(String),
-    #[error("cannot get uid of email sequence {0}")]
-    GetUidError(u32),
 
     // Sessions
     #[error("cannot find session from pool at cursor {0}")]
@@ -506,14 +502,15 @@ impl ImapBackend {
                 )?;
 
                 for fetch in fetches.iter() {
-                    let msg = Envelope::try_from(fetch)?;
-                    let uid = fetch.uid.ok_or_else(|| Error::GetUidError(fetch.message))?;
+                    let envelope = Envelope::from(fetch);
+                    let uid = fetch.uid.expect("UID should be included in the IMAP fetch");
 
-                    let from = msg.from.addr.clone();
-                    self.imap_config.run_notify_cmd(uid, &msg.subject, &from)?;
+                    let from = envelope.from.addr.clone();
+                    self.imap_config
+                        .run_notify_cmd(uid, &envelope.subject, &from)?;
 
                     debug!("notify message: {}", uid);
-                    trace!("message: {:?}", msg);
+                    trace!("message: {:?}", envelope);
 
                     debug!("insert message {} in hashset", uid);
                     msgs_set.insert(uid);
@@ -698,7 +695,7 @@ impl Backend for ImapBackend {
             .get(0)
             .ok_or_else(|| Error::GetEnvelopeError(uid.to_owned()))?;
 
-        let envelope = Envelope::try_from(fetch)?;
+        let envelope = Envelope::from(fetch);
         trace!("imap envelope: {envelope:#?}");
 
         Ok(envelope)

@@ -300,10 +300,10 @@ impl Backend for MaildirBackend {
         );
 
         let mdir = self.get_mdir_from_dir(folder)?;
-        let envelope = Envelope::try_from(
-            mdir.find(internal_id)
-                .ok_or_else(|| Error::GetEnvelopeError(internal_id.to_owned()))?,
-        )?;
+        let envelope: Envelope = mdir
+            .find(internal_id)
+            .ok_or_else(|| Error::GetEnvelopeError(internal_id.to_owned()))?
+            .into();
 
         Ok(envelope)
     }
