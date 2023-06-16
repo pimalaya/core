@@ -284,7 +284,7 @@ impl Backend for NotmuchBackend {
                 .map_err(|err| Error::CanonicalizePath(err, path.clone()))?,
         );
         let mdir_internal_id = mdir
-            .store_cur_with_flags(email, &flags.to_normalized_string())
+            .store_cur_with_flags(email, &flags.to_mdir_string())
             .map_err(|err| Error::StoreWithFlagsError(err, mdir.path().to_owned()))?;
         trace!("added email internal maildir id: {mdir_internal_id}");
 

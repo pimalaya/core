@@ -1,6 +1,8 @@
 #[cfg(feature = "imap-backend")]
 mod imap;
 mod maildir;
+#[cfg(feature = "notmuch-backend")]
+mod notmuch;
 mod sync;
 
 use log::{debug, warn};
@@ -13,7 +15,7 @@ use std::{
 };
 use thiserror::Error;
 
-pub use self::sync::sync_all;
+pub use self::sync::sync;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -114,7 +116,8 @@ impl ToString for Flag {
 }
 
 /// The list of flags that can be attached to an email envelope. It
-/// uses a [`std::collections::HashSet`] to prevent duplicates.
+/// uses a [`std::collections::HashSet`] to prevent duplicates, plus
+/// the order is not relevant.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Flags(HashSet<Flag>);
 

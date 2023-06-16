@@ -1,6 +1,6 @@
 use log::{debug, warn};
 
-use crate::{Envelope, Envelopes, Flag, Message};
+use crate::{Envelope, Envelopes, Flags, Message};
 
 impl From<notmuch::Messages> for Envelopes {
     fn from(msgs: notmuch::Messages) -> Self {
@@ -19,8 +19,7 @@ impl From<notmuch::Messages> for Envelopes {
 impl From<notmuch::Message> for Envelope {
     fn from(msg: notmuch::Message) -> Self {
         let id = msg.id();
-        // TODO: move this to the flag module
-        let flags = msg.tags().flat_map(Flag::try_from).collect();
+        let flags = Flags::from_notmuch_msg(&msg);
 
         let message_id = get_header(&msg, "Message-ID");
         let subject = get_header(&msg, "Subject");

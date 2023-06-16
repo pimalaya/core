@@ -1,27 +1,28 @@
 use std::collections::HashSet;
 
-use crate::{Envelope, Flag, Flags};
+use crate::{Flag, Flags};
 
-pub fn sync_all(
-    local_cache: Option<&Envelope>,
-    local: Option<&Envelope>,
-    remote_cache: Option<&Envelope>,
-    remote: Option<&Envelope>,
+/// Fold multiple source of flags into one synchronized flags.
+pub fn sync(
+    local_cache: Option<&Flags>,
+    local: Option<&Flags>,
+    remote_cache: Option<&Flags>,
+    remote: Option<&Flags>,
 ) -> Flags {
     let mut synchronized_flags: HashSet<Flag> = HashSet::default();
 
     let mut all_flags: HashSet<Flag> = HashSet::default();
-    all_flags.extend(local_cache.map(|e| e.flags.clone().0).unwrap_or_default());
-    all_flags.extend(local.map(|e| e.flags.clone().0).unwrap_or_default());
-    all_flags.extend(remote_cache.map(|e| e.flags.clone().0).unwrap_or_default());
-    all_flags.extend(remote.map(|e| e.flags.clone().0).unwrap_or_default());
+    all_flags.extend(local_cache.map(|e| e.0.clone()).unwrap_or_default());
+    all_flags.extend(local.map(|e| e.0.clone()).unwrap_or_default());
+    all_flags.extend(remote_cache.map(|e| e.0.clone()).unwrap_or_default());
+    all_flags.extend(remote.map(|e| e.0.clone()).unwrap_or_default());
 
     for flag in all_flags {
         match (
-            local_cache.and_then(|e| e.flags.get(&flag)),
-            local.and_then(|e| e.flags.get(&flag)),
-            remote_cache.and_then(|e| e.flags.get(&flag)),
-            remote.and_then(|e| e.flags.get(&flag)),
+            local_cache.and_then(|e| e.get(&flag)),
+            local.and_then(|e| e.get(&flag)),
+            remote_cache.and_then(|e| e.get(&flag)),
+            remote.and_then(|e| e.get(&flag)),
         ) {
             // The flag exists nowhere, which cannot happen since the
             // flags hashset is built from envelopes flags.
@@ -164,268 +165,164 @@ pub fn sync_all(
 }
 
 #[cfg(test)]
-mod sync_flags {
-    use crate::{Envelope, Flag, Flags};
+mod tests {
+    use crate::{Flag, Flags};
 
     #[test]
-    fn sync_all() {
-        assert_eq!(super::sync_all(None, None, None, None), Flags::default());
+    fn sync() {
+        assert_eq!(super::sync(None, None, None, None), Flags::default());
 
         assert_eq!(
-            super::sync_all(
-                None,
-                None,
-                None,
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
+            super::sync(None, None, None, Some(&Flags::from_iter([Flag::Seen]))),
+            Flags::from_iter([Flag::Seen]),
+        );
+
+        assert_eq!(
+            super::sync(
+                Some(&Flags::default()),
+                Some(&Flags::default()),
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
             ),
             Flags::from_iter([Flag::Seen]),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope::default()),
-                Some(&Envelope::default()),
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-            ),
-            Flags::from_iter([Flag::Seen]),
-        );
-
-        assert_eq!(
-            super::sync_all(
-                Some(&Envelope::default()),
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
+            super::sync(
+                Some(&Flags::default()),
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
             ),
             Flags::default()
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope::default()),
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
+            super::sync(
+                Some(&Flags::default()),
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::from_iter([Flag::Seen])),
             ),
             Flags::from_iter([Flag::Seen]),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
-                Some(&Envelope::default()),
+            super::sync(
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
+                Some(&Flags::default()),
             ),
             Flags::from_iter([Flag::Seen]),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
+            super::sync(
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
             ),
             Flags::from_iter([Flag::Seen]),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
+            super::sync(
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
             ),
             Flags::from_iter([Flag::Seen]),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
+            super::sync(
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::from_iter([Flag::Seen])),
             ),
             Flags::from_iter([Flag::Seen]),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
-                Some(&Envelope::default()),
-                Some(&Envelope::default()),
+            super::sync(
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
+                Some(&Flags::default()),
+                Some(&Flags::default()),
             ),
             Flags::default()
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
+            super::sync(
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
             ),
             Flags::from_iter([Flag::Seen]),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
+            super::sync(
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
             ),
             Flags::default(),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
+            super::sync(
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::from_iter([Flag::Seen])),
             ),
             Flags::default(),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
-                Some(&Envelope::default()),
+            super::sync(
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
+                Some(&Flags::default()),
             ),
             Flags::from_iter([Flag::Seen]),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
+            super::sync(
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
+                Some(&Flags::from_iter([Flag::Seen])),
             ),
             Flags::from_iter([Flag::Seen]),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope::default()),
+            super::sync(
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::from_iter([Flag::Seen])),
+                Some(&Flags::default()),
             ),
             Flags::default(),
         );
 
         assert_eq!(
-            super::sync_all(
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen, Flag::Flagged]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen, Flag::Flagged]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen, Flag::Flagged]),
-                    ..Envelope::default()
-                }),
-                Some(&Envelope {
-                    flags: Flags::from_iter([Flag::Seen, Flag::Flagged]),
-                    ..Envelope::default()
-                }),
+            super::sync(
+                Some(&Flags::from_iter([Flag::Seen, Flag::Flagged])),
+                Some(&Flags::from_iter([Flag::Seen, Flag::Flagged])),
+                Some(&Flags::from_iter([Flag::Seen, Flag::Flagged])),
+                Some(&Flags::from_iter([Flag::Seen, Flag::Flagged])),
             ),
             Flags::from_iter([Flag::Seen, Flag::Flagged]),
         );

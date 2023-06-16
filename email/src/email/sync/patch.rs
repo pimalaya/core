@@ -418,7 +418,12 @@ pub fn build_patch(
                     Source::Local,
                 )]);
 
-                let flags = flag::sync_all(None, Some(local), Some(remote_cache), Some(remote));
+                let flags = flag::sync(
+                    None,
+                    Some(&local.flags),
+                    Some(&remote_cache.flags),
+                    Some(&remote.flags),
+                );
 
                 if local.flags != flags {
                     patch.insert(vec![EmailSyncHunk::UpdateFlags(
@@ -572,7 +577,12 @@ pub fn build_patch(
             // needs to be updated. Flags also need to be
             // synchronized.
             (Some(local_cache), Some(local), None, Some(remote)) => {
-                let flags = flag::sync_all(Some(local_cache), Some(local), None, Some(remote));
+                let flags = flag::sync(
+                    Some(&local_cache.flags),
+                    Some(&local.flags),
+                    None,
+                    Some(&remote.flags),
+                );
 
                 if local_cache.flags != flags {
                     patch.insert(vec![EmailSyncHunk::UpdateCachedFlags(
@@ -642,11 +652,11 @@ pub fn build_patch(
             // The message_id exists everywhere, which means all flags need
             // to be synchronized.
             (Some(local_cache), Some(local), Some(remote_cache), Some(remote)) => {
-                let flags = flag::sync_all(
-                    Some(local_cache),
-                    Some(local),
-                    Some(remote_cache),
-                    Some(remote),
+                let flags = flag::sync(
+                    Some(&local_cache.flags),
+                    Some(&local.flags),
+                    Some(&remote_cache.flags),
+                    Some(&remote.flags),
                 );
 
                 if local_cache.flags != flags {
