@@ -26,6 +26,6 @@ impl From<MailEntries> for Envelopes {
 impl From<MailEntry> for Envelope {
     fn from(entry: MailEntry) -> Self {
         let msg = Message::from(entry.headers());
-        Envelope::from_msg(entry.id(), Flags::from(&entry), msg)
+        Envelope::from_msg(entry.id(), Flags::from_mdir_entry(&entry), msg)
     }
 }

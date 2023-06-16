@@ -360,7 +360,7 @@ impl Backend for MaildirBackend {
 
         let mdir = self.get_mdir_from_dir(folder)?;
         let internal_id = mdir
-            .store_cur_with_flags(email, &flags.to_normalized_string())
+            .store_cur_with_flags(email, &flags.to_mdir_string())
             .map_err(Error::StoreWithFlagsError)?;
 
         Ok(internal_id)
@@ -490,7 +490,7 @@ impl Backend for MaildirBackend {
         let mdir = self.get_mdir_from_dir(folder)?;
 
         internal_ids.iter().try_for_each(|internal_id| {
-            mdir.add_flags(&internal_id, &flags.to_normalized_string())
+            mdir.add_flags(&internal_id, &flags.to_mdir_string())
                 .map_err(Error::AddFlagsError)
         })?;
 
@@ -512,7 +512,7 @@ impl Backend for MaildirBackend {
         let mdir = self.get_mdir_from_dir(folder)?;
 
         internal_ids.iter().try_for_each(|internal_id| {
-            mdir.set_flags(&internal_id, &flags.to_normalized_string())
+            mdir.set_flags(&internal_id, &flags.to_mdir_string())
                 .map_err(Error::SetFlagsError)
         })?;
 
@@ -534,7 +534,7 @@ impl Backend for MaildirBackend {
         let mdir = self.get_mdir_from_dir(folder)?;
 
         internal_ids.iter().try_for_each(|internal_id| {
-            mdir.remove_flags(&internal_id, &flags.to_normalized_string())
+            mdir.remove_flags(&internal_id, &flags.to_mdir_string())
                 .map_err(Error::RemoveFlagsError)
         })?;
 

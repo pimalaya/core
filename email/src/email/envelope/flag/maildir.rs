@@ -1,32 +1,20 @@
+use log::{debug, warn};
+use maildirpp::MailEntry;
 use std::result;
 use thiserror::Error;
 
-use crate::{Flag, Flags};
+use super::{Flag, Flags};
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot parse unknown maildir flag {0}")]
+    #[error("cannot parse maildir flag char {0}")]
     ParseFlagError(char),
 }
 
 type Result<T> = result::Result<T, Error>;
 
-impl From<&maildirpp::MailEntry> for Flags {
-    fn from(entry: &maildirpp::MailEntry) -> Self {
-        entry.flags().chars().flat_map(Flag::try_from).collect()
-    }
-}
-
-impl Flags {
-    pub fn to_normalized_string(&self) -> String {
-        String::from_iter(self.iter().filter_map(<&Flag as Into<Option<char>>>::into))
-    }
-}
-
-impl TryFrom<char> for Flag {
-    type Error = Error;
-
-    fn try_from(c: char) -> Result<Self> {
+impl Flag {
+    pub fn try_from_mdir_char(c: char) -> Result<Self> {
         match c {
             'r' | 'R' => Ok(Flag::Answered),
             's' | 'S' => Ok(Flag::Seen),
@@ -36,10 +24,8 @@ impl TryFrom<char> for Flag {
             unknown => Err(Error::ParseFlagError(unknown)),
         }
     }
-}
 
-impl Into<Option<char>> for &Flag {
-    fn into(self) -> Option<char> {
+    pub fn to_opt_mdir_char(&self) -> Option<char> {
         match self {
             Flag::Answered => Some('R'),
             Flag::Seen => Some('S'),
@@ -51,8 +37,23 @@ impl Into<Option<char>> for &Flag {
     }
 }
 
-impl Into<Option<char>> for Flag {
-    fn into(self) -> Option<char> {
-        (&self).into()
+impl Flags {
+    pub fn from_mdir_entry(entry: &MailEntry) -> Self {
+        entry
+            .flags()
+            .chars()
+            .filter_map(|c| match Flag::try_from_mdir_char(c) {
+                Ok(flag) => Some(flag),
+                Err(err) => {
+                    warn!("cannot parse maildir flag char {c}, skipping it: {err}");
+                    debug!("cannot parse maildir flag char {c}: {err:?}");
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn to_mdir_string(&self) -> String {
+        String::from_iter(self.iter().filter_map(|flag| flag.to_opt_mdir_char()))
     }
 }

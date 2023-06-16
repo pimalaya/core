@@ -21,7 +21,7 @@ impl From<&Fetch<'_>> for Envelope {
             .expect("UID should be included in the IMAP fetch")
             .to_string();
 
-        let flags = Flags::from(fetch.flags());
+        let flags = Flags::from_imap_fetch(fetch);
 
         // parse a fake message from the fetch header in order to
         // extract the envelope

@@ -649,8 +649,10 @@ impl Backend for ImapBackend {
         )?;
 
         self.with_session(
-            |session| session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query())),
-            |err| Error::AddFlagsError(err, flags.to_imap_query(), uids.clone()),
+            |session| {
+                session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query_string()))
+            },
+            |err| Error::AddFlagsError(err, flags.to_imap_query_string(), uids.clone()),
         )?;
 
         self.with_session(
@@ -990,8 +992,10 @@ impl Backend for ImapBackend {
         )?;
 
         self.with_session(
-            |session| session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query())),
-            |err| Error::AddFlagsError(err, flags.to_imap_query(), uids.clone()),
+            |session| {
+                session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query_string()))
+            },
+            |err| Error::AddFlagsError(err, flags.to_imap_query_string(), uids.clone()),
         )?;
 
         Ok(())
@@ -1013,8 +1017,8 @@ impl Backend for ImapBackend {
         )?;
 
         self.with_session(
-            |session| session.uid_store(&uids, format!("FLAGS ({})", flags.to_imap_query())),
-            |err| Error::SetFlagsError(err, flags.to_imap_query(), uids.clone()),
+            |session| session.uid_store(&uids, format!("FLAGS ({})", flags.to_imap_query_string())),
+            |err| Error::SetFlagsError(err, flags.to_imap_query_string(), uids.clone()),
         )?;
 
         Ok(())
@@ -1041,8 +1045,10 @@ impl Backend for ImapBackend {
         )?;
 
         self.with_session(
-            |session| session.uid_store(&uids, format!("-FLAGS ({})", flags.to_imap_query())),
-            |err| Error::RemoveFlagsError(err, flags.to_imap_query(), uids.clone()),
+            |session| {
+                session.uid_store(&uids, format!("-FLAGS ({})", flags.to_imap_query_string()))
+            },
+            |err| Error::RemoveFlagsError(err, flags.to_imap_query_string(), uids.clone()),
         )?;
 
         Ok(())
