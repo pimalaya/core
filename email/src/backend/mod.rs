@@ -1,3 +1,5 @@
+//! Module dedicated to backends.
+
 mod config;
 #[cfg(feature = "imap-backend")]
 pub mod imap;

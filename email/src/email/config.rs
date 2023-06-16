@@ -1,20 +1,22 @@
-//! Email config module.
+//! Module dedicated to email configuration.
 //!
-//! This module contains structures related to email configuration.
+//! This module contains structs related to email configuration. They
+//! are mostly used by [`crate::AccountConfig`].
 
 use pimalaya_process::Cmd;
 
-/// Represents the text/plain format as defined in the [RFC2646].
+/// The email text/plain format configuration.
 ///
-/// [RFC2646]: https://www.ietf.org/rfc/rfc2646.txt
+/// Represents the email text/plain format as defined in the
+/// [RFC2646](https://www.ietf.org/rfc/rfc2646.txt).
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum EmailTextPlainFormat {
     #[default]
-    /// Makes the content fit its container.
+    /// The content should fit its container.
     Auto,
-    /// Does not restrict the content.
+    /// The content should not be restricted.
     Flowed,
-    /// Forces the content width with a fixed amount of pixels.
+    /// The content should fit in a fixed amount of pixels.
     Fixed(usize),
 }
 
@@ -24,11 +26,15 @@ impl EmailTextPlainFormat {
     }
 }
 
-/// Represents the email hooks. Useful for doing extra email
-/// processing before or after sending it.
+/// The email hooks configuration.
+///
+/// Represents the email hooks configuration. They can be useful for
+/// doing post and pre processing.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct EmailHooks {
-    /// Represents the hook called just before sending an email.
+    /// The hook called just before sending an email. The system
+    /// command should take the raw message as a unique parameter and
+    /// returns the modified raw message.
     pub pre_send: Option<Cmd>,
 }
 

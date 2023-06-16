@@ -1,3 +1,5 @@
+//! Module dedicated to email envelopes.
+
 pub mod address;
 pub mod flag;
 #[cfg(feature = "imap-backend")]
@@ -15,6 +17,8 @@ use crate::{AccountConfig, Flags, Message};
 
 pub use self::address::Address;
 
+/// The email envelope.
+///
 /// The email envelope is composed of an identifier, some flags, and
 /// few headers taken from the email content (message).
 #[derive(Clone, Debug, Default, Eq, Hash)]
@@ -168,7 +172,7 @@ impl PartialEq for Envelope {
     }
 }
 
-/// Wrapper around a list of email envelopes.
+/// The list of email envelopes.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Envelopes(Vec<Envelope>);
 

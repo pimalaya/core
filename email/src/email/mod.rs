@@ -1,8 +1,5 @@
-//! Message module.
-//!
-//! This module contains everything related to emails.
+//! Module dedicated to emails.
 
-pub(crate) mod address;
 pub mod config;
 pub mod envelope;
 pub mod message;

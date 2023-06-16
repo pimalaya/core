@@ -1,3 +1,5 @@
+//! Module dedicated to email messages.
+
 pub mod attachment;
 pub mod tpl;
 

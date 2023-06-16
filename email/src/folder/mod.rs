@@ -1,6 +1,4 @@
-//! Folder module.
-//!
-//! This module contains everything related to email folders.
+//! Module dedicated to folders (mailboxes).
 
 pub mod sync;
 

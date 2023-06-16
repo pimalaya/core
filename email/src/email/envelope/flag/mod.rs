@@ -1,3 +1,5 @@
+//! Module dedicated to email envelope flags.
+
 #[cfg(feature = "imap-backend")]
 mod imap;
 mod maildir;
@@ -116,8 +118,7 @@ impl ToString for Flag {
 }
 
 /// The list of flags that can be attached to an email envelope. It
-/// uses a [`std::collections::HashSet`] to prevent duplicates, plus
-/// the order is not relevant.
+/// uses a [`std::collections::HashSet`] to prevent duplicates.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Flags(HashSet<Flag>);
 

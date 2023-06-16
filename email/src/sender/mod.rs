@@ -1,3 +1,5 @@
+//! Module dedicated to senders.
+
 mod config;
 pub mod sendmail;
 #[cfg(feature = "smtp-sender")]

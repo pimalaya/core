@@ -23,7 +23,11 @@ pub use self::{
         BackendSyncProgressEvent, BackendSyncReport, MaildirBackend, MaildirBackendBuilder,
         MaildirConfig,
     },
-    email::*,
+    email::{
+        envelope, flag, message, Address, EmailHooks, EmailSyncCache, EmailSyncCacheHunk,
+        EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch, EmailSyncPatchManager, EmailSyncReport,
+        EmailTextPlainFormat, Envelope, Envelopes, Flag, Flags, Message, Messages,
+    },
     folder::{
         Folder, FolderSyncCache, FolderSyncCacheHunk, FolderSyncCachePatch, FolderSyncHunk,
         FolderSyncPatch, FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy, Folders,

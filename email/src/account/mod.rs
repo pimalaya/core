@@ -1,3 +1,5 @@
+//! Module dedicated to accounts.
+
 pub mod config;
 
 pub use config::{
