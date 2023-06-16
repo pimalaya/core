@@ -59,7 +59,7 @@ enum ParsedBuilderError {
     ParseRawEmailError,
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 enum RawMessage<'a> {
     Cow(Cow<'a, [u8]>),

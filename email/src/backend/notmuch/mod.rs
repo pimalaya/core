@@ -88,7 +88,7 @@ pub enum Error {
     MaildirError(#[from] backend::maildir::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 /// Represents the Notmuch backend.
 pub struct NotmuchBackend {

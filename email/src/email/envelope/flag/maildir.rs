@@ -9,7 +9,7 @@ pub enum Error {
     ParseFlagError(char),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 impl From<&maildirpp::MailEntry> for Flags {
     fn from(entry: &maildirpp::MailEntry) -> Self {

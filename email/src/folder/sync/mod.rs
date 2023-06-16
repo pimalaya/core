@@ -28,7 +28,7 @@ pub enum Error {
     MaildirBackendError(#[from] backend::maildir::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum FolderSyncStrategy {

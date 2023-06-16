@@ -35,7 +35,7 @@ pub enum Error {
     SmtpConfigError(#[from] sender::smtp::config::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 pub enum SmtpClient {
     Tcp(mail_send::SmtpClient<TcpStream>),

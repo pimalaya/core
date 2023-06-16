@@ -43,7 +43,7 @@ pub enum Error {
     NotmuchBackendError(#[from] notmuch::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 pub trait Backend {
     fn name(&self) -> String;

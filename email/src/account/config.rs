@@ -90,7 +90,7 @@ pub enum Error {
     RefreshOAuth2AccessTokenError(#[source] pimalaya_oauth2::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 /// Represents the configuration of the user account.
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -19,7 +19,7 @@ pub enum Error {
     ParseFlagError(String),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 /// Represents the list of flags.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

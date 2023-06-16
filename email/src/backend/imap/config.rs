@@ -21,7 +21,7 @@ pub enum Error {
     AccountConfigError(#[from] account::config::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 /// Represents the IMAP backend configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

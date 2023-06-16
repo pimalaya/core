@@ -23,7 +23,7 @@ pub enum Error {
     AccountConfigError(#[from] account::config::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 /// Represents the internal sender config.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

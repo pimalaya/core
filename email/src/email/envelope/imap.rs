@@ -2,10 +2,9 @@ use imap::types::{Fetch, Fetches};
 use log::{debug, trace};
 use std::{convert::TryFrom, ops::Deref};
 
-use crate::{
-    backend::imap::{Error, Result},
-    Envelope, Envelopes, Flags,
-};
+use crate::{backend::imap::Error, Envelope, Envelopes, Flags};
+
+type Result<T> = std::result::Result<T, Error>;
 
 impl TryFrom<Fetches> for Envelopes {
     type Error = Error;

@@ -10,7 +10,7 @@ pub enum Error {
     ParseFlagError(String),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 impl Flags {
     pub fn to_imap_query(&self) -> String {

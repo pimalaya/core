@@ -154,7 +154,7 @@ pub enum Error {
     MaildirBackend(#[from] backend::maildir::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     let mut store = RootCertStore::empty();

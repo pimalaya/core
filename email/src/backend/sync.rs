@@ -46,7 +46,7 @@ pub enum Error {
     MaildirBackendError(#[from] maildir::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum Destination {

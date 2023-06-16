@@ -17,7 +17,7 @@ pub enum Error {
     ParseEmailError,
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 pub struct Sendmail {
     account_config: AccountConfig,

@@ -1,10 +1,9 @@
 use log::{debug, trace};
 use rayon::prelude::*;
 
-use crate::{
-    backend::maildir::{Error, Result},
-    Envelope, Envelopes, Flags,
-};
+use crate::{backend::maildir::Error, Envelope, Envelopes, Flags};
+
+type Result<T> = std::result::Result<T, Error>;
 
 impl TryFrom<maildirpp::MailEntries> for Envelopes {
     type Error = Error;

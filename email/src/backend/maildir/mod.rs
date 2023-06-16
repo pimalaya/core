@@ -86,7 +86,7 @@ pub enum Error {
     MessageError(#[from] message::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 pub struct MaildirBackend {
     account_config: AccountConfig,

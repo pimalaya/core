@@ -27,7 +27,7 @@ pub enum Error {
     SendmailError(#[from] sendmail::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, Error>;
 
 pub trait Sender {
     fn send(&mut self, msg: &[u8]) -> Result<()>;
