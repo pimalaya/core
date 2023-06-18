@@ -12,10 +12,11 @@ use std::{
     collections::HashSet,
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
-    result,
     str::FromStr,
 };
 use thiserror::Error;
+
+use crate::Result;
 
 pub use self::sync::sync;
 
@@ -24,8 +25,6 @@ pub enum Error {
     #[error("cannot parse flag {0}")]
     ParseFlagError(String),
 }
-
-type Result<T> = result::Result<T, Error>;
 
 /// A flag is like a tag that can be attached to an email
 /// envelope. The concept of flag is the same across backends, but
@@ -79,10 +78,10 @@ impl From<&str> for Flag {
 /// Parse a flag from a string. If the string does not match any of
 /// the existing variant, it returns an error.
 impl FromStr for Flag {
-    type Err = Error;
+    type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        match s.trim() {
+        Ok(match s.trim() {
             seen if seen.eq_ignore_ascii_case("seen") => Ok(Flag::Seen),
             answered if answered.eq_ignore_ascii_case("answered") => Ok(Flag::Answered),
             replied if replied.eq_ignore_ascii_case("replied") => Ok(Flag::Answered),
@@ -91,13 +90,13 @@ impl FromStr for Flag {
             trashed if trashed.eq_ignore_ascii_case("trashed") => Ok(Flag::Deleted),
             draft if draft.eq_ignore_ascii_case("draft") => Ok(Flag::Draft),
             unknown => Err(Error::ParseFlagError(unknown.to_string())),
-        }
+        }?)
     }
 }
 
 /// Alias for [`FromStr`].
 impl TryFrom<String> for Flag {
-    type Error = Error;
+    type Error = crate::Error;
 
     fn try_from(value: String) -> Result<Self> {
         value.parse()
@@ -178,7 +177,7 @@ impl From<String> for Flags {
 }
 
 impl FromStr for Flags {
-    type Err = Error;
+    type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self> {
         Ok(Flags(

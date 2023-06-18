@@ -4,11 +4,9 @@ use imap::{
     extensions::sort::SortCriterion,
     types::{Fetch, Fetches},
 };
-use std::{ops::Deref, result, str::FromStr};
+use std::{ops::Deref, str::FromStr};
 
-use crate::{backend::imap::Error, Envelope, Envelopes, Flags, Message};
-
-type Result<T> = result::Result<T, Error>;
+use crate::{backend::imap::Error, Envelope, Envelopes, Flags, Message, Result};
 
 impl From<Fetches> for Envelopes {
     fn from(fetches: Fetches) -> Self {
@@ -55,7 +53,7 @@ impl<'a> FromIterator<SortCriterion<'a>> for SortCriteria<'a> {
 }
 
 impl FromStr for SortCriteria<'_> {
-    type Err = Error;
+    type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self> {
         s.split_whitespace()
@@ -74,7 +72,7 @@ impl FromStr for SortCriteria<'_> {
                 "subject:desc" => Ok(SortCriterion::Reverse(&SortCriterion::Subject)),
                 "to:asc" | "to" => Ok(SortCriterion::To),
                 "to:desc" => Ok(SortCriterion::Reverse(&SortCriterion::To)),
-                _ => Err(Error::ParseSortCriterionError(s.to_owned())),
+                _ => Ok(Err(Error::ParseSortCriterionError(s.to_owned()))?),
             })
             .collect::<Result<_>>()
     }

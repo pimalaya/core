@@ -5,10 +5,10 @@
 
 use log::debug;
 use mail_send::Credentials;
-use std::{io, result};
+use std::io;
 use thiserror::Error;
 
-use crate::{account, OAuth2Config, OAuth2Method, PasswdConfig};
+use crate::{OAuth2Config, OAuth2Method, PasswdConfig, Result};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -18,12 +18,7 @@ pub enum Error {
     GetPasswdEmptyError,
     #[error("cannot get smtp oauth2 access token")]
     GetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
-
-    #[error(transparent)]
-    AccountConfigError(#[from] account::config::Error),
 }
-
-type Result<T> = result::Result<T, Error>;
 
 /// Represents the internal sender config.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

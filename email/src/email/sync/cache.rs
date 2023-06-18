@@ -2,9 +2,7 @@ use chrono::DateTime;
 use log::{error, warn};
 use rusqlite::{types::Value, Connection, Transaction};
 
-use crate::{envelope::Address, Envelope, Envelopes};
-
-use super::Result;
+use crate::{envelope::Address, Envelope, Envelopes, Result};
 
 const CREATE_ENVELOPES_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS envelopes (

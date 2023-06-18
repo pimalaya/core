@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     backend::sync::Destination, AccountConfig, Backend, BackendBuilder, BackendSyncProgress,
-    BackendSyncProgressEvent, MaildirBackendBuilder,
+    BackendSyncProgressEvent, MaildirBackendBuilder, Result,
 };
 
 use super::*;

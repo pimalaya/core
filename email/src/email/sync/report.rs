@@ -1,4 +1,6 @@
-use super::{EmailSyncCacheHunk, EmailSyncHunk, Error};
+use crate::Error;
+
+use super::{EmailSyncCacheHunk, EmailSyncHunk};
 
 #[derive(Debug, Default)]
 pub struct EmailSyncReport {

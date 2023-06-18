@@ -8,16 +8,15 @@ use std::{
     ffi::OsStr,
     fs, io,
     path::{self, Path, PathBuf},
-    result,
 };
 use thiserror::Error;
 
-pub use self::config::MaildirConfig;
 use crate::{
-    account::{self, config::DEFAULT_TRASH_FOLDER},
-    backend, message, AccountConfig, Backend, Envelope, Envelopes, Flag, Flags, Folder, Folders,
-    Messages, DEFAULT_INBOX_FOLDER,
+    account::config::DEFAULT_TRASH_FOLDER, AccountConfig, Backend, Envelope, Envelopes, Flag,
+    Flags, Folder, Folders, Messages, Result, DEFAULT_INBOX_FOLDER,
 };
+
+pub use self::config::MaildirConfig;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -79,14 +78,7 @@ pub enum Error {
     SetFlagsError(#[source] maildirpp::Error),
     #[error("cannot remove maildir flags")]
     RemoveFlagsError(#[source] maildirpp::Error),
-
-    #[error(transparent)]
-    ConfigError(#[from] account::config::Error),
-    #[error(transparent)]
-    MessageError(#[from] message::Error),
 }
-
-type Result<T> = result::Result<T, Error>;
 
 pub struct MaildirBackend {
     account_config: AccountConfig,
@@ -115,7 +107,7 @@ impl MaildirBackend {
         if mdir_path.is_dir() {
             Ok(mdir_path)
         } else {
-            Err(Error::ReadDirError(mdir_path.to_owned()))
+            Ok(Err(Error::ReadDirError(mdir_path.to_owned()))?)
         }
     }
 
@@ -178,7 +170,7 @@ impl Backend for MaildirBackend {
         self.account_config.name.clone()
     }
 
-    fn add_folder(&mut self, folder: &str) -> backend::Result<()> {
+    fn add_folder(&mut self, folder: &str) -> Result<()> {
         info!("adding maildir folder {}", folder);
 
         let path = match self.account_config.folder_alias(folder)?.as_str() {
@@ -198,7 +190,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn list_folders(&mut self) -> backend::Result<Folders> {
+    fn list_folders(&mut self) -> Result<Folders> {
         info!("listing maildir folders");
 
         let mut folders = Folders::default();
@@ -234,13 +226,13 @@ impl Backend for MaildirBackend {
         Ok(folders)
     }
 
-    fn expunge_folder(&mut self, folder: &str) -> backend::Result<()> {
+    fn expunge_folder(&mut self, folder: &str) -> Result<()> {
         info!("expunging maildir folder {}", folder);
 
         let mdir = self.get_mdir_from_dir(folder)?;
         let entries = mdir
             .list_cur()
-            .map(|entry| entry.map_err(Error::GetSubdirEntryError))
+            .map(|entry| Ok(entry.map_err(Error::GetSubdirEntryError)?))
             .collect::<Result<Vec<_>>>()?;
         entries
             .iter()
@@ -258,13 +250,13 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn purge_folder(&mut self, folder: &str) -> backend::Result<()> {
+    fn purge_folder(&mut self, folder: &str) -> Result<()> {
         info!("purging maildir folder {}", folder);
 
         let mdir = self.get_mdir_from_dir(folder)?;
         let entries = mdir
             .list_cur()
-            .map(|entry| entry.map_err(Error::GetSubdirEntryError))
+            .map(|entry| Ok(entry.map_err(Error::GetSubdirEntryError)?))
             .collect::<Result<Vec<_>>>()?;
         let ids = entries.iter().map(|entry| entry.id()).collect();
 
@@ -275,7 +267,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn delete_folder(&mut self, folder: &str) -> backend::Result<()> {
+    fn delete_folder(&mut self, folder: &str) -> Result<()> {
         info!("deleting maildir folder {}", folder);
 
         let path = match self.account_config.folder_alias(folder)?.as_str() {
@@ -293,7 +285,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn get_envelope(&mut self, folder: &str, internal_id: &str) -> backend::Result<Envelope> {
+    fn get_envelope(&mut self, folder: &str, internal_id: &str) -> Result<Envelope> {
         info!(
             "getting maildir envelope by internal id {} from folder {}",
             internal_id, folder
@@ -308,12 +300,7 @@ impl Backend for MaildirBackend {
         Ok(envelope)
     }
 
-    fn list_envelopes(
-        &mut self,
-        folder: &str,
-        page_size: usize,
-        page: usize,
-    ) -> backend::Result<Envelopes> {
+    fn list_envelopes(&mut self, folder: &str, page_size: usize, page: usize) -> Result<Envelopes> {
         info!("listing maildir envelopes of folder {folder}");
         debug!("page size: {page_size}");
         debug!("page: {page}");
@@ -348,11 +335,11 @@ impl Backend for MaildirBackend {
         _sort: &str,
         _page_size: usize,
         _page: usize,
-    ) -> backend::Result<Envelopes> {
+    ) -> Result<Envelopes> {
         Err(Error::SearchEnvelopesUnimplementedError)?
     }
 
-    fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> backend::Result<String> {
+    fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
         info!(
             "adding email to folder {folder} with flags {flags}",
             flags = flags.to_string()
@@ -366,11 +353,7 @@ impl Backend for MaildirBackend {
         Ok(internal_id)
     }
 
-    fn preview_emails(
-        &mut self,
-        folder: &str,
-        internal_ids: Vec<&str>,
-    ) -> backend::Result<Messages> {
+    fn preview_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<Messages> {
         info!(
             "previewing maildir emails by internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),
@@ -402,7 +385,7 @@ impl Backend for MaildirBackend {
         Ok(emails)
     }
 
-    fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<Messages> {
+    fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<Messages> {
         info!(
             "getting maildir emails by internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),
@@ -419,7 +402,7 @@ impl Backend for MaildirBackend {
         from_folder: &str,
         to_folder: &str,
         internal_ids: Vec<&str>,
-    ) -> backend::Result<()> {
+    ) -> Result<()> {
         info!(
             "copying internal ids {ids} from folder {from_folder} to folder {to_folder}",
             ids = internal_ids.join(", "),
@@ -442,7 +425,7 @@ impl Backend for MaildirBackend {
         from_folder: &str,
         to_folder: &str,
         internal_ids: Vec<&str>,
-    ) -> backend::Result<()> {
+    ) -> Result<()> {
         info!(
             "moving internal ids {ids} from folder {from_folder} to folder {to_folder}",
             ids = internal_ids.join(", "),
@@ -460,7 +443,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn delete_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> backend::Result<()> {
+    fn delete_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<()> {
         info!(
             "deleting internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),
@@ -475,12 +458,7 @@ impl Backend for MaildirBackend {
         }
     }
 
-    fn add_flags(
-        &mut self,
-        folder: &str,
-        internal_ids: Vec<&str>,
-        flags: &Flags,
-    ) -> backend::Result<()> {
+    fn add_flags(&mut self, folder: &str, internal_ids: Vec<&str>, flags: &Flags) -> Result<()> {
         info!(
             "adding flags {flags} to internal ids {ids} from folder {folder}",
             flags = flags.to_string(),
@@ -497,12 +475,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn set_flags(
-        &mut self,
-        folder: &str,
-        internal_ids: Vec<&str>,
-        flags: &Flags,
-    ) -> backend::Result<()> {
+    fn set_flags(&mut self, folder: &str, internal_ids: Vec<&str>, flags: &Flags) -> Result<()> {
         info!(
             "setting flags {flags} to internal ids {ids} from folder {folder}",
             flags = flags.to_string(),
@@ -519,12 +492,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn remove_flags(
-        &mut self,
-        folder: &str,
-        internal_ids: Vec<&str>,
-        flags: &Flags,
-    ) -> backend::Result<()> {
+    fn remove_flags(&mut self, folder: &str, internal_ids: Vec<&str>, flags: &Flags) -> Result<()> {
         info!(
             "removing flags {flags} to internal ids {ids} from folder {folder}",
             flags = flags.to_string(),

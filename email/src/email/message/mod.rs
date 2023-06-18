@@ -8,14 +8,16 @@ use imap::types::{Fetch, Fetches};
 use mail_parser::MimeHeaders;
 use ouroboros::self_referencing;
 use pimalaya_email_tpl::{Tpl, TplInterpreter};
-use std::{borrow::Cow, fmt::Debug, io, path::PathBuf, result};
+use std::{borrow::Cow, fmt::Debug, io, path::PathBuf};
 use thiserror::Error;
 use tree_magic;
 
-use crate::{account, AccountConfig};
+use crate::{account, AccountConfig, Result};
 
-pub use self::attachment::Attachment;
-pub use self::template::*;
+pub use self::{
+    attachment::Attachment,
+    template::{ForwardTplBuilder, NewTplBuilder, ReplyTplBuilder},
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -56,8 +58,6 @@ pub enum Error {
     ParseEmailMessageError,
 }
 
-type Result<T> = result::Result<T, Error>;
-
 enum RawMessage<'a> {
     Cow(Cow<'a, [u8]>),
     #[cfg(feature = "imap-backend")]
@@ -84,9 +84,11 @@ impl Message<'_> {
     }
 
     pub fn parsed(&self) -> Result<&mail_parser::Message> {
-        self.borrow_parsed()
+        let msg = self
+            .borrow_parsed()
             .as_ref()
-            .ok_or(Error::ParseEmailMessageError)
+            .ok_or(Error::ParseEmailMessageError)?;
+        Ok(msg)
     }
 
     pub fn raw(&self) -> Result<&[u8]> {
@@ -122,9 +124,10 @@ impl Message<'_> {
         let interpreter = config
             .generate_tpl_interpreter()
             .show_only_headers(config.email_reading_headers());
-        with_interpreter(interpreter)
+        let tpl = with_interpreter(interpreter)
             .interpret_msg(self.parsed()?)
-            .map_err(Error::InterpretEmailAsTplError)
+            .map_err(Error::InterpretEmailAsTplError)?;
+        Ok(tpl)
     }
 
     pub fn to_reply_tpl_builder<'a>(&'a self, config: &'a AccountConfig) -> ReplyTplBuilder {
@@ -229,11 +232,11 @@ impl From<Vec<Vec<u8>>> for Messages {
 
 #[cfg(feature = "imap-backend")]
 impl TryFrom<Fetches> for Messages {
-    type Error = Error;
+    type Error = crate::Error;
 
     fn try_from(fetches: Fetches) -> Result<Self> {
         if fetches.is_empty() {
-            Err(Error::ParseEmailFromEmptyEntriesError)
+            Ok(Err(Error::ParseEmailFromEmptyEntriesError)?)
         } else {
             Ok(MessagesBuilder {
                 raw: RawMessages::Fetches(fetches),
@@ -245,11 +248,11 @@ impl TryFrom<Fetches> for Messages {
 }
 
 impl TryFrom<Vec<maildirpp::MailEntry>> for Messages {
-    type Error = Error;
+    type Error = crate::Error;
 
     fn try_from(entries: Vec<maildirpp::MailEntry>) -> Result<Self> {
         if entries.is_empty() {
-            Err(Error::ParseEmailFromEmptyEntriesError)
+            Ok(Err(Error::ParseEmailFromEmptyEntriesError)?)
         } else {
             Ok(MessagesBuilder {
                 raw: RawMessages::MailEntries(entries),

@@ -1,11 +1,11 @@
 pub mod config;
 
 use mail_parser::Message;
-use std::result;
 use thiserror::Error;
 
+use crate::{AccountConfig, Result, Sender};
+
 pub use self::config::SendmailConfig;
-use crate::{sender, AccountConfig, Sender};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -16,8 +16,6 @@ pub enum Error {
     #[error("cannot parse email before sending")]
     ParseEmailError,
 }
-
-type Result<T> = result::Result<T, Error>;
 
 pub struct Sendmail {
     account_config: AccountConfig,
@@ -54,7 +52,7 @@ impl Sendmail {
 }
 
 impl Sender for Sendmail {
-    fn send(&mut self, email: &[u8]) -> sender::Result<()> {
-        Ok(self.send(email)?)
+    fn send(&mut self, email: &[u8]) -> Result<()> {
+        self.send(email)
     }
 }

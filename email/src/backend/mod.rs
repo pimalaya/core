@@ -9,43 +9,26 @@ pub mod notmuch;
 pub mod sync;
 
 use log::error;
-use std::{any::Any, result};
+use std::any::Any;
 use thiserror::Error;
 
-pub use self::config::BackendConfig;
+use crate::{AccountConfig, Envelope, Envelopes, Flag, Flags, Folders, Messages, Result};
+
 #[cfg(feature = "imap-backend")]
 pub use self::imap::*;
 pub use self::maildir::*;
 #[cfg(feature = "notmuch-backend")]
 pub use self::notmuch::*;
-pub use self::sync::{
-    BackendSyncBuilder, BackendSyncProgress, BackendSyncProgressEvent, BackendSyncReport,
+pub use self::{
+    config::BackendConfig,
+    sync::{BackendSyncBuilder, BackendSyncProgress, BackendSyncProgressEvent, BackendSyncReport},
 };
-use crate::{account, message, AccountConfig, Envelope, Envelopes, Flag, Flags, Folders, Messages};
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot build backend with an empty config")]
-    BuildBackendError,
-
-    #[error(transparent)]
-    ConfigError(#[from] account::config::Error),
-    #[error(transparent)]
-    MessageError(#[from] message::Error),
-    #[cfg(feature = "imap-backend")]
-    #[error(transparent)]
-    ImapBackendError(#[from] imap::Error),
-    #[cfg(feature = "imap-backend")]
-    #[error(transparent)]
-    ImapBackendConfigError(#[from] imap::config::Error),
-    #[error(transparent)]
-    MaildirBackendError(#[from] maildir::Error),
-    #[cfg(feature = "notmuch-backend")]
-    #[error(transparent)]
-    NotmuchBackendError(#[from] notmuch::Error),
+    #[error("cannot build undefined backend")]
+    BuildUndefinedBackendError,
 }
-
-type Result<T> = result::Result<T, Error>;
 
 pub trait Backend {
     fn name(&self) -> String;
@@ -126,7 +109,7 @@ impl BackendBuilder {
 
     pub fn build(&self) -> Result<Box<dyn Backend>> {
         match &self.account_config.backend {
-            BackendConfig::None => Err(Error::BuildBackendError),
+            BackendConfig::None => Ok(Err(Error::BuildUndefinedBackendError)?),
             #[cfg(feature = "imap-backend")]
             BackendConfig::Imap(imap_config) if !self.account_config.sync || self.disable_cache => {
                 Ok(Box::new(ImapBackend::new(
@@ -157,7 +140,7 @@ impl BackendBuilder {
 
     pub fn into_build(self) -> Result<Box<dyn Backend>> {
         match self.account_config.backend.clone() {
-            BackendConfig::None => Err(Error::BuildBackendError),
+            BackendConfig::None => Ok(Err(Error::BuildUndefinedBackendError)?),
             #[cfg(feature = "imap-backend")]
             BackendConfig::Imap(imap_config) if !self.account_config.sync || self.disable_cache => {
                 Ok(Box::new(ImapBackend::new(

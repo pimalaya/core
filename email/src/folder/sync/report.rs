@@ -1,4 +1,6 @@
-use super::*;
+use crate::Error;
+
+use super::{FolderSyncCacheHunk, FolderSyncHunk, FoldersName};
 
 #[derive(Debug, Default)]
 pub struct FolderSyncReport {

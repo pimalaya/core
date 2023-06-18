@@ -4,9 +4,9 @@ use mail_builder::{
 };
 use pimalaya_email_tpl::{Tpl, TplInterpreter};
 
-use crate::AccountConfig;
+use crate::{AccountConfig, Result};
 
-use super::{Error, Result};
+use super::Error;
 
 pub struct NewTplBuilder<'a> {
     config: &'a AccountConfig,

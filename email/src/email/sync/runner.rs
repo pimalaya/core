@@ -3,6 +3,7 @@ use std::sync::Mutex;
 
 use crate::{
     Backend, BackendBuilder, BackendSyncProgress, BackendSyncProgressEvent, MaildirBackendBuilder,
+    Result,
 };
 
 use super::*;
@@ -30,7 +31,7 @@ impl EmailSyncRunner<'_> {
                         trace!("sync runner {} processing envelope hunk: {hunk:?}", self.id);
 
                         let mut process_hunk = |hunk: &EmailSyncHunk| {
-                            Ok(match hunk {
+                            Result::Ok(match hunk {
                                 EmailSyncHunk::GetThenCache(
                                     folder,
                                     internal_id,

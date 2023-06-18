@@ -4,9 +4,9 @@ use mail_builder::{
 };
 use pimalaya_email_tpl::{Tpl, TplInterpreter};
 
-use crate::{AccountConfig, Message};
+use crate::{AccountConfig, Message, Result};
 
-use super::{Error, Result};
+use super::Error;
 
 pub struct ForwardTplBuilder<'a> {
     msg: &'a Message<'a>,
@@ -81,7 +81,7 @@ impl<'a> ForwardTplBuilder<'a> {
     }
 
     pub fn build(self) -> Result<Tpl> {
-        let parsed = self.msg.parsed().map_err(Box::new)?;
+        let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
 
         // From

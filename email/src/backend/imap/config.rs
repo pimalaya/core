@@ -4,10 +4,9 @@
 //! configuration of the user account.
 
 use pimalaya_process::Cmd;
-use std::result;
 use thiserror::Error;
 
-use crate::{account, OAuth2Config, PasswdConfig};
+use crate::{OAuth2Config, PasswdConfig, Result};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -17,11 +16,7 @@ pub enum Error {
     GetPasswdError(#[source] pimalaya_secret::Error),
     #[error("cannot get imap password: password is empty")]
     GetPasswdEmptyError,
-    #[error(transparent)]
-    AccountConfigError(#[from] account::config::Error),
 }
-
-type Result<T> = result::Result<T, Error>;
 
 /// Represents the IMAP backend configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

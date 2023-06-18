@@ -2,7 +2,9 @@ pub use rusqlite::Error;
 use rusqlite::{Connection, Transaction};
 use std::collections::HashSet;
 
-use super::{FolderSyncStrategy, FoldersName, Result};
+use crate::Result;
+
+use super::{FolderSyncStrategy, FoldersName};
 
 const CREATE_FOLDERS_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS folders (

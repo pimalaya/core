@@ -1,4 +1,4 @@
-//! Module dedicated to accounts.
+//! Module dedicated to account management.
 
 pub mod config;
 

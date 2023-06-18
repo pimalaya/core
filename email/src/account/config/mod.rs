@@ -1,30 +1,28 @@
-//! Account config module.
+//! Module dedicated to account configuration.
 //!
 //! This module contains the representation of the user's current
-//! account configuration.
+//! account configuration named [`AccountConfig`].
+
+pub mod oauth2;
+pub mod passwd;
 
 use dirs::data_dir;
 use log::warn;
 use mail_builder::headers::address::{Address, EmailAddress};
 use pimalaya_email_tpl::TplInterpreter;
-use pimalaya_oauth2::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use pimalaya_process::Cmd;
-use pimalaya_secret::Secret;
 use shellexpand;
-use std::{
-    collections::HashMap,
-    env,
-    ffi::OsStr,
-    fs, io,
-    ops::{Deref, DerefMut},
-    path::PathBuf,
-    result, vec,
-};
+use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, vec};
 use thiserror::Error;
 
 use crate::{
     folder::sync::FolderSyncStrategy as SyncFoldersStrategy, BackendConfig, EmailHooks,
-    EmailTextPlainFormat, SenderConfig,
+    EmailTextPlainFormat, Result, SenderConfig,
+};
+
+pub use self::{
+    oauth2::{OAuth2Config, OAuth2Method, OAuth2Scopes},
+    passwd::PasswdConfig,
 };
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
@@ -39,101 +37,77 @@ pub const DEFAULT_TRASH_FOLDER: &str = "Trash";
 pub enum Error {
     #[error("cannot open the synchronization database")]
     BuildSyncDatabaseError(#[source] rusqlite::Error),
-    #[error("cannot encrypt file using pgp")]
-    EncryptFileError(#[source] pimalaya_process::Error),
-    #[error("cannot decrypt file using pgp")]
-    DecryptFileError(#[source] pimalaya_process::Error),
     #[error("cannot parse download file name from {0}")]
     ParseDownloadFileNameError(PathBuf),
-
     #[error("cannot get sync directory from XDG_DATA_HOME")]
     GetXdgDataDirError,
     #[error("cannot create sync directories")]
     CreateXdgDataDirsError(#[source] io::Error),
-
-    #[error("cannot configure imap oauth2")]
-    OAuth2AuthorizationCodeGrantError(#[from] pimalaya_oauth2::Error),
-
-    #[error("cannot get imap oauth2 access token from global keyring")]
-    GetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
-    #[error("cannot set imap oauth2 access token")]
-    SetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
-    #[error("cannot delete imap oauth2 access token from global keyring")]
-    DeleteOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
-
-    #[error("cannot get imap oauth2 refresh token")]
-    GetOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
-    #[error("cannot set imap oauth2 refresh token")]
-    SetOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
-    #[error("cannot delete imap oauth2 refresh token from global keyring")]
-    DeleteOAuth2RefreshTokenError(#[source] pimalaya_secret::Error),
-
-    #[error("cannot get imap oauth2 client secret from user")]
-    GetOAuth2ClientSecretFromUserError(#[source] io::Error),
-    #[error("cannot get imap oauth2 client secret from global keyring")]
-    GetOAuth2ClientSecretFromKeyring(#[source] pimalaya_secret::Error),
-    #[error("cannot save imap oauth2 client secret into global keyring")]
-    SetOAuth2ClientSecretIntoKeyringError(#[source] pimalaya_secret::Error),
-    #[error("cannot delete imap oauth2 client secret from global keyring")]
-    DeleteOAuth2ClientSecretError(#[source] pimalaya_secret::Error),
-
-    #[error("cannot get imap password from user")]
-    GetPasswdFromUserError(#[source] io::Error),
-    #[error("cannot get imap password from global keyring")]
-    GetPasswdFromKeyring(#[source] pimalaya_secret::Error),
-    #[error("cannot save imap password into global keyring")]
-    SetPasswdIntoKeyringError(#[source] pimalaya_secret::Error),
-    #[error("cannot delete imap password from global keyring")]
-    DeletePasswdError(#[source] pimalaya_secret::Error),
-
-    #[error("cannot refresh imap oauth2 access token")]
-    RefreshOAuth2AccessTokenError(#[source] pimalaya_oauth2::Error),
 }
 
-type Result<T> = result::Result<T, Error>;
-
-/// Represents the configuration of the user account.
+/// The user's account configuration.
+///
+/// It represents everything that the user can customize for a given
+/// account. It is the main configuration used by all other
+/// modules. Usually, it serves as a reference for building config
+/// file structure.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountConfig {
-    /// Represents the name of the current user account.
+    /// The name of the user account. It serves as an unique
+    /// identifier for a given configuration.
     pub name: String,
-    /// Represents the email address of the user.
+    /// The email address of the user account.
     pub email: String,
-    /// Represents the display name of the user.
+    /// The display name of the user. It usually corresponds to the
+    /// full name of the user.
     pub display_name: Option<String>,
-    /// Represents the email signature delimiter of the user.
+    /// The email signature delimiter of the user signature. Defaults
+    /// to `-- \n`.
     pub signature_delim: Option<String>,
-    /// Represents the email signature of the user.
+    /// Represents the email signature of the user. It can be either a
+    /// path to a file (usually `~/.signature`) or a raw string.
     pub signature: Option<String>,
-    /// Represents the downloads directory (mostly for attachments).
+    /// Represents the downloads directory. It is used for downloading
+    /// attachments.
     pub downloads_dir: Option<PathBuf>,
 
-    /// Represents the page size when listing folders.
+    /// Represents the page size when listing folders. A page size of
+    /// 0 disables the pagination and shows all available folders.
     pub folder_listing_page_size: Option<usize>,
-    /// Represents the folder aliases hash map.
+    /// Represents the folder aliases hash map. There is 3 special
+    /// aliases:
+    /// - `inbox`: main folder containing incoming emails
+    /// - `draft(s)`: folder containing draft emails
+    /// - `sent`: folder containing emails sent
     pub folder_aliases: HashMap<String, String>,
 
-    /// Represents the page size when listing emails.
+    /// Represents the page size when listing envelopes. A page size
+    /// of 0 disables the pagination and shows all available
+    /// envelopes.
     pub email_listing_page_size: Option<usize>,
-    /// Custom format for displaying envelopes date. See [`chrono::format::strftime`] for supported formats.
+    /// Custom format for displaying envelopes date. See
+    /// [`chrono::format::strftime`] for supported formats. Defaults
+    /// to `%F %R%:z`.
     pub email_listing_datetime_fmt: Option<String>,
-    /// If `true`, transform envelopes date timezone to the user's local one.
-    /// For example, if the user's local timezone is UTC, the envelope date `2023-06-15T09:00:00+02:00` becomes `2023-06-15T07:00:00-00:00`.
+    /// If `true`, transform envelopes date timezone into the user's
+    /// local one. For example, if the user's local timezone is UTC,
+    /// the envelope date `2023-06-15T09:00:00+02:00` becomes
+    /// `2023-06-15T07:00:00-00:00`.
     pub email_listing_datetime_local_tz: Option<bool>,
 
-    /// Represents headers visible at the top of emails when reading
-    /// them.
+    /// Represents headers visible at the top of email messages when
+    /// reading them.
     pub email_reading_headers: Option<Vec<String>>,
     /// Represents the text/plain format as defined in the
     /// [RFC 2646](https://www.ietf.org/rfc/rfc2646.txt).
     pub email_reading_format: EmailTextPlainFormat,
-    /// Represents the command used to verify an email.
+    /// Represents the PGP command used to verify an email.
     pub email_reading_verify_cmd: Option<Cmd>,
-    /// Represents the command used to decrypt an email.
+    /// Represents the PGP command used to decrypt an email.
     pub email_reading_decrypt_cmd: Option<Cmd>,
-    /// Represents the command used to sign an email.
+    /// Represents the PGP command used to sign an email.
     pub email_writing_sign_cmd: Option<Cmd>,
-    /// Represents the command used to encrypt an email.
+    /// Represents the PGP command used to encrypt an email.
     pub email_writing_encrypt_cmd: Option<Cmd>,
     /// Represents headers visible at the top of emails when writing
     /// them (new/reply/forward).
@@ -150,23 +124,25 @@ pub struct AccountConfig {
     /// AccountConfig {
     ///     folder_aliases: HashMap::from_iter([("sent", "MyCustomSent")]),
     ///     email_sending_save_copy: true,
-    ///     ..AccountConfig::default()
+    ///     ..Default::default()
     /// };
     /// ```
     pub email_sending_save_copy: bool,
     /// Represents the email hooks.
     pub email_hooks: EmailHooks,
 
-    /// Enables the automatic synchronization of this account with a
-    /// local Maildir backend.
+    /// Enables the synchronization of this account with a local
+    /// Maildir backend.
     pub sync: bool,
-    /// Customizes the root directory where the Maildir cache is
+    /// Custom root directory where the Maildir cache is
     /// saved. Defaults to `$XDG_DATA_HOME/himalaya/<account-name>`.
     pub sync_dir: Option<PathBuf>,
     /// Represents the synchronization strategy to use for folders.
     pub sync_folders_strategy: SyncFoldersStrategy,
 
+    /// The [Backend](crate::Backend) configuration.
     pub backend: BackendConfig,
+    /// The [Sender](crate::Sender) configuration.
     pub sender: SenderConfig,
 }
 
@@ -191,6 +167,8 @@ impl Default for AccountConfig {
             email_writing_sign_cmd: Default::default(),
             email_writing_encrypt_cmd: Default::default(),
             email_writing_headers: Default::default(),
+            // NOTE: manually implementing the Default trait just for
+            // this field:
             email_sending_save_copy: true,
             email_hooks: Default::default(),
             sync: Default::default(),
@@ -374,8 +352,9 @@ impl AccountConfig {
     }
 
     pub fn sync_db_builder(&self) -> Result<rusqlite::Connection> {
-        rusqlite::Connection::open(self.sync_dir()?.join(".sync.sqlite"))
-            .map_err(Error::BuildSyncDatabaseError)
+        let conn = rusqlite::Connection::open(self.sync_dir()?.join(".sync.sqlite"))
+            .map_err(Error::BuildSyncDatabaseError)?;
+        Ok(conn)
     }
 
     pub fn generate_tpl_interpreter(&self) -> TplInterpreter {
@@ -396,246 +375,8 @@ impl AccountConfig {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct PasswdConfig {
-    pub passwd: Secret,
-}
-
-impl Deref for PasswdConfig {
-    type Target = Secret;
-
-    fn deref(&self) -> &Self::Target {
-        &self.passwd
-    }
-}
-
-impl DerefMut for PasswdConfig {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.passwd
-    }
-}
-
-impl PasswdConfig {
-    pub fn reset(&self) -> Result<()> {
-        self.delete_keyring_entry_secret()
-            .map_err(Error::DeletePasswdError)?;
-        Ok(())
-    }
-
-    pub fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
-        match self.find() {
-            Ok(None) => {
-                warn!("cannot find imap password from keyring, setting it");
-                let passwd = get_passwd().map_err(Error::GetPasswdFromUserError)?;
-                self.set_keyring_entry_secret(passwd)
-                    .map_err(Error::SetPasswdIntoKeyringError)?;
-                Ok(())
-            }
-            Ok(_) => Ok(()),
-            Err(err) => Err(Error::GetPasswdFromKeyring(err)),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct OAuth2Config {
-    pub method: OAuth2Method,
-    pub client_id: String,
-    pub client_secret: Secret,
-    pub auth_url: String,
-    pub token_url: String,
-    pub access_token: Secret,
-    pub refresh_token: Secret,
-    pub pkce: bool,
-    pub scopes: OAuth2Scopes,
-    pub redirect_host: String,
-    pub redirect_port: u16,
-}
-
-impl Default for OAuth2Config {
-    fn default() -> Self {
-        Self {
-            method: Default::default(),
-            client_id: Default::default(),
-            client_secret: Default::default(),
-            auth_url: Default::default(),
-            token_url: Default::default(),
-            access_token: Default::default(),
-            refresh_token: Default::default(),
-            pkce: Default::default(),
-            scopes: Default::default(),
-            redirect_host: Self::default_redirect_host(),
-            redirect_port: Self::default_redirect_port(),
-        }
-    }
-}
-
-impl OAuth2Config {
-    pub fn default_redirect_host() -> String {
-        String::from("localhost")
-    }
-
-    pub fn default_redirect_port() -> u16 {
-        9999
-    }
-
-    pub fn reset(&self) -> Result<()> {
-        self.client_secret
-            .delete_keyring_entry_secret()
-            .map_err(Error::DeleteOAuth2ClientSecretError)?;
-        self.access_token
-            .delete_keyring_entry_secret()
-            .map_err(Error::DeleteOAuth2AccessTokenError)?;
-        self.refresh_token
-            .delete_keyring_entry_secret()
-            .map_err(Error::DeleteOAuth2RefreshTokenError)?;
-        Ok(())
-    }
-
-    pub fn configure(&self, get_client_secret: impl Fn() -> io::Result<String>) -> Result<()> {
-        if self.access_token.get().is_ok() {
-            return Ok(());
-        }
-
-        let set_client_secret = || {
-            self.client_secret
-                .set_keyring_entry_secret(
-                    get_client_secret().map_err(Error::GetOAuth2ClientSecretFromUserError)?,
-                )
-                .map_err(Error::SetOAuth2ClientSecretIntoKeyringError)
-        };
-
-        let client_secret = match self.client_secret.find() {
-            Ok(None) => {
-                warn!("cannot find imap oauth2 client secret from keyring, setting it");
-                set_client_secret()
-            }
-            Ok(Some(client_secret)) => Ok(client_secret),
-            Err(err) => Err(Error::GetOAuth2ClientSecretFromKeyring(err)),
-        }?;
-
-        let client = Client::new(
-            self.client_id.clone(),
-            client_secret,
-            self.auth_url.clone(),
-            self.token_url.clone(),
-        )?
-        .with_redirect_host(self.redirect_host.clone())
-        .with_redirect_port(self.redirect_port)
-        .build()?;
-
-        let mut auth_code_grant = AuthorizationCodeGrant::new()
-            .with_redirect_host(self.redirect_host.clone())
-            .with_redirect_port(self.redirect_port);
-
-        if self.pkce {
-            auth_code_grant = auth_code_grant.with_pkce();
-        }
-
-        for scope in self.scopes.clone() {
-            auth_code_grant = auth_code_grant.with_scope(scope);
-        }
-
-        let (redirect_url, csrf_token) = auth_code_grant.get_redirect_url(&client);
-
-        println!("To enable OAuth2, click on the following link:");
-        println!("");
-        println!("{}", redirect_url.to_string());
-
-        let (access_token, refresh_token) =
-            auth_code_grant.wait_for_redirection(&client, csrf_token)?;
-
-        self.access_token
-            .set_keyring_entry_secret(access_token)
-            .map_err(Error::SetOAuth2AccessTokenError)?;
-
-        if let Some(refresh_token) = &refresh_token {
-            self.refresh_token
-                .set_keyring_entry_secret(refresh_token)
-                .map_err(Error::SetOAuth2RefreshTokenError)?;
-        }
-
-        Ok(())
-    }
-
-    pub fn refresh_access_token(&self) -> Result<String> {
-        let client_secret = self
-            .client_secret
-            .get()
-            .map_err(Error::GetOAuth2ClientSecretFromKeyring)?;
-
-        let client = Client::new(
-            self.client_id.clone(),
-            client_secret,
-            self.auth_url.clone(),
-            self.token_url.clone(),
-        )?
-        .with_redirect_host(self.redirect_host.clone())
-        .with_redirect_port(self.redirect_port)
-        .build()?;
-
-        let refresh_token = self
-            .refresh_token
-            .get()
-            .map_err(Error::GetOAuth2RefreshTokenError)?;
-
-        let (access_token, refresh_token) = RefreshAccessToken::new()
-            .refresh_access_token(&client, refresh_token)
-            .map_err(Error::RefreshOAuth2AccessTokenError)?;
-
-        self.access_token
-            .set_keyring_entry_secret(&access_token)
-            .map_err(Error::SetOAuth2AccessTokenError)?;
-
-        if let Some(refresh_token) = &refresh_token {
-            self.refresh_token
-                .set_keyring_entry_secret(refresh_token)
-                .map_err(Error::SetOAuth2RefreshTokenError)?;
-        }
-
-        Ok(access_token)
-    }
-
-    pub fn access_token(&self) -> Result<String> {
-        self.access_token
-            .get()
-            .map_err(Error::GetOAuth2AccessTokenError)
-    }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum OAuth2Method {
-    #[default]
-    XOAuth2,
-    OAuthBearer,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum OAuth2Scopes {
-    Scope(String),
-    Scopes(Vec<String>),
-}
-
-impl Default for OAuth2Scopes {
-    fn default() -> Self {
-        Self::Scopes(Vec::new())
-    }
-}
-
-impl IntoIterator for OAuth2Scopes {
-    type Item = String;
-    type IntoIter = vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        match self {
-            Self::Scope(scope) => vec![scope].into_iter(),
-            Self::Scopes(scopes) => scopes.into_iter(),
-        }
-    }
-}
-
 #[cfg(test)]
-mod account_config {
+mod tests {
     use std::path::PathBuf;
 
     use crate::AccountConfig;

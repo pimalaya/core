@@ -5,9 +5,9 @@ use mail_builder::{
 use mail_parser::{Addr, HeaderValue};
 use pimalaya_email_tpl::{Tpl, TplInterpreter};
 
-use crate::{email::address, AccountConfig, Message};
+use crate::{email::address, AccountConfig, Message, Result};
 
-use super::{Error, Result};
+use super::Error;
 
 pub struct ReplyTplBuilder<'a> {
     msg: &'a Message<'a>,
@@ -88,7 +88,7 @@ impl<'a> ReplyTplBuilder<'a> {
     }
 
     pub fn build(self) -> Result<Tpl> {
-        let parsed = self.msg.parsed().map_err(Box::new)?;
+        let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
 
         let me = Addr::new(Some(&self.config.name), &self.config.email);

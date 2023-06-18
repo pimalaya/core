@@ -26,11 +26,12 @@ use std::{
 use thiserror::Error;
 use utf7_imap::{decode_utf7_imap as decode_utf7, encode_utf7_imap as encode_utf7};
 
-pub use self::config::{ImapAuthConfig, ImapConfig};
 use crate::{
-    account, backend, email, envelope, AccountConfig, Backend, Envelope, Envelopes, Flag, Flags,
-    Folder, Folders, Messages, OAuth2Method,
+    envelope, AccountConfig, Backend, Envelope, Envelopes, Flag, Flags, Folder, Folders, Messages,
+    OAuth2Method, Result,
 };
+
+pub use self::config::{ImapAuthConfig, ImapConfig};
 
 const ENVELOPE_QUERY: &str = "(UID FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM SUBJECT DATE)])";
 
@@ -140,19 +141,7 @@ pub enum Error {
     GetPasswdError(#[source] pimalaya_secret::Error),
     #[error("cannot get imap password: password is empty")]
     GetPasswdEmptyError,
-
-    // Other error forwarding
-    #[error(transparent)]
-    ConfigError(#[from] account::config::Error),
-    #[error(transparent)]
-    ImapConfigError(#[from] backend::imap::config::Error),
-    #[error(transparent)]
-    EmailError(#[from] email::Error),
-    #[error(transparent)]
-    MaildirBackend(#[from] backend::maildir::Error),
 }
-
-type Result<T> = result::Result<T, Error>;
 
 static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     let mut store = RootCertStore::empty();
@@ -275,9 +264,9 @@ impl ImapBackend {
             ImapAuthConfig::OAuth2(oauth2_config) => {
                 Self::build_session(&imap_config, default_credentials.clone()).or_else(|err| {
                     match err {
-                        Error::AuthenticateError(imap::Error::Parse(
+                        crate::Error::ImapError(Error::AuthenticateError(imap::Error::Parse(
                             imap::error::ParseError::Authentication(_, _),
-                        )) => {
+                        ))) => {
                             warn!("error while authenticating user, refreshing access token");
                             oauth2_config.refresh_access_token()?;
                             Self::build_session(&imap_config, None)
@@ -421,16 +410,18 @@ impl ImapBackend {
         map_err: impl Fn(imap::Error) -> Error,
     ) -> Result<T> {
         match &self.imap_config.auth {
-            ImapAuthConfig::Passwd(_) => action(&mut self.session).map_err(map_err),
+            ImapAuthConfig::Passwd(_) => {
+                action(&mut self.session).or_else(|err| Ok(Err(map_err(err))?))
+            }
             ImapAuthConfig::OAuth2(oauth2_config) => {
                 action(&mut self.session).or_else(|err| match err {
                     imap::Error::Parse(imap::error::ParseError::Authentication(_, _)) => {
                         warn!("error while authenticating user, refreshing access token");
                         oauth2_config.refresh_access_token()?;
                         self.session = Self::build_session(&self.imap_config, None)?;
-                        action(&mut self.session).map_err(map_err)
+                        action(&mut self.session).or_else(|err| Ok(Err(map_err(err))?))
                     }
-                    err => Err(map_err(err)),
+                    err => Ok(Err(map_err(err))?),
                 })
             }
         }
@@ -572,7 +563,7 @@ impl Backend for ImapBackend {
         self.account_config.name.clone()
     }
 
-    fn add_folder(&mut self, folder: &str) -> backend::Result<()> {
+    fn add_folder(&mut self, folder: &str) -> Result<()> {
         info!("adding imap folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -586,7 +577,7 @@ impl Backend for ImapBackend {
         Ok(())
     }
 
-    fn list_folders(&mut self) -> backend::Result<Folders> {
+    fn list_folders(&mut self) -> Result<Folders> {
         info!("listing imap folders");
 
         let folders = self.with_session(
@@ -615,7 +606,7 @@ impl Backend for ImapBackend {
         Ok(folders)
     }
 
-    fn expunge_folder(&mut self, folder: &str) -> backend::Result<()> {
+    fn expunge_folder(&mut self, folder: &str) -> Result<()> {
         info!("expunging imap folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -634,7 +625,7 @@ impl Backend for ImapBackend {
         Ok(())
     }
 
-    fn purge_folder(&mut self, folder: &str) -> backend::Result<()> {
+    fn purge_folder(&mut self, folder: &str) -> Result<()> {
         info!("purging imap folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -663,7 +654,7 @@ impl Backend for ImapBackend {
         Ok(())
     }
 
-    fn delete_folder(&mut self, folder: &str) -> backend::Result<()> {
+    fn delete_folder(&mut self, folder: &str) -> Result<()> {
         info!("deleting imap folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -677,7 +668,7 @@ impl Backend for ImapBackend {
         Ok(())
     }
 
-    fn get_envelope(&mut self, folder: &str, uid: &str) -> backend::Result<Envelope> {
+    fn get_envelope(&mut self, folder: &str, uid: &str) -> Result<Envelope> {
         info!("getting imap envelope {uid} from folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -703,12 +694,7 @@ impl Backend for ImapBackend {
         Ok(envelope)
     }
 
-    fn list_envelopes(
-        &mut self,
-        folder: &str,
-        page_size: usize,
-        page: usize,
-    ) -> backend::Result<Envelopes> {
+    fn list_envelopes(&mut self, folder: &str, page_size: usize, page: usize) -> Result<Envelopes> {
         info!("listing imap envelopes from folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -747,7 +733,7 @@ impl Backend for ImapBackend {
         sort: &str,
         page_size: usize,
         page: usize,
-    ) -> backend::Result<Envelopes> {
+    ) -> Result<Envelopes> {
         info!("searching imap envelopes from folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -815,7 +801,7 @@ impl Backend for ImapBackend {
         Ok(envelopes)
     }
 
-    fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> backend::Result<String> {
+    fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
         info!(
             "adding imap email to folder {folder} with flags {flags}",
             flags = flags.to_string(),
@@ -858,7 +844,7 @@ impl Backend for ImapBackend {
         Ok(uid.to_string())
     }
 
-    fn preview_emails(&mut self, folder: &str, uids: Vec<&str>) -> backend::Result<Messages> {
+    fn preview_emails(&mut self, folder: &str, uids: Vec<&str>) -> Result<Messages> {
         let uids = uids.join(",");
         info!("previewing imap emails {uids} from folder {folder}");
 
@@ -878,7 +864,7 @@ impl Backend for ImapBackend {
         Ok(Messages::try_from(fetches)?)
     }
 
-    fn get_emails(&mut self, folder: &str, uids: Vec<&str>) -> backend::Result<Messages> {
+    fn get_emails(&mut self, folder: &str, uids: Vec<&str>) -> Result<Messages> {
         let uids = uids.join(",");
         info!("getting imap emails {uids} from folder {folder}");
 
@@ -898,12 +884,7 @@ impl Backend for ImapBackend {
         Ok(Messages::try_from(fetches)?)
     }
 
-    fn copy_emails(
-        &mut self,
-        from_folder: &str,
-        to_folder: &str,
-        uids: Vec<&str>,
-    ) -> backend::Result<()> {
+    fn copy_emails(&mut self, from_folder: &str, to_folder: &str, uids: Vec<&str>) -> Result<()> {
         let uids = uids.join(",");
         info!("copying imap emails {uids} from folder {from_folder} to folder {to_folder}");
 
@@ -932,12 +913,7 @@ impl Backend for ImapBackend {
         Ok(())
     }
 
-    fn move_emails(
-        &mut self,
-        from_folder: &str,
-        to_folder: &str,
-        uids: Vec<&str>,
-    ) -> backend::Result<()> {
+    fn move_emails(&mut self, from_folder: &str, to_folder: &str, uids: Vec<&str>) -> Result<()> {
         let uids = uids.join(",");
         info!("moving imap emails {uids} from folder {from_folder} to folder {to_folder}");
 
@@ -966,7 +942,7 @@ impl Backend for ImapBackend {
         Ok(())
     }
 
-    fn delete_emails(&mut self, folder: &str, uids: Vec<&str>) -> backend::Result<()> {
+    fn delete_emails(&mut self, folder: &str, uids: Vec<&str>) -> Result<()> {
         let trash_folder = self.account_config.trash_folder_alias()?;
 
         if self.account_config.folder_alias(folder)? == trash_folder {
@@ -976,7 +952,7 @@ impl Backend for ImapBackend {
         }
     }
 
-    fn add_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> backend::Result<()> {
+    fn add_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> Result<()> {
         let uids = uids.join(",");
         info!(
             "addings flags {flags} to imap emails {uids} from folder {folder}",
@@ -1001,7 +977,7 @@ impl Backend for ImapBackend {
         Ok(())
     }
 
-    fn set_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> backend::Result<()> {
+    fn set_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> Result<()> {
         let uids = uids.join(",");
         info!(
             "setting flags {flags} to imap emails {uids} from folder {folder}",
@@ -1024,12 +1000,7 @@ impl Backend for ImapBackend {
         Ok(())
     }
 
-    fn remove_flags(
-        &mut self,
-        folder: &str,
-        uids: Vec<&str>,
-        flags: &Flags,
-    ) -> backend::Result<()> {
+    fn remove_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> Result<()> {
         let uids = uids.join(",");
         info!(
             "removing flags {flags} to imap emails {uids} from folder {folder}",
@@ -1054,7 +1025,7 @@ impl Backend for ImapBackend {
         Ok(())
     }
 
-    fn close(&mut self) -> backend::Result<()> {
+    fn close(&mut self) -> Result<()> {
         debug!("closing imap backend session");
         self.with_session(
             |session| {
@@ -1119,13 +1090,13 @@ mod tests {
         // page * page_size = size
         assert!(matches!(
             super::build_page_range(1, 5, 5).unwrap_err(),
-            super::Error::BuildPageRangeOutOfBoundsError(2),
+            crate::Error::ImapError(super::Error::BuildPageRangeOutOfBoundsError(2)),
         ));
 
         // page * page_size > size
         assert!(matches!(
             super::build_page_range(2, 5, 5).unwrap_err(),
-            super::Error::BuildPageRangeOutOfBoundsError(3),
+            crate::Error::ImapError(super::Error::BuildPageRangeOutOfBoundsError(3)),
         ));
     }
 

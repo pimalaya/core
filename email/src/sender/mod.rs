@@ -5,31 +5,22 @@ pub mod sendmail;
 #[cfg(feature = "smtp-sender")]
 pub mod smtp;
 
-use std::result;
 use thiserror::Error;
 
-pub use self::config::SenderConfig;
-pub use self::sendmail::{Sendmail, SendmailConfig};
+use crate::{AccountConfig, Result};
+
 #[cfg(feature = "smtp-sender")]
 pub use self::smtp::{Smtp, SmtpAuthConfig, SmtpConfig};
-use crate::{account, email, AccountConfig};
+pub use self::{
+    config::SenderConfig,
+    sendmail::{Sendmail, SendmailConfig},
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot build undefined sender")]
     BuildUndefinedSenderError,
-    #[error(transparent)]
-    EmailError(#[from] email::Error),
-    #[error(transparent)]
-    ConfigError(#[from] account::config::Error),
-    #[cfg(feature = "smtp-sender")]
-    #[error(transparent)]
-    SmtpError(#[from] smtp::Error),
-    #[error(transparent)]
-    SendmailError(#[from] sendmail::Error),
 }
-
-type Result<T> = result::Result<T, Error>;
 
 pub trait Sender {
     fn send(&mut self, msg: &[u8]) -> Result<()>;
@@ -47,7 +38,7 @@ impl SenderBuilder {
 
     pub fn build_into(self) -> Result<Box<dyn Sender>> {
         match self.account_config.sender.clone() {
-            SenderConfig::None => Err(Error::BuildUndefinedSenderError),
+            SenderConfig::None => Ok(Err(Error::BuildUndefinedSenderError)?),
             #[cfg(feature = "smtp-sender")]
             SenderConfig::Smtp(smtp_config) => {
                 Ok(Box::new(Smtp::new(self.account_config, smtp_config)?))
@@ -61,7 +52,7 @@ impl SenderBuilder {
 
     pub fn build(&self) -> Result<Box<dyn Sender>> {
         match &self.account_config.sender {
-            SenderConfig::None => Err(Error::BuildUndefinedSenderError),
+            SenderConfig::None => Ok(Err(Error::BuildUndefinedSenderError)?),
             #[cfg(feature = "smtp-sender")]
             SenderConfig::Smtp(smtp_config) => Ok(Box::new(Smtp::new(
                 self.account_config.clone(),

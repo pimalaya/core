@@ -4,13 +4,11 @@ mod patch;
 mod report;
 mod runner;
 
-use std::result;
 use thiserror::Error;
 
 use crate::{
-    account,
-    backend::{self, sync::Destination},
-    message, AccountConfig, Backend, BackendBuilder, Envelope, MaildirBackendBuilder,
+    backend::sync::Destination, AccountConfig, Backend, BackendBuilder, Envelope,
+    MaildirBackendBuilder,
 };
 
 pub use self::{
@@ -31,17 +29,4 @@ pub enum Error {
     FindConnectionByCursorError(usize),
     #[error("cannot find email by internal id {0}")]
     LockConnectionError(String),
-
-    #[error(transparent)]
-    SqliteError(#[from] rusqlite::Error),
-    #[error(transparent)]
-    ConfigError(#[from] account::config::Error),
-    #[error(transparent)]
-    EmailError(#[from] message::Error),
-    #[error(transparent)]
-    BackendError(#[from] backend::Error),
-    #[error(transparent)]
-    MaildirBackendError(#[from] backend::maildir::Error),
 }
-
-type Result<T> = result::Result<T, Error>;

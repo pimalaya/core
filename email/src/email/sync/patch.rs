@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
     backend::sync::{Source, Target},
-    flag, BackendSyncProgress, BackendSyncProgressEvent,
+    flag, BackendSyncProgress, BackendSyncProgressEvent, Result,
 };
 
 use super::*;

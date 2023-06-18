@@ -5,23 +5,17 @@ use std::{
     collections::{HashMap, HashSet},
     env, fmt,
     fs::OpenOptions,
-    io, result,
+    io,
 };
 use thiserror::Error;
 
 use crate::{
-    account, email,
-    folder::{
-        self,
-        sync::{FolderName, FoldersName},
-    },
+    folder::sync::{FolderName, FoldersName},
     AccountConfig, Backend, BackendBuilder, EmailSyncCache, EmailSyncCacheHunk,
     EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch, EmailSyncPatchManager, FolderSyncCache,
     FolderSyncCacheHunk, FolderSyncHunk, FolderSyncPatchManager, FolderSyncPatches,
-    FolderSyncStrategy, MaildirBackendBuilder, MaildirConfig,
+    FolderSyncStrategy, MaildirBackendBuilder, MaildirConfig, Result,
 };
-
-use super::maildir;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -33,20 +27,7 @@ pub enum Error {
     SyncAccountLockFileError(#[source] FileLockError, String),
     #[error("cannot synchronize account {1}: cannot unlock process")]
     SyncAccountUnlockFileError(#[source] FileLockError, String),
-
-    #[error(transparent)]
-    ConfigError(#[from] account::config::Error),
-    #[error(transparent)]
-    FolderSyncError(#[from] folder::sync::Error),
-    #[error(transparent)]
-    EmailSyncError(#[from] email::sync::Error),
-    #[error(transparent)]
-    BackendError(#[from] super::Error),
-    #[error(transparent)]
-    MaildirBackendError(#[from] maildir::Error),
 }
-
-type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum Destination {
@@ -132,10 +113,10 @@ impl fmt::Display for BackendSyncProgressEvent {
 #[derive(Debug, Default)]
 pub struct BackendSyncReport {
     pub folders: FoldersName,
-    pub folders_patch: Vec<(FolderSyncHunk, Option<folder::sync::Error>)>,
-    pub folders_cache_patch: (Vec<FolderSyncCacheHunk>, Option<folder::sync::Error>),
-    pub emails_patch: Vec<(EmailSyncHunk, Option<email::sync::Error>)>,
-    pub emails_cache_patch: (Vec<EmailSyncCacheHunk>, Option<email::sync::Error>),
+    pub folders_patch: Vec<(FolderSyncHunk, Option<crate::Error>)>,
+    pub folders_cache_patch: (Vec<FolderSyncCacheHunk>, Option<crate::Error>),
+    pub emails_patch: Vec<(EmailSyncHunk, Option<crate::Error>)>,
+    pub emails_cache_patch: (Vec<EmailSyncCacheHunk>, Option<crate::Error>),
 }
 
 pub struct BackendSyncProgress<'a>(
@@ -215,7 +196,7 @@ impl<'a> BackendSyncBuilder<'a> {
 
         if !self.account_config.sync {
             warn!("sync feature not enabled for account {account}, aborting");
-            return Err(Error::SyncAccountNotEnabledError(account.clone()));
+            return Ok(Err(Error::SyncAccountNotEnabledError(account.clone()))?);
         }
 
         let lock_file_path = env::temp_dir().join(format!("himalaya-sync-{}.lock", account));
