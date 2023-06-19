@@ -74,11 +74,12 @@ pub struct AccountConfig {
     /// Represents the page size when listing folders. A page size of
     /// 0 disables the pagination and shows all available folders.
     pub folder_listing_page_size: Option<usize>,
-    /// Represents the folder aliases hash map. There is 3 special
+    /// Represents the folder aliases hash map. There is 4 special
     /// aliases:
     /// - `inbox`: main folder containing incoming emails
     /// - `draft(s)`: folder containing draft emails
     /// - `sent`: folder containing emails sent
+    /// - `trash`: folder containing trashed emails
     pub folder_aliases: HashMap<String, String>,
 
     /// Represents the page size when listing envelopes. A page size
@@ -181,14 +182,18 @@ impl Default for AccountConfig {
 }
 
 impl AccountConfig {
-    pub fn addr(&self) -> Address {
+    /// Build a [`mail_builder::headers::address`] from a user account
+    /// configuration. This is mostly used for building the `From`
+    /// header by message builders.
+    pub fn from(&self) -> Address {
         Address::Address(EmailAddress {
             name: self.display_name.clone().map(Into::into),
             email: self.email.clone().into(),
         })
     }
 
-    /// Gets the downloads directory path.
+    /// Expand the downloads directory path. Falls back to temporary
+    /// directory.
     pub fn downloads_dir(&self) -> PathBuf {
         self.downloads_dir
             .as_ref()
@@ -198,44 +203,14 @@ impl AccountConfig {
             .unwrap_or_else(env::temp_dir)
     }
 
-    /// Gets the download path from a file name.
-    pub fn get_download_file_path<S: AsRef<str>>(&self, file_name: S) -> Result<PathBuf> {
-        let file_path = self.downloads_dir().join(file_name.as_ref());
-        self.get_unique_download_file_path(&file_path, |path, _count| path.is_file())
+    /// Wrapper around `downloads_dir()` and `rename_file_if_duplicate()`.
+    pub fn download_fpath(&self, fname: impl AsRef<str>) -> Result<PathBuf> {
+        let fpath = self.downloads_dir().join(fname.as_ref());
+        rename_file_if_duplicate(&fpath, |path, _count| path.is_file())
     }
 
-    /// Gets the unique download path from a file name by adding
-    /// suffixes in case of name conflicts.
-    pub(crate) fn get_unique_download_file_path(
-        &self,
-        original_file_path: &PathBuf,
-        is_file: impl Fn(&PathBuf, u8) -> bool,
-    ) -> Result<PathBuf> {
-        let mut count = 0;
-        let file_ext = original_file_path
-            .extension()
-            .and_then(OsStr::to_str)
-            .map(|fext| String::from(".") + fext)
-            .unwrap_or_default();
-        let mut file_path = original_file_path.clone();
-
-        while is_file(&file_path, count) {
-            count += 1;
-            file_path.set_file_name(OsStr::new(
-                &original_file_path
-                    .file_stem()
-                    .and_then(OsStr::to_str)
-                    .map(|fstem| format!("{}_{}{}", fstem, count, file_ext))
-                    .ok_or_else(|| Error::ParseDownloadFileNameError(file_path.to_owned()))?,
-            ));
-        }
-
-        Ok(file_path)
-    }
-
-    /// Gets the alias of the given folder if exists, otherwise
-    /// returns the folder itself. Also tries to expand shell
-    /// variables.
+    /// Return the alias of the given folder if defined, otherwise
+    /// return the folder itself. Then expand shell variables.
     pub fn folder_alias(&self, folder: &str) -> Result<String> {
         let lowercase_folder = folder.trim().to_lowercase();
 
@@ -247,6 +222,7 @@ impl AccountConfig {
                 "inbox" => DEFAULT_INBOX_FOLDER,
                 "draft" | "drafts" => DEFAULT_DRAFTS_FOLDER,
                 "sent" => DEFAULT_SENT_FOLDER,
+                "trash" => DEFAULT_TRASH_FOLDER,
                 _ => folder,
             });
         let alias = shellexpand::full(alias).map(String::from).or_else(|err| {
@@ -257,26 +233,34 @@ impl AccountConfig {
         Ok(alias)
     }
 
+    /// Return the inbox folder alias.
     pub fn inbox_folder_alias(&self) -> Result<String> {
         self.folder_alias(DEFAULT_INBOX_FOLDER)
     }
 
+    /// Return the drafts folder alias.
     pub fn drafts_folder_alias(&self) -> Result<String> {
         self.folder_alias(DEFAULT_DRAFTS_FOLDER)
     }
 
+    /// Return the sent folder alias.
     pub fn sent_folder_alias(&self) -> Result<String> {
         self.folder_alias(DEFAULT_SENT_FOLDER)
     }
 
+    /// Return the trash folder alias.
     pub fn trash_folder_alias(&self) -> Result<String> {
         self.folder_alias(DEFAULT_TRASH_FOLDER)
     }
 
+    /// Return the email listing page size if defined, otherwise
+    /// return the default one.
     pub fn email_listing_page_size(&self) -> usize {
         self.email_listing_page_size.unwrap_or(DEFAULT_PAGE_SIZE)
     }
 
+    /// Return the email reading headers if defined, otherwise return
+    /// the default ones.
     pub fn email_reading_headers(&self) -> Vec<String> {
         self.email_reading_headers
             .as_ref()
@@ -284,6 +268,8 @@ impl AccountConfig {
             .unwrap_or_else(|| vec!["From".into(), "To".into(), "Cc".into(), "Subject".into()])
     }
 
+    /// Return the email writing headers if defined, otherwise return
+    /// the default ones.
     pub fn email_writing_headers(&self) -> Vec<String> {
         self.email_writing_headers
             .as_ref()
@@ -299,6 +285,7 @@ impl AccountConfig {
             })
     }
 
+    /// Return the full signature, including the delimiter.
     pub fn signature(&self) -> Result<Option<String>> {
         let delim = self
             .signature_delim
@@ -317,16 +304,7 @@ impl AccountConfig {
         Ok(signature)
     }
 
-    pub fn sync(&self) -> bool {
-        self.sync
-            && match self.sync_dir.as_ref() {
-                Some(dir) => dir.is_dir(),
-                None => data_dir()
-                    .map(|dir| dir.join("himalaya").join(&self.name).is_dir())
-                    .unwrap_or_default(),
-            }
-    }
-
+    /// Return `true` if the sync directory already exists.
     pub fn sync_dir_exists(&self) -> bool {
         match self.sync_dir.as_ref() {
             Some(dir) => dir.is_dir(),
@@ -336,6 +314,13 @@ impl AccountConfig {
         }
     }
 
+    /// Return `true` if the sync directory already exists and if the
+    /// sync feature is enabled.
+    pub fn sync(&self) -> bool {
+        self.sync && self.sync_dir_exists()
+    }
+
+    /// Return the sync directory if exist, otherwise create it.
     pub fn sync_dir(&self) -> Result<PathBuf> {
         match self.sync_dir.as_ref().filter(|dir| dir.is_dir()) {
             Some(dir) => Ok(dir.clone()),
@@ -351,12 +336,15 @@ impl AccountConfig {
         }
     }
 
+    /// Open a SQLite connection to the synchronization database.
     pub fn sync_db_builder(&self) -> Result<rusqlite::Connection> {
         let conn = rusqlite::Connection::open(self.sync_dir()?.join(".sync.sqlite"))
             .map_err(Error::BuildSyncDatabaseError)?;
         Ok(conn)
     }
 
+    /// Generate a template interpreter with prefilled options from
+    /// the current user account configuration.
     pub fn generate_tpl_interpreter(&self) -> TplInterpreter {
         TplInterpreter::new()
             .some_pgp_decrypt_cmd(self.email_reading_decrypt_cmd.clone())
@@ -364,57 +352,90 @@ impl AccountConfig {
             .save_attachments_dir(self.downloads_dir())
     }
 
+    /// Return the email listing datetime format, otherwise return the
+    /// default one.
     pub fn email_listing_datetime_fmt(&self) -> String {
         self.email_listing_datetime_fmt
             .clone()
             .unwrap_or(String::from("%F %R%:z"))
     }
 
+    /// Return the email listing datetime local timezone option,
+    /// otherwise return the default one.
     pub fn email_listing_datetime_local_tz(&self) -> bool {
         self.email_listing_datetime_local_tz.unwrap_or_default()
     }
+}
+
+/// Rename duplicated file by adding a auto-incremented counter
+/// suffix.
+///
+/// Helper that check if the given file path already exists: if so,
+/// creates a new path with an auto-incremented integer suffix and
+/// returs it, otherwise returs the original file path.
+pub(crate) fn rename_file_if_duplicate(
+    original_fpath: &PathBuf,
+    is_file: impl Fn(&PathBuf, u8) -> bool,
+) -> Result<PathBuf> {
+    let mut count = 0;
+    let fext = original_fpath
+        .extension()
+        .and_then(OsStr::to_str)
+        .map(|fext| String::from(".") + fext)
+        .unwrap_or_default();
+    let mut fpath = original_fpath.clone();
+
+    while is_file(&fpath, count) {
+        count += 1;
+        fpath.set_file_name(OsStr::new(
+            &original_fpath
+                .file_stem()
+                .and_then(OsStr::to_str)
+                .map(|fstem| format!("{}_{}{}", fstem, count, fext))
+                .ok_or_else(|| Error::ParseDownloadFileNameError(fpath.to_owned()))?,
+        ));
+    }
+
+    Ok(fpath)
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
 
-    use crate::AccountConfig;
-
     #[test]
-    fn unique_download_file_path() {
-        let config = AccountConfig::default();
+    fn rename_file_if_duplicate() {
         let path = PathBuf::from("downloads/file.ext");
 
         // when file path is unique
         assert!(matches!(
-            config.get_unique_download_file_path(&path, |_, _| false),
+            super::rename_file_if_duplicate(&path, |_, _| false),
             Ok(path) if path == PathBuf::from("downloads/file.ext")
         ));
 
         // when 1 file path already exist
         assert!(matches!(
-            config.get_unique_download_file_path(&path, |_, count| count <  1),
+            super::rename_file_if_duplicate(&path, |_, count| count <  1),
             Ok(path) if path == PathBuf::from("downloads/file_1.ext")
         ));
 
         // when 5 file paths already exist
         assert!(matches!(
-            config.get_unique_download_file_path(&path, |_, count| count < 5),
+            super::rename_file_if_duplicate(&path, |_, count| count < 5),
             Ok(path) if path == PathBuf::from("downloads/file_5.ext")
         ));
 
         // when file path has no extension
         let path = PathBuf::from("downloads/file");
         assert!(matches!(
-            config.get_unique_download_file_path(&path, |_, count| count < 5),
+            super::rename_file_if_duplicate(&path, |_, count| count < 5),
             Ok(path) if path == PathBuf::from("downloads/file_5")
         ));
 
         // when file path has 2 extensions
         let path = PathBuf::from("downloads/file.ext.ext2");
         assert!(matches!(
-            config.get_unique_download_file_path(&path, |_, count| count < 5),
+            super::rename_file_if_duplicate(&path, |_, count| count < 5),
             Ok(path) if path == PathBuf::from("downloads/file.ext_5.ext2")
         ));
     }

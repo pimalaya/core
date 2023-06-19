@@ -112,7 +112,7 @@ impl<'a> ReplyTplBuilder<'a> {
 
         // From
 
-        builder = builder.from(self.config.addr());
+        builder = builder.from(self.config.from());
 
         // To
 

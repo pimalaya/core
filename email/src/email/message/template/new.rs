@@ -88,7 +88,7 @@ impl<'a> NewTplBuilder<'a> {
 
     pub fn build(self) -> Result<Tpl> {
         let mut builder = MessageBuilder::new()
-            .from(self.config.addr())
+            .from(self.config.from())
             .to(Vec::<Address>::new())
             .subject("")
             .text_body({
