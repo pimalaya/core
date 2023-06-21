@@ -1,3 +1,7 @@
+//! Module dedicated to password configuration.
+//!
+//! This module contains everything related to password configuration.
+
 use log::warn;
 use pimalaya_secret::Secret;
 use std::{
@@ -20,8 +24,10 @@ pub enum Error {
     DeleteError(#[source] pimalaya_secret::Error),
 }
 
+/// The password configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct PasswdConfig {
+    /// The password secret.
     pub passwd: Secret,
 }
 
@@ -40,12 +46,14 @@ impl DerefMut for PasswdConfig {
 }
 
 impl PasswdConfig {
+    /// If the current password secret is a keyring entry, delete it.
     pub fn reset(&self) -> Result<()> {
         self.delete_keyring_entry_secret()
             .map_err(Error::DeleteError)?;
         Ok(())
     }
 
+    /// Define the password only if it does not exist in the keyring.
     pub fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
         match self.find() {
             Ok(None) => {

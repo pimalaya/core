@@ -1,3 +1,8 @@
+//! Module dedicated to OAuth 2.0 configuration.
+//!
+//! This module contains everything related to OAuth 2.0
+//! configuration.
+
 use log::warn;
 use pimalaya_oauth2::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use pimalaya_secret::Secret;
@@ -41,18 +46,47 @@ pub enum Error {
     DeleteClientSecretError(#[source] pimalaya_secret::Error),
 }
 
+/// The OAuth 2.0 configuration structure.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OAuth2Config {
+    /// Method for presenting an OAuth 2.0 bearer token to a service
+    /// for authentication.
     pub method: OAuth2Method,
+
+    /// Client identifier issued to the client during the registration process described by
+    /// [Section 2.2](https://datatracker.ietf.org/doc/html/rfc6749#section-2.2).
     pub client_id: String,
+
+    /// Client password issued to the client during the registration process described by
+    /// [Section 2.2](https://datatracker.ietf.org/doc/html/rfc6749#section-2.2).
     pub client_secret: Secret,
+
+    /// URL of the authorization server's authorization endpoint.
     pub auth_url: String,
+
+    /// URL of the authorization server's token endpoint.
     pub token_url: String,
+
+    /// Access token returned by the token endpoint and used to access
+    /// protected resources.
     pub access_token: Secret,
+
+    /// Refresh token used to obtain a new access token (if supported
+    /// by the authorization server).
     pub refresh_token: Secret,
+
+    /// Enable the [PKCE](https://datatracker.ietf.org/doc/html/rfc7636) protection.
+    /// The value must have a minimum length of 43 characters and a maximum length of 128 characters.
+    /// Each character must be ASCII alphanumeric or one of the characters “-” / “.” / “_” / “~”.
     pub pkce: bool,
+
+    /// Access token scope(s), as defined by the authorization server.
     pub scopes: OAuth2Scopes,
+
+    /// Host name of the client's redirection endpoint.
     pub redirect_host: String,
+
+    /// Host port of the client's redirection endpoint.
     pub redirect_port: u16,
 }
 
@@ -75,14 +109,19 @@ impl Default for OAuth2Config {
 }
 
 impl OAuth2Config {
+    /// Returns the default redirect host name. Combines well with
+    /// serde's `default` and `skip_serializing_if` macros.
     pub fn default_redirect_host() -> String {
         String::from("localhost")
     }
 
+    /// Returns the default redirect host port. Combines well with
+    /// serde's `default` and `skip_serializing_if` macros.
     pub fn default_redirect_port() -> u16 {
         9999
     }
 
+    /// Resets the three secrets of the OAuth 2.0 configuration.
     pub fn reset(&self) -> Result<()> {
         self.client_secret
             .delete_keyring_entry_secret()
@@ -96,6 +135,9 @@ impl OAuth2Config {
         Ok(())
     }
 
+    /// If the access token is not defined, runs the authorization
+    /// code grant OAuth 2.0 flow in order to save the acces token and
+    /// the refresh token if present.
     pub fn configure(&self, get_client_secret: impl Fn() -> io::Result<String>) -> Result<()> {
         if self.access_token.get().is_ok() {
             return Ok(());
@@ -144,7 +186,7 @@ impl OAuth2Config {
 
         let (redirect_url, csrf_token) = auth_code_grant.get_redirect_url(&client);
 
-        println!("To enable OAuth2, click on the following link:");
+        println!("To complete your OAuth 2.0 setup, click on the following link:");
         println!("");
         println!("{}", redirect_url.to_string());
 
@@ -165,6 +207,8 @@ impl OAuth2Config {
         Ok(())
     }
 
+    /// Runs the refresh access token OAuth 2.0 flow by exchanging a
+    /// refresh token with a new pair of access/refresh token.
     pub fn refresh_access_token(&self) -> Result<String> {
         let client_secret = self
             .client_secret
@@ -205,6 +249,8 @@ impl OAuth2Config {
         Ok(access_token)
     }
 
+    /// Returns the access token if existing, otherwise returns an
+    /// error.
     pub fn access_token(&self) -> Result<String> {
         let access_token = self
             .access_token
@@ -214,6 +260,8 @@ impl OAuth2Config {
     }
 }
 
+/// Method for presenting an OAuth 2.0 bearer token to a service for
+/// authentication.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum OAuth2Method {
     #[default]
@@ -221,6 +269,7 @@ pub enum OAuth2Method {
     OAuthBearer,
 }
 
+/// Access token scope(s), as defined by the authorization server.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OAuth2Scopes {
     Scope(String),

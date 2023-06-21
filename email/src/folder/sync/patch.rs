@@ -297,7 +297,7 @@ pub fn build_patch(
     folders.extend(remote_cache.clone());
     folders.extend(remote.clone());
 
-    // Given the matrice local_cache × local × remote_cache × remote,
+    // Given the matrix local_cache × local × remote_cache × remote,
     // checks every 2⁴ = 16 possibilities:
     let patches = folders.into_iter().map(|folder| {
         let local_cache = local_cache.get(&folder);

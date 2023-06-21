@@ -1,7 +1,7 @@
 //! Rust library to manage your emails.
 //!
 //! The core concept of this library is to implement email actions and
-//! to expose them into a backend-agnostic abstraction. This way, you
+//! to expose them into backend-agnostic abstractions. This way, you
 //! can easily build email interfaces without caring about how to
 //! connect to an IMAP server or how to send an email via SMTP.
 //!
