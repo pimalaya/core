@@ -1,7 +1,7 @@
-//! IMAP backend config module.
+//! Module dedicated to the IMAP backend configuration.
 //!
-//! This module contains the representation of the IMAP backend
-//! configuration of the user account.
+//! This module contains the configuration specific to the IMAP
+//! backend.
 
 use pimalaya_process::Cmd;
 use thiserror::Error;
@@ -18,51 +18,100 @@ pub enum Error {
     GetPasswdEmptyError,
 }
 
-/// Represents the IMAP backend configuration.
+/// The IMAP backend configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ImapConfig {
-    /// Represents the IMAP server host.
+    /// The IMAP server host name.
     pub host: String,
-    /// Represents the IMAP server port.
+
+    /// The IMAP server host port.
     pub port: u16,
-    /// Enables SSL.
+
+    /// Enables TLS/SSL.
+    ///
+    /// Defaults to `true`.
     pub ssl: Option<bool>,
+
     /// Enables StartTLS.
+    ///
+    /// Defaults to `false`.
     pub starttls: Option<bool>,
+
     /// Trusts any certificate.
+    ///
+    /// Defaults to `false`.
     pub insecure: Option<bool>,
-    /// Represents the IMAP server login.
+
+    /// The IMAP server login.
+    ///
+    /// Usually, the login is either the email address or its left
+    /// part (before @).
     pub login: String,
-    /// Represents the IMAP server authentication configuration.
+
+    /// The IMAP server authentication configuration.
+    ///
+    /// Authentication can be done using password or OAuth 2.0.
+    /// See [ImapAuthConfig].
     pub auth: ImapAuthConfig,
 
-    /// Represents the IMAP notify command.
+    /// The IMAP notify command.
+    ///
+    /// Defines the command used to notify the user when a new email is available.
+    /// Defaults to `notify-send "📫 <sender>" "<subject>"`.
     pub notify_cmd: Option<String>,
-    /// Overrides the default IMAP query "NEW" used to fetch new
-    /// messages.
+
+    /// The IMAP notify query.
+    ///
+    /// Defines the IMAP query used to determine the new emails list.
+    /// Defaults to `NEW`.
     pub notify_query: Option<String>,
-    /// Represents the watch commands.
+
+    /// The watch commands.
+    ///
+    /// Defines the commands to run whenever a change occurs on the
+    /// IMAP server.
     pub watch_cmds: Option<Vec<String>>,
 }
 
 impl ImapConfig {
-    /// Gets the SSL IMAP option.
+    /// TLS/SSL option getter.
     pub fn ssl(&self) -> bool {
         self.ssl.unwrap_or(true)
     }
 
-    /// Gets the StartTLS IMAP option.
+    /// StartTLS option getter.
     pub fn starttls(&self) -> bool {
         self.starttls.unwrap_or_default()
     }
 
-    /// Gets the StartTLS IMAP option.
+    /// Insecure option getter.
     pub fn insecure(&self) -> bool {
         self.insecure.unwrap_or_default()
     }
 
+    /// Notify query option getter.
+    pub fn notify_query(&self) -> String {
+        self.notify_query
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| String::from("NEW"))
+    }
+
+    /// Watch commands option getter.
+    pub fn watch_cmds(&self) -> Vec<String> {
+        self.watch_cmds
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| Vec::new())
+    }
+
     /// Runs the IMAP notify command.
-    pub fn run_notify_cmd<S: AsRef<str>>(&self, id: u32, subject: S, sender: S) -> Result<()> {
+    pub fn run_notify_cmd(
+        &self,
+        id: u32,
+        subject: impl AsRef<str>,
+        sender: impl AsRef<str>,
+    ) -> Result<()> {
         let cmd = self
             .notify_cmd
             .clone()
@@ -79,28 +128,23 @@ impl ImapConfig {
         Ok(())
     }
 
-    pub fn notify_query(&self) -> String {
-        self.notify_query
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| String::from("NEW"))
-    }
-
-    pub fn watch_cmds(&self) -> Vec<String> {
-        self.watch_cmds
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| Vec::new())
-    }
-
+    /// Builds authentication credentials.
+    ///
+    /// Authentication credentials can be either a password or an
+    /// OAuth 2.0 access token.
     pub fn build_credentials(&self) -> Result<String> {
         self.auth.build_credentials()
     }
 }
 
+/// The IMAP authentication configuration.
+///
+/// Authentication can be done using password or OAuth 2.0.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ImapAuthConfig {
+    /// The password configuration.
     Passwd(PasswdConfig),
+    /// The OAuth 2.0 configuration.
     OAuth2(OAuth2Config),
 }
 
@@ -111,6 +155,10 @@ impl Default for ImapAuthConfig {
 }
 
 impl ImapAuthConfig {
+    /// Builds authentication credentials.
+    ///
+    /// Authentication credentials can be either a password or an
+    /// OAuth 2.0 access token.
     pub fn build_credentials(&self) -> Result<String> {
         match self {
             ImapAuthConfig::Passwd(passwd) => {
@@ -121,7 +169,7 @@ impl ImapAuthConfig {
                     .ok_or_else(|| Error::GetPasswdEmptyError)?;
                 Ok(passwd.to_owned())
             }
-            ImapAuthConfig::OAuth2(oauth2_config) => Ok(oauth2_config.access_token()?),
+            ImapAuthConfig::OAuth2(oauth2) => Ok(oauth2.access_token()?),
         }
     }
 }

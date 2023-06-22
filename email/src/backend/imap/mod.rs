@@ -1,3 +1,8 @@
+//! Module dedicated to the IMAP backend.
+//!
+//! This module contains the implementation of the IMAP backend and
+//! all associated structures related to it.
+
 pub mod config;
 
 use imap::{
@@ -5,7 +10,7 @@ use imap::{
         idle::{stop_on_any, SetReadTimeout},
         sort::SortCharset,
     },
-    Authenticator, Client,
+    Authenticator, Client, Session,
 };
 use imap_proto::{NameAttribute, UidSetMember};
 use log::{debug, error, info, log_enabled, trace, warn, Level};
@@ -32,8 +37,6 @@ use crate::{
 };
 
 pub use self::config::{ImapAuthConfig, ImapConfig};
-
-const ENVELOPE_QUERY: &str = "(UID FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM SUBJECT DATE)])";
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -143,7 +146,15 @@ pub enum Error {
     GetPasswdEmptyError,
 }
 
-static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
+/// The IMAP query needed to retrieve everything we need to build an
+/// [envelope]: UID, flags and headers (Message-ID, From, To, Subject,
+/// Date).
+const ENVELOPE_QUERY: &str =
+    "(UID FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM TO SUBJECT DATE)])";
+
+/// Native certificates store, mostly used by
+/// `Backend::tls_handshake()`.
+const ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     let mut store = RootCertStore::empty();
     for cert in rustls_native_certs::load_native_certs().unwrap() {
         store.add(&Certificate(cert.0)).unwrap();
@@ -151,8 +162,16 @@ static ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     store
 });
 
+/// Alias for the IMAP session.
+pub type ImapSession = Session<ImapSessionStream>;
+
+/// Alias for the TLS/SSL stream, which is basically a
+/// [std::net::TcpStream] wrapped by a [rustls::StreamOwned].
 pub type TlsStream = StreamOwned<ClientConnection, TcpStream>;
 
+/// Wrapper around TLS/SSL and TCP streams.
+///
+/// Since [imap::Session] needs a generic stream type, this wrapper is needed to create the session alias [ImapSession].
 pub enum ImapSessionStream {
     Tls(TlsStream),
     Tcp(TcpStream),
@@ -192,8 +211,10 @@ impl Write for ImapSessionStream {
     }
 }
 
-pub type ImapSession = imap::Session<ImapSessionStream>;
-
+/// XOAUTH2 IMAP authenticator.
+///
+/// This struct is needed to implement the [imap::Authenticator]
+/// trait.
 struct XOAuth2 {
     user: String,
     access_token: String,
@@ -216,6 +237,10 @@ impl Authenticator for XOAuth2 {
     }
 }
 
+/// OAUTHBEARER IMAP authenticator.
+///
+/// This struct is needed to implement the [imap::Authenticator]
+/// trait.
 struct OAuthBearer {
     user: String,
     host: String,
@@ -245,13 +270,24 @@ impl Authenticator for OAuthBearer {
     }
 }
 
+/// The IMAP backend.
 pub struct ImapBackend {
+    /// The account configuration.
     account_config: AccountConfig,
+
+    /// The IMAP configuration.
     imap_config: ImapConfig,
+
+    /// The current IMAP session.
     session: ImapSession,
 }
 
 impl ImapBackend {
+    /// Creates a new IMAP backend.
+    ///
+    /// The IMAP session is created at this moment. If the session
+    /// cannot be created using the OAuth 2.0 authentication, the
+    /// access token is refreshed first then a new session is created.
     pub fn new(
         account_config: AccountConfig,
         imap_config: ImapConfig,
@@ -284,6 +320,13 @@ impl ImapBackend {
         })
     }
 
+    /// Creates a new session from an IMAP configuration and optional
+    /// pre-built credentials.
+    ///
+    /// Pre-built credentials are useful to prevent building them
+    /// every time a new session is created. The main use case is for
+    /// the synchronization, where multiple sessions can be created in
+    /// a row.
     fn build_session(imap_config: &ImapConfig, credentials: Option<String>) -> Result<ImapSession> {
         let mut session = match &imap_config.auth {
             ImapAuthConfig::Passwd(passwd) => {
@@ -336,6 +379,7 @@ impl ImapBackend {
         Ok(session)
     }
 
+    /// Creates a client from an IMAP configuration.
     fn build_client(imap_config: &ImapConfig) -> Result<Client<ImapSessionStream>> {
         let mut client_builder = imap::ClientBuilder::new(&imap_config.host, imap_config.port);
 
@@ -344,16 +388,23 @@ impl ImapBackend {
         }
 
         let client = if imap_config.ssl() {
-            client_builder.connect(Self::handshaker(imap_config)?)
+            client_builder.connect(Self::tls_handshake(imap_config)?)
         } else {
-            client_builder.connect(|_, tcp| Ok(ImapSessionStream::Tcp(tcp)))
+            client_builder.connect(Self::tcp_handshake()?)
         }
         .map_err(Error::ConnectError)?;
 
         Ok(client)
     }
 
-    fn handshaker(
+    /// TCP handshake.
+    fn tcp_handshake() -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>>
+    {
+        Ok(Box::new(|_domain, tcp| Ok(ImapSessionStream::Tcp(tcp))))
+    }
+
+    /// TLS/SSL handshake.
+    fn tls_handshake(
         imap_config: &ImapConfig,
     ) -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
         use rustls::client::WebPkiVerifier;
@@ -404,6 +455,11 @@ impl ImapBackend {
         }))
     }
 
+    /// Safe wrapper around IMAP session that handles token
+    /// refreshing.
+    ///
+    /// Runs the given action. If an OAuth 2.0 authentication error
+    /// occurs, refreshes the tokens then retries once again.
     fn with_session<T>(
         &mut self,
         action: impl Fn(&mut ImapSession) -> imap::Result<T>,
@@ -427,7 +483,9 @@ impl ImapBackend {
         }
     }
 
-    fn search_new_msgs(&mut self) -> Result<Vec<u32>> {
+    /// Runs the IMAP notify query in order to get the list of new
+    /// envelopes UIDs.
+    fn search_new_envelopes(&mut self) -> Result<Vec<u32>> {
         let query = self.imap_config.notify_query();
         let uids: Vec<u32> = self
             .with_session(
@@ -436,12 +494,17 @@ impl ImapBackend {
             )?
             .into_iter()
             .collect();
-        debug!("found {} new messages", uids.len());
+        debug!("found {} new envelopes", uids.len());
         trace!("uids: {:?}", uids);
 
         Ok(uids)
     }
 
+    /// Starts the notify daemon.
+    ///
+    /// The notify service uses the IDLE IMAP mode to wait for changes
+    /// on the server and to run the notify command from the account
+    /// configuration in case new envelopes are available.
     pub fn notify(&mut self, keepalive: u64, folder: &str) -> Result<()> {
         let folder_encoded = encode_utf7(folder.to_owned());
         trace!("utf7 encoded folder: {folder_encoded}");
@@ -453,7 +516,7 @@ impl ImapBackend {
 
         debug!("init messages hashset");
         let mut msgs_set: HashSet<u32> = self
-            .search_new_msgs()?
+            .search_new_envelopes()?
             .iter()
             .cloned()
             .collect::<HashSet<_>>();
@@ -473,7 +536,7 @@ impl ImapBackend {
             )?;
 
             let uids: Vec<u32> = self
-                .search_new_msgs()?
+                .search_new_envelopes()?
                 .into_iter()
                 .filter(|uid| msgs_set.get(uid).is_none())
                 .collect();
@@ -513,6 +576,11 @@ impl ImapBackend {
         }
     }
 
+    /// Starts the watch daemon.
+    ///
+    /// The watch service uses the IDLE IMAP mode to wait for changes
+    /// on the server and to run the watch commands from the account
+    /// configuration, in series.
     pub fn watch(&mut self, keepalive: u64, folder: &str) -> Result<()> {
         debug!("examine folder: {}", folder);
 
@@ -1047,12 +1115,14 @@ impl Backend for ImapBackend {
 impl Drop for ImapBackend {
     fn drop(&mut self) {
         if let Err(err) = self.close() {
-            warn!("cannot close imap session, skipping it");
+            warn!("cannot close imap session, skipping it: {err}");
             error!("cannot close imap session: {err:?}");
         }
     }
 }
 
+/// Builds the IMAP sequence set for the give page, page size and
+/// total size.
 pub fn build_page_range(page: usize, page_size: usize, size: usize) -> Result<String> {
     let page_cursor = page * page_size;
     if page_cursor >= size {
