@@ -25,7 +25,8 @@ tcp-client = ["client"]
 tcp = ["tcp-binder", "tcp-client"]
 
 [dev-dependencies]
-env_logger = "0.10.0"
+env_logger = "0.10"
+mock_instant = "0.3"
 
 [dependencies]
 log = "0.4"

@@ -191,31 +191,34 @@ impl Server {
         // the tick represents the timer running in a separated thread
         let state = self.state.clone();
         let timer = self.timer.clone();
-        let tick = thread::spawn(move || {
-            for timer in timer {
-                match state.lock() {
-                    Ok(mut state) => match *state {
-                        ServerState::Stopping => {
-                            *state = ServerState::Stopped;
-                            break;
-                        }
-                        ServerState::Stopped => {
-                            break;
-                        }
-                        ServerState::Running => {
-                            // sleep 1s outside of the lock
-                        }
-                    },
-                    Err(err) => {
-                        warn!("cannot determine if server should stop, exiting");
-                        error!("{err}");
+        let tick = thread::spawn(move || loop {
+            match state.lock() {
+                Ok(mut state) => match *state {
+                    ServerState::Stopping => {
+                        *state = ServerState::Stopped;
                         break;
                     }
+                    ServerState::Stopped => {
+                        break;
+                    }
+                    ServerState::Running => {
+                        if let Err(err) = timer.update() {
+                            warn!("cannot update timer, exiting: {err}");
+                            debug!("cannot update timer: {err:?}");
+                            *state = ServerState::Stopping;
+                            break;
+                        }
+                    }
+                },
+                Err(err) => {
+                    warn!("cannot determine if server should stop, exiting: {err}");
+                    debug!("cannot determine if server should stop: {err:?}");
+                    break;
                 }
-
-                trace!("timer tick: {timer:#?}");
-                thread::sleep(Duration::from_secs(1));
             }
+
+            trace!("timer tick: {timer:#?}");
+            thread::sleep(Duration::from_secs(1));
         });
 
         // start all binders in dedicated threads in order not to

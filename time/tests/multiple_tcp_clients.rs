@@ -1,8 +1,7 @@
-use std::{thread, time::Duration};
-
 use pimalaya_time::{
     ServerBuilder, ServerEvent, TcpBind, TcpClient, Timer, TimerCycle, TimerEvent, TimerState,
 };
+use std::{thread, time::Duration};
 
 #[test]
 fn multiple_tcp_clients() {
@@ -43,8 +42,9 @@ fn multiple_tcp_clients() {
             );
 
             client1.pause().unwrap();
-            thread::sleep(Duration::from_secs(2));
+            thread::sleep(Duration::from_secs(3));
 
+            // TODO: pause seems broken
             assert_eq!(
                 client2.get().unwrap(),
                 Timer {

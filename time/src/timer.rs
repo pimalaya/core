@@ -5,12 +5,23 @@
 //! knows how to switch between cycles.
 
 use log::{error, warn};
+#[cfg(test)]
+use mock_instant::Instant;
 use serde::{Deserialize, Serialize};
+#[cfg(not(test))]
+use std::time::Instant;
 use std::{
     fmt, io,
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex, MutexGuard},
 };
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub enum TimerCyclesCount {
+    #[default]
+    Infinite,
+    Fixed(usize),
+}
 
 /// List of all configured [`Cycle`]s for the current [`Timer`]. It is
 /// used as an inifinite loop: when the last cycle ends, the first one
@@ -19,8 +30,8 @@ use std::{
 pub struct TimerCycles(Vec<TimerCycle>);
 
 impl<T: IntoIterator<Item = TimerCycle>> From<T> for TimerCycles {
-    fn from(value: T) -> Self {
-        Self(value.into_iter().collect())
+    fn from(cycles: T) -> Self {
+        Self(cycles.into_iter().collect())
     }
 }
 
@@ -38,7 +49,7 @@ impl DerefMut for TimerCycles {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TimerCycle {
     /// Custom name of the timer cycle.
     pub name: String,
@@ -50,14 +61,19 @@ pub struct TimerCycle {
     pub duration: usize,
 }
 
+impl Eq for TimerCycle {}
+impl PartialEq for TimerCycle {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.duration == other.duration
+    }
+}
+
 impl TimerCycle {
-    pub fn new<N>(name: N, duration: usize) -> Self
-    where
-        N: ToString,
-    {
+    pub fn new(name: impl ToString, duration: usize) -> Self {
         Self {
             name: name.to_string(),
             duration,
+            ..Self::default()
         }
     }
 }
@@ -93,13 +109,15 @@ pub type TimerChangedHandler = Arc<dyn Fn(TimerEvent) -> io::Result<()> + Sync +
 #[derive(Clone)]
 pub struct TimerConfig {
     pub cycles: TimerCycles,
+    pub cycles_count: TimerCyclesCount,
     pub handler: TimerChangedHandler,
 }
 
 impl Default for TimerConfig {
     fn default() -> Self {
         Self {
-            cycles: TimerCycles::default(),
+            cycles: Default::default(),
+            cycles_count: Default::default(),
             handler: Arc::new(|_| Ok(())),
         }
     }
@@ -116,16 +134,32 @@ impl TimerConfig {
     }
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Timer {
     #[serde(skip)]
     pub config: TimerConfig,
     pub state: TimerState,
+
     /// The active timer cycle.
     pub cycle: TimerCycle,
-    /// Index in the config cycles where the active cycle inherits
-    /// from.
-    pub cycle_idx: usize,
+    pub cycles_count: TimerCyclesCount,
+
+    #[cfg(feature = "server")]
+    #[serde(skip, default = "Instant::now")]
+    pub begin: Instant,
+}
+
+impl Default for Timer {
+    fn default() -> Self {
+        Self {
+            config: Default::default(),
+            state: Default::default(),
+            cycle: Default::default(),
+            cycles_count: Default::default(),
+            #[cfg(feature = "server")]
+            begin: Instant::now(),
+        }
+    }
 }
 
 impl fmt::Debug for Timer {
@@ -144,6 +178,64 @@ impl PartialEq for Timer {
 
 #[cfg(feature = "server")]
 impl Timer {
+    pub fn update(&mut self) {
+        let mut elapsed = self.begin.elapsed().as_secs() as usize;
+
+        match self.state {
+            TimerState::Running => {
+                let (cycles, total_duration) = self.config.cycles.iter().cloned().fold(
+                    (Vec::new(), 0),
+                    |(mut cycles, mut sum), mut cycle| {
+                        cycle.duration += sum;
+                        sum = cycle.duration;
+                        cycles.push(cycle);
+                        (cycles, sum)
+                    },
+                );
+
+                if let TimerCyclesCount::Fixed(cycles_count) = self.cycles_count {
+                    if elapsed > (total_duration * cycles_count) {
+                        self.state = TimerState::Stopped;
+                        return;
+                    }
+                }
+
+                elapsed = elapsed % total_duration;
+
+                let last_cycle = cycles[cycles.len() - 1].clone();
+                let next_cycle = cycles
+                    .into_iter()
+                    .fold(None, |next_cycle, mut cycle| match next_cycle {
+                        None if elapsed < cycle.duration => {
+                            cycle.duration = cycle.duration - elapsed;
+                            Some(cycle)
+                        }
+                        _ => next_cycle,
+                    })
+                    .unwrap_or(last_cycle);
+
+                self.fire_event(TimerEvent::Running(self.cycle.clone()));
+
+                if self.cycle.name != next_cycle.name {
+                    let mut prev_cycle = self.cycle.clone();
+                    prev_cycle.duration = 0;
+                    self.fire_events([
+                        TimerEvent::Ended(prev_cycle),
+                        TimerEvent::Began(next_cycle.clone()),
+                    ]);
+                }
+
+                self.cycle = next_cycle;
+            }
+            TimerState::Paused => {
+                // nothing to do
+            }
+            TimerState::Stopped => {
+                // nothing to do
+            }
+        }
+    }
+
     pub fn fire_event(&self, event: TimerEvent) {
         if let Err(err) = (self.config.handler)(event.clone()) {
             warn!("cannot fire event {event:?}, skipping it");
@@ -155,38 +247,6 @@ impl Timer {
         for event in events.into_iter() {
             self.fire_event(event)
         }
-    }
-}
-
-#[cfg(feature = "server")]
-impl Iterator for Timer {
-    type Item = Timer;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.state {
-            TimerState::Running if self.cycle.duration <= 1 => {
-                let next_cycle_idx = (self.cycle_idx + 1) % self.config.cycles.len();
-                let next_cycle = self.config.cycles[next_cycle_idx].clone();
-                self.fire_events([
-                    TimerEvent::Ended(self.cycle.clone()),
-                    TimerEvent::Began(next_cycle.clone()),
-                ]);
-                self.cycle = next_cycle;
-                self.cycle_idx = next_cycle_idx;
-            }
-            TimerState::Running => {
-                self.cycle.duration -= 1;
-                self.fire_event(TimerEvent::Running(self.cycle.clone()));
-            }
-            TimerState::Paused => {
-                // nothing to do
-            }
-            TimerState::Stopped => {
-                // nothing to do
-            }
-        }
-
-        Some(self.clone())
     }
 }
 
@@ -204,7 +264,6 @@ impl ThreadSafeTimer {
         let mut timer = Timer::default();
         timer.config = config;
         timer.cycle = timer.config.clone_first_cycle()?;
-        timer.cycle_idx = 0;
 
         Ok(Self(Arc::new(Mutex::new(timer))))
     }
@@ -214,6 +273,13 @@ impl ThreadSafeTimer {
             .0
             .lock()
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?)
+    }
+
+    pub fn update(&self) -> io::Result<()> {
+        self.with_timer(|mut timer| {
+            timer.update();
+            Ok(())
+        })
     }
 
     pub fn start(&self) -> io::Result<()> {
@@ -258,7 +324,6 @@ impl ThreadSafeTimer {
             timer.state = TimerState::Stopped;
             timer.fire_events([TimerEvent::Ended(timer.cycle.clone()), TimerEvent::Stopped]);
             timer.cycle = timer.config.clone_first_cycle()?;
-            timer.cycle_idx = 0;
             Ok(())
         })
     }
@@ -280,25 +345,14 @@ impl DerefMut for ThreadSafeTimer {
     }
 }
 
-#[cfg(feature = "server")]
-impl Iterator for ThreadSafeTimer {
-    type Item = ThreadSafeTimer;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.0.lock() {
-            Ok(mut timer) => timer.next().map(|_| self.clone()),
-            Err(err) => {
-                warn!("cannot lock timer, exiting the loop");
-                error!("{}", err);
-                None
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
+
+    use mock_instant::MockClock;
 
     use crate::{Timer, TimerConfig, TimerCycle, TimerCycles, TimerEvent, TimerState};
 
@@ -314,56 +368,53 @@ mod tests {
             },
             state: TimerState::Running,
             cycle: TimerCycle::new("a", 3),
-            cycle_idx: 0,
+            ..Default::default()
         }
     }
 
     #[test]
-    fn running_timer_infinite_iterator() {
+    fn running_infinite_timer() {
         let mut timer = testing_timer();
 
         assert_eq!(timer.state, TimerState::Running);
         assert_eq!(timer.cycle, TimerCycle::new("a", 3));
-        assert_eq!(timer.cycle_idx, 0);
 
         // next ticks: state should still be running, cycle name
         // should be the same and cycle duration should be decremented
         // by 2
 
-        timer.next().unwrap();
-        timer.next().unwrap();
+        MockClock::advance(Duration::from_secs(2));
+        timer.update();
 
         assert_eq!(timer.state, TimerState::Running);
         assert_eq!(timer.cycle, TimerCycle::new("a", 1));
-        assert_eq!(timer.cycle_idx, 0);
 
         // next tick: state should still be running, cycle should
         // switch to the next one
 
-        timer.next().unwrap();
+        MockClock::advance(Duration::from_secs(1));
+        timer.update();
 
         assert_eq!(timer.state, TimerState::Running);
         assert_eq!(timer.cycle, TimerCycle::new("b", 2));
-        assert_eq!(timer.cycle_idx, 1);
 
         // next ticks: state should still be running, cycle should
         // switch to the next one
 
-        timer.next().unwrap();
-        timer.next().unwrap();
+        MockClock::advance(Duration::from_secs(2));
+        timer.update();
 
         assert_eq!(timer.state, TimerState::Running);
         assert_eq!(timer.cycle, TimerCycle::new("c", 1));
-        assert_eq!(timer.cycle_idx, 2);
 
         // next tick: state should still be running, cycle should
         // switch back to the first one
 
-        timer.next().unwrap();
+        MockClock::advance(Duration::from_secs(1));
+        timer.update();
 
         assert_eq!(timer.state, TimerState::Running);
         assert_eq!(timer.cycle, TimerCycle::new("a", 3));
-        assert_eq!(timer.cycle_idx, 0);
     }
 
     #[test]
@@ -379,19 +430,24 @@ mod tests {
         });
 
         // from a3 to b1
-        timer.next().unwrap();
-        timer.next().unwrap();
-        timer.next().unwrap();
-        timer.next().unwrap();
+        MockClock::advance(Duration::from_secs(1));
+        timer.update();
+        MockClock::advance(Duration::from_secs(1));
+        timer.update();
+        MockClock::advance(Duration::from_secs(1));
+        timer.update();
+        MockClock::advance(Duration::from_secs(1));
+        timer.update();
 
         assert_eq!(
             *events.lock().unwrap(),
             vec![
+                TimerEvent::Running(TimerCycle::new("a", 3)),
                 TimerEvent::Running(TimerCycle::new("a", 2)),
                 TimerEvent::Running(TimerCycle::new("a", 1)),
-                TimerEvent::Ended(TimerCycle::new("a", 1)),
+                TimerEvent::Ended(TimerCycle::new("a", 0)),
                 TimerEvent::Began(TimerCycle::new("b", 2)),
-                TimerEvent::Running(TimerCycle::new("b", 1)),
+                TimerEvent::Running(TimerCycle::new("b", 2)),
             ]
         );
     }
@@ -401,7 +457,7 @@ mod tests {
         let mut timer = testing_timer();
         timer.state = TimerState::Paused;
         let prev_timer = timer.clone();
-        timer.next().unwrap();
+        timer.update();
         assert_eq!(prev_timer, timer);
     }
 
@@ -410,7 +466,7 @@ mod tests {
         let mut timer = testing_timer();
         timer.state = TimerState::Stopped;
         let prev_timer = timer.clone();
-        timer.next().unwrap();
+        timer.update();
         assert_eq!(prev_timer, timer);
     }
 
@@ -435,7 +491,6 @@ mod tests {
             Timer {
                 state: TimerState::Stopped,
                 cycle: TimerCycle::new("a", 3),
-                cycle_idx: 0,
                 ..Default::default()
             }
         );
@@ -448,7 +503,6 @@ mod tests {
             Timer {
                 state: TimerState::Running,
                 cycle: TimerCycle::new("a", 21),
-                cycle_idx: 0,
                 ..Default::default()
             }
         );
@@ -458,7 +512,6 @@ mod tests {
             Timer {
                 state: TimerState::Running,
                 cycle: TimerCycle::new("a", 21),
-                cycle_idx: 0,
                 ..Default::default()
             }
         );
@@ -470,7 +523,6 @@ mod tests {
             Timer {
                 state: TimerState::Paused,
                 cycle: TimerCycle::new("a", 21),
-                cycle_idx: 0,
                 ..Default::default()
             }
         );
@@ -482,7 +534,6 @@ mod tests {
             Timer {
                 state: TimerState::Running,
                 cycle: TimerCycle::new("a", 21),
-                cycle_idx: 0,
                 ..Default::default()
             }
         );
@@ -494,7 +545,6 @@ mod tests {
             Timer {
                 state: TimerState::Stopped,
                 cycle: TimerCycle::new("a", 3),
-                cycle_idx: 0,
                 ..Default::default()
             }
         );
