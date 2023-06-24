@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2023-06-24
+
 ### Added
 
 - Added ability to customize the number of cycles the timer should do via the enum `TimerLoop`. `TimerLoop::Infinite` loops indefinitely (same behaviour as before, and it is the default), `TimerLoop::Fixed(usize)` loops n times before stopping by itself.
