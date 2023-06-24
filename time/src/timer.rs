@@ -1,6 +1,4 @@
 //! Module dedicated to the timer.
-//!
-//! The timer is the core concept of the library.
 
 use log::{debug, warn};
 #[cfg(test)]
@@ -322,10 +320,11 @@ impl Timer {
     }
 }
 
-/// Thread safe version of the [`Timer`]. The server does not
-/// manipulate directly the [`Timer`], it uses this thread safe
-/// version instead (mainly because the timer runs in a
-/// [`std::thread::spawn`] loop).
+/// Thread safe version of the [`Timer`].
+///
+/// The server does not manipulate directly the [`Timer`], it uses
+/// this thread safe version instead (mainly because the timer runs in
+/// a [`std::thread::spawn`] loop).
 #[cfg(feature = "server")]
 #[derive(Clone, Debug, Default)]
 pub struct ThreadSafeTimer(Arc<Mutex<Timer>>);

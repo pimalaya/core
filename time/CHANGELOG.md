@@ -7,27 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Changed the name and the aim of the project. The timer is not Pomodoro-specific anymore, it became generic (which allows you to turn it into a Pomodoro timer, or whatever).
-
-## [0.0.3] - 2023-04-14
-
 ### Added
 
-- Added code documentation with scheme.
+- Added ability to customize the number of cycles the timer should do via the enum `TimerLoop`. `TimerLoop::Infinite` loops indefinitely (same behaviour as before, and it is the default), `TimerLoop::Fixed(usize)` loops n times before stopping by itself.
+- Added `Timer::elapsed()` that returns the amount of time the timer was running, in seconds.
 
-## [0.0.2] - 2023-04-13
+### Change
+
+- Added `TimerConfig::cycles_count` (which expects a `TimerLoop`).
+- Replaced the timer iterator by `Timer::update()`, which updates the inner state of the current timer based on `Timer::elapsed()`.
+- Added `Timer::cycles_count` (which expects a `TimerLoop`).
+- Added `Timer::started_at` (which expects a `Option<Instant>`) that holds the instant moment where the timer has been started for the last time.
+- Added `Timer::elapsed` (which expects a `usize`) that holds the elapsed time, in seconds, from the first start till the last start.
+
+### Fixed
+
+- Fixed timer accuracy. Over time, the timer was slower and slower, loosing accuracy. Now the timer is not an iterator anymore and uses `std::time::Instant` instead to make sure the elapsed time and cycle are correct [#91].
+
+## [0.0.1] - 2023-05-18
 
 ### Added
 
 - Added `ServerBuilder` struct.
 - Added server handler and timer handlers.
+- Added code documentation with scheme.
 
-## [0.0.1] - 2023-04-10
+### Changed
 
-### Added
-
-- Initiated pomodoro timer.
+- Changed the name and the aim of the project. The timer is not Pomodoro-specific anymore, it became generic (which allows you to turn it into a Pomodoro timer, or whatever).
 
 ## [0.0.0] - 2023-03-12
+
+[#91]: https://todo.sr.ht/~soywod/pimalaya/91
