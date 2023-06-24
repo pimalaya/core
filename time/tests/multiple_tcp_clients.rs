@@ -42,14 +42,14 @@ fn multiple_tcp_clients() {
             );
 
             client1.pause().unwrap();
-            thread::sleep(Duration::from_secs(3));
+            thread::sleep(Duration::from_secs(2));
 
-            // TODO: pause seems broken
             assert_eq!(
                 client2.get().unwrap(),
                 Timer {
                     state: TimerState::Paused,
                     cycle: TimerCycle::new("Work", 1),
+                    elapsed: 2,
                     ..Timer::default()
                 }
             );
@@ -61,7 +61,20 @@ fn multiple_tcp_clients() {
                 client1.get().unwrap(),
                 Timer {
                     state: TimerState::Running,
-                    cycle: TimerCycle::new("Break", 4),
+                    cycle: TimerCycle::new("Break", 5),
+                    elapsed: 2,
+                    ..Timer::default()
+                }
+            );
+
+            thread::sleep(Duration::from_secs(2));
+
+            assert_eq!(
+                client1.get().unwrap(),
+                Timer {
+                    state: TimerState::Running,
+                    cycle: TimerCycle::new("Break", 3),
+                    elapsed: 2,
                     ..Timer::default()
                 }
             );

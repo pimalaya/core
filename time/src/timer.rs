@@ -134,32 +134,23 @@ impl TimerConfig {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Timer {
     #[serde(skip)]
     pub config: TimerConfig,
+
+    /// The current timer state.
     pub state: TimerState,
 
-    /// The active timer cycle.
+    /// The current timer cycle.
     pub cycle: TimerCycle,
+    /// The current cycles counter.
     pub cycles_count: TimerCyclesCount,
 
     #[cfg(feature = "server")]
-    #[serde(skip, default = "Instant::now")]
-    pub begin: Instant,
-}
-
-impl Default for Timer {
-    fn default() -> Self {
-        Self {
-            config: Default::default(),
-            state: Default::default(),
-            cycle: Default::default(),
-            cycles_count: Default::default(),
-            #[cfg(feature = "server")]
-            begin: Instant::now(),
-        }
-    }
+    #[serde(skip)]
+    pub started_at: Option<Instant>,
+    pub elapsed: usize,
 }
 
 impl fmt::Debug for Timer {
@@ -172,14 +163,21 @@ impl fmt::Debug for Timer {
 impl Eq for Timer {}
 impl PartialEq for Timer {
     fn eq(&self, other: &Self) -> bool {
-        self.state == other.state && self.cycle == other.cycle
+        self.state == other.state && self.cycle == other.cycle && self.elapsed() == other.elapsed()
     }
 }
 
 #[cfg(feature = "server")]
 impl Timer {
+    pub fn elapsed(&self) -> usize {
+        self.started_at
+            .map(|i| i.elapsed().as_secs() as usize)
+            .unwrap_or_default()
+            + self.elapsed
+    }
+
     pub fn update(&mut self) {
-        let mut elapsed = self.begin.elapsed().as_secs() as usize;
+        let mut elapsed = self.elapsed();
 
         match self.state {
             TimerState::Running => {
@@ -236,6 +234,55 @@ impl Timer {
         }
     }
 
+    pub fn start(&mut self) -> io::Result<()> {
+        if matches!(self.state, TimerState::Stopped) {
+            self.state = TimerState::Running;
+            self.cycle = self.config.clone_first_cycle()?;
+            self.cycles_count = self.config.cycles_count.clone();
+            self.started_at = Some(Instant::now());
+            self.elapsed = 0;
+            self.fire_events([TimerEvent::Started, TimerEvent::Began(self.cycle.clone())]);
+        }
+        Ok(())
+    }
+
+    pub fn set(&mut self, duration: usize) -> io::Result<()> {
+        self.cycle.duration = duration;
+        self.fire_event(TimerEvent::Set(self.cycle.clone()));
+        Ok(())
+    }
+
+    pub fn pause(&mut self) -> io::Result<()> {
+        if matches!(self.state, TimerState::Running) {
+            self.state = TimerState::Paused;
+            self.elapsed = self.elapsed();
+            self.started_at = None;
+            self.fire_event(TimerEvent::Paused(self.cycle.clone()));
+        }
+        Ok(())
+    }
+
+    pub fn resume(&mut self) -> io::Result<()> {
+        if matches!(self.state, TimerState::Paused) {
+            self.state = TimerState::Running;
+            self.started_at = Some(Instant::now());
+            self.fire_event(TimerEvent::Resumed(self.cycle.clone()));
+        }
+        Ok(())
+    }
+
+    pub fn stop(&mut self) -> io::Result<()> {
+        if matches!(self.state, TimerState::Running) {
+            self.state = TimerState::Stopped;
+            self.fire_events([TimerEvent::Ended(self.cycle.clone()), TimerEvent::Stopped]);
+            self.cycle = self.config.clone_first_cycle()?;
+            self.cycles_count = self.config.cycles_count.clone();
+            self.started_at = None;
+            self.elapsed = 0;
+        }
+        Ok(())
+    }
+
     pub fn fire_event(&self, event: TimerEvent) {
         if let Err(err) = (self.config.handler)(event.clone()) {
             warn!("cannot fire event {event:?}, skipping it");
@@ -264,31 +311,25 @@ impl ThreadSafeTimer {
         let mut timer = Timer::default();
         timer.config = config;
         timer.cycle = timer.config.clone_first_cycle()?;
+        timer.cycles_count = timer.config.cycles_count.clone();
 
         Ok(Self(Arc::new(Mutex::new(timer))))
     }
 
     pub fn with_timer<T>(&self, run: impl Fn(MutexGuard<Timer>) -> io::Result<T>) -> io::Result<T> {
-        run(self
+        let timer = self
             .0
             .lock()
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?)
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+        run(timer)
     }
 
     pub fn update(&self) -> io::Result<()> {
-        self.with_timer(|mut timer| {
-            timer.update();
-            Ok(())
-        })
+        self.with_timer(|mut timer| Ok(timer.update()))
     }
 
     pub fn start(&self) -> io::Result<()> {
-        self.with_timer(|mut timer| {
-            timer.state = TimerState::Running;
-            timer.cycle = timer.config.clone_first_cycle()?;
-            timer.fire_events([TimerEvent::Started, TimerEvent::Began(timer.cycle.clone())]);
-            Ok(())
-        })
+        self.with_timer(|mut timer| timer.start())
     }
 
     pub fn get(&self) -> io::Result<Timer> {
@@ -296,36 +337,19 @@ impl ThreadSafeTimer {
     }
 
     pub fn set(&self, duration: usize) -> io::Result<()> {
-        self.with_timer(|mut timer| {
-            timer.cycle.duration = duration;
-            timer.fire_event(TimerEvent::Set(timer.cycle.clone()));
-            Ok(())
-        })
+        self.with_timer(|mut timer| timer.set(duration))
     }
 
     pub fn pause(&self) -> io::Result<()> {
-        self.with_timer(|mut timer| {
-            timer.state = TimerState::Paused;
-            timer.fire_event(TimerEvent::Paused(timer.cycle.clone()));
-            Ok(())
-        })
+        self.with_timer(|mut timer| timer.pause())
     }
 
     pub fn resume(&self) -> io::Result<()> {
-        self.with_timer(|mut timer| {
-            timer.state = TimerState::Running;
-            timer.fire_event(TimerEvent::Resumed(timer.cycle.clone()));
-            Ok(())
-        })
+        self.with_timer(|mut timer| timer.resume())
     }
 
     pub fn stop(&self) -> io::Result<()> {
-        self.with_timer(|mut timer| {
-            timer.state = TimerState::Stopped;
-            timer.fire_events([TimerEvent::Ended(timer.cycle.clone()), TimerEvent::Stopped]);
-            timer.cycle = timer.config.clone_first_cycle()?;
-            Ok(())
-        })
+        self.with_timer(|mut timer| timer.stop())
     }
 }
 
@@ -347,12 +371,11 @@ impl DerefMut for ThreadSafeTimer {
 
 #[cfg(test)]
 mod tests {
+    use mock_instant::{Instant, MockClock};
     use std::{
         sync::{Arc, Mutex},
         time::Duration,
     };
-
-    use mock_instant::MockClock;
 
     use crate::{Timer, TimerConfig, TimerCycle, TimerCycles, TimerEvent, TimerState};
 
@@ -368,6 +391,7 @@ mod tests {
             },
             state: TimerState::Running,
             cycle: TimerCycle::new("a", 3),
+            started_at: Some(Instant::now()),
             ..Default::default()
         }
     }
