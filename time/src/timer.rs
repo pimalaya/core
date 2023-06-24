@@ -1,10 +1,8 @@
-//! # Timer module
+//! Module dedicated to the timer.
 //!
-//! The [`Timer`] is composed of a [`TimerCycle`] and a
-//! [`TimerState`]. The [`Timer`] is an [`Iterator`], which means it
-//! knows how to switch between cycles.
+//! The timer is the core concept of the library.
 
-use log::{error, warn};
+use log::{debug, warn};
 #[cfg(test)]
 use mock_instant::Instant;
 use serde::{Deserialize, Serialize};
@@ -16,16 +14,33 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
+/// The timer loop.
+///
+/// When the timer reaches its last cycle, it starts again from the
+/// first cycle. This structure defines the number of loops the timer
+/// should do before stopping by itself.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-pub enum TimerCyclesCount {
+pub enum TimerLoop {
+    /// The timer loops indefinitely and therefore never stops by
+    /// itself. The only way to stop such timer is via a stop
+    /// requests.
     #[default]
     Infinite,
+    /// The timer stops by itself after the given number of loops.
     Fixed(usize),
 }
 
-/// List of all configured [`Cycle`]s for the current [`Timer`]. It is
-/// used as an inifinite loop: when the last cycle ends, the first one
-/// starts back.
+impl From<usize> for TimerLoop {
+    fn from(count: usize) -> Self {
+        if count == 0 {
+            Self::Infinite
+        } else {
+            Self::Fixed(count)
+        }
+    }
+}
+
+/// The timer [cycles](crate::TimerCycle) list.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TimerCycles(Vec<TimerCycle>);
 
@@ -49,11 +64,12 @@ impl DerefMut for TimerCycles {
     }
 }
 
+/// The timer cycle.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TimerCycle {
-    /// Custom name of the timer cycle.
+    /// The name of the timer cycle.
     pub name: String,
-    /// Duration of the timer cycle. This field has two meanings,
+    /// The duration of the timer cycle. This field has two meanings,
     /// depending on where it is used. *From the config point of
     /// view*, the duration represents the total duration of the
     /// cycle. *From the timer point of view*, the duration represents
@@ -84,14 +100,19 @@ impl<T: ToString> From<(T, usize)> for TimerCycle {
     }
 }
 
+/// The timer state.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TimerState {
+    /// The timer is running.
     Running,
+    /// The timer has been paused.
     Paused,
+    /// The timer is not running.
     #[default]
     Stopped,
 }
 
+/// The timer event.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TimerEvent {
     Started,
@@ -104,12 +125,14 @@ pub enum TimerEvent {
     Stopped,
 }
 
+/// The timer changed handler.
 pub type TimerChangedHandler = Arc<dyn Fn(TimerEvent) -> io::Result<()> + Sync + Send + 'static>;
 
+/// The timer configuration.
 #[derive(Clone)]
 pub struct TimerConfig {
     pub cycles: TimerCycles,
-    pub cycles_count: TimerCyclesCount,
+    pub cycles_count: TimerLoop,
     pub handler: TimerChangedHandler,
 }
 
@@ -134,8 +157,10 @@ impl TimerConfig {
     }
 }
 
+/// The timer.
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Timer {
+    /// The current timer configuration.
     #[serde(skip)]
     pub config: TimerConfig,
 
@@ -145,7 +170,7 @@ pub struct Timer {
     /// The current timer cycle.
     pub cycle: TimerCycle,
     /// The current cycles counter.
-    pub cycles_count: TimerCyclesCount,
+    pub cycles_count: TimerLoop,
 
     #[cfg(feature = "server")]
     #[serde(skip)]
@@ -191,8 +216,8 @@ impl Timer {
                     },
                 );
 
-                if let TimerCyclesCount::Fixed(cycles_count) = self.cycles_count {
-                    if elapsed > (total_duration * cycles_count) {
+                if let TimerLoop::Fixed(cycles_count) = self.cycles_count {
+                    if elapsed >= (total_duration * cycles_count) {
                         self.state = TimerState::Stopped;
                         return;
                     }
@@ -231,6 +256,19 @@ impl Timer {
             TimerState::Stopped => {
                 // nothing to do
             }
+        }
+    }
+
+    pub fn fire_event(&self, event: TimerEvent) {
+        if let Err(err) = (self.config.handler)(event.clone()) {
+            warn!("cannot fire event {event:?}, skipping it: {err}");
+            debug!("cannot fire event {event:?}: {err:?}");
+        }
+    }
+
+    pub fn fire_events(&self, events: impl IntoIterator<Item = TimerEvent>) {
+        for event in events.into_iter() {
+            self.fire_event(event)
         }
     }
 
@@ -281,19 +319,6 @@ impl Timer {
             self.elapsed = 0;
         }
         Ok(())
-    }
-
-    pub fn fire_event(&self, event: TimerEvent) {
-        if let Err(err) = (self.config.handler)(event.clone()) {
-            warn!("cannot fire event {event:?}, skipping it");
-            error!("{err}");
-        }
-    }
-
-    pub fn fire_events<E: IntoIterator<Item = TimerEvent>>(&self, events: E) {
-        for event in events.into_iter() {
-            self.fire_event(event)
-        }
     }
 }
 

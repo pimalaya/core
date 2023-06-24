@@ -32,7 +32,7 @@
 //! └────────────────────────┘
 //! ```
 //!
-//! ```rust
+//! ```rust,ignore
 #![doc = include_str!("../examples/pomodoro-tcp.rs")]
 //! ```
 

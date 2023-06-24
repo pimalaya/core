@@ -19,7 +19,7 @@ use std::{
     time::Duration,
 };
 
-use crate::TimerCycle;
+use crate::{TimerCycle, TimerLoop};
 
 use super::{Request, Response, ThreadSafeTimer, TimerConfig, TimerEvent};
 
@@ -227,8 +227,8 @@ impl Server {
             let timer = self.timer.clone();
             thread::spawn(move || {
                 if let Err(err) = binder.bind(timer) {
-                    warn!("cannot bind, exiting");
-                    error!("{err}");
+                    warn!("cannot bind, exiting: {err}");
+                    debug!("cannot bind: {err:?}");
                 }
             });
         }
@@ -350,6 +350,11 @@ impl ServerBuilder {
         for cycle in cycles {
             self.timer_config.cycles.push(cycle.into());
         }
+        self
+    }
+
+    pub fn with_cycles_count(mut self, count: impl Into<TimerLoop>) -> Self {
+        self.timer_config.cycles_count = count.into();
         self
     }
 
