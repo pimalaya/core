@@ -1,3 +1,8 @@
+//! Module dedicated to email folders synchronization cache.
+//!
+//! This module contains everything needed to manipule folder
+//! synchronization cache entities using SQLite.
+
 pub use rusqlite::Error;
 use rusqlite::{Connection, Transaction};
 use std::collections::HashSet;
@@ -45,11 +50,16 @@ const SELECT_FOLDERS_NOT_IN: &str = "
     AND name NOT IN (!)
 ";
 
+/// The folder synchronization cache.
+///
+/// This structure contains all functions needed to manipule SQLite
+/// cache.
 pub struct FolderSyncCache;
 
 impl FolderSyncCache {
     const LOCAL_SUFFIX: &str = ":cache";
 
+    /// Creates the folder synchronization SQLite table.
     pub fn init(conn: &mut Connection) -> Result<()> {
         conn.execute(CREATE_FOLDERS_TABLE, ())?;
         Ok(())

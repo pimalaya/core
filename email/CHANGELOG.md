@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Flattened `/domain` folder.
+- Removed `Folder::delim` field.
 
 ## [0.11.0] - 2023-06-15
 

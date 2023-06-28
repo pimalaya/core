@@ -1,19 +1,37 @@
-use std::{collections::HashMap, fmt};
+//! Module dedicated to email folders synchronization hunk.
+//!
+//! The core structure of the module is the [FolderSyncHunk], which
+//! represents a change in a patch.
+
+use std::fmt;
 
 use crate::account::sync::Target;
 
 use super::*;
 
+/// Alias for a folder name.
 pub type FolderName = String;
-pub type FoldersName = HashSet<FolderName>;
-pub type FolderSyncPatch = Vec<FolderSyncHunk>;
-pub type FolderSyncPatches = HashMap<String, FolderSyncPatch>;
 
+/// Alias for a unique set of folder names.
+pub type FoldersName = HashSet<FolderName>;
+
+/// The folder synchronization hunk.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FolderSyncHunk {
+    /// The given folder name needs to be created to the given
+    /// destination.
     Create(FolderName, Target),
+
+    /// The given folder name needs to be added to the cache for the
+    /// given destination.
     Cache(FolderName, Target),
+
+    /// The given folder needs to be deleted from the given
+    /// destination.
     Delete(FolderName, Target),
+
+    /// The given folder needs to be removed from the cache for the
+    /// given destination.
     Uncache(FolderName, Target),
 }
 
@@ -43,8 +61,17 @@ impl FolderSyncHunk {
     }
 }
 
+/// The folder synchronization cache hunk.
+///
+/// Similar to the [FolderSyncHunk], except that this hunk is specific
+/// to the cache (SQLite).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FolderSyncCacheHunk {
+    /// The given folder name needs to be added to the cache for the
+    /// given destination.
     Insert(FolderName, Target),
+
+    /// The given folder name needs to be removed from the cache for
+    /// the given destination.
     Delete(FolderName, Target),
 }

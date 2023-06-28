@@ -1,3 +1,11 @@
+//! Module dedicated to email folders synchronization patch.
+//!
+//! The core structure of the module is the [FolderSyncPatch], which
+//! represents a list of changes (hunks).
+//!
+//! You also have access to a [FolderSyncPatchManager] which helps you
+//! to build and to apply a folder patch.
+
 use log::{debug, error, info, trace, warn};
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -9,8 +17,21 @@ use crate::{
 
 use super::*;
 
+/// A folder synchronization patch is just a list of folder
+/// synchronization hunks (changes).
+pub type FolderSyncPatch = Vec<FolderSyncHunk>;
+
+/// A folder synchronization patches associates a folder with its own
+/// patch.
+pub type FolderSyncPatches = HashMap<FolderName, FolderSyncPatch>;
+
+/// A folder synchronization cache patch is just a list of folder
+/// synchronization cache hunks (changes).
 pub type FolderSyncCachePatch = Vec<FolderSyncCacheHunk>;
 
+/// The folder synchronization patch manager.
+///
+/// This structure helps you to build a patch and to apply it.
 pub struct FolderSyncPatchManager<'a> {
     account_config: &'a AccountConfig,
     local_builder: &'a MaildirBackendBuilder,
@@ -21,6 +42,7 @@ pub struct FolderSyncPatchManager<'a> {
 }
 
 impl<'a> FolderSyncPatchManager<'a> {
+    /// Creates a new folder synchronization patch manager.
     pub fn new(
         account_config: &'a AccountConfig,
         local_builder: &'a MaildirBackendBuilder,
@@ -39,7 +61,8 @@ impl<'a> FolderSyncPatchManager<'a> {
         }
     }
 
-    pub fn build_patch(&self) -> Result<FolderSyncPatches> {
+    /// Builds the folder synchronization patches.
+    pub fn build_patches(&self) -> Result<FolderSyncPatches> {
         let account = &self.account_config.name;
         let conn = &mut self.account_config.sync_db_builder()?;
         info!("starting folders synchronization of account {account}");
@@ -151,7 +174,11 @@ impl<'a> FolderSyncPatchManager<'a> {
         Ok(patches)
     }
 
-    pub fn apply_patch(&self, patches: FolderSyncPatches) -> Result<FolderSyncReport> {
+    /// Applies all the folder synchronization patches built from
+    /// `build_patches()`.
+    ///
+    /// Returns a folder synchronization report.
+    pub fn apply_patches(&self, patches: FolderSyncPatches) -> Result<FolderSyncReport> {
         let account = &self.account_config.name;
         let conn = &mut self.account_config.sync_db_builder()?;
         let mut report = FolderSyncReport::default();
@@ -283,6 +310,11 @@ impl<'a> FolderSyncPatchManager<'a> {
     }
 }
 
+/// Folder synchronization patch builder.
+///
+/// Contains the core algorithm of the folder synchronization. It has
+/// been exported in a dedicated function so that it can be easily
+/// tested.
 pub fn build_patch(
     local_cache: FoldersName,
     local: FoldersName,

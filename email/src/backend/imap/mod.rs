@@ -658,7 +658,6 @@ impl Backend for ImapBackend {
                 None
             } else {
                 Some(Folder {
-                    delim: folder.delimiter().unwrap_or_default().into(),
                     name: decode_utf7(folder.name().into()),
                     desc: folder
                         .attributes()

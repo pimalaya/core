@@ -293,11 +293,11 @@ impl<'a> AccountSyncBuilder<'a> {
         );
 
         debug!("building folder sync patch");
-        let folder_sync_patch = folder_sync_patch_manager.build_patch()?;
+        let folder_sync_patch = folder_sync_patch_manager.build_patches()?;
         debug!("{folder_sync_patch:#?}");
 
         debug!("applying folder sync patch");
-        let folder_sync_report = folder_sync_patch_manager.apply_patch(folder_sync_patch)?;
+        let folder_sync_report = folder_sync_patch_manager.apply_patches(folder_sync_patch)?;
         debug!("{folder_sync_report:#?}");
 
         let folders = folder_sync_report.folders.clone();

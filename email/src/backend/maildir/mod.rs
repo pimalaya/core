@@ -182,7 +182,6 @@ impl Backend for MaildirBackend {
         let mut folders = Folders::default();
 
         folders.push(Folder {
-            delim: String::from("/"),
             name: self.account_config.inbox_folder_alias()?,
             desc: DEFAULT_INBOX_FOLDER.into(),
         });
@@ -201,7 +200,6 @@ impl Backend for MaildirBackend {
             }
 
             folders.push(Folder {
-                delim: String::from("/"),
                 name: self.decode_folder(&name),
                 desc: name,
             });
