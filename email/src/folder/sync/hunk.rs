@@ -1,5 +1,6 @@
-use crate::backend::sync::Target;
 use std::{collections::HashMap, fmt};
+
+use crate::account::sync::Target;
 
 use super::*;
 

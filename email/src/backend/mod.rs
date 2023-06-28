@@ -1,4 +1,4 @@
-//! Module dedicated to backend.
+//! Module dedicated to backends.
 //!
 //! The core concept of this module is the [Backend] trait, which is
 //! an abstraction over emails manipulation.
@@ -6,10 +6,6 @@
 //! Then you have the [BackendConfig] which represents the
 //! backend-specific configuration, mostly used by the
 //! [account configuration](crate::AccountConfig).
-//!
-//! You also have everything you need to
-//! [synchronize](crate::backend::sync) a remote backend with a local
-//! Maildir backend.
 
 mod config;
 #[cfg(feature = "imap-backend")]
@@ -17,7 +13,6 @@ pub mod imap;
 pub mod maildir;
 #[cfg(feature = "notmuch-backend")]
 pub mod notmuch;
-pub mod sync;
 
 use log::error;
 use std::any::Any;
@@ -25,15 +20,12 @@ use thiserror::Error;
 
 use crate::{AccountConfig, Envelope, Envelopes, Flag, Flags, Folders, Messages, Result};
 
+pub use self::config::BackendConfig;
 #[cfg(feature = "imap-backend")]
 pub use self::imap::*;
 pub use self::maildir::*;
 #[cfg(feature = "notmuch-backend")]
 pub use self::notmuch::*;
-pub use self::{
-    config::BackendConfig,
-    sync::{BackendSyncBuilder, BackendSyncProgress, BackendSyncProgressEvent, BackendSyncReport},
-};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -189,7 +181,7 @@ impl BackendBuilder {
         Ok(self)
     }
 
-    /// Builds a [backend](crate::Backend) by cloning self options.
+    /// Builds a [Backend] by cloning self options.
     pub fn build(&self) -> Result<Box<dyn Backend>> {
         match &self.account_config.backend {
             BackendConfig::None => Ok(Err(Error::BuildUndefinedBackendError)?),
@@ -221,7 +213,7 @@ impl BackendBuilder {
         }
     }
 
-    /// Builds a [backend](crate::Backend) by moving self options.
+    /// Builds a [Backend] by moving self options.
     pub fn into_build(self) -> Result<Box<dyn Backend>> {
         match self.account_config.backend.clone() {
             BackendConfig::None => Ok(Err(Error::BuildUndefinedBackendError)?),

@@ -7,7 +7,7 @@ mod runner;
 use thiserror::Error;
 
 use crate::{
-    backend::sync::Destination, AccountConfig, Backend, BackendBuilder, Envelope,
+    account::sync::Destination, AccountConfig, Backend, BackendBuilder, Envelope,
     MaildirBackendBuilder,
 };
 

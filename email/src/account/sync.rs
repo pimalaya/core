@@ -1,3 +1,9 @@
+//! Module dedicated to account synchronization.
+//!
+//! The core concept of this module is the [AccountSyncBuilder], which
+//! allows you to synchronize folders and emails for a given account
+//! using a Maildir backend.
+
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use log::{debug, error, info, warn};
 use rayon::prelude::*;
@@ -29,9 +35,13 @@ pub enum Error {
     SyncAccountUnlockFileError(#[source] FileLockError, String),
 }
 
+/// The synchronization destination.
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum Destination {
+    /// An item needs to be synchronized to the local Maildir.
     Local,
+
+    /// An item needs to be synchronized remotely.
     Remote,
 }
 
@@ -47,8 +57,12 @@ impl fmt::Display for Destination {
 pub type Source = Destination;
 pub type Target = Destination;
 
+/// The backend synchronization progress event.
+///
+/// Represents all the events that can be triggered during the backend
+/// synchronization process.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum BackendSyncProgressEvent {
+pub enum AccountSyncProgressEvent {
     BuildFolderPatch,
     GetLocalCachedFolders,
     GetLocalFolders,
@@ -71,7 +85,7 @@ pub enum BackendSyncProgressEvent {
     FolderExpunged(FolderName),
 }
 
-impl fmt::Display for BackendSyncProgressEvent {
+impl fmt::Display for AccountSyncProgressEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::BuildFolderPatch => write!(f, "Building folders diff patch"),
@@ -110,8 +124,12 @@ impl fmt::Display for BackendSyncProgressEvent {
     }
 }
 
+/// The account synchronization report.
+///
+/// Gathers folder and email synchronization reports in one unique
+/// report.
 #[derive(Debug, Default)]
-pub struct BackendSyncReport {
+pub struct AccountSyncReport {
     pub folders: FoldersName,
     pub folders_patch: Vec<(FolderSyncHunk, Option<crate::Error>)>,
     pub folders_cache_patch: (Vec<FolderSyncCacheHunk>, Option<crate::Error>),
@@ -119,22 +137,22 @@ pub struct BackendSyncReport {
     pub emails_cache_patch: (Vec<EmailSyncCacheHunk>, Option<crate::Error>),
 }
 
-pub struct BackendSyncProgress<'a>(
-    Box<dyn Fn(BackendSyncProgressEvent) -> Result<()> + Sync + Send + 'a>,
+pub struct AccountSyncProgress<'a>(
+    Box<dyn Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'a>,
 );
 
-impl Default for BackendSyncProgress<'_> {
+impl Default for AccountSyncProgress<'_> {
     fn default() -> Self {
         Self::new(|_evt| Ok(()))
     }
 }
 
-impl<'a> BackendSyncProgress<'a> {
-    pub fn new(f: impl Fn(BackendSyncProgressEvent) -> Result<()> + Sync + Send + 'a) -> Self {
+impl<'a> AccountSyncProgress<'a> {
+    pub fn new(f: impl Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'a) -> Self {
         Self(Box::new(f))
     }
 
-    pub fn emit(&self, evt: BackendSyncProgressEvent) {
+    pub fn emit(&self, evt: AccountSyncProgressEvent) {
         debug!("emitting sync progress event {evt:?}");
         if let Err(err) = (self.0)(evt.clone()) {
             warn!("error while emitting backend sync event {evt:?}, skipping it");
@@ -143,20 +161,27 @@ impl<'a> BackendSyncProgress<'a> {
     }
 }
 
-pub struct BackendSyncBuilder<'a> {
+/// The account synchronization builder.
+///
+/// This is not really a builder since there is no `build()` function,
+/// but it follows the builder pattern. When all the options are set
+/// up, `sync()` synchronizes the current account locally, using the
+/// given remote builder.
+pub struct AccountSyncBuilder<'a> {
     account_config: AccountConfig,
     remote_builder: BackendBuilder,
-    on_progress: BackendSyncProgress<'a>,
+    on_progress: AccountSyncProgress<'a>,
     folders_strategy: FolderSyncStrategy,
     dry_run: bool,
 }
 
-impl<'a> BackendSyncBuilder<'a> {
-    pub fn new(account_config: AccountConfig, backend_builder: BackendBuilder) -> Result<Self> {
+impl<'a> AccountSyncBuilder<'a> {
+    /// Creates a new account synchronization builder.
+    pub fn new(account_config: AccountConfig, remote_builder: BackendBuilder) -> Result<Self> {
         let folders_strategy = account_config.sync_folders_strategy.clone();
         Ok(Self {
             account_config,
-            remote_builder: backend_builder
+            remote_builder: remote_builder
                 .with_cache_disabled(true)
                 .with_default_credentials()?,
             on_progress: Default::default(),
@@ -165,24 +190,31 @@ impl<'a> BackendSyncBuilder<'a> {
         })
     }
 
+    /// Sets the progress callback following the builder pattern.
     pub fn with_on_progress(
         mut self,
-        f: impl Fn(BackendSyncProgressEvent) -> Result<()> + Sync + Send + 'a,
+        f: impl Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'a,
     ) -> Self {
-        self.on_progress = BackendSyncProgress::new(f);
+        self.on_progress = AccountSyncProgress::new(f);
         self
     }
 
+    /// Sets the dry run flag following the builder pattern.
     pub fn with_dry_run(mut self, dry_run: bool) -> Self {
         self.dry_run = dry_run;
         self
     }
 
+    /// Sets the sync folders strategy following the builder pattern.
     pub fn with_folders_strategy(mut self, strategy: FolderSyncStrategy) -> Self {
         self.folders_strategy = strategy;
         self
     }
 
+    /// Sets the sync folders strategy following the builder pattern.
+    ///
+    /// Like `with_folders_strategy()`, but takes an optional strategy
+    /// instead.
     pub fn with_some_folders_strategy(mut self, strategy: Option<FolderSyncStrategy>) -> Self {
         if let Some(strategy) = strategy {
             self.folders_strategy = strategy;
@@ -190,7 +222,12 @@ impl<'a> BackendSyncBuilder<'a> {
         self
     }
 
-    pub fn sync(&self) -> Result<BackendSyncReport> {
+    /// Synchronizes the current account locally, using a Maildir
+    /// backend.
+    ///
+    /// Acts like a `build()` function in a regular builder pattern,
+    /// except that the synchronizer builder is not consumed.
+    pub fn sync(&self) -> Result<AccountSyncReport> {
         let account = &self.account_config.name;
         info!("starting synchronization of account {account}");
 
@@ -244,7 +281,7 @@ impl<'a> BackendSyncBuilder<'a> {
         };
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::BuildFolderPatch);
+            .emit(AccountSyncProgressEvent::BuildFolderPatch);
 
         let folder_sync_patch_manager = FolderSyncPatchManager::new(
             &self.account_config,
@@ -266,7 +303,7 @@ impl<'a> BackendSyncBuilder<'a> {
         let folders = folder_sync_report.folders.clone();
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::BuildEnvelopePatch(
+            .emit(AccountSyncProgressEvent::BuildEnvelopePatch(
                 folders.clone(),
             ));
 
@@ -297,7 +334,7 @@ impl<'a> BackendSyncBuilder<'a> {
             .collect::<HashSet<_>>();
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::ApplyEnvelopePatches(
+            .emit(AccountSyncProgressEvent::ApplyEnvelopePatches(
                 envelope_sync_patches,
             ));
 
@@ -307,14 +344,14 @@ impl<'a> BackendSyncBuilder<'a> {
         debug!("{envelope_sync_report:#?}");
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::ExpungeFolders(folders.clone()));
+            .emit(AccountSyncProgressEvent::ExpungeFolders(folders.clone()));
 
         debug!("expunging folders");
         folders.par_iter().try_for_each(|folder| {
             local_builder.build()?.expunge_folder(folder)?;
             self.remote_builder.build()?.expunge_folder(folder)?;
             self.on_progress
-                .emit(BackendSyncProgressEvent::FolderExpunged(folder.clone()));
+                .emit(AccountSyncProgressEvent::FolderExpunged(folder.clone()));
             Result::Ok(())
         })?;
 
@@ -324,7 +361,7 @@ impl<'a> BackendSyncBuilder<'a> {
             .map_err(|err| Error::SyncAccountUnlockFileError(err, account.clone()))?;
 
         debug!("building final sync report");
-        let sync_report = BackendSyncReport {
+        let sync_report = AccountSyncReport {
             folders,
             folders_patch: folder_sync_report.patch,
             folders_cache_patch: folder_sync_report.cache_patch,

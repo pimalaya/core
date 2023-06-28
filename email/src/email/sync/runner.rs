@@ -2,7 +2,7 @@ use log::{trace, warn};
 use std::sync::Mutex;
 
 use crate::{
-    Backend, BackendBuilder, BackendSyncProgress, BackendSyncProgressEvent, MaildirBackendBuilder,
+    AccountSyncProgress, AccountSyncProgressEvent, Backend, BackendBuilder, MaildirBackendBuilder,
     Result,
 };
 
@@ -12,7 +12,7 @@ pub struct EmailSyncRunner<'a> {
     pub id: usize,
     pub local_builder: &'a MaildirBackendBuilder,
     pub remote_builder: &'a BackendBuilder,
-    pub on_progress: &'a BackendSyncProgress<'a>,
+    pub on_progress: &'a AccountSyncProgress<'a>,
     pub patch: &'a Mutex<Vec<Vec<EmailSyncHunk>>>,
 }
 
@@ -226,7 +226,7 @@ impl EmailSyncRunner<'_> {
                         };
 
                         self.on_progress
-                            .emit(BackendSyncProgressEvent::ApplyEnvelopeHunk(hunk));
+                            .emit(AccountSyncProgressEvent::ApplyEnvelopeHunk(hunk));
                     }
                 }
             }

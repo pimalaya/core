@@ -1,12 +1,13 @@
-//! Sendmail config module.
+//! Module dedicated to the sendmail sender configuration.
 //!
-//! This module contains the representation of the Sendmail email
-//! sender configuration of the user account.
+//! This module contains the configuration specific to the sendmail
+//! sender.
 
 use pimalaya_process::Cmd;
 
+/// The sendmail sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SendmailConfig {
-    /// Represents the sendmail command.
+    /// The sendmail command.
     pub cmd: Cmd,
 }

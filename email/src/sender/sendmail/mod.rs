@@ -1,3 +1,8 @@
+//! Module dedicated to the sendmail sender.
+//!
+//! This module contains the implementation of the sendmail sender and
+//! all associated structures related to it.
+
 pub mod config;
 
 use mail_parser::Message;
@@ -17,12 +22,14 @@ pub enum Error {
     ParseEmailError,
 }
 
+/// The sendmail sender.
 pub struct Sendmail {
     account_config: AccountConfig,
     sendmail_config: SendmailConfig,
 }
 
 impl Sendmail {
+    /// Creates a new sendmail sender from configurations.
     pub fn new(account_config: AccountConfig, sendmail_config: SendmailConfig) -> Self {
         Self {
             account_config,
@@ -30,6 +37,7 @@ impl Sendmail {
         }
     }
 
+    /// Sends the given raw email.
     pub fn send(&mut self, email: &[u8]) -> Result<()> {
         let mut email = Message::parse(&email).ok_or(Error::ParseEmailError)?;
         let buffer;

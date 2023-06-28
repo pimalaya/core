@@ -10,12 +10,11 @@ use crate::MaildirConfig;
 #[cfg(feature = "notmuch-backend")]
 use crate::NotmuchConfig;
 
-/// The backend configuration structure.
+/// The backend configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum BackendConfig {
     /// The undefined backend is useful when you need to create an
-    /// account that only send emails using the
-    /// [sender](crate::Sender).
+    /// account that only send emails using a [crate::Sender].
     #[default]
     None,
 

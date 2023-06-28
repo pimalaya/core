@@ -45,11 +45,12 @@ pub use self::sender::{Smtp, SmtpAuthConfig, SmtpConfig};
 #[doc(inline)]
 pub use self::{
     account::{
-        AccountConfig, OAuth2Config, OAuth2Method, OAuth2Scopes, PasswdConfig, DEFAULT_INBOX_FOLDER,
+        AccountConfig, AccountSyncBuilder, AccountSyncProgress, AccountSyncProgressEvent,
+        AccountSyncReport, OAuth2Config, OAuth2Method, OAuth2Scopes, PasswdConfig,
+        DEFAULT_INBOX_FOLDER,
     },
     backend::{
-        Backend, BackendBuilder, BackendConfig, BackendSyncBuilder, BackendSyncProgress,
-        BackendSyncProgressEvent, BackendSyncReport, MaildirBackend, MaildirBackendBuilder,
+        Backend, BackendBuilder, BackendConfig, MaildirBackend, MaildirBackendBuilder,
         MaildirConfig,
     },
     email::{
@@ -75,6 +76,8 @@ pub enum Error {
     OAuth2ConfigError(#[from] account::config::oauth2::Error),
     #[error(transparent)]
     PasswdConfigError(#[from] account::config::passwd::Error),
+    #[error(transparent)]
+    AccountSyncError(#[from] account::sync::Error),
 
     #[error(transparent)]
     EmailError(#[from] email::Error),
@@ -87,8 +90,6 @@ pub enum Error {
 
     #[error(transparent)]
     BackendError(#[from] backend::Error),
-    #[error(transparent)]
-    BackendSyncError(#[from] backend::sync::Error),
     #[cfg(feature = "imap-backend")]
     #[error(transparent)]
     ImapError(#[from] backend::imap::Error),

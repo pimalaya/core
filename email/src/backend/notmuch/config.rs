@@ -1,14 +1,19 @@
-//! Notmuch backend config module.
+//! Module dedicated to the Notmuch backend configuration.
 //!
-//! This module contains the representation of the notmuch backend
-//! configuration of the user account.
+//! This module contains the configuration specific to the Notmuch
+//! backend.
 
 use std::path::PathBuf;
 
-/// Represents the Notmuch backend config.
+/// The Notmuch backend config.
 #[cfg(feature = "notmuch-backend")]
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct NotmuchConfig {
-    /// Represents the notmuch database path.
+    /// The path to the Notmuch database.
+    ///
+    /// The path should point to the root directory containing the
+    /// Notmuch database (usually the root Maildir directory). Path is
+    /// shell-expanded, which means environment variables and tilde
+    /// `~` are replaced by their values.
     pub db_path: PathBuf,
 }

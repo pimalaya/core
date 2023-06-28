@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Moved `backend::sync` module to `account::sync`, and renamed all associated structures `Backend*` by `Account*`.
+
 ### Removed
 
 - Flattened `/domain` folder.

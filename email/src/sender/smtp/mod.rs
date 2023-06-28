@@ -1,3 +1,8 @@
+//! Module dedicated to the SMTP sender.
+//!
+//! This module contains the implementation of the SMTP sender and all
+//! associated structures related to it.
+
 pub mod config;
 
 use futures::executor::block_on;

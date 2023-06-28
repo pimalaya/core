@@ -3,8 +3,8 @@ use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    backend::sync::Destination, AccountConfig, Backend, BackendBuilder, BackendSyncProgress,
-    BackendSyncProgressEvent, MaildirBackendBuilder, Result,
+    account::sync::Destination, AccountConfig, AccountSyncProgress, AccountSyncProgressEvent,
+    Backend, BackendBuilder, MaildirBackendBuilder, Result,
 };
 
 use super::*;
@@ -16,7 +16,7 @@ pub struct FolderSyncPatchManager<'a> {
     local_builder: &'a MaildirBackendBuilder,
     remote_builder: &'a BackendBuilder,
     strategy: &'a FolderSyncStrategy,
-    on_progress: &'a BackendSyncProgress<'a>,
+    on_progress: &'a AccountSyncProgress<'a>,
     dry_run: bool,
 }
 
@@ -26,7 +26,7 @@ impl<'a> FolderSyncPatchManager<'a> {
         local_builder: &'a MaildirBackendBuilder,
         remote_builder: &'a BackendBuilder,
         strategy: &'a FolderSyncStrategy,
-        on_progress: &'a BackendSyncProgress<'a>,
+        on_progress: &'a AccountSyncProgress<'a>,
         dry_run: bool,
     ) -> Self {
         Self {
@@ -45,7 +45,7 @@ impl<'a> FolderSyncPatchManager<'a> {
         info!("starting folders synchronization of account {account}");
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::GetLocalCachedFolders);
+            .emit(AccountSyncProgressEvent::GetLocalCachedFolders);
 
         let local_folders_cached: FoldersName = HashSet::from_iter(
             FolderSyncCache::list_local_folders(conn, account, &self.strategy)?
@@ -56,7 +56,7 @@ impl<'a> FolderSyncPatchManager<'a> {
         trace!("local folders cached: {:#?}", local_folders_cached);
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::GetLocalFolders);
+            .emit(AccountSyncProgressEvent::GetLocalFolders);
 
         let local_folders: FoldersName = HashSet::from_iter(
             self.local_builder
@@ -90,7 +90,7 @@ impl<'a> FolderSyncPatchManager<'a> {
         trace!("local folders: {:#?}", local_folders);
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::GetRemoteCachedFolders);
+            .emit(AccountSyncProgressEvent::GetRemoteCachedFolders);
 
         let remote_folders_cached: FoldersName = HashSet::from_iter(
             FolderSyncCache::list_remote_folders(conn, account, &self.strategy)?
@@ -101,7 +101,7 @@ impl<'a> FolderSyncPatchManager<'a> {
         trace!("remote folders cached: {:#?}", remote_folders_cached);
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::GetRemoteFolders);
+            .emit(AccountSyncProgressEvent::GetRemoteFolders);
 
         let remote_folders: FoldersName = HashSet::from_iter(
             self.remote_builder
@@ -142,7 +142,7 @@ impl<'a> FolderSyncPatchManager<'a> {
         );
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::ApplyFolderPatches(
+            .emit(AccountSyncProgressEvent::ApplyFolderPatches(
                 patches.clone(),
             ));
 
@@ -180,7 +180,7 @@ impl<'a> FolderSyncPatchManager<'a> {
                     debug!("processing folder hunk: {hunk:?}");
 
                     self.on_progress
-                        .emit(BackendSyncProgressEvent::ApplyFolderHunk(hunk.clone()));
+                        .emit(AccountSyncProgressEvent::ApplyFolderHunk(hunk.clone()));
 
                     let process_hunk = |hunk: &FolderSyncHunk| {
                         Result::Ok(match hunk {
@@ -408,7 +408,7 @@ pub fn build_patch(
 mod tests {
     use std::collections::HashMap;
 
-    use crate::backend::sync::Destination;
+    use crate::account::sync::Destination;
 
     use super::{FolderSyncHunk, FoldersName};
 

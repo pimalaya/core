@@ -1,3 +1,8 @@
+//! Module dedicated to the Maildir backend.
+//!
+//! This module contains the implementation of the Maildir backend and
+//! all associated structures related to it.
+
 pub mod config;
 
 use log::{debug, info, trace, warn};
@@ -20,58 +25,37 @@ pub use self::config::MaildirConfig;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot create maildir backend: maildir not initialized")]
-    InitError,
-    #[error("cannot open maildir email file at {1}")]
-    OpenEmailFileError(#[source] io::Error, PathBuf),
-    #[error("cannot read maildir email line at {1}")]
-    ReadEmailLineError(#[source] io::Error, PathBuf),
-
-    #[error("cannot open maildir database at {1}")]
-    OpenDatabaseError(#[source] rusqlite::Error, PathBuf),
+    // folders
     #[error("cannot init maildir folders structure at {1}")]
     InitFoldersStructureError(#[source] maildirpp::Error, PathBuf),
-    #[error("cannot delete folder at {1}")]
+    #[error("cannot read maildir folder: invalid path {0}")]
+    ReadFolderInvalidError(path::PathBuf),
+    #[error("cannot parse maildir folder {0}")]
+    ParseSubfolderError(path::PathBuf),
+    #[error("cannot get maildir current folder")]
+    GetCurrentFolderError(#[source] io::Error),
+    #[error("cannot decode maildir subdirectory")]
+    GetSubdirEntryError(#[source] maildirpp::Error),
+    #[error("cannot delete maildir folder at {1}")]
     DeleteFolderError(#[source] io::Error, PathBuf),
 
-    #[error("cannot parse header date as timestamp")]
-    ParseDateHeaderError,
+    // envelopes
     #[error("cannot get envelope by short hash {0}")]
     GetEnvelopeError(String),
-    #[error("cannot get maildir backend from config")]
-    GetBackendFromConfigError,
-    #[error("cannot find maildir sender")]
-    FindSenderError,
-    #[error("cannot read maildir directory {0}")]
-    ReadDirError(path::PathBuf),
-    #[error("cannot parse maildir subdirectory {0}")]
-    ParseSubdirError(path::PathBuf),
     #[error("cannot get maildir envelopes at page {0}")]
     GetEnvelopesOutOfBoundsError(usize),
     #[error("cannot search maildir envelopes: feature not implemented")]
     SearchEnvelopesUnimplementedError,
-    #[error("cannot get maildir message {0}")]
-    GetMsgError(String),
-    #[error("cannot decode maildir entry")]
-    DecodeEntryError(#[source] maildirpp::Error),
-    #[error("cannot parse maildir message")]
-    ParseMsgError(#[source] maildirpp::Error),
-    #[error("cannot decode header {0}")]
-    DecodeHeaderError(#[source] rfc2047_decoder::Error, String),
-    #[error("cannot create maildir subdirectory {1}")]
-    CreateSubdirError(#[source] io::Error, String),
-    #[error("cannot decode maildir subdirectory")]
-    GetSubdirEntryError(#[source] maildirpp::Error),
-    #[error("cannot get current directory")]
-    GetCurrentDirError(#[source] io::Error),
+
+    // emails
     #[error("cannot store maildir message with flags")]
     StoreWithFlagsError(#[source] maildirpp::Error),
     #[error("cannot copy maildir message")]
     CopyEmailError(#[source] maildirpp::Error),
-    #[error("cannot move maildir message")]
-    MoveMsgError(#[source] io::Error),
     #[error("cannot delete maildir message")]
     DeleteEmailError(#[source] maildirpp::Error),
+
+    // flags
     #[error("cannot add maildir flags")]
     AddFlagsError(#[source] maildirpp::Error),
     #[error("cannot set maildir flags")]
@@ -80,12 +64,14 @@ pub enum Error {
     RemoveFlagsError(#[source] maildirpp::Error),
 }
 
+/// The Maildir backend.
 pub struct MaildirBackend {
     account_config: AccountConfig,
     mdir: Maildir,
 }
 
 impl MaildirBackend {
+    /// Creates a new Maildir backend from configurations.
     pub fn new(account_config: AccountConfig, mdir_config: MaildirConfig) -> Result<Self> {
         let path = &mdir_config.root_dir;
         let mdir = Maildir::from(path.clone());
@@ -99,19 +85,22 @@ impl MaildirBackend {
         })
     }
 
+    /// Returns a reference to the root Maildir directory path.
     pub fn path(&self) -> &Path {
         self.mdir.path()
     }
 
+    /// Checks if the Maildir root directory is a valid path,
+    /// otherwise returns an error.
     fn validate_mdir_path(&self, mdir_path: PathBuf) -> Result<PathBuf> {
         if mdir_path.is_dir() {
             Ok(mdir_path)
         } else {
-            Ok(Err(Error::ReadDirError(mdir_path.to_owned()))?)
+            Ok(Err(Error::ReadFolderInvalidError(mdir_path.to_owned()))?)
         }
     }
 
-    /// Creates a maildir instance from a string slice.
+    /// Creates a maildir instance from a path.
     pub fn get_mdir_from_dir(&self, folder: &str) -> Result<Maildir> {
         let folder = self.account_config.folder_alias(folder)?;
         let folder = self.encode_folder(&folder).to_string();
@@ -133,7 +122,7 @@ impl MaildirBackend {
             .or_else(|_| {
                 self.validate_mdir_path(
                     env::current_dir()
-                        .map_err(Error::GetCurrentDirError)?
+                        .map_err(Error::GetCurrentFolderError)?
                         .join(&folder),
                 )
             })
@@ -148,17 +137,14 @@ impl MaildirBackend {
             .map(Maildir::from)
     }
 
-    pub fn encode_folder<F>(&self, folder: F) -> String
-    where
-        F: AsRef<str> + ToString,
-    {
+    /// URL-encodes the given folder. The aim is to avoid naming
+    /// issues due to special characters.
+    pub fn encode_folder(&self, folder: impl AsRef<str> + ToString) -> String {
         urlencoding::encode(folder.as_ref()).to_string()
     }
 
-    pub fn decode_folder<F>(&self, folder: F) -> String
-    where
-        F: AsRef<str> + ToString,
-    {
+    /// URL-decodes the given folder.
+    pub fn decode_folder(&self, folder: impl AsRef<str> + ToString) -> String {
         urlencoding::decode(folder.as_ref())
             .map(|folder| folder.to_string())
             .unwrap_or_else(|_| folder.to_string())
@@ -207,7 +193,7 @@ impl Backend for MaildirBackend {
             let name = dirname
                 .and_then(OsStr::to_str)
                 .and_then(|s| if s.len() < 2 { None } else { Some(&s[1..]) })
-                .ok_or_else(|| Error::ParseSubdirError(dir.path().to_owned()))?
+                .ok_or_else(|| Error::ParseSubfolderError(dir.path().to_owned()))?
                 .to_string();
 
             if name == "notmuch" {
@@ -514,12 +500,16 @@ impl Backend for MaildirBackend {
     }
 }
 
+/// The Maildir backend builder.
+///
+/// Simple builder that helps to build a Maildir backend.
 pub struct MaildirBackendBuilder {
     account_config: AccountConfig,
     mdir_config: MaildirConfig,
 }
 
 impl MaildirBackendBuilder {
+    /// Creates a new builder from configurations.
     pub fn new(account_config: AccountConfig, mdir_config: MaildirConfig) -> Self {
         Self {
             account_config,
@@ -527,6 +517,7 @@ impl MaildirBackendBuilder {
         }
     }
 
+    /// Builds the Maildir backend.
     pub fn build(&self) -> Result<MaildirBackend> {
         Ok(MaildirBackend::new(
             self.account_config.clone(),

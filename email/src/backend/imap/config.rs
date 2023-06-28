@@ -1,7 +1,7 @@
 //! Module dedicated to the IMAP backend configuration.
 //!
-//! This module contains the configuration specific to the IMAP
-//! backend.
+//! This module contains the implementation of the IMAP backend and
+//! all associated structures related to it.
 
 use pimalaya_process::Cmd;
 use thiserror::Error;

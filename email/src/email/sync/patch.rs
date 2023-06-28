@@ -7,8 +7,8 @@ use std::{
 };
 
 use crate::{
-    backend::sync::{Source, Target},
-    flag, BackendSyncProgress, BackendSyncProgressEvent, Result,
+    account::sync::{Source, Target},
+    flag, AccountSyncProgress, AccountSyncProgressEvent, Result,
 };
 
 use super::*;
@@ -21,7 +21,7 @@ pub struct EmailSyncPatchManager<'a> {
     account_config: &'a AccountConfig,
     local_builder: &'a MaildirBackendBuilder,
     remote_builder: &'a BackendBuilder,
-    on_progress: &'a BackendSyncProgress<'a>,
+    on_progress: &'a AccountSyncProgress<'a>,
     dry_run: bool,
 }
 
@@ -30,7 +30,7 @@ impl<'a> EmailSyncPatchManager<'a> {
         account_config: &'a AccountConfig,
         local_builder: &'a MaildirBackendBuilder,
         remote_builder: &'a BackendBuilder,
-        on_progress: &'a BackendSyncProgress<'a>,
+        on_progress: &'a AccountSyncProgress<'a>,
         dry_run: bool,
     ) -> Self {
         Self {
@@ -50,7 +50,7 @@ impl<'a> EmailSyncPatchManager<'a> {
         let conn = &mut self.account_config.sync_db_builder()?;
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::GetLocalCachedEnvelopes);
+            .emit(AccountSyncProgressEvent::GetLocalCachedEnvelopes);
 
         let mut local = self.local_builder.build()?;
         let mut remote = self.remote_builder.build()?;
@@ -64,7 +64,7 @@ impl<'a> EmailSyncPatchManager<'a> {
         debug!("{local_envelopes_cached:#?}");
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::GetLocalEnvelopes);
+            .emit(AccountSyncProgressEvent::GetLocalEnvelopes);
 
         debug!("getting local envelopes");
         let local_envelopes: Envelopes = HashMap::from_iter(
@@ -83,7 +83,7 @@ impl<'a> EmailSyncPatchManager<'a> {
         debug!("{local_envelopes:#?}");
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::GetRemoteCachedEnvelopes);
+            .emit(AccountSyncProgressEvent::GetRemoteCachedEnvelopes);
 
         debug!("getting remote cached envelopes");
         let remote_envelopes_cached: Envelopes = HashMap::from_iter(
@@ -94,7 +94,7 @@ impl<'a> EmailSyncPatchManager<'a> {
         debug!("{remote_envelopes_cached:#?}");
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::GetRemoteEnvelopes);
+            .emit(AccountSyncProgressEvent::GetRemoteEnvelopes);
 
         debug!("getting remote envelopes");
         let remote_envelopes: Envelopes = HashMap::from_iter(
@@ -123,7 +123,7 @@ impl<'a> EmailSyncPatchManager<'a> {
         debug!("{patch:#?}");
 
         self.on_progress
-            .emit(BackendSyncProgressEvent::EnvelopePatchBuilt(
+            .emit(AccountSyncProgressEvent::EnvelopePatchBuilt(
                 folder.clone(),
                 patch.clone(),
             ));
@@ -176,7 +176,7 @@ impl<'a> EmailSyncPatchManager<'a> {
                 });
 
             self.on_progress
-                .emit(BackendSyncProgressEvent::ApplyEnvelopeCachePatch(
+                .emit(AccountSyncProgressEvent::ApplyEnvelopeCachePatch(
                     report.cache_patch.0.clone(),
                 ));
 
@@ -712,7 +712,7 @@ pub fn build_patch(
 #[cfg(test)]
 mod tests {
     use crate::{
-        backend::sync::{Source, Target},
+        account::sync::{Source, Target},
         Envelope, Flag, Flags,
     };
 

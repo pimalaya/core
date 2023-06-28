@@ -1,7 +1,7 @@
-//! SMTP config module.
+//! Module dedicated to the SMTP sender configuration.
 //!
-//! This module contains the representation of the SMTP email sender
-//! configuration of the user account.
+//! This module contains the configuration specific to the SMTP
+//! sender.
 
 use log::debug;
 use mail_send::Credentials;
@@ -16,30 +16,51 @@ pub enum Error {
     GetPasswdError(#[source] pimalaya_secret::Error),
     #[error("cannot get smtp password: password is empty")]
     GetPasswdEmptyError,
-    #[error("cannot get smtp oauth2 access token")]
-    GetOAuth2AccessTokenError(#[source] pimalaya_secret::Error),
 }
 
-/// Represents the internal sender config.
+/// The SMTP sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SmtpConfig {
-    /// Represents the SMTP server host.
+    /// The SMTP server host name.
     pub host: String,
-    /// Represents the SMTP server port.
+
+    /// The SMTP server host port.
     pub port: u16,
-    /// Enables SSL.
+
+    /// Enables TLS/SSL.
+    ///
+    /// Defaults to `true`.
     pub ssl: Option<bool>,
+
     /// Enables StartTLS.
+    ///
+    /// Defaults to `false`.
     pub starttls: Option<bool>,
+
     /// Trusts any certificate.
+    ///
+    /// Defaults to `false`.
     pub insecure: Option<bool>,
-    /// Represents the SMTP server login.
+
+    /// The SMTP server login.
+    ///
+    /// Usually, the login is either the email address or its left
+    /// part (before @).
     pub login: String,
-    /// Represents the SMTP authentication configuration.
+
+    /// The SMTP server authentication configuration.
+    ///
+    /// Authentication can be done using password or OAuth 2.0.
+    /// See [SmtpAuthConfig].
     pub auth: SmtpAuthConfig,
 }
 
 impl SmtpConfig {
+    /// Builds the SMTP credentials string.
+    ///
+    /// The result depends on the [SmtpAuthConfig]: if password mode
+    /// then creates credentials from login/password, if OAuth 2.0
+    /// then creates credentials from access token.
     pub fn credentials(&self) -> Result<Credentials<String>> {
         Ok(match &self.auth {
             SmtpAuthConfig::Passwd(passwd) => {
@@ -59,22 +80,28 @@ impl SmtpConfig {
         })
     }
 
+    /// SSL enabled getter.
     pub fn ssl(&self) -> bool {
         self.ssl.unwrap_or(true)
     }
 
+    /// STARTTLS enabled getter.
     pub fn starttls(&self) -> bool {
         self.starttls.unwrap_or_default()
     }
 
+    /// Insecure mode getter
     pub fn insecure(&self) -> bool {
         self.insecure.unwrap_or_default()
     }
 }
 
+/// The SMTP authentication configuration.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SmtpAuthConfig {
+    /// The password authentication mechanism.
     Passwd(PasswdConfig),
+    /// The OAuth 2.0 authentication mechanism.
     OAuth2(OAuth2Config),
 }
 
@@ -85,6 +112,7 @@ impl Default for SmtpAuthConfig {
 }
 
 impl SmtpAuthConfig {
+    /// Resets the OAuth 2.0 authentication tokens.
     pub fn reset(&self) -> Result<()> {
         debug!("resetting smtp backend configuration");
 
@@ -95,6 +123,7 @@ impl SmtpAuthConfig {
         Ok(())
     }
 
+    /// Configures the OAuth 2.0 authentication tokens.
     pub fn configure(&self, get_client_secret: impl Fn() -> io::Result<String>) -> Result<()> {
         debug!("configuring smtp backend");
 

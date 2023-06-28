@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    backend::sync::{Source, Target},
+    account::sync::{Source, Target},
     folder::sync::FolderName,
     Envelope,
 };

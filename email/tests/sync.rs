@@ -5,7 +5,7 @@ use std::{collections::HashSet, thread, time::Duration};
 use tempfile::tempdir;
 
 use pimalaya_email::{
-    folder, AccountConfig, Backend, BackendBuilder, BackendConfig, BackendSyncBuilder,
+    folder, AccountConfig, AccountSyncBuilder, Backend, BackendBuilder, BackendConfig,
     EmailSyncCache, Flag, Flags, ImapAuthConfig, ImapConfig, MaildirBackend, MaildirConfig,
     PasswdConfig,
 };
@@ -155,7 +155,7 @@ fn sync() {
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
 
-    let sync_builder = BackendSyncBuilder::new(config.clone(), imap_builder).unwrap();
+    let sync_builder = AccountSyncBuilder::new(config.clone(), imap_builder).unwrap();
     sync_builder.sync().unwrap();
     sync_builder.sync().unwrap();
 
