@@ -1,3 +1,8 @@
+//! Module dedicated to email message forward template.
+//!
+//! The main structure of this module is the [ForwardTplBuilder],
+//! which helps you to build template in order to forward a message.
+
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
@@ -8,20 +13,37 @@ use crate::{AccountConfig, Message, Result};
 
 use super::Error;
 
+/// The message reply template builder.
+///
+/// This builder helps you to create a template in order to reply to
+/// an existing message.
 pub struct ForwardTplBuilder<'a> {
-    msg: &'a Message<'a>,
+    /// Reference to the current account configuration.
     config: &'a AccountConfig,
+
+    /// Reference to the original message.
+    msg: &'a Message<'a>,
+
+    /// Additional headers to add at the top of the template.
     headers: Vec<(String, String)>,
+
+    /// Default body to put in the template.
     body: String,
+
+    /// Template interpreter instance.
     pub interpreter: TplInterpreter,
+
+    /// Template interpreter instance dedicated to the message thread.
     pub thread_interpreter: TplInterpreter,
 }
 
 impl<'a> ForwardTplBuilder<'a> {
+    /// Creates a forward template builder from an account
+    /// configuration and a message references.
     pub fn new(msg: &'a Message, config: &'a AccountConfig) -> Self {
         Self {
-            msg,
             config,
+            msg,
             headers: Vec::new(),
             body: String::new(),
             interpreter: config
@@ -34,11 +56,12 @@ impl<'a> ForwardTplBuilder<'a> {
         }
     }
 
-    pub fn headers<K, V>(mut self, headers: impl IntoIterator<Item = (K, V)>) -> Self
-    where
-        K: ToString,
-        V: ToString,
-    {
+    /// Sets additional template headers following the builder
+    /// pattern.
+    pub fn with_headers(
+        mut self,
+        headers: impl IntoIterator<Item = (impl ToString, impl ToString)>,
+    ) -> Self {
         self.headers.extend(
             headers
                 .into_iter()
@@ -47,39 +70,46 @@ impl<'a> ForwardTplBuilder<'a> {
         self
     }
 
-    pub fn some_headers<K, V>(mut self, headers: Option<impl IntoIterator<Item = (K, V)>>) -> Self
-    where
-        K: ToString,
-        V: ToString,
-    {
+    /// Sets some additional template headers following the builder
+    /// pattern.
+    pub fn with_some_headers(
+        mut self,
+        headers: Option<impl IntoIterator<Item = (impl ToString, impl ToString)>>,
+    ) -> Self {
         if let Some(headers) = headers {
-            self = self.headers(headers);
+            self = self.with_headers(headers);
         }
         self
     }
 
-    pub fn body(mut self, body: impl ToString) -> Self {
+    /// Sets the template body following the builder pattern.
+    pub fn with_body(mut self, body: impl ToString) -> Self {
         self.body = body.to_string();
         self
     }
 
-    pub fn some_body(mut self, body: Option<impl ToString>) -> Self {
+    /// Sets some template body following the builder pattern.
+    pub fn with_some_body(mut self, body: Option<impl ToString>) -> Self {
         if let Some(body) = body {
-            self = self.body(body)
+            self = self.with_body(body)
         }
         self
     }
 
-    pub fn interpreter(mut self, interpreter: TplInterpreter) -> Self {
+    /// Sets the template interpreter following the builder pattern.
+    pub fn with_interpreter(mut self, interpreter: TplInterpreter) -> Self {
         self.interpreter = interpreter;
         self
     }
 
-    pub fn thread_interpreter(mut self, interpreter: TplInterpreter) -> Self {
+    /// Sets the template thread interpreter following the builder
+    /// pattern.
+    pub fn with_thread_interpreter(mut self, interpreter: TplInterpreter) -> Self {
         self.thread_interpreter = interpreter;
         self
     }
 
+    /// Builds the final forward message template.
     pub fn build(self) -> Result<Tpl> {
         let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
@@ -135,7 +165,7 @@ impl<'a> ForwardTplBuilder<'a> {
                 &self
                     .thread_interpreter
                     .interpret_msg(&parsed)
-                    .map_err(Error::InterpretEmailAsTplError)?,
+                    .map_err(Error::InterpretMessageAsThreadTemplateError)?,
             );
 
             lines.trim_end().to_owned()
@@ -144,7 +174,7 @@ impl<'a> ForwardTplBuilder<'a> {
         let tpl = self
             .interpreter
             .interpret_msg_builder(builder)
-            .map_err(Error::InterpretEmailAsTplError)?;
+            .map_err(Error::InterpretMessageAsTemplateError)?;
 
         Ok(tpl)
     }

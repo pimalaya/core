@@ -1,7 +1,13 @@
+//! Module dedicated to Maildir email envelope flags.
+//!
+//! This module contains flag-related mapping functions from the
+//! [maildirpp] crate types.
+
 use log::{debug, warn};
 use maildirpp::MailEntry;
-use std::result;
 use thiserror::Error;
+
+use crate::Result;
 
 use super::{Flag, Flags};
 
@@ -11,8 +17,6 @@ pub enum Error {
     ParseFlagError(char),
 }
 
-type Result<T> = result::Result<T, Error>;
-
 impl Flag {
     pub fn try_from_mdir_char(c: char) -> Result<Self> {
         match c {
@@ -21,7 +25,7 @@ impl Flag {
             't' | 'T' => Ok(Flag::Deleted),
             'd' | 'D' => Ok(Flag::Draft),
             'f' | 'F' => Ok(Flag::Flagged),
-            unknown => Err(Error::ParseFlagError(unknown)),
+            unknown => Ok(Err(Error::ParseFlagError(unknown))?),
         }
     }
 

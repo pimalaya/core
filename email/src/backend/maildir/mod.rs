@@ -276,10 +276,10 @@ impl Backend for MaildirBackend {
         );
 
         let mdir = self.get_mdir_from_dir(folder)?;
-        let envelope: Envelope = mdir
-            .find(internal_id)
-            .ok_or_else(|| Error::GetEnvelopeError(internal_id.to_owned()))?
-            .into();
+        let envelope: Envelope = Envelope::from_mdir_entry(
+            mdir.find(internal_id)
+                .ok_or_else(|| Error::GetEnvelopeError(internal_id.to_owned()))?,
+        );
 
         Ok(envelope)
     }
@@ -290,7 +290,7 @@ impl Backend for MaildirBackend {
         debug!("page: {page}");
 
         let mdir = self.get_mdir_from_dir(folder)?;
-        let mut envelopes = Envelopes::from(mdir.list_cur());
+        let mut envelopes = Envelopes::from_mdir_entries(mdir.list_cur());
         debug!("maildir envelopes: {envelopes:#?}");
 
         let page_begin = page * page_size;

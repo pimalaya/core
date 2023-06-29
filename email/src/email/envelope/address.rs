@@ -1,3 +1,10 @@
+//! Module dedicated to email envelope addresses.
+//!
+//! This core concept of this module is the [Address] structure, which
+//! represents an email envelope address.
+
+/// The email envelope address.
+///
 /// An address is composed of an optional name and
 /// an email address.
 #[derive(Clone, Debug, Default, Eq, Hash)]
@@ -24,7 +31,7 @@ impl ToString for Address {
 }
 
 impl Address {
-    /// Build a new address from an optional name and an email
+    /// Builds a new address from an optional name and an email
     /// address.
     pub fn new(name: Option<impl ToString>, address: impl ToString) -> Self {
         Self {
@@ -33,7 +40,7 @@ impl Address {
         }
     }
 
-    /// Build a new address from an email address only.
+    /// Builds a new address from an email address only.
     pub fn new_nameless(address: impl ToString) -> Self {
         Self::new(Option::<String>::None, address)
     }

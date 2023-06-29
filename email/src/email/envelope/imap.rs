@@ -1,4 +1,7 @@
 //! Module dedicated to IMAP email envelopes.
+//!
+//! This module contains envelope-related mapping functions from the
+//! [imap] crate types.
 
 use imap::{
     extensions::sort::SortCriterion,
@@ -6,16 +9,20 @@ use imap::{
 };
 use std::{ops::Deref, str::FromStr};
 
-use crate::{backend::imap::Error, Envelope, Envelopes, Flags, Message, Result};
+use crate::{backend, Envelope, Envelopes, Error, Flags, Message, Result};
 
-impl From<Fetches> for Envelopes {
-    fn from(fetches: Fetches) -> Self {
-        fetches.iter().rev().map(Envelope::from).collect()
+impl Envelopes {
+    pub fn from_imap_fetches(fetches: Fetches) -> Self {
+        fetches
+            .iter()
+            .rev()
+            .map(Envelope::from_imap_fetch)
+            .collect()
     }
 }
 
-impl From<&Fetch<'_>> for Envelope {
-    fn from(fetch: &Fetch) -> Self {
+impl Envelope {
+    pub fn from_imap_fetch(fetch: &Fetch) -> Self {
         let id = fetch
             .uid
             .expect("UID should be included in the IMAP fetch")
@@ -53,7 +60,7 @@ impl<'a> FromIterator<SortCriterion<'a>> for SortCriteria<'a> {
 }
 
 impl FromStr for SortCriteria<'_> {
-    type Err = crate::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
         s.split_whitespace()
@@ -72,7 +79,9 @@ impl FromStr for SortCriteria<'_> {
                 "subject:desc" => Ok(SortCriterion::Reverse(&SortCriterion::Subject)),
                 "to:asc" | "to" => Ok(SortCriterion::To),
                 "to:desc" => Ok(SortCriterion::Reverse(&SortCriterion::To)),
-                _ => Ok(Err(Error::ParseSortCriterionError(s.to_owned()))?),
+                _ => Ok(Err(backend::imap::Error::ParseSortCriterionError(
+                    s.to_owned(),
+                ))?),
             })
             .collect::<Result<_>>()
     }

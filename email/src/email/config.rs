@@ -1,7 +1,7 @@
 //! Module dedicated to email configuration.
 //!
 //! This module contains structs related to email configuration. They
-//! are mostly used by [`AccountConfig`](crate::AccountConfig).
+//! are mostly used by [crate::AccountConfig].
 
 use pimalaya_process::Cmd;
 

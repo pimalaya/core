@@ -1,3 +1,8 @@
+//! Module dedicated to email message new template.
+//!
+//! The main structure of this module is the [NewTplBuilder], which
+//! helps you to build template in order to compose a new message.
+
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
@@ -8,16 +13,26 @@ use crate::{AccountConfig, Result};
 
 use super::Error;
 
+/// The message new template builder.
+///
+/// This builder helps you to create a template in order to compose a
+/// new message from scratch.
 pub struct NewTplBuilder<'a> {
+    /// Account configuration reference.
     config: &'a AccountConfig,
+
+    /// Additional headers to add at the top of the template.
     headers: Vec<(String, String)>,
+
+    /// Default body to put in the template.
     body: String,
-    pub thread_interpreter: TplInterpreter,
+
+    /// Template interpreter instance.
     pub interpreter: TplInterpreter,
-    reply_all: bool,
 }
 
 impl<'a> NewTplBuilder<'a> {
+    /// Creates a new template builder from an account configuration.
     pub fn new(config: &'a AccountConfig) -> Self {
         Self {
             config,
@@ -26,20 +41,15 @@ impl<'a> NewTplBuilder<'a> {
             interpreter: config
                 .generate_tpl_interpreter()
                 .show_only_headers(config.email_writing_headers()),
-            thread_interpreter: config
-                .generate_tpl_interpreter()
-                .hide_all_headers()
-                .show_plain_texts_signature(false)
-                .show_attachments(false),
-            reply_all: false,
         }
     }
 
-    pub fn headers<K, V>(mut self, headers: impl IntoIterator<Item = (K, V)>) -> Self
-    where
-        K: ToString,
-        V: ToString,
-    {
+    /// Sets additional template headers following the builder
+    /// pattern.
+    pub fn with_headers(
+        mut self,
+        headers: impl IntoIterator<Item = (impl ToString, impl ToString)>,
+    ) -> Self {
         self.headers.extend(
             headers
                 .into_iter()
@@ -48,44 +58,39 @@ impl<'a> NewTplBuilder<'a> {
         self
     }
 
-    pub fn some_headers<K, V>(mut self, headers: Option<impl IntoIterator<Item = (K, V)>>) -> Self
-    where
-        K: ToString,
-        V: ToString,
-    {
+    /// Sets some additional template headers following the builder
+    /// pattern.
+    pub fn with_some_headers(
+        mut self,
+        headers: Option<impl IntoIterator<Item = (impl ToString, impl ToString)>>,
+    ) -> Self {
         if let Some(headers) = headers {
-            self = self.headers(headers);
+            self = self.with_headers(headers);
         }
         self
     }
 
-    pub fn body(mut self, body: impl ToString) -> Self {
+    /// Sets the template body following the builder pattern.
+    pub fn with_body(mut self, body: impl ToString) -> Self {
         self.body = body.to_string();
         self
     }
 
-    pub fn some_body(mut self, body: Option<impl ToString>) -> Self {
+    /// Sets some template body following the builder pattern.
+    pub fn with_some_body(mut self, body: Option<impl ToString>) -> Self {
         if let Some(body) = body {
-            self = self.body(body)
+            self = self.with_body(body)
         }
         self
     }
 
-    pub fn interpreter(mut self, interpreter: TplInterpreter) -> Self {
+    /// Sets the template interpreter following the builder pattern.
+    pub fn with_interpreter(mut self, interpreter: TplInterpreter) -> Self {
         self.interpreter = interpreter;
         self
     }
 
-    pub fn thread_interpreter(mut self, interpreter: TplInterpreter) -> Self {
-        self.thread_interpreter = interpreter;
-        self
-    }
-
-    pub fn reply_all(mut self, all: bool) -> Self {
-        self.reply_all = all;
-        self
-    }
-
+    /// Builds the final new message template.
     pub fn build(self) -> Result<Tpl> {
         let mut builder = MessageBuilder::new()
             .from(self.config.from())
@@ -107,8 +112,6 @@ impl<'a> NewTplBuilder<'a> {
                 lines
             });
 
-        // Additional headers
-
         for (key, val) in self.headers {
             builder = builder.header(key, Raw::new(val));
         }
@@ -116,7 +119,7 @@ impl<'a> NewTplBuilder<'a> {
         let tpl = self
             .interpreter
             .interpret_msg_builder(builder)
-            .map_err(Error::InterpretEmailAsTplError)?;
+            .map_err(Error::InterpretMessageAsTemplateError)?;
 
         Ok(tpl)
     }

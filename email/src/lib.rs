@@ -87,6 +87,11 @@ pub enum Error {
     TplError(#[from] email::message::template::Error),
     #[error(transparent)]
     FlagError(#[from] email::envelope::flag::Error),
+    #[cfg(feature = "imap-backend")]
+    #[error(transparent)]
+    ImapFlagError(#[from] email::envelope::flag::imap::Error),
+    #[error(transparent)]
+    MaildirFlagError(#[from] email::envelope::flag::maildir::Error),
 
     #[error(transparent)]
     BackendError(#[from] backend::Error),

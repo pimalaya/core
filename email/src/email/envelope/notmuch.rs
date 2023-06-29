@@ -1,25 +1,20 @@
 //! Module dedicated to Notmuch email envelopes.
+//!
+//! This module contains envelope-related mapping functions from the
+//! [notmuch] crate types.
 
 use log::{debug, warn};
 
 use crate::{Envelope, Envelopes, Flags, Message};
 
-impl From<notmuch::Messages> for Envelopes {
-    fn from(msgs: notmuch::Messages) -> Self {
-        msgs.filter_map(|msg| match Envelope::try_from(msg) {
-            Ok(envelope) => Some(envelope),
-            Err(err) => {
-                warn!("cannot parse imap envelope, skipping it: {err}");
-                debug!("cannot parse imap envelope: {err:?}");
-                None
-            }
-        })
-        .collect()
+impl Envelopes {
+    pub fn from_notmuch_msgs(msgs: notmuch::Messages) -> Self {
+        msgs.map(Envelope::from_notmuch_msg).collect()
     }
 }
 
-impl From<notmuch::Message> for Envelope {
-    fn from(msg: notmuch::Message) -> Self {
+impl Envelope {
+    pub fn from_notmuch_msg(msg: notmuch::Message) -> Self {
         let id = msg.id();
         let flags = Flags::from_notmuch_msg(&msg);
 
@@ -37,6 +32,7 @@ impl From<notmuch::Message> for Envelope {
     }
 }
 
+/// Safely extracts a raw header from a [notmuch::Message] header key.
 fn get_header(msg: &notmuch::Message, key: impl AsRef<str>) -> String {
     let key = key.as_ref();
     let val = match msg.header(key) {

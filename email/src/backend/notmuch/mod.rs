@@ -134,7 +134,7 @@ impl NotmuchBackend {
             .create_query(query)
             .map_err(Error::BuildQueryError)?;
 
-        let mut envelopes = Envelopes::from(
+        let mut envelopes = Envelopes::from_notmuch_msgs(
             query_builder
                 .search_messages()
                 .map_err(Error::SearchEnvelopesError)?,
@@ -200,12 +200,12 @@ impl Backend for NotmuchBackend {
     fn get_envelope(&mut self, _folder: &str, internal_id: &str) -> Result<Envelope> {
         info!("getting notmuch envelope by internal id {internal_id}");
 
-        let envelope: Envelope = self
-            .db
-            .find_message(&internal_id)
-            .map_err(Error::FindEmailError)?
-            .ok_or_else(|| Error::FindMsgEmptyError)?
-            .into();
+        let envelope: Envelope = Envelope::from_notmuch_msg(
+            self.db
+                .find_message(&internal_id)
+                .map_err(Error::FindEmailError)?
+                .ok_or_else(|| Error::FindMsgEmptyError)?,
+        );
         trace!("notmuch envelope: {envelope:#?}");
 
         Ok(envelope)

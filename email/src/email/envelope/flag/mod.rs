@@ -1,10 +1,13 @@
 //! Module dedicated to email envelope flags.
+//!
+//! This module contains everything to serialize and deserialize email
+//! envelope flags.
 
 #[cfg(feature = "imap-backend")]
-mod imap;
-mod maildir;
+pub mod imap;
+pub mod maildir;
 #[cfg(feature = "notmuch-backend")]
-mod notmuch;
+pub mod notmuch;
 mod sync;
 
 use log::{debug, warn};
@@ -26,6 +29,8 @@ pub enum Error {
     ParseFlagError(String),
 }
 
+/// The email envelope flag.
+///
 /// A flag is like a tag that can be attached to an email
 /// envelope. The concept of flag is the same across backends, but
 /// their definition may vary. For example, the flag representing
@@ -37,22 +42,27 @@ pub enum Error {
 pub enum Flag {
     /// Flag used when the email envelope has been opened.
     Seen,
+
     /// Flag used when the email has been answered.
     Answered,
+
     /// Flag used as a bookmark. The meaning is specific to the user:
     /// it could be important, starred, to check etc.
     Flagged,
+
     /// Flag used when the email is marked for deletion.
     Deleted,
+
     /// Flag used when the email is a draft and is therefore not
     /// complete.
     Draft,
+
     /// Flag used for all other use cases.
     Custom(String),
 }
 
 impl Flag {
-    /// Build a custom flag.
+    /// Creates a custom flag.
     pub fn custom(flag: impl ToString) -> Self {
         Self::Custom(flag.to_string())
     }

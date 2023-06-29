@@ -1,17 +1,19 @@
+//! Module dedicated to IMAP email envelope flags.
+//!
+//! This module contains flag-related mapping functions from the
+//! [imap] crate types.
+
 use imap::{self, types::Fetch};
 use log::{debug, warn};
-use std::result;
 use thiserror::Error;
 
-use crate::{Flag, Flags};
+use crate::{Flag, Flags, Result};
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse imap flag {0}")]
     ParseFlagError(String),
 }
-
-type Result<T> = result::Result<T, Error>;
 
 impl Flag {
     pub fn try_from_imap_flag(imap_flag: &imap::types::Flag) -> Result<Self> {
@@ -21,7 +23,7 @@ impl Flag {
             imap::types::Flag::Flagged => Ok(Flag::Flagged),
             imap::types::Flag::Deleted => Ok(Flag::Deleted),
             imap::types::Flag::Draft => Ok(Flag::Draft),
-            unknown => Err(Error::ParseFlagError(unknown.to_string())),
+            unknown => Ok(Err(Error::ParseFlagError(unknown.to_string()))?),
         }
     }
 

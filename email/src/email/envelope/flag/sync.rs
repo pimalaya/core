@@ -1,8 +1,15 @@
+//! Module dedicated to email envelope flags synchronization.
+//!
+//! This module contains a single function [sync] that synchronizes
+//! multiple email envelope flags sources.
+
 use std::collections::HashSet;
 
 use crate::{Flag, Flags};
 
-/// Fold multiple source of flags into one synchronized flags.
+/// The email envelope flag synchronizer.
+///
+/// Folds multiple source of flags into one synchronized flags.
 pub fn sync(
     local_cache: Option<&Flags>,
     local: Option<&Flags>,

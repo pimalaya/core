@@ -3,14 +3,14 @@
 use log::debug;
 use std::{env, fs, io, path::PathBuf};
 
-/// Get the local draft file path.
+/// Gets the local draft file path.
 pub fn local_draft_path() -> PathBuf {
     let path = env::temp_dir().join("himalaya-draft.eml");
     debug!("local draft path: {}", path.display());
     path
 }
 
-/// Remove the local draft.
+/// Removes the local draft.
 pub fn remove_local_draft() -> io::Result<()> {
     let path = local_draft_path();
     fs::remove_file(&path)?;

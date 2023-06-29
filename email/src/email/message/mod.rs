@@ -1,4 +1,10 @@
 //! Module dedicated to email messages.
+//!
+//! The message is the content of the email, which is composed of a
+//! header and a body.
+//!
+//! The core concept of this module is the [Message] structure, which
+//! is just wrapper around the [mail_parser::Message] struct.
 
 pub mod attachment;
 pub mod template;
@@ -58,12 +64,14 @@ pub enum Error {
     ParseEmailMessageError,
 }
 
+/// The raw message wrapper.
 enum RawMessage<'a> {
     Cow(Cow<'a, [u8]>),
     #[cfg(feature = "imap-backend")]
     Fetch(&'a Fetch<'a>),
 }
 
+/// The message wrapper.
 #[self_referencing]
 pub struct Message<'a> {
     raw: RawMessage<'a>,
@@ -73,6 +81,7 @@ pub struct Message<'a> {
 }
 
 impl Message<'_> {
+    /// Builds an optional message from a raw message.
     fn parsed_builder<'a>(raw: &'a mut RawMessage) -> Option<mail_parser::Message<'a>> {
         match raw {
             RawMessage::Cow(bytes) => mail_parser::Message::parse(bytes),
@@ -83,6 +92,7 @@ impl Message<'_> {
         }
     }
 
+    /// Returns the parsed version of the message.
     pub fn parsed(&self) -> Result<&mail_parser::Message> {
         let msg = self
             .borrow_parsed()
@@ -91,10 +101,12 @@ impl Message<'_> {
         Ok(msg)
     }
 
+    /// Returns the raw version of the message.
     pub fn raw(&self) -> Result<&[u8]> {
         self.parsed().map(|parsed| parsed.raw_message())
     }
 
+    /// Returns the list of message attachment.
     pub fn attachments(&self) -> Result<Vec<Attachment>> {
         Ok(self
             .parsed()?
@@ -112,10 +124,12 @@ impl Message<'_> {
             .collect())
     }
 
+    /// Creates a new template builder from an account configuration.
     pub fn new_tpl_builder(config: &AccountConfig) -> NewTplBuilder {
         NewTplBuilder::new(config)
     }
 
+    /// Turns the current message into a read [template](pimalaya_email_tpl::Tpl).
     pub fn to_read_tpl(
         &self,
         config: &AccountConfig,
@@ -130,10 +144,18 @@ impl Message<'_> {
         Ok(tpl)
     }
 
+    /// Turns the current message into a reply template builder.
+    ///
+    /// The fact to return a template builder makes it easier to
+    /// customize the final template from the outside.
     pub fn to_reply_tpl_builder<'a>(&'a self, config: &'a AccountConfig) -> ReplyTplBuilder {
         ReplyTplBuilder::new(self, config)
     }
 
+    /// Turns the current message into a forward template builder.
+    ///
+    /// The fact to return a template builder makes it easier to
+    /// customize the final template from the outside.
     pub fn to_forward_tpl_builder<'a>(&'a self, config: &'a AccountConfig) -> ForwardTplBuilder {
         ForwardTplBuilder::new(self, config)
     }
@@ -685,7 +707,7 @@ mod tests {
 
         let tpl = email
             .to_reply_tpl_builder(&config)
-            .reply_all(true)
+            .with_reply_all(true)
             .build()
             .unwrap();
 
@@ -729,7 +751,7 @@ mod tests {
 
         let tpl = email
             .to_reply_tpl_builder(&config)
-            .reply_all(true)
+            .with_reply_all(true)
             .build()
             .unwrap();
 
