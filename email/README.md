@@ -2,7 +2,7 @@
 
 Rust library to manage your emails.
 
-See the full [API documentation](https://docs.rs/pimalaya-email/latest/pimalaya_email/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/examples).
+See the full API documentation on [docs.rs](https://docs.rs/pimalaya-email/latest/pimalaya_email/).
 
 *The project is under active development. Do not use in production before the `v1.0.0`.*
 

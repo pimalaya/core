@@ -7,11 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2023-06-29
+
 ### Changed
 
 - Moved `backend::sync` module to `account::sync`, and renamed all associated structures `Backend*` by `Account*`.
 - Replaced `From` and `Into` implementations for flags and envelopes by custom functions.
 - Prefixed email message template builders (new, reply and forward) setters by `with_` to match other builders of the codebase.
+- Refactored folders structure, see the new API at <https://docs.rs/pimalaya-email/0.12.0/pimalaya_email/>.
 
 ### Removed
 

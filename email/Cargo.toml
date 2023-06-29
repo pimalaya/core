@@ -1,6 +1,6 @@
 [package]
 name = "pimalaya-email"
-version = "0.12.0-beta"
+version = "0.12.0"
 description = "Rust library to manage your emails."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
@@ -26,7 +26,6 @@ smtp-sender = ["mail-send"]
 
 [dev-dependencies]
 concat-with = "0.2"
-criterion = "0.4"
 env_logger = "0.10"
 tempfile = "3.3"
 
@@ -74,7 +73,3 @@ utf7-imap = { version = "=0.3.2", optional = true }
 rusqlite = { version = "0.29", features = [] }
 [target.'cfg(not(target_env = "musl"))'.dependencies]
 rusqlite = { version = "0.29", features = ["bundled"] }
-
-[[bench]]
-name = "sync"
-harness = false
