@@ -1,11 +1,11 @@
-//! Module dedicated to backends.
+//! Module dedicated to backend management.
 //!
-//! The core concept of this module is the [Backend] trait, which is
+//! The core concept of this module is the [`Backend`] trait, which is
 //! an abstraction over emails manipulation.
 //!
-//! Then you have the [BackendConfig] which represents the
-//! backend-specific configuration, mostly used by the
-//! [account configuration](crate::AccountConfig).
+//! Then you have the [`BackendConfig`] which represents the
+//! backend-specific configuration, mostly used by the [account
+//! configuration](crate::AccountConfig).
 
 mod config;
 #[cfg(feature = "imap-backend")]
@@ -18,15 +18,25 @@ use log::error;
 use std::any::Any;
 use thiserror::Error;
 
-use crate::{AccountConfig, Envelope, Envelopes, Flag, Flags, Folders, Messages, Result};
+use crate::{
+    account::AccountConfig,
+    email::{Envelope, Envelopes, Flag, Flags, Messages},
+    folder::Folders,
+    Result,
+};
 
+#[doc(inline)]
 pub use self::config::BackendConfig;
 #[cfg(feature = "imap-backend")]
-pub use self::imap::*;
-pub use self::maildir::*;
+#[doc(inline)]
+pub use self::imap::{ImapAuthConfig, ImapBackend, ImapConfig};
+#[doc(inline)]
+pub use self::maildir::{MaildirBackend, MaildirBackendBuilder, MaildirConfig};
 #[cfg(feature = "notmuch-backend")]
-pub use self::notmuch::*;
+#[doc(inline)]
+pub use self::notmuch::{NotmuchBackend, NotmuchBackendBuilder, NotmuchConfig};
 
+/// Errors related to backend.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot build undefined backend")]

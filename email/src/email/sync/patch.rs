@@ -1,3 +1,11 @@
+//! Module dedicated to email synchronization patch.
+//!
+//! The core structure of the module is the [`EmailSyncPatch`], which
+//! represents a list of changes (hunks).
+//!
+//! You also have access to a [`EmailSyncPatchManager`] which helps
+//! you to build and to apply an email patch.
+
 use log::{debug, error, info, warn};
 use rayon::prelude::*;
 use rusqlite::Connection;
@@ -7,16 +15,27 @@ use std::{
 };
 
 use crate::{
-    account::sync::{Source, Target},
-    flag, AccountSyncProgress, AccountSyncProgressEvent, Result,
+    account::sync::{AccountSyncProgress, AccountSyncProgressEvent, Source, Target},
+    email::flag,
+    Result,
 };
 
 use super::*;
 
+/// Alias for a envelope hash map where the key is its identifier.
 pub type Envelopes = HashMap<String, Envelope>;
+
+/// An email synchronization patch is just a list of email
+/// synchronization hunks (changes).
 pub type EmailSyncPatch = HashSet<Vec<EmailSyncHunk>>;
+
+/// A email synchronization cache patch is just a list of email
+/// synchronization cache hunks (changes).
 pub type EmailSyncCachePatch = Vec<EmailSyncCacheHunk>;
 
+/// The email synchronization patch manager.
+///
+/// This structure helps you to build a patch and to apply it.
 pub struct EmailSyncPatchManager<'a> {
     account_config: &'a AccountConfig,
     local_builder: &'a MaildirBackendBuilder,
@@ -26,6 +45,7 @@ pub struct EmailSyncPatchManager<'a> {
 }
 
 impl<'a> EmailSyncPatchManager<'a> {
+    /// Creates a new email synchronization patch manager.
     pub fn new(
         account_config: &'a AccountConfig,
         local_builder: &'a MaildirBackendBuilder,
@@ -42,6 +62,7 @@ impl<'a> EmailSyncPatchManager<'a> {
         }
     }
 
+    /// Builds the email synchronization patch.
     pub fn build_patch(&self, folder: impl ToString) -> Result<EmailSyncPatch> {
         info!("building envelope sync patch");
 
@@ -131,6 +152,10 @@ impl<'a> EmailSyncPatchManager<'a> {
         Ok(patch)
     }
 
+    /// Applies all the email synchronization patch built from
+    /// `build_patch()`.
+    ///
+    /// Returns an email synchronization report.
     pub fn apply_patch(
         &self,
         conn: &mut Connection,
@@ -234,6 +259,11 @@ impl<'a> EmailSyncPatchManager<'a> {
     }
 }
 
+/// Email synchronization patch builder.
+///
+/// Contains the core algorithm of the email synchronization. It has
+/// been exported in a dedicated function so that it can be easily
+/// tested.
 pub fn build_patch(
     folder: &str,
     local_cache: Envelopes,
@@ -713,7 +743,7 @@ pub fn build_patch(
 mod tests {
     use crate::{
         account::sync::{Source, Target},
-        Envelope, Flag, Flags,
+        email::{Envelope, Flag, Flags},
     };
 
     use super::{EmailSyncHunk, EmailSyncPatch, Envelopes};

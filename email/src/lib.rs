@@ -5,27 +5,16 @@
 //! can easily build email interfaces without caring about how to
 //! connect to an IMAP server or how to send an email via SMTP.
 //!
-//! The [account] module exposes stuff related to account
-//! management. The most important structure is [AccountConfig] which
-//! contains all the configuration of the current account being
-//! manipulated. Other modules heavily rely on.
+//! Here some key structures to better understand the concept of the
+//! library:
 //!
-//! The [folder] module exposes stuff related to folder (or mailbox)
-//! management.
-//!
-//! The [email] module exposes stuff related to email management,
-//! which includes [envelope], [message], [flag], [template] etc.
-//!
-//! The [backend] module exposes stuff related to email
-//! manipulation. The main structure is the [Backend] interface, which
-//! abstracts how emails are manipulated. The library comes with few
-//! implementations (IMAP, Maildir, Notmuch) but you can build your
-//! own.
-//!
-//! The [sender] module exposes stuff related to email sending. The
-//! main structure is the [Sender] interface, which abstracts how
-//! emails are sent. The library comes with few implementations (SMTP,
-//! Sendmail) but you can build your own.
+//!  - [`AccountConfig`](account::AccountConfig)
+//!  - [`Folder`](folder::Folder)
+//!  - [`Envelope`](email::Envelope)
+//!  - [`Message`](email::Message)
+//!  - [`Flag`](email::Flag)
+//!  - [`Backend`](backend::Backend)
+//!  - [`Sender`](sender::Sender)
 
 pub mod account;
 pub mod backend;
@@ -33,41 +22,7 @@ pub mod email;
 pub mod folder;
 pub mod sender;
 
-#[cfg(feature = "imap-backend")]
-#[doc(inline)]
-pub use self::backend::{ImapAuthConfig, ImapBackend, ImapConfig};
-#[cfg(feature = "notmuch-backend")]
-#[doc(inline)]
-pub use self::backend::{NotmuchBackend, NotmuchBackendBuilder, NotmuchConfig};
-#[cfg(feature = "smtp-sender")]
-#[doc(inline)]
-pub use self::sender::{Smtp, SmtpAuthConfig, SmtpConfig};
-#[doc(inline)]
-pub use self::{
-    account::{
-        AccountConfig, AccountSyncBuilder, AccountSyncProgress, AccountSyncProgressEvent,
-        AccountSyncReport, OAuth2Config, OAuth2Method, OAuth2Scopes, PasswdConfig,
-        DEFAULT_INBOX_FOLDER,
-    },
-    backend::{
-        Backend, BackendBuilder, BackendConfig, MaildirBackend, MaildirBackendBuilder,
-        MaildirConfig,
-    },
-    email::{
-        envelope, flag, message, template, Address, EmailHooks, EmailSyncCache, EmailSyncCacheHunk,
-        EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch, EmailSyncPatchManager, EmailSyncReport,
-        EmailTextPlainFormat, Envelope, Envelopes, Flag, Flags, Message, Messages,
-    },
-    folder::{
-        Folder, FolderSyncCache, FolderSyncCacheHunk, FolderSyncCachePatch, FolderSyncHunk,
-        FolderSyncPatch, FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy, Folders,
-    },
-    sender::{Sender, SenderBuilder, SenderConfig, Sendmail, SendmailConfig},
-};
-
-pub use mail_builder::MessageBuilder as EmailBuilder;
-pub use pimalaya_email_tpl::{FilterParts, ShowHeadersStrategy, Tpl, TplInterpreter};
-
+/// The global `Error` enum of the library.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
@@ -80,9 +35,7 @@ pub enum Error {
     AccountSyncError(#[from] account::sync::Error),
 
     #[error(transparent)]
-    EmailError(#[from] email::Error),
-    #[error(transparent)]
-    EmailSyncError(#[from] email::sync::Error),
+    MessageError(#[from] email::message::Error),
     #[error(transparent)]
     TplError(#[from] email::message::template::Error),
     #[error(transparent)]
@@ -92,6 +45,8 @@ pub enum Error {
     ImapFlagError(#[from] email::envelope::flag::imap::Error),
     #[error(transparent)]
     MaildirFlagError(#[from] email::envelope::flag::maildir::Error),
+    #[error(transparent)]
+    EmailSyncError(#[from] email::sync::Error),
 
     #[error(transparent)]
     BackendError(#[from] backend::Error),
@@ -122,4 +77,5 @@ pub enum Error {
     SqliteError(#[from] rusqlite::Error),
 }
 
+/// The global `Result` alias of the library.
 pub type Result<T> = std::result::Result<T, Error>;

@@ -23,6 +23,7 @@ use crate::Result;
 
 pub use self::sync::sync;
 
+/// Errors related to email envelope flags.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse flag {0}")]
@@ -126,6 +127,8 @@ impl ToString for Flag {
     }
 }
 
+/// The set of email envelope flags.
+///
 /// The list of flags that can be attached to an email envelope. It
 /// uses a [`std::collections::HashSet`] to prevent duplicates.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

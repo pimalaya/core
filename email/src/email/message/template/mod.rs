@@ -7,11 +7,13 @@ mod forward;
 mod new;
 mod reply;
 
+pub use pimalaya_email_tpl::{FilterParts, ShowHeadersStrategy, Tpl, TplInterpreter};
 use thiserror::Error;
 
 #[doc(inline)]
 pub use self::{forward::ForwardTplBuilder, new::NewTplBuilder, reply::ReplyTplBuilder};
 
+/// Errors related to email message templates.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot interpret message as template")]

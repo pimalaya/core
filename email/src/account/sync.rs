@@ -1,8 +1,8 @@
 //! Module dedicated to account synchronization.
 //!
-//! The core concept of this module is the [AccountSyncBuilder], which
-//! allows you to synchronize folders and emails for a given account
-//! using a Maildir backend.
+//! The core concept of this module is the [`AccountSyncBuilder`],
+//! which allows you to synchronize folders and emails for a given
+//! account using a Maildir backend.
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use log::{debug, error, info, warn};
@@ -16,13 +16,20 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    folder::sync::{FolderName, FoldersName},
-    AccountConfig, Backend, BackendBuilder, EmailSyncCache, EmailSyncCacheHunk,
-    EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch, EmailSyncPatchManager, FolderSyncCache,
-    FolderSyncCacheHunk, FolderSyncHunk, FolderSyncPatchManager, FolderSyncPatches,
-    FolderSyncStrategy, MaildirBackendBuilder, MaildirConfig, Result,
+    account::AccountConfig,
+    backend::{Backend, BackendBuilder, MaildirBackendBuilder, MaildirConfig},
+    email::sync::{
+        EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
+        EmailSyncPatchManager,
+    },
+    folder::sync::{
+        FolderName, FolderSyncCache, FolderSyncCacheHunk, FolderSyncHunk, FolderSyncPatchManager,
+        FolderSyncPatches, FolderSyncStrategy, FoldersName,
+    },
+    Result,
 };
 
+/// Errors related to account synchronization.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot synchronize account {0}: synchronization not enabled")]
@@ -54,7 +61,10 @@ impl fmt::Display for Destination {
     }
 }
 
+/// Alias for the source destination.
 pub type Source = Destination;
+
+/// Alias for the target destination.
 pub type Target = Destination;
 
 /// The backend synchronization progress event.
@@ -137,6 +147,7 @@ pub struct AccountSyncReport {
     pub emails_cache_patch: (Vec<EmailSyncCacheHunk>, Option<crate::Error>),
 }
 
+/// The account synchronization progress callback.
 pub struct AccountSyncProgress<'a>(
     Box<dyn Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'a>,
 );

@@ -1,8 +1,16 @@
+//! Module dedicated to email synchronization cache.
+//!
+//! This module contains everything needed to manipule email
+//! synchronization cache entities using SQLite.
+
 use chrono::DateTime;
 use log::{error, warn};
 use rusqlite::{types::Value, Connection, Transaction};
 
-use crate::{envelope::Address, Envelope, Envelopes, Result};
+use crate::{
+    email::{envelope::Address, Envelope, Envelopes},
+    Result,
+};
 
 const CREATE_ENVELOPES_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS envelopes (
@@ -40,6 +48,10 @@ const SELECT_ENVELOPES: &str = "
     ORDER BY date DESC
 ";
 
+/// The email synchronization cache.
+///
+/// This structure contains all functions needed to manipule SQLite
+/// cache.
 pub struct EmailSyncCache;
 
 impl EmailSyncCache {

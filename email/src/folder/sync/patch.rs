@@ -1,18 +1,22 @@
 //! Module dedicated to email folders synchronization patch.
 //!
-//! The core structure of the module is the [FolderSyncPatch], which
+//! The core structure of the module is the [`FolderSyncPatch`], which
 //! represents a list of changes (hunks).
 //!
-//! You also have access to a [FolderSyncPatchManager] which helps you
-//! to build and to apply a folder patch.
+//! You also have access to a [`FolderSyncPatchManager`] which helps
+//! you to build and to apply a folder patch.
 
 use log::{debug, error, info, trace, warn};
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    account::sync::Destination, AccountConfig, AccountSyncProgress, AccountSyncProgressEvent,
-    Backend, BackendBuilder, MaildirBackendBuilder, Result,
+    account::{
+        sync::{AccountSyncProgress, AccountSyncProgressEvent, Destination},
+        AccountConfig,
+    },
+    backend::{Backend, BackendBuilder, MaildirBackendBuilder},
+    Result,
 };
 
 use super::*;

@@ -1,11 +1,11 @@
-//! Module dedicated to senders.
+//! Module dedicated to sender management.
 //!
-//! The core concept of this module is the [Sender] trait, which is an
-//! abstraction over emails sending.
+//! The core concept of this module is the [`Sender`] trait, which is
+//! an abstraction over emails sending.
 //!
-//! Then you have the [SenderConfig] which represents the
-//! sender-specific configuration, mostly used by the
-//! [account configuration](crate::AccountConfig).
+//! Then you have the [`SenderConfig`] which represents the
+//! sender-specific configuration, mostly used by the [account
+//! configuration](crate::AccountConfig).
 
 mod config;
 pub mod sendmail;
@@ -14,13 +14,17 @@ pub mod smtp;
 
 use thiserror::Error;
 
-use crate::{AccountConfig, Result};
+use crate::{account::AccountConfig, Result};
 
+#[doc(inline)]
 pub use self::config::SenderConfig;
+#[doc(inline)]
 pub use self::sendmail::{Sendmail, SendmailConfig};
 #[cfg(feature = "smtp-sender")]
+#[doc(inline)]
 pub use self::smtp::{Smtp, SmtpAuthConfig, SmtpConfig};
 
+/// Errors related to senders.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot build undefined sender")]

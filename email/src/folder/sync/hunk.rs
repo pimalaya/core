@@ -1,6 +1,6 @@
 //! Module dedicated to email folders synchronization hunk.
 //!
-//! The core structure of the module is the [FolderSyncHunk], which
+//! The core structure of the module is the [`FolderSyncHunk`], which
 //! represents a change in a patch.
 
 use std::fmt;
@@ -9,10 +9,10 @@ use crate::account::sync::Target;
 
 use super::*;
 
-/// Alias for a folder name.
+/// Alias for the folder name.
 pub type FolderName = String;
 
-/// Alias for a unique set of folder names.
+/// Alias for the unique set of folder names.
 pub type FoldersName = HashSet<FolderName>;
 
 /// The folder synchronization hunk.
@@ -63,8 +63,8 @@ impl FolderSyncHunk {
 
 /// The folder synchronization cache hunk.
 ///
-/// Similar to the [FolderSyncHunk], except that this hunk is specific
-/// to the cache (SQLite).
+/// Similar to the [`FolderSyncHunk`], except that this hunk is
+/// specific to the cache (SQLite).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FolderSyncCacheHunk {
     /// The given folder name needs to be added to the cache for the

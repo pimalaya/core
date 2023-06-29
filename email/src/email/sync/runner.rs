@@ -1,22 +1,45 @@
+//! Module dedicated to emails synchronization runner.
+//!
+//! The core structure of this module is the [`EmailSyncRunner`].
+
 use log::{trace, warn};
 use std::sync::Mutex;
 
 use crate::{
-    AccountSyncProgress, AccountSyncProgressEvent, Backend, BackendBuilder, MaildirBackendBuilder,
+    account::sync::{AccountSyncProgress, AccountSyncProgressEvent},
+    backend::{Backend, BackendBuilder, MaildirBackendBuilder},
     Result,
 };
 
 use super::*;
 
+/// The email synchronization runner.
+///
+/// Acts a bit like a worker: the `run()` function takes a hunk from
+/// the given patch and process it, then loops until there is no more
+/// hunks available in the patch. The patch is in a
+/// [`std::sync::Mutex`], which makes the runner thread safe. Multiple
+/// runner can run in parallel.
 pub struct EmailSyncRunner<'a> {
+    /// The runner identifier, for logging purpose.
     pub id: usize,
+
+    /// The local Maildir backend builder.
     pub local_builder: &'a MaildirBackendBuilder,
+
+    /// The remote backend builder.
     pub remote_builder: &'a BackendBuilder,
+
+    /// The synchronization progress callback.
     pub on_progress: &'a AccountSyncProgress<'a>,
+
+    /// The patch this runner takes hunks from.
     pub patch: &'a Mutex<Vec<Vec<EmailSyncHunk>>>,
 }
 
 impl EmailSyncRunner<'_> {
+    /// Runs the synchronization worker and stops when there is no
+    /// more hunks in the patch.
     pub fn run(&self) -> Result<EmailSyncReport> {
         let mut report = EmailSyncReport::default();
         let mut local = self.local_builder.build()?;

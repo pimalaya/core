@@ -12,6 +12,7 @@ use thiserror::Error;
 
 use crate::Result;
 
+/// Errors related to password configuration.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get password from user")]

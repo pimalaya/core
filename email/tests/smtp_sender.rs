@@ -2,8 +2,9 @@
 async fn smtp_sender() {
     use mail_builder::MessageBuilder;
     use pimalaya_email::{
-        AccountConfig, BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig, PasswdConfig,
-        SenderBuilder, SenderConfig, SmtpAuthConfig, SmtpConfig,
+        account::{AccountConfig, PasswdConfig},
+        backend::{BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig},
+        sender::{SenderBuilder, SenderConfig, SmtpAuthConfig, SmtpConfig},
     };
     use pimalaya_secret::Secret;
     use std::time::Duration;

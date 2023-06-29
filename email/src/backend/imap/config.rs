@@ -6,8 +6,12 @@
 use pimalaya_process::Cmd;
 use thiserror::Error;
 
-use crate::{OAuth2Config, PasswdConfig, Result};
+use crate::{
+    account::{OAuth2Config, PasswdConfig},
+    Result,
+};
 
+/// Errors related to the IMAP backend configuration.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot start the notify mode")]

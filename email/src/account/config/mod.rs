@@ -16,10 +16,14 @@ use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, vec};
 use thiserror::Error;
 
 use crate::{
-    folder::sync::FolderSyncStrategy as SyncFoldersStrategy, BackendConfig, EmailHooks,
-    EmailTextPlainFormat, Result, SenderConfig,
+    backend::BackendConfig,
+    email::config::{EmailHooks, EmailTextPlainFormat},
+    folder::sync::FolderSyncStrategy,
+    sender::SenderConfig,
+    Result,
 };
 
+#[doc(inline)]
 pub use self::{
     oauth2::{OAuth2Config, OAuth2Method, OAuth2Scopes},
     passwd::PasswdConfig,
@@ -33,6 +37,7 @@ pub const DEFAULT_SENT_FOLDER: &str = "Sent";
 pub const DEFAULT_DRAFTS_FOLDER: &str = "Drafts";
 pub const DEFAULT_TRASH_FOLDER: &str = "Trash";
 
+/// Errors related to account configuration.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot open the synchronization database")]
@@ -139,7 +144,7 @@ pub struct AccountConfig {
     /// saved. Defaults to `$XDG_DATA_HOME/himalaya/<account-name>`.
     pub sync_dir: Option<PathBuf>,
     /// Represents the synchronization strategy to use for folders.
-    pub sync_folders_strategy: SyncFoldersStrategy,
+    pub sync_folders_strategy: FolderSyncStrategy,
 
     /// The [Backend](crate::Backend) configuration.
     pub backend: BackendConfig,

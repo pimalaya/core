@@ -18,13 +18,18 @@ use std::{borrow::Cow, fmt::Debug, io, path::PathBuf};
 use thiserror::Error;
 use tree_magic;
 
-use crate::{account, AccountConfig, Result};
+use crate::{
+    account::{self, AccountConfig},
+    Result,
+};
 
+#[doc(inline)]
 pub use self::{
     attachment::Attachment,
     template::{ForwardTplBuilder, NewTplBuilder, ReplyTplBuilder},
 };
 
+/// Errors related to email messages.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse email")]
@@ -289,7 +294,7 @@ impl TryFrom<Vec<maildirpp::MailEntry>> for Messages {
 mod tests {
     use concat_with::concat_line;
 
-    use crate::{AccountConfig, Message};
+    use crate::{account::AccountConfig, email::Message};
 
     #[test]
     fn new_tpl_builder() {

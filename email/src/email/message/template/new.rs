@@ -9,7 +9,7 @@ use mail_builder::{
 };
 use pimalaya_email_tpl::{Tpl, TplInterpreter};
 
-use crate::{AccountConfig, Result};
+use crate::{account::AccountConfig, Result};
 
 use super::Error;
 

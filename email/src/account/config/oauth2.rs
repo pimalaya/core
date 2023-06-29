@@ -11,6 +11,7 @@ use thiserror::Error;
 
 use crate::Result;
 
+/// Errors related to OAuth 2.0 configuration.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot create oauth2 client")]
@@ -46,7 +47,7 @@ pub enum Error {
     DeleteClientSecretError(#[source] pimalaya_secret::Error),
 }
 
-/// The OAuth 2.0 configuration structure.
+/// The OAuth 2.0 configuration.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OAuth2Config {
     /// Method for presenting an OAuth 2.0 bearer token to a service

@@ -1,9 +1,9 @@
-//! Module dedicated to email folders.
+//! Module dedicated to folder management.
 //!
-//! This module contains [Folder] and [Folders] representations.
+//! This module contains [`Folder`] and [`Folders`] representations.
 //!
-//! You also have everything you need to [synchronize](sync) a remote
-//! folder with a local one.
+//! You also have everything you need to synchronize a remote folder
+//! with a local one.
 
 pub mod sync;
 
@@ -12,12 +12,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-pub use self::sync::{
-    FolderSyncCache, FolderSyncCacheHunk, FolderSyncCachePatch, FolderSyncHunk, FolderSyncPatch,
-    FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy,
-};
-
-/// The email folder.
+/// The folder.
 ///
 /// A folder is an email container. Depending on the [crate::Backend],
 /// the folder is an alias for a mailbox (IMAP) or a directory

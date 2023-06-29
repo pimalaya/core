@@ -17,12 +17,17 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    account::config::DEFAULT_TRASH_FOLDER, AccountConfig, Backend, Envelope, Envelopes, Flag,
-    Flags, Folder, Folders, Messages, Result, DEFAULT_INBOX_FOLDER,
+    account::{AccountConfig, DEFAULT_INBOX_FOLDER, DEFAULT_TRASH_FOLDER},
+    backend::Backend,
+    email::{Envelope, Envelopes, Flag, Flags, Messages},
+    folder::{Folder, Folders},
+    Result,
 };
 
+#[doc(inline)]
 pub use self::config::MaildirConfig;
 
+/// Errors related to the Maildir backend.
 #[derive(Debug, Error)]
 pub enum Error {
     // folders

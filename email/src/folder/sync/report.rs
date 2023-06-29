@@ -1,6 +1,6 @@
 //! Module dedicated to email folders synchronization reporting.
 //!
-//! The core structure of this module is the [FolderSyncReport].
+//! The core structure of this module is the [`FolderSyncReport`].
 
 use crate::Error;
 

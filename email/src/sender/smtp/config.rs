@@ -8,7 +8,10 @@ use mail_send::Credentials;
 use std::io;
 use thiserror::Error;
 
-use crate::{OAuth2Config, OAuth2Method, PasswdConfig, Result};
+use crate::{
+    account::{OAuth2Config, OAuth2Method, PasswdConfig},
+    Result,
+};
 
 #[derive(Debug, Error)]
 pub enum Error {

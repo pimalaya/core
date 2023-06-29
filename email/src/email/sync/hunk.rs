@@ -1,21 +1,50 @@
+//! Module dedicated to emails synchronization hunk.
+//!
+//! The core structure of the module is the [`EmailSyncHunk`], which
+//! represents a change in a patch.
+
 use std::fmt;
 
 use crate::{
     account::sync::{Source, Target},
+    email::Envelope,
     folder::sync::FolderName,
-    Envelope,
 };
 
+/// Alias for the email identifier (Message-ID).
 pub type Id = String;
+
+/// Flag for refreshing source cache.
 pub type RefreshSourceCache = bool;
 
+/// The email synchronization hunk.
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum EmailSyncHunk {
+    /// The email matching the given identifier from the given folder
+    /// needs to be retrieved for the given source then cached.
     GetThenCache(FolderName, Id, Source),
+
+    /// The email matching the given envelope id from the given folder
+    /// needs to be copied from the given source to the given target
+    /// then cached if the refresh flag is `true`.
     CopyThenCache(FolderName, Envelope, Source, Target, RefreshSourceCache),
+
+    /// The envelope matching the given envelope identifier from the
+    /// given folder needs to refresh its flags cache for the given
+    /// target.
     UpdateCachedFlags(FolderName, Envelope, Target),
+
+    /// The envelope matching the given envelope identifier from the
+    /// given folder needs to update its flags for the given target.
     UpdateFlags(FolderName, Envelope, Target),
+
+    /// The envelope matching the given identifier from the given
+    /// folder needs to be removed from the cache for the given
+    /// target.
     Uncache(FolderName, Id, Target),
+
+    /// The envelope matching the given identifier from the given
+    /// folder needs to be deleted from the given target.
     Delete(FolderName, Id, Target),
 }
 
@@ -62,8 +91,17 @@ impl EmailSyncHunk {
     }
 }
 
+/// The email synchronization cache hunk.
+///
+/// Similar to the [`EmailSyncHunk`], except that this hunk is
+/// specific to the cache (SQLite).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EmailSyncCacheHunk {
+    /// The email matching the given envelope identifier needs to be
+    /// added to the cache for the given destination.
     Insert(FolderName, Envelope, Target),
+
+    /// The email matching the given identifier needs to be removed
+    /// from the cache for the given destination.
     Delete(FolderName, Id, Target),
 }

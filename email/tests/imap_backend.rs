@@ -4,8 +4,9 @@ fn test_imap_backend() {
     use concat_with::concat_line;
     use mail_builder::MessageBuilder;
     use pimalaya_email::{
-        AccountConfig, BackendBuilder, BackendConfig, Flag, ImapAuthConfig, ImapConfig,
-        PasswdConfig, Tpl,
+        account::{AccountConfig, PasswdConfig},
+        backend::{BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig},
+        email::{Flag, Tpl},
     };
     use pimalaya_secret::Secret;
 

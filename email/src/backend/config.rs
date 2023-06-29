@@ -5,10 +5,10 @@
 //! backend configuration.
 
 #[cfg(feature = "imap-backend")]
-use crate::ImapConfig;
-use crate::MaildirConfig;
+use crate::backend::ImapConfig;
+use crate::backend::MaildirConfig;
 #[cfg(feature = "notmuch-backend")]
-use crate::NotmuchConfig;
+use crate::backend::NotmuchConfig;
 
 /// The backend configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

@@ -6,7 +6,7 @@
 use log::{debug, warn};
 use notmuch::Message;
 
-use crate::Flags;
+use crate::email::Flags;
 
 impl Flags {
     pub fn from_notmuch_msg(msg: &Message) -> Self {

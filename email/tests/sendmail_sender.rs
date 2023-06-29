@@ -1,7 +1,8 @@
 use mail_builder::MessageBuilder;
 use pimalaya_email::{
-    AccountConfig, BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig, PasswdConfig,
-    SenderBuilder, SenderConfig, SendmailConfig,
+    account::{AccountConfig, PasswdConfig},
+    backend::{BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig},
+    sender::{SenderBuilder, SenderConfig, SendmailConfig},
 };
 use pimalaya_secret::Secret;
 use std::{thread, time::Duration};

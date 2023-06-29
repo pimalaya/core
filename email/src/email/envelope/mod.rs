@@ -17,9 +17,15 @@ use log::warn;
 use mail_parser::HeaderValue;
 use std::ops::{Deref, DerefMut};
 
-use crate::{AccountConfig, Flags, Message};
+use crate::account::AccountConfig;
 
-pub use self::address::Address;
+use super::Message;
+
+#[doc(inline)]
+pub use self::{
+    address::Address,
+    flag::{Flag, Flags},
+};
 
 /// The email envelope.
 ///

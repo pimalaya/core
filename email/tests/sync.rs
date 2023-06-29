@@ -5,9 +5,13 @@ use std::{collections::HashSet, thread, time::Duration};
 use tempfile::tempdir;
 
 use pimalaya_email::{
-    folder, AccountConfig, AccountSyncBuilder, Backend, BackendBuilder, BackendConfig,
-    EmailSyncCache, Flag, Flags, ImapAuthConfig, ImapConfig, MaildirBackend, MaildirConfig,
-    PasswdConfig,
+    account::{sync::AccountSyncBuilder, AccountConfig, PasswdConfig},
+    backend::{
+        Backend, BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig, MaildirBackend,
+        MaildirConfig,
+    },
+    email::{sync::EmailSyncCache, Flag, Flags},
+    folder,
 };
 
 #[test]

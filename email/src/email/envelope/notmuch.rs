@@ -5,7 +5,7 @@
 
 use log::{debug, warn};
 
-use crate::{Envelope, Envelopes, Flags, Message};
+use crate::email::{Envelope, Envelopes, Flags, Message};
 
 impl Envelopes {
     pub fn from_notmuch_msgs(msgs: notmuch::Messages) -> Self {

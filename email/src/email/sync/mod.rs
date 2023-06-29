@@ -1,3 +1,9 @@
+//! Module dedicated to email synchronization.
+//!
+//! The core concept of this module is the [`EmailSyncPatchManager`],
+//! which allows you to synchronize remote emails using a local
+//! Maildir backend.
+
 mod cache;
 mod hunk;
 mod patch;
@@ -7,10 +13,12 @@ mod runner;
 use thiserror::Error;
 
 use crate::{
-    account::sync::Destination, AccountConfig, Backend, BackendBuilder, Envelope,
-    MaildirBackendBuilder,
+    account::{sync::Destination, AccountConfig},
+    backend::{Backend, BackendBuilder, MaildirBackendBuilder},
+    email::Envelope,
 };
 
+#[doc(inline)]
 pub use self::{
     cache::EmailSyncCache,
     hunk::{EmailSyncCacheHunk, EmailSyncHunk},
@@ -19,6 +27,7 @@ pub use self::{
     runner::EmailSyncRunner,
 };
 
+/// Errors related to email synchronization.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot find email by internal id {0}")]

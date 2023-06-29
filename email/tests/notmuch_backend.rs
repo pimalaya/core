@@ -5,7 +5,11 @@ fn notmuch_backend() {
     use mail_builder::MessageBuilder;
     use maildirpp::Maildir;
     use notmuch::Database;
-    use pimalaya_email::{AccountConfig, Backend, Flag, Flags, NotmuchBackend, NotmuchConfig};
+    use pimalaya_email::{
+        account::AccountConfig,
+        backend::{Backend, NotmuchBackend, NotmuchConfig},
+        email::{Flag, Flags},
+    };
     use std::{collections::HashMap, env, fs, iter::FromIterator};
 
     env_logger::builder().is_test(true).init();

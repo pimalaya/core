@@ -9,7 +9,11 @@ use imap::{
 };
 use std::{ops::Deref, str::FromStr};
 
-use crate::{backend, Envelope, Envelopes, Error, Flags, Message, Result};
+use crate::{
+    backend,
+    email::{Envelope, Envelopes, Flags, Message},
+    Error, Result,
+};
 
 impl Envelopes {
     pub fn from_imap_fetches(fetches: Fetches) -> Self {

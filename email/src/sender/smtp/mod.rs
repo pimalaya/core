@@ -14,9 +14,12 @@ use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 
-use crate::{AccountConfig, Result, Sender};
-pub use config::{SmtpAuthConfig, SmtpConfig};
+use crate::{account::AccountConfig, sender::Sender, Result};
 
+#[doc(inline)]
+pub use self::config::{SmtpAuthConfig, SmtpConfig};
+
+/// Errors related to the SMTP sender.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse email before sending")]
@@ -35,7 +38,7 @@ pub enum Error {
     ConnectTlsError(#[source] mail_send::Error),
 }
 
-pub enum SmtpClient {
+enum SmtpClient {
     Tcp(mail_send::SmtpClient<TcpStream>),
     Tls(mail_send::SmtpClient<TlsStream<TcpStream>>),
 }
@@ -49,6 +52,7 @@ impl SmtpClient {
     }
 }
 
+/// The SMTP sender.
 pub struct Smtp {
     account_config: AccountConfig,
     smtp_config: SmtpConfig,
@@ -57,6 +61,7 @@ pub struct Smtp {
 }
 
 impl Smtp {
+    /// Creates a new SMTP sender from configurations.
     pub fn new(account_config: AccountConfig, smtp_config: SmtpConfig) -> Result<Self> {
         let mut client_builder = SmtpClientBuilder::new(smtp_config.host.clone(), smtp_config.port)
             .credentials(smtp_config.credentials()?)

@@ -8,10 +8,12 @@ pub mod config;
 use mail_parser::Message;
 use thiserror::Error;
 
-use crate::{AccountConfig, Result, Sender};
+use crate::{account::AccountConfig, sender::Sender, Result};
 
+#[doc(inline)]
 pub use self::config::SendmailConfig;
 
+/// Errors related to the sendmail sender.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot run sendmail command")]

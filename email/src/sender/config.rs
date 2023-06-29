@@ -4,9 +4,9 @@
 //! account. One account can have only one sender and so one sender
 //! configuration.
 
-use crate::SendmailConfig;
+use crate::sender::SendmailConfig;
 #[cfg(feature = "smtp-sender")]
-use crate::SmtpConfig;
+use crate::sender::SmtpConfig;
 
 /// The sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

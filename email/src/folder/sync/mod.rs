@@ -1,4 +1,4 @@
-//! Module dedicated to email folders synchronization.
+//! Module dedicated to folders synchronization.
 //!
 //! This module contains everything you need to synchronize remote
 //! folders with local ones.

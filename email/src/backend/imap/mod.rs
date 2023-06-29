@@ -32,12 +32,17 @@ use thiserror::Error;
 use utf7_imap::{decode_utf7_imap as decode_utf7, encode_utf7_imap as encode_utf7};
 
 use crate::{
-    envelope, AccountConfig, Backend, Envelope, Envelopes, Flag, Flags, Folder, Folders, Messages,
-    OAuth2Method, Result,
+    account::{AccountConfig, OAuth2Method},
+    backend::Backend,
+    email::{envelope, Envelope, Envelopes, Flag, Flags, Messages},
+    folder::{Folder, Folders},
+    Result,
 };
 
+#[doc(inline)]
 pub use self::config::{ImapAuthConfig, ImapConfig};
 
+/// Errors related to the IMAP backend.
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot create imap backend: imap not initialized")]
@@ -163,16 +168,16 @@ const ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
 });
 
 /// Alias for the IMAP session.
-pub type ImapSession = Session<ImapSessionStream>;
+type ImapSession = Session<ImapSessionStream>;
 
 /// Alias for the TLS/SSL stream, which is basically a
 /// [std::net::TcpStream] wrapped by a [rustls::StreamOwned].
-pub type TlsStream = StreamOwned<ClientConnection, TcpStream>;
+type TlsStream = StreamOwned<ClientConnection, TcpStream>;
 
 /// Wrapper around TLS/SSL and TCP streams.
 ///
 /// Since [imap::Session] needs a generic stream type, this wrapper is needed to create the session alias [ImapSession].
-pub enum ImapSessionStream {
+enum ImapSessionStream {
     Tls(TlsStream),
     Tcp(TcpStream),
 }
@@ -1122,7 +1127,7 @@ impl Drop for ImapBackend {
 
 /// Builds the IMAP sequence set for the give page, page size and
 /// total size.
-pub fn build_page_range(page: usize, page_size: usize, size: usize) -> Result<String> {
+fn build_page_range(page: usize, page_size: usize, size: usize) -> Result<String> {
     let page_cursor = page * page_size;
     if page_cursor >= size {
         return Err(Error::BuildPageRangeOutOfBoundsError(page + 1))?;

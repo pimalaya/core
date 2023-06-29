@@ -1,3 +1,8 @@
+//! Module dedicated to the Notmuch backend.
+//!
+//! This module contains the implementation of the Notmuch backend and
+//! all associated structures related to it.
+
 pub mod config;
 
 use log::{error, info, trace, warn};
@@ -7,11 +12,17 @@ use std::{any::Any, fs, io, path::PathBuf};
 use thiserror::Error;
 
 use crate::{
-    AccountConfig, Backend, Envelope, Envelopes, Flag, Flags, Folder, Folders, Messages, Result,
+    account::AccountConfig,
+    backend::Backend,
+    email::{Envelope, Envelopes, Flag, Flags, Messages},
+    folder::{Folder, Folders},
+    Result,
 };
 
+#[doc(inline)]
 pub use self::config::NotmuchConfig;
 
+/// Errors related to the Notmuch backend.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot canonicalize path {1}")]

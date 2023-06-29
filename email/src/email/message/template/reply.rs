@@ -10,7 +10,11 @@ use mail_builder::{
 use mail_parser::{Addr, HeaderValue};
 use pimalaya_email_tpl::{Tpl, TplInterpreter};
 
-use crate::{email::address, AccountConfig, Message, Result};
+use crate::{
+    account::AccountConfig,
+    email::{address, Message},
+    Result,
+};
 
 use super::Error;
 
