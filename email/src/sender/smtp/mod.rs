@@ -6,7 +6,6 @@
 pub mod config;
 
 use async_trait::async_trait;
-use futures::executor::block_on;
 use log::error;
 use mail_parser::{HeaderValue, Message};
 use mail_send::{smtp::message as smtp, SmtpClientBuilder};
@@ -15,7 +14,7 @@ use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 
-use crate::{account::AccountConfig, sender::Sender, Result};
+use crate::{account::AccountConfig, sender::Sender, Result, UnwrapOrWarn};
 
 #[doc(inline)]
 pub use self::config::{SmtpAuthConfig, SmtpConfig};
@@ -28,11 +27,11 @@ pub enum Error {
     #[error("cannot execute pre-send hook")]
     ExecutePreSendHookError(#[source] pimalaya_process::Error),
     #[error("cannot send email")]
-    SendError(#[source] mail_send::Error),
+    SendMessageError(#[source] mail_send::Error),
     #[error("cannot send email: missing sender")]
-    SendEmailMissingFromError,
+    SendMessageMissingSenderError,
     #[error("cannot send email: missing recipient")]
-    SendEmailMissingToError,
+    SendMessageMissingRecipientError,
     #[error("cannot connect to smtp server")]
     ConnectTcpError(#[source] mail_send::Error),
     #[error("cannot connect to smtp server using tls")]
@@ -63,7 +62,7 @@ pub struct Smtp {
 
 impl Smtp {
     /// Creates a new SMTP sender from configurations.
-    pub fn new(account_config: AccountConfig, smtp_config: SmtpConfig) -> Result<Self> {
+    pub async fn new(account_config: AccountConfig, smtp_config: SmtpConfig) -> Result<Self> {
         let mut client_builder = SmtpClientBuilder::new(smtp_config.host.clone(), smtp_config.port)
             .credentials(smtp_config.credentials()?)
             .implicit_tls(!smtp_config.starttls());
@@ -72,7 +71,7 @@ impl Smtp {
             client_builder = client_builder.allow_invalid_certs();
         }
 
-        let (client_builder, client) = block_on(Self::build_client(&smtp_config, client_builder))?;
+        let (client_builder, client) = Self::build_client(&smtp_config, client_builder).await?;
 
         Ok(Self {
             account_config,
@@ -139,28 +138,28 @@ impl Smtp {
         }
     }
 
-    async fn send(&mut self, email: &[u8]) -> Result<()> {
-        let mut email = Message::parse(&email).ok_or(Error::ParseEmailError)?;
+    async fn send(&mut self, msg: &[u8]) -> Result<()> {
+        let mut msg = Message::parse(&msg).unwrap_or_warn("cannot parse raw message");
         let buffer;
 
         if let Some(cmd) = self.account_config.email_hooks.pre_send.as_ref() {
             buffer = cmd
-                .run_with(email.raw_message())
+                .run_with(msg.raw_message())
                 .map_err(Error::ExecutePreSendHookError)?
                 .stdout;
-            email = Message::parse(&buffer).ok_or(Error::ParseEmailError)?;
+            msg = Message::parse(&buffer).unwrap_or_warn("cannot parse raw message");
         };
 
         match &self.smtp_config.auth {
             SmtpAuthConfig::Passwd(_) => {
                 self.client
-                    .send(into_smtp_msg(email)?)
+                    .send(into_smtp_msg(msg)?)
                     .await
-                    .map_err(Error::SendError)?;
+                    .map_err(Error::SendMessageError)?;
                 Ok(())
             }
             SmtpAuthConfig::OAuth2(oauth2_config) => {
-                match self.client.send(into_smtp_msg(email.clone())?).await {
+                match self.client.send(into_smtp_msg(msg.clone())?).await {
                     Ok(()) => Ok(()),
                     Err(mail_send::Error::AuthenticationFailed(_)) => {
                         oauth2_config.refresh_access_token()?;
@@ -175,12 +174,12 @@ impl Smtp {
                         }?;
 
                         self.client
-                            .send(into_smtp_msg(email)?)
+                            .send(into_smtp_msg(msg)?)
                             .await
-                            .map_err(Error::SendError)?;
+                            .map_err(Error::SendMessageError)?;
                         Ok(())
                     }
-                    Err(err) => Ok(Err(Error::SendError(err))?),
+                    Err(err) => Ok(Err(Error::SendMessageError(err))?),
                 }
             }
         }
@@ -189,8 +188,8 @@ impl Smtp {
 
 #[async_trait]
 impl Sender for Smtp {
-    async fn send(&mut self, email: &[u8]) -> Result<()> {
-        Ok(self.send(email).await?)
+    async fn send(&mut self, msg: &[u8]) -> Result<()> {
+        Ok(self.send(msg).await?)
     }
 }
 
@@ -247,11 +246,13 @@ fn into_smtp_msg<'a>(msg: Message<'a>) -> Result<smtp::Message<'a>> {
     }
 
     if rcpt_to.is_empty() {
-        return Ok(Err(Error::SendEmailMissingToError)?);
+        return Ok(Err(Error::SendMessageMissingRecipientError)?);
     }
 
     let msg = smtp::Message {
-        mail_from: mail_from.ok_or(Error::SendEmailMissingFromError)?.into(),
+        mail_from: mail_from
+            .ok_or(Error::SendMessageMissingSenderError)?
+            .into(),
         rcpt_to: rcpt_to
             .into_iter()
             .map(|email| smtp::Address {

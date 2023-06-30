@@ -42,7 +42,7 @@ async fn sendmail_sender() {
     let mut imap = imap_builder.build().unwrap();
 
     let sendmail_builder = SenderBuilder::new(config.clone());
-    let mut sendmail = sendmail_builder.build().unwrap();
+    let mut sendmail = sendmail_builder.build().await.unwrap();
 
     // setting up folders
 

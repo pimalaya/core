@@ -59,15 +59,14 @@ impl SenderBuilder {
         Self { account_config }
     }
 
-    /// Builds a [Sender] by cloning self options.
-    pub fn build(&self) -> Result<Box<dyn Sender>> {
+    /// Builds a [`Sender`] by cloning self options.
+    pub async fn build(&self) -> Result<Box<dyn Sender>> {
         match &self.account_config.sender {
             SenderConfig::None => Ok(Err(Error::BuildUndefinedSenderError)?),
             #[cfg(feature = "smtp-sender")]
-            SenderConfig::Smtp(smtp_config) => Ok(Box::new(Smtp::new(
-                self.account_config.clone(),
-                smtp_config.clone(),
-            )?)),
+            SenderConfig::Smtp(smtp_config) => Ok(Box::new(
+                Smtp::new(self.account_config.clone(), smtp_config.clone()).await?,
+            )),
             SenderConfig::Sendmail(sendmail_config) => Ok(Box::new(Sendmail::new(
                 self.account_config.clone(),
                 sendmail_config.clone(),
@@ -75,13 +74,13 @@ impl SenderBuilder {
         }
     }
 
-    /// Builds a [Sender] by moving self options.
-    pub fn into_build(self) -> Result<Box<dyn Sender>> {
+    /// Builds a [`Sender`] by moving self options.
+    pub async fn into_build(self) -> Result<Box<dyn Sender>> {
         match self.account_config.sender.clone() {
             SenderConfig::None => Ok(Err(Error::BuildUndefinedSenderError)?),
             #[cfg(feature = "smtp-sender")]
             SenderConfig::Smtp(smtp_config) => {
-                Ok(Box::new(Smtp::new(self.account_config, smtp_config)?))
+                Ok(Box::new(Smtp::new(self.account_config, smtp_config).await?))
             }
             SenderConfig::Sendmail(sendmail_config) => Ok(Box::new(Sendmail::new(
                 self.account_config,

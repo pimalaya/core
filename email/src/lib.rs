@@ -79,3 +79,33 @@ pub enum Error {
 
 /// The global `Result` alias of the library.
 pub type Result<T> = std::result::Result<T, Error>;
+
+pub(crate) trait UnwrapOrWarn<T> {
+    fn unwrap_or_warn(self, warn: &str) -> T;
+}
+
+impl<T: Default> UnwrapOrWarn<T> for std::option::Option<T> {
+    fn unwrap_or_warn(self, warn: &str) -> T {
+        match self {
+            Some(t) => t,
+            None => {
+                log::warn!("{warn}");
+                log::debug!("{warn}");
+                Default::default()
+            }
+        }
+    }
+}
+
+impl<T: Default, E: std::error::Error> UnwrapOrWarn<T> for std::result::Result<T, E> {
+    fn unwrap_or_warn(self, warn: &str) -> T {
+        match self {
+            Ok(t) => t,
+            Err(e) => {
+                log::warn!("{warn}: {e}");
+                log::debug!("{warn}: {e:?}");
+                Default::default()
+            }
+        }
+    }
+}
