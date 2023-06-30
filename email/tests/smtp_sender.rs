@@ -58,7 +58,7 @@ async fn smtp_sender() {
         .text_body("Plain message!")
         .write_to_vec()
         .unwrap();
-    smtp.send(&email).unwrap();
+    smtp.send(&email).await.unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 

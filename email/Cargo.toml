@@ -1,6 +1,6 @@
 [package]
 name = "pimalaya-email"
-version = "0.12.0"
+version = "0.13.0-beta"
 description = "Rust library to manage your emails."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
@@ -32,6 +32,7 @@ tempfile = "3.3"
 [dependencies]
 advisory-lock = "0.3.0"
 ammonia = "3.2"
+async-trait = "0.1"
 chrono = "0.4"
 convert_case = "0.5"
 dirs = "4.0"

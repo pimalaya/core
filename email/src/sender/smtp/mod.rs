@@ -5,6 +5,7 @@
 
 pub mod config;
 
+use async_trait::async_trait;
 use futures::executor::block_on;
 use log::error;
 use mail_parser::{HeaderValue, Message};
@@ -186,9 +187,10 @@ impl Smtp {
     }
 }
 
+#[async_trait]
 impl Sender for Smtp {
-    fn send(&mut self, email: &[u8]) -> Result<()> {
-        block_on(self.send(email))
+    async fn send(&mut self, email: &[u8]) -> Result<()> {
+        Ok(self.send(email).await?)
     }
 }
 

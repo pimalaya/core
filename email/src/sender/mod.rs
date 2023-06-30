@@ -12,6 +12,7 @@ pub mod sendmail;
 #[cfg(feature = "smtp-sender")]
 pub mod smtp;
 
+use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::{account::AccountConfig, Result};
@@ -33,10 +34,14 @@ pub enum Error {
 
 /// The sender abstraction.
 ///
-/// The sender trait abstracts the action of sending emails.
+/// The sender trait abstracts the action of sending raw messages.
+#[async_trait]
 pub trait Sender {
-    /// Sends the given raw email.
-    fn send(&mut self, email: &[u8]) -> Result<()>;
+    /// Sends the given raw message.
+    ///
+    /// The message needs to be a valid MIME Message. You can build
+    /// one by compiling a [template](crate::email::template).
+    async fn send(&mut self, msg: &[u8]) -> Result<()>;
 }
 
 /// The sender builder.

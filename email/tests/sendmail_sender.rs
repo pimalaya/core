@@ -7,8 +7,8 @@ use pimalaya_email::{
 use pimalaya_secret::Secret;
 use std::{thread, time::Duration};
 
-#[test]
-fn sendmail_sender() {
+#[tokio::test(flavor = "multi_thread")]
+async fn sendmail_sender() {
     env_logger::builder().is_test(true).init();
 
     let config = AccountConfig {
@@ -57,7 +57,7 @@ fn sendmail_sender() {
         .text_body("Plain message!")
         .write_to_vec()
         .unwrap();
-    sendmail.send(&email).unwrap();
+    sendmail.send(&email).await.unwrap();
 
     thread::sleep(Duration::from_secs(1));
 

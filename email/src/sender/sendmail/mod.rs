@@ -5,6 +5,7 @@
 
 pub mod config;
 
+use async_trait::async_trait;
 use mail_parser::Message;
 use thiserror::Error;
 
@@ -61,8 +62,9 @@ impl Sendmail {
     }
 }
 
+#[async_trait]
 impl Sender for Sendmail {
-    fn send(&mut self, email: &[u8]) -> Result<()> {
+    async fn send(&mut self, email: &[u8]) -> Result<()> {
         self.send(email)
     }
 }
