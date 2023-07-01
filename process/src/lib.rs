@@ -1,3 +1,18 @@
+//! Rust library to run cross-platform, asynchronous processes in
+//! pipelines.
+//!
+//! The core concept of this library is to simplify the execution of
+//! commands, following these rules:
+//!
+//! 1. Commands are executed asynchronously, using the [tokio] async
+//! runtime.
+//!
+//! 2. Commands works on all major platforms (windows, macos and
+//! linux).
+//!
+//! 3. Commands can be executed in a pipeline, which means the output
+//! of the previous command is send to the input of the next one.
+
 use log::{debug, error, warn};
 use std::{
     borrow::Cow,
@@ -47,13 +62,13 @@ pub type Result<T> = result::Result<T, Error>;
 
 /// The main command structure.
 ///
-/// A command can be either a single command or a command pipeline.
+/// A command can be either a single command or a pipeline.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Cmd {
     /// The single command variant.
     SingleCmd(SingleCmd),
 
-    /// The command pipeline variant.
+    /// The pipeline variant.
     Pipeline(Pipeline),
 }
 
@@ -333,15 +348,15 @@ pub struct CmdOutput {
     /// The command output from the standard output channel.
     pub out: Vec<u8>,
 
-    /// The command error from the standard error channel.
+    /// The command error output from the standard error channel.
     pub err: Vec<u8>,
 }
 
 impl CmdOutput {
     /// Reads the output as string.
     ///
-    /// If the code is 0, reads the command output, otherwise reads
-    /// the command error output.
+    /// If the exit code is 0, reads the command output, otherwise
+    /// reads the command error output.
     pub fn read_out(&self) -> Result<String> {
         if self.code == 0 {
             String::from_utf8(self.out.clone()).map_err(Error::ParseCmdOutputStdoutError)
@@ -352,10 +367,7 @@ impl CmdOutput {
 
     /// Same as `read_out` but lossy.
     pub fn read_out_lossy(&self) -> Cow<str> {
-        if self.code == 0 {
-            String::from_utf8_lossy(&self.out)
-        } else {
-            String::from_utf8_lossy(&self.err)
-        }
+        let out = if self.code == 0 { &self.out } else { &self.err };
+        String::from_utf8_lossy(out)
     }
 }

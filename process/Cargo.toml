@@ -1,12 +1,12 @@
 [package]
 name = "pimalaya-process"
 version = "0.0.3-beta"
-description = "Rust library to run cross-platform compatible processes in pipelines."
+description = "Rust library to run cross-platform, asynchronous processes in pipelines."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["operating systems"]
-keywords = ["pim", "process", "processes", "pipeline", "cross-platform"]
+keywords = ["pim", "process", "pipeline", "crossplatform", "async"]
 
 [package.metadata.docs.rs]
 all-features = true
