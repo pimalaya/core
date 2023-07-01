@@ -6,6 +6,7 @@
 pub mod config;
 
 use async_trait::async_trait;
+use log::{debug, warn};
 use mail_parser::Message;
 use thiserror::Error;
 
@@ -18,11 +19,7 @@ pub use self::config::SendmailConfig;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot run sendmail command")]
-    RunSendmailCmdError(#[source] pimalaya_process::Error),
-    #[error("cannot execute pre-send hook")]
-    ExecutePreSendHookError(#[source] pimalaya_process::Error),
-    #[error("cannot parse email before sending")]
-    ParseEmailError,
+    RunCommandError(#[source] pimalaya_process::Error),
 }
 
 /// The sendmail sender.
@@ -40,23 +37,34 @@ impl Sendmail {
         }
     }
 
-    /// Sends the given raw email.
-    pub fn send(&mut self, email: &[u8]) -> Result<()> {
-        let mut email = Message::parse(&email).ok_or(Error::ParseEmailError)?;
+    /// Sends the given raw message.
+    pub fn send(&mut self, msg: &[u8]) -> Result<()> {
         let buffer;
+        let mut msg = Message::parse(&msg).unwrap_or_else(|| {
+            warn!("cannot parse raw message");
+            Default::default()
+        });
 
         if let Some(cmd) = self.account_config.email_hooks.pre_send.as_ref() {
-            buffer = cmd
-                .run_with(email.raw_message())
-                .map_err(Error::ExecutePreSendHookError)?
-                .stdout;
-            email = Message::parse(&buffer).ok_or(Error::ParseEmailError)?;
+            match cmd.run_with(msg.raw_message()) {
+                Ok(res) => {
+                    buffer = res.stdout;
+                    msg = Message::parse(&buffer).unwrap_or_else(|| {
+                        warn!("cannot parse raw message after pre-send hook");
+                        Default::default()
+                    });
+                }
+                Err(err) => {
+                    warn!("cannot execute pre-send hook: {err}");
+                    debug!("cannot execute pre-send hook {cmd:?}: {err:?}");
+                }
+            }
         };
 
         self.sendmail_config
             .cmd
-            .run_with(email.raw_message())
-            .map_err(Error::RunSendmailCmdError)?;
+            .run_with(msg.raw_message())
+            .map_err(Error::RunCommandError)?;
 
         Ok(())
     }
@@ -64,7 +72,7 @@ impl Sendmail {
 
 #[async_trait]
 impl Sender for Sendmail {
-    async fn send(&mut self, email: &[u8]) -> Result<()> {
-        self.send(email)
+    async fn send(&mut self, msg: &[u8]) -> Result<()> {
+        self.send(msg)
     }
 }

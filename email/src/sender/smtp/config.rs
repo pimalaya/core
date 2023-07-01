@@ -61,7 +61,7 @@ pub struct SmtpConfig {
 impl SmtpConfig {
     /// Builds the SMTP credentials string.
     ///
-    /// The result depends on the [SmtpAuthConfig]: if password mode
+    /// The result depends on the [`SmtpAuthConfig`]: if password mode
     /// then creates credentials from login/password, if OAuth 2.0
     /// then creates credentials from access token.
     pub fn credentials(&self) -> Result<Credentials<String>> {
@@ -104,6 +104,7 @@ impl SmtpConfig {
 pub enum SmtpAuthConfig {
     /// The password authentication mechanism.
     Passwd(PasswdConfig),
+
     /// The OAuth 2.0 authentication mechanism.
     OAuth2(OAuth2Config),
 }
