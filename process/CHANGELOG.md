@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.4] - 2023-07-02
+
 ### Changed
 
 - Changed the way exit code is handled: it now returns an error `InvalidExitStatusCodeNonZeroError` when the exit code is different than `0`, and the exit code is not accessible anymore from `CmdOutput`.

@@ -1,8 +1,8 @@
 # pimalaya-process
 
-Rust library to run cross-platform compatible processes in pipelines.
+Rust library to run cross-platform, asynchronous processes in pipelines.
 
-See the full [API documentation](https://docs.rs/pimalaya-process/latest/pimalaya_process/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/process/examples).
+See the full [API documentation](https://docs.rs/pimalaya-process/latest/pimalaya_process/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/process/tests).
 
 *The project is under active development. Do not use in production before the `v1.0.0`.*
 
