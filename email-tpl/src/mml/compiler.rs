@@ -1,3 +1,4 @@
+use async_recursion::async_recursion;
 use log::warn;
 use mail_builder::{mime::MimePart, MessageBuilder};
 use pimalaya_process::Cmd;
@@ -50,56 +51,41 @@ impl Compiler {
         Self::default()
     }
 
-    pub fn pgp_encrypt_cmd<C>(mut self, cmd: C) -> Self
-    where
-        C: Into<Cmd>,
-    {
+    pub fn pgp_encrypt_cmd(mut self, cmd: impl Into<Cmd>) -> Self {
         self.pgp_encrypt_cmd = cmd.into();
         self
     }
 
-    pub fn some_pgp_encrypt_cmd<C>(mut self, cmd: Option<C>) -> Self
-    where
-        C: Into<Cmd>,
-    {
+    pub fn some_pgp_encrypt_cmd(mut self, cmd: Option<impl Into<Cmd>>) -> Self {
         if let Some(cmd) = cmd {
             self.pgp_encrypt_cmd = cmd.into();
         }
         self
     }
 
-    pub fn pgp_encrypt_recipient<R>(mut self, recipient: R) -> Self
-    where
-        R: ToString,
-    {
+    pub fn pgp_encrypt_recipient(mut self, recipient: impl ToString) -> Self {
         self.pgp_encrypt_recipient = recipient.to_string();
         self
     }
 
-    pub fn pgp_sign_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self
-    where
-        C: Into<Cmd>,
-    {
+    pub fn pgp_sign_cmd(mut self, cmd: impl Into<Cmd>) -> Self {
         self.pgp_sign_cmd = cmd.into();
         self
     }
 
-    pub fn some_pgp_sign_cmd<C>(mut self, cmd: Option<C>) -> Self
-    where
-        C: Into<Cmd>,
-    {
+    pub fn some_pgp_sign_cmd(mut self, cmd: Option<impl Into<Cmd>>) -> Self {
         if let Some(cmd) = cmd {
             self.pgp_sign_cmd = cmd.into();
         }
         self
     }
 
-    fn sign<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
+    async fn sign<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
         let mut buf = Vec::new();
         part.clone()
             .write_part(&mut buf)
             .map_err(Error::WriteCompiledPartToVecError)?;
-        let signature = self.pgp_sign_cmd.run_with(&buf)?.stdout;
+        let signature: Vec<u8> = self.pgp_sign_cmd.run_with(&buf).await?.into();
 
         let part = MimePart::new(
             "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
@@ -109,7 +95,7 @@ impl Compiler {
         Ok(part)
     }
 
-    fn encrypt<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
+    async fn encrypt<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
         let cmd = self
             .pgp_encrypt_cmd
             .clone()
@@ -119,7 +105,7 @@ impl Compiler {
         part.clone()
             .write_part(&mut buf)
             .map_err(Error::WriteCompiledPartToVecError)?;
-        let encrypted_part = cmd.run_with(&buf)?.stdout;
+        let encrypted_part: Vec<u8> = cmd.run_with(&buf).await?.into();
 
         let part = MimePart::new(
             "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
@@ -132,27 +118,31 @@ impl Compiler {
         Ok(part)
     }
 
-    fn compile_parts<'a>(&self, parts: Vec<Part>) -> Result<MessageBuilder<'a>> {
+    async fn compile_parts<'a>(&self, parts: Vec<Part>) -> Result<MessageBuilder<'a>> {
         let parts = Part::compact_text_plain_parts(parts);
 
         let mut builder = MessageBuilder::new();
 
         builder = match parts.len() {
             0 => builder.text_body(String::new()),
-            1 => builder.body(self.compile_part(parts.into_iter().next().unwrap())?),
-            _ => builder.body(MimePart::new(
-                "multipart/mixed",
-                parts
-                    .into_iter()
-                    .map(|part| self.compile_part(part))
-                    .collect::<Result<Vec<_>>>()?,
-            )),
+            1 => builder.body(self.compile_part(parts.into_iter().next().unwrap()).await?),
+            _ => {
+                let mut compiled_parts = Vec::new();
+
+                for part in parts {
+                    let part = self.compile_part(part).await?;
+                    compiled_parts.push(part);
+                }
+
+                builder.body(MimePart::new("multipart/mixed", compiled_parts))
+            }
         };
 
         Ok(builder)
     }
 
-    fn compile_part<'a>(&self, part: Part) -> Result<MimePart<'a>> {
+    #[async_recursion]
+    async fn compile_part<'a>(&self, part: Part) -> Result<MimePart<'a>> {
         match part {
             Part::MultiPart((props, parts)) => {
                 let no_parts: Vec<u8> = Vec::new();
@@ -168,16 +158,16 @@ impl Compiler {
                 };
 
                 for part in Part::compact_text_plain_parts(parts) {
-                    multi_part.add_part(self.compile_part(part)?)
+                    multi_part.add_part(self.compile_part(part).await?)
                 }
 
                 let multi_part = match props.get(SIGN).map(String::as_str) {
-                    Some("command") => self.sign(multi_part),
+                    Some("command") => self.sign(multi_part).await,
                     _ => Ok(multi_part),
                 }?;
 
                 let multi_part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some("command") => self.encrypt(multi_part),
+                    Some("command") => self.encrypt(multi_part).await,
                     _ => Ok(multi_part),
                 }?;
 
@@ -200,12 +190,12 @@ impl Compiler {
                 };
 
                 part = match props.get(SIGN).map(String::as_str) {
-                    Some("command") => self.sign(part),
+                    Some("command") => self.sign(part).await,
                     _ => Ok(part),
                 }?;
 
                 part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some("command") => self.encrypt(part),
+                    Some("command") => self.encrypt(part).await,
                     _ => Ok(part),
                 }?;
 
@@ -244,12 +234,12 @@ impl Compiler {
                 };
 
                 part = match props.get(SIGN).map(String::as_str) {
-                    Some("command") => self.sign(part),
+                    Some("command") => self.sign(part).await,
                     _ => Ok(part),
                 }?;
 
                 part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some("command") => self.encrypt(part),
+                    Some("command") => self.encrypt(part).await,
                     _ => Ok(part),
                 }?;
 
@@ -259,15 +249,11 @@ impl Compiler {
         }
     }
 
-    pub fn compile<'a, T>(&self, tpl: T) -> Result<MessageBuilder<'a>>
-    where
-        T: AsRef<str>,
-    {
-        self.compile_parts(
-            parsers::parts()
-                .parse(tpl.as_ref())
-                .map_err(|errs| Error::ParseMmlError(errs[0].to_string()))?,
-        )
+    pub async fn compile<'a>(&self, tpl: impl AsRef<str>) -> Result<MessageBuilder<'a>> {
+        let parts = parsers::parts()
+            .parse(tpl.as_ref())
+            .map_err(|errs| Error::ParseMmlError(errs[0].to_string()))?;
+        self.compile_parts(parts).await
     }
 }
 
@@ -290,12 +276,13 @@ mod tests {
 
     use super::Compiler;
 
-    #[test]
-    fn plain() {
+    #[tokio::test]
+    async fn plain() {
         let tpl = concat_line!("Hello, world!", "");
 
         let msg = Compiler::new()
             .compile(&tpl)
+            .await
             .unwrap()
             .message_id("id@localhost")
             .date(0 as u64)
@@ -315,8 +302,8 @@ mod tests {
         assert_eq!(msg, expected_msg);
     }
 
-    #[test]
-    fn html() {
+    #[tokio::test]
+    async fn html() {
         let tpl = concat_line!(
             "<#part type=\"text/html\">",
             "<h1>Hello, world!</h1>",
@@ -325,6 +312,7 @@ mod tests {
 
         let msg = Compiler::new()
             .compile(&tpl)
+            .await
             .unwrap()
             .message_id("id@localhost")
             .date(0 as u64)
@@ -343,8 +331,8 @@ mod tests {
         assert_eq!(msg, expected_msg);
     }
 
-    #[test]
-    fn attachment() {
+    #[tokio::test]
+    async fn attachment() {
         let mut attachment = Builder::new()
             .prefix("attachment")
             .suffix(".txt")
@@ -358,6 +346,7 @@ mod tests {
 
         let msg = Compiler::new()
             .compile(&tpl)
+            .await
             .unwrap()
             .message_id("id@localhost")
             .date(0 as u64)

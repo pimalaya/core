@@ -174,7 +174,7 @@ impl Interpreter {
 
     /// Interprets the given [`mail_parser::Message`] as a
     /// [`crate::Tpl`].
-    pub fn interpret_msg(self, msg: &Message) -> Result<Tpl> {
+    pub async fn interpret_msg(self, msg: &Message<'_>) -> Result<Tpl> {
         let mut tpl = Tpl::new();
 
         match self.show_headers {
@@ -199,6 +199,7 @@ impl Interpreter {
         let mml = self
             .mml_interpreter
             .interpret_msg(msg)
+            .await
             .map_err(Error::InterpretMmlError)?;
 
         tpl.push_str(mml.trim_end());
@@ -208,16 +209,16 @@ impl Interpreter {
     }
 
     /// Interprets the given bytes as a [`crate::Tpl`].
-    pub fn interpret_bytes<B: AsRef<[u8]>>(self, bytes: B) -> Result<Tpl> {
+    pub async fn interpret_bytes<B: AsRef<[u8]>>(self, bytes: B) -> Result<Tpl> {
         let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseRawEmailError)?;
-        self.interpret_msg(&msg)
+        self.interpret_msg(&msg).await
     }
 
     /// Interprets the given [`mail_builder::MessageBuilder`] as a
     /// [`crate::Tpl`].
-    pub fn interpret_msg_builder(self, builder: MessageBuilder) -> Result<Tpl> {
+    pub async fn interpret_msg_builder(self, builder: MessageBuilder<'_>) -> Result<Tpl> {
         let bytes = builder.write_to_vec().map_err(Error::BuildEmailError)?;
-        self.interpret_bytes(&bytes)
+        self.interpret_bytes(&bytes).await
     }
 }
 
@@ -239,11 +240,12 @@ mod tests {
             .text_body("Hello, world!")
     }
 
-    #[test]
-    fn all_headers() {
+    #[tokio::test]
+    async fn all_headers() {
         let tpl = Interpreter::new()
             .show_all_headers()
             .interpret_msg_builder(msg())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -263,11 +265,12 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn only_headers() {
+    #[tokio::test]
+    async fn only_headers() {
         let tpl = Interpreter::new()
             .show_only_headers(["From", "Subject"])
             .interpret_msg_builder(msg())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -281,11 +284,12 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn only_headers_duplicated() {
+    #[tokio::test]
+    async fn only_headers_duplicated() {
         let tpl = Interpreter::new()
             .show_only_headers(["From", "Subject", "From"])
             .interpret_msg_builder(msg())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -299,11 +303,12 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn no_headers() {
+    #[tokio::test]
+    async fn no_headers() {
         let tpl = Interpreter::new()
             .hide_all_headers()
             .interpret_msg_builder(msg())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!("Hello, world!", "");

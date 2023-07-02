@@ -128,7 +128,7 @@ impl Tpl {
         self
     }
 
-    pub fn compile<'a>(self) -> Result<MessageBuilder<'a>> {
+    pub async fn compile<'a>(self) -> Result<MessageBuilder<'a>> {
         let tpl = Message::parse(self.as_bytes()).ok_or(Error::ParseMessageError)?;
 
         let mml = tpl
@@ -146,6 +146,7 @@ impl Tpl {
         let mut builder = self
             .mml_compiler
             .compile(&mml)
+            .await
             .map_err(Error::CompileMmlError)?;
 
         builder = builder.header("MIME-Version", Raw::new("1.0"));

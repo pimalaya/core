@@ -1,3 +1,4 @@
+use async_recursion::async_recursion;
 use log::warn;
 use mail_builder::MessageBuilder;
 use mail_parser::{Message, MessagePart, MimeHeaders, PartType};
@@ -299,7 +300,12 @@ impl Interpreter {
         tpl
     }
 
-    fn interpret_part(&self, msg: &Message, part: &MessagePart) -> Result<String> {
+    #[async_recursion]
+    async fn interpret_part<'a>(
+        &self,
+        msg: &Message<'a>,
+        part: &MessagePart<'a>,
+    ) -> Result<String> {
         let mut tpl = String::new();
         let ctype = get_ctype(part);
 
@@ -320,52 +326,72 @@ impl Interpreter {
                 tpl.push_str(&self.interpret_inline_attachment(&ctype, part, data)?);
             }
             PartType::Message(msg) => {
-                tpl.push_str(&self.interpret_msg(msg)?);
+                tpl.push_str(&self.interpret_msg(msg).await?);
             }
             PartType::Multipart(ids) if ctype == "multipart/alternative" => {
                 let mut parts = ids.into_iter().filter_map(|id| msg.part(*id));
 
                 let part = match &self.filter_parts {
-                    FilterParts::All => parts
-                        .clone()
-                        .find_map(|part| match &part.body {
-                            PartType::Text(plain) if is_plain(part) && !plain.trim().is_empty() => {
-                                Some(Ok(self.interpret_text_plain(plain)))
-                            }
-                            _ => None,
-                        })
-                        .or_else(|| {
-                            parts.clone().find_map(|part| match &part.body {
-                                PartType::Html(html) if !html.trim().is_empty() => {
-                                    Some(Ok(self.interpret_text_html(html)))
+                    FilterParts::All => {
+                        let part = parts
+                            .clone()
+                            .find_map(|part| match &part.body {
+                                PartType::Text(plain)
+                                    if is_plain(part) && !plain.trim().is_empty() =>
+                                {
+                                    Some(Ok(self.interpret_text_plain(plain)))
                                 }
                                 _ => None,
                             })
-                        })
-                        .or_else(|| {
-                            parts.clone().find_map(|part| {
-                                let ctype = get_ctype(part);
-                                match &part.body {
-                                    PartType::Text(text) if !text.trim().is_empty() => {
-                                        Some(Ok(self.interpret_text(&ctype, text)))
+                            .or_else(|| {
+                                parts.clone().find_map(|part| match &part.body {
+                                    PartType::Html(html) if !html.trim().is_empty() => {
+                                        Some(Ok(self.interpret_text_html(html)))
                                     }
                                     _ => None,
-                                }
+                                })
                             })
-                        })
-                        .or_else(|| parts.next().map(|part| self.interpret_part(msg, part))),
-                    FilterParts::Only(ctype) => parts
-                        .clone()
-                        .find(|part| &get_ctype(part) == ctype)
-                        .map(|part| self.interpret_part(msg, part)),
-                    FilterParts::Include(ctypes) => parts
-                        .clone()
-                        .find(|part| ctypes.contains(&get_ctype(part)))
-                        .map(|part| self.interpret_part(msg, part)),
-                    FilterParts::Exclude(ctypes) => parts
-                        .clone()
-                        .find(|part| !ctypes.contains(&get_ctype(part)))
-                        .map(|part| self.interpret_part(msg, part)),
+                            .or_else(|| {
+                                parts.clone().find_map(|part| {
+                                    let ctype = get_ctype(part);
+                                    match &part.body {
+                                        PartType::Text(text) if !text.trim().is_empty() => {
+                                            Some(Ok(self.interpret_text(&ctype, text)))
+                                        }
+                                        _ => None,
+                                    }
+                                })
+                            });
+
+                        match part {
+                            Some(part) => Some(part),
+                            None => match parts.next() {
+                                Some(part) => Some(self.interpret_part(msg, part).await),
+                                None => None,
+                            },
+                        }
+                    }
+                    FilterParts::Only(ctype) => {
+                        match parts.clone().find(|part| &get_ctype(part) == ctype) {
+                            Some(part) => Some(self.interpret_part(msg, part).await),
+                            None => None,
+                        }
+                    }
+                    FilterParts::Include(ctypes) => {
+                        match parts.clone().find(|part| ctypes.contains(&get_ctype(part))) {
+                            Some(part) => Some(self.interpret_part(msg, part).await),
+                            None => None,
+                        }
+                    }
+                    FilterParts::Exclude(ctypes) => {
+                        match parts
+                            .clone()
+                            .find(|part| !ctypes.contains(&get_ctype(part)))
+                        {
+                            Some(part) => Some(self.interpret_part(msg, part).await),
+                            None => None,
+                        }
+                    }
                 };
 
                 if let Some(part) = part {
@@ -377,18 +403,19 @@ impl Interpreter {
                 let decrypted_part = self
                     .pgp_decrypt_cmd
                     .run_with(encrypted_part.contents())
-                    .map_err(Error::DecryptPartError)?
-                    .stdout;
+                    .await
+                    .map_err(Error::DecryptPartError)?;
                 let msg = Message::parse(&decrypted_part).unwrap();
-                tpl.push_str(&self.interpret_msg(&msg)?);
+                tpl.push_str(&self.interpret_msg(&msg).await?);
             }
             PartType::Multipart(ids) if ctype == "multipart/signed" => {
                 let signed_part = msg.part(ids[0]).unwrap();
                 let signature_part = msg.part(ids[1]).unwrap();
                 self.pgp_verify_cmd
                     .run_with(signature_part.contents())
+                    .await
                     .map_err(Error::VerifyPartError)?;
-                tpl.push_str(&self.interpret_part(&msg, signed_part)?);
+                tpl.push_str(&self.interpret_part(&msg, signed_part).await?);
             }
             PartType::Multipart(_) if ctype == "application/pgp-encrypted" => {
                 // TODO: check if content matches "Version: 1"
@@ -407,7 +434,7 @@ impl Interpreter {
 
                 for id in ids {
                     if let Some(part) = msg.part(*id) {
-                        tpl.push_str(&self.interpret_part(msg, part)?);
+                        tpl.push_str(&self.interpret_part(msg, part).await?);
                     } else {
                         warn!("cannot find part {id}, skipping it");
                     }
@@ -423,21 +450,21 @@ impl Interpreter {
     }
 
     /// Interprets the given [`mail_parser::Message`] as a MML string.
-    pub fn interpret_msg(&self, msg: &Message) -> Result<String> {
-        self.interpret_part(msg, msg.root_part())
+    pub async fn interpret_msg<'a>(&self, msg: &Message<'a>) -> Result<String> {
+        self.interpret_part(msg, msg.root_part()).await
     }
 
     /// Interprets the given bytes as a MML string.
-    pub fn interpret_bytes<B: AsRef<[u8]>>(&self, bytes: B) -> Result<String> {
+    pub async fn interpret_bytes<'a>(&self, bytes: impl AsRef<[u8]> + 'a) -> Result<String> {
         let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseRawEmailError)?;
-        self.interpret_msg(&msg)
+        self.interpret_msg(&msg).await
     }
 
     /// Interprets the given [`mail_builder::MessageBuilder`] as a MML
     /// string.
-    pub fn interpret_msg_builder(&self, builder: MessageBuilder) -> Result<String> {
+    pub async fn interpret_msg_builder<'a>(&self, builder: MessageBuilder<'a>) -> Result<String> {
         let bytes = builder.write_to_vec().map_err(Error::WriteMessageError)?;
-        self.interpret_bytes(&bytes)
+        self.interpret_bytes(&bytes).await
     }
 }
 
@@ -462,8 +489,8 @@ mod tests {
 
     use super::{FilterParts, Interpreter};
 
-    #[test]
-    fn nested_multiparts() {
+    #[tokio::test]
+    async fn nested_multiparts() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
@@ -480,6 +507,7 @@ mod tests {
 
         let tpl = Interpreter::new()
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -495,8 +523,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn nested_multiparts_with_markup() {
+    #[tokio::test]
+    async fn nested_multiparts_with_markup() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
@@ -514,6 +542,7 @@ mod tests {
         let tpl = Interpreter::new()
             .show_multiparts(true)
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -537,8 +566,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn all_text() {
+    #[tokio::test]
+    async fn all_text() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
@@ -550,6 +579,7 @@ mod tests {
 
         let tpl = Interpreter::new()
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -569,8 +599,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn only_text_plain() {
+    #[tokio::test]
+    async fn only_text_plain() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
@@ -586,6 +616,7 @@ mod tests {
         let tpl = Interpreter::new()
             .filter_parts(FilterParts::Only("text/plain".into()))
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!("This is a plain text part.", "", "");
@@ -593,8 +624,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn only_text_html() {
+    #[tokio::test]
+    async fn only_text_html() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
@@ -610,6 +641,7 @@ mod tests {
         let tpl = Interpreter::new()
             .filter_parts(FilterParts::Only("text/html".into()))
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!("<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>", "", "");
@@ -617,8 +649,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn only_text_other() {
+    #[tokio::test]
+    async fn only_text_other() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
@@ -634,6 +666,7 @@ mod tests {
         let tpl = Interpreter::new()
             .filter_parts(FilterParts::Only("text/json".into()))
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!("{\"type\": \"This is a JSON text part.\"}", "", "");
@@ -641,8 +674,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn multipart_alternative_text_all_without_plain() {
+    #[tokio::test]
+    async fn multipart_alternative_text_all_without_plain() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/alternative",
             vec![
@@ -653,6 +686,7 @@ mod tests {
 
         let tpl = Interpreter::new()
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -666,8 +700,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn multipart_alternative_text_all_with_empty_plain() {
+    #[tokio::test]
+    async fn multipart_alternative_text_all_with_empty_plain() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/alternative",
             vec![
@@ -679,6 +713,7 @@ mod tests {
 
         let tpl = Interpreter::new()
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -692,8 +727,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn multipart_alternative_text_all_without_plain_nor_html() {
+    #[tokio::test]
+    async fn multipart_alternative_text_all_without_plain_nor_html() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/alternative",
             vec![MimePart::new(
@@ -704,6 +739,7 @@ mod tests {
 
         let tpl = Interpreter::new()
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -717,8 +753,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn multipart_alternative_text_all() {
+    #[tokio::test]
+    async fn multipart_alternative_text_all() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/alternative",
             vec![
@@ -733,6 +769,7 @@ mod tests {
 
         let tpl = Interpreter::new()
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!("This is a plain text part.", "", "");
@@ -740,8 +777,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn multipart_alternative_text_html_only() {
+    #[tokio::test]
+    async fn multipart_alternative_text_html_only() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/alternative",
             vec![
@@ -757,6 +794,7 @@ mod tests {
         let tpl = Interpreter::new()
             .filter_parts(FilterParts::Only("text/html".into()))
             .interpret_msg_builder(builder.clone())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!("<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>", "", "");
@@ -764,8 +802,8 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
     }
 
-    #[test]
-    fn attachment() {
+    #[tokio::test]
+    async fn attachment() {
         let builder = MessageBuilder::new().attachment(
             "application/octet-stream",
             "attachment.txt",
@@ -775,6 +813,7 @@ mod tests {
         let tpl = Interpreter::new()
             .save_attachments_dir("~/Downloads")
             .interpret_msg_builder(builder)
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(

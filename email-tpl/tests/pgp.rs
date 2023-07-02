@@ -5,8 +5,8 @@ fn gpg(args: &str) -> String {
     String::from("gpg --no-default-keyring --keyring ../.keyring.gpg ") + args
 }
 
-#[test]
-fn pgp() {
+#[tokio::test]
+async fn pgp() {
     let tpl = Tpl::from(concat_line!(
         "From: alice@localhost",
         "To: bob@localhost",
@@ -21,6 +21,7 @@ fn pgp() {
         .pgp_encrypt_recipient("bob@localhost")
         .pgp_sign_cmd(gpg("-saqu alice -o -"))
         .compile()
+        .await
         .unwrap();
 
     let tpl = TplInterpreter::new()
@@ -28,6 +29,7 @@ fn pgp() {
         .pgp_decrypt_cmd(gpg("-dq"))
         .pgp_verify_cmd(gpg("--verify -q"))
         .interpret_msg_builder(builder)
+        .await
         .unwrap();
 
     let expected_tpl = Tpl::from(concat_line!(

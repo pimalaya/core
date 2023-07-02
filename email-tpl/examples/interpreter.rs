@@ -1,7 +1,8 @@
 use mail_builder::MessageBuilder;
 use pimalaya_email_tpl::TplInterpreter;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let email_builder = MessageBuilder::new()
         .message_id("id@localhost")
         .date(0 as u64)
@@ -15,6 +16,7 @@ fn main() {
     let tpl = TplInterpreter::new()
         .show_only_headers(["From", "Subject"])
         .interpret_bytes(raw_email.as_bytes())
+        .await
         .unwrap();
 
     println!();
