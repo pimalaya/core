@@ -1,12 +1,21 @@
+//! Rust library to manage secrets for the Pimalaya project.
+//!
+//! The core concept of this library is to abstract the concept of
+//! secret. A secret can be retrieved either from a raw string, from a
+//! command or from a keyring. The associated structure is
+//! [`Secret`]. The usage of this library should be restricted to the
+//! pimalaya project, since the keyring scope is hard coded.
+
 use log::{debug, trace, warn};
 use pimalaya_keyring::Entry;
 use pimalaya_process::Cmd;
 use std::result;
 use thiserror::Error;
 
+/// The global `Error` enum of the library.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot get secret: secret not defined")]
+    #[error("cannot get secret: secret is not defined")]
     GetSecretFromUndefinedError,
     #[error("cannot get secret from command")]
     GetSecretFromCmd(#[source] pimalaya_process::Error),
@@ -15,8 +24,13 @@ pub enum Error {
     KeyringError(#[from] pimalaya_keyring::Error),
 }
 
+/// The global `Result` alias of the library.
 pub type Result<T> = result::Result<T, Error>;
 
+/// The secret enum.
+///
+/// A secret can be retrieved either from a raw string, from a command
+/// or from a keyring.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum Secret {
     /// The secret is contained in a raw string, usually not safe to
@@ -59,14 +73,15 @@ impl Secret {
     }
 
     /// Get the secret value of the [`Secret`].
-    pub fn get(&self) -> Result<String> {
+    pub async fn get(&self) -> Result<String> {
         debug!("getting secret");
         match self {
             Self::Raw(raw) => Ok(raw.clone()),
-            Self::Cmd(cmd) => {
-                let output = cmd.run().map_err(Error::GetSecretFromCmd)?;
-                Ok(String::from_utf8_lossy(&output.stdout).to_string())
-            }
+            Self::Cmd(cmd) => Ok(cmd
+                .run()
+                .await
+                .map_err(Error::GetSecretFromCmd)?
+                .to_string_lossy()),
             Self::KeyringEntry(entry) => Ok(entry.get_secret()?),
             Self::Undefined => Err(Error::GetSecretFromUndefinedError),
         }
@@ -74,14 +89,16 @@ impl Secret {
 
     /// Find the secret value of the [`Secret`]. Return None if not
     /// found (mostly for the keyring entry variant).
-    pub fn find(&self) -> Result<Option<String>> {
+    pub async fn find(&self) -> Result<Option<String>> {
         debug!("finding secret");
         match self {
             Self::Raw(raw) => Ok(Some(raw.clone())),
-            Self::Cmd(cmd) => {
-                let output = cmd.run().map_err(Error::GetSecretFromCmd)?;
-                Ok(Some(String::from_utf8_lossy(&output.stdout).to_string()))
-            }
+            Self::Cmd(cmd) => Ok(Some(
+                cmd.run()
+                    .await
+                    .map_err(Error::GetSecretFromCmd)?
+                    .to_string_lossy(),
+            )),
             Self::KeyringEntry(entry) => Ok(entry.find_secret()?),
             Self::Undefined => Err(Error::GetSecretFromUndefinedError),
         }
