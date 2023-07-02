@@ -393,13 +393,7 @@ impl ToString for Pipeline {
 pub struct CmdOutput(Vec<u8>);
 
 impl CmdOutput {
-    /// Takes the ownership of the command output and tries to read it
-    /// as string.
-    pub fn try_into_string(self) -> Result<String> {
-        String::from_utf8(self.0).map_err(Error::ParseOutputAsUtf8StringError)
-    }
-
-    /// Reads the command output as lossy string.
+    /// Reads the command output as string lossy.
     pub fn to_string_lossy(&self) -> String {
         String::from_utf8_lossy(self).to_string()
     }
@@ -422,5 +416,19 @@ impl DerefMut for CmdOutput {
 impl From<Vec<u8>> for CmdOutput {
     fn from(output: Vec<u8>) -> Self {
         Self(output)
+    }
+}
+
+impl Into<Vec<u8>> for CmdOutput {
+    fn into(self) -> Vec<u8> {
+        self.0
+    }
+}
+
+impl TryInto<String> for CmdOutput {
+    type Error = Error;
+
+    fn try_into(self) -> result::Result<String, Self::Error> {
+        String::from_utf8(self.0).map_err(Error::ParseOutputAsUtf8StringError)
     }
 }

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Added
+
+- Implemented `Into<Vec<u8>>` for `CmdOutput`.
+
+## Changed
+
+- Moved `CmdOuput::try_into_string` to `TryFrom<String>`.
+
 ## [0.0.4] - 2023-07-02
 
 ### Changed
