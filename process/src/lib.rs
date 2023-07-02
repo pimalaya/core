@@ -11,11 +11,10 @@
 //! linux).
 //!
 //! 3. Commands can be executed in a pipeline, which means the output
-//! of the previous command is send to the input of the next one.
+//! of the previous command is send as input of the next one.
 
-use log::{debug, error, warn};
+use log::{debug, error};
 use std::{
-    borrow::Cow,
     env, io,
     ops::{Deref, DerefMut},
     process::Stdio,
@@ -39,6 +38,8 @@ pub enum Error {
     WaitForExitStatusCodeError(#[source] io::Error, String),
     #[error("cannot get exit status code of command: {0}")]
     GetExitStatusCodeNotAvailableError(String),
+    #[error("command {0} returned non-zero exit status code {1}: {2}")]
+    InvalidExitStatusCodeNonZeroError(String, i32, String),
     #[error("cannot write data to standard input")]
     WriteStdinError(#[source] io::Error),
     #[error("cannot get standard output")]
@@ -52,9 +53,7 @@ pub enum Error {
     #[error("cannot get command output")]
     GetOutputError(#[source] io::Error),
     #[error("cannot parse command output as string")]
-    ParseCmdOutputStdoutError(#[source] FromUtf8Error),
-    #[error("cannot parse command error output as string")]
-    ParseCmdOutputStderrError(#[source] FromUtf8Error),
+    ParseOutputAsUtf8StringError(#[source] FromUtf8Error),
 }
 
 /// The global `Result` alias of the library.
@@ -76,7 +75,7 @@ impl Cmd {
     /// Wrapper around `alloc::str::replace`.
     ///
     /// This function is particularly useful when you need to replace
-    /// a placeholder on all inner commands.
+    /// placeholders on all inner commands.
     pub fn replace(mut self, from: impl AsRef<str>, to: impl AsRef<str>) -> Self {
         match &mut self {
             Self::SingleCmd(SingleCmd(cmd)) => *cmd = cmd.replace(from.as_ref(), to.as_ref()),
@@ -91,13 +90,15 @@ impl Cmd {
 
     /// Runs the command with the given input.
     pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CmdOutput> {
+        debug!("running command: {}", self.to_string());
+
         match self {
             Self::SingleCmd(cmd) => cmd.run(input).await,
             Self::Pipeline(cmds) => cmds.run(input).await,
         }
     }
 
-    /// Runs the command without input.
+    /// Runs the command without initial input.
     pub async fn run(&self) -> Result<CmdOutput> {
         self.run_with([]).await
     }
@@ -115,6 +116,12 @@ impl From<String> for Cmd {
     }
 }
 
+impl From<&String> for Cmd {
+    fn from(cmd: &String) -> Self {
+        Self::SingleCmd(cmd.into())
+    }
+}
+
 impl From<&str> for Cmd {
     fn from(cmd: &str) -> Self {
         Self::SingleCmd(cmd.into())
@@ -122,26 +129,38 @@ impl From<&str> for Cmd {
 }
 
 impl From<Vec<String>> for Cmd {
-    fn from(cmds: Vec<String>) -> Self {
-        Self::Pipeline(cmds.into())
+    fn from(cmd: Vec<String>) -> Self {
+        Self::Pipeline(cmd.into())
+    }
+}
+
+impl From<Vec<&String>> for Cmd {
+    fn from(cmd: Vec<&String>) -> Self {
+        Self::Pipeline(cmd.into())
     }
 }
 
 impl From<Vec<&str>> for Cmd {
-    fn from(cmds: Vec<&str>) -> Self {
-        Self::Pipeline(cmds.into())
+    fn from(cmd: Vec<&str>) -> Self {
+        Self::Pipeline(cmd.into())
     }
 }
 
 impl From<&[String]> for Cmd {
-    fn from(cmds: &[String]) -> Self {
-        Self::Pipeline(cmds.to_vec().into())
+    fn from(cmd: &[String]) -> Self {
+        Self::Pipeline(cmd.into())
+    }
+}
+
+impl From<&[&String]> for Cmd {
+    fn from(cmd: &[&String]) -> Self {
+        Self::Pipeline(cmd.into())
     }
 }
 
 impl From<&[&str]> for Cmd {
-    fn from(cmds: &[&str]) -> Self {
-        Self::Pipeline(cmds.to_vec().into())
+    fn from(cmd: &[&str]) -> Self {
+        Self::Pipeline(cmd.into())
     }
 }
 
@@ -156,20 +175,18 @@ impl ToString for Cmd {
 
 /// The single command structure.
 ///
-/// Represents commands that are only composed of one single
-/// command. No pipe is involved.
+/// Represents commands that are only composed of one single command.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SingleCmd(String);
 
 impl SingleCmd {
-    /// Runs the single command.
+    /// Runs the single command with the given input.
     ///
-    /// If the given input is empty, the command waits straight for
-    /// the output. Otherwise the commands pipes this input to the
-    /// standard input channel then waits for the output.
+    /// If the given input is empty, the command gets straight the
+    /// output. Otherwise the commands pipes this input to the
+    /// standard input channel then waits for the output on the
+    /// standard output channel.
     async fn run(&self, input: impl AsRef<[u8]>) -> Result<CmdOutput> {
-        debug!("running command: {}", self.to_string());
-
         let windows = cfg!(target_os = "windows")
             && !(env::var("MSYSTEM")
                 .map(|env| env.starts_with("MINGW"))
@@ -185,14 +202,16 @@ impl SingleCmd {
                 .status
                 .code()
                 .ok_or_else(|| Error::GetExitStatusCodeNotAvailableError(self.to_string()))?;
-            Ok(CmdOutput {
-                out: output.stdout,
-                err: output.stderr,
-                code,
-            })
+
+            if code != 0 {
+                let cmd = self.to_string();
+                let err = String::from_utf8_lossy(&output.stderr).to_string();
+                return Err(Error::InvalidExitStatusCodeNonZeroError(cmd, code, err));
+            }
+
+            Ok(output.stdout.into())
         } else {
-            let mut out = Vec::new();
-            let mut err = Vec::new();
+            let mut output = Vec::new();
 
             let mut pipeline = cmd
                 .stdin(Stdio::piped())
@@ -216,23 +235,30 @@ impl SingleCmd {
                 .code()
                 .ok_or_else(|| Error::GetExitStatusCodeNotAvailableError(self.to_string()))?;
 
+            if code != 0 {
+                let cmd = self.to_string();
+                let mut err = Vec::new();
+                pipeline
+                    .stderr
+                    .as_mut()
+                    .ok_or(Error::GetStderrError)?
+                    .read_to_end(&mut err)
+                    .await
+                    .map_err(Error::ReadStderrError)?;
+                let err = String::from_utf8_lossy(&err).to_string();
+
+                return Err(Error::InvalidExitStatusCodeNonZeroError(cmd, code, err));
+            }
+
             pipeline
                 .stdout
                 .as_mut()
                 .ok_or(Error::GetStdoutError)?
-                .read_to_end(&mut out)
+                .read_to_end(&mut output)
                 .await
                 .map_err(Error::ReadStdoutError)?;
 
-            pipeline
-                .stderr
-                .as_mut()
-                .ok_or(Error::GetStderrError)?
-                .read_to_end(&mut err)
-                .await
-                .map_err(Error::ReadStderrError)?;
-
-            Ok(CmdOutput { out, err, code })
+            Ok(output.into())
         }
     }
 }
@@ -254,6 +280,12 @@ impl DerefMut for SingleCmd {
 impl From<String> for SingleCmd {
     fn from(cmd: String) -> Self {
         Self(cmd)
+    }
+}
+
+impl From<&String> for SingleCmd {
+    fn from(cmd: &String) -> Self {
+        Self(cmd.clone())
     }
 }
 
@@ -279,25 +311,15 @@ impl ToString for SingleCmd {
 pub struct Pipeline(Vec<SingleCmd>);
 
 impl Pipeline {
-    /// Runs the command pipeline.
+    /// Runs the command pipeline with the given input.
     async fn run(&self, input: impl AsRef<[u8]>) -> Result<CmdOutput> {
-        let mut output = CmdOutput {
-            out: input.as_ref().to_owned(),
-            err: Vec::new(),
-            code: 0,
-        };
+        let mut output = input.as_ref().to_owned();
 
         for cmd in &self.0 {
-            output = cmd.run(&output.out).await?;
-            let code = output.code;
-            if code != 0 {
-                let err = output.read_out_lossy();
-                warn!("command returned non-zero status exit code {code}: {err}");
-                break;
-            }
+            output = cmd.run(&output).await?.0;
         }
 
-        Ok(output)
+        Ok(output.into())
     }
 }
 
@@ -321,9 +343,33 @@ impl From<Vec<String>> for Pipeline {
     }
 }
 
+impl From<Vec<&String>> for Pipeline {
+    fn from(cmd: Vec<&String>) -> Self {
+        Self(cmd.into_iter().map(Into::into).collect())
+    }
+}
+
 impl From<Vec<&str>> for Pipeline {
     fn from(cmd: Vec<&str>) -> Self {
         Self(cmd.into_iter().map(Into::into).collect())
+    }
+}
+
+impl From<&[String]> for Pipeline {
+    fn from(cmd: &[String]) -> Self {
+        Self(cmd.iter().map(Into::into).collect())
+    }
+}
+
+impl From<&[&String]> for Pipeline {
+    fn from(cmd: &[&String]) -> Self {
+        Self(cmd.iter().map(|cmd| (*cmd).into()).collect())
+    }
+}
+
+impl From<&[&str]> for Pipeline {
+    fn from(cmd: &[&str]) -> Self {
+        Self(cmd.iter().map(|cmd| (*cmd).into()).collect())
     }
 }
 
@@ -339,35 +385,42 @@ impl ToString for Pipeline {
     }
 }
 
-/// The command output structure.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CmdOutput {
-    /// The error code returned by the command.
-    pub code: i32,
-
-    /// The command output from the standard output channel.
-    pub out: Vec<u8>,
-
-    /// The command error output from the standard error channel.
-    pub err: Vec<u8>,
-}
+/// Wrapper around command output.
+///
+/// The only role of this struct is to provide convenient functions to
+/// export command output as string.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CmdOutput(Vec<u8>);
 
 impl CmdOutput {
-    /// Reads the output as string.
-    ///
-    /// If the exit code is 0, reads the command output, otherwise
-    /// reads the command error output.
-    pub fn read_out(&self) -> Result<String> {
-        if self.code == 0 {
-            String::from_utf8(self.out.clone()).map_err(Error::ParseCmdOutputStdoutError)
-        } else {
-            String::from_utf8(self.err.clone()).map_err(Error::ParseCmdOutputStderrError)
-        }
+    /// Takes the ownership of the command output and tries to read it
+    /// as string.
+    pub fn try_into_string(self) -> Result<String> {
+        String::from_utf8(self.0).map_err(Error::ParseOutputAsUtf8StringError)
     }
 
-    /// Same as `read_out` but lossy.
-    pub fn read_out_lossy(&self) -> Cow<str> {
-        let out = if self.code == 0 { &self.out } else { &self.err };
-        String::from_utf8_lossy(out)
+    /// Reads the command output as lossy string.
+    pub fn to_string_lossy(&self) -> String {
+        String::from_utf8_lossy(self).to_string()
+    }
+}
+
+impl Deref for CmdOutput {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for CmdOutput {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<Vec<u8>> for CmdOutput {
+    fn from(output: Vec<u8>) -> Self {
+        Self(output)
     }
 }

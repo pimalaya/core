@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Changed the way exit code is handled: it now returns an error `InvalidExitStatusCodeNonZeroError` when the exit code is different than `0`, and the exit code is not accessible anymore from `CmdOutput`.
+- Changed `CmdOutput` shape, it is now a simple unit struct holding the output as `Vec<u8>`.
+- Renamed `CmdOutput::read_out()` by `try_into_string`.
+- Renamed `CmdOutput::read_out_lossy()` by `to_string_lossy`.
+
 ## [0.0.3] - 2023-07-01
 
 ### Added
