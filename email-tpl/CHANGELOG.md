@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2023-07-03
+
+### Changed
+
+- Made the code async due to `pimalaya_process@0.0.5`.
+
 ## [0.2.3] - 2023-06-15
 
 ### Fixed
