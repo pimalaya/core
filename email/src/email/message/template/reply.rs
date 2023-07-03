@@ -126,7 +126,7 @@ impl<'a> ReplyTplBuilder<'a> {
     }
 
     /// Builds the final reply message template.
-    pub fn build(self) -> Result<Tpl> {
+    pub async fn build(self) -> Result<Tpl> {
         let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
 
@@ -273,6 +273,7 @@ impl<'a> ReplyTplBuilder<'a> {
             let body = self
                 .thread_interpreter
                 .interpret_msg(&parsed)
+                .await
                 .map_err(Error::InterpretMessageAsThreadTemplateError)?;
 
             for line in body.trim().lines() {
@@ -295,6 +296,7 @@ impl<'a> ReplyTplBuilder<'a> {
         let tpl = self
             .interpreter
             .interpret_msg_builder(builder)
+            .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
         Ok(tpl)

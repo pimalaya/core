@@ -91,7 +91,7 @@ impl<'a> NewTplBuilder<'a> {
     }
 
     /// Builds the final new message template.
-    pub fn build(self) -> Result<Tpl> {
+    pub async fn build(self) -> Result<Tpl> {
         let mut builder = MessageBuilder::new()
             .from(self.config.from())
             .to(Vec::<Address>::new())
@@ -119,6 +119,7 @@ impl<'a> NewTplBuilder<'a> {
         let tpl = self
             .interpreter
             .interpret_msg_builder(builder)
+            .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
         Ok(tpl)

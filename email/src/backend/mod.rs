@@ -14,6 +14,7 @@ pub mod maildir;
 #[cfg(feature = "notmuch-backend")]
 pub mod notmuch;
 
+use async_trait::async_trait;
 use log::error;
 use std::any::Any;
 use thiserror::Error;
@@ -47,47 +48,53 @@ pub enum Error {
 ///
 /// The backend trait abstracts every action needed to manipulate
 /// emails.
-pub trait Backend {
+#[async_trait]
+pub trait Backend: Send {
     /// Returns the name of the backend.
     fn name(&self) -> String;
 
     /// Creates the given folder.
-    fn add_folder(&mut self, folder: &str) -> Result<()>;
+    async fn add_folder(&mut self, folder: &str) -> Result<()>;
 
     /// Lists all available folders.
-    fn list_folders(&mut self) -> Result<Folders>;
+    async fn list_folders(&mut self) -> Result<Folders>;
 
     /// Expunges the given folder.
     ///
     /// The concept is similar to the IMAP expunge: it definitely
     /// deletes emails that have the Deleted flag.
-    fn expunge_folder(&mut self, folder: &str) -> Result<()>;
+    async fn expunge_folder(&mut self, folder: &str) -> Result<()>;
 
     /// Purges the given folder.
     ///
     /// Manipulate with caution: all emails contained in the given
     /// folder are definitely deleted.
-    fn purge_folder(&mut self, folder: &str) -> Result<()>;
+    async fn purge_folder(&mut self, folder: &str) -> Result<()>;
 
     /// Definitely deletes the given folder.
     ///
     /// Manipulate with caution: all emails contained in the given
     /// folder are also definitely deleted.
-    fn delete_folder(&mut self, folder: &str) -> Result<()>;
+    async fn delete_folder(&mut self, folder: &str) -> Result<()>;
 
     /// Gets the envelope from the given folder matching the given id.
-    fn get_envelope(&mut self, folder: &str, id: &str) -> Result<Envelope>;
+    async fn get_envelope(&mut self, folder: &str, id: &str) -> Result<Envelope>;
 
     /// Lists all available envelopes from the given folder matching
     /// the given pagination.
-    fn list_envelopes(&mut self, folder: &str, page_size: usize, page: usize) -> Result<Envelopes>;
+    async fn list_envelopes(
+        &mut self,
+        folder: &str,
+        page_size: usize,
+        page: usize,
+    ) -> Result<Envelopes>;
 
     /// Sorts and filters envelopes from the given folder matching the
     /// given query, sort and pagination.
     // TODO: we should avoid using strings for query and sort, instead
     // it would be better to have a shared API.
     // See https://todo.sr.ht/~soywod/pimalaya/39.
-    fn search_envelopes(
+    async fn search_envelopes(
         &mut self,
         folder: &str,
         query: &str,
@@ -98,24 +105,34 @@ pub trait Backend {
 
     /// Adds the given raw email with the given flags to the given
     /// folder.
-    fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String>;
+    async fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String>;
 
     /// Previews emails from the given folder matching the given ids.
     ///
     /// Same as `get_emails`, except that it just "previews": the Seen
     /// flag is not applied to the corresponding envelopes.
-    fn preview_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<Messages>;
+    async fn preview_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<Messages>;
 
     /// Gets emails from the given folder matching the given ids.
-    fn get_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<Messages>;
+    async fn get_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<Messages>;
 
     /// Copies emails from the given folder to the given folder
     /// matching the given ids.
-    fn copy_emails(&mut self, from_folder: &str, to_folder: &str, ids: Vec<&str>) -> Result<()>;
+    async fn copy_emails(
+        &mut self,
+        from_folder: &str,
+        to_folder: &str,
+        ids: Vec<&str>,
+    ) -> Result<()>;
 
     /// Moves emails from the given folder to the given folder
     /// matching the given ids.
-    fn move_emails(&mut self, from_folder: &str, to_folder: &str, ids: Vec<&str>) -> Result<()>;
+    async fn move_emails(
+        &mut self,
+        from_folder: &str,
+        to_folder: &str,
+        ids: Vec<&str>,
+    ) -> Result<()>;
 
     /// Deletes emails from the given folder matching the given ids.
     ///
@@ -123,21 +140,22 @@ pub trait Backend {
     /// the trash folder. If the given folder IS the trash folder,
     /// then it adds the Deleted flag instead. Matching emails will be
     /// definitely deleted after calling `expunge_folder`.
-    fn delete_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<()>;
+    async fn delete_emails(&mut self, folder: &str, ids: Vec<&str>) -> Result<()>;
 
     /// Adds the given flags to envelopes matching the given ids from
     /// the given folder.
-    fn add_flags(&mut self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
+    async fn add_flags(&mut self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
     /// Replaces envelopes flags matching the given ids from the given
     /// folder.
-    fn set_flags(&mut self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
+    async fn set_flags(&mut self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
     /// Removes the given flags to envelopes matching the given ids
     /// from the given folder.
-    fn remove_flags(&mut self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
+    async fn remove_flags(&mut self, folder: &str, ids: Vec<&str>, flags: &Flags) -> Result<()>;
 
     /// Alias for adding the Deleted flag to the matching envelopes.
-    fn mark_emails_as_deleted(&mut self, folder: &str, ids: Vec<&str>) -> Result<()> {
+    async fn mark_emails_as_deleted(&mut self, folder: &str, ids: Vec<&str>) -> Result<()> {
         self.add_flags(folder, ids, &Flags::from_iter([Flag::Deleted]))
+            .await
     }
 
     /// Cleans up sessions, clients, cache etc.
@@ -180,11 +198,11 @@ impl BackendBuilder {
     }
 
     /// Default credentials setter following the builder pattern.
-    pub fn with_default_credentials(mut self) -> Result<Self> {
+    pub async fn with_default_credentials(mut self) -> Result<Self> {
         self.default_credentials = match &self.account_config.backend {
             #[cfg(feature = "imap-backend")]
             BackendConfig::Imap(imap_config) if !self.account_config.sync || self.disable_cache => {
-                Some(imap_config.build_credentials()?)
+                Some(imap_config.build_credentials().await?)
             }
             _ => None,
         };
@@ -192,16 +210,19 @@ impl BackendBuilder {
     }
 
     /// Builds a [Backend] by cloning self options.
-    pub fn build(&self) -> Result<Box<dyn Backend>> {
+    pub async fn build(&self) -> Result<Box<dyn Backend>> {
         match &self.account_config.backend {
             BackendConfig::None => Ok(Err(Error::BuildUndefinedBackendError)?),
             #[cfg(feature = "imap-backend")]
             BackendConfig::Imap(imap_config) if !self.account_config.sync || self.disable_cache => {
-                Ok(Box::new(ImapBackend::new(
-                    self.account_config.clone(),
-                    imap_config.clone(),
-                    self.default_credentials.clone(),
-                )?))
+                Ok(Box::new(
+                    ImapBackend::new(
+                        self.account_config.clone(),
+                        imap_config.clone(),
+                        self.default_credentials.clone(),
+                    )
+                    .await?,
+                ))
             }
             #[cfg(feature = "imap-backend")]
             BackendConfig::Imap(_) => {
@@ -224,16 +245,15 @@ impl BackendBuilder {
     }
 
     /// Builds a [Backend] by moving self options.
-    pub fn into_build(self) -> Result<Box<dyn Backend>> {
+    pub async fn into_build(self) -> Result<Box<dyn Backend>> {
         match self.account_config.backend.clone() {
             BackendConfig::None => Ok(Err(Error::BuildUndefinedBackendError)?),
             #[cfg(feature = "imap-backend")]
             BackendConfig::Imap(imap_config) if !self.account_config.sync || self.disable_cache => {
-                Ok(Box::new(ImapBackend::new(
-                    self.account_config,
-                    imap_config,
-                    self.default_credentials,
-                )?))
+                Ok(Box::new(
+                    ImapBackend::new(self.account_config, imap_config, self.default_credentials)
+                        .await?,
+                ))
             }
             #[cfg(feature = "imap-backend")]
             BackendConfig::Imap(_) => {

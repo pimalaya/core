@@ -5,6 +5,7 @@
 
 pub mod config;
 
+use async_trait::async_trait;
 use imap::{
     extensions::{
         idle::{stop_on_any, SetReadTimeout},
@@ -293,28 +294,29 @@ impl ImapBackend {
     /// The IMAP session is created at this moment. If the session
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new session is created.
-    pub fn new(
+    pub async fn new(
         account_config: AccountConfig,
         imap_config: ImapConfig,
         default_credentials: Option<String>,
     ) -> Result<ImapBackend> {
         let session = match &imap_config.auth {
             ImapAuthConfig::Passwd(_) => {
-                Self::build_session(&imap_config, default_credentials.clone())
+                Self::build_session(&imap_config, default_credentials.clone()).await
             }
             ImapAuthConfig::OAuth2(oauth2_config) => {
-                Self::build_session(&imap_config, default_credentials.clone()).or_else(|err| {
-                    match err {
+                match Self::build_session(&imap_config, default_credentials.clone()).await {
+                    Ok(sess) => Ok(sess),
+                    Err(err) => match err {
                         crate::Error::ImapError(Error::AuthenticateError(imap::Error::Parse(
                             imap::error::ParseError::Authentication(_, _),
                         ))) => {
                             warn!("error while authenticating user, refreshing access token");
-                            oauth2_config.refresh_access_token()?;
-                            Self::build_session(&imap_config, None)
+                            oauth2_config.refresh_access_token().await?;
+                            Self::build_session(&imap_config, None).await
                         }
                         err => Err(err),
-                    }
-                })
+                    },
+                }
             }
         }?;
 
@@ -332,7 +334,10 @@ impl ImapBackend {
     /// every time a new session is created. The main use case is for
     /// the synchronization, where multiple sessions can be created in
     /// a row.
-    fn build_session(imap_config: &ImapConfig, credentials: Option<String>) -> Result<ImapSession> {
+    async fn build_session(
+        imap_config: &ImapConfig,
+        credentials: Option<String>,
+    ) -> Result<ImapSession> {
         let mut session = match &imap_config.auth {
             ImapAuthConfig::Passwd(passwd) => {
                 debug!("creating session using login and password");
@@ -340,6 +345,7 @@ impl ImapBackend {
                     Some(passwd) => passwd,
                     None => passwd
                         .get()
+                        .await
                         .map_err(Error::GetPasswdError)?
                         .lines()
                         .next()
@@ -353,7 +359,7 @@ impl ImapBackend {
             ImapAuthConfig::OAuth2(oauth2_config) => {
                 let access_token = match credentials {
                     Some(access_token) => access_token,
-                    None => oauth2_config.access_token()?,
+                    None => oauth2_config.access_token().await?,
                 };
                 match oauth2_config.method {
                     OAuth2Method::XOAuth2 => {
@@ -465,7 +471,7 @@ impl ImapBackend {
     ///
     /// Runs the given action. If an OAuth 2.0 authentication error
     /// occurs, refreshes the tokens then retries once again.
-    fn with_session<T>(
+    async fn with_session<T>(
         &mut self,
         action: impl Fn(&mut ImapSession) -> imap::Result<T>,
         map_err: impl Fn(imap::Error) -> Error,
@@ -474,29 +480,31 @@ impl ImapBackend {
             ImapAuthConfig::Passwd(_) => {
                 action(&mut self.session).or_else(|err| Ok(Err(map_err(err))?))
             }
-            ImapAuthConfig::OAuth2(oauth2_config) => {
-                action(&mut self.session).or_else(|err| match err {
+            ImapAuthConfig::OAuth2(oauth2_config) => match action(&mut self.session) {
+                Ok(res) => Ok(res),
+                Err(err) => match err {
                     imap::Error::Parse(imap::error::ParseError::Authentication(_, _)) => {
                         warn!("error while authenticating user, refreshing access token");
-                        oauth2_config.refresh_access_token()?;
-                        self.session = Self::build_session(&self.imap_config, None)?;
+                        oauth2_config.refresh_access_token().await?;
+                        self.session = Self::build_session(&self.imap_config, None).await?;
                         action(&mut self.session).or_else(|err| Ok(Err(map_err(err))?))
                     }
                     err => Ok(Err(map_err(err))?),
-                })
-            }
+                },
+            },
         }
     }
 
     /// Runs the IMAP notify query in order to get the list of new
     /// envelopes UIDs.
-    fn search_new_envelopes(&mut self) -> Result<Vec<u32>> {
+    async fn search_new_envelopes(&mut self) -> Result<Vec<u32>> {
         let query = self.imap_config.notify_query();
         let uids: Vec<u32> = self
             .with_session(
                 |session| session.uid_search(&query),
                 Error::SearchNewEnvelopesError,
-            )?
+            )
+            .await?
             .into_iter()
             .collect();
         debug!("found {} new envelopes", uids.len());
@@ -510,18 +518,20 @@ impl ImapBackend {
     /// The notify service uses the IDLE IMAP mode to wait for changes
     /// on the server and to run the notify command from the account
     /// configuration in case new envelopes are available.
-    pub fn notify(&mut self, keepalive: u64, folder: &str) -> Result<()> {
+    pub async fn notify(&mut self, keepalive: u64, folder: &str) -> Result<()> {
         let folder_encoded = encode_utf7(folder.to_owned());
         trace!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.examine(&folder_encoded),
             |err| Error::ExamineFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         debug!("init messages hashset");
         let mut msgs_set: HashSet<u32> = self
-            .search_new_envelopes()?
+            .search_new_envelopes()
+            .await?
             .iter()
             .cloned()
             .collect::<HashSet<_>>();
@@ -538,10 +548,12 @@ impl ImapBackend {
                         .wait_while(stop_on_any)
                 },
                 Error::StartIdleModeError,
-            )?;
+            )
+            .await?;
 
             let uids: Vec<u32> = self
-                .search_new_envelopes()?
+                .search_new_envelopes()
+                .await?
                 .into_iter()
                 .filter(|uid| msgs_set.get(uid).is_none())
                 .collect();
@@ -555,10 +567,12 @@ impl ImapBackend {
                     .collect::<Vec<_>>()
                     .join(",");
 
-                let fetches = self.with_session(
-                    |session| session.uid_fetch(&uids, ENVELOPE_QUERY),
-                    Error::FetchNewEnvelopesError,
-                )?;
+                let fetches = self
+                    .with_session(
+                        |session| session.uid_fetch(&uids, ENVELOPE_QUERY),
+                        Error::FetchNewEnvelopesError,
+                    )
+                    .await?;
 
                 for fetch in fetches.iter() {
                     let envelope = Envelope::from_imap_fetch(fetch);
@@ -566,7 +580,8 @@ impl ImapBackend {
 
                     let from = envelope.from.addr.clone();
                     self.imap_config
-                        .run_notify_cmd(uid, &envelope.subject, &from)?;
+                        .run_notify_cmd(uid, &envelope.subject, &from)
+                        .await?;
 
                     debug!("notify message: {}", uid);
                     trace!("message: {:?}", envelope);
@@ -586,7 +601,7 @@ impl ImapBackend {
     /// The watch service uses the IDLE IMAP mode to wait for changes
     /// on the server and to run the watch commands from the account
     /// configuration, in series.
-    pub fn watch(&mut self, keepalive: u64, folder: &str) -> Result<()> {
+    pub async fn watch(&mut self, keepalive: u64, folder: &str) -> Result<()> {
         debug!("examine folder: {}", folder);
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -595,19 +610,17 @@ impl ImapBackend {
         self.with_session(
             |session| session.examine(&folder_encoded),
             |err| Error::ExamineFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         loop {
             debug!("begin loop");
 
             for (i, cmd) in self.imap_config.watch_cmds().iter().enumerate() {
                 debug!("running watch command {}: {cmd}", i + 1);
-                match Cmd::from(cmd.clone()).run() {
-                    Ok(output) => {
+                match Cmd::from(cmd.clone()).run().await {
+                    Ok(_) => {
                         debug!("watch command {} successfully executed", i + 1);
-                        trace!("exit code: {}", output.code);
-                        trace!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-                        trace!("stderr: {}", String::from_utf8_lossy(&output.stderr));
                     }
                     Err(err) => {
                         warn!("error while running command {cmd}, skipping it");
@@ -624,19 +637,21 @@ impl ImapBackend {
                         .wait_while(stop_on_any)
                 },
                 Error::StartIdleModeError,
-            )?;
+            )
+            .await?;
 
             debug!("end loop");
         }
     }
 }
 
+#[async_trait]
 impl Backend for ImapBackend {
     fn name(&self) -> String {
         self.account_config.name.clone()
     }
 
-    fn add_folder(&mut self, folder: &str) -> Result<()> {
+    async fn add_folder(&mut self, folder: &str) -> Result<()> {
         info!("adding imap folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -645,18 +660,21 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.create(&folder_encoded),
             |err| Error::CreateFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
 
-    fn list_folders(&mut self) -> Result<Folders> {
+    async fn list_folders(&mut self) -> Result<Folders> {
         info!("listing imap folders");
 
-        let folders = self.with_session(
-            |session| session.list(Some(""), Some("*")),
-            Error::ListFoldersError,
-        )?;
+        let folders = self
+            .with_session(
+                |session| session.list(Some(""), Some("*")),
+                Error::ListFoldersError,
+            )
+            .await?;
 
         let folders = Folders::from_iter(folders.iter().filter_map(|folder| {
             if folder.attributes().contains(&NameAttribute::NoSelect) {
@@ -678,7 +696,7 @@ impl Backend for ImapBackend {
         Ok(folders)
     }
 
-    fn expunge_folder(&mut self, folder: &str) -> Result<()> {
+    async fn expunge_folder(&mut self, folder: &str) -> Result<()> {
         info!("expunging imap folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -687,17 +705,19 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.select(&folder_encoded),
             |err| Error::SelectFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         self.with_session(
             |session| session.expunge(),
             |err| Error::ExpungeFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
 
-    fn purge_folder(&mut self, folder: &str) -> Result<()> {
+    async fn purge_folder(&mut self, folder: &str) -> Result<()> {
         info!("purging imap folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -709,24 +729,27 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.select(&folder_encoded),
             |err| Error::SelectFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         self.with_session(
             |session| {
                 session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query_string()))
             },
             |err| Error::AddFlagsError(err, flags.to_imap_query_string(), uids.clone()),
-        )?;
+        )
+        .await?;
 
         self.with_session(
             |session| session.expunge(),
             |err| Error::ExpungeFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
 
-    fn delete_folder(&mut self, folder: &str) -> Result<()> {
+    async fn delete_folder(&mut self, folder: &str) -> Result<()> {
         info!("deleting imap folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -735,12 +758,13 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.delete(&folder_encoded),
             |err| Error::DeleteFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
 
-    fn get_envelope(&mut self, folder: &str, uid: &str) -> Result<Envelope> {
+    async fn get_envelope(&mut self, folder: &str, uid: &str) -> Result<Envelope> {
         info!("getting imap envelope {uid} from folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -749,12 +773,15 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.select(&folder_encoded),
             |err| Error::SelectFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
-        let fetches = self.with_session(
-            |session| session.uid_fetch(uid, ENVELOPE_QUERY),
-            |err| Error::FetchEmailsByUidError(err, uid.to_owned()),
-        )?;
+        let fetches = self
+            .with_session(
+                |session| session.uid_fetch(uid, ENVELOPE_QUERY),
+                |err| Error::FetchEmailsByUidError(err, uid.to_owned()),
+            )
+            .await?;
 
         let fetch = fetches
             .get(0)
@@ -766,7 +793,12 @@ impl Backend for ImapBackend {
         Ok(envelope)
     }
 
-    fn list_envelopes(&mut self, folder: &str, page_size: usize, page: usize) -> Result<Envelopes> {
+    async fn list_envelopes(
+        &mut self,
+        folder: &str,
+        page_size: usize,
+        page: usize,
+    ) -> Result<Envelopes> {
         info!("listing imap envelopes from folder {folder}");
 
         let folder_encoded = encode_utf7(folder.to_owned());
@@ -776,7 +808,8 @@ impl Backend for ImapBackend {
             .with_session(
                 |session| session.select(&folder_encoded),
                 |err| Error::SelectFolderError(err, folder.to_owned()),
-            )?
+            )
+            .await?
             .exists as usize;
         debug!("folder size: {folder_size}");
 
@@ -787,10 +820,12 @@ impl Backend for ImapBackend {
         let range = build_page_range(page, page_size, folder_size)?;
         debug!("page range: {range}");
 
-        let fetches = self.with_session(
-            |session| session.fetch(&range, ENVELOPE_QUERY),
-            |err| Error::FetchEmailsByUidRangeError(err, range.clone()),
-        )?;
+        let fetches = self
+            .with_session(
+                |session| session.fetch(&range, ENVELOPE_QUERY),
+                |err| Error::FetchEmailsByUidRangeError(err, range.clone()),
+            )
+            .await?;
 
         let envelopes = Envelopes::from_imap_fetches(fetches);
         debug!("imap envelopes: {envelopes:#?}");
@@ -798,7 +833,7 @@ impl Backend for ImapBackend {
         Ok(envelopes)
     }
 
-    fn search_envelopes(
+    async fn search_envelopes(
         &mut self,
         folder: &str,
         query: &str,
@@ -815,7 +850,8 @@ impl Backend for ImapBackend {
             .with_session(
                 |session| session.select(&folder_encoded),
                 |err| Error::SelectFolderError(err, folder.to_owned()),
-            )?
+            )
+            .await?
             .exists as usize;
         trace!("folder size: {folder_size}");
 
@@ -827,7 +863,8 @@ impl Backend for ImapBackend {
             self.with_session(
                 |session| session.uid_search(query),
                 |err| Error::SearchEnvelopesError(err, folder.to_owned(), query.to_owned()),
-            )?
+            )
+            .await?
             .iter()
             .map(ToString::to_string)
             .collect()
@@ -836,7 +873,8 @@ impl Backend for ImapBackend {
             self.with_session(
                 |session| session.uid_sort(&sort, SortCharset::Utf8, query),
                 |err| Error::SortEnvelopesError(err, folder.to_owned(), query.to_owned()),
-            )?
+            )
+            .await?
             .iter()
             .map(ToString::to_string)
             .collect()
@@ -862,10 +900,12 @@ impl Backend for ImapBackend {
         trace!("page size: {page_size}");
         trace!("uid range: {uid_range}");
 
-        let fetches = self.with_session(
-            |session| session.uid_fetch(&uid_range, ENVELOPE_QUERY),
-            |err| Error::FetchEmailsByUidRangeError(err, uid_range.clone()),
-        )?;
+        let fetches = self
+            .with_session(
+                |session| session.uid_fetch(&uid_range, ENVELOPE_QUERY),
+                |err| Error::FetchEmailsByUidRangeError(err, uid_range.clone()),
+            )
+            .await?;
 
         let envelopes = Envelopes::from_imap_fetches(fetches);
         debug!("imap envelopes: {envelopes:#?}");
@@ -873,7 +913,7 @@ impl Backend for ImapBackend {
         Ok(envelopes)
     }
 
-    fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
+    async fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
         info!(
             "adding imap email to folder {folder} with flags {flags}",
             flags = flags.to_string(),
@@ -882,15 +922,17 @@ impl Backend for ImapBackend {
         let folder_encoded = encode_utf7(folder.to_owned());
         trace!("utf7 encoded folder: {folder_encoded}");
 
-        let appended = self.with_session(
-            |session| {
-                session
-                    .append(&folder, email)
-                    .flags(flags.to_imap_flags_vec())
-                    .finish()
-            },
-            |err| Error::AppendEmailError(err, folder.to_owned()),
-        )?;
+        let appended = self
+            .with_session(
+                |session| {
+                    session
+                        .append(&folder, email)
+                        .flags(flags.to_imap_flags_vec())
+                        .finish()
+                },
+                |err| Error::AppendEmailError(err, folder.to_owned()),
+            )
+            .await?;
 
         let uid = match appended.uids {
             Some(mut uids) if uids.len() == 1 => match uids.get_mut(0).unwrap() {
@@ -916,7 +958,7 @@ impl Backend for ImapBackend {
         Ok(uid.to_string())
     }
 
-    fn preview_emails(&mut self, folder: &str, uids: Vec<&str>) -> Result<Messages> {
+    async fn preview_emails(&mut self, folder: &str, uids: Vec<&str>) -> Result<Messages> {
         let uids = uids.join(",");
         info!("previewing imap emails {uids} from folder {folder}");
 
@@ -926,17 +968,20 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.select(&folder_encoded),
             |err| Error::SelectFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
-        let fetches = self.with_session(
-            |session| session.uid_fetch(&uids, "BODY.PEEK[]"),
-            |err| Error::FetchEmailsByUidRangeError(err, uids.clone()),
-        )?;
+        let fetches = self
+            .with_session(
+                |session| session.uid_fetch(&uids, "BODY.PEEK[]"),
+                |err| Error::FetchEmailsByUidRangeError(err, uids.clone()),
+            )
+            .await?;
 
         Ok(Messages::try_from(fetches)?)
     }
 
-    fn get_emails(&mut self, folder: &str, uids: Vec<&str>) -> Result<Messages> {
+    async fn get_emails(&mut self, folder: &str, uids: Vec<&str>) -> Result<Messages> {
         let uids = uids.join(",");
         info!("getting imap emails {uids} from folder {folder}");
 
@@ -946,17 +991,25 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.select(&folder_encoded),
             |err| Error::SelectFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
-        let fetches = self.with_session(
-            |session| session.uid_fetch(&uids, "BODY[]"),
-            |err| Error::FetchEmailsByUidRangeError(err, uids.clone()),
-        )?;
+        let fetches = self
+            .with_session(
+                |session| session.uid_fetch(&uids, "BODY[]"),
+                |err| Error::FetchEmailsByUidRangeError(err, uids.clone()),
+            )
+            .await?;
 
         Ok(Messages::try_from(fetches)?)
     }
 
-    fn copy_emails(&mut self, from_folder: &str, to_folder: &str, uids: Vec<&str>) -> Result<()> {
+    async fn copy_emails(
+        &mut self,
+        from_folder: &str,
+        to_folder: &str,
+        uids: Vec<&str>,
+    ) -> Result<()> {
         let uids = uids.join(",");
         info!("copying imap emails {uids} from folder {from_folder} to folder {to_folder}");
 
@@ -968,7 +1021,8 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.select(&from_folder_encoded),
             |err| Error::SelectFolderError(err, from_folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         self.with_session(
             |session| session.uid_copy(&uids, &to_folder_encoded),
@@ -980,12 +1034,18 @@ impl Backend for ImapBackend {
                     to_folder.to_owned(),
                 )
             },
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
 
-    fn move_emails(&mut self, from_folder: &str, to_folder: &str, uids: Vec<&str>) -> Result<()> {
+    async fn move_emails(
+        &mut self,
+        from_folder: &str,
+        to_folder: &str,
+        uids: Vec<&str>,
+    ) -> Result<()> {
         let uids = uids.join(",");
         info!("moving imap emails {uids} from folder {from_folder} to folder {to_folder}");
 
@@ -997,7 +1057,8 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.select(&from_folder_encoded),
             |err| Error::SelectFolderError(err, from_folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         self.with_session(
             |session| session.uid_mv(&uids, &to_folder_encoded),
@@ -1009,22 +1070,23 @@ impl Backend for ImapBackend {
                     to_folder.to_owned(),
                 )
             },
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
 
-    fn delete_emails(&mut self, folder: &str, uids: Vec<&str>) -> Result<()> {
+    async fn delete_emails(&mut self, folder: &str, uids: Vec<&str>) -> Result<()> {
         let trash_folder = self.account_config.trash_folder_alias()?;
 
         if self.account_config.folder_alias(folder)? == trash_folder {
-            self.mark_emails_as_deleted(folder, uids)
+            self.mark_emails_as_deleted(folder, uids).await
         } else {
-            self.move_emails(folder, &trash_folder, uids)
+            self.move_emails(folder, &trash_folder, uids).await
         }
     }
 
-    fn add_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> Result<()> {
+    async fn add_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> Result<()> {
         let uids = uids.join(",");
         info!(
             "addings flags {flags} to imap emails {uids} from folder {folder}",
@@ -1037,19 +1099,21 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.select(&folder_encoded),
             |err| Error::SelectFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         self.with_session(
             |session| {
                 session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query_string()))
             },
             |err| Error::AddFlagsError(err, flags.to_imap_query_string(), uids.clone()),
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
 
-    fn set_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> Result<()> {
+    async fn set_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> Result<()> {
         let uids = uids.join(",");
         info!(
             "setting flags {flags} to imap emails {uids} from folder {folder}",
@@ -1062,17 +1126,19 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.select(&folder_encoded),
             |err| Error::SelectFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         self.with_session(
             |session| session.uid_store(&uids, format!("FLAGS ({})", flags.to_imap_query_string())),
             |err| Error::SetFlagsError(err, flags.to_imap_query_string(), uids.clone()),
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
 
-    fn remove_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> Result<()> {
+    async fn remove_flags(&mut self, folder: &str, uids: Vec<&str>, flags: &Flags) -> Result<()> {
         let uids = uids.join(",");
         info!(
             "removing flags {flags} to imap emails {uids} from folder {folder}",
@@ -1085,29 +1151,27 @@ impl Backend for ImapBackend {
         self.with_session(
             |session| session.select(&folder_encoded),
             |err| Error::SelectFolderError(err, folder.to_owned()),
-        )?;
+        )
+        .await?;
 
         self.with_session(
             |session| {
                 session.uid_store(&uids, format!("-FLAGS ({})", flags.to_imap_query_string()))
             },
             |err| Error::RemoveFlagsError(err, flags.to_imap_query_string(), uids.clone()),
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
 
     fn close(&mut self) -> Result<()> {
         debug!("closing imap backend session");
-        self.with_session(
-            |session| {
-                session
-                    .check()
-                    .and_then(|()| session.close())
-                    .or(imap::Result::Ok(()))
-            },
-            Error::CloseError,
-        )?;
+        self.session
+            .check()
+            .and_then(|()| self.session.close())
+            .or(imap::Result::Ok(()))
+            .map_err(Error::CloseError)?;
         Ok(())
     }
 

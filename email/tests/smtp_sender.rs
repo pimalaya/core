@@ -40,14 +40,14 @@ async fn smtp_sender() {
     };
 
     let imap_builder = BackendBuilder::new(config.clone());
-    let mut imap = imap_builder.build().unwrap();
+    let mut imap = imap_builder.build().await.unwrap();
 
     let smtp_builder = SenderBuilder::new(config.clone());
     let mut smtp = smtp_builder.build().await.unwrap();
 
     // setting up folders
 
-    imap.purge_folder("INBOX").unwrap();
+    imap.purge_folder("INBOX").await.unwrap();
 
     // checking that an email can be built and sent
 
@@ -64,7 +64,7 @@ async fn smtp_sender() {
 
     // checking that the envelope of the sent email exists
 
-    let envelopes = imap.list_envelopes("INBOX", 10, 0).unwrap();
+    let envelopes = imap.list_envelopes("INBOX", 10, 0).await.unwrap();
     assert_eq!(1, envelopes.len());
     let envelope = envelopes.first().unwrap();
     assert_eq!("alice@localhost", envelope.from.addr);

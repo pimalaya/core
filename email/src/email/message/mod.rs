@@ -12,6 +12,7 @@ pub mod template;
 #[cfg(feature = "imap-backend")]
 use imap::types::{Fetch, Fetches};
 use mail_parser::MimeHeaders;
+use maildirpp::MailEntry;
 use ouroboros::self_referencing;
 use pimalaya_email_tpl::{Tpl, TplInterpreter};
 use std::{borrow::Cow, fmt::Debug, io, path::PathBuf};
@@ -135,7 +136,7 @@ impl Message<'_> {
     }
 
     /// Turns the current message into a read [template](pimalaya_email_tpl::Tpl).
-    pub fn to_read_tpl(
+    pub async fn to_read_tpl(
         &self,
         config: &AccountConfig,
         with_interpreter: impl Fn(TplInterpreter) -> TplInterpreter,
@@ -145,6 +146,7 @@ impl Message<'_> {
             .show_only_headers(config.email_reading_headers());
         let tpl = with_interpreter(interpreter)
             .interpret_msg(self.parsed()?)
+            .await
             .map_err(Error::InterpretEmailAsTplError)?;
         Ok(tpl)
     }
@@ -197,8 +199,8 @@ impl<'a> From<&'a Fetch<'a>> for Message<'a> {
     }
 }
 
-impl<'a> From<&'a mut maildirpp::MailEntry> for Message<'a> {
-    fn from(entry: &'a mut maildirpp::MailEntry) -> Self {
+impl<'a> From<&'a mut MailEntry> for Message<'a> {
+    fn from(entry: &'a mut MailEntry) -> Self {
         MessageBuilder {
             raw: RawMessage::Cow(Cow::Owned(entry.body().unwrap_or_default())),
             parsed_builder: Message::parsed_builder,
@@ -217,7 +219,7 @@ enum RawMessages {
     Vec(Vec<Vec<u8>>),
     #[cfg(feature = "imap-backend")]
     Fetches(Fetches),
-    MailEntries(Vec<maildirpp::MailEntry>),
+    MailEntries(Vec<MailEntry>),
 }
 
 #[self_referencing]
@@ -274,10 +276,10 @@ impl TryFrom<Fetches> for Messages {
     }
 }
 
-impl TryFrom<Vec<maildirpp::MailEntry>> for Messages {
+impl TryFrom<Vec<MailEntry>> for Messages {
     type Error = crate::Error;
 
-    fn try_from(entries: Vec<maildirpp::MailEntry>) -> Result<Self> {
+    fn try_from(entries: Vec<MailEntry>) -> Result<Self> {
         if entries.is_empty() {
             Ok(Err(Error::ParseEmailFromEmptyEntriesError)?)
         } else {
@@ -296,15 +298,15 @@ mod tests {
 
     use crate::{account::AccountConfig, email::Message};
 
-    #[test]
-    fn new_tpl_builder() {
+    #[tokio::test]
+    async fn new_tpl_builder() {
         let config = AccountConfig {
             display_name: Some("From".into()),
             email: "from@localhost".into(),
             ..AccountConfig::default()
         };
 
-        let tpl = Message::new_tpl_builder(&config).build().unwrap();
+        let tpl = Message::new_tpl_builder(&config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: From <from@localhost>",
@@ -318,15 +320,15 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn new_tpl_builder_with_signature() {
+    #[tokio::test]
+    async fn new_tpl_builder_with_signature() {
         let config = AccountConfig {
             email: "from@localhost".into(),
             signature: Some("Regards,".into()),
             ..AccountConfig::default()
         };
 
-        let tpl = Message::new_tpl_builder(&config).build().unwrap();
+        let tpl = Message::new_tpl_builder(&config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: from@localhost",
@@ -343,8 +345,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_read_tpl() {
+    #[tokio::test]
+    async fn to_read_tpl() {
         let config = AccountConfig::default();
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -358,7 +360,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_read_tpl(&config, |i| i).unwrap();
+        let tpl = email.to_read_tpl(&config, |i| i).await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: from@localhost",
@@ -375,8 +377,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_read_tpl_with_show_all_headers() {
+    #[tokio::test]
+    async fn to_read_tpl_with_show_all_headers() {
         let config = AccountConfig::default();
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -392,6 +394,7 @@ mod tests {
 
         let tpl = email
             .to_read_tpl(&config, |i| i.show_all_headers())
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -410,8 +413,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_read_tpl_with_show_only_headers() {
+    #[tokio::test]
+    async fn to_read_tpl_with_show_only_headers() {
         let config = AccountConfig::default();
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -435,6 +438,7 @@ mod tests {
                     "Content-Disposition",
                 ])
             })
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -451,8 +455,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_read_tpl_with_email_reading_headers() {
+    #[tokio::test]
+    async fn to_read_tpl_with_email_reading_headers() {
         let config = AccountConfig {
             email_reading_headers: Some(vec!["X-Custom".into()]),
             ..AccountConfig::default()
@@ -478,6 +482,7 @@ mod tests {
                     "Cc", "Bcc", // nonexisting headers
                 ])
             })
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -494,8 +499,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_reply_tpl_builder() {
+    #[tokio::test]
+    async fn to_reply_tpl_builder() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -516,7 +521,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_reply_tpl_builder(&config).build().unwrap();
+        let tpl = email.to_reply_tpl_builder(&config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -533,8 +538,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_reply_tpl_builder_from_mailing_list() {
+    #[tokio::test]
+    async fn to_reply_tpl_builder_from_mailing_list() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -555,7 +560,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_reply_tpl_builder(&config).build().unwrap();
+        let tpl = email.to_reply_tpl_builder(&config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -571,8 +576,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_reply_tpl_builder_when_from_is_sender() {
+    #[tokio::test]
+    async fn to_reply_tpl_builder_when_from_is_sender() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -593,7 +598,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_reply_tpl_builder(&config).build().unwrap();
+        let tpl = email.to_reply_tpl_builder(&config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -609,9 +614,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    // TODO: In-Reply-To not valid, waiting for https://github.com/stalwartlabs/mail-parser/issues/53.
-    fn to_reply_tpl_builder_with_reply_to() {
+    #[tokio::test]
+    async fn to_reply_tpl_builder_with_reply_to() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -633,7 +637,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_reply_tpl_builder(&config).build().unwrap();
+        let tpl = email.to_reply_tpl_builder(&config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -650,8 +654,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_reply_tpl_builder_with_signature() {
+    #[tokio::test]
+    async fn to_reply_tpl_builder_with_signature() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             signature: Some("Cordialement,\n".into()),
@@ -670,7 +674,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_reply_tpl_builder(&config).build().unwrap();
+        let tpl = email.to_reply_tpl_builder(&config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -689,8 +693,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_reply_all_tpl_builder() {
+    #[tokio::test]
+    async fn to_reply_all_tpl_builder() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -714,6 +718,7 @@ mod tests {
             .to_reply_tpl_builder(&config)
             .with_reply_all(true)
             .build()
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -731,8 +736,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_reply_all_tpl_builder_with_reply_to() {
+    #[tokio::test]
+    async fn to_reply_all_tpl_builder_with_reply_to() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -758,6 +763,7 @@ mod tests {
             .to_reply_tpl_builder(&config)
             .with_reply_all(true)
             .build()
+            .await
             .unwrap();
 
         let expected_tpl = concat_line!(
@@ -776,8 +782,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_forward_tpl_builder() {
+    #[tokio::test]
+    async fn to_forward_tpl_builder() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
@@ -797,7 +803,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_forward_tpl_builder(&config).build().unwrap();
+        let tpl = email.to_forward_tpl_builder(&config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -822,8 +828,8 @@ mod tests {
         assert_eq!(*tpl, expected_tpl);
     }
 
-    #[test]
-    fn to_forward_tpl_builder_with_date_and_signature() {
+    #[tokio::test]
+    async fn to_forward_tpl_builder_with_date_and_signature() {
         let config = AccountConfig {
             email: "to@localhost".into(),
             signature: Some("Cordialement,".into()),
@@ -845,7 +851,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_forward_tpl_builder(&config).build().unwrap();
+        let tpl = email.to_forward_tpl_builder(&config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",

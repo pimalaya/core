@@ -6,8 +6,8 @@
 //! You also have access to a [`FolderSyncPatchManager`] which helps
 //! you to build and to apply a folder patch.
 
+use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, error, info, trace, warn};
-use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 use crate::{
@@ -66,7 +66,7 @@ impl<'a> FolderSyncPatchManager<'a> {
     }
 
     /// Builds the folder synchronization patches.
-    pub fn build_patches(&self) -> Result<FolderSyncPatches> {
+    pub async fn build_patches(&self) -> Result<FolderSyncPatches> {
         let account = &self.account_config.name;
         let conn = &mut self.account_config.sync_db_builder()?;
         info!("starting folders synchronization of account {account}");
@@ -88,7 +88,8 @@ impl<'a> FolderSyncPatchManager<'a> {
         let local_folders: FoldersName = HashSet::from_iter(
             self.local_builder
                 .build()?
-                .list_folders()?
+                .list_folders()
+                .await?
                 .iter()
                 // TODO: instead of fetching all the folders then
                 // filtering them here, it could be better to filter
@@ -132,8 +133,10 @@ impl<'a> FolderSyncPatchManager<'a> {
 
         let remote_folders: FoldersName = HashSet::from_iter(
             self.remote_builder
-                .build()?
-                .list_folders()?
+                .build()
+                .await?
+                .list_folders()
+                .await?
                 .iter()
                 // TODO: instead of fetching all the folders then
                 // filtering them here, it could be better to filter
@@ -178,11 +181,66 @@ impl<'a> FolderSyncPatchManager<'a> {
         Ok(patches)
     }
 
+    async fn process_hunk(&self, hunk: &FolderSyncHunk) -> Result<FolderSyncCachePatch> {
+        let cache_hunks = match &hunk {
+            FolderSyncHunk::Cache(folder, Destination::Local) => {
+                vec![FolderSyncCacheHunk::Insert(
+                    folder.clone(),
+                    Destination::Local,
+                )]
+            }
+            FolderSyncHunk::Create(ref folder, Destination::Local) => {
+                self.local_builder.build()?.add_folder(folder).await?;
+                vec![]
+            }
+            FolderSyncHunk::Cache(ref folder, Destination::Remote) => {
+                vec![FolderSyncCacheHunk::Insert(
+                    folder.clone(),
+                    Destination::Remote,
+                )]
+            }
+            FolderSyncHunk::Create(ref folder, Destination::Remote) => {
+                self.remote_builder
+                    .build()
+                    .await?
+                    .add_folder(&folder)
+                    .await?;
+                vec![]
+            }
+            FolderSyncHunk::Uncache(ref folder, Destination::Local) => {
+                vec![FolderSyncCacheHunk::Delete(
+                    folder.clone(),
+                    Destination::Local,
+                )]
+            }
+            FolderSyncHunk::Delete(ref folder, Destination::Local) => {
+                self.local_builder.build()?.delete_folder(folder).await?;
+                vec![]
+            }
+            FolderSyncHunk::Uncache(ref folder, Destination::Remote) => {
+                vec![FolderSyncCacheHunk::Delete(
+                    folder.clone(),
+                    Destination::Remote,
+                )]
+            }
+            FolderSyncHunk::Delete(ref folder, Destination::Remote) => {
+                self.remote_builder
+                    .build()
+                    .await?
+                    .delete_folder(&folder)
+                    .await?;
+                vec![]
+            }
+        };
+
+        Ok(cache_hunks)
+    }
+
     /// Applies all the folder synchronization patches built from
     /// `build_patches()`.
     ///
     /// Returns a folder synchronization report.
-    pub fn apply_patches(&self, patches: FolderSyncPatches) -> Result<FolderSyncReport> {
+    pub async fn apply_patches(&self, patches: FolderSyncPatches) -> Result<FolderSyncReport> {
         let account = &self.account_config.name;
         let conn = &mut self.account_config.sync_db_builder()?;
         let mut report = FolderSyncReport::default();
@@ -204,75 +262,39 @@ impl<'a> FolderSyncPatchManager<'a> {
                 .map(|patch| (patch.clone(), None))
                 .collect();
         } else {
-            report = patches
-                .into_par_iter()
-                .flat_map(|(_folder, patch)| patch)
-                .fold(FolderSyncReport::default, |mut report, ref hunk| {
-                    debug!("processing folder hunk: {hunk:?}");
+            let reports: Vec<FolderSyncReport> = FuturesUnordered::from_iter(
+                patches
+                    .into_iter()
+                    .flat_map(|(_folder, patch)| patch)
+                    .map(|hunk| async move {
+                        debug!("processing folder hunk: {hunk:?}");
 
-                    self.on_progress
-                        .emit(AccountSyncProgressEvent::ApplyFolderHunk(hunk.clone()));
+                        let mut report = FolderSyncReport::default();
 
-                    let process_hunk = |hunk: &FolderSyncHunk| {
-                        Result::Ok(match hunk {
-                            FolderSyncHunk::Cache(folder, Destination::Local) => {
-                                vec![FolderSyncCacheHunk::Insert(
-                                    folder.clone(),
-                                    Destination::Local,
-                                )]
-                            }
-                            FolderSyncHunk::Create(ref folder, Destination::Local) => {
-                                self.local_builder.build()?.add_folder(folder)?;
-                                vec![]
-                            }
-                            FolderSyncHunk::Cache(ref folder, Destination::Remote) => {
-                                vec![FolderSyncCacheHunk::Insert(
-                                    folder.clone(),
-                                    Destination::Remote,
-                                )]
-                            }
-                            FolderSyncHunk::Create(ref folder, Destination::Remote) => {
-                                self.remote_builder.build()?.add_folder(&folder)?;
-                                vec![]
-                            }
-                            FolderSyncHunk::Uncache(ref folder, Destination::Local) => {
-                                vec![FolderSyncCacheHunk::Delete(
-                                    folder.clone(),
-                                    Destination::Local,
-                                )]
-                            }
-                            FolderSyncHunk::Delete(ref folder, Destination::Local) => {
-                                self.local_builder.build()?.delete_folder(folder)?;
-                                vec![]
-                            }
-                            FolderSyncHunk::Uncache(ref folder, Destination::Remote) => {
-                                vec![FolderSyncCacheHunk::Delete(
-                                    folder.clone(),
-                                    Destination::Remote,
-                                )]
-                            }
-                            FolderSyncHunk::Delete(ref folder, Destination::Remote) => {
-                                self.remote_builder.build()?.delete_folder(&folder)?;
-                                vec![]
-                            }
-                        })
-                    };
+                        self.on_progress
+                            .emit(AccountSyncProgressEvent::ApplyFolderHunk(hunk.clone()));
 
-                    match process_hunk(hunk) {
-                        Ok(cache_hunks) => {
-                            report.patch.push((hunk.clone(), None));
-                            report.cache_patch.0.extend(cache_hunks);
-                        }
-                        Err(err) => {
-                            warn!("error while processing hunk {hunk:?}, skipping it: {err:?}");
-                            error!("{err}");
-                            report.patch.push((hunk.clone(), Some(err)));
-                        }
-                    };
+                        match self.process_hunk(&hunk).await {
+                            Ok(cache_hunks) => {
+                                report.patch.push((hunk.clone(), None));
+                                report.cache_patch.0.extend(cache_hunks);
+                            }
+                            Err(err) => {
+                                warn!("error while processing hunk {hunk:?}, skipping it: {err:?}");
+                                error!("{err}");
+                                report.patch.push((hunk.clone(), Some(err)));
+                            }
+                        };
 
-                    report
-                })
-                .reduce(FolderSyncReport::default, |mut r1, r2| {
+                        report
+                    }),
+            )
+            .collect()
+            .await;
+
+            report = reports
+                .into_iter()
+                .fold(FolderSyncReport::default(), |mut r1, r2| {
                     r1.patch.extend(r2.patch);
                     r1.cache_patch.0.extend(r2.cache_patch.0);
                     r1

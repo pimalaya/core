@@ -1,6 +1,6 @@
 #[cfg(feature = "notmuch-backend")]
-#[test]
-fn notmuch_backend() {
+#[tokio::test(flavor = "multi_thread")]
+async fn notmuch_backend() {
     use concat_with::concat_line;
     use mail_builder::MessageBuilder;
     use maildirpp::Maildir;
@@ -52,7 +52,7 @@ fn notmuch_backend() {
         .write_to_vec()
         .unwrap();
     let flags = Flags::from_iter([Flag::Seen]);
-    notmuch.add_email("custom", &email, &flags).unwrap();
+    notmuch.add_email("custom", &email, &flags).await.unwrap();
 
     let email = MessageBuilder::new()
         .from("alice@localhost")
@@ -62,15 +62,16 @@ fn notmuch_backend() {
         .write_to_vec()
         .unwrap();
     let flags = Flags::from_iter([Flag::custom("flag"), Flag::Seen]);
-    let id = notmuch.add_email("inbox", &email, &flags).unwrap();
+    let id = notmuch.add_email("inbox", &email, &flags).await.unwrap();
 
     // check that the added message exists
-    let emails = notmuch.get_emails("inbox", vec![&id]).unwrap();
+    let emails = notmuch.get_emails("inbox", vec![&id]).await.unwrap();
     let tpl = emails
         .to_vec()
         .first()
         .unwrap()
         .to_read_tpl(&config, |i| i.show_only_headers(["From", "To"]))
+        .await
         .unwrap();
     let expected_tpl = concat_line!(
         "From: alice@localhost",
@@ -83,13 +84,13 @@ fn notmuch_backend() {
     assert_eq!(*tpl, expected_tpl);
 
     // check that the envelope of the added message exists
-    let envelopes = notmuch.list_envelopes("custom", 0, 0).unwrap();
+    let envelopes = notmuch.list_envelopes("custom", 0, 0).await.unwrap();
     let envelope = envelopes.first().unwrap();
     assert_eq!(1, envelopes.len());
     assert_eq!("alice@localhost", envelope.from.addr);
     assert_eq!("Plain message custom!", envelope.subject);
 
-    let envelopes = notmuch.list_envelopes("inbox", 0, 0).unwrap();
+    let envelopes = notmuch.list_envelopes("inbox", 0, 0).await.unwrap();
     let envelope = envelopes.first().unwrap();
     assert_eq!(1, envelopes.len());
     assert_eq!("alice@localhost", envelope.from.addr);
@@ -99,8 +100,9 @@ fn notmuch_backend() {
     let flags = Flags::from_iter([Flag::Flagged, Flag::Answered]);
     notmuch
         .add_flags("inbox", vec![&envelope.id], &flags)
+        .await
         .unwrap();
-    let envelopes = notmuch.list_envelopes("inbox", 0, 0).unwrap();
+    let envelopes = notmuch.list_envelopes("inbox", 0, 0).await.unwrap();
     let envelope = envelopes.first().unwrap();
     assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
     assert!(envelope.flags.contains(&Flag::Seen));
@@ -109,8 +111,11 @@ fn notmuch_backend() {
 
     // check that the message flags can be changed
     let flags = Flags::from_iter([Flag::custom("flag"), Flag::Answered]);
-    notmuch.set_flags("", vec![&envelope.id], &flags).unwrap();
-    let envelopes = notmuch.list_envelopes("inbox", 0, 0).unwrap();
+    notmuch
+        .set_flags("", vec![&envelope.id], &flags)
+        .await
+        .unwrap();
+    let envelopes = notmuch.list_envelopes("inbox", 0, 0).await.unwrap();
     let envelope = envelopes.first().unwrap();
     assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
     assert!(!envelope.flags.contains(&Flag::Seen));
@@ -121,8 +126,9 @@ fn notmuch_backend() {
     let flags = Flags::from_iter([Flag::Answered]);
     notmuch
         .remove_flags("", vec![&envelope.id], &flags)
+        .await
         .unwrap();
-    let envelopes = notmuch.list_envelopes("inbox", 0, 0).unwrap();
+    let envelopes = notmuch.list_envelopes("inbox", 0, 0).await.unwrap();
     let envelope = envelopes.first().unwrap();
     assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
     assert!(!envelope.flags.contains(&Flag::Seen));
@@ -130,6 +136,6 @@ fn notmuch_backend() {
     assert!(!envelope.flags.contains(&Flag::Answered));
 
     // check that the message can be deleted
-    notmuch.delete_emails("", vec![&id]).unwrap();
-    assert!(notmuch.get_emails("inbox", vec![&id]).is_err());
+    notmuch.delete_emails("", vec![&id]).await.unwrap();
+    assert!(notmuch.get_emails("inbox", vec![&id]).await.is_err());
 }

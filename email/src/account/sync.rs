@@ -5,8 +5,8 @@
 //! account using a Maildir backend.
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
+use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, error, info, warn};
-use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
     env, fmt,
@@ -188,13 +188,17 @@ pub struct AccountSyncBuilder<'a> {
 
 impl<'a> AccountSyncBuilder<'a> {
     /// Creates a new account synchronization builder.
-    pub fn new(account_config: AccountConfig, remote_builder: BackendBuilder) -> Result<Self> {
+    pub async fn new(
+        account_config: AccountConfig,
+        remote_builder: BackendBuilder,
+    ) -> Result<AccountSyncBuilder<'a>> {
         let folders_strategy = account_config.sync_folders_strategy.clone();
         Ok(Self {
             account_config,
             remote_builder: remote_builder
                 .with_cache_disabled(true)
-                .with_default_credentials()?,
+                .with_default_credentials()
+                .await?,
             on_progress: Default::default(),
             dry_run: Default::default(),
             folders_strategy,
@@ -238,7 +242,7 @@ impl<'a> AccountSyncBuilder<'a> {
     ///
     /// Acts like a `build()` function in a regular builder pattern,
     /// except that the synchronizer builder is not consumed.
-    pub fn sync(&self) -> Result<AccountSyncReport> {
+    pub async fn sync(&self) -> Result<AccountSyncReport> {
         let account = &self.account_config.name;
         info!("starting synchronization of account {account}");
 
@@ -304,11 +308,13 @@ impl<'a> AccountSyncBuilder<'a> {
         );
 
         debug!("building folder sync patch");
-        let folder_sync_patch = folder_sync_patch_manager.build_patches()?;
+        let folder_sync_patch = folder_sync_patch_manager.build_patches().await?;
         debug!("{folder_sync_patch:#?}");
 
         debug!("applying folder sync patch");
-        let folder_sync_report = folder_sync_patch_manager.apply_patches(folder_sync_patch)?;
+        let folder_sync_report = folder_sync_patch_manager
+            .apply_patches(folder_sync_patch)
+            .await?;
         debug!("{folder_sync_report:#?}");
 
         let folders = folder_sync_report.folders.clone();
@@ -327,15 +333,19 @@ impl<'a> AccountSyncBuilder<'a> {
         );
 
         debug!("building envelope sync patch");
-        let envelope_sync_patches = HashMap::from_iter(
-            folders
-                .par_iter()
-                .map(|folder| {
-                    let patch = envelope_sync_patch_manager.build_patch(folder)?;
-                    Ok((folder.clone(), patch))
-                })
-                .collect::<Result<Vec<_>>>()?,
-        );
+        let envelope_sync_patches =
+            FuturesUnordered::from_iter(folders.iter().map(|folder| async {
+                let patch = envelope_sync_patch_manager
+                    .build_patch(folder.clone())
+                    .await?;
+                Ok((folder.clone(), patch))
+            }))
+            .collect::<Vec<Result<_>>>()
+            .await;
+        let envelope_sync_patches = envelope_sync_patches
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?;
+        let envelope_sync_patches = HashMap::from_iter(envelope_sync_patches);
         debug!("{envelope_sync_patches:#?}");
 
         let envelope_sync_patch = envelope_sync_patches
@@ -350,21 +360,28 @@ impl<'a> AccountSyncBuilder<'a> {
             ));
 
         debug!("applying envelope sync patch");
-        let envelope_sync_report =
-            envelope_sync_patch_manager.apply_patch(conn, envelope_sync_patch)?;
+        let envelope_sync_report = envelope_sync_patch_manager
+            .apply_patch(conn, envelope_sync_patch)
+            .await?;
         debug!("{envelope_sync_report:#?}");
 
         self.on_progress
             .emit(AccountSyncProgressEvent::ExpungeFolders(folders.clone()));
 
         debug!("expunging folders");
-        folders.par_iter().try_for_each(|folder| {
-            local_builder.build()?.expunge_folder(folder)?;
-            self.remote_builder.build()?.expunge_folder(folder)?;
+        FuturesUnordered::from_iter(folders.iter().map(|folder| async {
+            local_builder.build()?.expunge_folder(folder).await?;
+            self.remote_builder
+                .build()
+                .await?
+                .expunge_folder(folder)
+                .await?;
             self.on_progress
                 .emit(AccountSyncProgressEvent::FolderExpunged(folder.clone()));
-            Result::Ok(())
-        })?;
+            Ok(())
+        }))
+        .collect::<Vec<Result<()>>>()
+        .await;
 
         debug!("unlocking sync file");
         lock_file

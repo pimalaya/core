@@ -110,7 +110,7 @@ impl<'a> ForwardTplBuilder<'a> {
     }
 
     /// Builds the final forward message template.
-    pub fn build(self) -> Result<Tpl> {
+    pub async fn build(self) -> Result<Tpl> {
         let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
 
@@ -165,6 +165,7 @@ impl<'a> ForwardTplBuilder<'a> {
                 &self
                     .thread_interpreter
                     .interpret_msg(&parsed)
+                    .await
                     .map_err(Error::InterpretMessageAsThreadTemplateError)?,
             );
 
@@ -174,6 +175,7 @@ impl<'a> ForwardTplBuilder<'a> {
         let tpl = self
             .interpreter
             .interpret_msg_builder(builder)
+            .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
         Ok(tpl)

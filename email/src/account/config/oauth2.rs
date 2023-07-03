@@ -139,8 +139,11 @@ impl OAuth2Config {
     /// If the access token is not defined, runs the authorization
     /// code grant OAuth 2.0 flow in order to save the acces token and
     /// the refresh token if present.
-    pub fn configure(&self, get_client_secret: impl Fn() -> io::Result<String>) -> Result<()> {
-        if self.access_token.get().is_ok() {
+    pub async fn configure(
+        &self,
+        get_client_secret: impl Fn() -> io::Result<String>,
+    ) -> Result<()> {
+        if self.access_token.get().await.is_ok() {
             return Ok(());
         }
 
@@ -152,7 +155,7 @@ impl OAuth2Config {
                 .map_err(Error::SetClientSecretIntoKeyringError)
         };
 
-        let client_secret = match self.client_secret.find() {
+        let client_secret = match self.client_secret.find().await {
             Ok(None) => {
                 warn!("cannot find oauth2 client secret from keyring, setting it");
                 set_client_secret()
@@ -210,10 +213,11 @@ impl OAuth2Config {
 
     /// Runs the refresh access token OAuth 2.0 flow by exchanging a
     /// refresh token with a new pair of access/refresh token.
-    pub fn refresh_access_token(&self) -> Result<String> {
+    pub async fn refresh_access_token(&self) -> Result<String> {
         let client_secret = self
             .client_secret
             .get()
+            .await
             .map_err(Error::GetClientSecretFromKeyringError)?;
 
         let client = Client::new(
@@ -231,6 +235,7 @@ impl OAuth2Config {
         let refresh_token = self
             .refresh_token
             .get()
+            .await
             .map_err(Error::GetRefreshTokenError)?;
 
         let (access_token, refresh_token) = RefreshAccessToken::new()
@@ -252,10 +257,11 @@ impl OAuth2Config {
 
     /// Returns the access token if existing, otherwise returns an
     /// error.
-    pub fn access_token(&self) -> Result<String> {
+    pub async fn access_token(&self) -> Result<String> {
         let access_token = self
             .access_token
             .get()
+            .await
             .map_err(Error::GetAccessTokenError)?;
         Ok(access_token)
     }

@@ -1,5 +1,5 @@
-#[test]
-fn maildir_backend() {
+#[tokio::test]
+async fn maildir_backend() {
     use concat_with::concat_line;
     use mail_builder::MessageBuilder;
     use maildirpp::Maildir;
@@ -59,15 +59,16 @@ fn maildir_backend() {
         .write_to_vec()
         .unwrap();
     let flags = Flags::from_iter([Flag::Seen]);
-    let id = mdir.add_email("INBOX", &email, &flags).unwrap();
+    let id = mdir.add_email("INBOX", &email, &flags).await.unwrap();
 
     // check that the added message exists
-    let emails = mdir.get_emails("INBOX", vec![&id]).unwrap();
+    let emails = mdir.get_emails("INBOX", vec![&id]).await.unwrap();
     let tpl = emails
         .to_vec()
         .first()
         .unwrap()
         .to_read_tpl(&config, |i| i.show_only_headers(["From", "To"]))
+        .await
         .unwrap();
     let expected_tpl = concat_line!(
         "From: alice@localhost",
@@ -80,7 +81,7 @@ fn maildir_backend() {
     assert_eq!(*tpl, expected_tpl);
 
     // check that the envelope of the added message exists
-    let envelopes = mdir.list_envelopes("INBOX", 10, 0).unwrap();
+    let envelopes = mdir.list_envelopes("INBOX", 10, 0).await.unwrap();
     let envelope = envelopes.first().unwrap();
     assert_eq!(1, envelopes.len());
     assert_eq!("alice@localhost", envelope.from.addr);
@@ -88,16 +89,20 @@ fn maildir_backend() {
 
     // check that a flag can be added to the message
     let flags = Flags::from_iter([Flag::Flagged]);
-    mdir.add_flags("INBOX", vec![&envelope.id], &flags).unwrap();
-    let envelopes = mdir.list_envelopes("INBOX", 1, 0).unwrap();
+    mdir.add_flags("INBOX", vec![&envelope.id], &flags)
+        .await
+        .unwrap();
+    let envelopes = mdir.list_envelopes("INBOX", 1, 0).await.unwrap();
     let envelope = envelopes.first().unwrap();
     assert!(envelope.flags.contains(&Flag::Seen));
     assert!(envelope.flags.contains(&Flag::Flagged));
 
     // check that the message flags can be changed
     let flags = Flags::from_iter([Flag::Answered]);
-    mdir.set_flags("INBOX", vec![&envelope.id], &flags).unwrap();
-    let envelopes = mdir.list_envelopes("INBOX", 1, 0).unwrap();
+    mdir.set_flags("INBOX", vec![&envelope.id], &flags)
+        .await
+        .unwrap();
+    let envelopes = mdir.list_envelopes("INBOX", 1, 0).await.unwrap();
     let envelope = envelopes.first().unwrap();
     assert!(!envelope.flags.contains(&Flag::Seen));
     assert!(!envelope.flags.contains(&Flag::Flagged));
@@ -106,8 +111,9 @@ fn maildir_backend() {
     // check that a flag can be removed from the message
     let flags = Flags::from_iter([Flag::Answered]);
     mdir.remove_flags("INBOX", vec![&envelope.id], &flags)
+        .await
         .unwrap();
-    let envelopes = mdir.list_envelopes("INBOX", 1, 0).unwrap();
+    let envelopes = mdir.list_envelopes("INBOX", 1, 0).await.unwrap();
     let envelope = envelopes.first().unwrap();
     assert!(!envelope.flags.contains(&Flag::Seen));
     assert!(!envelope.flags.contains(&Flag::Flagged));
@@ -115,56 +121,66 @@ fn maildir_backend() {
 
     // check that the message can be copied
     mdir.copy_emails("INBOX", "subdir", vec![&envelope.id])
+        .await
         .unwrap();
-    let inbox = mdir.list_envelopes("INBOX", 0, 0).unwrap();
-    let subdir = mdir.list_envelopes("subdir", 0, 0).unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).unwrap();
+    let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
+    let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
+    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(1, inbox.len());
     assert_eq!(1, subdir.len());
     assert_eq!(0, trash.len());
-    assert!(mdir.get_emails("INBOX", vec![&inbox[0].id]).is_ok());
-    assert!(mdir.get_emails("subdir", vec![&subdir[0].id]).is_ok());
-    assert!(submdir.get_emails("INBOX", vec![&subdir[0].id]).is_ok());
+    assert!(mdir.get_emails("INBOX", vec![&inbox[0].id]).await.is_ok());
+    assert!(mdir.get_emails("subdir", vec![&subdir[0].id]).await.is_ok());
+    assert!(submdir
+        .get_emails("INBOX", vec![&subdir[0].id])
+        .await
+        .is_ok());
 
     // check that the email can be marked as deleted then expunged
     mdir.mark_emails_as_deleted("subdir", vec![&subdir[0].id])
+        .await
         .unwrap();
-    let inbox = mdir.list_envelopes("INBOX", 0, 0).unwrap();
-    let subdir = mdir.list_envelopes("subdir", 0, 0).unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).unwrap();
+    let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
+    let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
+    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(1, inbox.len());
     assert_eq!(1, subdir.len());
     assert_eq!(0, trash.len());
 
-    mdir.expunge_folder("subdir").unwrap();
-    let subdir = mdir.list_envelopes("subdir", 0, 0).unwrap();
+    mdir.expunge_folder("subdir").await.unwrap();
+    let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
     assert_eq!(0, subdir.len());
 
     // check that the message can be moved
     mdir.move_emails("INBOX", "subdir", vec![&envelope.id])
+        .await
         .unwrap();
-    let inbox = mdir.list_envelopes("INBOX", 0, 0).unwrap();
-    let subdir = mdir.list_envelopes("subdir", 0, 0).unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).unwrap();
+    let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
+    let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
+    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(0, inbox.len());
     assert_eq!(1, subdir.len());
     assert_eq!(0, trash.len());
 
     // check that the message can be deleted
-    mdir.delete_emails("subdir", vec![&subdir[0].id]).unwrap();
-    let inbox = mdir.list_envelopes("INBOX", 0, 0).unwrap();
-    let subdir = mdir.list_envelopes("subdir", 0, 0).unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).unwrap();
+    mdir.delete_emails("subdir", vec![&subdir[0].id])
+        .await
+        .unwrap();
+    let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
+    let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
+    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(0, inbox.len());
     assert_eq!(0, subdir.len());
     assert_eq!(1, trash.len());
 
-    mdir.delete_emails("Trash", vec![&trash[0].id]).unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).unwrap();
+    mdir.delete_emails("Trash", vec![&trash[0].id])
+        .await
+        .unwrap();
+    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(1, trash.len());
     assert!(trash[0].flags.contains(&Flag::Deleted));
 
-    mdir.expunge_folder("Trash").unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).unwrap();
+    mdir.expunge_folder("Trash").await.unwrap();
+    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(0, trash.len());
 }

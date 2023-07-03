@@ -64,10 +64,10 @@ impl SmtpConfig {
     /// The result depends on the [`SmtpAuthConfig`]: if password mode
     /// then creates credentials from login/password, if OAuth 2.0
     /// then creates credentials from access token.
-    pub fn credentials(&self) -> Result<Credentials<String>> {
+    pub async fn credentials(&self) -> Result<Credentials<String>> {
         Ok(match &self.auth {
             SmtpAuthConfig::Passwd(passwd) => {
-                let passwd = passwd.get().map_err(Error::GetPasswdError)?;
+                let passwd = passwd.get().await.map_err(Error::GetPasswdError)?;
                 let passwd = passwd
                     .lines()
                     .next()
@@ -76,9 +76,9 @@ impl SmtpConfig {
             }
             SmtpAuthConfig::OAuth2(oauth2) => match oauth2.method {
                 OAuth2Method::XOAuth2 => {
-                    Credentials::new_xoauth2(self.login.clone(), oauth2.access_token()?)
+                    Credentials::new_xoauth2(self.login.clone(), oauth2.access_token().await?)
                 }
-                OAuth2Method::OAuthBearer => Credentials::new_oauth(oauth2.access_token()?),
+                OAuth2Method::OAuthBearer => Credentials::new_oauth(oauth2.access_token().await?),
             },
         })
     }
@@ -128,11 +128,14 @@ impl SmtpAuthConfig {
     }
 
     /// Configures the OAuth 2.0 authentication tokens.
-    pub fn configure(&self, get_client_secret: impl Fn() -> io::Result<String>) -> Result<()> {
+    pub async fn configure(
+        &self,
+        get_client_secret: impl Fn() -> io::Result<String>,
+    ) -> Result<()> {
         debug!("configuring smtp backend");
 
         if let Self::OAuth2(oauth2) = self {
-            oauth2.configure(get_client_secret)?;
+            oauth2.configure(get_client_secret).await?;
         }
 
         Ok(())

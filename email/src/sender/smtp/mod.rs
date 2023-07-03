@@ -60,7 +60,7 @@ impl Smtp {
     /// Creates a new SMTP sender from configurations.
     pub async fn new(account_config: AccountConfig, smtp_config: SmtpConfig) -> Result<Self> {
         let mut client_builder = SmtpClientBuilder::new(smtp_config.host.clone(), smtp_config.port)
-            .credentials(smtp_config.credentials()?)
+            .credentials(smtp_config.credentials().await?)
             .implicit_tls(!smtp_config.starttls());
 
         if smtp_config.insecure() {
@@ -94,8 +94,9 @@ impl Smtp {
                 match Ok(Self::build_tcp_client(&client_builder).await?) {
                     Ok(client) => Ok((client_builder, client)),
                     Err(Error::ConnectTcpError(mail_send::Error::AuthenticationFailed(_))) => {
-                        oauth2_config.refresh_access_token()?;
-                        client_builder = client_builder.credentials(smtp_config.credentials()?);
+                        oauth2_config.refresh_access_token().await?;
+                        client_builder =
+                            client_builder.credentials(smtp_config.credentials().await?);
                         let client = Self::build_tcp_client(&client_builder).await?;
                         Ok((client_builder, client))
                     }
@@ -106,8 +107,9 @@ impl Smtp {
                 match Ok(Self::build_tls_client(&client_builder).await?) {
                     Ok(client) => Ok((client_builder, client)),
                     Err(Error::ConnectTlsError(mail_send::Error::AuthenticationFailed(_))) => {
-                        oauth2_config.refresh_access_token()?;
-                        client_builder = client_builder.credentials(smtp_config.credentials()?);
+                        oauth2_config.refresh_access_token().await?;
+                        client_builder =
+                            client_builder.credentials(smtp_config.credentials().await?);
                         let client = Self::build_tls_client(&client_builder).await?;
                         Ok((client_builder, client))
                     }
@@ -132,16 +134,16 @@ impl Smtp {
     }
 
     async fn send(&mut self, msg: &[u8]) -> Result<()> {
-        let buffer;
+        let buffer: Vec<u8>;
         let mut msg = Message::parse(&msg).unwrap_or_else(|| {
             warn!("cannot parse raw message");
             Default::default()
         });
 
         if let Some(cmd) = self.account_config.email_hooks.pre_send.as_ref() {
-            match cmd.run_with(msg.raw_message()) {
+            match cmd.run_with(msg.raw_message()).await {
                 Ok(res) => {
-                    buffer = res.stdout;
+                    buffer = res.into();
                     msg = Message::parse(&buffer).unwrap_or_else(|| {
                         warn!("cannot parse raw message after pre-send hook");
                         Default::default()
@@ -166,11 +168,11 @@ impl Smtp {
                 match self.client.send(into_smtp_msg(msg.clone())?).await {
                     Ok(()) => Ok(()),
                     Err(mail_send::Error::AuthenticationFailed(_)) => {
-                        oauth2_config.refresh_access_token()?;
+                        oauth2_config.refresh_access_token().await?;
                         self.client_builder = self
                             .client_builder
                             .clone()
-                            .credentials(self.smtp_config.credentials()?);
+                            .credentials(self.smtp_config.credentials().await?);
                         self.client = if self.smtp_config.ssl() {
                             Self::build_tls_client(&self.client_builder).await
                         } else {

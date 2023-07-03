@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Made the code async due to `pimalaya_process@0.0.4`.
+- Made the code async due to `pimalaya_process@0.0.5`.
 
 ## [0.0.2] - 2023-06-06
 

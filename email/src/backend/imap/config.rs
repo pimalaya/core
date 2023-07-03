@@ -110,7 +110,7 @@ impl ImapConfig {
     }
 
     /// Runs the IMAP notify command.
-    pub fn run_notify_cmd(
+    pub async fn run_notify_cmd(
         &self,
         id: u32,
         subject: impl AsRef<str>,
@@ -127,7 +127,7 @@ impl ImapConfig {
             .replace("<sender>", sender.as_ref())
             .into();
 
-        cmd.run().map_err(Error::StartNotifyModeError)?;
+        cmd.run().await.map_err(Error::StartNotifyModeError)?;
 
         Ok(())
     }
@@ -136,8 +136,8 @@ impl ImapConfig {
     ///
     /// Authentication credentials can be either a password or an
     /// OAuth 2.0 access token.
-    pub fn build_credentials(&self) -> Result<String> {
-        self.auth.build_credentials()
+    pub async fn build_credentials(&self) -> Result<String> {
+        self.auth.build_credentials().await
     }
 }
 
@@ -163,17 +163,17 @@ impl ImapAuthConfig {
     ///
     /// Authentication credentials can be either a password or an
     /// OAuth 2.0 access token.
-    pub fn build_credentials(&self) -> Result<String> {
+    pub async fn build_credentials(&self) -> Result<String> {
         match self {
             ImapAuthConfig::Passwd(passwd) => {
-                let passwd = passwd.get().map_err(Error::GetPasswdError)?;
+                let passwd = passwd.get().await.map_err(Error::GetPasswdError)?;
                 let passwd = passwd
                     .lines()
                     .next()
                     .ok_or_else(|| Error::GetPasswdEmptyError)?;
                 Ok(passwd.to_owned())
             }
-            ImapAuthConfig::OAuth2(oauth2) => Ok(oauth2.access_token()?),
+            ImapAuthConfig::OAuth2(oauth2) => Ok(oauth2.access_token().await?),
         }
     }
 }

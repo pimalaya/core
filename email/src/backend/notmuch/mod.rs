@@ -5,7 +5,8 @@
 
 pub mod config;
 
-use log::{error, info, trace, warn};
+use async_trait::async_trait;
+use log::{error, info, trace};
 use maildirpp::Maildir;
 use notmuch::{Database, DatabaseMode};
 use std::{any::Any, fs, io, path::PathBuf};
@@ -78,25 +79,14 @@ pub enum Error {
 pub struct NotmuchBackend {
     account_config: AccountConfig,
     notmuch_config: NotmuchConfig,
-    db: Database,
 }
 
 impl NotmuchBackend {
     /// Creates a new Notmuch backend from configurations.
     pub fn new(account_config: AccountConfig, notmuch_config: NotmuchConfig) -> Result<Self> {
-        let path = Self::path_from(&notmuch_config);
-        let db = Database::open_with_config(
-            Some(&path),
-            DatabaseMode::ReadWrite,
-            None as Option<PathBuf>,
-            None,
-        )
-        .map_err(|err| Error::OpenNotmuchDatabaseError(err, path.clone()))?;
-
         Ok(Self {
             account_config,
             notmuch_config,
-            db,
         })
     }
 
@@ -137,13 +127,31 @@ impl NotmuchBackend {
         Self::path_from(&self.notmuch_config)
     }
 
+    /// Opens a notmuch database then passes a reference of it to the
+    /// given callback function.
+    fn open_db(&self) -> Result<Database> {
+        let path = Self::path_from(&self.notmuch_config);
+        let db = Database::open_with_config(
+            Some(&path),
+            DatabaseMode::ReadWrite,
+            None as Option<PathBuf>,
+            None,
+        )
+        .map_err(|err| Error::OpenNotmuchDatabaseError(err, path.clone()))?;
+        Ok(db)
+    }
+
+    /// Closes the given notmuch database.
+    fn close_db(db: Database) -> Result<()> {
+        Ok(db.close().map_err(Error::CloseDatabaseError)?)
+    }
+
     /// Searches envelopes matching the given Notmuch query and the
     /// given pagination.
     fn _search_envelopes(&self, query: &str, page_size: usize, page: usize) -> Result<Envelopes> {
-        let query_builder = self
-            .db
-            .create_query(query)
-            .map_err(Error::BuildQueryError)?;
+        let db = self.open_db()?;
+
+        let query_builder = db.create_query(query).map_err(Error::BuildQueryError)?;
 
         let mut envelopes = Envelopes::from_notmuch_msgs(
             query_builder
@@ -168,20 +176,22 @@ impl NotmuchBackend {
         envelopes.sort_by(|a, b| b.date.partial_cmp(&a.date).unwrap());
         *envelopes = envelopes[page_begin..page_end].into();
 
+        Self::close_db(db)?;
         Ok(envelopes)
     }
 }
 
+#[async_trait]
 impl Backend for NotmuchBackend {
     fn name(&self) -> String {
         self.account_config.name.clone()
     }
 
-    fn add_folder(&mut self, _folder: &str) -> Result<()> {
+    async fn add_folder(&mut self, _folder: &str) -> Result<()> {
         Err(Error::AddMboxUnimplementedError)?
     }
 
-    fn list_folders(&mut self) -> Result<Folders> {
+    async fn list_folders(&mut self) -> Result<Folders> {
         let mut mboxes = Folders::default();
         for (name, desc) in &self.account_config.folder_aliases {
             mboxes.push(Folder {
@@ -196,33 +206,40 @@ impl Backend for NotmuchBackend {
         Ok(mboxes)
     }
 
-    fn expunge_folder(&mut self, _folder: &str) -> Result<()> {
+    async fn expunge_folder(&mut self, _folder: &str) -> Result<()> {
         Err(Error::PurgeFolderUnimplementedError)?
     }
 
-    fn purge_folder(&mut self, _folder: &str) -> Result<()> {
+    async fn purge_folder(&mut self, _folder: &str) -> Result<()> {
         Err(Error::ExpungeFolderUnimplementedError)?
     }
 
-    fn delete_folder(&mut self, _folder: &str) -> Result<()> {
+    async fn delete_folder(&mut self, _folder: &str) -> Result<()> {
         Err(Error::DeleteFolderUnimplementedError)?
     }
 
-    fn get_envelope(&mut self, _folder: &str, internal_id: &str) -> Result<Envelope> {
+    async fn get_envelope(&mut self, _folder: &str, internal_id: &str) -> Result<Envelope> {
         info!("getting notmuch envelope by internal id {internal_id}");
 
+        let db = self.open_db()?;
+
         let envelope: Envelope = Envelope::from_notmuch_msg(
-            self.db
-                .find_message(&internal_id)
+            db.find_message(&internal_id)
                 .map_err(Error::FindEmailError)?
                 .ok_or_else(|| Error::FindMsgEmptyError)?,
         );
         trace!("notmuch envelope: {envelope:#?}");
 
+        Self::close_db(db)?;
         Ok(envelope)
     }
 
-    fn list_envelopes(&mut self, folder: &str, page_size: usize, page: usize) -> Result<Envelopes> {
+    async fn list_envelopes(
+        &mut self,
+        folder: &str,
+        page_size: usize,
+        page: usize,
+    ) -> Result<Envelopes> {
         info!("listing notmuch envelopes from virtual folder {folder}");
 
         let query = self
@@ -236,7 +253,7 @@ impl Backend for NotmuchBackend {
         Ok(envelopes)
     }
 
-    fn search_envelopes(
+    async fn search_envelopes(
         &mut self,
         folder: &str,
         query: &str,
@@ -263,11 +280,13 @@ impl Backend for NotmuchBackend {
         Ok(envelopes)
     }
 
-    fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
+    async fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
         info!(
             "adding notmuch email with flags {flags}",
             flags = flags.to_string()
         );
+
+        let db = self.open_db()?;
 
         let folder = self.account_config.folder_alias(folder)?;
         let path = self.path().join(folder);
@@ -289,25 +308,24 @@ impl Backend for NotmuchBackend {
             .map_err(|err| Error::CanonicalizePathError(err, entry.path().clone()))?;
         trace!("path: {path:?}");
 
-        let email = self
-            .db
-            .index_file(&path, None)
-            .map_err(Error::IndexFileError)?;
+        let email = db.index_file(&path, None).map_err(Error::IndexFileError)?;
 
+        Self::close_db(db)?;
         Ok(email.id().to_string())
     }
 
-    fn preview_emails(&mut self, _folder: &str, internal_ids: Vec<&str>) -> Result<Messages> {
+    async fn preview_emails(&mut self, _folder: &str, internal_ids: Vec<&str>) -> Result<Messages> {
         info!(
             "previewing notmuch emails by internal ids {ids}",
             ids = internal_ids.join(", ")
         );
 
+        let db = self.open_db()?;
+
         let msgs: Messages = internal_ids
             .iter()
             .map(|internal_id| {
-                let email_filepath = self
-                    .db
+                let email_filepath = db
                     .find_message(&internal_id)
                     .map_err(Error::FindEmailError)?
                     .ok_or_else(|| Error::FindMsgEmptyError)?
@@ -319,20 +337,24 @@ impl Backend for NotmuchBackend {
             .collect::<Result<Vec<_>>>()?
             .into();
 
+        Self::close_db(db)?;
         Ok(msgs)
     }
 
-    fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<Messages> {
+    async fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<Messages> {
         info!(
             "getting notmuch emails by internal ids {ids}",
             ids = internal_ids.join(", ")
         );
-        let emails = self.preview_emails(folder, internal_ids.clone())?;
-        self.add_flags("INBOX", internal_ids, &Flags::from_iter([Flag::Seen]))?;
+
+        let emails = self.preview_emails(folder, internal_ids.clone()).await?;
+        self.add_flags("INBOX", internal_ids, &Flags::from_iter([Flag::Seen]))
+            .await?;
+
         Ok(emails)
     }
 
-    fn copy_emails(
+    async fn copy_emails(
         &mut self,
         _from_dir: &str,
         _to_dir: &str,
@@ -342,7 +364,7 @@ impl Backend for NotmuchBackend {
         Err(Error::CopyMsgUnimplementedError)?
     }
 
-    fn move_emails(
+    async fn move_emails(
         &mut self,
         _from_dir: &str,
         _to_dir: &str,
@@ -351,40 +373,46 @@ impl Backend for NotmuchBackend {
         Err(Error::MoveMsgUnimplementedError)?
     }
 
-    fn delete_emails(&mut self, _folder: &str, internal_ids: Vec<&str>) -> Result<()> {
+    async fn delete_emails(&mut self, _folder: &str, internal_ids: Vec<&str>) -> Result<()> {
         info!(
             "deleting notmuch emails by internal ids {ids}",
             ids = internal_ids.join(", ")
         );
 
+        let db = self.open_db()?;
+
         internal_ids.iter().try_for_each(|internal_id| {
-            let path = self
-                .db
+            let path = db
                 .find_message(&internal_id)
                 .map_err(Error::FindEmailError)?
                 .ok_or_else(|| Error::FindMsgEmptyError)?
                 .filename()
                 .to_owned();
-            self.db.remove_message(path).map_err(Error::DelMsgError)
+            db.remove_message(path).map_err(Error::DelMsgError)
         })?;
 
+        Self::close_db(db)?;
         Ok(())
     }
 
-    fn add_flags(&mut self, _folder: &str, internal_ids: Vec<&str>, flags: &Flags) -> Result<()> {
+    async fn add_flags(
+        &mut self,
+        _folder: &str,
+        internal_ids: Vec<&str>,
+        flags: &Flags,
+    ) -> Result<()> {
         info!(
             "adding notmuch flags {flags} by internal_ids {ids}",
             flags = flags.to_string(),
             ids = internal_ids.join(", "),
         );
 
+        let db = self.open_db()?;
+
         let query = format!("mid:\"/^({})$/\"", internal_ids.join("|"));
         trace!("query: {query}");
 
-        let query_builder = self
-            .db
-            .create_query(&query)
-            .map_err(Error::BuildQueryError)?;
+        let query_builder = db.create_query(&query).map_err(Error::BuildQueryError)?;
         let emails = query_builder
             .search_messages()
             .map_err(Error::SearchEnvelopesError)?;
@@ -397,23 +425,28 @@ impl Backend for NotmuchBackend {
             }
         }
 
+        Self::close_db(db)?;
         Ok(())
     }
 
-    fn set_flags(&mut self, _folder: &str, internal_ids: Vec<&str>, flags: &Flags) -> Result<()> {
+    async fn set_flags(
+        &mut self,
+        _folder: &str,
+        internal_ids: Vec<&str>,
+        flags: &Flags,
+    ) -> Result<()> {
         info!(
             "setting notmuch flags {flags} by internal_ids {ids}",
             flags = flags.to_string(),
             ids = internal_ids.join(", "),
         );
 
+        let db = self.open_db()?;
+
         let query = format!("mid:\"/^({})$/\"", internal_ids.join("|"));
         trace!("query: {query}");
 
-        let query_builder = self
-            .db
-            .create_query(&query)
-            .map_err(Error::BuildQueryError)?;
+        let query_builder = db.create_query(&query).map_err(Error::BuildQueryError)?;
         let emails = query_builder
             .search_messages()
             .map_err(Error::SearchEnvelopesError)?;
@@ -430,10 +463,11 @@ impl Backend for NotmuchBackend {
             }
         }
 
+        Self::close_db(db)?;
         Ok(())
     }
 
-    fn remove_flags(
+    async fn remove_flags(
         &mut self,
         _folder: &str,
         internal_ids: Vec<&str>,
@@ -445,13 +479,12 @@ impl Backend for NotmuchBackend {
             ids = internal_ids.join(", "),
         );
 
+        let db = self.open_db()?;
+
         let query = format!("mid:\"/^({})$/\"", internal_ids.join("|"));
         trace!("query: {query}");
 
-        let query_builder = self
-            .db
-            .create_query(&query)
-            .map_err(Error::BuildQueryError)?;
+        let query_builder = db.create_query(&query).map_err(Error::BuildQueryError)?;
         let emails = query_builder
             .search_messages()
             .map_err(Error::SearchEnvelopesError)?;
@@ -464,24 +497,12 @@ impl Backend for NotmuchBackend {
             }
         }
 
+        Self::close_db(db)?;
         Ok(())
-    }
-
-    fn close(&mut self) -> Result<()> {
-        Ok(self.db.close().map_err(Error::CloseDatabaseError)?)
     }
 
     fn as_any(&self) -> &dyn Any {
         self
-    }
-}
-
-impl Drop for NotmuchBackend {
-    fn drop(&mut self) {
-        if let Err(err) = self.close() {
-            warn!("cannot close notmuch database, skipping it");
-            error!("cannot close notmuch database: {err:?}");
-        }
     }
 }
 

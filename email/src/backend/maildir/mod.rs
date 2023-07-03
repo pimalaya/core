@@ -5,6 +5,7 @@
 
 pub mod config;
 
+use async_trait::async_trait;
 use log::{debug, info, trace, warn};
 use maildirpp::Maildir;
 use std::{
@@ -156,12 +157,13 @@ impl MaildirBackend {
     }
 }
 
+#[async_trait]
 impl Backend for MaildirBackend {
     fn name(&self) -> String {
         self.account_config.name.clone()
     }
 
-    fn add_folder(&mut self, folder: &str) -> Result<()> {
+    async fn add_folder(&mut self, folder: &str) -> Result<()> {
         info!("adding maildir folder {}", folder);
 
         let path = match self.account_config.folder_alias(folder)?.as_str() {
@@ -181,7 +183,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn list_folders(&mut self) -> Result<Folders> {
+    async fn list_folders(&mut self) -> Result<Folders> {
         info!("listing maildir folders");
 
         let mut folders = Folders::default();
@@ -215,7 +217,7 @@ impl Backend for MaildirBackend {
         Ok(folders)
     }
 
-    fn expunge_folder(&mut self, folder: &str) -> Result<()> {
+    async fn expunge_folder(&mut self, folder: &str) -> Result<()> {
         info!("expunging maildir folder {}", folder);
 
         let mdir = self.get_mdir_from_dir(folder)?;
@@ -239,7 +241,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn purge_folder(&mut self, folder: &str) -> Result<()> {
+    async fn purge_folder(&mut self, folder: &str) -> Result<()> {
         info!("purging maildir folder {}", folder);
 
         let mdir = self.get_mdir_from_dir(folder)?;
@@ -251,12 +253,12 @@ impl Backend for MaildirBackend {
 
         trace!("ids: {:#?}", ids);
 
-        self.delete_emails(folder, ids)?;
+        self.delete_emails(folder, ids).await?;
 
         Ok(())
     }
 
-    fn delete_folder(&mut self, folder: &str) -> Result<()> {
+    async fn delete_folder(&mut self, folder: &str) -> Result<()> {
         info!("deleting maildir folder {}", folder);
 
         let path = match self.account_config.folder_alias(folder)?.as_str() {
@@ -274,7 +276,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn get_envelope(&mut self, folder: &str, internal_id: &str) -> Result<Envelope> {
+    async fn get_envelope(&mut self, folder: &str, internal_id: &str) -> Result<Envelope> {
         info!(
             "getting maildir envelope by internal id {} from folder {}",
             internal_id, folder
@@ -289,7 +291,12 @@ impl Backend for MaildirBackend {
         Ok(envelope)
     }
 
-    fn list_envelopes(&mut self, folder: &str, page_size: usize, page: usize) -> Result<Envelopes> {
+    async fn list_envelopes(
+        &mut self,
+        folder: &str,
+        page_size: usize,
+        page: usize,
+    ) -> Result<Envelopes> {
         info!("listing maildir envelopes of folder {folder}");
         debug!("page size: {page_size}");
         debug!("page: {page}");
@@ -317,7 +324,7 @@ impl Backend for MaildirBackend {
         Ok(envelopes)
     }
 
-    fn search_envelopes(
+    async fn search_envelopes(
         &mut self,
         _folder: &str,
         _query: &str,
@@ -328,7 +335,7 @@ impl Backend for MaildirBackend {
         Err(Error::SearchEnvelopesUnimplementedError)?
     }
 
-    fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
+    async fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
         info!(
             "adding email to folder {folder} with flags {flags}",
             flags = flags.to_string()
@@ -342,7 +349,7 @@ impl Backend for MaildirBackend {
         Ok(internal_id)
     }
 
-    fn preview_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<Messages> {
+    async fn preview_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<Messages> {
         info!(
             "previewing maildir emails by internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),
@@ -374,19 +381,20 @@ impl Backend for MaildirBackend {
         Ok(emails)
     }
 
-    fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<Messages> {
+    async fn get_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<Messages> {
         info!(
             "getting maildir emails by internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),
         );
 
-        let emails = self.preview_emails(folder, internal_ids.clone())?;
-        self.add_flags(folder, internal_ids, &Flags::from_iter([Flag::Seen]))?;
+        let emails = self.preview_emails(folder, internal_ids.clone()).await?;
+        self.add_flags(folder, internal_ids, &Flags::from_iter([Flag::Seen]))
+            .await?;
 
         Ok(emails)
     }
 
-    fn copy_emails(
+    async fn copy_emails(
         &mut self,
         from_folder: &str,
         to_folder: &str,
@@ -409,7 +417,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn move_emails(
+    async fn move_emails(
         &mut self,
         from_folder: &str,
         to_folder: &str,
@@ -432,7 +440,7 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn delete_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<()> {
+    async fn delete_emails(&mut self, folder: &str, internal_ids: Vec<&str>) -> Result<()> {
         info!(
             "deleting internal ids {ids} from folder {folder}",
             ids = internal_ids.join(", "),
@@ -442,12 +450,19 @@ impl Backend for MaildirBackend {
 
         if self.account_config.folder_alias(folder)? == trash_folder {
             self.add_flags(folder, internal_ids, &Flags::from_iter([Flag::Deleted]))
+                .await
         } else {
             self.move_emails(folder, DEFAULT_TRASH_FOLDER, internal_ids)
+                .await
         }
     }
 
-    fn add_flags(&mut self, folder: &str, internal_ids: Vec<&str>, flags: &Flags) -> Result<()> {
+    async fn add_flags(
+        &mut self,
+        folder: &str,
+        internal_ids: Vec<&str>,
+        flags: &Flags,
+    ) -> Result<()> {
         info!(
             "adding flags {flags} to internal ids {ids} from folder {folder}",
             flags = flags.to_string(),
@@ -464,7 +479,12 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn set_flags(&mut self, folder: &str, internal_ids: Vec<&str>, flags: &Flags) -> Result<()> {
+    async fn set_flags(
+        &mut self,
+        folder: &str,
+        internal_ids: Vec<&str>,
+        flags: &Flags,
+    ) -> Result<()> {
         info!(
             "setting flags {flags} to internal ids {ids} from folder {folder}",
             flags = flags.to_string(),
@@ -481,7 +501,12 @@ impl Backend for MaildirBackend {
         Ok(())
     }
 
-    fn remove_flags(&mut self, folder: &str, internal_ids: Vec<&str>, flags: &Flags) -> Result<()> {
+    async fn remove_flags(
+        &mut self,
+        folder: &str,
+        internal_ids: Vec<&str>,
+        flags: &Flags,
+    ) -> Result<()> {
         info!(
             "removing flags {flags} to internal ids {ids} from folder {folder}",
             flags = flags.to_string(),

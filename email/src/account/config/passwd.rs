@@ -55,8 +55,8 @@ impl PasswdConfig {
     }
 
     /// Define the password only if it does not exist in the keyring.
-    pub fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
-        match self.find() {
+    pub async fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
+        match self.find().await {
             Ok(None) => {
                 warn!("cannot find imap password from keyring, setting it");
                 let passwd = get_passwd().map_err(Error::GetFromUserError)?;

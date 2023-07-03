@@ -38,17 +38,17 @@ impl Sendmail {
     }
 
     /// Sends the given raw message.
-    pub fn send(&mut self, msg: &[u8]) -> Result<()> {
-        let buffer;
+    pub async fn send(&mut self, msg: &[u8]) -> Result<()> {
+        let buffer: Vec<u8>;
         let mut msg = Message::parse(&msg).unwrap_or_else(|| {
             warn!("cannot parse raw message");
             Default::default()
         });
 
         if let Some(cmd) = self.account_config.email_hooks.pre_send.as_ref() {
-            match cmd.run_with(msg.raw_message()) {
+            match cmd.run_with(msg.raw_message()).await {
                 Ok(res) => {
-                    buffer = res.stdout;
+                    buffer = res.into();
                     msg = Message::parse(&buffer).unwrap_or_else(|| {
                         warn!("cannot parse raw message after pre-send hook");
                         Default::default()
@@ -64,6 +64,7 @@ impl Sendmail {
         self.sendmail_config
             .cmd
             .run_with(msg.raw_message())
+            .await
             .map_err(Error::RunCommandError)?;
 
         Ok(())
@@ -73,6 +74,6 @@ impl Sendmail {
 #[async_trait]
 impl Sender for Sendmail {
     async fn send(&mut self, msg: &[u8]) -> Result<()> {
-        self.send(msg)
+        self.send(msg).await
     }
 }
