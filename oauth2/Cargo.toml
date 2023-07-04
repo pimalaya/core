@@ -14,9 +14,13 @@ all-features = true
 [lib]
 name = "pimalaya_oauth2"
 
+[dev-dependencies]
+tokio = { version = "1.23", default-features = false, features = ["macros", "rt"] }
+
 [dependencies]
 log = "0.4"
 oauth2 = "4.3"
-reqwest = { version = "0.11", default-features = false, features = ["blocking", "rustls-tls"] }
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
 thiserror = "1.0"
+tokio = { version = "1.23", default-features = false, features = ["io-util", "net"] }
 url = "2.3"

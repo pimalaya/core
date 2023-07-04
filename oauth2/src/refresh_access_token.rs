@@ -3,7 +3,6 @@
 
 use oauth2::{
     basic::{BasicClient, BasicErrorResponseType},
-    reqwest::http_client,
     RefreshToken, RequestTokenError, StandardErrorResponse, TokenResponse,
 };
 use thiserror::Error;
@@ -33,14 +32,15 @@ impl RefreshAccessToken {
         Self
     }
 
-    pub fn refresh_access_token(
+    pub async fn refresh_access_token(
         &self,
         client: &BasicClient,
         refresh_token: impl ToString,
     ) -> Result<(String, Option<String>)> {
         let res = client
             .exchange_refresh_token(&RefreshToken::new(refresh_token.to_string()))
-            .request(http_client)
+            .request_async(oauth2::reqwest::async_http_client)
+            .await
             .map_err(Error::RefreshAccessTokenError)?;
 
         let access_token = res.access_token().secret().to_owned();

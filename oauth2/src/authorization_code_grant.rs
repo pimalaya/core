@@ -7,11 +7,12 @@ use oauth2::{
     AuthorizationCode, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RequestTokenError, Scope,
     StandardErrorResponse, TokenResponse,
 };
-use std::{
-    io::{self, prelude::*, BufReader},
+use std::io;
+use thiserror::Error;
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpListener,
 };
-use thiserror::Error;
 
 use crate::Result;
 
@@ -120,7 +121,7 @@ impl AuthorizationCodeGrant {
     /// [`AuthorizationCodeGrant::get_redirect_url`], then exchange
     /// the received code with an access token and maybe a refresh
     /// token.
-    pub fn wait_for_redirection(
+    pub async fn wait_for_redirection(
         self,
         client: &BasicClient,
         csrf_state: CsrfToken,
@@ -130,16 +131,18 @@ impl AuthorizationCodeGrant {
 
         // listen for one single connection
         let (mut stream, _) = TcpListener::bind((host.clone(), port))
+            .await
             .map_err(|err| Error::BindRedirectServerError(host, port, err))?
             .accept()
+            .await
             .map_err(Error::AcceptRedirectServerError)?;
 
         // extract the code from the url
         let code = {
-            let mut reader = BufReader::new(&stream);
+            let mut reader = BufReader::new(&mut stream);
 
             let mut request_line = String::new();
-            reader.read_line(&mut request_line)?;
+            reader.read_line(&mut request_line).await?;
 
             let redirect_url = request_line
                 .split_whitespace()
@@ -177,7 +180,7 @@ impl AuthorizationCodeGrant {
             res.len(),
             res
         );
-        stream.write_all(res.as_bytes())?;
+        stream.write_all(res.as_bytes()).await?;
 
         // exchange the code for an access token and a refresh token
         let mut res = client.exchange_code(code);
@@ -187,7 +190,8 @@ impl AuthorizationCodeGrant {
         }
 
         let res = res
-            .request(oauth2::reqwest::http_client)
+            .request_async(oauth2::reqwest::async_http_client)
+            .await
             .map_err(Error::ExchangeCodeError)?;
 
         let access_token = res.access_token().secret().to_owned();

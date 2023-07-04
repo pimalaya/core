@@ -1,14 +1,15 @@
 use pimalaya_oauth2::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use std::env;
 
-pub fn main() {
+#[tokio::main]
+pub async fn main() {
     let port = env::var("PORT")
         .unwrap_or(String::from("9999"))
         .parse::<u16>()
-        .expect("Invalid port.");
-    let client_id = env::var("CLIENT_ID").expect("Missing the CLIENT_ID environment variable.");
+        .expect("Invalid port");
+    let client_id = env::var("CLIENT_ID").expect("Missing the CLIENT_ID environment variable");
     let client_secret =
-        env::var("CLIENT_SECRET").expect("Missing the CLIENT_SECRET environment variable.");
+        env::var("CLIENT_SECRET").expect("Missing the CLIENT_SECRET environment variable");
 
     let client = Client::new(
         client_id,
@@ -37,6 +38,7 @@ pub fn main() {
 
     let (access_token, refresh_token) = auth_code_grant
         .wait_for_redirection(&client, csrf_token)
+        .await
         .unwrap();
 
     println!("access token: {:?}", access_token);
@@ -45,6 +47,7 @@ pub fn main() {
     if let Some(refresh_token) = refresh_token {
         let (access_token, refresh_token) = RefreshAccessToken::new()
             .refresh_access_token(&client, refresh_token)
+            .await
             .unwrap();
 
         println!("new access token: {:?}", access_token);
