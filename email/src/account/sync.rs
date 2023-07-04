@@ -12,6 +12,7 @@ use std::{
     env, fmt,
     fs::OpenOptions,
     io,
+    sync::Arc,
 };
 use thiserror::Error;
 
@@ -148,19 +149,20 @@ pub struct AccountSyncReport {
 }
 
 /// The account synchronization progress callback.
-pub struct AccountSyncProgress<'a>(
-    Box<dyn Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'a>,
+#[derive(Clone)]
+pub struct AccountSyncProgress(
+    Arc<dyn Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'static>,
 );
 
-impl Default for AccountSyncProgress<'_> {
+impl Default for AccountSyncProgress {
     fn default() -> Self {
         Self::new(|_evt| Ok(()))
     }
 }
 
-impl<'a> AccountSyncProgress<'a> {
-    pub fn new(f: impl Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'a) -> Self {
-        Self(Box::new(f))
+impl AccountSyncProgress {
+    pub fn new(f: impl Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'static) -> Self {
+        Self(Arc::new(f))
     }
 
     pub fn emit(&self, evt: AccountSyncProgressEvent) {
@@ -178,27 +180,29 @@ impl<'a> AccountSyncProgress<'a> {
 /// but it follows the builder pattern. When all the options are set
 /// up, `sync()` synchronizes the current account locally, using the
 /// given remote builder.
-pub struct AccountSyncBuilder<'a> {
+pub struct AccountSyncBuilder {
     account_config: AccountConfig,
-    remote_builder: BackendBuilder,
-    on_progress: AccountSyncProgress<'a>,
+    remote_builder: Arc<BackendBuilder>,
+    on_progress: AccountSyncProgress,
     folders_strategy: FolderSyncStrategy,
     dry_run: bool,
 }
 
-impl<'a> AccountSyncBuilder<'a> {
+impl<'a> AccountSyncBuilder {
     /// Creates a new account synchronization builder.
     pub async fn new(
         account_config: AccountConfig,
         remote_builder: BackendBuilder,
-    ) -> Result<AccountSyncBuilder<'a>> {
+    ) -> Result<AccountSyncBuilder> {
         let folders_strategy = account_config.sync_folders_strategy.clone();
         Ok(Self {
             account_config,
-            remote_builder: remote_builder
-                .with_cache_disabled(true)
-                .with_default_credentials()
-                .await?,
+            remote_builder: Arc::new(
+                remote_builder
+                    .with_cache_disabled(true)
+                    .with_default_credentials()
+                    .await?,
+            ),
             on_progress: Default::default(),
             dry_run: Default::default(),
             folders_strategy,
@@ -208,7 +212,7 @@ impl<'a> AccountSyncBuilder<'a> {
     /// Sets the progress callback following the builder pattern.
     pub fn with_on_progress(
         mut self,
-        f: impl Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'a,
+        f: impl Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'static,
     ) -> Self {
         self.on_progress = AccountSyncProgress::new(f);
         self
@@ -271,12 +275,12 @@ impl<'a> AccountSyncBuilder<'a> {
         FolderSyncCache::init(conn)?;
         EmailSyncCache::init(conn)?;
 
-        let local_builder = MaildirBackendBuilder::new(
+        let local_builder = Arc::new(MaildirBackendBuilder::new(
             self.account_config.clone(),
             MaildirConfig {
                 root_dir: sync_dir.clone(),
             },
-        );
+        ));
 
         debug!("applying folder aliases to the folder sync strategy");
         let folders_strategy = match &self.folders_strategy {
@@ -300,10 +304,10 @@ impl<'a> AccountSyncBuilder<'a> {
 
         let folder_sync_patch_manager = FolderSyncPatchManager::new(
             &self.account_config,
-            &local_builder,
-            &self.remote_builder,
+            local_builder.clone(),
+            self.remote_builder.clone(),
             &folders_strategy,
-            &self.on_progress,
+            self.on_progress.clone(),
             self.dry_run,
         );
 
@@ -326,9 +330,9 @@ impl<'a> AccountSyncBuilder<'a> {
 
         let envelope_sync_patch_manager = EmailSyncPatchManager::new(
             &self.account_config,
-            &local_builder,
-            &self.remote_builder,
-            &self.on_progress,
+            local_builder.clone(),
+            self.remote_builder.clone(),
+            self.on_progress.clone(),
             self.dry_run,
         );
 

@@ -6,9 +6,12 @@
 //! You also have access to a [`FolderSyncPatchManager`] which helps
 //! you to build and to apply a folder patch.
 
-use futures::{stream::FuturesUnordered, StreamExt};
-use log::{debug, error, info, trace, warn};
-use std::collections::{HashMap, HashSet};
+use futures::{stream, StreamExt};
+use log::{debug, info, trace, warn};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use crate::{
     account::{
@@ -38,10 +41,10 @@ pub type FolderSyncCachePatch = Vec<FolderSyncCacheHunk>;
 /// This structure helps you to build a patch and to apply it.
 pub struct FolderSyncPatchManager<'a> {
     account_config: &'a AccountConfig,
-    local_builder: &'a MaildirBackendBuilder,
-    remote_builder: &'a BackendBuilder,
+    local_builder: Arc<MaildirBackendBuilder>,
+    remote_builder: Arc<BackendBuilder>,
     strategy: &'a FolderSyncStrategy,
-    on_progress: &'a AccountSyncProgress<'a>,
+    on_progress: AccountSyncProgress,
     dry_run: bool,
 }
 
@@ -49,10 +52,10 @@ impl<'a> FolderSyncPatchManager<'a> {
     /// Creates a new folder synchronization patch manager.
     pub fn new(
         account_config: &'a AccountConfig,
-        local_builder: &'a MaildirBackendBuilder,
-        remote_builder: &'a BackendBuilder,
+        local_builder: Arc<MaildirBackendBuilder>,
+        remote_builder: Arc<BackendBuilder>,
         strategy: &'a FolderSyncStrategy,
-        on_progress: &'a AccountSyncProgress<'a>,
+        on_progress: AccountSyncProgress,
         dry_run: bool,
     ) -> Self {
         Self {
@@ -181,7 +184,11 @@ impl<'a> FolderSyncPatchManager<'a> {
         Ok(patches)
     }
 
-    async fn process_hunk(&self, hunk: &FolderSyncHunk) -> Result<FolderSyncCachePatch> {
+    async fn process_hunk(
+        local_builder: Arc<MaildirBackendBuilder>,
+        remote_builder: Arc<BackendBuilder>,
+        hunk: &FolderSyncHunk,
+    ) -> Result<FolderSyncCachePatch> {
         let cache_hunks = match &hunk {
             FolderSyncHunk::Cache(folder, Destination::Local) => {
                 vec![FolderSyncCacheHunk::Insert(
@@ -190,7 +197,7 @@ impl<'a> FolderSyncPatchManager<'a> {
                 )]
             }
             FolderSyncHunk::Create(ref folder, Destination::Local) => {
-                self.local_builder.build()?.add_folder(folder).await?;
+                local_builder.build()?.add_folder(folder).await?;
                 vec![]
             }
             FolderSyncHunk::Cache(ref folder, Destination::Remote) => {
@@ -200,11 +207,7 @@ impl<'a> FolderSyncPatchManager<'a> {
                 )]
             }
             FolderSyncHunk::Create(ref folder, Destination::Remote) => {
-                self.remote_builder
-                    .build()
-                    .await?
-                    .add_folder(&folder)
-                    .await?;
+                remote_builder.build().await?.add_folder(&folder).await?;
                 vec![]
             }
             FolderSyncHunk::Uncache(ref folder, Destination::Local) => {
@@ -214,7 +217,7 @@ impl<'a> FolderSyncPatchManager<'a> {
                 )]
             }
             FolderSyncHunk::Delete(ref folder, Destination::Local) => {
-                self.local_builder.build()?.delete_folder(folder).await?;
+                local_builder.build()?.delete_folder(folder).await?;
                 vec![]
             }
             FolderSyncHunk::Uncache(ref folder, Destination::Remote) => {
@@ -224,11 +227,7 @@ impl<'a> FolderSyncPatchManager<'a> {
                 )]
             }
             FolderSyncHunk::Delete(ref folder, Destination::Remote) => {
-                self.remote_builder
-                    .build()
-                    .await?
-                    .delete_folder(&folder)
-                    .await?;
+                remote_builder.build().await?.delete_folder(&folder).await?;
                 vec![]
             }
         };
@@ -262,43 +261,47 @@ impl<'a> FolderSyncPatchManager<'a> {
                 .map(|patch| (patch.clone(), None))
                 .collect();
         } else {
-            let reports: Vec<FolderSyncReport> = FuturesUnordered::from_iter(
-                patches
-                    .into_iter()
-                    .flat_map(|(_folder, patch)| patch)
-                    .map(|hunk| async move {
+            report = stream::iter(patches.into_iter().flat_map(|(_folder, patch)| patch))
+                .map(|hunk| {
+                    let on_progress = self.on_progress.clone();
+                    let local_builder = self.local_builder.clone();
+                    let remote_builder = self.remote_builder.clone();
+
+                    tokio::spawn(async move {
                         debug!("processing folder hunk: {hunk:?}");
 
                         let mut report = FolderSyncReport::default();
 
-                        self.on_progress
-                            .emit(AccountSyncProgressEvent::ApplyFolderHunk(hunk.clone()));
+                        on_progress.emit(AccountSyncProgressEvent::ApplyFolderHunk(hunk.clone()));
 
-                        match self.process_hunk(&hunk).await {
+                        match Self::process_hunk(local_builder, remote_builder, &hunk).await {
                             Ok(cache_hunks) => {
                                 report.patch.push((hunk.clone(), None));
                                 report.cache_patch.0.extend(cache_hunks);
                             }
                             Err(err) => {
-                                warn!("error while processing hunk {hunk:?}, skipping it: {err:?}");
-                                error!("{err}");
+                                warn!("error while processing folder hunk: {err}");
+                                debug!("error while processing folder hunk: {err:?}");
                                 report.patch.push((hunk.clone(), Some(err)));
                             }
                         };
 
-                        report
-                    }),
-            )
-            .collect()
-            .await;
-
-            report = reports
-                .into_iter()
-                .fold(FolderSyncReport::default(), |mut r1, r2| {
+                        Result::Ok(report)
+                    })
+                })
+                .buffer_unordered(16)
+                .filter_map(|report| async {
+                    match report {
+                        Ok(Ok(report)) => Some(report),
+                        _ => None,
+                    }
+                })
+                .fold(FolderSyncReport::default(), |mut r1, r2| async {
                     r1.patch.extend(r2.patch);
                     r1.cache_patch.0.extend(r2.cache_patch.0);
                     r1
-                });
+                })
+                .await;
 
             let mut process_cache_patch = || {
                 let tx = conn.transaction()?;

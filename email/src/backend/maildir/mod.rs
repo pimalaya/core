@@ -531,6 +531,7 @@ impl Backend for MaildirBackend {
 /// The Maildir backend builder.
 ///
 /// Simple builder that helps to build a Maildir backend.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MaildirBackendBuilder {
     account_config: AccountConfig,
     mdir_config: MaildirConfig,

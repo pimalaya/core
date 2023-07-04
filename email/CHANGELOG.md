@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Made the code async using the tokio async runtime. Functions from the traits `Backend` and `Sender` are also async using the `async_trait` crate.
+
 ## [0.12.0] - 2023-06-29
 
 ### Changed

@@ -2,8 +2,9 @@
 //!
 //! The core structure of this module is the [`EmailSyncRunner`].
 
+use futures::lock::Mutex;
 use log::{trace, warn};
-use std::sync::Mutex;
+use std::sync::Arc;
 
 use crate::{
     account::sync::{AccountSyncProgress, AccountSyncProgressEvent},
@@ -20,24 +21,24 @@ use super::*;
 /// hunks available in the patch. The patch is in a
 /// [`std::sync::Mutex`], which makes the runner thread safe. Multiple
 /// runner can run in parallel.
-pub struct EmailSyncRunner<'a> {
+pub struct EmailSyncRunner {
     /// The runner identifier, for logging purpose.
     pub id: usize,
 
     /// The local Maildir backend builder.
-    pub local_builder: &'a MaildirBackendBuilder,
+    pub local_builder: Arc<MaildirBackendBuilder>,
 
     /// The remote backend builder.
-    pub remote_builder: &'a BackendBuilder,
+    pub remote_builder: Arc<BackendBuilder>,
 
     /// The synchronization progress callback.
-    pub on_progress: &'a AccountSyncProgress<'a>,
+    pub on_progress: AccountSyncProgress,
 
     /// The patch this runner takes hunks from.
-    pub patch: &'a Mutex<Vec<Vec<EmailSyncHunk>>>,
+    pub patch: Arc<Mutex<Vec<Vec<EmailSyncHunk>>>>,
 }
 
-impl EmailSyncRunner<'_> {
+impl EmailSyncRunner {
     async fn process_hunk(
         local: &mut MaildirBackend,
         remote: &mut dyn Backend,
@@ -202,10 +203,15 @@ impl EmailSyncRunner<'_> {
         let mut remote = self.remote_builder.build().await?;
 
         loop {
-            match self.patch.try_lock().map(|mut patch| patch.pop()) {
-                Err(_) => continue,
-                Ok(None) => break,
-                Ok(Some(hunks)) => {
+            // wraps in a block to free the lock
+            let hunks = {
+                let mut lock = self.patch.lock().await;
+                lock.pop()
+            };
+
+            match hunks {
+                None => break,
+                Some(hunks) => {
                     for hunk in hunks {
                         trace!("sync runner {} processing envelope hunk: {hunk:?}", self.id);
 

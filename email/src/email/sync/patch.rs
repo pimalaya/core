@@ -6,12 +6,12 @@
 //! You also have access to a [`EmailSyncPatchManager`] which helps
 //! you to build and to apply an email patch.
 
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::{lock::Mutex, stream, StreamExt};
 use log::{debug, error, info, warn};
 use rusqlite::Connection;
 use std::{
     collections::{HashMap, HashSet},
-    sync::Mutex,
+    sync::Arc,
 };
 
 use crate::{
@@ -38,9 +38,9 @@ pub type EmailSyncCachePatch = Vec<EmailSyncCacheHunk>;
 /// This structure helps you to build a patch and to apply it.
 pub struct EmailSyncPatchManager<'a> {
     account_config: &'a AccountConfig,
-    local_builder: &'a MaildirBackendBuilder,
-    remote_builder: &'a BackendBuilder,
-    on_progress: &'a AccountSyncProgress<'a>,
+    local_builder: Arc<MaildirBackendBuilder>,
+    remote_builder: Arc<BackendBuilder>,
+    on_progress: AccountSyncProgress,
     dry_run: bool,
 }
 
@@ -48,9 +48,9 @@ impl<'a> EmailSyncPatchManager<'a> {
     /// Creates a new email synchronization patch manager.
     pub fn new(
         account_config: &'a AccountConfig,
-        local_builder: &'a MaildirBackendBuilder,
-        remote_builder: &'a BackendBuilder,
-        on_progress: &'a AccountSyncProgress<'a>,
+        local_builder: Arc<MaildirBackendBuilder>,
+        remote_builder: Arc<BackendBuilder>,
+        on_progress: AccountSyncProgress,
         dry_run: bool,
     ) -> Self {
         Self {
@@ -176,49 +176,43 @@ impl<'a> EmailSyncPatchManager<'a> {
                 .map(|patch| (patch, None))
                 .collect();
         } else {
-            let patch = Mutex::new(Vec::from_iter(patch));
+            let patch = Arc::new(Mutex::new(Vec::from_iter(patch)));
 
-            debug!("starting envelope sync runners");
-            // let reports: Vec<FolderSyncReport> = FuturesUnordered::from_iter(
-            //     patches
-            //         .into_iter()
-            //         .flat_map(|(_folder, patch)| patch)
-            //         .map(|hunk| async move {
+            debug!("starting email sync runners");
 
-            let reports = FuturesUnordered::from_iter(
-                (0..16)
-                    .into_iter()
-                    .map(|id| EmailSyncRunner {
-                        id,
-                        local_builder: self.local_builder,
-                        remote_builder: self.remote_builder,
-                        patch: &patch,
-                        on_progress: &self.on_progress,
-                    })
-                    .map(|runner| async move {
+            report = stream::iter(0..16)
+                .map(|id| EmailSyncRunner {
+                    id,
+                    local_builder: self.local_builder.clone(),
+                    remote_builder: self.remote_builder.clone(),
+                    patch: patch.clone(),
+                    on_progress: self.on_progress.clone(),
+                })
+                .map(|runner| {
+                    tokio::spawn(async move {
                         match runner.run().await {
                             Ok(report) => Some(report),
                             Err(err) => {
-                                warn!(
-                                "error while starting envelope sync runner, skipping it: {err:?}"
-                            );
-                                error!("{err}");
+                                warn!("error while starting email sync runner: {err}");
+                                debug!("error while starting email sync runner: {err:?}");
                                 None
                             }
                         }
-                    }),
-            )
-            .collect::<Vec<Option<_>>>()
-            .await;
-
-            report = reports.into_iter().filter_map(|report| report).fold(
-                EmailSyncReport::default(),
-                |mut r1, r2| {
+                    })
+                })
+                .buffer_unordered(16)
+                .filter_map(|report| async {
+                    match report {
+                        Ok(Some(report)) => Some(report),
+                        _ => None,
+                    }
+                })
+                .fold(EmailSyncReport::default(), |mut r1, r2| async {
                     r1.patch.extend(r2.patch);
                     r1.cache_patch.0.extend(r2.cache_patch.0);
                     r1
-                },
-            );
+                })
+                .await;
 
             self.on_progress
                 .emit(AccountSyncProgressEvent::ApplyEnvelopeCachePatch(
