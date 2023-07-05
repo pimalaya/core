@@ -15,12 +15,32 @@
 //!  - [`Flag`](email::Flag)
 //!  - [`Backend`](backend::Backend)
 //!  - [`Sender`](sender::Sender)
+//!
+//! ## Backend and sender
+//!
+//! `pimalaya-email` provides two main abstractions---a backend and
+//! a sender---as represented by their respective traits ([`Backend`]
+//! and [`Sender`].)
+//!
+//! - A **backend** provides the ability to interact with an email
+//!   server (e.g. IMAP or Maildir), by providing read/write operations
+//!   on folders and messages.
+//! - A **sender** provides the ability to send emails. This is
+//!   analogous to the functionality of e.g. the SMTP protocol.
+//!
+//! `pimalaya-email` provides some default implementations of these
+//! traits, found in their respective modules.
 
 pub mod account;
 pub mod backend;
 pub mod email;
 pub mod folder;
 pub mod sender;
+
+#[doc(inline)]
+pub use backend::Backend;
+#[doc(inline)]
+pub use sender::Sender;
 
 /// The global `Error` enum of the library.
 #[derive(Debug, thiserror::Error)]

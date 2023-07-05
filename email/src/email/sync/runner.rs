@@ -18,9 +18,8 @@ use super::*;
 ///
 /// Acts a bit like a worker: the `run()` function takes a hunk from
 /// the given patch and process it, then loops until there is no more
-/// hunks available in the patch. The patch is in a
-/// [`std::sync::Mutex`], which makes the runner thread safe. Multiple
-/// runner can run in parallel.
+/// hunks available in the patch. The patch is in a mutex, which makes
+/// the runner thread safe. Multiple runners can run in parallel.
 pub struct EmailSyncRunner {
     /// The runner identifier, for logging purpose.
     pub id: usize,
@@ -203,7 +202,7 @@ impl EmailSyncRunner {
         let mut remote = self.remote_builder.build().await?;
 
         loop {
-            // wraps in a block to free the lock
+            // wraps in a block to free the lock as quick as possible
             let hunks = {
                 let mut lock = self.patch.lock().await;
                 lock.pop()
