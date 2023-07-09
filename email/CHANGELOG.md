@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2023-07-09
+
 ### Changed
 
 - Made the code async. Functions from the traits `Backend` and `Sender` are also async using the `async_trait` crate.
+- Bumped `pimalaya_secret@0.0.5`.
 
 ## [0.12.0] - 2023-06-29
 
