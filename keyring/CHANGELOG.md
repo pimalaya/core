@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Pinned keyring version `keyring@2.0.4`.
+- Replaced default feature by `linux-secret-service-rt-tokio-crypto-rust`.
+
 ## [0.0.4] - 2023-06-06
 
 ### Added

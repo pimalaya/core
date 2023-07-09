@@ -18,6 +18,6 @@ name = "pimalaya_keyring"
 env_logger = "0.10"
 
 [dependencies]
-keyring = "2.0"
+keyring = { version = "2.0.4", default-features = false, features = ["linux-secret-service-rt-tokio-crypto-rust"] }
 log = "0.4"
 thiserror = "1.0"
