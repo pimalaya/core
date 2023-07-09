@@ -7,10 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5] - 2023-07-09
+
 ### Changed
 
 - Pinned keyring version `keyring@2.0.4`.
-- Replaced default feature by `linux-secret-service-rt-tokio-crypto-rust`.
+
+### Removed
+
+- Disabled `keyring` crate builtin secret service on Linux (provided by the default feature `linux-secret-service`), replaced instead by the default Linux kernel keyutils (provided by the feature `linux-no-secret-service`).
 
 ## [0.0.4] - 2023-06-06
 
