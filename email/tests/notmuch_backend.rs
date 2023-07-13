@@ -29,8 +29,8 @@ async fn notmuch_backend() {
     let config = AccountConfig {
         name: "account".into(),
         folder_aliases: HashMap::from_iter([
-            ("inbox".into(), "".into()),
-            ("custom".into(), "CustomMaildirFolder".into()),
+            ("inbox".into(), "folder:\"\"".into()),
+            ("custom".into(), "folder:\"CustomMaildirFolder\"".into()),
         ]),
         ..AccountConfig::default()
     };
@@ -91,6 +91,15 @@ async fn notmuch_backend() {
     assert_eq!("Plain message custom!", envelope.subject);
 
     let envelopes = notmuch.list_envelopes("inbox", 0, 0).await.unwrap();
+    let envelope = envelopes.first().unwrap();
+    assert_eq!(1, envelopes.len());
+    assert_eq!("alice@localhost", envelope.from.addr);
+    assert_eq!("Plain message!", envelope.subject);
+
+    let envelopes = notmuch
+        .search_envelopes("inbox", "", "", 0, 0)
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
     assert_eq!(1, envelopes.len());
     assert_eq!("alice@localhost", envelope.from.addr);

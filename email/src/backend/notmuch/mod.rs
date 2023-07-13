@@ -6,9 +6,10 @@
 pub mod config;
 
 use async_trait::async_trait;
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use maildirpp::Maildir;
 use notmuch::{Database, DatabaseMode};
+use regex::Regex;
 use std::{any::Any, fs, io, path::PathBuf};
 use thiserror::Error;
 
@@ -244,8 +245,8 @@ impl Backend for NotmuchBackend {
 
         let query = self
             .account_config
-            .folder_alias(folder.as_ref())
-            .map(|folder| format!("folder:{folder:?}"))?;
+            .find_folder_alias(folder.as_ref())?
+            .unwrap_or_else(|| format!("folder:{folder:?}"));
         trace!("query: {query}");
         let envelopes = self._search_envelopes(&query, page_size, page)?;
         trace!("envelopes: {envelopes:#?}");
@@ -265,17 +266,16 @@ impl Backend for NotmuchBackend {
 
         let folder_query = self
             .account_config
-            .folder_alias(folder.as_ref())
-            .map(|folder| format!("folder:{folder:?}"))?;
+            .find_folder_alias(folder.as_ref())?
+            .unwrap_or_else(|| format!("folder:{folder:?}"));
         let query = if query.is_empty() {
             folder_query
         } else {
             folder_query + " and " + query.as_ref()
         };
-        trace!("query: {query}");
+        debug!("notmuch query: {query}");
 
         let envelopes = self._search_envelopes(&query, page_size, page)?;
-        trace!("envelopes: {envelopes:#?}");
 
         Ok(envelopes)
     }
@@ -288,7 +288,15 @@ impl Backend for NotmuchBackend {
 
         let db = self.open_db()?;
 
-        let folder = self.account_config.folder_alias(folder)?;
+        let extract_folder_from_query_regex = Regex::new("folder:\"?([^\"]*)\"?").unwrap();
+        let folder_alias = self.account_config.find_folder_alias(folder)?;
+        let folder = match folder_alias {
+            Some(ref alias) => extract_folder_from_query_regex
+                .captures(alias)
+                .map(|m| m[1].to_owned())
+                .unwrap_or_else(|| folder.to_owned()),
+            None => folder.to_owned(),
+        };
         let path = self.path().join(folder);
         let mdir = Maildir::from(
             path.canonicalize()

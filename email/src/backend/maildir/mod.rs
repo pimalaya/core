@@ -108,7 +108,7 @@ impl MaildirBackend {
 
     /// Creates a maildir instance from a path.
     pub fn get_mdir_from_dir(&self, folder: &str) -> Result<Maildir> {
-        let folder = self.account_config.folder_alias(folder)?;
+        let folder = self.account_config.get_folder_alias(folder)?;
 
         // If the dir points to the inbox folder, creates a maildir
         // instance from the root folder.
@@ -166,7 +166,7 @@ impl Backend for MaildirBackend {
     async fn add_folder(&mut self, folder: &str) -> Result<()> {
         info!("adding maildir folder {}", folder);
 
-        let path = match self.account_config.folder_alias(folder)?.as_str() {
+        let path = match self.account_config.get_folder_alias(folder)?.as_str() {
             DEFAULT_INBOX_FOLDER => self.mdir.path().join("cur"),
             folder => {
                 let folder = self.encode_folder(folder);
@@ -261,7 +261,7 @@ impl Backend for MaildirBackend {
     async fn delete_folder(&mut self, folder: &str) -> Result<()> {
         info!("deleting maildir folder {}", folder);
 
-        let path = match self.account_config.folder_alias(folder)?.as_str() {
+        let path = match self.account_config.get_folder_alias(folder)?.as_str() {
             DEFAULT_INBOX_FOLDER => self.mdir.path().join("cur"),
             folder => {
                 let folder = self.encode_folder(folder);
@@ -448,7 +448,7 @@ impl Backend for MaildirBackend {
 
         let trash_folder = self.account_config.trash_folder_alias()?;
 
-        if self.account_config.folder_alias(folder)? == trash_folder {
+        if self.account_config.get_folder_alias(folder)? == trash_folder {
             self.add_flags(folder, internal_ids, &Flags::from_iter([Flag::Deleted]))
                 .await
         } else {

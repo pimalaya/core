@@ -1079,7 +1079,7 @@ impl Backend for ImapBackend {
     async fn delete_emails(&mut self, folder: &str, uids: Vec<&str>) -> Result<()> {
         let trash_folder = self.account_config.trash_folder_alias()?;
 
-        if self.account_config.folder_alias(folder)? == trash_folder {
+        if self.account_config.get_folder_alias(folder)? == trash_folder {
             self.mark_emails_as_deleted(folder, uids).await
         } else {
             self.move_emails(folder, &trash_folder, uids).await

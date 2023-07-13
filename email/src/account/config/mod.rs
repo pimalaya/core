@@ -7,7 +7,7 @@ pub mod oauth2;
 pub mod passwd;
 
 use dirs::data_dir;
-use log::warn;
+use log::{debug, warn};
 use mail_builder::headers::address::{Address, EmailAddress};
 use pimalaya_email_tpl::TplInterpreter;
 use pimalaya_process::Cmd;
@@ -215,8 +215,25 @@ impl AccountConfig {
     }
 
     /// Return the alias of the given folder if defined, otherwise
+    /// return None.
+    pub fn find_folder_alias(&self, folder: &str) -> Result<Option<String>> {
+        let lowercase_folder = folder.trim().to_lowercase();
+
+        let alias = match self.folder_aliases.get(&lowercase_folder) {
+            None => None,
+            Some(alias) => Some(shellexpand::full(alias).map(String::from).or_else(|err| {
+                warn!("skipping shell expand for folder alias {alias}: {err}");
+                debug!("skipping shell expand for folder alias {alias}: {err:?}");
+                Result::Ok(alias.clone())
+            })?),
+        };
+
+        Ok(alias)
+    }
+
+    /// Return the alias of the given folder if defined, otherwise
     /// return the folder itself. Then expand shell variables.
-    pub fn folder_alias(&self, folder: &str) -> Result<String> {
+    pub fn get_folder_alias(&self, folder: &str) -> Result<String> {
         let lowercase_folder = folder.trim().to_lowercase();
 
         let alias = self
@@ -240,22 +257,22 @@ impl AccountConfig {
 
     /// Return the inbox folder alias.
     pub fn inbox_folder_alias(&self) -> Result<String> {
-        self.folder_alias(DEFAULT_INBOX_FOLDER)
+        self.get_folder_alias(DEFAULT_INBOX_FOLDER)
     }
 
     /// Return the drafts folder alias.
     pub fn drafts_folder_alias(&self) -> Result<String> {
-        self.folder_alias(DEFAULT_DRAFTS_FOLDER)
+        self.get_folder_alias(DEFAULT_DRAFTS_FOLDER)
     }
 
     /// Return the sent folder alias.
     pub fn sent_folder_alias(&self) -> Result<String> {
-        self.folder_alias(DEFAULT_SENT_FOLDER)
+        self.get_folder_alias(DEFAULT_SENT_FOLDER)
     }
 
     /// Return the trash folder alias.
     pub fn trash_folder_alias(&self) -> Result<String> {
-        self.folder_alias(DEFAULT_TRASH_FOLDER)
+        self.get_folder_alias(DEFAULT_TRASH_FOLDER)
     }
 
     /// Return the email listing page size if defined, otherwise
