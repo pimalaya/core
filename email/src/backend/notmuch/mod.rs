@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use log::{debug, error, info, trace};
 use maildirpp::Maildir;
 use notmuch::{Database, DatabaseMode};
+use once_cell::unsync::Lazy;
 use regex::Regex;
 use std::{any::Any, fs, io, path::PathBuf};
 use thiserror::Error;
@@ -75,6 +76,9 @@ pub enum Error {
     #[error("cannot delete notmuch tag")]
     RemoveTagError(#[source] notmuch::Error),
 }
+
+const EXTRACT_FOLDER_FROM_QUERY: Lazy<Regex> =
+    Lazy::new(|| Regex::new("folder:\"?([^\"]*)\"?").unwrap());
 
 /// The Notmuch backend.
 pub struct NotmuchBackend {
@@ -288,10 +292,9 @@ impl Backend for NotmuchBackend {
 
         let db = self.open_db()?;
 
-        let extract_folder_from_query_regex = Regex::new("folder:\"?([^\"]*)\"?").unwrap();
         let folder_alias = self.account_config.find_folder_alias(folder)?;
         let folder = match folder_alias {
-            Some(ref alias) => extract_folder_from_query_regex
+            Some(ref alias) => EXTRACT_FOLDER_FROM_QUERY
                 .captures(alias)
                 .map(|m| m[1].to_owned())
                 .unwrap_or_else(|| folder.to_owned()),
