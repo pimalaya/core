@@ -29,7 +29,13 @@ async fn maildir_backend() {
 
     let config = AccountConfig {
         name: "account".into(),
-        folder_aliases: HashMap::from_iter([("subdir".into(), "Subdir".into())]),
+        folder_aliases: HashMap::from_iter([
+            ("subdir".into(), "Subdir".into()),
+            (
+                "abs-subdir".into(),
+                mdir.path().join(".Subdir").to_string_lossy().into(),
+            ),
+        ]),
         ..AccountConfig::default()
     };
 
@@ -125,9 +131,11 @@ async fn maildir_backend() {
         .unwrap();
     let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
     let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
+    let abs_subdir = mdir.list_envelopes("abs-subdir", 0, 0).await.unwrap();
     let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(1, inbox.len());
     assert_eq!(1, subdir.len());
+    assert_eq!(1, abs_subdir.len());
     assert_eq!(0, trash.len());
     assert!(mdir.get_emails("INBOX", vec![&inbox[0].id]).await.is_ok());
     assert!(mdir.get_emails("subdir", vec![&subdir[0].id]).await.is_ok());
@@ -142,14 +150,18 @@ async fn maildir_backend() {
         .unwrap();
     let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
     let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
+    let abs_subdir = mdir.list_envelopes("abs-subdir", 0, 0).await.unwrap();
     let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(1, inbox.len());
     assert_eq!(1, subdir.len());
+    assert_eq!(1, abs_subdir.len());
     assert_eq!(0, trash.len());
 
     mdir.expunge_folder("subdir").await.unwrap();
     let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
+    let abs_subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
     assert_eq!(0, subdir.len());
+    assert_eq!(0, abs_subdir.len());
 
     // check that the message can be moved
     mdir.move_emails("INBOX", "subdir", vec![&envelope.id])

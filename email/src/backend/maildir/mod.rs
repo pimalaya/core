@@ -109,7 +109,6 @@ impl MaildirBackend {
     /// Creates a maildir instance from a path.
     pub fn get_mdir_from_dir(&self, folder: &str) -> Result<Maildir> {
         let folder = self.account_config.folder_alias(folder)?;
-        let folder = self.encode_folder(&folder).to_string();
 
         // If the dir points to the inbox folder, creates a maildir
         // instance from the root folder.
@@ -138,6 +137,7 @@ impl MaildirBackend {
                 // as described in the [spec].
                 //
                 // [spec]: http://www.courier-mta.org/imap/README.maildirquota.html
+                let folder = self.encode_folder(&folder);
                 self.validate_mdir_path(self.mdir.path().join(format!(".{}", folder)))
             })
             .map(Maildir::from)

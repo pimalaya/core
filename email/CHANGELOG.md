@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed absolute folder aliases for the maildir backend [#94].
+
 ## [0.13.0] - 2023-07-09
 
 ### Changed
@@ -341,3 +345,4 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#70]: https://todo.sr.ht/~soywod/pimalaya/70
 [#76]: https://todo.sr.ht/~soywod/pimalaya/76
 [#80]: https://todo.sr.ht/~soywod/pimalaya/80
+[#94]: https://todo.sr.ht/~soywod/pimalaya/94
