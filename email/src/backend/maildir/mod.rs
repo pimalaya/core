@@ -6,7 +6,7 @@
 pub mod config;
 
 use async_trait::async_trait;
-use log::{debug, info, trace, warn};
+use log::{debug, info, warn};
 use maildirpp::Maildir;
 use std::{
     any::Any,
@@ -164,7 +164,7 @@ impl Backend for MaildirBackend {
     }
 
     async fn add_folder(&mut self, folder: &str) -> Result<()> {
-        info!("adding maildir folder {}", folder);
+        info!("adding maildir folder {folder}");
 
         let path = match self.account_config.get_folder_alias(folder)?.as_str() {
             DEFAULT_INBOX_FOLDER => self.mdir.path().join("cur"),
@@ -174,7 +174,7 @@ impl Backend for MaildirBackend {
             }
         };
 
-        trace!("maildir folder path: {:?}", path);
+        debug!("maildir folder path: {:?}", path);
 
         Maildir::from(path.clone())
             .create_dirs()
@@ -212,7 +212,7 @@ impl Backend for MaildirBackend {
             });
         }
 
-        trace!("maildir folders: {:#?}", folders);
+        debug!("maildir folders: {:#?}", folders);
 
         Ok(folders)
     }
@@ -251,7 +251,7 @@ impl Backend for MaildirBackend {
             .collect::<Result<Vec<_>>>()?;
         let ids = entries.iter().map(|entry| entry.id()).collect();
 
-        trace!("ids: {:#?}", ids);
+        debug!("ids: {:#?}", ids);
 
         self.delete_emails(folder, ids).await?;
 
@@ -269,7 +269,7 @@ impl Backend for MaildirBackend {
             }
         };
 
-        trace!("maildir folder path: {:?}", path);
+        debug!("maildir folder path: {:?}", path);
 
         fs::remove_dir_all(&path).map_err(|err| Error::DeleteFolderError(err, path))?;
 

@@ -252,6 +252,7 @@ impl AccountConfig {
             Result::Ok(alias.to_string())
         })?;
 
+        debug!("folder alias for {folder}: {alias}");
         Ok(alias)
     }
 

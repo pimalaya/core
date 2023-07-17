@@ -14,7 +14,7 @@ use imap::{
     Authenticator, Client, Session,
 };
 use imap_proto::{NameAttribute, UidSetMember};
-use log::{debug, error, info, log_enabled, trace, warn, Level};
+use log::{debug, error, info, log_enabled, warn, Level};
 use once_cell::sync::Lazy;
 use pimalaya_process::Cmd;
 use rustls::{
@@ -508,7 +508,7 @@ impl ImapBackend {
             .into_iter()
             .collect();
         debug!("found {} new envelopes", uids.len());
-        trace!("uids: {:?}", uids);
+        debug!("uids: {:?}", uids);
 
         Ok(uids)
     }
@@ -519,8 +519,11 @@ impl ImapBackend {
     /// on the server and to run the notify command from the account
     /// configuration in case new envelopes are available.
     pub async fn notify(&mut self, keepalive: u64, folder: &str) -> Result<()> {
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        info!("notifying imap folder {folder}");
+
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.examine(&folder_encoded),
@@ -535,7 +538,7 @@ impl ImapBackend {
             .iter()
             .cloned()
             .collect::<HashSet<_>>();
-        trace!("messages hashset: {:?}", msgs_set);
+        debug!("messages hashset: {:?}", msgs_set);
 
         loop {
             debug!("begin loop");
@@ -558,7 +561,7 @@ impl ImapBackend {
                 .filter(|uid| msgs_set.get(uid).is_none())
                 .collect();
             debug!("found {} new messages not in hashset", uids.len());
-            trace!("messages hashet: {:?}", msgs_set);
+            debug!("messages hashet: {:?}", msgs_set);
 
             if !uids.is_empty() {
                 let uids = uids
@@ -584,11 +587,10 @@ impl ImapBackend {
                         .await?;
 
                     debug!("notify message: {}", uid);
-                    trace!("message: {:?}", envelope);
 
-                    debug!("insert message {} in hashset", uid);
+                    debug!("inserting message {} in hashset", uid);
                     msgs_set.insert(uid);
-                    trace!("messages hashset: {:?}", msgs_set);
+                    debug!("messages hashset: {:?}", msgs_set);
                 }
             }
 
@@ -602,14 +604,15 @@ impl ImapBackend {
     /// on the server and to run the watch commands from the account
     /// configuration, in series.
     pub async fn watch(&mut self, keepalive: u64, folder: &str) -> Result<()> {
-        debug!("examine folder: {}", folder);
+        info!("watching imap folder {folder}");
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.examine(&folder_encoded),
-            |err| Error::ExamineFolderError(err, folder.to_owned()),
+            |err| Error::ExamineFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -654,12 +657,13 @@ impl Backend for ImapBackend {
     async fn add_folder(&mut self, folder: &str) -> Result<()> {
         info!("adding imap folder {folder}");
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.create(&folder_encoded),
-            |err| Error::CreateFolderError(err, folder.to_owned()),
+            |err| Error::CreateFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -691,7 +695,7 @@ impl Backend for ImapBackend {
                 })
             }
         }));
-        trace!("imap folders: {:?}", folders);
+        debug!("imap folders: {folders:#?}");
 
         Ok(folders)
     }
@@ -699,18 +703,19 @@ impl Backend for ImapBackend {
     async fn expunge_folder(&mut self, folder: &str) -> Result<()> {
         info!("expunging imap folder {folder}");
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.to_owned()),
+            |err| Error::SelectFolderError(err, folder.clone()),
         )
         .await?;
 
         self.with_session(
             |session| session.expunge(),
-            |err| Error::ExpungeFolderError(err, folder.to_owned()),
+            |err| Error::ExpungeFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -720,15 +725,16 @@ impl Backend for ImapBackend {
     async fn purge_folder(&mut self, folder: &str) -> Result<()> {
         info!("purging imap folder {folder}");
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         let flags = Flags::from_iter([Flag::Deleted]);
         let uids = String::from("1:*");
 
         self.with_session(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.to_owned()),
+            |err| Error::SelectFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -742,7 +748,7 @@ impl Backend for ImapBackend {
 
         self.with_session(
             |session| session.expunge(),
-            |err| Error::ExpungeFolderError(err, folder.to_owned()),
+            |err| Error::ExpungeFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -752,12 +758,13 @@ impl Backend for ImapBackend {
     async fn delete_folder(&mut self, folder: &str) -> Result<()> {
         info!("deleting imap folder {folder}");
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.delete(&folder_encoded),
-            |err| Error::DeleteFolderError(err, folder.to_owned()),
+            |err| Error::DeleteFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -767,12 +774,13 @@ impl Backend for ImapBackend {
     async fn get_envelope(&mut self, folder: &str, uid: &str) -> Result<Envelope> {
         info!("getting imap envelope {uid} from folder {folder}");
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.to_owned()),
+            |err| Error::SelectFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -788,7 +796,7 @@ impl Backend for ImapBackend {
             .ok_or_else(|| Error::GetEnvelopeError(uid.to_owned()))?;
 
         let envelope = Envelope::from_imap_fetch(fetch);
-        trace!("imap envelope: {envelope:#?}");
+        debug!("imap envelope: {envelope:#?}");
 
         Ok(envelope)
     }
@@ -801,13 +809,14 @@ impl Backend for ImapBackend {
     ) -> Result<Envelopes> {
         info!("listing imap envelopes from folder {folder}");
 
-        let folder_encoded = encode_utf7(folder.to_owned());
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
         let folder_size = self
             .with_session(
                 |session| session.select(&folder_encoded),
-                |err| Error::SelectFolderError(err, folder.to_owned()),
+                |err| Error::SelectFolderError(err, folder.clone()),
             )
             .await?
             .exists as usize;
@@ -843,17 +852,18 @@ impl Backend for ImapBackend {
     ) -> Result<Envelopes> {
         info!("searching imap envelopes from folder {folder}");
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         let folder_size = self
             .with_session(
                 |session| session.select(&folder_encoded),
-                |err| Error::SelectFolderError(err, folder.to_owned()),
+                |err| Error::SelectFolderError(err, folder.clone()),
             )
             .await?
             .exists as usize;
-        trace!("folder size: {folder_size}");
+        debug!("folder size: {folder_size}");
 
         if folder_size == 0 {
             return Ok(Envelopes::default());
@@ -862,7 +872,7 @@ impl Backend for ImapBackend {
         let uids: Vec<String> = if sort.is_empty() {
             self.with_session(
                 |session| session.uid_search(query),
-                |err| Error::SearchEnvelopesError(err, folder.to_owned(), query.to_owned()),
+                |err| Error::SearchEnvelopesError(err, folder.clone(), query.to_owned()),
             )
             .await?
             .iter()
@@ -872,14 +882,14 @@ impl Backend for ImapBackend {
             let sort: envelope::imap::SortCriteria = sort.parse()?;
             self.with_session(
                 |session| session.uid_sort(&sort, SortCharset::Utf8, query),
-                |err| Error::SortEnvelopesError(err, folder.to_owned(), query.to_owned()),
+                |err| Error::SortEnvelopesError(err, folder.clone(), query.to_owned()),
             )
             .await?
             .iter()
             .map(ToString::to_string)
             .collect()
         };
-        trace!("uids: {uids:?}");
+        debug!("uids: {uids:?}");
 
         if uids.is_empty() {
             return Ok(Envelopes::default());
@@ -896,9 +906,9 @@ impl Backend for ImapBackend {
         } else {
             uids.join(",")
         };
-        trace!("page: {page}");
-        trace!("page size: {page_size}");
-        trace!("uid range: {uid_range}");
+        debug!("page: {page}");
+        debug!("page size: {page_size}");
+        debug!("uid range: {uid_range}");
 
         let fetches = self
             .with_session(
@@ -919,8 +929,9 @@ impl Backend for ImapBackend {
             flags = flags.to_string(),
         );
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         let appended = self
             .with_session(
@@ -930,7 +941,7 @@ impl Backend for ImapBackend {
                         .flags(flags.to_imap_flags_vec())
                         .finish()
                 },
-                |err| Error::AppendEmailError(err, folder.to_owned()),
+                |err| Error::AppendEmailError(err, folder.clone()),
             )
             .await?;
 
@@ -953,7 +964,7 @@ impl Backend for ImapBackend {
                 Err(Error::GetAddedEmailUidError)
             }
         }?;
-        trace!("uid: {uid}");
+        debug!("uid: {uid}");
 
         Ok(uid.to_string())
     }
@@ -962,12 +973,13 @@ impl Backend for ImapBackend {
         let uids = uids.join(",");
         info!("previewing imap emails {uids} from folder {folder}");
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.to_owned()),
+            |err| Error::SelectFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -985,12 +997,13 @@ impl Backend for ImapBackend {
         let uids = uids.join(",");
         info!("getting imap emails {uids} from folder {folder}");
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        trace!("utf7 encoded folder: {folder_encoded}");
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.to_owned()),
+            |err| Error::SelectFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -1013,27 +1026,22 @@ impl Backend for ImapBackend {
         let uids = uids.join(",");
         info!("copying imap emails {uids} from folder {from_folder} to folder {to_folder}");
 
-        let from_folder_encoded = encode_utf7(from_folder.to_owned());
-        let to_folder_encoded = encode_utf7(to_folder.to_owned());
-        trace!("utf7 encoded from folder: {}", from_folder_encoded);
-        trace!("utf7 encoded to folder: {}", to_folder_encoded);
+        let from_folder = self.account_config.get_folder_alias(from_folder)?;
+        let from_folder_encoded = encode_utf7(from_folder.clone());
+        debug!("utf7 encoded from folder: {from_folder_encoded}");
+        let to_folder = self.account_config.get_folder_alias(to_folder)?;
+        let to_folder_encoded = encode_utf7(to_folder.clone());
+        debug!("utf7 encoded to folder: {to_folder_encoded}");
 
         self.with_session(
             |session| session.select(&from_folder_encoded),
-            |err| Error::SelectFolderError(err, from_folder.to_owned()),
+            |err| Error::SelectFolderError(err, from_folder.clone()),
         )
         .await?;
 
         self.with_session(
             |session| session.uid_copy(&uids, &to_folder_encoded),
-            |err| {
-                Error::CopyEmailError(
-                    err,
-                    uids.clone(),
-                    from_folder.to_owned(),
-                    to_folder.to_owned(),
-                )
-            },
+            |err| Error::CopyEmailError(err, uids.clone(), from_folder.clone(), to_folder.clone()),
         )
         .await?;
 
@@ -1049,27 +1057,22 @@ impl Backend for ImapBackend {
         let uids = uids.join(",");
         info!("moving imap emails {uids} from folder {from_folder} to folder {to_folder}");
 
-        let from_folder_encoded = encode_utf7(from_folder.to_owned());
-        let to_folder_encoded = encode_utf7(to_folder.to_owned());
-        trace!("utf7 encoded from folder: {}", from_folder_encoded);
-        trace!("utf7 encoded to folder: {}", to_folder_encoded);
+        let from_folder = self.account_config.get_folder_alias(from_folder)?;
+        let from_folder_encoded = encode_utf7(from_folder.clone());
+        debug!("utf7 encoded from folder: {from_folder_encoded}");
+        let to_folder = self.account_config.get_folder_alias(to_folder)?;
+        let to_folder_encoded = encode_utf7(to_folder.clone());
+        debug!("utf7 encoded to folder: {to_folder_encoded}");
 
         self.with_session(
             |session| session.select(&from_folder_encoded),
-            |err| Error::SelectFolderError(err, from_folder.to_owned()),
+            |err| Error::SelectFolderError(err, from_folder.clone()),
         )
         .await?;
 
         self.with_session(
             |session| session.uid_mv(&uids, &to_folder_encoded),
-            |err| {
-                Error::MoveEmailError(
-                    err,
-                    uids.clone(),
-                    from_folder.to_owned(),
-                    to_folder.to_owned(),
-                )
-            },
+            |err| Error::MoveEmailError(err, uids.clone(), from_folder.clone(), to_folder.clone()),
         )
         .await?;
 
@@ -1093,12 +1096,13 @@ impl Backend for ImapBackend {
             flags = flags.to_string(),
         );
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        debug!("utf7 encoded folder: {}", folder_encoded);
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.to_owned()),
+            |err| Error::SelectFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -1120,12 +1124,13 @@ impl Backend for ImapBackend {
             flags = flags.to_string(),
         );
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        debug!("utf7 encoded folder: {}", folder_encoded);
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.to_owned()),
+            |err| Error::SelectFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -1145,12 +1150,13 @@ impl Backend for ImapBackend {
             flags = flags.to_string(),
         );
 
-        let folder_encoded = encode_utf7(folder.to_owned());
-        debug!("utf7 encoded folder: {}", folder_encoded);
+        let folder = self.account_config.get_folder_alias(folder)?;
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
 
         self.with_session(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.to_owned()),
+            |err| Error::SelectFolderError(err, folder.clone()),
         )
         .await?;
 
@@ -1183,8 +1189,8 @@ impl Backend for ImapBackend {
 impl Drop for ImapBackend {
     fn drop(&mut self) {
         if let Err(err) = self.close() {
-            warn!("cannot close imap session, skipping it: {err}");
-            error!("cannot close imap session: {err:?}");
+            warn!("cannot close imap session: {err}");
+            debug!("cannot close imap session: {err:?}");
         }
     }
 }
