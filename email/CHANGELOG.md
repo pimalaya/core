@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2023-07-18
+
 ### Changed
 
 - Changed the way folder aliases are resolved. They are now resolved directly from backend implementations, which frees interfaces from this responsibility [#95].
+- Bumped `pimalaya_email_tpl@0.3.1`.
 
 ### Fixed
 
