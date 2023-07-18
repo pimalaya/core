@@ -124,7 +124,7 @@ impl Default for Interpreter {
             save_attachments: false,
             save_attachments_dir: env::temp_dir(),
             pgp_decrypt_cmd: "gpg --decrypt --quiet".into(),
-            pgp_verify_cmd: "gpg --verify --quiet --recipient <recipient>".into(),
+            pgp_verify_cmd: "gpg --verify --quiet".into(),
         }
     }
 }
