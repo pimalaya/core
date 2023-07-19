@@ -5,6 +5,7 @@
 
 pub mod oauth2;
 pub mod passwd;
+pub mod pgp;
 
 use dirs::data_dir;
 use log::{debug, warn};
@@ -27,6 +28,7 @@ use crate::{
 pub use self::{
     oauth2::{OAuth2Config, OAuth2Method, OAuth2Scopes},
     passwd::PasswdConfig,
+    pgp::PgpConfig,
 };
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
@@ -150,6 +152,9 @@ pub struct AccountConfig {
     pub backend: BackendConfig,
     /// The [Sender](crate::Sender) configuration.
     pub sender: SenderConfig,
+
+    /// The configuration related to PGP encryption.
+    pub pgp: PgpConfig,
 }
 
 impl Default for AccountConfig {
@@ -182,6 +187,7 @@ impl Default for AccountConfig {
             sync_folders_strategy: Default::default(),
             backend: Default::default(),
             sender: Default::default(),
+            pgp: Default::default(),
         }
     }
 }
