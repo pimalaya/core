@@ -53,6 +53,8 @@ pub enum Error {
     PasswdConfigError(#[from] account::config::passwd::Error),
     #[error(transparent)]
     AccountSyncError(#[from] account::sync::Error),
+    #[error(transparent)]
+    AccountPgpError(#[from] account::pgp::Error),
 
     #[error(transparent)]
     MessageError(#[from] email::message::Error),
