@@ -55,6 +55,8 @@ pub enum Error {
     AccountSyncError(#[from] account::sync::Error),
     #[error(transparent)]
     AccountPgpError(#[from] account::pgp::Error),
+    #[error(transparent)]
+    PgpConfigError(#[from] account::config::pgp::Error),
 
     #[error(transparent)]
     MessageError(#[from] email::message::Error),

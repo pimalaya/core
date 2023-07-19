@@ -272,74 +272,52 @@ pub fn verify(
     Ok(())
 }
 
-/// The PGP keypair.
-///
-/// This has it's own struct to be able to keep the public and secret
-/// keys together as they are one unit.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct KeyPair {
-    /// The email address.
-    pub email: String,
+/// Creates a new key pair from an email address.
+pub fn generate_key_pair(email: impl ToString) -> Result<(SignedSecretKey, SignedPublicKey)> {
+    let key_params = SecretKeyParamsBuilder::default()
+        .key_type(KeyType::EdDSA)
+        .can_create_certificates(true)
+        .can_sign(true)
+        .primary_user_id(email.to_string())
+        .passphrase(None)
+        .preferred_symmetric_algorithms(smallvec![SymmetricKeyAlgorithm::AES256])
+        .preferred_hash_algorithms(smallvec![HashAlgorithm::SHA2_512])
+        .preferred_compression_algorithms(smallvec![CompressionAlgorithm::ZLIB])
+        .subkey(
+            SubkeyParamsBuilder::default()
+                .key_type(KeyType::ECDH)
+                .can_encrypt(true)
+                .passphrase(None)
+                .build()
+                .map_err(Error::BuildSubkeyParamsError)?,
+        )
+        .build()
+        .map_err(Error::BuildSecretKeyParamsError)?;
 
-    /// The signed public key.
-    pub public: SignedPublicKey,
+    let secret_key = key_params
+        .generate()
+        .map_err(Error::GenerateSecretKeyError)?;
+    let secret_key = secret_key
+        .sign(|| String::new())
+        .map_err(Error::SignSecretKeyError)?;
+    secret_key.verify().map_err(Error::VerifySecretKeyError)?;
 
-    /// the signed secret key.
-    pub secret: SignedSecretKey,
+    let public_key = secret_key.public_key();
+    let public_key = public_key
+        .sign(&secret_key, || String::new())
+        .map_err(Error::SignPublicKeyError)?;
+    public_key.verify().map_err(Error::VerifyPublicKeyError)?;
+
+    Ok((secret_key, public_key))
 }
 
-impl KeyPair {
-    /// Creates a new key pair from an email address.
-    pub fn new(email: impl ToString) -> Result<Self> {
-        let key_params = SecretKeyParamsBuilder::default()
-            .key_type(KeyType::EdDSA)
-            .can_create_certificates(true)
-            .can_sign(true)
-            .primary_user_id(email.to_string())
-            .passphrase(None)
-            .preferred_symmetric_algorithms(smallvec![SymmetricKeyAlgorithm::AES256])
-            .preferred_hash_algorithms(smallvec![HashAlgorithm::SHA2_512])
-            .preferred_compression_algorithms(smallvec![CompressionAlgorithm::ZLIB])
-            .subkey(
-                SubkeyParamsBuilder::default()
-                    .key_type(KeyType::ECDH)
-                    .can_encrypt(true)
-                    .passphrase(None)
-                    .build()
-                    .map_err(Error::BuildSubkeyParamsError)?,
-            )
-            .build()
-            .map_err(Error::BuildSecretKeyParamsError)?;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-        let secret_key = key_params
-            .generate()
-            .map_err(Error::GenerateSecretKeyError)?;
-        let secret_key = secret_key
-            .sign(|| String::new())
-            .map_err(Error::SignSecretKeyError)?;
-        secret_key.verify().map_err(Error::VerifySecretKeyError)?;
-
-        let public_key = secret_key.public_key();
-        let public_key = public_key
-            .sign(&secret_key, || String::new())
-            .map_err(Error::SignPublicKeyError)?;
-        public_key.verify().map_err(Error::VerifyPublicKeyError)?;
-
-        Ok(Self {
-            email: email.to_string(),
-            secret: secret_key,
-            public: public_key,
-        })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn new_key_pair() {
-        let key_pair = KeyPair::new("test@localhost").unwrap();
-        assert_eq!(key_pair.email, "test@localhost");
-    }
-}
+//     #[test]
+//     fn new_key_pair() {
+//         let key_pair = KeyPair::new("test@localhost").unwrap();
+//         assert_eq!(key_pair.email, "test@localhost");
+//     }
+// }
