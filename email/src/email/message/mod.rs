@@ -11,6 +11,7 @@ pub mod template;
 
 #[cfg(feature = "imap-backend")]
 use imap::types::{Fetch, Fetches};
+use log::{debug, warn};
 use mail_parser::MimeHeaders;
 use maildirpp::MailEntry;
 use ouroboros::self_referencing;
@@ -235,7 +236,18 @@ impl Messages {
         match raw {
             RawMessages::Vec(vec) => vec.iter().map(Vec::as_slice).map(Message::from).collect(),
             #[cfg(feature = "imap-backend")]
-            RawMessages::Fetches(fetches) => fetches.iter().map(Message::from).collect(),
+            RawMessages::Fetches(fetches) => fetches
+                .iter()
+                .filter_map(|fetch| match fetch.body() {
+                    Some(_) => Some(fetch),
+                    None => {
+                        warn!("skipping imap fetch with an empty body");
+                        debug!("skipping imap fetch with an empty body: {fetch:#?}");
+                        None
+                    }
+                })
+                .map(Message::from)
+                .collect(),
             RawMessages::MailEntries(entries) => entries.iter_mut().map(Message::from).collect(),
         }
     }
