@@ -196,6 +196,7 @@ impl OAuth2Config {
 
         let (access_token, refresh_token) = auth_code_grant
             .wait_for_redirection(&client, csrf_token)
+            .await
             .map_err(Error::WaitForRedirectionError)?;
 
         self.access_token
@@ -240,6 +241,7 @@ impl OAuth2Config {
 
         let (access_token, refresh_token) = RefreshAccessToken::new()
             .refresh_access_token(&client, refresh_token)
+            .await
             .map_err(Error::RefreshAccessTokenError)?;
 
         self.access_token
