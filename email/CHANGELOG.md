@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed first reading not working [#97].
+
 ## [0.14.0] - 2023-07-18
 
 ### Changed
@@ -356,3 +360,4 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#92]: https://todo.sr.ht/~soywod/pimalaya/92
 [#94]: https://todo.sr.ht/~soywod/pimalaya/94
 [#95]: https://todo.sr.ht/~soywod/pimalaya/95
+[#97]: https://todo.sr.ht/~soywod/pimalaya/97

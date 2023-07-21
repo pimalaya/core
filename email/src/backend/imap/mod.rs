@@ -578,7 +578,7 @@ impl ImapBackend {
                     .await?;
 
                 for fetch in fetches.iter() {
-                    let envelope = Envelope::from_imap_fetch(fetch);
+                    let envelope = Envelope::from_imap_fetch(fetch)?;
                     let uid = fetch.uid.expect("UID should be included in the IMAP fetch");
 
                     let from = envelope.from.addr.clone();
@@ -795,7 +795,7 @@ impl Backend for ImapBackend {
             .get(0)
             .ok_or_else(|| Error::GetEnvelopeError(uid.to_owned()))?;
 
-        let envelope = Envelope::from_imap_fetch(fetch);
+        let envelope = Envelope::from_imap_fetch(fetch)?;
         debug!("imap envelope: {envelope:#?}");
 
         Ok(envelope)

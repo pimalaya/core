@@ -7,12 +7,20 @@ use imap::{
     extensions::sort::SortCriterion,
     types::{Fetch, Fetches},
 };
+use log::{debug, warn};
 use std::{ops::Deref, str::FromStr};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("cannot get uid of imap envelope {0}: uid is missing")]
+    GetUidMissingError(u32),
+}
 
 use crate::{
     backend,
     email::{Envelope, Envelopes, Flags, Message},
-    Error, Result,
+    Result,
 };
 
 impl Envelopes {
@@ -20,16 +28,23 @@ impl Envelopes {
         fetches
             .iter()
             .rev()
-            .map(Envelope::from_imap_fetch)
+            .filter_map(|envelope| match Envelope::from_imap_fetch(envelope) {
+                Ok(envelope) => Some(envelope),
+                Err(err) => {
+                    warn!("cannot build imap envelope: {err}");
+                    debug!("cannot build imap envelope: {err:?}");
+                    None
+                }
+            })
             .collect()
     }
 }
 
 impl Envelope {
-    pub fn from_imap_fetch(fetch: &Fetch) -> Self {
+    pub fn from_imap_fetch(fetch: &Fetch) -> Result<Self> {
         let id = fetch
             .uid
-            .expect("UID should be included in the IMAP fetch")
+            .ok_or(Error::GetUidMissingError(fetch.message))?
             .to_string();
 
         let flags = Flags::from_imap_fetch(fetch);
@@ -41,7 +56,7 @@ impl Envelope {
             .expect("Header should be included in the IMAP fetch")
             .into();
 
-        Envelope::from_msg(id, flags, msg)
+        Ok(Envelope::from_msg(id, flags, msg))
     }
 }
 
@@ -64,7 +79,7 @@ impl<'a> FromIterator<SortCriterion<'a>> for SortCriteria<'a> {
 }
 
 impl FromStr for SortCriteria<'_> {
-    type Err = Error;
+    type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self> {
         s.split_whitespace()
