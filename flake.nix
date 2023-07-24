@@ -16,7 +16,7 @@
         pkgs = import nixpkgs { inherit system; };
         rust-toolchain = fenix.packages.${system}.fromToolchainFile {
           file = ./rust-toolchain.toml;
-          sha256 = "gdYqng0y9iHYzYPAdkC/ka3DRny3La/S5G8ASj0Ayyc=";
+          sha256 = "ks0nMEGGXKrHnfv4Fku+vhQ7gx76ruv6Ij4fKZR3l78=";
         };
       in
       {
@@ -33,6 +33,7 @@
 
             # Email env
             gnupg
+            gpgme
             msmtp
             notmuch
             openssl

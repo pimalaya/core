@@ -6,6 +6,7 @@ members = [
   "keyring",
   "maildir++",
   "oauth2",
+  "pgp",
   "process",
   "secret",
   "time",
