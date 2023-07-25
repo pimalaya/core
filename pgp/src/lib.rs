@@ -2,6 +2,7 @@
 pub mod cmds;
 #[cfg(feature = "gpg")]
 pub mod gpg;
+pub mod hkps;
 #[cfg(feature = "native")]
 pub mod native;
 pub mod wkd;
@@ -28,6 +29,9 @@ pub enum Error {
 
     #[error(transparent)]
     WkdError(#[from] wkd::Error),
+
+    #[error(transparent)]
+    HkpsError(#[from] hkps::Error),
 
     #[error("cannot perform pgp action: pgp not configured")]
     None,
