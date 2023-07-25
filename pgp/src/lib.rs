@@ -4,6 +4,7 @@ pub mod cmds;
 pub mod gpg;
 #[cfg(feature = "native")]
 pub mod native;
+pub mod wkd;
 
 #[cfg(feature = "commands")]
 pub use self::cmds::PgpCmds;
@@ -24,6 +25,9 @@ pub enum Error {
     #[cfg(feature = "native")]
     #[error(transparent)]
     NativeError(#[from] native::Error),
+
+    #[error(transparent)]
+    WkdError(#[from] wkd::Error),
 
     #[error("cannot perform pgp action: pgp not configured")]
     None,
@@ -56,6 +60,18 @@ pub enum Pgp {
 }
 
 impl Pgp {
+    pub fn configure(&self) {
+        match self {
+            Self::None => (),
+            #[cfg(feature = "commands")]
+            Self::Cmds(_cmds) => (),
+            #[cfg(feature = "gpg")]
+            Self::Gpg(_gpg) => (),
+            #[cfg(feature = "native")]
+            Self::Native(_native) => (),
+        }
+    }
+
     pub async fn encrypt(
         &self,
         _data: &[u8],

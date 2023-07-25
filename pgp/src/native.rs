@@ -75,7 +75,7 @@ pub enum Error {
 
 /// Wrapper around [`pgp`] public key types.
 #[derive(Debug)]
-enum SignedPublicKeyOrSubkey<'a> {
+pub enum SignedPublicKeyOrSubkey<'a> {
     Key(&'a SignedPublicKey),
     Subkey(&'a SignedPublicSubKey),
 }
