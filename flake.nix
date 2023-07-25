@@ -33,7 +33,6 @@
 
             # Email env
             gnupg
-            gpgme
             msmtp
             notmuch
             openssl

@@ -22,28 +22,6 @@ pub enum Error {
     FindPublicKeyError(String),
 }
 
-pub async fn get(
-    email: impl AsRef<str>,
-    keyservers: impl IntoIterator<Item = impl AsRef<str>>,
-) -> Result<SignedPublicKey> {
-    let email = email.as_ref();
-    let client = Client::builder().build::<_, hyper::Body>(HttpsConnector::new());
-
-    for keyserver in keyservers {
-        let keyserver = keyserver.as_ref();
-        match get_from_keyserver(&client, email, keyserver).await {
-            Ok(pkey) => return Ok(pkey),
-            Err(err) => {
-                warn!("cannot get public key for {email} from {keyserver}: {err}");
-                debug!("cannot get public key for {email} from {keyserver}: {err:?}");
-                continue;
-            }
-        }
-    }
-
-    Ok(Err(Error::FindPublicKeyError(email.to_owned()))?)
-}
-
 async fn get_from_keyserver(
     client: &Client<HttpsConnector<HttpConnector>>,
     email: impl AsRef<str>,
@@ -71,4 +49,26 @@ async fn get_from_keyserver(
         .map_err(|err| Error::ParsePublicKeyError(err, uri.clone()))?;
 
     Ok(pkey)
+}
+
+pub async fn get(
+    email: impl AsRef<str>,
+    keyservers: impl IntoIterator<Item = impl AsRef<str>>,
+) -> Result<SignedPublicKey> {
+    let email = email.as_ref();
+    let client = Client::builder().build::<_, hyper::Body>(HttpsConnector::new());
+
+    for keyserver in keyservers {
+        let keyserver = keyserver.as_ref();
+        match get_from_keyserver(&client, email, keyserver).await {
+            Ok(pkey) => return Ok(pkey),
+            Err(err) => {
+                warn!("cannot get public key for {email} from {keyserver}: {err}");
+                debug!("cannot get public key for {email} from {keyserver}: {err:?}");
+                continue;
+            }
+        }
+    }
+
+    Ok(Err(Error::FindPublicKeyError(email.to_owned()))?)
 }

@@ -15,10 +15,7 @@ use hyper::{http::Response, Body, Client, Uri};
 use hyper_tls::HttpsConnector;
 use pgp::{Deserializable, SignedPublicKey};
 use sha1::{Digest, Sha1};
-use std::{
-    fmt,
-    path::{self, PathBuf},
-};
+use std::{fmt, path};
 use thiserror::Error;
 
 use crate::Result;
@@ -44,9 +41,9 @@ pub enum Error {
     ParseCertError(#[source] pgp::errors::Error),
 }
 
-pub(crate) struct EmailAddress {
-    pub(crate) local_part: String,
-    pub(crate) domain: String,
+struct EmailAddress {
+    pub local_part: String,
+    pub domain: String,
 }
 
 impl EmailAddress {
@@ -62,7 +59,7 @@ impl EmailAddress {
     /// case-insensitive anyway, all upper-case ASCII characters in a User
     /// ID are mapped to lowercase.  Non-ASCII characters are not changed.
     ///```
-    pub(crate) fn from(email_address: impl AsRef<str>) -> Result<Self> {
+    pub fn from(email_address: impl AsRef<str>) -> Result<Self> {
         // Ensure that is a valid email address by parsing it and return the
         // errors that it returns.
         // This is also done in hagrid.
@@ -90,7 +87,7 @@ impl EmailAddress {
 /// There are two variants of the URL scheme.  `Advanced` should be
 /// preferred.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Variant {
+enum Variant {
     /// Advanced variant.
     ///
     /// This method uses a separate subdomain and is more flexible.
@@ -113,7 +110,7 @@ impl Default for Variant {
 /// NOTE: This is a different `Url` than [`url::Url`] (`url` crate) that is
 /// actually returned with the method [to_url](Url::to_url())
 #[derive(Debug, Clone)]
-pub struct Url {
+struct Url {
     domain: String,
     local_encoded: String,
     local_part: String,
@@ -158,17 +155,6 @@ impl Url {
         }
     }
 
-    /// Returns an [`url::Url`].
-    pub fn to_url<V>(&self, variant: V) -> Result<url::Url>
-    where
-        V: Into<Option<Variant>>,
-    {
-        let url_string = self.build(variant);
-        let url_url = url::Url::parse(url_string.as_str())
-            .map_err(|err| Error::ParseUrlError(err, url_string.clone()))?;
-        Ok(url_url)
-    }
-
     /// Returns an [`hyper::Uri`].
     pub fn to_uri<V>(&self, variant: V) -> Result<Uri>
     where
@@ -180,20 +166,6 @@ impl Url {
             .parse::<Uri>()
             .map_err(|err| Error::ParseUriError(err, url_string.clone()))?;
         Ok(uri)
-    }
-
-    /// Returns a [`PathBuf`].
-    pub fn to_file_path<V>(&self, variant: V) -> Result<PathBuf>
-    where
-        V: Into<Option<Variant>>,
-    {
-        // Create the directories string.
-        let variant = variant.into().unwrap_or_default();
-        let url = self.to_url(variant)?;
-        Ok(PathBuf::from(url.path())
-            .strip_prefix("/")
-            .map_err(|err| Error::ParseFilePathError(err, url))?
-            .into())
     }
 }
 
@@ -286,8 +258,8 @@ where
 
 // XXX: Maybe the direct method should be tried on other errors too.
 // https://mailarchive.ietf.org/arch/msg/openpgp/6TxZc2dQFLKXtS0Hzmrk963EteE
-pub async fn get(email_address: impl AsRef<str>) -> Result<SignedPublicKey> {
-    let email = email_address.as_ref().to_string();
+pub async fn get(email: impl AsRef<str>) -> Result<SignedPublicKey> {
+    let email = email.as_ref().to_string();
     // First, prepare URIs and client.
     let wkd_url = Url::from(&email)?;
 
