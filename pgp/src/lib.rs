@@ -1,22 +1,32 @@
-pub mod config;
 pub mod decrypt;
 pub mod encrypt;
 pub mod hkps;
 pub mod sign;
+pub mod utils;
 pub mod verify;
 pub mod wkd;
 
-pub use config::{generate_key_pair, read_armored_public_key, read_armored_secret_key};
-pub use decrypt::decrypt;
-pub use encrypt::encrypt;
-pub use sign::sign;
-pub use verify::verify;
+#[doc(inline)]
+pub use pgp::{SignedPublicKey, SignedSecretKey};
+use tokio::task::JoinError;
+
+#[doc(inline)]
+pub use self::{
+    decrypt::decrypt,
+    encrypt::encrypt,
+    sign::sign,
+    utils::{
+        generate_key_pair, read_signature_from_bytes, read_signed_public_key_from_path,
+        read_signed_secret_key_from_path,
+    },
+    verify::verify,
+};
 
 /// The global `Error` enum of the library.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    ConfigError(#[from] config::Error),
+    ConfigError(#[from] utils::Error),
 
     #[error(transparent)]
     EncryptError(#[from] encrypt::Error),
@@ -32,8 +42,8 @@ pub enum Error {
     #[error(transparent)]
     HkpsError(#[from] hkps::Error),
 
-    #[error("cannot perform pgp action: pgp not configured")]
-    None,
+    #[error(transparent)]
+    JoinError(#[from] JoinError),
 }
 
 /// The global `Result` alias of the library.

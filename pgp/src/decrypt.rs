@@ -1,8 +1,9 @@
 //! Module dedicated to PGP decryption.
 
 use pgp::{Deserializable, Message, SignedSecretKey};
-use std::io::Cursor;
+use std::{io::Cursor, sync::Arc};
 use thiserror::Error;
+use tokio::task;
 
 use crate::Result;
 
@@ -24,46 +25,58 @@ pub enum Error {
 }
 
 /// Decrypts data using the given secret key.
-pub fn decrypt(data: &[u8], skey: &SignedSecretKey) -> Result<Vec<u8>> {
-    let cursor = Cursor::new(data);
-    let (msg, _) =
-        Message::from_armor_single(cursor).map_err(Error::ImportMessageFromArmorError)?;
+pub async fn decrypt(data: Arc<Vec<u8>>, skey: SignedSecretKey) -> Result<Vec<u8>> {
+    task::spawn_blocking(move || {
+        let (msg, _) = Message::from_armor_single(Cursor::new(data.as_ref()))
+            .map_err(Error::ImportMessageFromArmorError)?;
 
-    let (decryptor, _) = msg
-        .decrypt(|| Default::default(), &[&skey])
-        .map_err(Error::DecryptMessageError)?;
-    let msgs = decryptor
-        .collect::<pgp::errors::Result<Vec<_>>>()
-        .map_err(Error::DecryptMessageError)?;
+        let (decryptor, _) = msg
+            .decrypt(|| Default::default(), &[&skey])
+            .map_err(Error::DecryptMessageError)?;
+        let msgs = decryptor
+            .collect::<pgp::errors::Result<Vec<_>>>()
+            .map_err(Error::DecryptMessageError)?;
+        let msg = msgs.into_iter().next().ok_or(Error::GetMessageEmptyError)?;
+        let msg = msg.decompress().map_err(Error::DecompressMessageError)?;
 
-    let msg = msgs.into_iter().next().ok_or(Error::GetMessageEmptyError)?;
-    let msg = msg.decompress().map_err(Error::DecompressMessageError)?;
+        let content = msg
+            .get_content()
+            .map_err(Error::GetMessageContentError)?
+            .ok_or(Error::GetMessageContentEmptyError)?;
 
-    let content = msg
-        .get_content()
-        .map_err(Error::GetMessageContentError)?
-        .ok_or(Error::GetMessageContentEmptyError)?;
-
-    Ok(content)
+        Ok(content)
+    })
+    .await?
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use crate::{decrypt, encrypt, generate_key_pair};
 
-    #[test]
-    fn encrypt_then_decrypt() {
-        let (alice_skey, alice_pkey) = generate_key_pair("alice@localhost").unwrap();
-        let (bob_skey, bob_pkey) = generate_key_pair("bob@localhost").unwrap();
-        let (carl_skey, _carl_pkey) = generate_key_pair("carl@localhost").unwrap();
+    #[tokio::test]
+    async fn encrypt_then_decrypt() {
+        let (alice_skey, alice_pkey) = generate_key_pair("alice@localhost").await.unwrap();
+        let (bob_skey, bob_pkey) = generate_key_pair("bob@localhost").await.unwrap();
+        let (carl_skey, _carl_pkey) = generate_key_pair("carl@localhost").await.unwrap();
 
-        let msg = b"encrypted message";
-        let encrypted_msg = encrypt(msg, vec![&alice_pkey, &bob_pkey]).unwrap();
+        let msg = Arc::new(b"encrypted message".to_vec());
+        let encrypted_msg = Arc::new(
+            encrypt(msg.clone(), vec![alice_pkey, bob_pkey])
+                .await
+                .unwrap(),
+        );
 
-        assert_eq!(decrypt(&encrypted_msg, &alice_skey).unwrap(), msg);
-        assert_eq!(decrypt(&encrypted_msg, &bob_skey).unwrap(), msg);
+        let alice_msg = decrypt(encrypted_msg.clone(), alice_skey).await.unwrap();
+        assert_eq!(alice_msg, *msg);
+
+        let bob_msg = decrypt(encrypted_msg.clone(), bob_skey).await.unwrap();
+        assert_eq!(bob_msg, *msg);
+
+        let carl_msg = decrypt(encrypted_msg.clone(), carl_skey).await.unwrap_err();
         assert!(matches!(
-            decrypt(&encrypted_msg, &carl_skey).unwrap_err(),
+            carl_msg,
             crate::Error::DecryptError(super::Error::DecryptMessageError(
                 pgp::errors::Error::MissingKey
             )),

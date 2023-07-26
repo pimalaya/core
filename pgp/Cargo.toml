@@ -27,5 +27,6 @@ rand = "0.8"
 sha1 = "0.10"
 smallvec = "1"
 thiserror = "1.0"
+tokio = { version = "1.23", default-features = false, features = ["rt"] }
 url = "2.4"
 z-base-32 = "0.1"

@@ -1,7 +1,10 @@
 //! Module dedicated to PGP sign.
 
+use std::sync::Arc;
+
 use pgp::{Message, SignedSecretKey};
 use thiserror::Error;
+use tokio::task;
 
 use crate::Result;
 
@@ -15,15 +18,18 @@ pub enum Error {
 }
 
 /// Signs data using the given private key.
-pub fn sign(data: &[u8], skey: &SignedSecretKey) -> Result<Vec<u8>> {
-    let msg = Message::new_literal_bytes("", data)
-        .sign(&skey, || Default::default(), Default::default())
-        .map_err(Error::SignMessageError)?;
+pub async fn sign(data: Arc<Vec<u8>>, skey: SignedSecretKey) -> Result<Vec<u8>> {
+    task::spawn_blocking(move || {
+        let msg = Message::new_literal_bytes("", data.as_ref())
+            .sign(&skey, || Default::default(), Default::default())
+            .map_err(Error::SignMessageError)?;
 
-    let sig = msg
-        .into_signature()
-        .to_armored_bytes(None)
-        .map_err(Error::ExportSignedMessageToArmoredBytesError)?;
+        let sig = msg
+            .into_signature()
+            .to_armored_bytes(None)
+            .map_err(Error::ExportSignedMessageToArmoredBytesError)?;
 
-    Ok(sig)
+        Ok(sig)
+    })
+    .await?
 }

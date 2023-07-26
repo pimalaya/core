@@ -6,8 +6,9 @@ use pgp::{
     Message, SignedPublicKey, SignedPublicSubKey,
 };
 use rand::{thread_rng, CryptoRng, Rng};
-use std::io;
+use std::{io, sync::Arc};
 use thiserror::Error;
+use tokio::task;
 
 use crate::Result;
 
@@ -94,7 +95,7 @@ fn select_pkey_for_encryption(key: &SignedPublicKey) -> Option<SignedPublicKeyOr
         .iter()
         .find(|subkey| subkey.is_encryption_key())
         .map_or_else(
-            || {
+            move || {
                 // No usable subkey found, try primary key
                 if key.is_encryption_key() {
                     Some(SignedPublicKeyOrSubkey::Key(key))
@@ -107,23 +108,27 @@ fn select_pkey_for_encryption(key: &SignedPublicKey) -> Option<SignedPublicKeyOr
 }
 
 /// Encrypts data using the given public keys.
-pub fn encrypt(data: &[u8], pkeys: Vec<&SignedPublicKey>) -> Result<Vec<u8>> {
-    let mut rng = thread_rng();
-    let lit_msg = Message::new_literal_bytes("", data);
+pub async fn encrypt(data: Arc<Vec<u8>>, pkeys: Vec<SignedPublicKey>) -> Result<Vec<u8>> {
+    task::spawn_blocking(move || {
+        let mut rng = thread_rng();
 
-    let pkeys: Vec<SignedPublicKeyOrSubkey> = pkeys
-        .into_iter()
-        .filter_map(select_pkey_for_encryption)
-        .collect();
-    let pkeys_refs: Vec<&SignedPublicKeyOrSubkey> = pkeys.iter().collect();
+        let lit_msg = Message::new_literal_bytes("", data.as_ref());
 
-    let encrypted_msg = lit_msg
-        .compress(CompressionAlgorithm::ZLIB)
-        .map_err(Error::CompressMessageError)?
-        .encrypt_to_keys(&mut rng, Default::default(), &pkeys_refs)
-        .map_err(Error::EncryptMessageError)?
-        .to_armored_bytes(None)
-        .map_err(Error::ExportEncryptedMessageToArmorError)?;
+        let pkeys: Vec<SignedPublicKeyOrSubkey> = pkeys
+            .iter()
+            .filter_map(select_pkey_for_encryption)
+            .collect();
+        let pkeys_refs: Vec<&SignedPublicKeyOrSubkey> = pkeys.iter().collect();
 
-    Ok(encrypted_msg)
+        let encrypted_msg = lit_msg
+            .compress(CompressionAlgorithm::ZLIB)
+            .map_err(Error::CompressMessageError)?
+            .encrypt_to_keys(&mut rng, Default::default(), &pkeys_refs)
+            .map_err(Error::EncryptMessageError)?
+            .to_armored_bytes(None)
+            .map_err(Error::ExportEncryptedMessageToArmorError)?;
+
+        Ok(encrypted_msg)
+    })
+    .await?
 }
