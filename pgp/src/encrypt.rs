@@ -6,7 +6,7 @@ use pgp::{
     Message, SignedPublicKey, SignedPublicSubKey,
 };
 use rand::{thread_rng, CryptoRng, Rng};
-use std::{io, sync::Arc};
+use std::io;
 use thiserror::Error;
 use tokio::task;
 
@@ -108,11 +108,11 @@ fn select_pkey_for_encryption(key: &SignedPublicKey) -> Option<SignedPublicKeyOr
 }
 
 /// Encrypts data using the given public keys.
-pub async fn encrypt(data: Arc<Vec<u8>>, pkeys: Vec<SignedPublicKey>) -> Result<Vec<u8>> {
+pub async fn encrypt(data: Vec<u8>, pkeys: Vec<SignedPublicKey>) -> Result<Vec<u8>> {
     task::spawn_blocking(move || {
         let mut rng = thread_rng();
 
-        let lit_msg = Message::new_literal_bytes("", data.as_ref());
+        let lit_msg = Message::new_literal_bytes("", &data);
 
         let pkeys: Vec<SignedPublicKeyOrSubkey> = pkeys
             .iter()

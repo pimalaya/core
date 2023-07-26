@@ -1,10 +1,9 @@
 use mail_builder::MessageBuilder;
 use mail_parser::Message;
-use pimalaya_process::Cmd;
 use std::{io, path::PathBuf, result};
 use thiserror::Error;
 
-use crate::{mml, FilterParts, Tpl};
+use crate::{mml, Decrypt, FilterParts, Tpl, Verify};
 
 use super::header;
 
@@ -152,23 +151,13 @@ impl Interpreter {
         self
     }
 
-    pub fn pgp_decrypt_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self {
-        self.mml_interpreter = self.mml_interpreter.pgp_decrypt_cmd(cmd);
+    pub fn with_decrypt(mut self, decrypt: Decrypt) -> Self {
+        self.mml_interpreter = self.mml_interpreter.with_decrypt(decrypt);
         self
     }
 
-    pub fn some_pgp_decrypt_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
-        self.mml_interpreter = self.mml_interpreter.some_pgp_decrypt_cmd(cmd);
-        self
-    }
-
-    pub fn pgp_verify_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self {
-        self.mml_interpreter = self.mml_interpreter.pgp_verify_cmd(cmd);
-        self
-    }
-
-    pub fn some_pgp_verify_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
-        self.mml_interpreter = self.mml_interpreter.some_pgp_verify_cmd(cmd);
+    pub fn with_verify(mut self, verify: Verify) -> Self {
+        self.mml_interpreter = self.mml_interpreter.with_verify(verify);
         self
     }
 

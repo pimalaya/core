@@ -1,11 +1,13 @@
 use async_recursion::async_recursion;
 use log::warn;
 use mail_builder::{mime::MimePart, MessageBuilder};
-use pimalaya_process::Cmd;
-use std::{env, ffi::OsStr, fs, io, path::PathBuf, result};
+use std::{env, ffi::OsStr, fs, io, path::PathBuf};
 use thiserror::Error;
 
-use crate::mml::parsers::{self, prelude::*};
+use crate::{
+    mml::parsers::{self, prelude::*},
+    Encrypt, Result, Sign,
+};
 
 use super::tokens::{Part, DISPOSITION, ENCRYPT, FILENAME, NAME, SIGN, TYPE};
 
@@ -30,20 +32,10 @@ pub enum Error {
     SignPartError(#[source] pimalaya_process::Error),
 }
 
-pub type Result<T> = result::Result<T, Error>;
-
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Compiler {
-    /// Represents the PGP encrypt system command.
-    pgp_encrypt_cmd: Cmd,
-
-    /// Represents the PGP encrypt recipient. By default, it will take
-    /// the first address found from the "To" header of the template
-    /// being compiled.
-    pgp_encrypt_recipient: String,
-
-    /// Represents the PGP sign system command.
-    pgp_sign_cmd: Cmd,
+    encrypt: Encrypt,
+    sign: Sign,
 }
 
 impl Compiler {
@@ -51,71 +43,57 @@ impl Compiler {
         Self::default()
     }
 
-    pub fn pgp_encrypt_cmd(mut self, cmd: impl Into<Cmd>) -> Self {
-        self.pgp_encrypt_cmd = cmd.into();
+    pub fn with_encrypt(mut self, encrypt: Encrypt) -> Self {
+        self.encrypt = encrypt;
         self
     }
 
-    pub fn some_pgp_encrypt_cmd(mut self, cmd: Option<impl Into<Cmd>>) -> Self {
-        if let Some(cmd) = cmd {
-            self.pgp_encrypt_cmd = cmd.into();
-        }
-        self
-    }
-
-    pub fn pgp_encrypt_recipient(mut self, recipient: impl ToString) -> Self {
-        self.pgp_encrypt_recipient = recipient.to_string();
-        self
-    }
-
-    pub fn pgp_sign_cmd(mut self, cmd: impl Into<Cmd>) -> Self {
-        self.pgp_sign_cmd = cmd.into();
-        self
-    }
-
-    pub fn some_pgp_sign_cmd(mut self, cmd: Option<impl Into<Cmd>>) -> Self {
-        if let Some(cmd) = cmd {
-            self.pgp_sign_cmd = cmd.into();
-        }
+    pub fn with_sign(mut self, sign: Sign) -> Self {
+        self.sign = sign;
         self
     }
 
     async fn sign<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
-        let mut buf = Vec::new();
-        part.clone()
-            .write_part(&mut buf)
-            .map_err(Error::WriteCompiledPartToVecError)?;
-        let signature: Vec<u8> = self.pgp_sign_cmd.run_with(&buf).await?.into();
+        match &self.sign {
+            Sign::None => Ok(part),
+            Sign::Pgp(pgp) => {
+                let mut buf = Vec::new();
+                part.clone()
+                    .write_part(&mut buf)
+                    .map_err(Error::WriteCompiledPartToVecError)?;
+                let signature = pimalaya_pgp::sign(buf, pgp.skey.clone()).await?;
 
-        let part = MimePart::new(
-            "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
-            vec![part, MimePart::new("application/pgp-signature", signature)],
-        );
+                let part = MimePart::new(
+                    "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
+                    vec![part, MimePart::new("application/pgp-signature", signature)],
+                );
 
-        Ok(part)
+                Ok(part)
+            }
+        }
     }
 
     async fn encrypt<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
-        let cmd = self
-            .pgp_encrypt_cmd
-            .clone()
-            .replace("<recipient>", &self.pgp_encrypt_recipient);
+        match &self.encrypt {
+            Encrypt::None => Ok(part),
+            Encrypt::Pgp(pgp) => {
+                let mut buf = Vec::new();
+                part.clone()
+                    .write_part(&mut buf)
+                    .map_err(Error::WriteCompiledPartToVecError)?;
+                let encrypted_part = pimalaya_pgp::encrypt(buf, pgp.pkeys.clone()).await?;
 
-        let mut buf = Vec::new();
-        part.clone()
-            .write_part(&mut buf)
-            .map_err(Error::WriteCompiledPartToVecError)?;
-        let encrypted_part: Vec<u8> = cmd.run_with(&buf).await?.into();
+                let part = MimePart::new(
+                    "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
+                    vec![
+                        MimePart::new("application/pgp-encrypted", "Version: 1"),
+                        MimePart::new("application/octet-stream", encrypted_part),
+                    ],
+                );
 
-        let part = MimePart::new(
-            "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
-            vec![
-                MimePart::new("application/pgp-encrypted", "Version: 1"),
-                MimePart::new("application/octet-stream", encrypted_part),
-            ],
-        );
-
-        Ok(part)
+                Ok(part)
+            }
+        }
     }
 
     async fn compile_parts<'a>(&self, parts: Vec<Part>) -> Result<MessageBuilder<'a>> {
@@ -254,17 +232,6 @@ impl Compiler {
             .parse(tpl.as_ref())
             .map_err(|errs| Error::ParseMmlError(errs[0].to_string()))?;
         self.compile_parts(parts).await
-    }
-}
-
-impl Default for Compiler {
-    fn default() -> Self {
-        Self {
-            pgp_encrypt_cmd: "gpg --encrypt --armor --recipient <recipient> --quiet --output -"
-                .into(),
-            pgp_encrypt_recipient: Default::default(),
-            pgp_sign_cmd: "gpg --sign --armor --quiet --output -".into(),
-        }
     }
 }
 

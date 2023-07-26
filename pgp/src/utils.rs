@@ -9,7 +9,6 @@ use std::{
     fs,
     io::{self, Cursor},
     path::PathBuf,
-    sync::Arc,
 };
 use thiserror::Error;
 use tokio::task;
@@ -51,15 +50,15 @@ pub enum Error {
 
 /// Generates a new pair of secret and public keys for the given email
 /// address.
-pub async fn generate_key_pair(
-    email: impl ToString + Sync + Send + 'static,
-) -> Result<(SignedSecretKey, SignedPublicKey)> {
+pub async fn generate_key_pair(email: impl ToString) -> Result<(SignedSecretKey, SignedPublicKey)> {
+    let email = email.to_string();
+
     task::spawn_blocking(move || {
         let key_params = SecretKeyParamsBuilder::default()
             .key_type(KeyType::EdDSA)
             .can_create_certificates(true)
             .can_sign(true)
-            .primary_user_id(email.to_string())
+            .primary_user_id(email)
             .passphrase(None)
             .preferred_symmetric_algorithms(smallvec![SymmetricKeyAlgorithm::AES256])
             .preferred_hash_algorithms(smallvec![HashAlgorithm::SHA2_512])
@@ -98,14 +97,12 @@ pub async fn generate_key_pair(
 ///
 /// The given path needs to contain a single armored secret key,
 /// otherwise it will fail.
-pub async fn read_signed_public_key_from_path(path: Arc<PathBuf>) -> Result<SignedPublicKey> {
+pub async fn read_signed_public_key_from_path(path: PathBuf) -> Result<SignedPublicKey> {
     task::spawn_blocking(move || {
-        let path = path.as_ref();
-        let input =
-            fs::read(path).map_err(|err| Error::ReadArmoredPublicKeyError(err, path.to_owned()))?;
-        let cursor = Cursor::new(input);
-        let (pkey, _) = SignedPublicKey::from_armor_single(cursor)
-            .map_err(|err| Error::ParseArmoredPublicKeyError(err, path.to_owned()))?;
+        let data =
+            fs::read(&path).map_err(|err| Error::ReadArmoredPublicKeyError(err, path.clone()))?;
+        let (pkey, _) = SignedPublicKey::from_armor_single(Cursor::new(data))
+            .map_err(|err| Error::ParseArmoredPublicKeyError(err, path.clone()))?;
         Ok(pkey)
     })
     .await?
@@ -115,14 +112,12 @@ pub async fn read_signed_public_key_from_path(path: Arc<PathBuf>) -> Result<Sign
 ///
 /// The given path needs to contain a single armored secret key,
 /// otherwise it will fail.
-pub async fn read_signed_secret_key_from_path(path: Arc<PathBuf>) -> Result<SignedSecretKey> {
+pub async fn read_signed_secret_key_from_path(path: PathBuf) -> Result<SignedSecretKey> {
     task::spawn_blocking(move || {
-        let path = path.as_ref();
         let data =
-            fs::read(path).map_err(|err| Error::ReadArmoredSecretKeyError(err, path.to_owned()))?;
-        let cursor = Cursor::new(data);
-        let (skey, _) = SignedSecretKey::from_armor_single(cursor)
-            .map_err(|err| Error::ParseArmoredSecretKeyError(err, path.to_owned()))?;
+            fs::read(&path).map_err(|err| Error::ReadArmoredSecretKeyError(err, path.clone()))?;
+        let (skey, _) = SignedSecretKey::from_armor_single(Cursor::new(data))
+            .map_err(|err| Error::ParseArmoredSecretKeyError(err, path.clone()))?;
         Ok(skey)
     })
     .await?
@@ -132,10 +127,9 @@ pub async fn read_signed_secret_key_from_path(path: Arc<PathBuf>) -> Result<Sign
 ///
 /// The given raw bytes needs to match a single armored signature,
 /// otherwise it will fail.
-pub async fn read_signature_from_bytes(sig: Arc<Vec<u8>>) -> Result<StandaloneSignature> {
+pub async fn read_signature_from_bytes(sig: Vec<u8>) -> Result<StandaloneSignature> {
     task::spawn_blocking(move || {
-        let cursor = Cursor::new(sig.as_ref());
-        let (sig, _) = StandaloneSignature::from_armor_single(cursor)
+        let (sig, _) = StandaloneSignature::from_armor_single(Cursor::new(&sig))
             .map_err(Error::ReadStandaloneSignatureFromArmoredBytesError)?;
         Ok(sig)
     })

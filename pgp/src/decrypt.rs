@@ -1,7 +1,7 @@
 //! Module dedicated to PGP decryption.
 
 use pgp::{Deserializable, Message, SignedSecretKey};
-use std::{io::Cursor, sync::Arc};
+use std::io::Cursor;
 use thiserror::Error;
 use tokio::task;
 
@@ -25,9 +25,9 @@ pub enum Error {
 }
 
 /// Decrypts data using the given secret key.
-pub async fn decrypt(data: Arc<Vec<u8>>, skey: SignedSecretKey) -> Result<Vec<u8>> {
+pub async fn decrypt(data: Vec<u8>, skey: SignedSecretKey) -> Result<Vec<u8>> {
     task::spawn_blocking(move || {
-        let (msg, _) = Message::from_armor_single(Cursor::new(data.as_ref()))
+        let (msg, _) = Message::from_armor_single(Cursor::new(&data))
             .map_err(Error::ImportMessageFromArmorError)?;
 
         let (decryptor, _) = msg
@@ -51,8 +51,6 @@ pub async fn decrypt(data: Arc<Vec<u8>>, skey: SignedSecretKey) -> Result<Vec<u8
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use crate::{decrypt, encrypt, generate_key_pair};
 
     #[tokio::test]
@@ -61,18 +59,16 @@ mod tests {
         let (bob_skey, bob_pkey) = generate_key_pair("bob@localhost").await.unwrap();
         let (carl_skey, _carl_pkey) = generate_key_pair("carl@localhost").await.unwrap();
 
-        let msg = Arc::new(b"encrypted message".to_vec());
-        let encrypted_msg = Arc::new(
-            encrypt(msg.clone(), vec![alice_pkey, bob_pkey])
-                .await
-                .unwrap(),
-        );
+        let msg = b"encrypted message".to_vec();
+        let encrypted_msg = encrypt(msg.clone(), vec![alice_pkey, bob_pkey])
+            .await
+            .unwrap();
 
         let alice_msg = decrypt(encrypted_msg.clone(), alice_skey).await.unwrap();
-        assert_eq!(alice_msg, *msg);
+        assert_eq!(alice_msg, msg);
 
         let bob_msg = decrypt(encrypted_msg.clone(), bob_skey).await.unwrap();
-        assert_eq!(bob_msg, *msg);
+        assert_eq!(bob_msg, msg);
 
         let carl_msg = decrypt(encrypted_msg.clone(), carl_skey).await.unwrap_err();
         assert!(matches!(

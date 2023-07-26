@@ -1,11 +1,12 @@
 use async_recursion::async_recursion;
-use log::warn;
+use log::{debug, warn};
 use mail_builder::MessageBuilder;
 use mail_parser::{Message, MessagePart, MimeHeaders, PartType};
 use nanohtml2text::html2text;
-use pimalaya_process::Cmd;
 use std::{env, fs, io, path::PathBuf, result};
 use thiserror::Error;
+
+use crate::{Decrypt, Verify};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -16,9 +17,11 @@ pub enum Error {
     #[error("cannot build email")]
     WriteMessageError(#[source] io::Error),
     #[error("cannot decrypt email part")]
-    DecryptPartError(#[source] pimalaya_process::Error),
+    DecryptPartError(#[source] pimalaya_pgp::Error),
+    #[error("cannot read signature from email part")]
+    ReadSignaturePartError(#[source] pimalaya_pgp::Error),
     #[error("cannot verify email part")]
-    VerifyPartError(#[source] pimalaya_process::Error),
+    VerifyPartError(#[source] pimalaya_pgp::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -106,25 +109,22 @@ pub struct Interpreter {
     /// default temporary one given by [`std::env::temp_dir()`].
     save_attachments_dir: PathBuf,
 
-    /// Command used to decrypt encrypted parts.
-    pgp_decrypt_cmd: Cmd,
-
-    /// Command used to verify signed parts.
-    pgp_verify_cmd: Cmd,
+    decrypt: Decrypt,
+    verify: Verify,
 }
 
 impl Default for Interpreter {
     fn default() -> Self {
         Self {
             show_multiparts: false,
-            filter_parts: FilterParts::default(),
+            filter_parts: Default::default(),
             show_plain_texts_signature: true,
             show_attachments: true,
             show_inline_attachments: true,
-            save_attachments: false,
+            save_attachments: Default::default(),
             save_attachments_dir: env::temp_dir(),
-            pgp_decrypt_cmd: "gpg --decrypt --quiet".into(),
-            pgp_verify_cmd: "gpg --verify --quiet".into(),
+            decrypt: Default::default(),
+            verify: Default::default(),
         }
     }
 }
@@ -172,27 +172,13 @@ impl Interpreter {
         self
     }
 
-    pub fn pgp_decrypt_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self {
-        self.pgp_decrypt_cmd = cmd.into();
+    pub fn with_decrypt(mut self, decrypt: Decrypt) -> Self {
+        self.decrypt = decrypt;
         self
     }
 
-    pub fn some_pgp_decrypt_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
-        if let Some(cmd) = cmd {
-            self.pgp_decrypt_cmd = cmd.into();
-        }
-        self
-    }
-
-    pub fn pgp_verify_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self {
-        self.pgp_verify_cmd = cmd.into();
-        self
-    }
-
-    pub fn some_pgp_verify_cmd<C: Into<Cmd>>(mut self, cmd: Option<C>) -> Self {
-        if let Some(cmd) = cmd {
-            self.pgp_verify_cmd = cmd.into();
-        }
+    pub fn with_verify(mut self, verify: Verify) -> Self {
+        self.verify = verify;
         self
     }
 
@@ -400,21 +386,61 @@ impl Interpreter {
             }
             PartType::Multipart(ids) if ctype == "multipart/encrypted" => {
                 let encrypted_part = msg.part(ids[1]).unwrap();
-                let decrypted_part = self
-                    .pgp_decrypt_cmd
-                    .run_with(encrypted_part.contents())
-                    .await
-                    .map_err(Error::DecryptPartError)?;
-                let msg = Message::parse(&decrypted_part).unwrap();
-                tpl.push_str(&self.interpret_msg(&msg).await?);
+
+                match &self.decrypt {
+                    Decrypt::None => {
+                        warn!("cannot decrypt email part: decrypt not configured");
+                    }
+                    Decrypt::Pgp(pgp) => {
+                        let encrypted_part = encrypted_part.contents().to_owned();
+                        let decrypted_part =
+                            pimalaya_pgp::decrypt(encrypted_part, pgp.skey.clone())
+                                .await
+                                .map_err(Error::DecryptPartError)?;
+                        if let Some(msg) = Message::parse(&decrypted_part) {
+                            tpl.push_str(&self.interpret_msg(&msg).await?);
+                        } else {
+                            warn!("cannot parse decrypted email part");
+                        }
+                    }
+                };
             }
             PartType::Multipart(ids) if ctype == "multipart/signed" => {
                 let signed_part = msg.part(ids[0]).unwrap();
-                let signature_part = msg.part(ids[1]).unwrap();
-                self.pgp_verify_cmd
-                    .run_with(signature_part.contents())
-                    .await
-                    .map_err(Error::VerifyPartError)?;
+
+                match &self.verify {
+                    Verify::None => {
+                        warn!("cannot verify email part: verify not configured");
+                    }
+                    Verify::Pgp(pgp) => {
+                        let signature_part = msg.part(ids[1]).unwrap();
+                        let signature = signature_part.contents().to_owned();
+                        let signature = pimalaya_pgp::read_signature_from_bytes(signature)
+                            .await
+                            .map_err(Error::ReadSignaturePartError)?;
+
+                        let verified_part = pimalaya_pgp::verify(
+                            signed_part.contents().to_owned(),
+                            signature,
+                            pgp.pkey.clone(),
+                        )
+                        .await;
+
+                        match verified_part {
+                            Ok(true) => {
+                                debug!("email part successfully pgp verified");
+                            }
+                            Ok(false) => {
+                                warn!("cannot pgp verify email part");
+                            }
+                            Err(err) => {
+                                warn!("cannot pgp verify email part: {err}");
+                                debug!("cannot pgp verify email part: {err:?}");
+                            }
+                        }
+                    }
+                };
+
                 tpl.push_str(&self.interpret_part(&msg, signed_part).await?);
             }
             PartType::Multipart(_) if ctype == "application/pgp-encrypted" => {

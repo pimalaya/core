@@ -1,7 +1,5 @@
 //! Module dedicated to PGP verify.
 
-use std::sync::Arc;
-
 use log::{debug, warn};
 use pgp::{SignedPublicKey, StandaloneSignature};
 use thiserror::Error;
@@ -18,7 +16,7 @@ pub enum Error {
 
 /// Verifies a standalone signature using the given public key.
 pub async fn verify(
-    data: Arc<Vec<u8>>,
+    data: Vec<u8>,
     sig: StandaloneSignature,
     pkey: SignedPublicKey,
 ) -> Result<bool> {
@@ -30,7 +28,7 @@ pub async fn verify(
         //     .get(..data.len().saturating_sub(2))
         //     .ok_or(Error::TrimMessageCrLfError)?;
 
-        if let Err(err) = sig.verify(&pkey, data.as_ref()) {
+        if let Err(err) = sig.verify(&pkey, &data) {
             warn!("cannot verify message signature: {err}");
             debug!("cannot verify message signature: {err:?}");
             Ok(false)
@@ -43,15 +41,13 @@ pub async fn verify(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use crate::{generate_key_pair, read_signature_from_bytes, sign, verify};
 
     #[tokio::test]
     async fn sign_then_verify() {
         let (skey, pkey) = generate_key_pair("test@localhost").await.unwrap();
-        let msg = Arc::new(b"signed message".to_vec());
-        let raw_sig = Arc::new(sign(msg.clone(), skey).await.unwrap());
+        let msg = b"signed message".to_vec();
+        let raw_sig = sign(msg.clone(), skey).await.unwrap();
         let sig = read_signature_from_bytes(raw_sig).await.unwrap();
 
         assert_eq!(verify(msg, sig, pkey).await.unwrap(), true);

@@ -4,16 +4,14 @@ pub mod interpreter;
 pub use interpreter::{Interpreter as TplInterpreter, ShowHeadersStrategy};
 
 use mail_builder::{headers::raw::Raw, MessageBuilder};
-use mail_parser::Message;
-use pimalaya_process::Cmd;
+use mail_parser::{Addr, Group, HeaderValue, Message};
 use std::{
     io,
     ops::{Deref, DerefMut},
-    result,
 };
 use thiserror::Error;
 
-use crate::mml;
+use crate::{mml, Encrypt, Result, Sign};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -31,23 +29,8 @@ pub enum Error {
     ParseMessageError,
 }
 
-pub type Result<T> = result::Result<T, Error>;
-
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Tpl {
-    /// Represents the PGP encrypt system command. Defaults to `gpg
-    /// --encrypt --armor --recipient <recipient> --quiet --output -`.
-    pgp_encrypt_cmd: Cmd,
-
-    /// Represents the PGP encrypt recipient. By default, it will take
-    /// the first address found from the "To" header of the template
-    /// being compiled.
-    pgp_encrypt_recipient: String,
-
-    /// Represents the PGP sign system command. Defaults to `gpg
-    /// --sign --armor --quiet --output -`.
-    pgp_sign_cmd: Cmd,
-
     /// Inner reference to the [MML compiler](crate::mml::Compiler).
     mml_compiler: mml::Compiler,
 
@@ -88,48 +71,20 @@ impl Tpl {
         Self::default()
     }
 
-    pub fn pgp_encrypt_cmd<C>(mut self, cmd: C) -> Self
-    where
-        C: Into<Cmd>,
-    {
-        self.mml_compiler = self.mml_compiler.pgp_encrypt_cmd(cmd);
+    pub fn with_encrypt(mut self, encrypt: Encrypt) -> Self {
+        self.mml_compiler = self.mml_compiler.with_encrypt(encrypt);
         self
     }
 
-    pub fn some_pgp_encrypt_cmd<C>(mut self, cmd: Option<C>) -> Self
-    where
-        C: Into<Cmd>,
-    {
-        self.mml_compiler = self.mml_compiler.some_pgp_encrypt_cmd(cmd);
-        self
-    }
-
-    pub fn pgp_encrypt_recipient<R>(mut self, recipient: R) -> Self
-    where
-        R: ToString,
-    {
-        self.mml_compiler = self.mml_compiler.pgp_encrypt_recipient(recipient);
-        self
-    }
-
-    pub fn pgp_sign_cmd<C: Into<Cmd>>(mut self, cmd: C) -> Self
-    where
-        C: Into<Cmd>,
-    {
-        self.mml_compiler = self.mml_compiler.pgp_sign_cmd(cmd);
-        self
-    }
-
-    pub fn some_pgp_sign_cmd<C>(mut self, cmd: Option<C>) -> Self
-    where
-        C: Into<Cmd>,
-    {
-        self.mml_compiler = self.mml_compiler.some_pgp_sign_cmd(cmd);
+    pub fn with_sign(mut self, sign: Sign) -> Self {
+        self.mml_compiler = self.mml_compiler.with_sign(sign);
         self
     }
 
     pub async fn compile<'a>(self) -> Result<MessageBuilder<'a>> {
         let tpl = Message::parse(self.as_bytes()).ok_or(Error::ParseMessageError)?;
+
+        let sender = extract_first_email_from_header(tpl.from());
 
         let mml = tpl
             .text_bodies()
@@ -143,11 +98,7 @@ impl Tpl {
                 contents
             });
 
-        let mut builder = self
-            .mml_compiler
-            .compile(&mml)
-            .await
-            .map_err(Error::CompileMmlError)?;
+        let mut builder = self.mml_compiler.compile(&mml).await?;
 
         builder = builder.header("MIME-Version", Raw::new("1.0"));
 
@@ -158,5 +109,33 @@ impl Tpl {
         }
 
         Ok(builder)
+    }
+}
+
+fn extract_email_from_addr(a: &Addr) -> Option<String> {
+    a.address.as_ref().map(|a| a.to_string())
+}
+
+fn extract_first_email_from_addrs(a: &Vec<Addr>) -> Option<String> {
+    a.iter().next().and_then(extract_email_from_addr)
+}
+
+fn extract_first_email_from_group(g: &Group) -> Option<String> {
+    extract_first_email_from_addrs(&g.addresses)
+}
+
+fn extract_first_email_from_groups(g: &Vec<Group>) -> Option<String> {
+    g.first()
+        .map(|g| &g.addresses)
+        .and_then(extract_first_email_from_addrs)
+}
+
+fn extract_first_email_from_header(h: &HeaderValue) -> Option<String> {
+    match h {
+        HeaderValue::Address(a) => extract_email_from_addr(a),
+        HeaderValue::AddressList(a) => extract_first_email_from_addrs(a),
+        HeaderValue::Group(g) => extract_first_email_from_group(g),
+        HeaderValue::GroupList(g) => extract_first_email_from_groups(g),
+        _ => None,
     }
 }
