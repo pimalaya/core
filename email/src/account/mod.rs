@@ -6,7 +6,6 @@
 //! PGP.
 
 pub mod config;
-pub mod pgp;
 pub mod sync;
 
 #[doc(inline)]

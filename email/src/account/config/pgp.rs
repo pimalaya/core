@@ -6,7 +6,7 @@ use pimalaya_keyring::Entry;
 use pimalaya_process::Cmd;
 use thiserror::Error;
 
-use crate::{account, Result};
+use crate::Result;
 
 /// Errors related to PGP configuration.
 #[derive(Debug, Error)]
@@ -15,12 +15,8 @@ pub enum Error {
     DeleteSecretKeyFromKeyringError(#[source] pimalaya_keyring::Error),
     #[error("cannot delete public key from keyring")]
     DeletePublicKeyFromKeyringError(#[source] pimalaya_keyring::Error),
-    #[error("cannot export secret key to armored string")]
-    ExportSecretKeyToArmoredStringError(#[source] pgp::errors::Error),
     #[error("cannot set secret key to keyring")]
     SetSecretKeyToKeyringError(#[source] pimalaya_keyring::Error),
-    #[error("cannot export public key to armored string")]
-    ExportPublicKeyToArmoredStringError(#[source] pgp::errors::Error),
     #[error("cannot set public key to keyring")]
     SetPublicKeyToKeyringError(#[source] pimalaya_keyring::Error),
 }
@@ -74,22 +70,22 @@ impl PgpNativeConfig {
 
     /// Generates secret and public keys then stores them into the
     /// global keyring.
-    pub async fn configure(&self, email: impl AsRef<str>) -> Result<()> {
-        let (secret_key, public_key) = account::pgp::generate_key_pair(email.as_ref().to_owned())?;
+    pub async fn configure(&self, _email: impl AsRef<str>) -> Result<()> {
+        // let (secret_key, public_key) = account::pgp::generate_key_pair(email.as_ref().to_owned())?;
 
-        let secret_key = secret_key
-            .to_armored_string(None)
-            .map_err(Error::ExportSecretKeyToArmoredStringError)?;
-        Self::get_secret_key_entry(email.as_ref())
-            .set_secret(secret_key)
-            .map_err(Error::SetSecretKeyToKeyringError)?;
+        // let secret_key = secret_key
+        //     .to_armored_string(None)
+        //     .map_err(Error::ExportSecretKeyToArmoredStringError)?;
+        // Self::get_secret_key_entry(email.as_ref())
+        //     .set_secret(secret_key)
+        //     .map_err(Error::SetSecretKeyToKeyringError)?;
 
-        let public_key = public_key
-            .to_armored_string(None)
-            .map_err(Error::ExportPublicKeyToArmoredStringError)?;
-        Self::get_public_key_entry(email.as_ref())
-            .set_secret(public_key)
-            .map_err(Error::SetPublicKeyToKeyringError)?;
+        // let public_key = public_key
+        //     .to_armored_string(None)
+        //     .map_err(Error::ExportPublicKeyToArmoredStringError)?;
+        // Self::get_public_key_entry(email.as_ref())
+        //     .set_secret(public_key)
+        //     .map_err(Error::SetPublicKeyToKeyringError)?;
 
         Ok(())
     }
