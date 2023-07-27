@@ -35,14 +35,16 @@ pub enum Error {
     VerifyPublicKeyError(#[source] pgp::errors::Error),
 
     #[error("cannot read armored public key at {1}")]
-    ReadArmoredPublicKeyError(io::Error, PathBuf),
+    ReadArmoredPublicKeyError(#[source] io::Error, PathBuf),
     #[error("cannot parse armored public key from {1}")]
-    ParseArmoredPublicKeyError(pgp::errors::Error, PathBuf),
+    ParseArmoredPublicKeyError(#[source] pgp::errors::Error, PathBuf),
 
-    #[error("cannot read armored secret key at {1}")]
-    ReadArmoredSecretKeyError(io::Error, PathBuf),
+    #[error("cannot read armored secret key file {1}")]
+    ReadArmoredSecretKeyFromPathError(#[source] io::Error, PathBuf),
     #[error("cannot parse armored secret key from {1}")]
-    ParseArmoredSecretKeyError(pgp::errors::Error, PathBuf),
+    ParseArmoredSecretKeyFromPathError(#[source] pgp::errors::Error, PathBuf),
+    #[error("cannot parse armored secret key from string")]
+    ParseArmoredSecretKeyFromStringError(#[source] pgp::errors::Error),
 
     #[error("cannot import pgp signature from armor")]
     ReadStandaloneSignatureFromArmoredBytesError(#[source] pgp::errors::Error),
@@ -114,10 +116,23 @@ pub async fn read_signed_public_key_from_path(path: PathBuf) -> Result<SignedPub
 /// otherwise it will fail.
 pub async fn read_signed_secret_key_from_path(path: PathBuf) -> Result<SignedSecretKey> {
     task::spawn_blocking(move || {
-        let data =
-            fs::read(&path).map_err(|err| Error::ReadArmoredSecretKeyError(err, path.clone()))?;
+        let data = fs::read(&path)
+            .map_err(|err| Error::ReadArmoredSecretKeyFromPathError(err, path.clone()))?;
         let (skey, _) = SignedSecretKey::from_armor_single(Cursor::new(data))
-            .map_err(|err| Error::ParseArmoredSecretKeyError(err, path.clone()))?;
+            .map_err(|err| Error::ParseArmoredSecretKeyFromPathError(err, path.clone()))?;
+        Ok(skey)
+    })
+    .await?
+}
+
+/// Reads a signed secret key from the given raw string.
+///
+/// The given raw string needs to contain a single armored secret key,
+/// otherwise it will fail.
+pub async fn read_skey_from_string(data: String) -> Result<SignedSecretKey> {
+    task::spawn_blocking(move || {
+        let (skey, _) = SignedSecretKey::from_armor_single(Cursor::new(data))
+            .map_err(Error::ParseArmoredSecretKeyFromStringError)?;
         Ok(skey)
     })
     .await?

@@ -1,7 +1,7 @@
 use mail_parser::{Addr, ContentType, Group, HeaderValue};
 use std::borrow::Cow;
 
-pub(crate) fn display_value(key: &str, val: &HeaderValue) -> String {
+pub(super) fn display_value(key: &str, val: &HeaderValue) -> String {
     match val {
         HeaderValue::Address(addr) => display_addr(addr),
         HeaderValue::AddressList(addrs) => display_addrs(addrs),
@@ -85,6 +85,61 @@ fn display_content_type(ctype: &ContentType) -> String {
     let ctype = ctype.ctype();
 
     format!("{ctype}/{stype}{attrs}")
+}
+
+fn extract_email_from_addr(a: &Addr) -> Option<String> {
+    a.address.as_ref().map(|a| a.to_string())
+}
+
+fn extract_first_email_from_addrs(a: &Vec<Addr>) -> Option<String> {
+    a.iter().next().and_then(extract_email_from_addr)
+}
+
+fn extract_emails_from_addrs(a: &Vec<Addr>) -> Vec<String> {
+    a.iter().filter_map(extract_email_from_addr).collect()
+}
+
+fn extract_first_email_from_group(g: &Group) -> Option<String> {
+    extract_first_email_from_addrs(&g.addresses)
+}
+
+fn extract_emails_from_group(g: &Group) -> Vec<String> {
+    extract_emails_from_addrs(&g.addresses)
+}
+
+fn extract_first_email_from_groups(g: &Vec<Group>) -> Option<String> {
+    g.first()
+        .map(|g| &g.addresses)
+        .and_then(extract_first_email_from_addrs)
+}
+
+fn extract_emails_from_groups(g: &Vec<Group>) -> Vec<String> {
+    g.iter()
+        .map(|g| &g.addresses)
+        .flat_map(extract_emails_from_addrs)
+        .collect()
+}
+
+pub(super) fn extract_first_email(h: &HeaderValue) -> Option<String> {
+    match h {
+        HeaderValue::Address(a) => extract_email_from_addr(a),
+        HeaderValue::AddressList(a) => extract_first_email_from_addrs(a),
+        HeaderValue::Group(g) => extract_first_email_from_group(g),
+        HeaderValue::GroupList(g) => extract_first_email_from_groups(g),
+        _ => None,
+    }
+}
+
+pub(super) fn extract_emails(h: &HeaderValue) -> Vec<String> {
+    match h {
+        HeaderValue::Address(a) => extract_email_from_addr(a)
+            .map(|a| vec![a])
+            .unwrap_or_default(),
+        HeaderValue::AddressList(a) => extract_emails_from_addrs(a),
+        HeaderValue::Group(g) => extract_emails_from_group(g),
+        HeaderValue::GroupList(g) => extract_emails_from_groups(g),
+        _ => vec![],
+    }
 }
 
 #[cfg(test)]

@@ -14,7 +14,7 @@ async fn main() {
     let raw_email = email_builder.write_to_string().unwrap();
 
     let tpl = TplInterpreter::new()
-        .show_only_headers(["From", "Subject"])
+        .with_show_only_headers(["From", "Subject"])
         .interpret_bytes(raw_email.as_bytes())
         .await
         .unwrap();

@@ -11,12 +11,15 @@
 //! [get example]: get#examples
 
 use async_recursion::async_recursion;
-use hyper::{http::Response, Body, Client, Uri};
+use futures::{stream, StreamExt};
+use hyper::{client::HttpConnector, http::Response, Body, Client, Uri};
 use hyper_tls::HttpsConnector;
+use log::{debug, warn};
 use pgp::{Deserializable, SignedPublicKey};
 use sha1::{Digest, Sha1};
-use std::{fmt, path};
+use std::{fmt, path, sync::Arc};
 use thiserror::Error;
+use tokio::task;
 
 use crate::Result;
 
@@ -188,14 +191,11 @@ fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
 }
 
 #[async_recursion]
-async fn get_following_redirects<T>(
-    client: &hyper::client::Client<T>,
+async fn get_following_redirects(
+    client: &Client<HttpsConnector<HttpConnector>>,
     url: Uri,
     depth: i32,
-) -> Result<Response<Body>>
-where
-    T: hyper::client::connect::Connect + Clone + Send + Sync + 'static,
-{
+) -> Result<Response<Body>> {
     let response = client.get(url).await;
 
     if depth < 0 {
@@ -258,14 +258,12 @@ where
 
 // XXX: Maybe the direct method should be tried on other errors too.
 // https://mailarchive.ietf.org/arch/msg/openpgp/6TxZc2dQFLKXtS0Hzmrk963EteE
-pub async fn get(email: impl AsRef<str>) -> Result<SignedPublicKey> {
-    let email = email.as_ref().to_string();
+async fn get(
+    client: &Client<HttpsConnector<HttpConnector>>,
+    email: &String,
+) -> Result<SignedPublicKey> {
     // First, prepare URIs and client.
-    let wkd_url = Url::from(&email)?;
-
-    // WKD must use TLS, so build a client for that.
-    let https = HttpsConnector::new();
-    let client = Client::builder().build::<_, hyper::Body>(https);
+    let wkd_url = Url::from(email)?;
     let advanced_uri = wkd_url.to_uri(Variant::Advanced)?;
     let direct_uri = wkd_url.to_uri(Variant::Direct)?;
 
@@ -284,4 +282,34 @@ pub async fn get(email: impl AsRef<str>) -> Result<SignedPublicKey> {
     let pkey = SignedPublicKey::from_bytes(&*body).map_err(Error::ParseCertError)?;
 
     Ok(pkey)
+}
+
+/// Gets the public key associated to the given email.
+pub async fn get_one(email: String) -> Result<SignedPublicKey> {
+    let client = Client::builder().build::<_, hyper::Body>(HttpsConnector::new());
+    self::get(&client, &email).await
+}
+
+/// Gets public keys associated to the given emails.
+pub async fn get_all(emails: Vec<String>) -> Vec<(String, Result<SignedPublicKey>)> {
+    let client = Arc::new(Client::builder().build::<_, hyper::Body>(HttpsConnector::new()));
+
+    stream::iter(emails)
+        .map(|email| {
+            let client = client.clone();
+            task::spawn(async move { (email.clone(), self::get(&client, &email).await) })
+        })
+        .buffer_unordered(8)
+        .filter_map(|res| async {
+            match res {
+                Ok(res) => Some(res),
+                Err(err) => {
+                    warn!("cannot join async task: {err}");
+                    debug!("cannot join async task: {err:?}");
+                    None
+                }
+            }
+        })
+        .collect()
+        .await
 }

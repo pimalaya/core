@@ -1,11 +1,9 @@
 #![doc = include_str!("../README.md")]
 
-pub mod crypto;
 pub mod mml;
 pub mod tpl;
 
 pub use self::{
-    crypto::{Decrypt, Encrypt, PgpDecrypt, PgpEncrypt, PgpSign, PgpVerify, Sign, Verify},
     mml::FilterParts,
     tpl::{ShowHeadersStrategy, Tpl, TplInterpreter},
 };

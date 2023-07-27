@@ -1,12 +1,13 @@
 use async_recursion::async_recursion;
 use log::warn;
 use mail_builder::{mime::MimePart, MessageBuilder};
+use pimalaya_pgp::{SignedPublicKey, SignedSecretKey};
 use std::{env, ffi::OsStr, fs, io, path::PathBuf};
 use thiserror::Error;
 
 use crate::{
     mml::parsers::{self, prelude::*},
-    Encrypt, Result, Sign,
+    Result,
 };
 
 use super::tokens::{Part, DISPOSITION, ENCRYPT, FILENAME, NAME, SIGN, TYPE};
@@ -34,8 +35,8 @@ pub enum Error {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Compiler {
-    encrypt: Encrypt,
-    sign: Sign,
+    pgp_encrypt_keys: Option<Vec<SignedPublicKey>>,
+    pgp_sign_key: Option<SignedSecretKey>,
 }
 
 impl Compiler {
@@ -43,56 +44,63 @@ impl Compiler {
         Self::default()
     }
 
-    pub fn with_encrypt(mut self, encrypt: Encrypt) -> Self {
-        self.encrypt = encrypt;
+    pub fn with_pgp_encrypt_keys(
+        mut self,
+        keys: Option<impl IntoIterator<Item = SignedPublicKey>>,
+    ) -> Self {
+        self.pgp_encrypt_keys = if let Some(keys) = keys {
+            Some(keys.into_iter().collect())
+        } else {
+            None
+        };
         self
     }
 
-    pub fn with_sign(mut self, sign: Sign) -> Self {
-        self.sign = sign;
+    pub fn with_pgp_sign_key(mut self, key: Option<SignedSecretKey>) -> Self {
+        self.pgp_sign_key = key;
         self
-    }
-
-    async fn sign<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
-        match &self.sign {
-            Sign::None => Ok(part),
-            Sign::Pgp(pgp) => {
-                let mut buf = Vec::new();
-                part.clone()
-                    .write_part(&mut buf)
-                    .map_err(Error::WriteCompiledPartToVecError)?;
-                let signature = pimalaya_pgp::sign(buf, pgp.skey.clone()).await?;
-
-                let part = MimePart::new(
-                    "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
-                    vec![part, MimePart::new("application/pgp-signature", signature)],
-                );
-
-                Ok(part)
-            }
-        }
     }
 
     async fn encrypt<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
-        match &self.encrypt {
-            Encrypt::None => Ok(part),
-            Encrypt::Pgp(pgp) => {
-                let mut buf = Vec::new();
-                part.clone()
-                    .write_part(&mut buf)
-                    .map_err(Error::WriteCompiledPartToVecError)?;
-                let encrypted_part = pimalaya_pgp::encrypt(buf, pgp.pkeys.clone()).await?;
+        if let Some(pkeys) = &self.pgp_encrypt_keys {
+            let mut buf = Vec::new();
+            part.clone()
+                .write_part(&mut buf)
+                .map_err(Error::WriteCompiledPartToVecError)?;
+            let encrypted_part = pimalaya_pgp::encrypt(buf, pkeys.clone()).await?;
 
-                let part = MimePart::new(
-                    "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
-                    vec![
-                        MimePart::new("application/pgp-encrypted", "Version: 1"),
-                        MimePart::new("application/octet-stream", encrypted_part),
-                    ],
-                );
+            let part = MimePart::new(
+                "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
+                vec![
+                    MimePart::new("application/pgp-encrypted", "Version: 1"),
+                    MimePart::new("application/octet-stream", encrypted_part),
+                ],
+            );
 
-                Ok(part)
-            }
+            Ok(part)
+        } else {
+            warn!("cannot encrypt email part: encrypt not set up");
+            Ok(part)
+        }
+    }
+
+    async fn sign<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
+        if let Some(skey) = &self.pgp_sign_key {
+            let mut buf = Vec::new();
+            part.clone()
+                .write_part(&mut buf)
+                .map_err(Error::WriteCompiledPartToVecError)?;
+            let signature = pimalaya_pgp::sign(buf, skey.clone()).await?;
+
+            let part = MimePart::new(
+                "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
+                vec![part, MimePart::new("application/pgp-signature", signature)],
+            );
+
+            Ok(part)
+        } else {
+            warn!("cannot sign email part: sign not set up");
+            Ok(part)
         }
     }
 

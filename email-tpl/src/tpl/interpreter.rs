@@ -1,9 +1,11 @@
+use log::{debug, warn};
 use mail_builder::MessageBuilder;
 use mail_parser::Message;
+use pimalaya_keyring::Entry;
 use std::{io, path::PathBuf, result};
 use thiserror::Error;
 
-use crate::{mml, Decrypt, FilterParts, Tpl, Verify};
+use crate::{mml, FilterParts, Tpl};
 
 use super::header;
 
@@ -15,6 +17,17 @@ pub enum Error {
     BuildEmailError(#[source] io::Error),
     #[error("cannot interpret email body as mml")]
     InterpretMmlError(#[source] mml::interpreter::Error),
+    #[error("cannot parse empty sender")]
+    ParseSenderEmptyError,
+    #[error("cannot parse empty recipient")]
+    ParseRecipientEmptyError,
+
+    #[error("cannot get pgp secret key from keyring")]
+    GetSecretKeyFromKeyringError(pimalaya_keyring::Error),
+    #[error("cannot read pgp secret key from keyring")]
+    ReadSecretKeyFromKeyringError(pimalaya_pgp::Error),
+    #[error("cannot read pgp secret key from path {1}")]
+    ReadSecretKeyFromPathError(pimalaya_pgp::Error, PathBuf),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -39,6 +52,21 @@ impl ShowHeadersStrategy {
     }
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub enum Decrypt {
+    #[default]
+    None,
+    Path(String),
+    Keyring(String),
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub enum Verify {
+    #[default]
+    None,
+    KeyServers(Vec<String>),
+}
+
 /// The template interpreter interprets full emails as
 /// [`crate::Tpl`]. The interpreter needs to be customized first. The
 /// customization follows the builder pattern. When the interpreter is
@@ -53,7 +81,12 @@ pub struct Interpreter {
     /// to the interpreted template.
     show_headers: ShowHeadersStrategy,
 
-    /// Inner reference to the [MML interpreter](crate::mml::Interpreter).
+    /// PGP decrypt configuration.
+    pgp_decrypt: Decrypt,
+
+    /// PGP verify configuration.
+    pgp_verify: Verify,
+
     mml_interpreter: mml::Interpreter,
 }
 
@@ -62,17 +95,20 @@ impl Interpreter {
         Self::default()
     }
 
-    pub fn show_headers(mut self, s: ShowHeadersStrategy) -> Self {
+    pub fn with_show_headers(mut self, s: ShowHeadersStrategy) -> Self {
         self.show_headers = s;
         self
     }
 
-    pub fn show_all_headers(mut self) -> Self {
+    pub fn with_show_all_headers(mut self) -> Self {
         self.show_headers = ShowHeadersStrategy::All;
         self
     }
 
-    pub fn show_only_headers<S: ToString, B: IntoIterator<Item = S>>(mut self, headers: B) -> Self {
+    pub fn with_show_only_headers(
+        mut self,
+        headers: impl IntoIterator<Item = impl ToString>,
+    ) -> Self {
         let headers = headers.into_iter().fold(Vec::new(), |mut headers, header| {
             let header = header.to_string();
             if !headers.contains(&header) {
@@ -84,9 +120,9 @@ impl Interpreter {
         self
     }
 
-    pub fn show_additional_headers<S: ToString, B: IntoIterator<Item = S>>(
+    pub fn with_show_additional_headers(
         mut self,
-        headers: B,
+        headers: impl IntoIterator<Item = impl ToString>,
     ) -> Self {
         let next_headers = headers.into_iter().fold(Vec::new(), |mut headers, header| {
             let header = header.to_string();
@@ -108,56 +144,53 @@ impl Interpreter {
         self
     }
 
-    pub fn hide_all_headers(mut self) -> Self {
+    pub fn with_hide_all_headers(mut self) -> Self {
         self.show_headers = ShowHeadersStrategy::Only(Vec::new());
         self
     }
 
-    pub fn show_multiparts(mut self, b: bool) -> Self {
+    pub fn with_show_multiparts(mut self, b: bool) -> Self {
         self.mml_interpreter = self.mml_interpreter.show_multiparts(b);
         self
     }
 
-    pub fn filter_parts(mut self, f: FilterParts) -> Self {
+    pub fn with_filter_parts(mut self, f: FilterParts) -> Self {
         self.mml_interpreter = self.mml_interpreter.filter_parts(f);
         self
     }
 
-    pub fn show_plain_texts_signature(mut self, b: bool) -> Self {
+    pub fn with_show_plain_texts_signature(mut self, b: bool) -> Self {
         self.mml_interpreter = self.mml_interpreter.show_plain_texts_signature(b);
         self
     }
 
-    pub fn show_attachments(mut self, b: bool) -> Self {
+    pub fn with_show_attachments(mut self, b: bool) -> Self {
         self.mml_interpreter = self.mml_interpreter.show_attachments(b);
         self
     }
 
-    pub fn show_inline_attachments(mut self, b: bool) -> Self {
+    pub fn with_show_inline_attachments(mut self, b: bool) -> Self {
         self.mml_interpreter = self.mml_interpreter.show_inline_attachments(b);
         self
     }
 
-    pub fn save_attachments(mut self, b: bool) -> Self {
+    pub fn with_save_attachments(mut self, b: bool) -> Self {
         self.mml_interpreter = self.mml_interpreter.save_attachments(b);
         self
     }
 
-    pub fn save_attachments_dir<D>(mut self, dir: D) -> Self
-    where
-        D: Into<PathBuf>,
-    {
+    pub fn with_save_attachments_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.mml_interpreter = self.mml_interpreter.save_attachments_dir(dir);
         self
     }
 
-    pub fn with_decrypt(mut self, decrypt: Decrypt) -> Self {
-        self.mml_interpreter = self.mml_interpreter.with_decrypt(decrypt);
+    pub fn with_pgp_decrypt(mut self, decrypt: Decrypt) -> Self {
+        self.pgp_decrypt = decrypt;
         self
     }
 
-    pub fn with_verify(mut self, verify: Verify) -> Self {
-        self.mml_interpreter = self.mml_interpreter.with_verify(verify);
+    pub fn with_pgp_verify(mut self, verify: Verify) -> Self {
+        self.pgp_verify = verify;
         self
     }
 
@@ -165,6 +198,10 @@ impl Interpreter {
     /// [`crate::Tpl`].
     pub async fn interpret_msg(self, msg: &Message<'_>) -> Result<Tpl> {
         let mut tpl = Tpl::new();
+
+        let sender = header::extract_first_email(msg.from()).ok_or(Error::ParseSenderEmptyError)?;
+        let recipient =
+            header::extract_first_email(msg.to()).ok_or(Error::ParseRecipientEmptyError)?;
 
         match self.show_headers {
             ShowHeadersStrategy::All => msg.headers().iter().for_each(|header| {
@@ -187,6 +224,78 @@ impl Interpreter {
 
         let mml = self
             .mml_interpreter
+            .clone()
+            .with_pgp_decrypt_key(match &self.pgp_decrypt {
+                Decrypt::None => {
+                    warn!("cannot set pgp decrypt key: decrypt not configured");
+                    None
+                }
+                Decrypt::Path(path_tpl) => {
+                    let get_skey = || async {
+                        let path = PathBuf::from(path_tpl.replace("<recipient>", &recipient));
+                        let skey = pimalaya_pgp::read_signed_secret_key_from_path(path.clone())
+                            .await
+                            .map_err(|err| Error::ReadSecretKeyFromPathError(err, path))?;
+                        Result::Ok(skey)
+                    };
+                    match get_skey().await {
+                        Ok(skey) => Some(skey),
+                        Err(err) => {
+                            warn!("cannot get pgp secret key from path: {err}");
+                            debug!("cannot get pgp secret key from path: {err:?}");
+                            None
+                        }
+                    }
+                }
+                Decrypt::Keyring(entry_tpl) => {
+                    let get_skey = || async {
+                        let data = Entry::from(entry_tpl.replace("<recipient>", &recipient))
+                            .get_secret()
+                            .map_err(Error::GetSecretKeyFromKeyringError)?;
+                        let skey = pimalaya_pgp::read_skey_from_string(data)
+                            .await
+                            .map_err(Error::ReadSecretKeyFromKeyringError)?;
+                        Result::Ok(skey)
+                    };
+                    match get_skey().await {
+                        Ok(skey) => Some(skey),
+                        Err(err) => {
+                            warn!("cannot get pgp secret key from keyring: {err}");
+                            debug!("cannot get pgp secret key from keyring: {err:?}");
+                            None
+                        }
+                    }
+                }
+            })
+            .with_pgp_verify_key(match &self.pgp_verify {
+                Verify::None => {
+                    warn!("cannot set pgp verify key: verify not configured");
+                    None
+                }
+                Verify::KeyServers(key_servers) => {
+                    let wkd_pkey = pimalaya_pgp::wkd::get_one(recipient.clone()).await;
+
+                    match wkd_pkey {
+                        Ok(pkey) => Some(pkey),
+                        Err(err) => {
+                            warn!("cannot get public key of {sender} using wkd: {err}");
+                            debug!("cannot get public key of {sender} using wkd: {err:?}");
+
+                            let hkps_pkey =
+                                pimalaya_pgp::hkps::get_one(recipient, key_servers.clone()).await;
+
+                            match hkps_pkey {
+                                Ok(pkey) => Some(pkey),
+                                Err(err) => {
+                                    warn!("cannot get public key of {sender} using hkps: {err}");
+                                    debug!("cannot get public key of {sender} using hkps: {err:?}");
+                                    None
+                                }
+                            }
+                        }
+                    }
+                }
+            })
             .interpret_msg(msg)
             .await
             .map_err(Error::InterpretMmlError)?;
@@ -232,7 +341,7 @@ mod tests {
     #[tokio::test]
     async fn all_headers() {
         let tpl = Interpreter::new()
-            .show_all_headers()
+            .with_show_all_headers()
             .interpret_msg_builder(msg())
             .await
             .unwrap();
@@ -257,7 +366,7 @@ mod tests {
     #[tokio::test]
     async fn only_headers() {
         let tpl = Interpreter::new()
-            .show_only_headers(["From", "Subject"])
+            .with_show_only_headers(["From", "Subject"])
             .interpret_msg_builder(msg())
             .await
             .unwrap();
@@ -276,7 +385,7 @@ mod tests {
     #[tokio::test]
     async fn only_headers_duplicated() {
         let tpl = Interpreter::new()
-            .show_only_headers(["From", "Subject", "From"])
+            .with_show_only_headers(["From", "Subject", "From"])
             .interpret_msg_builder(msg())
             .await
             .unwrap();
@@ -295,7 +404,7 @@ mod tests {
     #[tokio::test]
     async fn no_headers() {
         let tpl = Interpreter::new()
-            .hide_all_headers()
+            .with_hide_all_headers()
             .interpret_msg_builder(msg())
             .await
             .unwrap();

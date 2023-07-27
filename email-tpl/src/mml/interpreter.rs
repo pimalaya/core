@@ -3,10 +3,9 @@ use log::{debug, warn};
 use mail_builder::MessageBuilder;
 use mail_parser::{Message, MessagePart, MimeHeaders, PartType};
 use nanohtml2text::html2text;
+use pimalaya_pgp::{SignedPublicKey, SignedSecretKey};
 use std::{env, fs, io, path::PathBuf, result};
 use thiserror::Error;
-
-use crate::{Decrypt, Verify};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -109,8 +108,8 @@ pub struct Interpreter {
     /// default temporary one given by [`std::env::temp_dir()`].
     save_attachments_dir: PathBuf,
 
-    decrypt: Decrypt,
-    verify: Verify,
+    pgp_decrypt_key: Option<SignedSecretKey>,
+    pgp_verify_key: Option<SignedPublicKey>,
 }
 
 impl Default for Interpreter {
@@ -123,8 +122,8 @@ impl Default for Interpreter {
             show_inline_attachments: true,
             save_attachments: Default::default(),
             save_attachments_dir: env::temp_dir(),
-            decrypt: Default::default(),
-            verify: Default::default(),
+            pgp_decrypt_key: Default::default(),
+            pgp_verify_key: Default::default(),
         }
     }
 }
@@ -172,13 +171,13 @@ impl Interpreter {
         self
     }
 
-    pub fn with_decrypt(mut self, decrypt: Decrypt) -> Self {
-        self.decrypt = decrypt;
+    pub fn with_pgp_decrypt_key(mut self, key: Option<SignedSecretKey>) -> Self {
+        self.pgp_decrypt_key = key;
         self
     }
 
-    pub fn with_verify(mut self, verify: Verify) -> Self {
-        self.verify = verify;
+    pub fn with_pgp_verify_key(mut self, key: Option<SignedPublicKey>) -> Self {
+        self.pgp_verify_key = key;
         self
     }
 
@@ -387,16 +386,15 @@ impl Interpreter {
             PartType::Multipart(ids) if ctype == "multipart/encrypted" => {
                 let encrypted_part = msg.part(ids[1]).unwrap();
 
-                match &self.decrypt {
-                    Decrypt::None => {
-                        warn!("cannot decrypt email part: decrypt not configured");
+                match &self.pgp_decrypt_key {
+                    None => {
+                        warn!("cannot pgp decrypt email part: decrypt not configured");
                     }
-                    Decrypt::Pgp(pgp) => {
+                    Some(skey) => {
                         let encrypted_part = encrypted_part.contents().to_owned();
-                        let decrypted_part =
-                            pimalaya_pgp::decrypt(encrypted_part, pgp.skey.clone())
-                                .await
-                                .map_err(Error::DecryptPartError)?;
+                        let decrypted_part = pimalaya_pgp::decrypt(encrypted_part, skey.clone())
+                            .await
+                            .map_err(Error::DecryptPartError)?;
                         if let Some(msg) = Message::parse(&decrypted_part) {
                             tpl.push_str(&self.interpret_msg(&msg).await?);
                         } else {
@@ -408,11 +406,11 @@ impl Interpreter {
             PartType::Multipart(ids) if ctype == "multipart/signed" => {
                 let signed_part = msg.part(ids[0]).unwrap();
 
-                match &self.verify {
-                    Verify::None => {
-                        warn!("cannot verify email part: verify not configured");
+                match &self.pgp_verify_key {
+                    None => {
+                        warn!("cannot pgp verify email part: verify not configured");
                     }
-                    Verify::Pgp(pgp) => {
+                    Some(pkey) => {
                         let signature_part = msg.part(ids[1]).unwrap();
                         let signature = signature_part.contents().to_owned();
                         let signature = pimalaya_pgp::read_signature_from_bytes(signature)
@@ -422,7 +420,7 @@ impl Interpreter {
                         let verified_part = pimalaya_pgp::verify(
                             signed_part.contents().to_owned(),
                             signature,
-                            pgp.pkey.clone(),
+                            pkey.clone(),
                         )
                         .await;
 
