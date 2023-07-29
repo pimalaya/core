@@ -10,7 +10,7 @@ pub mod sync;
 
 #[doc(inline)]
 pub use self::config::{
-    AccountConfig, OAuth2Config, OAuth2Method, OAuth2Scopes, PasswdConfig, PgpConfig,
-    DEFAULT_DRAFTS_FOLDER, DEFAULT_INBOX_FOLDER, DEFAULT_PAGE_SIZE, DEFAULT_SENT_FOLDER,
-    DEFAULT_SIGNATURE_DELIM, DEFAULT_TRASH_FOLDER,
+    AccountConfig, OAuth2Config, OAuth2Method, OAuth2Scopes, PasswdConfig, PgpConfig, PgpKey,
+    PgpNativeConfig, DEFAULT_DRAFTS_FOLDER, DEFAULT_INBOX_FOLDER, DEFAULT_PAGE_SIZE,
+    DEFAULT_SENT_FOLDER, DEFAULT_SIGNATURE_DELIM, DEFAULT_TRASH_FOLDER,
 };

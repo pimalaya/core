@@ -2,6 +2,7 @@
 //!
 //! This module contains everything related to PGP configuration.
 
+use log::{debug, warn};
 use pimalaya_email_tpl::{
     PgpPublicKey, PgpPublicKeyResolver, PgpPublicKeys, PgpPublicKeysResolver, PgpSecretKey,
     PgpSecretKeyResolver,
@@ -58,9 +59,30 @@ impl PgpKey {
     pub async fn reset(&self) -> Result<()> {
         match self {
             Self::None => (),
-            Self::Path(path) => fs::remove_file(path)
-                .await
-                .map_err(|err| Error::DeletePgpKeyAtPathError(err, path.clone()))?,
+            Self::Path(path) => {
+                if let Some(path) = path.as_path().to_str() {
+                    let path_str = match shellexpand::full(path) {
+                        Ok(path) => path.to_string(),
+                        Err(err) => {
+                            warn!("cannot shell expand pgp key path {path}: {err}");
+                            debug!("cannot shell expand pgp key path {path:?}: {err:?}");
+                            path.to_owned()
+                        }
+                    };
+
+                    let path = PathBuf::from(&path_str);
+
+                    if path.is_file() {
+                        fs::remove_file(&path)
+                            .await
+                            .map_err(|err| Error::DeletePgpKeyAtPathError(err, path.clone()))?;
+                    } else {
+                        warn!("cannot delete pgp key file at {path_str}: file not found");
+                    }
+                } else {
+                    warn!("cannot get pgp key file path as str: {path:?}");
+                }
+            }
             Self::Keyring(entry) => entry
                 .delete_secret()
                 .map_err(Error::DeletePgpKeyFromKeyringError)?,
@@ -110,15 +132,31 @@ impl Into<PgpPublicKeys> for PgpConfig {
     }
 }
 
+impl PgpConfig {
+    pub async fn reset(&self) -> Result<()> {
+        match self {
+            Self::None => Ok(()),
+            Self::Native(config) => config.reset().await,
+        }
+    }
+
+    pub async fn configure(&self, email: impl ToString) -> Result<()> {
+        match self {
+            Self::None => Ok(()),
+            Self::Native(config) => config.configure(email).await,
+        }
+    }
+}
+
 /// The native PGP configuration.
 ///
 /// This configuration is based on the [`pgp`] crate, which provides a
 /// native Rust implementation of the PGP standard.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PgpNativeConfig {
-    secret_key: PgpKey,
-    public_key: PgpKey,
-    key_servers: Vec<String>,
+    pub secret_key: PgpKey,
+    pub public_key: PgpKey,
+    pub key_servers: Vec<String>,
 }
 
 impl PgpNativeConfig {
@@ -147,24 +185,52 @@ impl PgpNativeConfig {
             PgpKey::None => Entry::from(format!("pgp-secret-key-{email}"))
                 .set_secret(skey)
                 .map_err(Error::SetSecretKeyToKeyringError)?,
+            PgpKey::Path(path) => {
+                if let Some(path) = path.as_path().to_str() {
+                    let path = match shellexpand::full(path) {
+                        Ok(path) => PathBuf::from(path.to_string()),
+                        Err(err) => {
+                            warn!("cannot shell expand pgp secret key {path}: {err}");
+                            debug!("cannot shell expand pgp secret key {path:?}: {err:?}");
+                            PathBuf::from(path)
+                        }
+                    };
+                    fs::write(&path, skey)
+                        .await
+                        .map_err(|err| Error::WriteSecretKeyFileError(err, path))?;
+                } else {
+                    warn!("cannot get pgp secret key path as str: {path:?}");
+                }
+            }
             PgpKey::Keyring(entry) => entry
                 .set_secret(skey)
                 .map_err(Error::SetSecretKeyToKeyringError)?,
-            PgpKey::Path(path) => fs::write(path, skey)
-                .await
-                .map_err(|err| Error::WriteSecretKeyFileError(err, path.clone()))?,
         }
 
         match &self.public_key {
             PgpKey::None => Entry::from(format!("pgp-public-key-{email}"))
                 .set_secret(pkey)
                 .map_err(Error::SetPublicKeyToKeyringError)?,
+            PgpKey::Path(path) => {
+                if let Some(path) = path.as_path().to_str() {
+                    let path = match shellexpand::full(path) {
+                        Ok(path) => PathBuf::from(path.to_string()),
+                        Err(err) => {
+                            warn!("cannot shell expand pgp public key {path}: {err}");
+                            debug!("cannot shell expand pgp public key path {path:?}: {err:?}");
+                            PathBuf::from(path)
+                        }
+                    };
+                    fs::write(&path, pkey)
+                        .await
+                        .map_err(|err| Error::WritePublicKeyFileError(err, path))?;
+                } else {
+                    warn!("cannot get pgp public key path as str: {path:?}");
+                }
+            }
             PgpKey::Keyring(entry) => entry
                 .set_secret(pkey)
                 .map_err(Error::SetPublicKeyToKeyringError)?,
-            PgpKey::Path(path) => fs::write(path, pkey)
-                .await
-                .map_err(|err| Error::WritePublicKeyFileError(err, path.clone()))?,
         }
 
         Ok(())

@@ -27,7 +27,7 @@ use crate::{
 pub use self::{
     oauth2::{OAuth2Config, OAuth2Method, OAuth2Scopes},
     passwd::PasswdConfig,
-    pgp::PgpConfig,
+    pgp::{PgpConfig, PgpKey, PgpNativeConfig},
 };
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
