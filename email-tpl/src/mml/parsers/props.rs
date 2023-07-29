@@ -1,4 +1,7 @@
-use crate::mml::tokens::{Prop, DISPOSITION, ENCRYPT, FILENAME, NAME, SIGN, TYPE};
+use crate::mml::tokens::{
+    Prop, ALTERNATIVE, ATTACHMENT, DISPOSITION, ENCRYPT, FILENAME, INLINE, MIXED, NAME, PGP_MIME,
+    RELATED, SIGN, TYPE,
+};
 
 use super::{maybe_quoted_val, prelude::*, quoted_val, val};
 
@@ -9,9 +12,9 @@ pub(crate) fn multipart_type() -> impl Parser<char, Prop, Error = Simple<char>> 
     just(TYPE)
         .then_ignore(just('=').padded())
         .then(choice((
-            maybe_quoted_val("mixed"),
-            maybe_quoted_val("alternative"),
-            maybe_quoted_val("related"),
+            maybe_quoted_val(MIXED),
+            maybe_quoted_val(ALTERNATIVE),
+            maybe_quoted_val(RELATED),
         )))
         .padded()
         .map(|(key, val)| (key.to_string(), val.to_string()))
@@ -43,8 +46,8 @@ pub(crate) fn disposition() -> impl Parser<char, Prop, Error = Simple<char>> {
     just(DISPOSITION)
         .then_ignore(just('=').padded())
         .then(choice((
-            maybe_quoted_val("inline"),
-            maybe_quoted_val("attachment"),
+            maybe_quoted_val(INLINE),
+            maybe_quoted_val(ATTACHMENT),
         )))
         .padded()
         .map(|(key, val)| (key.to_string(), val.to_string()))
@@ -66,7 +69,7 @@ pub(crate) fn filename() -> impl Parser<char, Prop, Error = Simple<char>> {
 pub(crate) fn encrypt() -> impl Parser<char, Prop, Error = Simple<char>> {
     just(ENCRYPT)
         .then_ignore(just('=').padded())
-        .then(maybe_quoted_val("pgpmime"))
+        .then(maybe_quoted_val(PGP_MIME))
         .padded()
         .map(|(key, val)| (key.to_string(), val.to_string()))
 }
@@ -78,7 +81,7 @@ pub(crate) fn encrypt() -> impl Parser<char, Prop, Error = Simple<char>> {
 pub(crate) fn sign() -> impl Parser<char, Prop, Error = Simple<char>> {
     just(SIGN)
         .then_ignore(just('=').padded())
-        .then(maybe_quoted_val("pgpmime"))
+        .then(maybe_quoted_val(PGP_MIME))
         .padded()
         .map(|(key, val)| (key.to_string(), val.to_string()))
 }

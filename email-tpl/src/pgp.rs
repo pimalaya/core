@@ -63,13 +63,25 @@ impl PgpSecretKey {
                     match resolver {
                         PgpSecretKeyResolver::Raw(skey) => return Some(skey.clone()),
                         PgpSecretKeyResolver::Path(path) => {
-                            let get_skey =
-                                pimalaya_pgp::read_signed_secret_key_from_path(path.clone());
-                            match get_skey.await {
-                                Ok(skey) => return Some(skey),
-                                Err(err) => {
-                                    warn!("cannot get pgp secret key from path: {err}");
-                                    debug!("cannot get pgp secret key from path: {err:?}");
+                            if let Some(path) = path.as_path().to_str() {
+                                let path_str = match shellexpand::full(path) {
+                                    Ok(path) => path.to_string(),
+                                    Err(err) => {
+                                        let msg = "cannot shell expand pgp secret key";
+                                        warn!("{msg} {path}: {err}");
+                                        debug!("{msg} {path:?}: {err:?}");
+                                        path.to_owned()
+                                    }
+                                };
+
+                                let path = PathBuf::from(&path_str);
+
+                                match pimalaya_pgp::read_signed_secret_key_from_path(path).await {
+                                    Ok(skey) => return Some(skey),
+                                    Err(err) => {
+                                        warn!("cannot get pgp secret key at {path_str}: {err}");
+                                        debug!("cannot get pgp secret key at {path_str}: {err:?}");
+                                    }
                                 }
                             }
                         }
@@ -161,7 +173,8 @@ impl PgpPublicKeys {
                                             }
                                         }
                                         Err(err) => {
-                                            let msg = format!("cannot get public key of {email}");
+                                            let msg =
+                                                format!("cannot get pgp public key of {email}");
                                             warn!("{msg} using wkd: {err}");
                                             debug!("{msg} using wkd: {err:?}");
                                         }
@@ -185,7 +198,8 @@ impl PgpPublicKeys {
                                             }
                                         }
                                         Err(err) => {
-                                            let msg = format!("cannot get public key of {email}");
+                                            let msg =
+                                                format!("cannot get pgp public key of {email}");
                                             warn!("{msg} using hkps: {err}");
                                             debug!("{msg} using hkps: {err:?}");
                                         }
@@ -204,8 +218,8 @@ impl PgpPublicKeys {
                 if !recipients.is_empty() {
                     let emails_len = recipients.len();
                     let emails = recipients.into_iter().collect::<Vec<_>>().join(", ");
-                    warn!("cannot get public key of {emails_len} emails");
-                    debug!("cannot get public key of {emails_len} emails: {emails}");
+                    warn!("cannot get pgp public key of {emails_len} emails");
+                    debug!("cannot get pgp public key of {emails_len} emails: {emails}");
                 }
 
                 Some(pkeys)

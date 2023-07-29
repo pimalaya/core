@@ -160,6 +160,13 @@ pub struct PgpNativeConfig {
 }
 
 impl PgpNativeConfig {
+    pub fn default_key_servers() -> Vec<String> {
+        vec![
+            String::from("keys.openpgp.org"),
+            String::from("keys.mailvelope.com"),
+        ]
+    }
+
     /// Deletes secret and public keys.
     pub async fn reset(&self) -> Result<()> {
         self.secret_key.reset().await?;
@@ -242,10 +249,7 @@ impl Default for PgpNativeConfig {
         Self {
             secret_key: Default::default(),
             public_key: Default::default(),
-            key_servers: vec![
-                String::from("keys.openpgp.org"),
-                String::from("keys.mailvelope.com"),
-            ],
+            key_servers: Self::default_key_servers(),
         }
     }
 }

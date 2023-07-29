@@ -2,10 +2,16 @@ use log::warn;
 use std::collections::HashMap;
 use tree_magic;
 
+pub(crate) const ALTERNATIVE: &str = "alternative";
+pub(crate) const ATTACHMENT: &str = "attachment";
 pub(crate) const DISPOSITION: &str = "disposition";
 pub(crate) const ENCRYPT: &str = "encrypt";
 pub(crate) const FILENAME: &str = "filename";
+pub(crate) const INLINE: &str = "inline";
+pub(crate) const MIXED: &str = "mixed";
 pub(crate) const NAME: &str = "name";
+pub(crate) const PGP_MIME: &str = "pgpmime";
+pub(crate) const RELATED: &str = "related";
 pub(crate) const SIGN: &str = "sign";
 pub(crate) const TYPE: &str = "type";
 

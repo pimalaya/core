@@ -10,7 +10,10 @@ use crate::{
     Result,
 };
 
-use super::tokens::{Part, DISPOSITION, ENCRYPT, FILENAME, NAME, SIGN, TYPE};
+use super::tokens::{
+    Part, ALTERNATIVE, ATTACHMENT, DISPOSITION, ENCRYPT, FILENAME, INLINE, MIXED, NAME, PGP_MIME,
+    RELATED, SIGN, TYPE,
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -126,9 +129,9 @@ impl Compiler {
                 let no_parts: Vec<u8> = Vec::new();
 
                 let mut multi_part = match props.get(TYPE).map(String::as_str) {
-                    Some("mixed") | None => MimePart::new("multipart/mixed", no_parts),
-                    Some("alternative") => MimePart::new("multipart/alternative", no_parts),
-                    Some("related") => MimePart::new("multipart/related", no_parts),
+                    Some(MIXED) | None => MimePart::new("multipart/mixed", no_parts),
+                    Some(ALTERNATIVE) => MimePart::new("multipart/alternative", no_parts),
+                    Some(RELATED) => MimePart::new("multipart/related", no_parts),
                     Some(unknown) => {
                         warn!("unknown multipart type {unknown}, fall back to mixed");
                         MimePart::new("multipart/mixed", no_parts)
@@ -140,12 +143,12 @@ impl Compiler {
                 }
 
                 let multi_part = match props.get(SIGN).map(String::as_str) {
-                    Some("command") => self.sign(multi_part).await,
+                    Some(PGP_MIME) => self.sign(multi_part).await,
                     _ => Ok(multi_part),
                 }?;
 
                 let multi_part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some("command") => self.encrypt(multi_part).await,
+                    Some(PGP_MIME) => self.encrypt(multi_part).await,
                     _ => Ok(multi_part),
                 }?;
 
@@ -156,8 +159,8 @@ impl Compiler {
                 let mut part = MimePart::new(ctype, body);
 
                 part = match props.get(DISPOSITION).map(String::as_str) {
-                    Some("inline") => part.inline(),
-                    Some("attachment") => {
+                    Some(INLINE) => part.inline(),
+                    Some(ATTACHMENT) => {
                         let fname = props
                             .get(NAME)
                             .map(ToOwned::to_owned)
@@ -168,12 +171,12 @@ impl Compiler {
                 };
 
                 part = match props.get(SIGN).map(String::as_str) {
-                    Some("command") => self.sign(part).await,
+                    Some(PGP_MIME) => self.sign(part).await,
                     _ => Ok(part),
                 }?;
 
                 part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some("command") => self.encrypt(part).await,
+                    Some(PGP_MIME) => self.encrypt(part).await,
                     _ => Ok(part),
                 }?;
 
@@ -207,17 +210,17 @@ impl Compiler {
                 let mut part = MimePart::new(content_type, body);
 
                 part = match disposition {
-                    Some("inline") => part.inline(),
+                    Some(INLINE) => part.inline(),
                     _ => part.attachment(fname),
                 };
 
                 part = match props.get(SIGN).map(String::as_str) {
-                    Some("command") => self.sign(part).await,
+                    Some(PGP_MIME) => self.sign(part).await,
                     _ => Ok(part),
                 }?;
 
                 part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some("command") => self.encrypt(part).await,
+                    Some(PGP_MIME) => self.encrypt(part).await,
                     _ => Ok(part),
                 }?;
 
