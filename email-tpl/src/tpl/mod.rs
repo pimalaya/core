@@ -3,10 +3,8 @@ pub mod interpreter;
 
 pub use interpreter::{Interpreter as TplInterpreter, ShowHeadersStrategy};
 
-use log::{debug, warn};
 use mail_builder::{headers::raw::Raw, MessageBuilder};
 use mail_parser::Message;
-use pimalaya_keyring::Entry;
 use std::{
     io,
     ops::{Deref, DerefMut},
@@ -14,7 +12,7 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::{mml, Result};
+use crate::{mml, PgpPublicKeys, PgpSecretKey, Result};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -30,8 +28,6 @@ pub enum Error {
     InterpretError(#[source] mml::interpreter::Error),
     #[error("cannot parse template")]
     ParseMessageError,
-    #[error("cannot parse empty sender")]
-    ParseSenderEmptyError,
 
     #[error("cannot get pgp secret key from keyring")]
     GetSecretKeyFromKeyringError(pimalaya_keyring::Error),
@@ -42,27 +38,12 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum Encrypt {
-    #[default]
-    None,
-    KeyServers(Vec<String>),
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum Sign {
-    #[default]
-    None,
-    Path(String),
-    Keyring(String),
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Tpl {
     /// PGP encrypt configuration.
-    pgp_encrypt: Encrypt,
+    pgp_encrypt: PgpPublicKeys,
 
     /// PGP sign configuration.
-    pgp_sign: Sign,
+    pgp_sign: PgpSecretKey,
 
     /// Inner template data.
     data: String,
@@ -102,21 +83,18 @@ impl Tpl {
         Self::default()
     }
 
-    pub fn with_encrypt(mut self, encrypt: Encrypt) -> Self {
-        self.pgp_encrypt = encrypt;
+    pub fn with_pgp_encrypt(mut self, encrypt: impl Into<PgpPublicKeys>) -> Self {
+        self.pgp_encrypt = encrypt.into();
         self
     }
 
-    pub fn with_sign(mut self, sign: Sign) -> Self {
-        self.pgp_sign = sign;
+    pub fn with_pgp_sign(mut self, sign: impl Into<PgpSecretKey>) -> Self {
+        self.pgp_sign = sign.into();
         self
     }
 
     pub async fn compile<'a>(self) -> Result<MessageBuilder<'a>> {
         let tpl = Message::parse(self.as_bytes()).ok_or(Error::ParseMessageError)?;
-
-        let sender = header::extract_first_email(tpl.from()).ok_or(Error::ParseSenderEmptyError)?;
-        let recipients = header::extract_emails(tpl.to());
 
         let mml = tpl
             .text_bodies()
@@ -131,102 +109,14 @@ impl Tpl {
             });
 
         let mut builder = mml::Compiler::new()
-            .with_pgp_encrypt_keys(match &self.pgp_encrypt {
-                Encrypt::None => {
-                    warn!("cannot set pgp encrypt keys: encrypt not configured");
-                    None
-                }
-                Encrypt::KeyServers(key_servers) => {
-                    let wkd_pkeys = pimalaya_pgp::wkd::get_all(recipients).await;
-                    let (mut pkeys, emails) = wkd_pkeys.into_iter().fold(
-                        (Vec::default(), Vec::default()),
-                        |(mut pkeys, mut emails), (email, res)| {
-                            match res {
-                                Ok(pkey) => {
-                                    pkeys.push(pkey);
-                                }
-                                Err(err) => {
-                                    warn!("cannot get public key of {email} using wkd: {err}");
-                                    debug!("cannot get public key of {email} using wkd: {err:?}");
-                                    emails.push(email)
-                                }
-                            }
-                            (pkeys, emails)
-                        },
-                    );
-
-                    let hkps_pkeys =
-                        pimalaya_pgp::hkps::get_all(emails, key_servers.to_owned()).await;
-                    let (hkps_pkeys, emails) = hkps_pkeys.into_iter().fold(
-                        (Vec::default(), Vec::default()),
-                        |(mut pkeys, mut emails), (email, res)| {
-                            match res {
-                                Ok(pkey) => {
-                                    pkeys.push(pkey);
-                                }
-                                Err(err) => {
-                                    warn!("cannot get public key of {email} using hkps: {err}");
-                                    debug!("cannot get public key of {email} using hkps: {err:?}");
-                                    emails.push(email)
-                                }
-                            }
-                            (pkeys, emails)
-                        },
-                    );
-
-                    if !emails.is_empty() {
-                        let emails_len = emails.len();
-                        let emails = emails.join(", ");
-                        warn!("cannot get public key of {emails_len} emails");
-                        debug!("cannot get public key of {emails_len} emails: {emails}");
-                    }
-
-                    pkeys.extend(hkps_pkeys);
-
-                    Some(pkeys)
-                }
-            })
-            .with_pgp_sign_key(match &self.pgp_sign {
-                Sign::None => {
-                    warn!("cannot set pgp sign key: sign not configured");
-                    None
-                }
-                Sign::Path(path_tpl) => {
-                    let get_skey = || async {
-                        let path = PathBuf::from(path_tpl.replace("<sender>", &sender));
-                        let skey = pimalaya_pgp::read_signed_secret_key_from_path(path.clone())
-                            .await
-                            .map_err(|err| Error::ReadSecretKeyFromPathError(err, path))?;
-                        Result::Ok(skey)
-                    };
-                    match get_skey().await {
-                        Ok(skey) => Some(skey),
-                        Err(err) => {
-                            warn!("cannot get pgp secret key from path: {err}");
-                            debug!("cannot get pgp secret key from path: {err:?}");
-                            None
-                        }
-                    }
-                }
-                Sign::Keyring(entry_tpl) => {
-                    let get_skey = || async {
-                        let data = Entry::from(entry_tpl.replace("<sender>", &sender))
-                            .get_secret()
-                            .map_err(Error::GetSecretKeyFromKeyringError)?;
-                        let skey = pimalaya_pgp::read_skey_from_string(data)
-                            .await
-                            .map_err(Error::ReadSecretKeyFromKeyringError)?;
-                        Result::Ok(skey)
-                    };
-                    match get_skey().await {
-                        Ok(skey) => Some(skey),
-                        Err(err) => {
-                            warn!("cannot get pgp secret key from keyring: {err}");
-                            debug!("cannot get pgp secret key from keyring: {err:?}");
-                            None
-                        }
-                    }
-                }
+            .with_pgp_encrypt_keys(
+                self.pgp_encrypt
+                    .get_pkeys(header::extract_emails(tpl.to()))
+                    .await,
+            )
+            .with_pgp_sign_key(match header::extract_first_email(tpl.from()) {
+                Some(sender) => self.pgp_sign.get_skey(sender).await,
+                None => None,
             })
             .compile(&mml)
             .await?;

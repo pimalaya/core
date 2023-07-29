@@ -73,7 +73,7 @@ async fn maildir_backend() {
         .to_vec()
         .first()
         .unwrap()
-        .to_read_tpl(&config, |i| i.show_only_headers(["From", "To"]))
+        .to_read_tpl(&config, |i| i.with_show_only_headers(["From", "To"]))
         .await
         .unwrap();
     let expected_tpl = concat_line!(

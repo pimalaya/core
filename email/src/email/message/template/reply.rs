@@ -56,12 +56,12 @@ impl<'a> ReplyTplBuilder<'a> {
             body: String::new(),
             interpreter: config
                 .generate_tpl_interpreter()
-                .show_only_headers(config.email_writing_headers()),
+                .with_show_only_headers(config.email_writing_headers()),
             thread_interpreter: config
                 .generate_tpl_interpreter()
-                .hide_all_headers()
-                .show_plain_texts_signature(false)
-                .show_attachments(false),
+                .with_hide_all_headers()
+                .with_show_plain_texts_signature(false)
+                .with_show_attachments(false),
             reply_all: false,
         }
     }

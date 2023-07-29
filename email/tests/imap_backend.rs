@@ -13,10 +13,6 @@ async fn test_imap_backend() {
     env_logger::builder().is_test(true).init();
 
     let config = AccountConfig {
-        email_reading_decrypt_cmd: Some(
-            "gpg --decrypt --quiet --recipient-file ./tests/keys/bob.key".into(),
-        ),
-        email_reading_verify_cmd: Some("gpg --verify --quiet".into()),
         backend: BackendConfig::Imap(ImapConfig {
             host: "127.0.0.1".into(),
             port: 3143,
@@ -77,7 +73,7 @@ async fn test_imap_backend() {
         .to_vec()
         .first()
         .unwrap()
-        .to_read_tpl(&config, |i| i.show_only_headers(["From", "To"]))
+        .to_read_tpl(&config, |i| i.with_show_only_headers(["From", "To"]))
         .await
         .unwrap();
     let expected_tpl = concat_line!(

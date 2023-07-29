@@ -7,7 +7,7 @@ pub mod verify;
 pub mod wkd;
 
 #[doc(inline)]
-pub use pgp::{SignedPublicKey, SignedSecretKey};
+pub use pgp::{errors::Error as NativeError, SignedPublicKey, SignedSecretKey};
 use tokio::task::JoinError;
 
 #[doc(inline)]

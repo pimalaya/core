@@ -15,7 +15,7 @@ name = "pimalaya_email_tpl"
 concat-with = "0.2"
 env_logger = "0.10"
 tempfile = "3.3"
-tokio = { version = "1.23", default-features = false, features = ["macros", "rt"] }
+tokio = { version = "1.23", default-features = false, features = ["fs", "macros", "rt-multi-thread"] }
 
 [dependencies]
 async-recursion = "1.0"
@@ -24,12 +24,8 @@ log = "0.4"
 mail-builder = "=0.3.0"
 mail-parser = "=0.8.2"
 nanohtml2text = "0.1"
-pgp = "0.10"
 pimalaya-keyring = { path = "../keyring" }
 pimalaya-pgp = { path = "../pgp" }
-pimalaya-process = "=0.0.5"
-rand = "0.8"
 shellexpand = "2.1"
-smallvec = "1"
 thiserror = "1.0"
 tree_magic = "0.2"

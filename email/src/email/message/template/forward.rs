@@ -48,11 +48,11 @@ impl<'a> ForwardTplBuilder<'a> {
             body: String::new(),
             interpreter: config
                 .generate_tpl_interpreter()
-                .show_only_headers(config.email_writing_headers()),
+                .with_show_only_headers(config.email_writing_headers()),
             thread_interpreter: config
                 .generate_tpl_interpreter()
-                .show_only_headers(["Date", "From", "To", "Cc", "Subject"])
-                .save_attachments(true),
+                .with_show_only_headers(["Date", "From", "To", "Cc", "Subject"])
+                .with_save_attachments(true),
         }
     }
 

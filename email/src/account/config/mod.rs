@@ -11,7 +11,6 @@ use dirs::data_dir;
 use log::{debug, warn};
 use mail_builder::headers::address::{Address, EmailAddress};
 use pimalaya_email_tpl::TplInterpreter;
-use pimalaya_process::Cmd;
 use shellexpand;
 use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, vec};
 use thiserror::Error;
@@ -109,14 +108,6 @@ pub struct AccountConfig {
     /// Represents the text/plain format as defined in the
     /// [RFC 2646](https://www.ietf.org/rfc/rfc2646.txt).
     pub email_reading_format: EmailTextPlainFormat,
-    /// Represents the PGP command used to verify an email.
-    pub email_reading_verify_cmd: Option<Cmd>,
-    /// Represents the PGP command used to decrypt an email.
-    pub email_reading_decrypt_cmd: Option<Cmd>,
-    /// Represents the PGP command used to sign an email.
-    pub email_writing_sign_cmd: Option<Cmd>,
-    /// Represents the PGP command used to encrypt an email.
-    pub email_writing_encrypt_cmd: Option<Cmd>,
     /// Represents headers visible at the top of emails when writing
     /// them (new/reply/forward).
     pub email_writing_headers: Option<Vec<String>>,
@@ -173,10 +164,6 @@ impl Default for AccountConfig {
             email_listing_datetime_local_tz: Default::default(),
             email_reading_headers: Default::default(),
             email_reading_format: Default::default(),
-            email_reading_verify_cmd: Default::default(),
-            email_reading_decrypt_cmd: Default::default(),
-            email_writing_sign_cmd: Default::default(),
-            email_writing_encrypt_cmd: Default::default(),
             email_writing_headers: Default::default(),
             // NOTE: manually implementing the Default trait just for
             // this field:
@@ -376,9 +363,9 @@ impl AccountConfig {
     /// the current user account configuration.
     pub fn generate_tpl_interpreter(&self) -> TplInterpreter {
         TplInterpreter::new()
-            .some_pgp_decrypt_cmd(self.email_reading_decrypt_cmd.clone())
-            .some_pgp_verify_cmd(self.email_reading_verify_cmd.clone())
-            .save_attachments_dir(self.downloads_dir())
+            .with_pgp_decrypt(self.pgp.clone())
+            .with_pgp_verify(self.pgp.clone())
+            .with_save_attachments_dir(self.downloads_dir())
     }
 
     /// Return the email listing datetime format, otherwise return the

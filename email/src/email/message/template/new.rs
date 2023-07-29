@@ -40,7 +40,7 @@ impl<'a> NewTplBuilder<'a> {
             body: String::new(),
             interpreter: config
                 .generate_tpl_interpreter()
-                .show_only_headers(config.email_writing_headers()),
+                .with_show_only_headers(config.email_writing_headers()),
         }
     }
 

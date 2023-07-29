@@ -66,7 +66,7 @@ pub(crate) fn filename() -> impl Parser<char, Prop, Error = Simple<char>> {
 pub(crate) fn encrypt() -> impl Parser<char, Prop, Error = Simple<char>> {
     just(ENCRYPT)
         .then_ignore(just('=').padded())
-        .then(maybe_quoted_val("command"))
+        .then(maybe_quoted_val("pgpmime"))
         .padded()
         .map(|(key, val)| (key.to_string(), val.to_string()))
 }
@@ -78,7 +78,7 @@ pub(crate) fn encrypt() -> impl Parser<char, Prop, Error = Simple<char>> {
 pub(crate) fn sign() -> impl Parser<char, Prop, Error = Simple<char>> {
     just(SIGN)
         .then_ignore(just('=').padded())
-        .then(maybe_quoted_val("command"))
+        .then(maybe_quoted_val("pgpmime"))
         .padded()
         .map(|(key, val)| (key.to_string(), val.to_string()))
 }

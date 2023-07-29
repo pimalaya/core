@@ -1,11 +1,10 @@
-use log::{debug, warn};
 use mail_builder::MessageBuilder;
 use mail_parser::Message;
 use pimalaya_keyring::Entry;
 use std::{io, path::PathBuf, result};
 use thiserror::Error;
 
-use crate::{mml, FilterParts, Tpl};
+use crate::{mml, FilterParts, PgpPublicKey, PgpSecretKey, Tpl};
 
 use super::header;
 
@@ -17,10 +16,6 @@ pub enum Error {
     BuildEmailError(#[source] io::Error),
     #[error("cannot interpret email body as mml")]
     InterpretMmlError(#[source] mml::interpreter::Error),
-    #[error("cannot parse empty sender")]
-    ParseSenderEmptyError,
-    #[error("cannot parse empty recipient")]
-    ParseRecipientEmptyError,
 
     #[error("cannot get pgp secret key from keyring")]
     GetSecretKeyFromKeyringError(pimalaya_keyring::Error),
@@ -56,8 +51,8 @@ impl ShowHeadersStrategy {
 pub enum Decrypt {
     #[default]
     None,
-    Path(String),
-    Keyring(String),
+    Path(PathBuf),
+    Keyring(Entry),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -82,10 +77,10 @@ pub struct Interpreter {
     show_headers: ShowHeadersStrategy,
 
     /// PGP decrypt configuration.
-    pgp_decrypt: Decrypt,
+    pgp_decrypt: PgpSecretKey,
 
     /// PGP verify configuration.
-    pgp_verify: Verify,
+    pgp_verify: PgpPublicKey,
 
     mml_interpreter: mml::Interpreter,
 }
@@ -184,13 +179,13 @@ impl Interpreter {
         self
     }
 
-    pub fn with_pgp_decrypt(mut self, decrypt: Decrypt) -> Self {
-        self.pgp_decrypt = decrypt;
+    pub fn with_pgp_decrypt(mut self, decrypt: impl Into<PgpSecretKey>) -> Self {
+        self.pgp_decrypt = decrypt.into();
         self
     }
 
-    pub fn with_pgp_verify(mut self, verify: Verify) -> Self {
-        self.pgp_verify = verify;
+    pub fn with_pgp_verify(mut self, verify: impl Into<PgpPublicKey>) -> Self {
+        self.pgp_verify = verify.into();
         self
     }
 
@@ -198,10 +193,6 @@ impl Interpreter {
     /// [`crate::Tpl`].
     pub async fn interpret_msg(self, msg: &Message<'_>) -> Result<Tpl> {
         let mut tpl = Tpl::new();
-
-        let sender = header::extract_first_email(msg.from()).ok_or(Error::ParseSenderEmptyError)?;
-        let recipient =
-            header::extract_first_email(msg.to()).ok_or(Error::ParseRecipientEmptyError)?;
 
         match self.show_headers {
             ShowHeadersStrategy::All => msg.headers().iter().for_each(|header| {
@@ -225,76 +216,13 @@ impl Interpreter {
         let mml = self
             .mml_interpreter
             .clone()
-            .with_pgp_decrypt_key(match &self.pgp_decrypt {
-                Decrypt::None => {
-                    warn!("cannot set pgp decrypt key: decrypt not configured");
-                    None
-                }
-                Decrypt::Path(path_tpl) => {
-                    let get_skey = || async {
-                        let path = PathBuf::from(path_tpl.replace("<recipient>", &recipient));
-                        let skey = pimalaya_pgp::read_signed_secret_key_from_path(path.clone())
-                            .await
-                            .map_err(|err| Error::ReadSecretKeyFromPathError(err, path))?;
-                        Result::Ok(skey)
-                    };
-                    match get_skey().await {
-                        Ok(skey) => Some(skey),
-                        Err(err) => {
-                            warn!("cannot get pgp secret key from path: {err}");
-                            debug!("cannot get pgp secret key from path: {err:?}");
-                            None
-                        }
-                    }
-                }
-                Decrypt::Keyring(entry_tpl) => {
-                    let get_skey = || async {
-                        let data = Entry::from(entry_tpl.replace("<recipient>", &recipient))
-                            .get_secret()
-                            .map_err(Error::GetSecretKeyFromKeyringError)?;
-                        let skey = pimalaya_pgp::read_skey_from_string(data)
-                            .await
-                            .map_err(Error::ReadSecretKeyFromKeyringError)?;
-                        Result::Ok(skey)
-                    };
-                    match get_skey().await {
-                        Ok(skey) => Some(skey),
-                        Err(err) => {
-                            warn!("cannot get pgp secret key from keyring: {err}");
-                            debug!("cannot get pgp secret key from keyring: {err:?}");
-                            None
-                        }
-                    }
-                }
+            .with_pgp_decrypt_key(match header::extract_first_email(msg.to()) {
+                Some(recipient) => self.pgp_decrypt.get_skey(recipient).await,
+                None => None,
             })
-            .with_pgp_verify_key(match &self.pgp_verify {
-                Verify::None => {
-                    warn!("cannot set pgp verify key: verify not configured");
-                    None
-                }
-                Verify::KeyServers(key_servers) => {
-                    let wkd_pkey = pimalaya_pgp::wkd::get_one(recipient.clone()).await;
-
-                    match wkd_pkey {
-                        Ok(pkey) => Some(pkey),
-                        Err(err) => {
-                            warn!("cannot get public key of {sender} using wkd: {err}");
-                            debug!("cannot get public key of {sender} using wkd: {err:?}");
-
-                            let hkps_pkey =
-                                pimalaya_pgp::hkps::get_one(recipient, key_servers.clone()).await;
-
-                            match hkps_pkey {
-                                Ok(pkey) => Some(pkey),
-                                Err(err) => {
-                                    warn!("cannot get public key of {sender} using hkps: {err}");
-                                    debug!("cannot get public key of {sender} using hkps: {err:?}");
-                                    None
-                                }
-                            }
-                        }
-                    }
-                }
+            .with_pgp_verify_key(match header::extract_first_email(msg.from()) {
+                Some(sender) => self.pgp_verify.get_pkey(sender).await,
+                None => None,
             })
             .interpret_msg(msg)
             .await

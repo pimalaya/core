@@ -1,10 +1,15 @@
 #![doc = include_str!("../README.md")]
 
 pub mod mml;
+pub mod pgp;
 pub mod tpl;
 
 pub use self::{
     mml::FilterParts,
+    pgp::{
+        PgpPublicKey, PgpPublicKeyResolver, PgpPublicKeys, PgpPublicKeysResolver, PgpSecretKey,
+        PgpSecretKeyResolver,
+    },
     tpl::{ShowHeadersStrategy, Tpl, TplInterpreter},
 };
 
@@ -17,6 +22,8 @@ pub enum Error {
     MmlCompilerError(#[from] mml::compiler::Error),
     #[error(transparent)]
     PgpError(#[from] pimalaya_pgp::Error),
+    #[error(transparent)]
+    KeyringError(#[from] pimalaya_keyring::Error),
 }
 
 /// The global `Result` alias of the library.

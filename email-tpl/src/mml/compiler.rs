@@ -27,10 +27,6 @@ pub enum Error {
     ExpandFilenameError(#[source] shellexpand::LookupError<env::VarError>, String),
     #[error("cannot read attachment at {1}")]
     ReadAttachmentError(#[source] io::Error, String),
-    #[error("cannot encrypt multi part")]
-    EncryptPartError(#[from] pimalaya_process::Error),
-    #[error("cannot sign multi part")]
-    SignPartError(#[source] pimalaya_process::Error),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -48,11 +44,7 @@ impl Compiler {
         mut self,
         keys: Option<impl IntoIterator<Item = SignedPublicKey>>,
     ) -> Self {
-        self.pgp_encrypt_keys = if let Some(keys) = keys {
-            Some(keys.into_iter().collect())
-        } else {
-            None
-        };
+        self.pgp_encrypt_keys = keys.map(|keys| keys.into_iter().collect());
         self
     }
 

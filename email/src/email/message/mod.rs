@@ -144,7 +144,7 @@ impl Message<'_> {
     ) -> Result<Tpl> {
         let interpreter = config
             .generate_tpl_interpreter()
-            .show_only_headers(config.email_reading_headers());
+            .with_show_only_headers(config.email_reading_headers());
         let tpl = with_interpreter(interpreter)
             .interpret_msg(self.parsed()?)
             .await
@@ -405,7 +405,7 @@ mod tests {
         ));
 
         let tpl = email
-            .to_read_tpl(&config, |i| i.show_all_headers())
+            .to_read_tpl(&config, |i| i.with_show_all_headers())
             .await
             .unwrap();
 
@@ -442,7 +442,7 @@ mod tests {
 
         let tpl = email
             .to_read_tpl(&config, |i| {
-                i.show_only_headers([
+                i.with_show_only_headers([
                     // existing headers
                     "Subject",
                     "To",
@@ -489,7 +489,7 @@ mod tests {
 
         let tpl = email
             .to_read_tpl(&config, |i| {
-                i.show_additional_headers([
+                i.with_show_additional_headers([
                     "Subject", // existing headers
                     "Cc", "Bcc", // nonexisting headers
                 ])
