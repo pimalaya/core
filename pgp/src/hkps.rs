@@ -1,13 +1,13 @@
 use futures::{stream, StreamExt};
 use hyper::{client::HttpConnector, http::uri::InvalidUri, Client, Uri};
-use hyper_tls::HttpsConnector;
+use hyper_rustls::HttpsConnector;
 use log::{debug, warn};
 use pgp::{Deserializable, SignedPublicKey};
 use std::{io::Cursor, sync::Arc};
 use thiserror::Error;
 use tokio::task;
 
-use crate::Result;
+use crate::{client, Result};
 
 /// Errors related to HKPS.
 #[derive(Debug, Error)]
@@ -71,7 +71,7 @@ async fn get(
 
 /// Gets public keys associated to the given emails.
 pub async fn get_one(email: String, key_servers: Vec<String>) -> Result<SignedPublicKey> {
-    let client = Client::builder().build::<_, hyper::Body>(HttpsConnector::new());
+    let client = client::build();
     self::get(&client, &email, &key_servers).await
 }
 
@@ -81,7 +81,7 @@ pub async fn get_all(
     key_servers: Vec<String>,
 ) -> Vec<(String, Result<SignedPublicKey>)> {
     let key_servers = Arc::new(key_servers);
-    let client = Arc::new(Client::builder().build::<_, hyper::Body>(HttpsConnector::new()));
+    let client = client::build();
 
     stream::iter(emails)
         .map(|email| {

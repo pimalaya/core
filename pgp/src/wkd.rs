@@ -13,15 +13,15 @@
 use async_recursion::async_recursion;
 use futures::{stream, StreamExt};
 use hyper::{client::HttpConnector, http::Response, Body, Client, Uri};
-use hyper_tls::HttpsConnector;
+use hyper_rustls::HttpsConnector;
 use log::{debug, warn};
 use pgp::{Deserializable, SignedPublicKey};
 use sha1::{Digest, Sha1};
-use std::{fmt, path, sync::Arc};
+use std::{fmt, path};
 use thiserror::Error;
 use tokio::task;
 
-use crate::Result;
+use crate::{client, Result};
 
 /// Errors related to WKD.
 #[derive(Debug, Error)]
@@ -286,14 +286,13 @@ async fn get(
 
 /// Gets the public key associated to the given email.
 pub async fn get_one(email: String) -> Result<SignedPublicKey> {
-    let client = Client::builder().build::<_, hyper::Body>(HttpsConnector::new());
+    let client = client::build();
     self::get(&client, &email).await
 }
 
 /// Gets public keys associated to the given emails.
 pub async fn get_all(emails: Vec<String>) -> Vec<(String, Result<SignedPublicKey>)> {
-    let client = Arc::new(Client::builder().build::<_, hyper::Body>(HttpsConnector::new()));
-
+    let client = client::build();
     stream::iter(emails)
         .map(|email| {
             let client = client.clone();

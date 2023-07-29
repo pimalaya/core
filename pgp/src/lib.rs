@@ -6,6 +6,8 @@ pub mod utils;
 pub mod verify;
 pub mod wkd;
 
+pub(crate) mod client;
+
 #[doc(inline)]
 pub use pgp::{errors::Error as NativeError, SignedPublicKey, SignedSecretKey};
 use tokio::task::JoinError;
