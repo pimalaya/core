@@ -2,6 +2,7 @@ use async_recursion::async_recursion;
 use log::warn;
 use mail_builder::{mime::MimePart, MessageBuilder};
 use pimalaya_pgp::{SignedPublicKey, SignedSecretKey};
+use pimalaya_secret::Secret;
 use std::{env, ffi::OsStr, fs, io, path::PathBuf};
 use thiserror::Error;
 
@@ -30,12 +31,14 @@ pub enum Error {
     ExpandFilenameError(#[source] shellexpand::LookupError<env::VarError>, String),
     #[error("cannot read attachment at {1}")]
     ReadAttachmentError(#[source] io::Error, String),
+    #[error("cannot get passphrase of pgp secret key")]
+    GetPgpSecretKeyPasswdError(#[source] pimalaya_secret::Error),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Compiler {
     pgp_encrypt_keys: Option<Vec<SignedPublicKey>>,
-    pgp_sign_key: Option<SignedSecretKey>,
+    pgp_sign_key: Option<(SignedSecretKey, Secret)>,
 }
 
 impl Compiler {
@@ -51,7 +54,7 @@ impl Compiler {
         self
     }
 
-    pub fn with_pgp_sign_key(mut self, key: Option<SignedSecretKey>) -> Self {
+    pub fn with_pgp_sign_key(mut self, key: Option<(SignedSecretKey, Secret)>) -> Self {
         self.pgp_sign_key = key;
         self
     }
@@ -80,12 +83,18 @@ impl Compiler {
     }
 
     async fn sign<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
-        if let Some(skey) = &self.pgp_sign_key {
-            let mut buf = Vec::new();
+        if let Some((skey, passwd)) = &self.pgp_sign_key {
+            let mut part_raw = Vec::new();
             part.clone()
-                .write_part(&mut buf)
+                .write_part(&mut part_raw)
                 .map_err(Error::WriteCompiledPartToVecError)?;
-            let signature = pimalaya_pgp::sign(buf, skey.clone()).await?;
+
+            let passwd = passwd
+                .get()
+                .await
+                .map_err(Error::GetPgpSecretKeyPasswdError)?;
+
+            let signature = pimalaya_pgp::sign(part_raw, skey.clone(), passwd).await?;
 
             let part = MimePart::new(
                 "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
@@ -100,8 +109,6 @@ impl Compiler {
     }
 
     async fn compile_parts<'a>(&self, parts: Vec<Part>) -> Result<MessageBuilder<'a>> {
-        let parts = Part::compact_text_plain_parts(parts);
-
         let mut builder = MessageBuilder::new();
 
         builder = match parts.len() {
@@ -138,7 +145,7 @@ impl Compiler {
                     }
                 };
 
-                for part in Part::compact_text_plain_parts(parts) {
+                for part in parts {
                     multi_part.add_part(self.compile_part(part).await?)
                 }
 
@@ -295,7 +302,8 @@ mod tests {
             "Content-Type: text/html; charset=\"utf-8\"\r",
             "Content-Transfer-Encoding: 7bit\r",
             "\r",
-            "<h1>Hello, world!</h1>",
+            "<h1>Hello, world!</h1>\r",
+            "",
         );
 
         assert_eq!(msg, expected_msg);

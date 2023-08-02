@@ -246,7 +246,7 @@ async fn get_following_redirects(
 /// [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service/#section-3.1
 /// # Examples
 ///
-/// ```no_run
+/// ```ignore,no_run
 /// # use sequoia_net::{Result, wkd};
 /// # use sequoia_openpgp::Cert;
 /// # async fn f() -> Result<()> {

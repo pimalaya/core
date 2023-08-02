@@ -52,8 +52,17 @@ pub enum Error {
 
 /// Generates a new pair of secret and public keys for the given email
 /// address.
-pub async fn generate_key_pair(email: impl ToString) -> Result<(SignedSecretKey, SignedPublicKey)> {
+pub async fn generate_key_pair(
+    email: impl ToString,
+    passwd: impl ToString,
+) -> Result<(SignedSecretKey, SignedPublicKey)> {
     let email = email.to_string();
+    let passwd = passwd.to_string();
+    let passwd = if passwd.trim().is_empty() {
+        None
+    } else {
+        Some(passwd)
+    };
 
     task::spawn_blocking(move || {
         let key_params = SecretKeyParamsBuilder::default()
@@ -61,7 +70,7 @@ pub async fn generate_key_pair(email: impl ToString) -> Result<(SignedSecretKey,
             .can_create_certificates(true)
             .can_sign(true)
             .primary_user_id(email)
-            .passphrase(None)
+            .passphrase(passwd.clone())
             .preferred_symmetric_algorithms(smallvec![SymmetricKeyAlgorithm::AES256])
             .preferred_hash_algorithms(smallvec![HashAlgorithm::SHA2_512])
             .preferred_compression_algorithms(smallvec![CompressionAlgorithm::ZLIB])
@@ -69,7 +78,7 @@ pub async fn generate_key_pair(email: impl ToString) -> Result<(SignedSecretKey,
                 SubkeyParamsBuilder::default()
                     .key_type(KeyType::ECDH)
                     .can_encrypt(true)
-                    .passphrase(None)
+                    .passphrase(passwd)
                     .build()
                     .map_err(Error::BuildPublicKeyParamsError)?,
             )

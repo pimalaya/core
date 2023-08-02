@@ -26,6 +26,7 @@ mail-parser = "=0.8.2"
 nanohtml2text = "0.1"
 pimalaya-keyring = { path = "../keyring" }
 pimalaya-pgp = { path = "../pgp" }
+pimalaya-secret = { path = "../secret" }
 shellexpand = "2.1"
 thiserror = "1.0"
 tree_magic = "0.2"

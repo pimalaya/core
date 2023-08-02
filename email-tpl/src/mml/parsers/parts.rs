@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use crate::mml::tokens::{Part, FILENAME};
 
 use super::{
-    disposition, encrypt, filename, multipart_type, name, part_type, prelude::*, sign, GREATER_THAN,
+    disposition, encrypt, filename, multipart_type, name, part_type, prelude::*, sign,
+    GREATER_THAN, NEW_LINE,
 };
 
 pub(crate) const SINGLE_PART_BEGIN: &str = "<#part";
@@ -21,6 +22,7 @@ pub(crate) fn parts() -> impl Parser<char, Vec<Part>, Error = Simple<char>> {
         text_plain_part().map(Part::TextPlainPart),
     ))
     .repeated()
+    // .padded()
     .then_ignore(end())
 }
 
@@ -33,7 +35,6 @@ pub(crate) fn text_plain_part() -> impl Parser<char, String, Error = Simple<char
         just(MULTI_PART_BEGIN),
         just(MULTI_PART_END),
     ))
-    .padded()
     .not()
     .repeated()
     .at_least(1)
@@ -75,8 +76,10 @@ pub(crate) fn attachment() -> impl Parser<char, Part, Error = Simple<char>> {
             Err(Simple::custom(span, "missing attachment property filename"))
         }
     })
-    .delimited_by(just(SINGLE_PART_BEGIN), just(GREATER_THAN))
-    .padded()
+    .delimited_by(
+        just(SINGLE_PART_BEGIN),
+        just(GREATER_THAN).then_ignore(just(NEW_LINE).or_not()),
+    )
     .map(HashMap::from_iter)
     .map(Part::Attachment)
 }
@@ -86,16 +89,15 @@ pub(crate) fn attachment() -> impl Parser<char, Part, Error = Simple<char>> {
 /// next closing part/multipart.
 pub(crate) fn single_part() -> impl Parser<char, Part, Error = Simple<char>> {
     just(SINGLE_PART_BEGIN)
-        .padded()
         .ignore_then(
             choice((part_type(), name(), disposition(), encrypt(), sign()))
                 .repeated()
                 .then_ignore(just(GREATER_THAN))
-                .padded()
+                .then_ignore(just(NEW_LINE).or_not())
                 .map(HashMap::from_iter),
         )
         .then(text_plain_part())
-        .then_ignore(just(SINGLE_PART_END).padded().or_not())
+        .then_ignore(just(SINGLE_PART_END).then(just(NEW_LINE).or_not()).or_not())
         .map(Part::SinglePart)
 }
 
@@ -125,12 +127,11 @@ pub(crate) fn single_part() -> impl Parser<char, Part, Error = Simple<char>> {
 pub(crate) fn multi_part() -> impl Parser<char, Part, Error = Simple<char>> {
     recursive(|multipart| {
         just(MULTI_PART_BEGIN)
-            .padded()
             .ignore_then(
                 choice((multipart_type(), encrypt(), sign()))
                     .repeated()
                     .then_ignore(just(GREATER_THAN))
-                    .padded()
+                    .then_ignore(just(NEW_LINE).or_not())
                     .map(HashMap::from_iter),
             )
             .then(
@@ -141,7 +142,8 @@ pub(crate) fn multi_part() -> impl Parser<char, Part, Error = Simple<char>> {
                     text_plain_part().map(Part::TextPlainPart),
                 ))
                 .repeated()
-                .then_ignore(just(MULTI_PART_END).padded()),
+                .then_ignore(just(MULTI_PART_END))
+                .then_ignore(just(NEW_LINE).or_not()),
             )
             .map(Part::MultiPart)
     })
@@ -158,9 +160,41 @@ mod parts {
     };
 
     #[test]
-    fn single_part() {
+    fn single_part_no_new_line() {
         assert_eq!(
-            super::single_part().parse(concat_line!("<#part>", "This is a plain text part.")),
+            super::single_part().parse("<#part>This is a plain text part."),
+            Ok(Part::SinglePart((
+                HashMap::default(),
+                String::from("This is a plain text part.")
+            ))),
+        );
+
+        assert_eq!(
+            super::single_part().parse("<#part>This is a plain text part.<#part>ignored"),
+            Ok(Part::SinglePart((
+                HashMap::default(),
+                String::from("This is a plain text part.")
+            ))),
+        );
+
+        assert_eq!(
+            super::single_part().parse("<#part>This is a plain text part.<#/part>"),
+            Ok(Part::SinglePart((
+                HashMap::default(),
+                String::from("This is a plain text part.")
+            ))),
+        );
+
+        assert_eq!(
+            super::single_part().parse("<#part>This is a plain text part.<#multipart>ignored"),
+            Ok(Part::SinglePart((
+                HashMap::default(),
+                String::from("This is a plain text part.")
+            ))),
+        );
+
+        assert_eq!(
+            super::single_part().parse("<#part>This is a plain text part.<#/multipart>"),
             Ok(Part::SinglePart((
                 HashMap::default(),
                 String::from("This is a plain text part.")
@@ -169,14 +203,9 @@ mod parts {
     }
 
     #[test]
-    fn closed_single_part() {
+    fn single_part_new_line() {
         assert_eq!(
-            super::single_part().parse(concat_line!(
-                "<#part>",
-                "This is a plain text part.",
-                "<#part>",
-                "This is a new plain text part."
-            )),
+            super::single_part().parse(concat_line!("<#part>", "This is a plain text part.")),
             Ok(Part::SinglePart((
                 HashMap::default(),
                 String::from("This is a plain text part.")
@@ -187,38 +216,12 @@ mod parts {
             super::single_part().parse(concat_line!(
                 "<#part>",
                 "This is a plain text part.",
+                "",
                 "<#/part>",
-                "This is a new plain text part."
             )),
             Ok(Part::SinglePart((
                 HashMap::default(),
-                String::from("This is a plain text part.")
-            ))),
-        );
-
-        assert_eq!(
-            super::single_part().parse(concat_line!(
-                "<#part>",
-                "This is a plain text part.",
-                "<#multipart>",
-                "This is a new plain text part."
-            )),
-            Ok(Part::SinglePart((
-                HashMap::default(),
-                String::from("This is a plain text part.")
-            ))),
-        );
-
-        assert_eq!(
-            super::single_part().parse(concat_line!(
-                "<#part>",
-                "This is a plain text part.",
-                "<#/multipart>",
-                "This is a new plain text part."
-            )),
-            Ok(Part::SinglePart((
-                HashMap::default(),
-                String::from("This is a plain text part.")
+                String::from("This is a plain text part.\n\n")
             ))),
         );
     }
@@ -233,7 +236,7 @@ mod parts {
             )),
             Ok(Part::SinglePart((
                 HashMap::from_iter([(TYPE.into(), "text/html".into())]),
-                String::from("<h1>This is a HTML text part.</h1>")
+                String::from("<h1>This is a HTML text part.</h1>\n"),
             ))),
         );
     }
@@ -262,7 +265,7 @@ mod parts {
             Ok(Part::MultiPart((
                 HashMap::default(),
                 vec![Part::TextPlainPart(String::from(
-                    "This is a plain text part."
+                    "This is a plain text part.\n"
                 ))]
             ))),
         );
@@ -283,7 +286,7 @@ mod parts {
                 vec![Part::MultiPart((
                     HashMap::default(),
                     vec![Part::TextPlainPart(String::from(
-                        "This is a plain text part."
+                        "This is a plain text part.\n"
                     ))]
                 ))]
             ))),
@@ -310,7 +313,7 @@ mod parts {
                         vec![Part::MultiPart((
                             HashMap::default(),
                             vec![Part::TextPlainPart(String::from(
-                                "This is a plain text part."
+                                "This is a plain text part.\n"
                             ))]
                         ))]
                     ))]
@@ -338,13 +341,13 @@ mod parts {
                     Part::MultiPart((
                         HashMap::default(),
                         vec![Part::TextPlainPart(String::from(
-                            "This is a plain text part."
+                            "This is a plain text part.\n"
                         ))]
                     )),
                     Part::MultiPart((
                         HashMap::default(),
                         vec![Part::TextPlainPart(String::from(
-                            "This is a new plain text part."
+                            "This is a new plain text part.\n"
                         ))]
                     ))
                 ]
@@ -370,10 +373,10 @@ mod parts {
             vec![Part::MultiPart((
                 HashMap::from_iter([(TYPE.into(), "alternative".into())]),
                 vec![
-                    Part::TextPlainPart("This is a plain text part.".into()),
+                    Part::TextPlainPart("This is a plain text part.\n".into()),
                     Part::SinglePart((
                         HashMap::from_iter([(TYPE.into(), "text/enriched".into())]),
-                        String::from("<center>This is a centered enriched part</center>")
+                        String::from("<center>This is a centered enriched part</center>\n")
                     ))
                 ]
             ))],
@@ -412,20 +415,20 @@ mod parts {
                     Part::MultiPart((
                         HashMap::from_iter([(TYPE.into(), "alternative".into())]),
                         vec![
-                            Part::TextPlainPart("This is a plain text part.".into()),
+                            Part::TextPlainPart("This is a plain text part.\n".into()),
                             Part::SinglePart((
                                 HashMap::from_iter([
                                     (TYPE.into(), "text/enriched".into()),
                                     (NAME.into(), "enriched.txt".into())
                                 ]),
-                                String::from("<center>This is a centered enriched part</center>")
+                                "<center>This is a centered enriched part</center>\n".into(),
                             ))
                         ]
                     )),
-                    Part::TextPlainPart("This is a new plain text part.".into()),
+                    Part::TextPlainPart("This is a new plain text part.\n".into()),
                     Part::SinglePart((
                         HashMap::from_iter([(DISPOSITION.into(), "attachment".into())]),
-                        String::from("This plain text part is an attachment.")
+                        "This plain text part is an attachment.\n".into(),
                     ))
                 ]
             ))]

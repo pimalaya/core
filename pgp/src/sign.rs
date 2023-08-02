@@ -1,6 +1,6 @@
 //! Module dedicated to PGP sign.
 
-use pgp::{Message, SignedSecretKey};
+use pgp::{crypto::hash::HashAlgorithm, Message, SignedSecretKey};
 use thiserror::Error;
 use tokio::task;
 
@@ -16,10 +16,12 @@ pub enum Error {
 }
 
 /// Signs data using the given private key.
-pub async fn sign(data: Vec<u8>, skey: SignedSecretKey) -> Result<Vec<u8>> {
+pub async fn sign(data: Vec<u8>, skey: SignedSecretKey, passwd: impl ToString) -> Result<Vec<u8>> {
+    let passwd = passwd.to_string();
+
     task::spawn_blocking(move || {
         let msg = Message::new_literal_bytes("", &data)
-            .sign(&skey, || Default::default(), Default::default())
+            .sign(&skey, || passwd, HashAlgorithm::SHA1)
             .map_err(Error::SignMessageError)?;
 
         let sig = msg

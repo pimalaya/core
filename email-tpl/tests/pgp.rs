@@ -4,6 +4,7 @@ use pimalaya_email_tpl::{
     PgpSecretKeyResolver, Tpl, TplInterpreter,
 };
 use pimalaya_pgp::generate_key_pair;
+use pimalaya_secret::Secret;
 use std::collections::HashMap;
 use tempfile::tempdir;
 use tokio::fs;
@@ -39,15 +40,17 @@ use tokio::fs;
 
 #[tokio::test]
 async fn pgp() {
+    env_logger::builder().is_test(true).init();
+
     let dir = tempdir().unwrap();
 
-    let (alice_skey, alice_pkey) = generate_key_pair("alice@localhost").await.unwrap();
+    let (alice_skey, alice_pkey) = generate_key_pair("alice@localhost", "").await.unwrap();
     let alice_skey_path = dir.path().join("alice.key");
     fs::write(&alice_skey_path, alice_skey.to_armored_bytes(None).unwrap())
         .await
         .unwrap();
 
-    let (bob_skey, bob_pkey) = generate_key_pair("bob@localhost").await.unwrap();
+    let (bob_skey, bob_pkey) = generate_key_pair("bob@localhost", "").await.unwrap();
     let bob_skey_path = dir.path().join("bob.key");
     fs::write(&bob_skey_path, bob_skey.to_armored_bytes(None).unwrap())
         .await
@@ -83,6 +86,7 @@ async fn pgp() {
         )]))
         .with_pgp_sign(PgpSecretKey::Enabled(vec![PgpSecretKeyResolver::Path(
             alice_skey_path.clone(),
+            Secret::new_raw(""),
         )]))
         .compile()
         .await
@@ -92,9 +96,10 @@ async fn pgp() {
         .with_show_only_headers(["From", "To", "Subject"])
         .with_pgp_decrypt(PgpSecretKey::Enabled(vec![PgpSecretKeyResolver::Path(
             bob_skey_path.clone(),
+            Secret::new_raw(""),
         )]))
         .with_pgp_verify(PgpPublicKey::Enabled(vec![PgpPublicKeyResolver::Raw(
-            bob_pkey.clone(),
+            alice_pkey.clone(),
         )]))
         .interpret_msg_builder(builder)
         .await

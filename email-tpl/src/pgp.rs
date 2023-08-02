@@ -1,6 +1,7 @@
 use log::{debug, warn};
 use pimalaya_keyring::Entry;
 use pimalaya_pgp::{SignedPublicKey, SignedSecretKey};
+use pimalaya_secret::Secret;
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -21,9 +22,9 @@ pub enum Error {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PgpSecretKeyResolver {
-    Raw(SignedSecretKey),
-    Path(PathBuf),
-    Keyring(Entry),
+    Raw(SignedSecretKey, Secret),
+    Path(PathBuf, Secret),
+    Keyring(Entry, Secret),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -33,26 +34,11 @@ pub enum PgpSecretKey {
     Enabled(Vec<PgpSecretKeyResolver>),
 }
 
-impl FromIterator<PgpSecretKeyResolver> for PgpSecretKey {
-    fn from_iter<T: IntoIterator<Item = PgpSecretKeyResolver>>(iter: T) -> Self {
-        Self::Enabled(iter.into_iter().collect())
-    }
-}
-
-impl<T: IntoIterator<Item = PgpSecretKeyResolver>> From<Option<T>> for PgpSecretKey {
-    fn from(opt: Option<T>) -> Self {
-        match opt {
-            None => Self::Disabled,
-            Some(iter) => Self::from_iter(iter),
-        }
-    }
-}
-
 impl PgpSecretKey {
     // FIXME: use the sender from the template instead of the PGP
     // config. This can be done once the `pimalaya_pgp` module can
     // manage both secret and public keys.
-    pub async fn get_skey(&self, _sender: String) -> Option<SignedSecretKey> {
+    pub async fn get_skey(&self, _sender: String) -> Option<(SignedSecretKey, Secret)> {
         match self {
             Self::Disabled => {
                 warn!("cannot get pgp secret key of {_sender}: resolvers disabled");
@@ -61,8 +47,10 @@ impl PgpSecretKey {
             Self::Enabled(resolvers) => {
                 for resolver in resolvers {
                     match resolver {
-                        PgpSecretKeyResolver::Raw(skey) => return Some(skey.clone()),
-                        PgpSecretKeyResolver::Path(path) => {
+                        PgpSecretKeyResolver::Raw(skey, passwd) => {
+                            return Some((skey.clone(), passwd.clone()))
+                        }
+                        PgpSecretKeyResolver::Path(path, passwd) => {
                             if let Some(path) = path.as_path().to_str() {
                                 let path_str = match shellexpand::full(path) {
                                     Ok(path) => path.to_string(),
@@ -77,7 +65,7 @@ impl PgpSecretKey {
                                 let path = PathBuf::from(&path_str);
 
                                 match pimalaya_pgp::read_signed_secret_key_from_path(path).await {
-                                    Ok(skey) => return Some(skey),
+                                    Ok(skey) => return Some((skey, passwd.clone())),
                                     Err(err) => {
                                         warn!("cannot get pgp secret key at {path_str}: {err}");
                                         debug!("cannot get pgp secret key at {path_str}: {err:?}");
@@ -85,11 +73,11 @@ impl PgpSecretKey {
                                 }
                             }
                         }
-                        PgpSecretKeyResolver::Keyring(entry) => {
+                        PgpSecretKeyResolver::Keyring(entry, passwd) => {
                             let get_skey = || async {
                                 let data = entry.get_secret()?;
                                 let skey = pimalaya_pgp::read_skey_from_string(data).await?;
-                                Result::Ok(skey)
+                                Result::Ok((skey, passwd.clone()))
                             };
                             match get_skey().await {
                                 Ok(skey) => return Some(skey),

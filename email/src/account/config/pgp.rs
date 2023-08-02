@@ -8,6 +8,7 @@ use pimalaya_email_tpl::{
     PgpSecretKeyResolver,
 };
 use pimalaya_keyring::Entry;
+use pimalaya_secret::Secret;
 use std::{io, path::PathBuf};
 use thiserror::Error;
 use tokio::fs;
@@ -35,6 +36,8 @@ pub enum Error {
     SetSecretKeyToKeyringError(#[source] pimalaya_keyring::Error),
     #[error("cannot set public key to keyring")]
     SetPublicKeyToKeyringError(#[source] pimalaya_keyring::Error),
+    #[error("cannot get secret key password")]
+    GetPgpSecretKeyPasswdError(#[source] io::Error),
 }
 
 /// The PGP key enum.
@@ -140,10 +143,14 @@ impl PgpConfig {
         }
     }
 
-    pub async fn configure(&self, email: impl ToString) -> Result<()> {
+    pub async fn configure(
+        &self,
+        email: impl ToString,
+        passwd: impl Fn() -> io::Result<String>,
+    ) -> Result<()> {
         match self {
             Self::None => Ok(()),
-            Self::Native(config) => config.configure(email).await,
+            Self::Native(config) => config.configure(email, passwd).await,
         }
     }
 }
@@ -155,11 +162,17 @@ impl PgpConfig {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PgpNativeConfig {
     pub secret_key: PgpKey,
+    pub secret_key_passwd: Secret,
     pub public_key: PgpKey,
+    pub wkd: bool,
     pub key_servers: Vec<String>,
 }
 
 impl PgpNativeConfig {
+    pub fn default_wkd() -> bool {
+        true
+    }
+
     pub fn default_key_servers() -> Vec<String> {
         vec![
             String::from("keys.openpgp.org"),
@@ -175,10 +188,15 @@ impl PgpNativeConfig {
     }
 
     /// Generates secret and public keys then stores them.
-    pub async fn configure(&self, email: impl ToString) -> Result<()> {
+    pub async fn configure(
+        &self,
+        email: impl ToString,
+        passwd: impl Fn() -> io::Result<String>,
+    ) -> Result<()> {
         let email = email.to_string();
+        let passwd = passwd().map_err(Error::GetPgpSecretKeyPasswdError)?;
 
-        let (skey, pkey) = pimalaya_pgp::generate_key_pair(email.clone())
+        let (skey, pkey) = pimalaya_pgp::generate_key_pair(email.clone(), passwd)
             .await
             .map_err(|err| Error::GeneratePgpKeyPairError(err, email.clone()))?;
         let skey = skey
@@ -248,7 +266,9 @@ impl Default for PgpNativeConfig {
     fn default() -> Self {
         Self {
             secret_key: Default::default(),
+            secret_key_passwd: Default::default(),
             public_key: Default::default(),
+            wkd: Self::default_wkd(),
             key_servers: Self::default_key_servers(),
         }
     }
@@ -258,28 +278,42 @@ impl Into<PgpSecretKey> for PgpNativeConfig {
     fn into(self) -> PgpSecretKey {
         match self.secret_key {
             PgpKey::None => PgpSecretKey::Disabled,
-            PgpKey::Path(path) => PgpSecretKey::Enabled(vec![PgpSecretKeyResolver::Path(path)]),
-            PgpKey::Keyring(entry) => {
-                PgpSecretKey::Enabled(vec![PgpSecretKeyResolver::Keyring(entry)])
-            }
+            PgpKey::Path(path) => PgpSecretKey::Enabled(vec![PgpSecretKeyResolver::Path(
+                path,
+                self.secret_key_passwd,
+            )]),
+            PgpKey::Keyring(entry) => PgpSecretKey::Enabled(vec![PgpSecretKeyResolver::Keyring(
+                entry,
+                self.secret_key_passwd,
+            )]),
         }
     }
 }
 
 impl Into<PgpPublicKeys> for PgpNativeConfig {
     fn into(self) -> PgpPublicKeys {
-        PgpPublicKeys::Enabled(vec![
-            PgpPublicKeysResolver::Wkd,
-            PgpPublicKeysResolver::KeyServers(self.key_servers),
-        ])
+        let mut resolvers = vec![];
+
+        if self.wkd {
+            resolvers.push(PgpPublicKeysResolver::Wkd)
+        }
+
+        resolvers.push(PgpPublicKeysResolver::KeyServers(self.key_servers));
+
+        PgpPublicKeys::Enabled(resolvers)
     }
 }
 
 impl Into<PgpPublicKey> for PgpNativeConfig {
     fn into(self) -> PgpPublicKey {
-        PgpPublicKey::Enabled(vec![
-            PgpPublicKeyResolver::Wkd,
-            PgpPublicKeyResolver::KeyServers(self.key_servers),
-        ])
+        let mut resolvers = vec![];
+
+        if self.wkd {
+            resolvers.push(PgpPublicKeyResolver::Wkd)
+        }
+
+        resolvers.push(PgpPublicKeyResolver::KeyServers(self.key_servers));
+
+        PgpPublicKey::Enabled(resolvers)
     }
 }

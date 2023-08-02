@@ -4,6 +4,7 @@ use mail_builder::MessageBuilder;
 use mail_parser::{Message, MessagePart, MimeHeaders, PartType};
 use nanohtml2text::html2text;
 use pimalaya_pgp::{SignedPublicKey, SignedSecretKey};
+use pimalaya_secret::Secret;
 use std::{env, fs, io, path::PathBuf, result};
 use thiserror::Error;
 
@@ -21,6 +22,8 @@ pub enum Error {
     ReadSignaturePartError(#[source] pimalaya_pgp::Error),
     #[error("cannot verify email part")]
     VerifyPartError(#[source] pimalaya_pgp::Error),
+    #[error("cannot get passphrase of pgp secret key")]
+    GetPgpSecretKeyPasswdError(#[source] pimalaya_secret::Error),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -108,7 +111,7 @@ pub struct Interpreter {
     /// default temporary one given by [`std::env::temp_dir()`].
     save_attachments_dir: PathBuf,
 
-    pgp_decrypt_key: Option<SignedSecretKey>,
+    pgp_decrypt_key: Option<(SignedSecretKey, Secret)>,
     pgp_verify_key: Option<SignedPublicKey>,
 }
 
@@ -171,7 +174,7 @@ impl Interpreter {
         self
     }
 
-    pub fn with_pgp_decrypt_key(mut self, key: Option<SignedSecretKey>) -> Self {
+    pub fn with_pgp_decrypt_key(mut self, key: Option<(SignedSecretKey, Secret)>) -> Self {
         self.pgp_decrypt_key = key;
         self
     }
@@ -195,7 +198,7 @@ impl Interpreter {
             }
 
             let fname = fname.to_string_lossy();
-            tpl = format!("<#part type={ctype} filename=\"{fname}\">\n\n");
+            tpl = format!("<#part type={ctype} filename=\"{fname}\">\n");
         }
 
         Ok(tpl)
@@ -223,7 +226,7 @@ impl Interpreter {
             }
 
             let fname = fname.to_string_lossy();
-            tpl = format!("<#part type={ctype} disposition=inline filename=\"{fname}\">\n\n");
+            tpl = format!("<#part type={ctype} disposition=inline filename=\"{fname}\">\n");
         }
 
         Ok(tpl)
@@ -236,13 +239,12 @@ impl Interpreter {
             let text = text.replace("\r", "");
 
             if self.filter_parts.only(&ctype) {
-                tpl.push_str(text.trim_end());
+                tpl.push_str(&text);
             } else {
                 tpl.push_str(&format!("<#part type={ctype}>\n"));
-                tpl.push_str(text.trim_end());
-                tpl.push_str("\n<#/part>");
+                tpl.push_str(&text);
+                tpl.push_str("<#/part>\n");
             }
-            tpl.push_str("\n\n");
         }
 
         tpl
@@ -261,8 +263,7 @@ impl Interpreter {
                     .unwrap_or(plain);
             }
 
-            tpl.push_str(plain.trim_end());
-            tpl.push_str("\n\n");
+            tpl.push_str(&plain);
         }
 
         tpl
@@ -273,13 +274,12 @@ impl Interpreter {
 
         if self.filter_parts.contains("text/html") {
             if self.filter_parts.only("text/html") {
-                tpl.push_str(html.replace("\r", "").trim_end());
+                tpl.push_str(&html.replace("\r", ""));
             } else {
                 tpl.push_str("<#part type=text/html>\n");
-                tpl.push_str(html2text(html).trim_end());
-                tpl.push_str("\n<#/part>");
+                tpl.push_str(&html2text(html));
+                tpl.push_str("<#/part>\n");
             }
-            tpl.push_str("\n\n");
         }
 
         tpl
@@ -390,11 +390,16 @@ impl Interpreter {
                     None => {
                         warn!("cannot pgp decrypt email part: decrypt not configured");
                     }
-                    Some(skey) => {
-                        let encrypted_part = encrypted_part.contents().to_owned();
-                        let decrypted_part = pimalaya_pgp::decrypt(encrypted_part, skey.clone())
+                    Some((skey, passwd)) => {
+                        let passwd = passwd
+                            .get()
                             .await
-                            .map_err(Error::DecryptPartError)?;
+                            .map_err(Error::GetPgpSecretKeyPasswdError)?;
+                        let encrypted_part = encrypted_part.contents().to_owned();
+                        let decrypted_part =
+                            pimalaya_pgp::decrypt(encrypted_part, skey.clone(), passwd)
+                                .await
+                                .map_err(Error::DecryptPartError)?;
                         if let Some(msg) = Message::parse(&decrypted_part) {
                             tpl.push_str(&self.interpret_msg(&msg).await?);
                         } else {
@@ -405,6 +410,9 @@ impl Interpreter {
             }
             PartType::Multipart(ids) if ctype == "multipart/signed" => {
                 let signed_part = msg.part(ids[0]).unwrap();
+                let signed_part_raw = msg.raw_message
+                    [signed_part.raw_header_offset()..signed_part.raw_end_offset()]
+                    .to_owned();
 
                 match &self.pgp_verify_key {
                     None => {
@@ -413,16 +421,13 @@ impl Interpreter {
                     Some(pkey) => {
                         let signature_part = msg.part(ids[1]).unwrap();
                         let signature = signature_part.contents().to_owned();
+
                         let signature = pimalaya_pgp::read_signature_from_bytes(signature)
                             .await
                             .map_err(Error::ReadSignaturePartError)?;
 
-                        let verified_part = pimalaya_pgp::verify(
-                            signed_part.contents().to_owned(),
-                            signature,
-                            pkey.clone(),
-                        )
-                        .await;
+                        let verified_part =
+                            pimalaya_pgp::verify(signed_part_raw, signature, pkey.clone()).await;
 
                         match verified_part {
                             Ok(true) => {
@@ -445,7 +450,7 @@ impl Interpreter {
                 // TODO: check if content matches "Version: 1"
             }
             PartType::Multipart(_) if ctype == "application/pgp-signature" => {
-                // TODO: verify signature
+                // nothing to do, signature already verified above
             }
             PartType::Multipart(ids) => {
                 if self.show_multiparts {
@@ -453,7 +458,7 @@ impl Interpreter {
                         .content_type()
                         .and_then(|p| p.subtype())
                         .unwrap_or("mixed");
-                    tpl.push_str(&format!("<#multipart type={stype}>\n\n"));
+                    tpl.push_str(&format!("<#multipart type={stype}>\n"));
                 }
 
                 for id in ids {
@@ -465,7 +470,7 @@ impl Interpreter {
                 }
 
                 if self.show_multiparts {
-                    tpl.push_str("<#/multipart>\n\n");
+                    tpl.push_str("<#/multipart>\n");
                 }
             }
         }
@@ -518,12 +523,12 @@ mod tests {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
-                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new("text/plain", "This is a plain text part.\n"),
                 MimePart::new(
                     "multipart/related",
                     vec![
-                        MimePart::new("text/plain", "This is a second plain text part."),
-                        MimePart::new("text/plain", "This is a third plain text part."),
+                        MimePart::new("text/plain", "\nThis is a second plain text part.\n\n"),
+                        MimePart::new("text/plain", "This is a third plain text part.\n\n\n"),
                     ],
                 ),
             ],
@@ -542,6 +547,7 @@ mod tests {
             "This is a third plain text part.",
             "",
             "",
+            "",
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -552,12 +558,12 @@ mod tests {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
-                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new("text/plain", "This is a plain text part.\n\n"),
                 MimePart::new(
                     "multipart/related",
                     vec![
-                        MimePart::new("text/plain", "This is a second plain text part."),
-                        MimePart::new("text/plain", "This is a third plain text part."),
+                        MimePart::new("text/plain", "This is a second plain text part.\n\n"),
+                        MimePart::new("text/plain", "This is a third plain text part.\n\n"),
                     ],
                 ),
             ],
@@ -571,19 +577,15 @@ mod tests {
 
         let expected_tpl = concat_line!(
             "<#multipart type=mixed>",
-            "",
             "This is a plain text part.",
             "",
             "<#multipart type=related>",
-            "",
             "This is a second plain text part.",
             "",
             "This is a third plain text part.",
             "",
             "<#/multipart>",
-            "",
             "<#/multipart>",
-            "",
             "",
         );
 
@@ -595,9 +597,9 @@ mod tests {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
-                MimePart::new("text/plain", "This is a plain text part."),
-                MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>"),
-                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+                MimePart::new("text/plain", "This is a plain text part.\n\n"),
+                MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>\n"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}\n"),
             ],
         ));
 
@@ -610,13 +612,12 @@ mod tests {
             "This is a plain text part.",
             "",
             "<#part type=text/html>",
-            "This is a <HTML> text part.",
+            "This is a <HTML> text part.\r",
+            "\r",
             "<#/part>",
-            "",
             "<#part type=text/json>",
             "{\"type\": \"This is a JSON text part.\"}",
             "<#/part>",
-            "",
             "",
         );
 
@@ -628,12 +629,12 @@ mod tests {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
-                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new("text/plain", "This is a plain text part.\n"),
                 MimePart::new(
                     "text/html",
-                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>",
+                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>\n",
                 ),
-                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}\n"),
             ],
         ));
 
@@ -643,7 +644,7 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!("This is a plain text part.", "", "");
+        let expected_tpl = concat_line!("This is a plain text part.", "");
 
         assert_eq!(tpl, expected_tpl);
     }
@@ -653,12 +654,12 @@ mod tests {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
-                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new("text/plain", "This is a plain text part.\n"),
                 MimePart::new(
                     "text/html",
-                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>",
+                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>\n",
                 ),
-                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}\n"),
             ],
         ));
 
@@ -668,7 +669,7 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!("<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>", "", "");
+        let expected_tpl = concat_line!("<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>", "");
 
         assert_eq!(tpl, expected_tpl);
     }
@@ -678,12 +679,12 @@ mod tests {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
-                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new("text/plain", "This is a plain text part.\n"),
                 MimePart::new(
                     "text/html",
-                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>",
+                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>\n",
                 ),
-                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}\n"),
             ],
         ));
 
@@ -693,7 +694,7 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!("{\"type\": \"This is a JSON text part.\"}", "", "");
+        let expected_tpl = concat_line!("{\"type\": \"This is a JSON text part.\"}", "");
 
         assert_eq!(tpl, expected_tpl);
     }
@@ -703,8 +704,8 @@ mod tests {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/alternative",
             vec![
-                MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>"),
-                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+                MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>\n"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}\n"),
             ],
         ));
 
@@ -715,9 +716,9 @@ mod tests {
 
         let expected_tpl = concat_line!(
             "<#part type=text/html>",
-            "This is a <HTML> text part.",
+            "This is a <HTML> text part.\r",
+            "\r",
             "<#/part>",
-            "",
             ""
         );
 
@@ -730,8 +731,8 @@ mod tests {
             "multipart/alternative",
             vec![
                 MimePart::new("text/plain", "    \n\n"),
-                MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>"),
-                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+                MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>\n"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}\n"),
             ],
         ));
 
@@ -742,9 +743,9 @@ mod tests {
 
         let expected_tpl = concat_line!(
             "<#part type=text/html>",
-            "This is a <HTML> text part.",
+            "This is a <HTML> text part.\r",
+            "\r",
             "<#/part>",
-            "",
             ""
         );
 
@@ -757,7 +758,7 @@ mod tests {
             "multipart/alternative",
             vec![MimePart::new(
                 "text/json",
-                "{\"type\": \"This is a JSON text part.\"}",
+                "{\"type\": \"This is a JSON text part.\"}\n",
             )],
         ));
 
@@ -770,7 +771,6 @@ mod tests {
             "<#part type=text/json>",
             "{\"type\": \"This is a JSON text part.\"}",
             "<#/part>",
-            "",
             ""
         );
 
@@ -782,12 +782,12 @@ mod tests {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/alternative",
             vec![
-                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new("text/plain", "This is a plain text part.\n"),
                 MimePart::new(
                     "text/html",
-                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>",
+                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>\n",
                 ),
-                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}\n"),
             ],
         ));
 
@@ -796,7 +796,7 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!("This is a plain text part.", "", "");
+        let expected_tpl = concat_line!("This is a plain text part.", "");
 
         assert_eq!(tpl, expected_tpl);
     }
@@ -806,12 +806,12 @@ mod tests {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/alternative",
             vec![
-                MimePart::new("text/plain", "This is a plain text part."),
+                MimePart::new("text/plain", "This is a plain text part.\n"),
                 MimePart::new(
                     "text/html",
-                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>",
+                    "<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>\n",
                 ),
-                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}\n"),
             ],
         ));
 
@@ -821,7 +821,7 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!("<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>", "", "");
+        let expected_tpl = concat_line!("<h1>This is a &lt;HTML&gt; text&nbsp;part.</h1>", "");
 
         assert_eq!(tpl, expected_tpl);
     }
@@ -842,7 +842,6 @@ mod tests {
 
         let expected_tpl = concat_line!(
             "<#part type=application/octet-stream filename=\"~/Downloads/attachment.txt\">",
-            "",
             "",
         );
 
