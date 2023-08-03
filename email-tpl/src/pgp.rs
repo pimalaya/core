@@ -149,9 +149,9 @@ impl PgpPublicKeys {
                         }
                         PgpPublicKeysResolver::Wkd => {
                             let recpts: Vec<_> = recipients.clone().into_iter().collect();
-                            let wkd = pimalaya_pgp::wkd::get_all(recpts).await;
+                            let wkd_pkeys = pimalaya_pgp::wkd::get_all(recpts).await;
 
-                            pkeys.extend(wkd.into_iter().fold(
+                            pkeys.extend(wkd_pkeys.into_iter().fold(
                                 Vec::new(),
                                 |mut pkeys, (ref email, res)| {
                                     match res {
@@ -162,7 +162,7 @@ impl PgpPublicKeys {
                                         }
                                         Err(err) => {
                                             let msg =
-                                                format!("cannot get pgp public key of {email}");
+                                                format!("cannot get pgp public key for {email}");
                                             warn!("{msg} using wkd: {err}");
                                             debug!("{msg} using wkd: {err:?}");
                                         }
@@ -173,10 +173,10 @@ impl PgpPublicKeys {
                         }
                         PgpPublicKeysResolver::KeyServers(key_servers) => {
                             let recpts: Vec<_> = recipients.clone().into_iter().collect();
-                            let hkps =
-                                pimalaya_pgp::hkps::get_all(recpts, key_servers.to_owned()).await;
+                            let http_pkeys =
+                                pimalaya_pgp::http::get_all(recpts, key_servers.to_owned()).await;
 
-                            pkeys.extend(hkps.into_iter().fold(
+                            pkeys.extend(http_pkeys.into_iter().fold(
                                 Vec::default(),
                                 |mut pkeys, (ref email, res)| {
                                     match res {
@@ -187,9 +187,9 @@ impl PgpPublicKeys {
                                         }
                                         Err(err) => {
                                             let msg =
-                                                format!("cannot get pgp public key of {email}");
-                                            warn!("{msg} using hkps: {err}");
-                                            debug!("{msg} using hkps: {err:?}");
+                                                format!("cannot get pgp public key for {email}");
+                                            warn!("{msg} using http: {err}");
+                                            debug!("{msg} using http: {err:?}");
                                         }
                                     }
                                     pkeys
@@ -252,7 +252,7 @@ impl PgpPublicKey {
     pub async fn get_pkey(&self, recipient: String) -> Option<SignedPublicKey> {
         match self {
             Self::Disabled => {
-                warn!("cannot get pgp public key of {recipient}: resolvers disabled");
+                warn!("cannot get pgp public key for {recipient}: resolvers disabled");
                 None
             }
             Self::Enabled(resolvers) => {
@@ -260,33 +260,33 @@ impl PgpPublicKey {
                     match resolver {
                         PgpPublicKeyResolver::Raw(pkey) => return Some(pkey.clone()),
                         PgpPublicKeyResolver::Wkd => {
-                            let wkd_pkey = pimalaya_pgp::wkd::get_one(recipient.clone()).await;
-                            match wkd_pkey {
+                            let pkey = pimalaya_pgp::wkd::get_one(recipient.clone()).await;
+                            match pkey {
                                 Ok(pkey) => return Some(pkey),
                                 Err(err) => {
-                                    let msg = format!("cannot get public key of {recipient}");
+                                    let msg = format!("cannot get pgp public key for {recipient}");
                                     warn!("{msg} using wkd: {err}");
                                     debug!("{msg} using wkd: {err:?}");
                                 }
                             }
                         }
                         PgpPublicKeyResolver::KeyServers(key_servers) => {
-                            let hkps_pkey =
-                                pimalaya_pgp::hkps::get_one(recipient.clone(), key_servers.clone())
+                            let pkey =
+                                pimalaya_pgp::http::get_one(recipient.clone(), key_servers.clone())
                                     .await;
-                            match hkps_pkey {
+                            match pkey {
                                 Ok(pkey) => return Some(pkey),
                                 Err(err) => {
-                                    let msg = format!("cannot get public key of {recipient}");
-                                    warn!("{msg} using hkps: {err}");
-                                    debug!("{msg} using hkps: {err:?}");
+                                    let msg = format!("cannot get pgp public key for {recipient}");
+                                    warn!("{msg} using http: {err}");
+                                    debug!("{msg} using http: {err:?}");
                                 }
                             }
                         }
                     }
                 }
 
-                warn!("cannot find pgp public key of {recipient}");
+                warn!("cannot find pgp public key for {recipient}");
                 None
             }
         }

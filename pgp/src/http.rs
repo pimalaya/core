@@ -7,9 +7,9 @@ use std::{io::Cursor, sync::Arc};
 use thiserror::Error;
 use tokio::task;
 
-use crate::{client, Result};
+use crate::{client, hkp, Result};
 
-/// Errors related to HKPS.
+/// Errors related to HTTP.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse uri {1}")]
@@ -17,27 +17,32 @@ pub enum Error {
     #[error("cannot parse body from {1}")]
     ParseBodyError(#[source] hyper::Error, Uri),
     #[error("cannot parse response from {1}")]
-    GetResponseError(#[source] hyper::Error, Uri),
-    #[error("cannot parse public key from {1}")]
+    FetchResponseError(#[source] hyper::Error, Uri),
+    #[error("cannot parse pgp public key from {1}")]
     ParsePublicKeyError(#[source] pgp::errors::Error, Uri),
-    #[error("cannot find public key for email {0}")]
+    #[error("cannot find pgp public key for email {0}")]
     FindPublicKeyError(String),
 }
 
-async fn get_from_keyserver(
+async fn fetch(
     client: &Client<HttpsConnector<HttpConnector>>,
     email: &String,
-    keyserver: &String,
+    key_server: &String,
 ) -> Result<SignedPublicKey> {
-    let uri = format!("https://{keyserver}/pks/lookup?op=get&search={email}");
-    let uri: Uri = uri
+    let uri: Uri = key_server
+        .replace("<email>", email)
         .parse()
-        .map_err(|err| Error::ParseUriError(err, uri.clone()))?;
+        .map_err(|err| Error::ParseUriError(err, key_server.clone()))?;
+
+    let uri = match uri.scheme_str() {
+        Some("hkp") | Some("hkps") => hkp::format_key_server_uri(uri, email).unwrap(),
+        _ => uri,
+    };
 
     let res = client
         .get(uri.clone())
         .await
-        .map_err(|err| Error::GetResponseError(err, uri.clone()))?;
+        .map_err(|err| Error::FetchResponseError(err, uri.clone()))?;
 
     let body = hyper::body::to_bytes(res.into_body())
         .await
@@ -56,11 +61,15 @@ async fn get(
     key_servers: &[String],
 ) -> Result<SignedPublicKey> {
     for key_server in key_servers {
-        match get_from_keyserver(&client, &email, &key_server).await {
-            Ok(pkey) => return Ok(pkey),
+        match fetch(&client, &email, &key_server).await {
+            Ok(pkey) => {
+                debug!("found pgp public key for {email} at {key_server}");
+                return Ok(pkey);
+            }
             Err(err) => {
-                warn!("cannot get public key for {email} from {key_server}: {err}");
-                debug!("cannot get public key for {email} from {key_server}: {err:?}");
+                let msg = format!("cannot get pgp public key for {email} at {key_server}");
+                warn!("{msg}: {err}");
+                debug!("{msg}: {err:?}");
                 continue;
             }
         }
@@ -69,7 +78,7 @@ async fn get(
     Ok(Err(Error::FindPublicKeyError(email.to_owned()))?)
 }
 
-/// Gets public keys associated to the given emails.
+/// Gets public key associated to the given email.
 pub async fn get_one(email: String, key_servers: Vec<String>) -> Result<SignedPublicKey> {
     let client = client::build();
     self::get(&client, &email, &key_servers).await
@@ -99,8 +108,9 @@ pub async fn get_all(
             match res {
                 Ok(res) => Some(res),
                 Err(err) => {
-                    warn!("cannot join async task: {err}");
-                    debug!("cannot join async task: {err:?}");
+                    let msg = format!("cannot get pgp public keys as async stream");
+                    warn!("{msg}: {err}");
+                    debug!("{msg}: {err:?}");
                     None
                 }
             }

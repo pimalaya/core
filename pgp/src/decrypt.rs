@@ -34,7 +34,6 @@ pub async fn decrypt(
     task::spawn_blocking(move || {
         let (msg, _) = Message::from_armor_single(Cursor::new(&data))
             .map_err(Error::ImportMessageFromArmorError)?;
-
         let (decryptor, _) = msg
             .decrypt(|| passwd, &[&skey])
             .map_err(Error::DecryptMessageError)?;

@@ -175,8 +175,8 @@ impl PgpNativeConfig {
 
     pub fn default_key_servers() -> Vec<String> {
         vec![
-            String::from("keys.openpgp.org"),
-            String::from("keys.mailvelope.com"),
+            String::from("hkps://keys.openpgp.org"),
+            String::from("hkps://keys.mailvelope.com"),
         ]
     }
 

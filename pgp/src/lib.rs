@@ -1,6 +1,7 @@
 pub mod decrypt;
 pub mod encrypt;
-pub mod hkps;
+pub mod hkp;
+pub mod http;
 pub mod sign;
 pub mod utils;
 pub mod verify;
@@ -42,7 +43,7 @@ pub enum Error {
     #[error(transparent)]
     WkdError(#[from] wkd::Error),
     #[error(transparent)]
-    HkpsError(#[from] hkps::Error),
+    HttpError(#[from] http::Error),
 
     #[error(transparent)]
     JoinError(#[from] JoinError),
