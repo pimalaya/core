@@ -16,7 +16,7 @@ pub enum Error {
 }
 
 /// Signs data using the given private key.
-pub async fn sign(data: Vec<u8>, skey: SignedSecretKey, passwd: impl ToString) -> Result<Vec<u8>> {
+pub async fn sign(skey: SignedSecretKey, passwd: impl ToString, data: Vec<u8>) -> Result<Vec<u8>> {
     let passwd = passwd.to_string();
 
     task::spawn_blocking(move || {

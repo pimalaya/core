@@ -108,7 +108,7 @@ fn select_pkey_for_encryption(key: &SignedPublicKey) -> Option<SignedPublicKeyOr
 }
 
 /// Encrypts data using the given public keys.
-pub async fn encrypt(data: Vec<u8>, pkeys: Vec<SignedPublicKey>) -> Result<Vec<u8>> {
+pub async fn encrypt(pkeys: Vec<SignedPublicKey>, data: Vec<u8>) -> Result<Vec<u8>> {
     task::spawn_blocking(move || {
         let mut rng = thread_rng();
 

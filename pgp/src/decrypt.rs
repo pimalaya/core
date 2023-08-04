@@ -26,9 +26,9 @@ pub enum Error {
 
 /// Decrypts data using the given secret key.
 pub async fn decrypt(
-    data: Vec<u8>,
     skey: SignedSecretKey,
     passwd: impl ToString,
+    data: Vec<u8>,
 ) -> Result<Vec<u8>> {
     let passwd = passwd.to_string();
     task::spawn_blocking(move || {
@@ -55,28 +55,28 @@ pub async fn decrypt(
 
 #[cfg(test)]
 mod tests {
-    use crate::{decrypt, encrypt, generate_key_pair};
+    use crate::{decrypt, encrypt, gen_key_pair};
 
     #[tokio::test]
     async fn encrypt_then_decrypt() {
-        let (alice_skey, alice_pkey) = generate_key_pair("alice@localhost", "").await.unwrap();
-        let (bob_skey, bob_pkey) = generate_key_pair("bob@localhost", "").await.unwrap();
-        let (carl_skey, _carl_pkey) = generate_key_pair("carl@localhost", "").await.unwrap();
+        let (alice_skey, alice_pkey) = gen_key_pair("alice@localhost", "").await.unwrap();
+        let (bob_skey, bob_pkey) = gen_key_pair("bob@localhost", "").await.unwrap();
+        let (carl_skey, _carl_pkey) = gen_key_pair("carl@localhost", "").await.unwrap();
 
         let msg = b"encrypted message".to_vec();
-        let encrypted_msg = encrypt(msg.clone(), vec![alice_pkey, bob_pkey])
+        let encrypted_msg = encrypt(vec![alice_pkey, bob_pkey], msg.clone())
             .await
             .unwrap();
 
-        let alice_msg = decrypt(encrypted_msg.clone(), alice_skey, "")
+        let alice_msg = decrypt(alice_skey, "", encrypted_msg.clone())
             .await
             .unwrap();
         assert_eq!(alice_msg, msg);
 
-        let bob_msg = decrypt(encrypted_msg.clone(), bob_skey, "").await.unwrap();
+        let bob_msg = decrypt(bob_skey, "", encrypted_msg.clone()).await.unwrap();
         assert_eq!(bob_msg, msg);
 
-        let carl_msg = decrypt(encrypted_msg.clone(), carl_skey, "")
+        let carl_msg = decrypt(carl_skey, "", encrypted_msg.clone())
             .await
             .unwrap_err();
         assert!(matches!(

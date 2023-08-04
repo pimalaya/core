@@ -1,9 +1,8 @@
 use concat_with::concat_line;
 use pimalaya_email_tpl::{
-    PgpPublicKey, PgpPublicKeyResolver, PgpPublicKeys, PgpPublicKeysResolver, PgpSecretKey,
-    PgpSecretKeyResolver, Tpl, TplInterpreter,
+    NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp, Tpl, TplInterpreter,
 };
-use pimalaya_pgp::generate_key_pair;
+use pimalaya_pgp::gen_key_pair;
 use pimalaya_secret::Secret;
 use std::collections::HashMap;
 use tempfile::tempdir;
@@ -20,13 +19,13 @@ async fn pgp() {
 
     let dir = tempdir().unwrap();
 
-    let (alice_skey, alice_pkey) = generate_key_pair("alice@localhost", "").await.unwrap();
+    let (alice_skey, alice_pkey) = gen_key_pair("alice@localhost", "").await.unwrap();
     let alice_skey_path = dir.path().join("alice.key");
     fs::write(&alice_skey_path, alice_skey.to_armored_bytes(None).unwrap())
         .await
         .unwrap();
 
-    let (bob_skey, bob_pkey) = generate_key_pair("bob@localhost", "").await.unwrap();
+    let (bob_skey, bob_pkey) = gen_key_pair("bob@localhost", "").await.unwrap();
     let bob_skey_path = dir.path().join("bob.key");
     fs::write(&bob_skey_path, bob_skey.to_armored_bytes(None).unwrap())
         .await
@@ -54,26 +53,27 @@ async fn pgp() {
     ));
 
     let builder = tpl
-        .with_pgp_encrypt(PgpPublicKeys::Enabled(vec![
-            PgpPublicKeysResolver::KeyServers(vec![String::from(key_server_addr)]),
-        ]))
-        .with_pgp_sign(PgpSecretKey::Enabled(vec![PgpSecretKeyResolver::Path(
-            alice_skey_path.clone(),
-            Secret::new_raw(""),
-        )]))
+        .with_pgp(Pgp::Native(NativePgp {
+            secret_key: NativePgpSecretKey::Path(alice_skey_path.clone()),
+            secret_key_passphrase: Secret::new_raw(""),
+            public_keys_resolvers: vec![NativePgpPublicKeysResolver::KeyServers(vec![
+                String::from(key_server_addr),
+            ])],
+        }))
         .compile()
         .await
         .unwrap();
 
     let tpl = TplInterpreter::new()
         .with_show_only_headers(["From", "To", "Subject"])
-        .with_pgp_decrypt(PgpSecretKey::Enabled(vec![PgpSecretKeyResolver::Path(
-            bob_skey_path.clone(),
-            Secret::new_raw(""),
-        )]))
-        .with_pgp_verify(PgpPublicKey::Enabled(vec![PgpPublicKeyResolver::Raw(
-            alice_pkey.clone(),
-        )]))
+        .with_pgp(Pgp::Native(NativePgp {
+            secret_key: NativePgpSecretKey::Raw(bob_skey.clone()),
+            secret_key_passphrase: Secret::new_raw(""),
+            public_keys_resolvers: vec![NativePgpPublicKeysResolver::Raw(
+                "alice@localhost".into(),
+                alice_pkey.clone(),
+            )],
+        }))
         .interpret_msg_builder(builder)
         .await
         .unwrap();

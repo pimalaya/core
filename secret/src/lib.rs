@@ -81,7 +81,12 @@ impl Secret {
                 .run()
                 .await
                 .map_err(Error::GetSecretFromCmd)?
-                .to_string_lossy()),
+                .to_string_lossy()
+                .lines()
+                .take(1)
+                .next()
+                .unwrap()
+                .to_owned()),
             Self::KeyringEntry(entry) => Ok(entry.get_secret()?),
             Self::Undefined => Err(Error::GetSecretFromUndefinedError),
         }

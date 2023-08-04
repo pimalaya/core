@@ -28,7 +28,7 @@ pub enum Error {
     VerifySecretKeyError(#[source] pgp::errors::Error),
 
     #[error("cannot build pgp public subkey params")]
-    BuildPublicKeyParamsError(#[from] SubkeyParamsBuilderError),
+    BuildPublicKeyParamsError(#[source] SubkeyParamsBuilderError),
     #[error("cannot sign pgp public subkey")]
     SignPublicKeyError(#[source] pgp::errors::Error),
     #[error("cannot verify pgp public subkey")]
@@ -52,7 +52,7 @@ pub enum Error {
 
 /// Generates a new pair of secret and public keys for the given email
 /// address.
-pub async fn generate_key_pair(
+pub async fn gen_key_pair(
     email: impl ToString,
     passwd: impl ToString,
 ) -> Result<(SignedSecretKey, SignedPublicKey)> {
@@ -123,7 +123,7 @@ pub async fn read_signed_public_key_from_path(path: PathBuf) -> Result<SignedPub
 ///
 /// The given path needs to contain a single armored secret key,
 /// otherwise it will fail.
-pub async fn read_signed_secret_key_from_path(path: PathBuf) -> Result<SignedSecretKey> {
+pub async fn read_skey_from_file(path: PathBuf) -> Result<SignedSecretKey> {
     task::spawn_blocking(move || {
         let data = fs::read(&path)
             .map_err(|err| Error::ReadArmoredSecretKeyFromPathError(err, path.clone()))?;
@@ -151,7 +151,7 @@ pub async fn read_skey_from_string(data: String) -> Result<SignedSecretKey> {
 ///
 /// The given raw bytes needs to match a single armored signature,
 /// otherwise it will fail.
-pub async fn read_signature_from_bytes(sig: Vec<u8>) -> Result<StandaloneSignature> {
+pub async fn read_sig_from_bytes(sig: Vec<u8>) -> Result<StandaloneSignature> {
     task::spawn_blocking(move || {
         let (sig, _) = StandaloneSignature::from_armor_single(Cursor::new(&sig))
             .map_err(Error::ReadStandaloneSignatureFromArmoredBytesError)?;

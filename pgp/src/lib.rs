@@ -19,8 +19,8 @@ pub use self::{
     encrypt::encrypt,
     sign::sign,
     utils::{
-        generate_key_pair, read_signature_from_bytes, read_signed_public_key_from_path,
-        read_signed_secret_key_from_path, read_skey_from_string,
+        gen_key_pair, read_sig_from_bytes, read_signed_public_key_from_path, read_skey_from_file,
+        read_skey_from_string,
     },
     verify::verify,
 };

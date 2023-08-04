@@ -17,7 +17,7 @@ pub use self::{forward::ForwardTplBuilder, new::NewTplBuilder, reply::ReplyTplBu
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot interpret message as template")]
-    InterpretMessageAsTemplateError(#[source] pimalaya_email_tpl::tpl::interpreter::Error),
+    InterpretMessageAsTemplateError(#[source] pimalaya_email_tpl::Error),
     #[error("cannot interpret message as thread template")]
-    InterpretMessageAsThreadTemplateError(#[source] pimalaya_email_tpl::tpl::interpreter::Error),
+    InterpretMessageAsThreadTemplateError(#[source] pimalaya_email_tpl::Error),
 }

@@ -1,10 +1,10 @@
 use mail_builder::MessageBuilder;
 use mail_parser::Message;
 use pimalaya_keyring::Entry;
-use std::{io, path::PathBuf, result};
+use std::{io, path::PathBuf};
 use thiserror::Error;
 
-use crate::{mml, FilterParts, PgpPublicKey, PgpSecretKey, Tpl};
+use crate::{mml, FilterParts, Pgp, Result, Tpl};
 
 use super::header;
 
@@ -14,8 +14,6 @@ pub enum Error {
     ParseRawEmailError,
     #[error("cannot build email")]
     BuildEmailError(#[source] io::Error),
-    #[error("cannot interpret email body as mml")]
-    InterpretMmlError(#[source] mml::interpreter::Error),
 
     #[error("cannot get pgp secret key from keyring")]
     GetSecretKeyFromKeyringError(pimalaya_keyring::Error),
@@ -24,8 +22,6 @@ pub enum Error {
     #[error("cannot read pgp secret key from path {1}")]
     ReadSecretKeyFromPathError(pimalaya_pgp::Error, PathBuf),
 }
-
-pub type Result<T> = result::Result<T, Error>;
 
 /// Represents the strategy used to display headers when interpreting
 /// emails.
@@ -75,12 +71,6 @@ pub struct Interpreter {
     /// [`ShowHeadersStrategy::Only`] only transfers the given headers
     /// to the interpreted template.
     show_headers: ShowHeadersStrategy,
-
-    /// PGP decrypt configuration.
-    pgp_decrypt: PgpSecretKey,
-
-    /// PGP verify configuration.
-    pgp_verify: PgpPublicKey,
 
     mml_interpreter: mml::Interpreter,
 }
@@ -179,13 +169,8 @@ impl Interpreter {
         self
     }
 
-    pub fn with_pgp_decrypt(mut self, decrypt: impl Into<PgpSecretKey>) -> Self {
-        self.pgp_decrypt = decrypt.into();
-        self
-    }
-
-    pub fn with_pgp_verify(mut self, verify: impl Into<PgpPublicKey>) -> Self {
-        self.pgp_verify = verify.into();
+    pub fn with_pgp(mut self, pgp: impl Into<Pgp>) -> Self {
+        self.mml_interpreter = self.mml_interpreter.with_pgp(pgp.into());
         self
     }
 
@@ -215,18 +200,10 @@ impl Interpreter {
 
         let mml = self
             .mml_interpreter
-            .clone()
-            .with_pgp_decrypt_key(match header::extract_first_email(msg.to()) {
-                Some(recipient) => self.pgp_decrypt.get_skey(recipient).await,
-                None => None,
-            })
-            .with_pgp_verify_key(match header::extract_first_email(msg.from()) {
-                Some(sender) => self.pgp_verify.get_pkey(sender).await,
-                None => None,
-            })
+            .with_pgp_sender(header::extract_first_email(msg.from()))
+            .with_pgp_recipient(header::extract_first_email(msg.to()))
             .interpret_msg(msg)
-            .await
-            .map_err(Error::InterpretMmlError)?;
+            .await?;
 
         tpl.push_str(mml.trim_end());
         tpl.push('\n');

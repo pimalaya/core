@@ -12,7 +12,7 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::{mml, PgpPublicKeys, PgpSecretKey, Result};
+use crate::{mml, Pgp, Result};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -39,11 +39,7 @@ pub enum Error {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Tpl {
-    /// PGP encrypt configuration.
-    pgp_encrypt: PgpPublicKeys,
-
-    /// PGP sign configuration.
-    pgp_sign: PgpSecretKey,
+    mml_compiler: mml::Compiler,
 
     /// Inner template data.
     data: String,
@@ -83,13 +79,8 @@ impl Tpl {
         Self::default()
     }
 
-    pub fn with_pgp_encrypt(mut self, encrypt: impl Into<PgpPublicKeys>) -> Self {
-        self.pgp_encrypt = encrypt.into();
-        self
-    }
-
-    pub fn with_pgp_sign(mut self, sign: impl Into<PgpSecretKey>) -> Self {
-        self.pgp_sign = sign.into();
+    pub fn with_pgp(mut self, pgp: impl Into<Pgp>) -> Self {
+        self.mml_compiler = self.mml_compiler.with_pgp(pgp.into());
         self
     }
 
@@ -108,16 +99,11 @@ impl Tpl {
                 contents
             });
 
-        let mut builder = mml::Compiler::new()
-            .with_pgp_encrypt_keys(
-                self.pgp_encrypt
-                    .get_pkeys(header::extract_emails(tpl.to()))
-                    .await,
-            )
-            .with_pgp_sign_key(match header::extract_first_email(tpl.from()) {
-                Some(sender) => self.pgp_sign.get_skey(sender).await,
-                None => None,
-            })
+        let mut builder = self
+            .mml_compiler
+            .clone()
+            .with_pgp_recipients(header::extract_emails(tpl.to()))
+            .with_pgp_sender(header::extract_first_email(tpl.from()))
             .compile(&mml)
             .await?;
 

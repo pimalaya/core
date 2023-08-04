@@ -6,10 +6,7 @@ pub mod tpl;
 
 pub use self::{
     mml::FilterParts,
-    pgp::{
-        PgpPublicKey, PgpPublicKeyResolver, PgpPublicKeys, PgpPublicKeysResolver, PgpSecretKey,
-        PgpSecretKeyResolver,
-    },
+    pgp::{Gpg, NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
     tpl::{ShowHeadersStrategy, Tpl, TplInterpreter},
 };
 
@@ -17,13 +14,20 @@ pub use self::{
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    TplCompilerError(#[from] tpl::Error),
+    TplError(#[from] tpl::Error),
     #[error(transparent)]
-    MmlCompilerError(#[from] mml::compiler::Error),
+    CompileMmlError(#[from] mml::compiler::Error),
     #[error(transparent)]
-    PgpError(#[from] pimalaya_pgp::Error),
+    InterpretTplError(#[from] tpl::interpreter::Error),
+    #[error(transparent)]
+    InterpretMmlError(#[from] mml::interpreter::Error),
+    #[error(transparent)]
+    PgpError(#[from] pgp::Error),
     #[error(transparent)]
     KeyringError(#[from] pimalaya_keyring::Error),
+
+    #[error(transparent)]
+    PimalayaPgpError(#[from] pimalaya_pgp::Error),
 }
 
 /// The global `Result` alias of the library.

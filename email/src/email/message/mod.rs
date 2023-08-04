@@ -65,7 +65,7 @@ pub enum Error {
     DecryptPartError(#[source] account::config::Error),
 
     #[error("cannot interpret email as template")]
-    InterpretEmailAsTplError(#[source] pimalaya_email_tpl::tpl::interpreter::Error),
+    InterpretEmailAsTplError(#[source] pimalaya_email_tpl::Error),
 
     #[error("cannot parse email message")]
     ParseEmailMessageError,

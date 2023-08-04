@@ -15,9 +15,9 @@ pub enum Error {
 
 /// Verifies a standalone signature using the given public key.
 pub async fn verify(
-    data: Vec<u8>,
-    sig: StandaloneSignature,
     pkey: SignedPublicKey,
+    sig: StandaloneSignature,
+    data: Vec<u8>,
 ) -> Result<bool> {
     task::spawn_blocking(move || {
         if let Err(err) = sig.verify(&pkey, &data) {
@@ -33,15 +33,15 @@ pub async fn verify(
 
 #[cfg(test)]
 mod tests {
-    use crate::{generate_key_pair, read_signature_from_bytes, sign, verify};
+    use crate::{gen_key_pair, read_sig_from_bytes, sign, verify};
 
     #[tokio::test]
     async fn sign_then_verify() {
-        let (skey, pkey) = generate_key_pair("test@localhost", "").await.unwrap();
+        let (skey, pkey) = gen_key_pair("test@localhost", "").await.unwrap();
         let msg = b"signed message".to_vec();
-        let raw_sig = sign(msg.clone(), skey, "").await.unwrap();
-        let sig = read_signature_from_bytes(raw_sig).await.unwrap();
+        let raw_sig = sign(skey, "", msg.clone()).await.unwrap();
+        let sig = read_sig_from_bytes(raw_sig).await.unwrap();
 
-        assert_eq!(verify(msg, sig, pkey).await.unwrap(), true);
+        assert_eq!(verify(pkey, sig, msg).await.unwrap(), true);
     }
 }

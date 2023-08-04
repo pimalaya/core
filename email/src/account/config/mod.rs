@@ -363,8 +363,7 @@ impl AccountConfig {
     /// the current user account configuration.
     pub fn generate_tpl_interpreter(&self) -> TplInterpreter {
         TplInterpreter::new()
-            .with_pgp_decrypt(self.pgp.clone())
-            .with_pgp_verify(self.pgp.clone())
+            .with_pgp(self.pgp.clone())
             .with_save_attachments_dir(self.downloads_dir())
     }
 

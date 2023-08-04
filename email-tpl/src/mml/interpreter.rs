@@ -3,10 +3,10 @@ use log::{debug, warn};
 use mail_builder::MessageBuilder;
 use mail_parser::{Message, MessagePart, MimeHeaders, PartType};
 use nanohtml2text::html2text;
-use pimalaya_pgp::{SignedPublicKey, SignedSecretKey};
-use pimalaya_secret::Secret;
-use std::{env, fs, io, path::PathBuf, result};
+use std::{env, fs, io, path::PathBuf};
 use thiserror::Error;
+
+use crate::{Pgp, Result};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -24,9 +24,11 @@ pub enum Error {
     VerifyPartError(#[source] pimalaya_pgp::Error),
     #[error("cannot get passphrase of pgp secret key")]
     GetPgpSecretKeyPasswdError(#[source] pimalaya_secret::Error),
+    #[error("cannot parse pgp decrypted part")]
+    ParsePgpDecryptedPartError,
+    #[error("cannot decrypt part using pgp: missing recipient")]
+    PgpDecryptMissingRecipientError,
 }
-
-pub type Result<T> = result::Result<T, Error>;
 
 /// Filters parts to show by MIME type.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -111,8 +113,9 @@ pub struct Interpreter {
     /// default temporary one given by [`std::env::temp_dir()`].
     save_attachments_dir: PathBuf,
 
-    pgp_decrypt_key: Option<(SignedSecretKey, Secret)>,
-    pgp_verify_key: Option<SignedPublicKey>,
+    pgp: Pgp,
+    pgp_sender: Option<String>,
+    pgp_recipient: Option<String>,
 }
 
 impl Default for Interpreter {
@@ -125,8 +128,9 @@ impl Default for Interpreter {
             show_inline_attachments: true,
             save_attachments: Default::default(),
             save_attachments_dir: env::temp_dir(),
-            pgp_decrypt_key: Default::default(),
-            pgp_verify_key: Default::default(),
+            pgp: Default::default(),
+            pgp_sender: Default::default(),
+            pgp_recipient: Default::default(),
         }
     }
 }
@@ -174,14 +178,52 @@ impl Interpreter {
         self
     }
 
-    pub fn with_pgp_decrypt_key(mut self, key: Option<(SignedSecretKey, Secret)>) -> Self {
-        self.pgp_decrypt_key = key;
+    pub fn with_pgp(mut self, pgp: Pgp) -> Self {
+        self.pgp = pgp;
         self
     }
 
-    pub fn with_pgp_verify_key(mut self, key: Option<SignedPublicKey>) -> Self {
-        self.pgp_verify_key = key;
+    pub fn with_pgp_sender(mut self, sender: Option<String>) -> Self {
+        self.pgp_sender = sender;
         self
+    }
+
+    pub fn with_pgp_recipient(mut self, recipient: Option<String>) -> Self {
+        self.pgp_recipient = recipient;
+        self
+    }
+
+    async fn decrypt_part(&self, encrypted_part: &MessagePart<'_>) -> Result<String> {
+        let recipient = self
+            .pgp_recipient
+            .as_ref()
+            .ok_or(Error::PgpDecryptMissingRecipientError)?;
+        let encrypted_bytes = encrypted_part.contents().to_owned();
+        let decrypted_part = self.pgp.decrypt(recipient, encrypted_bytes).await?;
+        let clear_part =
+            Message::parse(&decrypted_part).ok_or(Error::ParsePgpDecryptedPartError)?;
+        let tpl = self.interpret_msg(&clear_part).await?;
+        Ok(tpl)
+    }
+
+    async fn verify_msg(&self, msg: &Message<'_>, ids: &[usize]) -> Result<bool> {
+        let signed_part = msg.part(ids[0]).unwrap();
+        let signed_part_bytes = msg.raw_message
+            [signed_part.raw_header_offset()..signed_part.raw_end_offset()]
+            .to_owned();
+
+        let signature_part = msg.part(ids[1]).unwrap();
+        let signature_bytes = signature_part.contents().to_owned();
+
+        let recipient = self
+            .pgp_recipient
+            .as_ref()
+            .ok_or(Error::PgpDecryptMissingRecipientError)?;
+        let verify = self
+            .pgp
+            .verify(recipient, signature_bytes, signed_part_bytes)
+            .await?;
+        Ok(verify)
     }
 
     fn interpret_attachment(&self, ctype: &str, part: &MessagePart, data: &[u8]) -> Result<String> {
@@ -286,11 +328,7 @@ impl Interpreter {
     }
 
     #[async_recursion]
-    async fn interpret_part<'a>(
-        &self,
-        msg: &Message<'a>,
-        part: &MessagePart<'a>,
-    ) -> Result<String> {
+    async fn interpret_part(&self, msg: &Message<'_>, part: &MessagePart<'_>) -> Result<String> {
         let mut tpl = String::new();
         let ctype = get_ctype(part);
 
@@ -384,70 +422,34 @@ impl Interpreter {
                 }
             }
             PartType::Multipart(ids) if ctype == "multipart/encrypted" => {
-                let encrypted_part = msg.part(ids[1]).unwrap();
-
-                match &self.pgp_decrypt_key {
-                    None => {
-                        warn!("cannot pgp decrypt email part: decrypt not configured");
+                match self.decrypt_part(msg.part(ids[1]).unwrap()).await {
+                    Ok(ref clear_part) => tpl.push_str(clear_part),
+                    Err(err) => {
+                        warn!("cannot decrypt email part using pgp: {err}");
+                        debug!("cannot decrypt email part using pgp: {err:?}");
                     }
-                    Some((skey, passwd)) => {
-                        let passwd = passwd
-                            .get()
-                            .await
-                            .map_err(Error::GetPgpSecretKeyPasswdError)?;
-                        let encrypted_part = encrypted_part.contents().to_owned();
-                        let decrypted_part =
-                            pimalaya_pgp::decrypt(encrypted_part, skey.clone(), passwd)
-                                .await
-                                .map_err(Error::DecryptPartError)?;
-                        if let Some(msg) = Message::parse(&decrypted_part) {
-                            tpl.push_str(&self.interpret_msg(&msg).await?);
-                        } else {
-                            warn!("cannot parse decrypted email part");
-                        }
-                    }
-                };
-            }
-            PartType::Multipart(ids) if ctype == "multipart/signed" => {
-                let signed_part = msg.part(ids[0]).unwrap();
-                let signed_part_raw = msg.raw_message
-                    [signed_part.raw_header_offset()..signed_part.raw_end_offset()]
-                    .to_owned();
-
-                match &self.pgp_verify_key {
-                    None => {
-                        warn!("cannot pgp verify email part: verify not configured");
-                    }
-                    Some(pkey) => {
-                        let signature_part = msg.part(ids[1]).unwrap();
-                        let signature = signature_part.contents().to_owned();
-
-                        let signature = pimalaya_pgp::read_signature_from_bytes(signature)
-                            .await
-                            .map_err(Error::ReadSignaturePartError)?;
-
-                        let verified_part =
-                            pimalaya_pgp::verify(signed_part_raw, signature, pkey.clone()).await;
-
-                        match verified_part {
-                            Ok(true) => {
-                                debug!("email part successfully pgp verified");
-                            }
-                            Ok(false) => {
-                                warn!("cannot pgp verify email part");
-                            }
-                            Err(err) => {
-                                warn!("cannot pgp verify email part: {err}");
-                                debug!("cannot pgp verify email part: {err:?}");
-                            }
-                        }
-                    }
-                };
-
-                tpl.push_str(&self.interpret_part(&msg, signed_part).await?);
+                }
             }
             PartType::Multipart(_) if ctype == "application/pgp-encrypted" => {
                 // TODO: check if content matches "Version: 1"
+            }
+            PartType::Multipart(ids) if ctype == "multipart/signed" => {
+                match self.verify_msg(msg, &ids).await {
+                    Ok(true) => {
+                        debug!("email part successfully verified using pgp");
+                    }
+                    Ok(false) => {
+                        warn!("cannot verify email part using pgp");
+                    }
+                    Err(err) => {
+                        warn!("cannot verify email part using pgp: {err}");
+                        debug!("cannot verify email part using pgp: {err:?}");
+                    }
+                }
+
+                let signed_part = msg.part(ids[0]).unwrap();
+                let clear_part = &self.interpret_part(msg, signed_part).await?;
+                tpl.push_str(clear_part);
             }
             PartType::Multipart(_) if ctype == "application/pgp-signature" => {
                 // nothing to do, signature already verified above

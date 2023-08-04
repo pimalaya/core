@@ -1,14 +1,12 @@
 use async_recursion::async_recursion;
-use log::warn;
+use log::{debug, warn};
 use mail_builder::{mime::MimePart, MessageBuilder};
-use pimalaya_pgp::{SignedPublicKey, SignedSecretKey};
-use pimalaya_secret::Secret;
 use std::{env, ffi::OsStr, fs, io, path::PathBuf};
 use thiserror::Error;
 
 use crate::{
     mml::parsers::{self, prelude::*},
-    Result,
+    Pgp, Result,
 };
 
 use super::tokens::{
@@ -33,12 +31,16 @@ pub enum Error {
     ReadAttachmentError(#[source] io::Error, String),
     #[error("cannot get passphrase of pgp secret key")]
     GetPgpSecretKeyPasswdError(#[source] pimalaya_secret::Error),
+
+    #[error("cannot sign part using pgp: missing sender")]
+    PgpSignMissingSenderError,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Compiler {
-    pgp_encrypt_keys: Option<Vec<SignedPublicKey>>,
-    pgp_sign_key: Option<(SignedSecretKey, Secret)>,
+    pgp: Pgp,
+    pgp_sender: Option<String>,
+    pgp_recipients: Vec<String>,
 }
 
 impl Compiler {
@@ -46,65 +48,86 @@ impl Compiler {
         Self::default()
     }
 
-    pub fn with_pgp_encrypt_keys(
-        mut self,
-        keys: Option<impl IntoIterator<Item = SignedPublicKey>>,
-    ) -> Self {
-        self.pgp_encrypt_keys = keys.map(|keys| keys.into_iter().collect());
+    pub fn with_pgp(mut self, pgp: Pgp) -> Self {
+        self.pgp = pgp;
         self
     }
 
-    pub fn with_pgp_sign_key(mut self, key: Option<(SignedSecretKey, Secret)>) -> Self {
-        self.pgp_sign_key = key;
+    pub fn with_pgp_sender(mut self, sender: Option<String>) -> Self {
+        self.pgp_sender = sender;
         self
     }
 
-    async fn encrypt<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
-        if let Some(pkeys) = &self.pgp_encrypt_keys {
-            let mut buf = Vec::new();
-            part.clone()
-                .write_part(&mut buf)
-                .map_err(Error::WriteCompiledPartToVecError)?;
-            let encrypted_part = pimalaya_pgp::encrypt(buf, pkeys.clone()).await?;
+    pub fn with_pgp_recipients(mut self, recipients: Vec<String>) -> Self {
+        self.pgp_recipients = recipients;
+        self
+    }
 
-            let part = MimePart::new(
-                "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
-                vec![
-                    MimePart::new("application/pgp-encrypted", "Version: 1"),
-                    MimePart::new("application/octet-stream", encrypted_part),
-                ],
-            );
+    async fn encrypt_part<'a>(&self, clear_part: &MimePart<'a>) -> Result<MimePart<'a>> {
+        let recipients = self.pgp_recipients.clone();
 
-            Ok(part)
-        } else {
-            warn!("cannot encrypt email part: encrypt not set up");
-            Ok(part)
+        let mut clear_part_bytes = Vec::new();
+        clear_part
+            .clone()
+            .write_part(&mut clear_part_bytes)
+            .map_err(Error::WriteCompiledPartToVecError)?;
+
+        let encrypted_part_bytes = self.pgp.encrypt(recipients, clear_part_bytes).await?;
+        let encrypted_part = MimePart::new(
+            "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
+            vec![
+                MimePart::new("application/pgp-encrypted", "Version: 1"),
+                MimePart::new("application/octet-stream", encrypted_part_bytes),
+            ],
+        );
+
+        Ok(encrypted_part)
+    }
+
+    async fn try_encrypt_part<'a>(&self, clear_part: MimePart<'a>) -> MimePart<'a> {
+        match self.encrypt_part(&clear_part).await {
+            Ok(encrypted_part) => encrypted_part,
+            Err(err) => {
+                warn!("cannot encrypt email part using pgp: {err}");
+                debug!("cannot encrypt email part using pgp: {err:?}");
+                clear_part
+            }
         }
     }
 
-    async fn sign<'a>(&self, part: MimePart<'a>) -> Result<MimePart<'a>> {
-        if let Some((skey, passwd)) = &self.pgp_sign_key {
-            let mut part_raw = Vec::new();
-            part.clone()
-                .write_part(&mut part_raw)
-                .map_err(Error::WriteCompiledPartToVecError)?;
+    async fn sign_part<'a>(&self, clear_part: MimePart<'a>) -> Result<MimePart<'a>> {
+        let sender = self
+            .pgp_sender
+            .as_ref()
+            .ok_or(Error::PgpSignMissingSenderError)?;
 
-            let passwd = passwd
-                .get()
-                .await
-                .map_err(Error::GetPgpSecretKeyPasswdError)?;
+        let mut clear_part_bytes = Vec::new();
+        clear_part
+            .clone()
+            .write_part(&mut clear_part_bytes)
+            .map_err(Error::WriteCompiledPartToVecError)?;
 
-            let signature = pimalaya_pgp::sign(part_raw, skey.clone(), passwd).await?;
+        let signature_bytes = self.pgp.sign(sender, clear_part_bytes).await?;
 
-            let part = MimePart::new(
-                "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
-                vec![part, MimePart::new("application/pgp-signature", signature)],
-            );
+        let signed_part = MimePart::new(
+            "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
+            vec![
+                clear_part,
+                MimePart::new("application/pgp-signature", signature_bytes),
+            ],
+        );
 
-            Ok(part)
-        } else {
-            warn!("cannot sign email part: sign not set up");
-            Ok(part)
+        Ok(signed_part)
+    }
+
+    async fn try_sign_part<'a>(&self, clear_part: MimePart<'a>) -> MimePart<'a> {
+        match self.sign_part(clear_part.clone()).await {
+            Ok(signed_part) => signed_part,
+            Err(err) => {
+                warn!("cannot sign email part using pgp: {err}");
+                debug!("cannot sign email part using pgp: {err:?}");
+                clear_part
+            }
         }
     }
 
@@ -150,14 +173,14 @@ impl Compiler {
                 }
 
                 let multi_part = match props.get(SIGN).map(String::as_str) {
-                    Some(PGP_MIME) => self.sign(multi_part).await,
-                    _ => Ok(multi_part),
-                }?;
+                    Some(PGP_MIME) => self.try_sign_part(multi_part).await,
+                    _ => multi_part,
+                };
 
                 let multi_part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some(PGP_MIME) => self.encrypt(multi_part).await,
-                    _ => Ok(multi_part),
-                }?;
+                    Some(PGP_MIME) => self.try_encrypt_part(multi_part).await,
+                    _ => multi_part,
+                };
 
                 Ok(multi_part)
             }
@@ -178,14 +201,14 @@ impl Compiler {
                 };
 
                 part = match props.get(SIGN).map(String::as_str) {
-                    Some(PGP_MIME) => self.sign(part).await,
-                    _ => Ok(part),
-                }?;
+                    Some(PGP_MIME) => self.try_sign_part(part).await,
+                    _ => part,
+                };
 
                 part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some(PGP_MIME) => self.encrypt(part).await,
-                    _ => Ok(part),
-                }?;
+                    Some(PGP_MIME) => self.try_encrypt_part(part).await,
+                    _ => part,
+                };
 
                 Ok(part)
             }
@@ -222,14 +245,14 @@ impl Compiler {
                 };
 
                 part = match props.get(SIGN).map(String::as_str) {
-                    Some(PGP_MIME) => self.sign(part).await,
-                    _ => Ok(part),
-                }?;
+                    Some(PGP_MIME) => self.try_sign_part(part).await,
+                    _ => part,
+                };
 
                 part = match props.get(ENCRYPT).map(String::as_str) {
-                    Some(PGP_MIME) => self.encrypt(part).await,
-                    _ => Ok(part),
-                }?;
+                    Some(PGP_MIME) => self.try_encrypt_part(part).await,
+                    _ => part,
+                };
 
                 Ok(part)
             }
