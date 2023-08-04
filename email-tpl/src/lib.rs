@@ -6,7 +6,7 @@ pub mod tpl;
 
 pub use self::{
     mml::FilterParts,
-    pgp::{Gpg, NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
+    pgp::{Gpg, Pgp, PgpNative, PgpNativePublicKeysResolver, PgpNativeSecretKey, SignedSecretKey},
     tpl::{ShowHeadersStrategy, Tpl, TplInterpreter},
 };
 

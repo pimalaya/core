@@ -1,6 +1,9 @@
+#[doc(inline)]
+pub use pimalaya_pgp::SignedSecretKey;
+
 use log::{debug, warn};
 use pimalaya_keyring::Entry;
-use pimalaya_pgp::{SignedPublicKey, SignedSecretKey};
+use pimalaya_pgp::SignedPublicKey;
 use pimalaya_secret::Secret;
 use std::{collections::HashSet, path::PathBuf};
 use thiserror::Error;
@@ -44,7 +47,7 @@ pub enum Error {
 pub enum Pgp {
     #[default]
     None,
-    Native(NativePgp),
+    Native(PgpNative),
     Gpg(Gpg),
 }
 
@@ -92,7 +95,7 @@ impl Pgp {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum NativePgpSecretKey {
+pub enum PgpNativeSecretKey {
     #[default]
     None,
     Raw(SignedSecretKey),
@@ -100,7 +103,7 @@ pub enum NativePgpSecretKey {
     Keyring(Entry),
 }
 
-impl NativePgpSecretKey {
+impl PgpNativeSecretKey {
     // FIXME: use the sender from the template instead of the PGP
     // config. This can be done once the `pimalaya_pgp` module can
     // manage both secret and public keys.
@@ -133,20 +136,20 @@ impl NativePgpSecretKey {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum NativePgpPublicKeysResolver {
+pub enum PgpNativePublicKeysResolver {
     Raw(String, SignedPublicKey),
     Wkd,
     KeyServers(Vec<String>),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct NativePgp {
-    pub secret_key: NativePgpSecretKey,
+pub struct PgpNative {
+    pub secret_key: PgpNativeSecretKey,
     pub secret_key_passphrase: Secret,
-    pub public_keys_resolvers: Vec<NativePgpPublicKeysResolver>,
+    pub public_keys_resolvers: Vec<PgpNativePublicKeysResolver>,
 }
 
-impl NativePgp {
+impl PgpNative {
     async fn encrypt(
         &self,
         emails: impl IntoIterator<Item = String>,
@@ -157,13 +160,13 @@ impl NativePgp {
 
         for resolver in &self.public_keys_resolvers {
             match resolver {
-                NativePgpPublicKeysResolver::Raw(recipient, pkey) => {
+                PgpNativePublicKeysResolver::Raw(recipient, pkey) => {
                     if recipients.remove(recipient) {
                         debug!("found pgp public key for {recipient} using raw pair");
                         pkeys.push(pkey.clone())
                     }
                 }
-                NativePgpPublicKeysResolver::Wkd => {
+                PgpNativePublicKeysResolver::Wkd => {
                     let recipients_clone = recipients.clone().into_iter().collect();
                     let wkd_pkeys = pimalaya_pgp::wkd::get_all(recipients_clone).await;
 
@@ -187,7 +190,7 @@ impl NativePgp {
                         },
                     ));
                 }
-                NativePgpPublicKeysResolver::KeyServers(key_servers) => {
+                PgpNativePublicKeysResolver::KeyServers(key_servers) => {
                     let recipients_clone = recipients.clone().into_iter().collect();
                     let http_pkeys =
                         pimalaya_pgp::http::get_all(recipients_clone, key_servers.to_owned()).await;
@@ -259,7 +262,7 @@ impl NativePgp {
 
         for resolver in &self.public_keys_resolvers {
             match resolver {
-                NativePgpPublicKeysResolver::Raw(recipient, pkey) => {
+                PgpNativePublicKeysResolver::Raw(recipient, pkey) => {
                     if recipient == email {
                         debug!("found pgp public key for {recipient} using raw pair");
                         pkey_found = Some(pkey.clone());
@@ -268,7 +271,7 @@ impl NativePgp {
                         continue;
                     }
                 }
-                NativePgpPublicKeysResolver::Wkd => {
+                PgpNativePublicKeysResolver::Wkd => {
                     let pkey = pimalaya_pgp::wkd::get_one(email.to_owned()).await;
                     match pkey {
                         Ok(pkey) => {
@@ -284,7 +287,7 @@ impl NativePgp {
                         }
                     }
                 }
-                NativePgpPublicKeysResolver::KeyServers(key_servers) => {
+                PgpNativePublicKeysResolver::KeyServers(key_servers) => {
                     let pkey =
                         pimalaya_pgp::http::get_one(email.to_owned(), key_servers.clone()).await;
                     match pkey {

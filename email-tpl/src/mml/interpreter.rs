@@ -430,9 +430,6 @@ impl Interpreter {
                     }
                 }
             }
-            PartType::Multipart(_) if ctype == "application/pgp-encrypted" => {
-                // TODO: check if content matches "Version: 1"
-            }
             PartType::Multipart(ids) if ctype == "multipart/signed" => {
                 match self.verify_msg(msg, &ids).await {
                     Ok(true) => {
@@ -450,6 +447,9 @@ impl Interpreter {
                 let signed_part = msg.part(ids[0]).unwrap();
                 let clear_part = &self.interpret_part(msg, signed_part).await?;
                 tpl.push_str(clear_part);
+            }
+            PartType::Multipart(_) if ctype == "application/pgp-encrypted" => {
+                // TODO: check if content matches "Version: 1"
             }
             PartType::Multipart(_) if ctype == "application/pgp-signature" => {
                 // nothing to do, signature already verified above

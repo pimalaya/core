@@ -2,8 +2,11 @@
 //!
 //! This module contains everything related to PGP configuration.
 
+#[doc(inline)]
+pub use pimalaya_email_tpl::{PgpNativeSecretKey, SignedSecretKey};
+
 use log::{debug, warn};
-use pimalaya_email_tpl::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
+use pimalaya_email_tpl::{Pgp, PgpNative, PgpNativePublicKeysResolver};
 use pimalaya_keyring::Entry;
 use pimalaya_secret::Secret;
 use std::{io, path::PathBuf};
@@ -35,23 +38,6 @@ pub enum Error {
     SetPublicKeyToKeyringError(#[source] pimalaya_keyring::Error),
     #[error("cannot get secret key password")]
     GetPgpSecretKeyPasswdError(#[source] io::Error),
-}
-
-/// The PGP key enum.
-///
-/// Determines how the user's PGP key should be retrieved: from a file
-/// or from the user's global keyring system.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum PgpKey {
-    #[default]
-    None,
-
-    /// The PGP key is located at the given path.
-    Path(PathBuf),
-
-    /// The PGP key is located at the given entry of the user's global
-    /// keyring system.
-    Keyring(Entry),
 }
 
 /// The PGP configuration.
@@ -102,7 +88,7 @@ impl PgpConfig {
 /// native Rust implementation of the PGP standard.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PgpNativeConfig {
-    pub secret_key: NativePgpSecretKey,
+    pub secret_key: PgpNativeSecretKey,
     pub secret_key_passphrase: Secret,
     pub wkd: bool,
     pub key_servers: Vec<String>,
@@ -123,9 +109,9 @@ impl PgpNativeConfig {
     /// Deletes secret and public keys.
     pub async fn reset(&self) -> Result<()> {
         match &self.secret_key {
-            NativePgpSecretKey::None => (),
-            NativePgpSecretKey::Raw(..) => (),
-            NativePgpSecretKey::Path(path) => {
+            PgpNativeSecretKey::None => (),
+            PgpNativeSecretKey::Raw(..) => (),
+            PgpNativeSecretKey::Path(path) => {
                 if let Some(path) = path.as_path().to_str() {
                     let path_str = match shellexpand::full(path) {
                         Ok(path) => path.to_string(),
@@ -149,7 +135,7 @@ impl PgpNativeConfig {
                     warn!("cannot get pgp key file path as str: {path:?}");
                 }
             }
-            NativePgpSecretKey::Keyring(entry) => entry
+            PgpNativeSecretKey::Keyring(entry) => entry
                 .delete_secret()
                 .map_err(Error::DeletePgpKeyFromKeyringError)?,
         };
@@ -177,9 +163,9 @@ impl PgpNativeConfig {
             .map_err(Error::ExportPublicKeyToArmoredStringError)?;
 
         match &self.secret_key {
-            NativePgpSecretKey::None => (),
-            NativePgpSecretKey::Raw(_) => (),
-            NativePgpSecretKey::Path(skey_path) => {
+            PgpNativeSecretKey::None => (),
+            PgpNativeSecretKey::Raw(_) => (),
+            PgpNativeSecretKey::Path(skey_path) => {
                 let skey_path = skey_path.to_string_lossy().to_string();
                 let skey_path = match shellexpand::full(&skey_path) {
                     Ok(path) => PathBuf::from(path.to_string()),
@@ -198,7 +184,7 @@ impl PgpNativeConfig {
                     .await
                     .map_err(|err| Error::WritePublicKeyFileError(err, pkey_path))?;
             }
-            NativePgpSecretKey::Keyring(skey_entry) => {
+            PgpNativeSecretKey::Keyring(skey_entry) => {
                 let pkey_entry = Entry::from(skey_entry.get_key().to_owned() + "-pub");
 
                 skey_entry
@@ -231,15 +217,15 @@ impl Into<Pgp> for PgpNativeConfig {
             let mut resolvers = vec![];
 
             if self.wkd {
-                resolvers.push(NativePgpPublicKeysResolver::Wkd)
+                resolvers.push(PgpNativePublicKeysResolver::Wkd)
             }
 
-            resolvers.push(NativePgpPublicKeysResolver::KeyServers(self.key_servers));
+            resolvers.push(PgpNativePublicKeysResolver::KeyServers(self.key_servers));
 
             resolvers
         };
 
-        Pgp::Native(NativePgp {
+        Pgp::Native(PgpNative {
             secret_key: self.secret_key,
             secret_key_passphrase: self.secret_key_passphrase,
             public_keys_resolvers,

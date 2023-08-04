@@ -1,6 +1,6 @@
 use concat_with::concat_line;
 use pimalaya_email_tpl::{
-    NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp, Tpl, TplInterpreter,
+    Pgp, PgpNative, PgpNativePublicKeysResolver, PgpNativeSecretKey, Tpl, TplInterpreter,
 };
 use pimalaya_pgp::gen_key_pair;
 use pimalaya_secret::Secret;
@@ -53,10 +53,10 @@ async fn pgp() {
     ));
 
     let builder = tpl
-        .with_pgp(Pgp::Native(NativePgp {
-            secret_key: NativePgpSecretKey::Path(alice_skey_path.clone()),
+        .with_pgp(Pgp::Native(PgpNative {
+            secret_key: PgpNativeSecretKey::Path(alice_skey_path.clone()),
             secret_key_passphrase: Secret::new_raw(""),
-            public_keys_resolvers: vec![NativePgpPublicKeysResolver::KeyServers(vec![
+            public_keys_resolvers: vec![PgpNativePublicKeysResolver::KeyServers(vec![
                 String::from(key_server_addr),
             ])],
         }))
@@ -66,10 +66,10 @@ async fn pgp() {
 
     let tpl = TplInterpreter::new()
         .with_show_only_headers(["From", "To", "Subject"])
-        .with_pgp(Pgp::Native(NativePgp {
-            secret_key: NativePgpSecretKey::Raw(bob_skey.clone()),
+        .with_pgp(Pgp::Native(PgpNative {
+            secret_key: PgpNativeSecretKey::Raw(bob_skey.clone()),
             secret_key_passphrase: Secret::new_raw(""),
-            public_keys_resolvers: vec![NativePgpPublicKeysResolver::Raw(
+            public_keys_resolvers: vec![PgpNativePublicKeysResolver::Raw(
                 "alice@localhost".into(),
                 alice_pkey.clone(),
             )],
