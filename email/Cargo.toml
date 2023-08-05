@@ -15,11 +15,13 @@ all-features = true
 name = "pimalaya_email"
 
 [features]
-default = ["imap-backend", "smtp-sender"]
+default = ["imap-backend", "smtp-sender", "cmds-pgp"]
 
 # backends
 imap-backend = ["imap", "imap-proto", "utf7-imap"]
 notmuch-backend = ["notmuch"]
+native-pgp = ["pimalaya-email-tpl/native-pgp"]
+cmds-pgp = ["pimalaya-email-tpl/cmds-pgp"]
 gpg = ["pimalaya-email-tpl/gpg"]
 
 # senders

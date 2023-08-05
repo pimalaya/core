@@ -12,7 +12,9 @@ keywords = ["email", "template", "mml", "emacs", "mime"]
 name = "pimalaya_email_tpl"
 
 [features]
-default = []
+default = ["cmds-pgp"]
+cmds-pgp = ["pimalaya-process"]
+native-pgp = ["pimalaya-keyring", "pimalaya-pgp", "pimalaya-secret"]
 gpg = ["gpgme"]
 
 [dev-dependencies]
@@ -28,11 +30,17 @@ log = "0.4"
 mail-builder = "=0.3.0"
 mail-parser = "=0.8.2"
 nanohtml2text = "0.1"
-pimalaya-keyring = { path = "../keyring" }
-pimalaya-pgp = { path = "../pgp" }
-pimalaya-secret = { path = "../secret" }
 shellexpand = "2.1"
 thiserror = "1.0"
 tree_magic = "0.2"
 
+# cmd-pgp feature
+pimalaya-process = { path = "../process", optional = true }
+
+# native-pgp feature
+pimalaya-keyring = { path = "../keyring", optional = true }
+pimalaya-pgp = { path = "../pgp", optional = true }
+pimalaya-secret = { path = "../secret", optional = true }
+
+# gpg feature
 gpgme = { version = "0.11", optional = true }

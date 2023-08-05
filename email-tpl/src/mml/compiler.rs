@@ -29,8 +29,6 @@ pub enum Error {
     ExpandFilenameError(#[source] shellexpand::LookupError<env::VarError>, String),
     #[error("cannot read attachment at {1}")]
     ReadAttachmentError(#[source] io::Error, String),
-    #[error("cannot get passphrase of pgp secret key")]
-    GetPgpSecretKeyPasswdError(#[source] pimalaya_secret::Error),
 
     #[error("cannot sign part using pgp: missing sender")]
     PgpSignMissingSenderError,

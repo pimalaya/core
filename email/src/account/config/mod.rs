@@ -23,14 +23,20 @@ use crate::{
     Result,
 };
 
+#[cfg(feature = "cmds-pgp")]
+#[doc(inline)]
+pub use self::pgp::CmdsPgpConfig;
 #[cfg(feature = "gpg")]
 #[doc(inline)]
 pub use self::pgp::GpgConfig;
+#[cfg(feature = "native-pgp")]
+#[doc(inline)]
+pub use self::pgp::{NativePgpConfig, NativePgpSecretKey, SignedPublicKey, SignedSecretKey};
 #[doc(inline)]
 pub use self::{
     oauth2::{OAuth2Config, OAuth2Method, OAuth2Scopes},
     passwd::PasswdConfig,
-    pgp::{PgpConfig, PgpNativeConfig, PgpNativeSecretKey, SignedSecretKey},
+    pgp::PgpConfig,
 };
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;

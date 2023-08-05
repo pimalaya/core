@@ -16,14 +16,6 @@ pub enum Error {
     WriteAttachmentError(#[source] io::Error, PathBuf),
     #[error("cannot build email")]
     WriteMessageError(#[source] io::Error),
-    #[error("cannot decrypt email part")]
-    DecryptPartError(#[source] pimalaya_pgp::Error),
-    #[error("cannot read signature from email part")]
-    ReadSignaturePartError(#[source] pimalaya_pgp::Error),
-    #[error("cannot verify email part")]
-    VerifyPartError(#[source] pimalaya_pgp::Error),
-    #[error("cannot get passphrase of pgp secret key")]
-    GetPgpSecretKeyPasswdError(#[source] pimalaya_secret::Error),
     #[error("cannot parse pgp decrypted part")]
     ParsePgpDecryptedPartError,
     #[error("cannot decrypt part using pgp: missing recipient")]

@@ -53,8 +53,9 @@ pub enum Error {
     PasswdConfigError(#[from] account::config::passwd::Error),
     #[error(transparent)]
     AccountSyncError(#[from] account::sync::Error),
+    #[cfg(feature = "native-pgp")]
     #[error(transparent)]
-    PgpConfigError(#[from] account::config::pgp::Error),
+    NativePgpConfigError(#[from] account::config::pgp::native::Error),
 
     #[error(transparent)]
     MessageError(#[from] email::message::Error),

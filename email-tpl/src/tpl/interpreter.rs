@@ -1,6 +1,5 @@
 use mail_builder::MessageBuilder;
 use mail_parser::Message;
-use pimalaya_keyring::Entry;
 use std::{io, path::PathBuf};
 use thiserror::Error;
 
@@ -14,13 +13,6 @@ pub enum Error {
     ParseRawEmailError,
     #[error("cannot build email")]
     BuildEmailError(#[source] io::Error),
-
-    #[error("cannot get pgp secret key from keyring")]
-    GetSecretKeyFromKeyringError(pimalaya_keyring::Error),
-    #[error("cannot read pgp secret key from keyring")]
-    ReadSecretKeyFromKeyringError(pimalaya_pgp::Error),
-    #[error("cannot read pgp secret key from path {1}")]
-    ReadSecretKeyFromPathError(pimalaya_pgp::Error, PathBuf),
 }
 
 /// Represents the strategy used to display headers when interpreting
@@ -41,21 +33,6 @@ impl ShowHeadersStrategy {
             Self::Only(headers) => headers.contains(header),
         }
     }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum Decrypt {
-    #[default]
-    None,
-    Path(PathBuf),
-    Keyring(Entry),
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum Verify {
-    #[default]
-    None,
-    KeyServers(Vec<String>),
 }
 
 /// The template interpreter interprets full emails as

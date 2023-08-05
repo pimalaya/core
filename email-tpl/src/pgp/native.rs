@@ -18,8 +18,10 @@ pub enum Error {
     #[error("cannot read pgp secret key from path {1}")]
     ReadSecretKeyFromPathError(pimalaya_pgp::Error, PathBuf),
 
-    #[error("cannot get pgp secret key passphrase")]
-    GetPgpSecretKeyPassphraseError(#[source] pimalaya_secret::Error),
+    #[error("cannot get pgp secret key passphrase from keyring")]
+    GetSecretKeyPassphraseFromKeyringError(#[source] pimalaya_secret::Error),
+    #[error("cannot get pgp secret key from keyring")]
+    GetPgpSecretKeyFromKeyringError(#[source] pimalaya_keyring::Error),
 
     #[error("cannot get native pgp secret key")]
     GetNativePgpSecretKeyNoneError,
@@ -31,10 +33,14 @@ pub enum Error {
     SignNativePgpError(#[source] pimalaya_pgp::Error),
     #[error("cannot read native pgp signature")]
     ReadNativePgpSignatureError(#[source] pimalaya_pgp::Error),
+    #[error("cannot verify native pgp signature")]
+    VerifyNativePgpSignatureError(#[source] pimalaya_pgp::Error),
+    #[error("cannot read native pgp secret key")]
+    ReadNativePgpSecretKeyError(#[source] pimalaya_pgp::Error),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum PgpNativeSecretKey {
+pub enum NativePgpSecretKey {
     #[default]
     None,
     Raw(SignedSecretKey),
@@ -42,7 +48,7 @@ pub enum PgpNativeSecretKey {
     Keyring(Entry),
 }
 
-impl PgpNativeSecretKey {
+impl NativePgpSecretKey {
     // FIXME: use the sender from the template instead of the PGP
     // config. This can be done once the `pimalaya_pgp` module can
     // manage both secret and public keys.
@@ -62,12 +68,18 @@ impl PgpNativeSecretKey {
                     }
                 };
                 let path = PathBuf::from(&path);
-                let skey = pimalaya_pgp::read_skey_from_file(path).await?;
+                let skey = pimalaya_pgp::read_skey_from_file(path)
+                    .await
+                    .map_err(Error::ReadNativePgpSecretKeyError)?;
                 Ok(skey)
             }
             Self::Keyring(entry) => {
-                let data = entry.get_secret()?;
-                let skey = pimalaya_pgp::read_skey_from_string(data).await?;
+                let data = entry
+                    .get_secret()
+                    .map_err(Error::GetPgpSecretKeyFromKeyringError)?;
+                let skey = pimalaya_pgp::read_skey_from_string(data)
+                    .await
+                    .map_err(Error::ReadNativePgpSecretKeyError)?;
                 Ok(skey)
             }
         }
@@ -75,20 +87,20 @@ impl PgpNativeSecretKey {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum PgpNativePublicKeysResolver {
+pub enum NativePgpPublicKeysResolver {
     Raw(String, SignedPublicKey),
     Wkd,
     KeyServers(Vec<String>),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct PgpNative {
-    pub secret_key: PgpNativeSecretKey,
+pub struct NativePgp {
+    pub secret_key: NativePgpSecretKey,
     pub secret_key_passphrase: Secret,
-    pub public_keys_resolvers: Vec<PgpNativePublicKeysResolver>,
+    pub public_keys_resolvers: Vec<NativePgpPublicKeysResolver>,
 }
 
-impl PgpNative {
+impl NativePgp {
     pub async fn encrypt(
         &self,
         emails: impl IntoIterator<Item = String>,
@@ -99,13 +111,13 @@ impl PgpNative {
 
         for resolver in &self.public_keys_resolvers {
             match resolver {
-                PgpNativePublicKeysResolver::Raw(recipient, pkey) => {
+                NativePgpPublicKeysResolver::Raw(recipient, pkey) => {
                     if recipients.remove(recipient) {
                         debug!("found pgp public key for {recipient} using raw pair");
                         pkeys.push(pkey.clone())
                     }
                 }
-                PgpNativePublicKeysResolver::Wkd => {
+                NativePgpPublicKeysResolver::Wkd => {
                     let recipients_clone = recipients.clone().into_iter().collect();
                     let wkd_pkeys = pimalaya_pgp::wkd::get_all(recipients_clone).await;
 
@@ -129,7 +141,7 @@ impl PgpNative {
                         },
                     ));
                 }
-                PgpNativePublicKeysResolver::KeyServers(key_servers) => {
+                NativePgpPublicKeysResolver::KeyServers(key_servers) => {
                     let recipients_clone = recipients.clone().into_iter().collect();
                     let http_pkeys =
                         pimalaya_pgp::http::get_all(recipients_clone, key_servers.to_owned()).await;
@@ -175,7 +187,7 @@ impl PgpNative {
             .secret_key_passphrase
             .get()
             .await
-            .map_err(Error::GetPgpSecretKeyPassphraseError)?;
+            .map_err(Error::GetSecretKeyPassphraseFromKeyringError)?;
         let data = pimalaya_pgp::decrypt(skey, passphrase, data)
             .await
             .map_err(Error::DecryptNativePgpError)?;
@@ -188,7 +200,7 @@ impl PgpNative {
             .secret_key_passphrase
             .get()
             .await
-            .map_err(Error::GetPgpSecretKeyPassphraseError)?;
+            .map_err(Error::GetSecretKeyPassphraseFromKeyringError)?;
         let data = pimalaya_pgp::sign(skey, passphrase, data)
             .await
             .map_err(Error::SignNativePgpError)?;
@@ -206,7 +218,7 @@ impl PgpNative {
 
         for resolver in &self.public_keys_resolvers {
             match resolver {
-                PgpNativePublicKeysResolver::Raw(recipient, pkey) => {
+                NativePgpPublicKeysResolver::Raw(recipient, pkey) => {
                     if recipient == email {
                         debug!("found pgp public key for {recipient} using raw pair");
                         pkey_found = Some(pkey.clone());
@@ -215,7 +227,7 @@ impl PgpNative {
                         continue;
                     }
                 }
-                PgpNativePublicKeysResolver::Wkd => {
+                NativePgpPublicKeysResolver::Wkd => {
                     let pkey = pimalaya_pgp::wkd::get_one(email.to_owned()).await;
                     match pkey {
                         Ok(pkey) => {
@@ -231,7 +243,7 @@ impl PgpNative {
                         }
                     }
                 }
-                PgpNativePublicKeysResolver::KeyServers(key_servers) => {
+                NativePgpPublicKeysResolver::KeyServers(key_servers) => {
                     let pkey =
                         pimalaya_pgp::http::get_one(email.to_owned(), key_servers.clone()).await;
                     match pkey {
@@ -255,7 +267,9 @@ impl PgpNative {
             let sig = pimalaya_pgp::read_sig_from_bytes(sig)
                 .await
                 .map_err(Error::ReadNativePgpSignatureError)?;
-            let verify = pimalaya_pgp::verify(pkey, sig, data).await?;
+            let verify = pimalaya_pgp::verify(pkey, sig, data)
+                .await
+                .map_err(Error::VerifyNativePgpSignatureError)?;
             Ok(verify)
         } else {
             warn!("cannot find pgp public key for {email}");

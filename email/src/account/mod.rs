@@ -8,13 +8,18 @@
 pub mod config;
 pub mod sync;
 
+#[cfg(feature = "cmds-pgp")]
+#[doc(inline)]
+pub use self::config::CmdsPgpConfig;
 #[cfg(feature = "gpg")]
 #[doc(inline)]
 pub use self::config::GpgConfig;
 #[doc(inline)]
 pub use self::config::{
     AccountConfig, OAuth2Config, OAuth2Method, OAuth2Scopes, PasswdConfig, PgpConfig,
-    PgpNativeConfig, PgpNativeSecretKey, SignedSecretKey, DEFAULT_DRAFTS_FOLDER,
-    DEFAULT_INBOX_FOLDER, DEFAULT_PAGE_SIZE, DEFAULT_SENT_FOLDER, DEFAULT_SIGNATURE_DELIM,
-    DEFAULT_TRASH_FOLDER,
+    DEFAULT_DRAFTS_FOLDER, DEFAULT_INBOX_FOLDER, DEFAULT_PAGE_SIZE, DEFAULT_SENT_FOLDER,
+    DEFAULT_SIGNATURE_DELIM, DEFAULT_TRASH_FOLDER,
 };
+#[cfg(feature = "native-pgp")]
+#[doc(inline)]
+pub use self::config::{NativePgpConfig, NativePgpSecretKey, SignedPublicKey, SignedSecretKey};

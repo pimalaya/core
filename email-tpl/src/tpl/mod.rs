@@ -8,7 +8,6 @@ use mail_parser::Message;
 use std::{
     io,
     ops::{Deref, DerefMut},
-    path::PathBuf,
 };
 use thiserror::Error;
 
@@ -28,13 +27,6 @@ pub enum Error {
     InterpretError(#[source] mml::interpreter::Error),
     #[error("cannot parse template")]
     ParseMessageError,
-
-    #[error("cannot get pgp secret key from keyring")]
-    GetSecretKeyFromKeyringError(pimalaya_keyring::Error),
-    #[error("cannot read pgp secret key from keyring")]
-    ReadSecretKeyFromKeyringError(pimalaya_pgp::Error),
-    #[error("cannot read pgp secret key from path {1}")]
-    ReadSecretKeyFromPathError(pimalaya_pgp::Error, PathBuf),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

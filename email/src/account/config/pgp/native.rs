@@ -1,16 +1,5 @@
-//! Module dedicated to PGP configuration.
-//!
-//! This module contains everything related to PGP configuration.
-
-#[doc(inline)]
-pub use pimalaya_email_tpl::{PgpNativeSecretKey, SignedSecretKey};
-
-#[cfg(feature = "gpg")]
-#[doc(inline)]
-pub use pimalaya_email_tpl::Gpg;
-
 use log::{debug, warn};
-use pimalaya_email_tpl::{Pgp, PgpNative, PgpNativePublicKeysResolver};
+use pimalaya_email_tpl::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
 use pimalaya_keyring::Entry;
 use pimalaya_secret::Secret;
 use std::{io, path::PathBuf};
@@ -44,71 +33,19 @@ pub enum Error {
     GetPgpSecretKeyPasswdError(#[source] io::Error),
 }
 
-/// The PGP configuration.
-// TODO: `Gpg` variant using `libgpgme`
-// TODO: `Autocrypt` variant based on `pimalaya-pgp`
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum PgpConfig {
-    /// No configuration.
-    #[default]
-    None,
-
-    /// Native configuration.
-    Native(PgpNativeConfig),
-
-    #[cfg(feature = "gpg")]
-    /// GPG configuration.
-    Gpg(GpgConfig),
-}
-
-impl Into<Pgp> for PgpConfig {
-    fn into(self) -> Pgp {
-        match self {
-            Self::None => Pgp::None,
-            Self::Native(config) => config.into(),
-            #[cfg(feature = "gpg")]
-            Self::Gpg(config) => config.into(),
-        }
-    }
-}
-
-impl PgpConfig {
-    pub async fn reset(&self) -> Result<()> {
-        match self {
-            Self::None => Ok(()),
-            Self::Native(config) => config.reset().await,
-            #[cfg(feature = "gpg")]
-            Self::Gpg(..) => Ok(()),
-        }
-    }
-
-    pub async fn configure(
-        &self,
-        email: impl ToString,
-        passwd: impl Fn() -> io::Result<String>,
-    ) -> Result<()> {
-        match self {
-            Self::None => Ok(()),
-            Self::Native(config) => config.configure(email, passwd).await,
-            #[cfg(feature = "gpg")]
-            Self::Gpg(..) => Ok(()),
-        }
-    }
-}
-
 /// The native PGP configuration.
 ///
 /// This configuration is based on the [`pgp`] crate, which provides a
 /// native Rust implementation of the PGP standard.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PgpNativeConfig {
-    pub secret_key: PgpNativeSecretKey,
+pub struct NativePgpConfig {
+    pub secret_key: NativePgpSecretKey,
     pub secret_key_passphrase: Secret,
     pub wkd: bool,
     pub key_servers: Vec<String>,
 }
 
-impl PgpNativeConfig {
+impl NativePgpConfig {
     pub fn default_wkd() -> bool {
         true
     }
@@ -123,9 +60,9 @@ impl PgpNativeConfig {
     /// Deletes secret and public keys.
     pub async fn reset(&self) -> Result<()> {
         match &self.secret_key {
-            PgpNativeSecretKey::None => (),
-            PgpNativeSecretKey::Raw(..) => (),
-            PgpNativeSecretKey::Path(path) => {
+            NativePgpSecretKey::None => (),
+            NativePgpSecretKey::Raw(..) => (),
+            NativePgpSecretKey::Path(path) => {
                 if let Some(path) = path.as_path().to_str() {
                     let path_str = match shellexpand::full(path) {
                         Ok(path) => path.to_string(),
@@ -149,7 +86,7 @@ impl PgpNativeConfig {
                     warn!("cannot get pgp key file path as str: {path:?}");
                 }
             }
-            PgpNativeSecretKey::Keyring(entry) => entry
+            NativePgpSecretKey::Keyring(entry) => entry
                 .delete_secret()
                 .map_err(Error::DeletePgpKeyFromKeyringError)?,
         };
@@ -177,9 +114,9 @@ impl PgpNativeConfig {
             .map_err(Error::ExportPublicKeyToArmoredStringError)?;
 
         match &self.secret_key {
-            PgpNativeSecretKey::None => (),
-            PgpNativeSecretKey::Raw(_) => (),
-            PgpNativeSecretKey::Path(skey_path) => {
+            NativePgpSecretKey::None => (),
+            NativePgpSecretKey::Raw(_) => (),
+            NativePgpSecretKey::Path(skey_path) => {
                 let skey_path = skey_path.to_string_lossy().to_string();
                 let skey_path = match shellexpand::full(&skey_path) {
                     Ok(path) => PathBuf::from(path.to_string()),
@@ -198,7 +135,7 @@ impl PgpNativeConfig {
                     .await
                     .map_err(|err| Error::WritePublicKeyFileError(err, pkey_path))?;
             }
-            PgpNativeSecretKey::Keyring(skey_entry) => {
+            NativePgpSecretKey::Keyring(skey_entry) => {
                 let pkey_entry = Entry::from(skey_entry.get_key().to_owned() + "-pub");
 
                 skey_entry
@@ -214,7 +151,7 @@ impl PgpNativeConfig {
     }
 }
 
-impl Default for PgpNativeConfig {
+impl Default for NativePgpConfig {
     fn default() -> Self {
         Self {
             secret_key: Default::default(),
@@ -225,35 +162,24 @@ impl Default for PgpNativeConfig {
     }
 }
 
-impl Into<Pgp> for PgpNativeConfig {
+impl Into<Pgp> for NativePgpConfig {
     fn into(self) -> Pgp {
         let public_keys_resolvers = {
             let mut resolvers = vec![];
 
             if self.wkd {
-                resolvers.push(PgpNativePublicKeysResolver::Wkd)
+                resolvers.push(NativePgpPublicKeysResolver::Wkd)
             }
 
-            resolvers.push(PgpNativePublicKeysResolver::KeyServers(self.key_servers));
+            resolvers.push(NativePgpPublicKeysResolver::KeyServers(self.key_servers));
 
             resolvers
         };
 
-        Pgp::Native(PgpNative {
+        Pgp::Native(NativePgp {
             secret_key: self.secret_key,
             secret_key_passphrase: self.secret_key_passphrase,
             public_keys_resolvers,
         })
-    }
-}
-
-#[cfg(feature = "gpg")]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct GpgConfig;
-
-#[cfg(feature = "gpg")]
-impl Into<Pgp> for GpgConfig {
-    fn into(self) -> Pgp {
-        Pgp::Gpg(Gpg { home_dir: None })
     }
 }
