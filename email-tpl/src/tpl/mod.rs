@@ -3,8 +3,13 @@ pub mod interpreter;
 
 pub use interpreter::{Interpreter as TplInterpreter, ShowHeadersStrategy};
 
-use mail_builder::{headers::raw::Raw, MessageBuilder};
-use mail_parser::Message;
+use mail_builder::{
+    headers::{
+        address::Address, content_type::ContentType, date::Date, raw::Raw, text::Text, HeaderType,
+    },
+    MessageBuilder,
+};
+use mail_parser::{HeaderValue, Message};
 use std::{
     io,
     ops::{Deref, DerefMut},
@@ -99,14 +104,115 @@ impl Tpl {
             .compile(&mml)
             .await?;
 
-        builder = builder.header("MIME-Version", Raw::new("1.0"));
+        builder = builder.header("MIME-Version", Text::new("1.0"));
 
-        for (key, val) in tpl.headers_raw() {
-            let key = key.trim().to_owned();
-            let val = Raw::new(val.trim().to_owned());
+        for header in tpl.headers() {
+            let key = header.name.as_str().to_owned();
+            let val: HeaderType = match header.value.clone().into_owned() {
+                HeaderValue::Address(addr) => match addr.address {
+                    Some(email) => Address::new_address(addr.name, email).into(),
+                    None => Raw::new("").into(),
+                },
+                HeaderValue::AddressList(addrs) => Address::new_list(
+                    addrs
+                        .into_iter()
+                        .filter_map(|addr| {
+                            addr.address
+                                .map(|email| Address::new_address(addr.name, email))
+                        })
+                        .collect(),
+                )
+                .into(),
+                HeaderValue::Group(group) => Address::new_group(
+                    group.name,
+                    group
+                        .addresses
+                        .into_iter()
+                        .filter_map(|addr| {
+                            addr.address
+                                .map(|email| Address::new_address(addr.name, email))
+                        })
+                        .collect(),
+                )
+                .into(),
+                HeaderValue::GroupList(groups) => Address::new_list(
+                    groups
+                        .into_iter()
+                        .map(|group| {
+                            Address::new_group(
+                                group.name,
+                                group
+                                    .addresses
+                                    .into_iter()
+                                    .filter_map(|addr| {
+                                        addr.address
+                                            .map(|email| Address::new_address(addr.name, email))
+                                    })
+                                    .collect(),
+                            )
+                        })
+                        .collect(),
+                )
+                .into(),
+                HeaderValue::Text(text) => Text::new(text).into(),
+                HeaderValue::TextList(texts) => Text::new(texts.join(" ")).into(),
+                HeaderValue::DateTime(date) => Date::new(date.to_timestamp()).into(),
+                HeaderValue::ContentType(ctype) => {
+                    let mut final_ctype = ContentType::new(ctype.c_type);
+                    if let Some(attrs) = ctype.attributes {
+                        for (key, val) in attrs {
+                            final_ctype = final_ctype.attribute(key, val);
+                        }
+                    }
+                    final_ctype.into()
+                }
+                HeaderValue::Empty => Raw::new("").into(),
+            };
             builder = builder.header(key, val);
         }
 
         Ok(builder)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use concat_with::concat_line;
+
+    use crate::TplInterpreter;
+
+    use super::Tpl;
+
+    #[tokio::test]
+    async fn non_ascii_headers() {
+        let tpl = Tpl::from(concat_line!(
+            "Message-ID: <id@localhost>",
+            "Date: Thu, 1 Jan 1970 00:00:00 +0000",
+            "From: Frȯm <from@localhost>",
+            "To: Tó <to@localhost>",
+            "Subject: Subjêct",
+            "",
+            "Hello, world!",
+            "",
+        ));
+
+        let mime_msg = tpl.compile().await.unwrap();
+
+        let tpl = TplInterpreter::new()
+            .with_show_only_headers(["From", "To", "Subject"])
+            .interpret_msg_builder(mime_msg)
+            .await
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: Frȯm <from@localhost>",
+            "To: Tó <to@localhost>",
+            "Subject: Subjêct",
+            "",
+            "Hello, world!",
+            "",
+        );
+
+        assert_eq!(*tpl, expected_tpl);
     }
 }
