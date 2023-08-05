@@ -6,9 +6,12 @@ pub mod tpl;
 
 pub use self::{
     mml::FilterParts,
-    pgp::{Gpg, Pgp, PgpNative, PgpNativePublicKeysResolver, PgpNativeSecretKey, SignedSecretKey},
+    pgp::{Pgp, PgpNative, PgpNativePublicKeysResolver, PgpNativeSecretKey, SignedSecretKey},
     tpl::{ShowHeadersStrategy, Tpl, TplInterpreter},
 };
+
+#[cfg(feature = "gpg")]
+pub use self::pgp::Gpg;
 
 /// The global `Error` enum of the library.
 #[derive(Debug, thiserror::Error)]
@@ -22,9 +25,15 @@ pub enum Error {
     #[error(transparent)]
     InterpretMmlError(#[from] mml::interpreter::Error),
     #[error(transparent)]
+    KeyringError(#[from] pimalaya_keyring::Error),
+
+    #[error(transparent)]
     PgpError(#[from] pgp::Error),
     #[error(transparent)]
-    KeyringError(#[from] pimalaya_keyring::Error),
+    PgpNativeError(#[from] pgp::native::Error),
+    #[cfg(feature = "gpg")]
+    #[error(transparent)]
+    GpgError(#[from] pgp::gpg::Error),
 
     #[error(transparent)]
     PimalayaPgpError(#[from] pimalaya_pgp::Error),

@@ -23,6 +23,9 @@ use crate::{
     Result,
 };
 
+#[cfg(feature = "gpg")]
+#[doc(inline)]
+pub use self::pgp::GpgConfig;
 #[doc(inline)]
 pub use self::{
     oauth2::{OAuth2Config, OAuth2Method, OAuth2Scopes},

@@ -11,6 +11,10 @@ keywords = ["email", "template", "mml", "emacs", "mime"]
 [lib]
 name = "pimalaya_email_tpl"
 
+[features]
+default = []
+gpg = ["gpgme"]
+
 [dev-dependencies]
 concat-with = "0.2"
 env_logger = "0.10"
@@ -30,3 +34,5 @@ pimalaya-secret = { path = "../secret" }
 shellexpand = "2.1"
 thiserror = "1.0"
 tree_magic = "0.2"
+
+gpgme = { version = "0.11", optional = true }

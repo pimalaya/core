@@ -20,6 +20,7 @@ default = ["imap-backend", "smtp-sender"]
 # backends
 imap-backend = ["imap", "imap-proto", "utf7-imap"]
 notmuch-backend = ["notmuch"]
+gpg = ["pimalaya-email-tpl/gpg"]
 
 # senders
 smtp-sender = ["mail-send"]
@@ -46,7 +47,7 @@ maildirpp = "=0.0.2"
 md5 = "0.7.0"
 once_cell = "1.*"
 ouroboros = "0.15"
-pimalaya-email-tpl = { path = "../email-tpl" }
+pimalaya-email-tpl = { path = "../email-tpl", default-features = false }
 pimalaya-keyring = { path = "../keyring" }
 pimalaya-oauth2 = { path = "../oauth2" }
 pimalaya-pgp = { path = "../pgp" }

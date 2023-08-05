@@ -5,6 +5,10 @@
 #[doc(inline)]
 pub use pimalaya_email_tpl::{PgpNativeSecretKey, SignedSecretKey};
 
+#[cfg(feature = "gpg")]
+#[doc(inline)]
+pub use pimalaya_email_tpl::Gpg;
+
 use log::{debug, warn};
 use pimalaya_email_tpl::{Pgp, PgpNative, PgpNativePublicKeysResolver};
 use pimalaya_keyring::Entry;
@@ -51,6 +55,10 @@ pub enum PgpConfig {
 
     /// Native configuration.
     Native(PgpNativeConfig),
+
+    #[cfg(feature = "gpg")]
+    /// GPG configuration.
+    Gpg(GpgConfig),
 }
 
 impl Into<Pgp> for PgpConfig {
@@ -58,6 +66,8 @@ impl Into<Pgp> for PgpConfig {
         match self {
             Self::None => Pgp::None,
             Self::Native(config) => config.into(),
+            #[cfg(feature = "gpg")]
+            Self::Gpg(config) => config.into(),
         }
     }
 }
@@ -67,6 +77,8 @@ impl PgpConfig {
         match self {
             Self::None => Ok(()),
             Self::Native(config) => config.reset().await,
+            #[cfg(feature = "gpg")]
+            Self::Gpg(..) => Ok(()),
         }
     }
 
@@ -78,6 +90,8 @@ impl PgpConfig {
         match self {
             Self::None => Ok(()),
             Self::Native(config) => config.configure(email, passwd).await,
+            #[cfg(feature = "gpg")]
+            Self::Gpg(..) => Ok(()),
         }
     }
 }
@@ -230,5 +244,16 @@ impl Into<Pgp> for PgpNativeConfig {
             secret_key_passphrase: self.secret_key_passphrase,
             public_keys_resolvers,
         })
+    }
+}
+
+#[cfg(feature = "gpg")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GpgConfig;
+
+#[cfg(feature = "gpg")]
+impl Into<Pgp> for GpgConfig {
+    fn into(self) -> Pgp {
+        Pgp::Gpg(Gpg { home_dir: None })
     }
 }

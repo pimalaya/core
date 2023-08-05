@@ -14,7 +14,7 @@ use tokio::{
 };
 
 #[tokio::test]
-async fn pgp() {
+async fn native() {
     env_logger::builder().is_test(true).init();
 
     let dir = tempdir().unwrap();

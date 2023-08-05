@@ -1,9 +1,8 @@
 #[doc(inline)]
-pub use pimalaya_pgp::SignedSecretKey;
+pub use pimalaya_pgp::{SignedPublicKey, SignedSecretKey};
 
 use log::{debug, warn};
 use pimalaya_keyring::Entry;
-use pimalaya_pgp::SignedPublicKey;
 use pimalaya_secret::Secret;
 use std::{collections::HashSet, path::PathBuf};
 use thiserror::Error;
@@ -19,15 +18,6 @@ pub enum Error {
     #[error("cannot read pgp secret key from path {1}")]
     ReadSecretKeyFromPathError(pimalaya_pgp::Error, PathBuf),
 
-    #[error("cannot encrypt data using pgp: pgp not configured")]
-    PgpEncryptNoneError,
-    #[error("cannot decrypt data using pgp: pgp not configured")]
-    PgpDecryptNoneError,
-    #[error("cannot sign data using pgp: pgp not configured")]
-    PgpSignNoneError,
-    #[error("cannot verify data using pgp: pgp not configured")]
-    PgpVerifyNoneError,
-
     #[error("cannot get pgp secret key passphrase")]
     GetPgpSecretKeyPassphraseError(#[source] pimalaya_secret::Error),
 
@@ -41,57 +31,6 @@ pub enum Error {
     SignNativePgpError(#[source] pimalaya_pgp::Error),
     #[error("cannot read native pgp signature")]
     ReadNativePgpSignatureError(#[source] pimalaya_pgp::Error),
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum Pgp {
-    #[default]
-    None,
-    Native(PgpNative),
-    Gpg(Gpg),
-}
-
-impl Pgp {
-    pub async fn encrypt(
-        &self,
-        emails: impl IntoIterator<Item = String>,
-        data: Vec<u8>,
-    ) -> Result<Vec<u8>> {
-        match self {
-            Self::None => Ok(Err(Error::PgpEncryptNoneError)?),
-            Self::Native(native) => native.encrypt(emails, data).await,
-            Self::Gpg(gpg) => gpg.encrypt(emails, data).await,
-        }
-    }
-
-    pub async fn decrypt(&self, email: impl ToString, data: Vec<u8>) -> Result<Vec<u8>> {
-        match self {
-            Self::None => Ok(Err(Error::PgpDecryptNoneError)?),
-            Self::Native(native) => native.decrypt(email, data).await,
-            Self::Gpg(gpg) => gpg.decrypt(email, data).await,
-        }
-    }
-
-    pub async fn sign(&self, email: impl ToString, data: Vec<u8>) -> Result<Vec<u8>> {
-        match self {
-            Self::None => Ok(Err(Error::PgpSignNoneError)?),
-            Self::Native(native) => native.sign(email, data).await,
-            Self::Gpg(gpg) => gpg.sign(email, data).await,
-        }
-    }
-
-    pub async fn verify(
-        &self,
-        email: impl AsRef<str>,
-        sig: Vec<u8>,
-        data: Vec<u8>,
-    ) -> Result<bool> {
-        match self {
-            Self::None => Ok(Err(Error::PgpVerifyNoneError)?),
-            Self::Native(native) => native.verify(email, sig, data).await,
-            Self::Gpg(gpg) => gpg.verify(email, sig, data).await,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -150,7 +89,7 @@ pub struct PgpNative {
 }
 
 impl PgpNative {
-    async fn encrypt(
+    pub async fn encrypt(
         &self,
         emails: impl IntoIterator<Item = String>,
         data: Vec<u8>,
@@ -230,7 +169,7 @@ impl PgpNative {
         Ok(data)
     }
 
-    async fn decrypt(&self, email: impl ToString, data: Vec<u8>) -> Result<Vec<u8>> {
+    pub async fn decrypt(&self, email: impl ToString, data: Vec<u8>) -> Result<Vec<u8>> {
         let skey = self.secret_key.get(email).await?;
         let passphrase = self
             .secret_key_passphrase
@@ -243,7 +182,7 @@ impl PgpNative {
         Ok(data)
     }
 
-    async fn sign(&self, email: impl ToString, data: Vec<u8>) -> Result<Vec<u8>> {
+    pub async fn sign(&self, email: impl ToString, data: Vec<u8>) -> Result<Vec<u8>> {
         let skey = self.secret_key.get(email).await?;
         let passphrase = self
             .secret_key_passphrase
@@ -256,7 +195,12 @@ impl PgpNative {
         Ok(data)
     }
 
-    async fn verify(&self, email: impl AsRef<str>, sig: Vec<u8>, data: Vec<u8>) -> Result<bool> {
+    pub async fn verify(
+        &self,
+        email: impl AsRef<str>,
+        sig: Vec<u8>,
+        data: Vec<u8>,
+    ) -> Result<bool> {
         let email = email.as_ref();
         let mut pkey_found = None;
 
@@ -318,32 +262,5 @@ impl PgpNative {
             warn!("cannot verify data using native pgp");
             Ok(false)
         }
-    }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Gpg {
-    //
-}
-
-impl Gpg {
-    async fn encrypt(
-        &self,
-        _emails: impl IntoIterator<Item = String>,
-        _data: Vec<u8>,
-    ) -> Result<Vec<u8>> {
-        todo!();
-    }
-
-    async fn decrypt(&self, _email: impl ToString, _data: Vec<u8>) -> Result<Vec<u8>> {
-        todo!();
-    }
-
-    async fn sign(&self, _email: impl ToString, _data: Vec<u8>) -> Result<Vec<u8>> {
-        todo!();
-    }
-
-    async fn verify(&self, _email: impl AsRef<str>, _sig: Vec<u8>, _data: Vec<u8>) -> Result<bool> {
-        todo!();
     }
 }

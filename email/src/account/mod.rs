@@ -8,6 +8,9 @@
 pub mod config;
 pub mod sync;
 
+#[cfg(feature = "gpg")]
+#[doc(inline)]
+pub use self::config::GpgConfig;
 #[doc(inline)]
 pub use self::config::{
     AccountConfig, OAuth2Config, OAuth2Method, OAuth2Scopes, PasswdConfig, PgpConfig,
