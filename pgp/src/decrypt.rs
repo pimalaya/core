@@ -1,4 +1,7 @@
 //! Module dedicated to PGP decryption.
+//!
+//! This module exposes a simple function [`decrypt`] and its
+//! associated [`Error`]s.
 
 use pgp::{Deserializable, Message, SignedSecretKey};
 use std::io::Cursor;
@@ -7,7 +10,7 @@ use tokio::task;
 
 use crate::Result;
 
-/// Errors related to PGP.
+/// Errors related to PGP decryption.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot import armored pgp message")]
@@ -18,24 +21,24 @@ pub enum Error {
     DecompressMessageError(#[source] pgp::errors::Error),
     #[error("cannot get pgp message content")]
     GetMessageContentError(#[source] pgp::errors::Error),
-    #[error("cannot get pgp message content: content is empty")]
+    #[error("cannot get empty pgp message content")]
     GetMessageContentEmptyError,
-    #[error("cannot get pgp message")]
+    #[error("cannot get empty pgp message")]
     GetMessageEmptyError,
 }
 
-/// Decrypts data using the given secret key.
+/// Decrypts bytes using the given secret key and its passphrase.
 pub async fn decrypt(
     skey: SignedSecretKey,
-    passwd: impl ToString,
-    data: Vec<u8>,
+    passphrase: impl ToString,
+    encrypted_bytes: Vec<u8>,
 ) -> Result<Vec<u8>> {
-    let passwd = passwd.to_string();
+    let passphrase = passphrase.to_string();
     task::spawn_blocking(move || {
-        let (msg, _) = Message::from_armor_single(Cursor::new(&data))
+        let (msg, _) = Message::from_armor_single(Cursor::new(&encrypted_bytes))
             .map_err(Error::ImportMessageFromArmorError)?;
         let (decryptor, _) = msg
-            .decrypt(|| passwd, &[&skey])
+            .decrypt(|| passphrase, &[&skey])
             .map_err(Error::DecryptMessageError)?;
         let msgs = decryptor
             .collect::<pgp::errors::Result<Vec<_>>>()
@@ -43,12 +46,12 @@ pub async fn decrypt(
         let msg = msgs.into_iter().next().ok_or(Error::GetMessageEmptyError)?;
         let msg = msg.decompress().map_err(Error::DecompressMessageError)?;
 
-        let content = msg
+        let plain_bytes = msg
             .get_content()
             .map_err(Error::GetMessageContentError)?
             .ok_or(Error::GetMessageContentEmptyError)?;
 
-        Ok(content)
+        Ok(plain_bytes)
     })
     .await?
 }

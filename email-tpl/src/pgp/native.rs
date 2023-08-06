@@ -23,8 +23,10 @@ pub enum Error {
     #[error("cannot get pgp secret key from keyring")]
     GetPgpSecretKeyFromKeyringError(#[source] pimalaya_keyring::Error),
 
-    #[error("cannot get native pgp secret key")]
-    GetNativePgpSecretKeyNoneError,
+    #[error("cannot get native pgp secret key of {0}")]
+    GetNativePgpSecretKeyNoneError(String),
+    #[error("cannot find native pgp public key of {0}")]
+    FindPgpPublicKeyError(String),
     #[error("cannot encrypt data using native pgp")]
     EncryptNativePgpError(#[source] pimalaya_pgp::Error),
     #[error("cannot decrypt data using native pgp")]
@@ -49,12 +51,15 @@ pub enum NativePgpSecretKey {
 }
 
 impl NativePgpSecretKey {
-    // FIXME: use the sender from the template instead of the PGP
+    // FIXME: use the recipient from the template instead of the PGP
     // config. This can be done once the `pimalaya_pgp` module can
     // manage both secret and public keys.
-    pub async fn get(&self, _sender: impl ToString) -> Result<SignedSecretKey> {
+    pub async fn get(&self, recipient: impl ToString) -> Result<SignedSecretKey> {
+        let recipient = recipient.to_string();
         match self {
-            Self::None => Ok(Err(Error::GetNativePgpSecretKeyNoneError)?),
+            Self::None => Ok(Err(Error::GetNativePgpSecretKeyNoneError(
+                recipient.clone(),
+            ))?),
             Self::Raw(skey) => Ok(skey.clone()),
             Self::Path(path) => {
                 let path = path.to_string_lossy().to_string();
@@ -207,12 +212,7 @@ impl NativePgp {
         Ok(data)
     }
 
-    pub async fn verify(
-        &self,
-        email: impl AsRef<str>,
-        sig: Vec<u8>,
-        data: Vec<u8>,
-    ) -> Result<bool> {
+    pub async fn verify(&self, email: impl AsRef<str>, sig: Vec<u8>, data: Vec<u8>) -> Result<()> {
         let email = email.as_ref();
         let mut pkey_found = None;
 
@@ -263,18 +263,14 @@ impl NativePgp {
             }
         }
 
-        if let Some(pkey) = pkey_found {
-            let sig = pimalaya_pgp::read_sig_from_bytes(sig)
-                .await
-                .map_err(Error::ReadNativePgpSignatureError)?;
-            let verify = pimalaya_pgp::verify(pkey, sig, data)
-                .await
-                .map_err(Error::VerifyNativePgpSignatureError)?;
-            Ok(verify)
-        } else {
-            warn!("cannot find pgp public key for {email}");
-            warn!("cannot verify data using native pgp");
-            Ok(false)
-        }
+        let pkey = pkey_found.ok_or(Error::FindPgpPublicKeyError(email.to_owned()))?;
+        let sig = pimalaya_pgp::read_sig_from_bytes(sig)
+            .await
+            .map_err(Error::ReadNativePgpSignatureError)?;
+        pimalaya_pgp::verify(pkey, sig, data)
+            .await
+            .map_err(Error::VerifyNativePgpSignatureError)?;
+
+        Ok(())
     }
 }

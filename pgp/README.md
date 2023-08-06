@@ -1,21 +1,26 @@
-# 🔐 pimalaya-keyring
+# 🔐 pimalaya-pgp
 
-Rust library to manage keyring for the Pimalaya project.
+Rust library to simplify native PGP operations, based on [rPGP](https://crates.io/crates/pgp).
 
-See the full [API documentation](https://docs.rs/pimalaya-keyring/latest/pimalaya_keyring/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/keyring/examples).
+## Features
 
-*The project is under active development. Do not use in production before the `v1.0.0`.*
+- Encrypts asynchronously bytes using multiple public keys
+- Decrypts asynchronously bytes using a secret key and its passphrase
+- Signs asynchronously bytes using a secret key and its passphrase
+- Verifies asynchronously bytes using a public key and a standalone signature
+- Finds public keys matching emails using [WKD](https://wiki.gnupg.org/WKD) and [Key Servers](https://en.wikipedia.org/wiki/Key_server_(cryptographic)) (HTTP and HKP protocols supported)
+- Provides helpers to generate a key pair, to read secret/public keys from path, to read signature from bytes etc.
 
 ## Development
 
-The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`, `notmuch`…
+The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`…
 
 ```sh
 # Start a Nix shell
 $ nix-shell
 
 # then build the lib
-$ cargo build -p pimalaya-keyring
+$ cargo build -p pimalaya-pgp
 ```
 
 ## Contributing

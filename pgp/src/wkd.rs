@@ -1,14 +1,16 @@
-//! OpenPGP Web Key Directory client.
+//! Module dedicated to Web Key Directory.
 //!
-//! A Web Key Directory is a Web service that can be queried with email
-//! addresses to obtain the associated OpenPGP keys.
+//! Since HKP is just HTTP, this module only contains a function that
+//! formats a given URI to match [HKP specs].
 //!
-//! It is specified in [draft-koch].
+//! A [Web Key Directory] is a Web service that can be queried with
+//! email addresses to obtain the associated OpenPGP keys.
 //!
-//! See the [get example].
+//! This module has been heavily inspired by the great work from the
+//! [sequoia] team.
 //!
-//! [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service
-//! [get example]: get#examples
+//! [Web Key Directory]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service
+//! [sequoia]: https://gitlab.com/sequoia-pgp/sequoia
 
 use async_recursion::async_recursion;
 use futures::{stream, StreamExt};
@@ -63,31 +65,32 @@ impl EmailAddress {
     /// ID are mapped to lowercase.  Non-ASCII characters are not changed.
     ///```
     pub fn from(email_address: impl AsRef<str>) -> Result<Self> {
-        // Ensure that is a valid email address by parsing it and return the
-        // errors that it returns.
-        // This is also done in hagrid.
+        // Ensure that is a valid email address by parsing it and
+        // return the errors that it returns. This is also done in
+        // hagrid.
         let email_address = email_address.as_ref();
         let v: Vec<&str> = email_address.split('@').collect();
         if v.len() != 2 {
             return Ok(Err(Error::ParseEmailAddressError(email_address.into()))?);
         };
 
-        // Convert domain to lowercase without tailoring, i.e. without taking any
-        // locale into account. See:
-        // https://doc.rust-lang.org/std/primitive.str.html#method.to_lowercase
+        // Convert domain to lowercase without tailoring, i.e. without
+        // taking any locale into account.
+        // See <https://doc.rust-lang.org/std/primitive.str.html#method.to_lowercase>.
         //
         // Keep the local part as-is as we'll need that to generate WKD URLs.
         let email = EmailAddress {
             local_part: v[0].to_string(),
             domain: v[1].to_lowercase(),
         };
+
         Ok(email)
     }
 }
 
 /// WKD variants.
 ///
-/// There are two variants of the URL scheme.  `Advanced` should be
+/// There are two variants of the URL scheme. `Advanced` should be
 /// preferred.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Variant {
@@ -96,6 +99,7 @@ enum Variant {
     /// This method uses a separate subdomain and is more flexible.
     /// This method should be preferred.
     Advanced,
+
     /// Direct variant.
     ///
     /// This method is deprecated.
@@ -218,23 +222,23 @@ async fn get_following_redirects(
     Ok(response.map_err(Error::ParseResponseError)?)
 }
 
-/// Retrieves the Certs that contain userids with a given email address
-/// from a Web Key Directory URL.
+/// Retrieves the Certs that contain userids with a given email
+/// address from a Web Key Directory URL.
 ///
 /// From [draft-koch]:
 ///
 /// ```text
-/// There are two variants on how to form the request URI: The advanced
-/// and the direct method. Implementations MUST first try the advanced
-/// method. Only if the required sub-domain does not exist, they SHOULD
-/// fall back to the direct method.
+/// There are two variants on how to form the request URI: The
+/// advanced and the direct method. Implementations MUST first try the
+/// advanced method. Only if the required sub-domain does not exist,
+/// they SHOULD fall back to the direct method.
 ///
-/// [...]
+/// […]
 ///
 /// The HTTP GET method MUST return the binary representation of the
 /// OpenPGP key for the given mail address.
 ///
-/// [...]
+/// […]
 ///
 /// Note that the key may be revoked or expired - it is up to the
 /// client to handle such conditions. To ease distribution of revoked
@@ -244,20 +248,6 @@ async fn get_following_redirects(
 /// ```
 ///
 /// [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service/#section-3.1
-/// # Examples
-///
-/// ```ignore,no_run
-/// # use sequoia_net::{Result, wkd};
-/// # use sequoia_openpgp::Cert;
-/// # async fn f() -> Result<()> {
-/// let email_address = "foo@bar.baz";
-/// let certs: Vec<Cert> = wkd::get(&email_address).await?;
-/// # Ok(())
-/// # }
-/// ```
-
-// XXX: Maybe the direct method should be tried on other errors too.
-// https://mailarchive.ietf.org/arch/msg/openpgp/6TxZc2dQFLKXtS0Hzmrk963EteE
 async fn get(
     client: &Client<HttpsConnector<HttpConnector>>,
     email: &String,

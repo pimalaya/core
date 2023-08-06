@@ -1,32 +1,32 @@
-//! Module dedicated to PGP verify.
+//! Module dedicated to PGP verification.
+//!
+//! This module exposes a simple function [`verify`] and its
+//! associated [`Error`]s.
 
-use log::{debug, warn};
 use pgp::{SignedPublicKey, StandaloneSignature};
 use thiserror::Error;
 use tokio::task;
 
 use crate::Result;
 
-/// Errors related to PGP.
+/// Errors related to PGP verification.
 #[derive(Debug, Error)]
 pub enum Error {
-    //
+    #[error("cannot verify pgp signature")]
+    VerifySignatureError(#[source] pgp::errors::Error),
 }
 
-/// Verifies a standalone signature using the given public key.
+/// Verifies given standalone signature using the given public key.
 pub async fn verify(
     pkey: SignedPublicKey,
-    sig: StandaloneSignature,
-    data: Vec<u8>,
-) -> Result<bool> {
+    signature: StandaloneSignature,
+    signed_bytes: Vec<u8>,
+) -> Result<()> {
     task::spawn_blocking(move || {
-        if let Err(err) = sig.verify(&pkey, &data) {
-            warn!("cannot verify message signature: {err}");
-            debug!("cannot verify message signature: {err:?}");
-            Ok(false)
-        } else {
-            Ok(true)
-        }
+        signature
+            .verify(&pkey, &signed_bytes)
+            .map_err(Error::VerifySignatureError)?;
+        Ok(())
     })
     .await?
 }
@@ -42,6 +42,6 @@ mod tests {
         let raw_sig = sign(skey, "", msg.clone()).await.unwrap();
         let sig = read_sig_from_bytes(raw_sig).await.unwrap();
 
-        assert_eq!(verify(pkey, sig, msg).await.unwrap(), true);
+        assert_eq!(verify(pkey, sig, msg).await.unwrap(), ());
     }
 }

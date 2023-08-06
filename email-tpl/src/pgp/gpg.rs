@@ -107,7 +107,7 @@ impl Gpg {
         Ok(signed_bytes)
     }
 
-    pub async fn verify(&self, signature_bytes: Vec<u8>, signed_bytes: Vec<u8>) -> Result<bool> {
+    pub async fn verify(&self, signature_bytes: Vec<u8>, signed_bytes: Vec<u8>) -> Result<()> {
         let mut ctx = self.get_context()?;
 
         let res = ctx
@@ -115,6 +115,6 @@ impl Gpg {
             .map_err(Error::SignError)?;
         trace!("verify result: {res:#?}");
 
-        Ok(true)
+        Ok(())
     }
 }

@@ -198,7 +198,7 @@ impl Interpreter {
         Ok(tpl)
     }
 
-    async fn verify_msg(&self, msg: &Message<'_>, ids: &[usize]) -> Result<bool> {
+    async fn verify_msg(&self, msg: &Message<'_>, ids: &[usize]) -> Result<()> {
         let signed_part = msg.part(ids[0]).unwrap();
         let signed_part_bytes = msg.raw_message
             [signed_part.raw_header_offset()..signed_part.raw_end_offset()]
@@ -211,11 +211,11 @@ impl Interpreter {
             .pgp_recipient
             .as_ref()
             .ok_or(Error::PgpDecryptMissingRecipientError)?;
-        let verify = self
-            .pgp
+        self.pgp
             .verify(recipient, signature_bytes, signed_part_bytes)
             .await?;
-        Ok(verify)
+
+        Ok(())
     }
 
     fn interpret_attachment(&self, ctype: &str, part: &MessagePart, data: &[u8]) -> Result<String> {
@@ -424,11 +424,8 @@ impl Interpreter {
             }
             PartType::Multipart(ids) if ctype == "multipart/signed" => {
                 match self.verify_msg(msg, &ids).await {
-                    Ok(true) => {
+                    Ok(()) => {
                         debug!("email part successfully verified using pgp");
-                    }
-                    Ok(false) => {
-                        warn!("cannot verify email part using pgp");
                     }
                     Err(err) => {
                         warn!("cannot verify email part using pgp: {err}");

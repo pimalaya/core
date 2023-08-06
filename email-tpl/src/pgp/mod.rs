@@ -107,7 +107,7 @@ impl Pgp {
         recipient: impl AsRef<str>,
         signature_bytes: Vec<u8>,
         signed_bytes: Vec<u8>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let recipient = recipient.as_ref();
         debug!("verifying signature for {recipient} using pgp");
         let signature_str = String::from_utf8_lossy(&signature_bytes);

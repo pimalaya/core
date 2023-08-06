@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub mod decrypt;
 pub mod encrypt;
 pub mod hkp;
@@ -19,13 +21,13 @@ pub use self::{
     encrypt::encrypt,
     sign::sign,
     utils::{
-        gen_key_pair, read_sig_from_bytes, read_signed_public_key_from_path, read_skey_from_file,
+        gen_key_pair, read_pkey_from_path, read_sig_from_bytes, read_skey_from_file,
         read_skey_from_string,
     },
     verify::verify,
 };
 
-/// The global `Error` enum of the library.
+/// The global [`Error`] enum of the library.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
@@ -49,5 +51,5 @@ pub enum Error {
     JoinError(#[from] JoinError),
 }
 
-/// The global `Result` alias of the library.
+/// The global [`Result`] alias of the library.
 pub type Result<T> = std::result::Result<T, Error>;

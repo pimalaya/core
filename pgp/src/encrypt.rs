@@ -1,4 +1,7 @@
 //! Module dedicated to PGP encryption.
+//!
+//! This module exposes a simple function [`encrypt`] and its
+//! associated [`Error`]s.
 
 use pgp::{
     crypto::hash::HashAlgorithm,
@@ -12,7 +15,7 @@ use tokio::task;
 
 use crate::Result;
 
-/// Errors related to encryption.
+/// Errors related to PGP encryption.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot encrypt message using pgp")]
@@ -24,6 +27,9 @@ pub enum Error {
 }
 
 /// Wrapper around [`pgp`] public key types.
+///
+/// This enum is used to find the right encryption-capable public
+/// (sub)key.
 #[derive(Debug)]
 enum SignedPublicKeyOrSubkey<'a> {
     Key(&'a SignedPublicKey),
@@ -107,12 +113,12 @@ fn select_pkey_for_encryption(key: &SignedPublicKey) -> Option<SignedPublicKeyOr
         )
 }
 
-/// Encrypts data using the given public keys.
-pub async fn encrypt(pkeys: Vec<SignedPublicKey>, data: Vec<u8>) -> Result<Vec<u8>> {
+/// Encrypts given bytes using the given list of public keys.
+pub async fn encrypt(pkeys: Vec<SignedPublicKey>, plain_bytes: Vec<u8>) -> Result<Vec<u8>> {
     task::spawn_blocking(move || {
         let mut rng = thread_rng();
 
-        let lit_msg = Message::new_literal_bytes("", &data);
+        let msg = Message::new_literal_bytes("", &plain_bytes);
 
         let pkeys: Vec<SignedPublicKeyOrSubkey> = pkeys
             .iter()
@@ -120,7 +126,7 @@ pub async fn encrypt(pkeys: Vec<SignedPublicKey>, data: Vec<u8>) -> Result<Vec<u
             .collect();
         let pkeys_refs: Vec<&SignedPublicKeyOrSubkey> = pkeys.iter().collect();
 
-        let encrypted_msg = lit_msg
+        let encrypted_bytes = msg
             .compress(CompressionAlgorithm::ZLIB)
             .map_err(Error::CompressMessageError)?
             .encrypt_to_keys(&mut rng, Default::default(), &pkeys_refs)
@@ -128,7 +134,7 @@ pub async fn encrypt(pkeys: Vec<SignedPublicKey>, data: Vec<u8>) -> Result<Vec<u
             .to_armored_bytes(None)
             .map_err(Error::ExportEncryptedMessageToArmorError)?;
 
-        Ok(encrypted_msg)
+        Ok(encrypted_bytes)
     })
     .await?
 }

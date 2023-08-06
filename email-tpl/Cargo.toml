@@ -14,8 +14,8 @@ name = "pimalaya_email_tpl"
 [features]
 default = ["cmds-pgp"]
 cmds-pgp = ["pimalaya-process"]
-native-pgp = ["pimalaya-keyring", "pimalaya-pgp", "pimalaya-secret"]
 gpg = ["gpgme"]
+native-pgp = ["pimalaya-keyring", "pimalaya-pgp", "pimalaya-secret"]
 
 [dev-dependencies]
 concat-with = "0.2"

@@ -1,3 +1,8 @@
+//! Module dedicated to HTTP.
+//!
+//! The main purpose of this module is to get public keys belonging to
+//! given emails by contacting key servers.
+
 use futures::{stream, StreamExt};
 use hyper::{client::HttpConnector, http::uri::InvalidUri, Client, Uri};
 use hyper_rustls::HttpsConnector;
@@ -24,6 +29,8 @@ pub enum Error {
     FindPublicKeyError(String),
 }
 
+/// Calls the given key server in order to get the public key
+/// belonging to the given email address.
 async fn fetch(
     client: &Client<HttpsConnector<HttpConnector>>,
     email: &String,
@@ -36,6 +43,7 @@ async fn fetch(
 
     let uri = match uri.scheme_str() {
         Some("hkp") | Some("hkps") => hkp::format_key_server_uri(uri, email).unwrap(),
+        // TODO: manage file scheme
         _ => uri,
     };
 
@@ -55,6 +63,11 @@ async fn fetch(
     Ok(pkey)
 }
 
+/// Calls the given key servers synchronously and stops when a public
+/// key belonging to the given email address is found.
+///
+/// A better algorithm would be to contact asynchronously all key
+/// servers and to abort pending futures when a public key is found.
 async fn get(
     client: &Client<HttpsConnector<HttpConnector>>,
     email: &String,

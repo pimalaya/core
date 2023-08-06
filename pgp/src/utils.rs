@@ -1,3 +1,5 @@
+//! Module dedicated to PGP helpers.
+
 use pgp::{
     crypto::{hash::HashAlgorithm, sym::SymmetricKeyAlgorithm},
     types::{CompressionAlgorithm, SecretKeyTrait},
@@ -15,7 +17,7 @@ use tokio::task;
 
 use crate::Result;
 
-/// Errors related to configuration.
+/// Errors related to PGP helpers.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot build pgp secret key params")]
@@ -51,17 +53,17 @@ pub enum Error {
 }
 
 /// Generates a new pair of secret and public keys for the given email
-/// address.
+/// address and passphrase.
 pub async fn gen_key_pair(
     email: impl ToString,
-    passwd: impl ToString,
+    passphrase: impl ToString,
 ) -> Result<(SignedSecretKey, SignedPublicKey)> {
     let email = email.to_string();
-    let passwd = passwd.to_string();
-    let passwd = if passwd.trim().is_empty() {
+    let passphrase = passphrase.to_string();
+    let passphrase = if passphrase.trim().is_empty() {
         None
     } else {
-        Some(passwd)
+        Some(passphrase)
     };
 
     task::spawn_blocking(move || {
@@ -70,7 +72,7 @@ pub async fn gen_key_pair(
             .can_create_certificates(true)
             .can_sign(true)
             .primary_user_id(email)
-            .passphrase(passwd.clone())
+            .passphrase(passphrase.clone())
             .preferred_symmetric_algorithms(smallvec![SymmetricKeyAlgorithm::AES256])
             .preferred_hash_algorithms(smallvec![HashAlgorithm::SHA2_512])
             .preferred_compression_algorithms(smallvec![CompressionAlgorithm::ZLIB])
@@ -78,28 +80,28 @@ pub async fn gen_key_pair(
                 SubkeyParamsBuilder::default()
                     .key_type(KeyType::ECDH)
                     .can_encrypt(true)
-                    .passphrase(passwd)
+                    .passphrase(passphrase)
                     .build()
                     .map_err(Error::BuildPublicKeyParamsError)?,
             )
             .build()
             .map_err(Error::BuildSecretKeyParamsError)?;
 
-        let secret_key = key_params
+        let skey = key_params
             .generate()
             .map_err(Error::GenerateSecretKeyError)?;
-        let secret_key = secret_key
+        let skey = skey
             .sign(|| String::new())
             .map_err(Error::SignSecretKeyError)?;
-        secret_key.verify().map_err(Error::VerifySecretKeyError)?;
+        skey.verify().map_err(Error::VerifySecretKeyError)?;
 
-        let public_key = secret_key.public_key();
-        let public_key = public_key
-            .sign(&secret_key, || String::new())
+        let pkey = skey.public_key();
+        let pkey = pkey
+            .sign(&skey, || String::new())
             .map_err(Error::SignPublicKeyError)?;
-        public_key.verify().map_err(Error::VerifyPublicKeyError)?;
+        pkey.verify().map_err(Error::VerifyPublicKeyError)?;
 
-        Ok((secret_key, public_key))
+        Ok((skey, pkey))
     })
     .await?
 }
@@ -107,8 +109,8 @@ pub async fn gen_key_pair(
 /// Reads a signed public key from the given path.
 ///
 /// The given path needs to contain a single armored secret key,
-/// otherwise it will fail.
-pub async fn read_signed_public_key_from_path(path: PathBuf) -> Result<SignedPublicKey> {
+/// otherwise it fails.
+pub async fn read_pkey_from_path(path: PathBuf) -> Result<SignedPublicKey> {
     task::spawn_blocking(move || {
         let data =
             fs::read(&path).map_err(|err| Error::ReadArmoredPublicKeyError(err, path.clone()))?;
@@ -122,7 +124,7 @@ pub async fn read_signed_public_key_from_path(path: PathBuf) -> Result<SignedPub
 /// Reads a signed secret key from the given path.
 ///
 /// The given path needs to contain a single armored secret key,
-/// otherwise it will fail.
+/// otherwise it fails.
 pub async fn read_skey_from_file(path: PathBuf) -> Result<SignedSecretKey> {
     task::spawn_blocking(move || {
         let data = fs::read(&path)
@@ -137,10 +139,10 @@ pub async fn read_skey_from_file(path: PathBuf) -> Result<SignedSecretKey> {
 /// Reads a signed secret key from the given raw string.
 ///
 /// The given raw string needs to contain a single armored secret key,
-/// otherwise it will fail.
-pub async fn read_skey_from_string(data: String) -> Result<SignedSecretKey> {
+/// otherwise it fails.
+pub async fn read_skey_from_string(string: String) -> Result<SignedSecretKey> {
     task::spawn_blocking(move || {
-        let (skey, _) = SignedSecretKey::from_armor_single(Cursor::new(data))
+        let (skey, _) = SignedSecretKey::from_armor_single(Cursor::new(string))
             .map_err(Error::ParseArmoredSecretKeyFromStringError)?;
         Ok(skey)
     })
@@ -150,10 +152,10 @@ pub async fn read_skey_from_string(data: String) -> Result<SignedSecretKey> {
 /// Reads a standalone signature from the given raw bytes.
 ///
 /// The given raw bytes needs to match a single armored signature,
-/// otherwise it will fail.
-pub async fn read_sig_from_bytes(sig: Vec<u8>) -> Result<StandaloneSignature> {
+/// otherwise it fails.
+pub async fn read_sig_from_bytes(bytes: Vec<u8>) -> Result<StandaloneSignature> {
     task::spawn_blocking(move || {
-        let (sig, _) = StandaloneSignature::from_armor_single(Cursor::new(&sig))
+        let (sig, _) = StandaloneSignature::from_armor_single(Cursor::new(&bytes))
             .map_err(Error::ReadStandaloneSignatureFromArmoredBytesError)?;
         Ok(sig)
     })

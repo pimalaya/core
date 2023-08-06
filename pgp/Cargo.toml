@@ -1,12 +1,12 @@
 [package]
 name = "pimalaya-pgp"
 version = "0.0.1"
-description = "Rust library to abstract and simplify PGP actions."
+description = "Rust library to simplify native PGP operations."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = []
-keywords = ["pgp", "gpg", "encrypt", "decrypt", "sign"]
+keywords = ["pgp", "openpgp", "encrypt", "decrypt", "sign"]
 
 [lib]
 name = "pimalaya_pgp"

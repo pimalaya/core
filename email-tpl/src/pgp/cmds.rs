@@ -110,7 +110,7 @@ impl CmdsPgp {
         Ok(res.into())
     }
 
-    pub async fn verify(&self, signature_bytes: Vec<u8>, _signed_bytes: Vec<u8>) -> Result<bool> {
+    pub async fn verify(&self, signature_bytes: Vec<u8>, _signed_bytes: Vec<u8>) -> Result<()> {
         self.verify_cmd
             .clone()
             .unwrap_or_else(Self::default_verify_cmd)
@@ -118,6 +118,6 @@ impl CmdsPgp {
             .await
             .map_err(Error::VerifyError)?;
 
-        Ok(true)
+        Ok(())
     }
 }
