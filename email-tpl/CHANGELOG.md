@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added 3 new cargo features:
+  - `cmds-pgp`: enables the commands PGP backend (enabled by default, same behaviour as before)
+  - `gpg`: enables the GPG backend (requires the `gpgme` lib on the system)
+  - `native-pgp`: enables the native PGP backend
+
+### Changed
+
+- Changed the way PGP operations are done. Encryption/decryption/signing/verifying can be done using shell commands (like before), using GPG via `gpgme`, or using a native implementation of the OpenPGP standard via `rPGP`. They are grouped into a new enum called `Pgp`.
+- Prefixed compiler and interpreter builder functions with `with_` to match more the Builder Pattern.
+- Replaced `TplCompiler::pgp_encrypt_cmd` and `TplCompiler::pgp_verify_cmd` by `with_pgp` which takes a `Into<Pgp>`.
+- Replaced `TplInterpreter::pgp_decrypt_cmd` and `TplInterpreter::pgp_sign_cmd` by `with_pgp` which takes a `Into<Pgp>`.
+
 ## [0.3.1] - 2023-07-18
 
 ### Fixed

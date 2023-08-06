@@ -7,9 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added 3 new cargo features:
+  - `cmds-pgp`: enables the commands PGP backend (enabled by default, same behaviour as before)
+  - `gpg`: enables the GPG backend (requires the `gpgme` lib on the system)
+  - `native-pgp`: enables the native PGP backend
+- Added `AccountConfig::pgp` of type `PgpConfig`.
+
 ### Fixed
 
-- Fixed first reading not working [#97].
+- Fixed first time reading message not working [#97].
+
+### Removed
+
+- Removed `AccountConfig::email_writing_encrypt_cmd`.
+- Removed `AccountConfig::email_reading_decrypt_cmd`.
+- Removed `AccountConfig::email_writing_sign_cmd`.
+- Removed `AccountConfig::email_reading_verify_cmd`.
 
 ## [0.14.0] - 2023-07-18
 
