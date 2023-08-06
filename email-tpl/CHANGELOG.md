@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced `TplCompiler::pgp_encrypt_cmd` and `TplCompiler::pgp_verify_cmd` by `with_pgp` which takes a `Into<Pgp>`.
 - Replaced `TplInterpreter::pgp_decrypt_cmd` and `TplInterpreter::pgp_sign_cmd` by `with_pgp` which takes a `Into<Pgp>`.
 
+### Fixed
+
+- Fixed multipart template compiling to empty body [#99].
+
 ## [0.3.1] - 2023-07-18
 
 ### Fixed
@@ -93,3 +97,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [#32]: https://todo.sr.ht/~soywod/pimalaya/32
 [#49]: https://todo.sr.ht/~soywod/pimalaya/49
+[#99]: https://todo.sr.ht/~soywod/pimalaya/99

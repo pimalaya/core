@@ -1,6 +1,9 @@
 use async_recursion::async_recursion;
 use log::{debug, warn};
-use mail_builder::{mime::MimePart, MessageBuilder};
+use mail_builder::{
+    mime::{BodyPart, MimePart},
+    MessageBuilder,
+};
 use std::{env, ffi::OsStr, fs, io, path::PathBuf};
 use thiserror::Error;
 
@@ -154,14 +157,14 @@ impl Compiler {
     async fn compile_part<'a>(&self, part: Part) -> Result<MimePart<'a>> {
         match part {
             Part::MultiPart((props, parts)) => {
-                let no_parts: Vec<u8> = Vec::new();
+                let no_parts = BodyPart::Multipart(Vec::new());
 
                 let mut multi_part = match props.get(TYPE).map(String::as_str) {
                     Some(MIXED) | None => MimePart::new("multipart/mixed", no_parts),
                     Some(ALTERNATIVE) => MimePart::new("multipart/alternative", no_parts),
                     Some(RELATED) => MimePart::new("multipart/related", no_parts),
                     Some(unknown) => {
-                        warn!("unknown multipart type {unknown}, fall back to mixed");
+                        warn!("unknown multipart type {unknown}, falling back to mixed");
                         MimePart::new("multipart/mixed", no_parts)
                     }
                 };
