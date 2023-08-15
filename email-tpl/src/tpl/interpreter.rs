@@ -295,4 +295,32 @@ mod tests {
 
         assert_eq!(*tpl, expected_tpl);
     }
+
+    #[tokio::test]
+    async fn mml_markup_escaped() {
+        let msg = MessageBuilder::new()
+            .message_id("id@localhost")
+            .in_reply_to("reply-id@localhost")
+            .date(0 as u64)
+            .from("from@localhost")
+            .to("to@localhost")
+            .subject("subject")
+            .text_body("<#part>Should be escaped.<#/part>");
+
+        let tpl = Interpreter::new()
+            .with_show_only_headers(["From", "Subject"])
+            .interpret_msg_builder(msg)
+            .await
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: from@localhost",
+            "Subject: subject",
+            "",
+            "<#!part>Should be escaped.<#!/part>",
+            "",
+        );
+
+        assert_eq!(*tpl, expected_tpl);
+    }
 }

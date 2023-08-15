@@ -2,7 +2,7 @@
 
 https://pimalaya.org/
 
-**Pimalaya** is an ambitious project that aims to improve open-source tools in order to better manage our personal information (as known as [PIM]), which includes emails, events, calendars, contacts and more.
+**Pimalaya** is an ambitious project that aims to improve open-source tools related to Personal Information Management ([PIM]) which includes emails, contacts, calendars, tasks and more.
 
 **The first objective** of the project is to provide [Rust libraries](https://git.sr.ht/~soywod/pimalaya) containing all this [PIM] logic. They serve as basement for all sort of top-level applications: CLI, TUI, GUI, plugins, servers etc.
 

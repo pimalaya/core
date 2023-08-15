@@ -8,9 +8,13 @@ use super::{
 };
 
 pub(crate) const SINGLE_PART_BEGIN: &str = "<#part";
+pub(crate) const SINGLE_PART_BEGIN_ESCAPED: &str = "<#!part";
 pub(crate) const SINGLE_PART_END: &str = "<#/part>";
+pub(crate) const SINGLE_PART_END_ESCAPED: &str = "<#!/part>";
 pub(crate) const MULTI_PART_BEGIN: &str = "<#multipart";
+pub(crate) const MULTI_PART_BEGIN_ESCAPED: &str = "<#!multipart";
 pub(crate) const MULTI_PART_END: &str = "<#/multipart>";
+pub(crate) const MULTI_PART_END_ESCAPED: &str = "<#!/multipart>";
 
 /// Represents the template parser. It parses MIME headers followed by
 /// parts.

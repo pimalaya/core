@@ -215,4 +215,44 @@ mod tests {
 
         assert_eq!(*tpl, expected_tpl);
     }
+
+    #[tokio::test]
+    async fn mml_markup_unescaped() {
+        let tpl = Tpl::from(concat_line!(
+            "Message-ID: <id@localhost>",
+            "Date: Thu, 1 Jan 1970 00:00:00 +0000",
+            "From: from@localhost",
+            "To: to@localhost",
+            "Subject: subject",
+            "",
+            "<#!part>This should be unescaped<#!/part>",
+            "",
+        ));
+
+        let mime_msg = tpl.compile().await.unwrap();
+        let mime_msg_str = mime_msg.clone().write_to_string().unwrap();
+
+        let tpl = TplInterpreter::new()
+            .with_show_only_headers(["From", "To", "Subject"])
+            .interpret_msg_builder(mime_msg)
+            .await
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: from@localhost",
+            "To: to@localhost",
+            "Subject: subject",
+            "",
+            "<#!part>This should be unescaped<#!/part>",
+            "",
+        );
+
+        assert!(!mime_msg_str.contains("<#!part>"));
+        assert!(mime_msg_str.contains("<#part>"));
+
+        assert!(!mime_msg_str.contains("<#!/part>"));
+        assert!(mime_msg_str.contains("<#/part>"));
+
+        assert_eq!(*tpl, expected_tpl);
+    }
 }

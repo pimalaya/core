@@ -12,9 +12,15 @@ use crate::{
     Pgp, Result,
 };
 
-use super::tokens::{
-    Part, ALTERNATIVE, ATTACHMENT, DISPOSITION, ENCRYPT, FILENAME, INLINE, MIXED, NAME, PGP_MIME,
-    RELATED, SIGN, TYPE,
+use super::{
+    parsers::{
+        MULTI_PART_BEGIN, MULTI_PART_BEGIN_ESCAPED, MULTI_PART_END, MULTI_PART_END_ESCAPED,
+        SINGLE_PART_BEGIN, SINGLE_PART_BEGIN_ESCAPED, SINGLE_PART_END, SINGLE_PART_END_ESCAPED,
+    },
+    tokens::{
+        Part, ALTERNATIVE, ATTACHMENT, DISPOSITION, ENCRYPT, FILENAME, INLINE, MIXED, NAME,
+        PGP_MIME, RELATED, SIGN, TYPE,
+    },
 };
 
 #[derive(Debug, Error)]
@@ -62,6 +68,13 @@ impl Compiler {
     pub fn with_pgp_recipients(mut self, recipients: Vec<String>) -> Self {
         self.pgp_recipients = recipients;
         self
+    }
+
+    fn unescape_mml_markup(text: String) -> String {
+        text.replace(SINGLE_PART_BEGIN_ESCAPED, SINGLE_PART_BEGIN)
+            .replace(SINGLE_PART_END_ESCAPED, SINGLE_PART_END)
+            .replace(MULTI_PART_BEGIN_ESCAPED, MULTI_PART_BEGIN)
+            .replace(MULTI_PART_END_ESCAPED, MULTI_PART_END)
     }
 
     async fn encrypt_part<'a>(&self, clear_part: &MimePart<'a>) -> Result<MimePart<'a>> {
@@ -257,7 +270,11 @@ impl Compiler {
 
                 Ok(part)
             }
-            Part::TextPlainPart(body) => Ok(MimePart::new("text/plain", body)),
+            Part::TextPlainPart(body) => {
+                let body = Self::unescape_mml_markup(body);
+                let part = MimePart::new("text/plain", body);
+                Ok(part)
+            }
         }
     }
 

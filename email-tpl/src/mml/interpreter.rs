@@ -8,6 +8,11 @@ use thiserror::Error;
 
 use crate::{Pgp, Result};
 
+use super::parsers::{
+    MULTI_PART_BEGIN, MULTI_PART_BEGIN_ESCAPED, MULTI_PART_END, MULTI_PART_END_ESCAPED,
+    SINGLE_PART_BEGIN, SINGLE_PART_BEGIN_ESCAPED, SINGLE_PART_END, SINGLE_PART_END_ESCAPED,
+};
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse raw email")]
@@ -185,6 +190,13 @@ impl Interpreter {
         self
     }
 
+    fn escape_mml_markup(text: String) -> String {
+        text.replace(SINGLE_PART_BEGIN, SINGLE_PART_BEGIN_ESCAPED)
+            .replace(SINGLE_PART_END, SINGLE_PART_END_ESCAPED)
+            .replace(MULTI_PART_BEGIN, MULTI_PART_BEGIN_ESCAPED)
+            .replace(MULTI_PART_END, MULTI_PART_END_ESCAPED)
+    }
+
     async fn decrypt_part(&self, encrypted_part: &MessagePart<'_>) -> Result<String> {
         let recipient = self
             .pgp_recipient
@@ -271,6 +283,7 @@ impl Interpreter {
 
         if self.filter_parts.contains(ctype) {
             let text = text.replace("\r", "");
+            let text = Self::escape_mml_markup(text);
 
             if self.filter_parts.only(&ctype) {
                 tpl.push_str(&text);
@@ -288,7 +301,8 @@ impl Interpreter {
         let mut tpl = String::new();
 
         if self.filter_parts.contains("text/plain") {
-            let mut plain = plain.replace("\r", "");
+            let plain = plain.replace("\r", "");
+            let mut plain = Self::escape_mml_markup(plain);
 
             if !self.show_plain_texts_signature {
                 plain = plain
@@ -308,10 +322,14 @@ impl Interpreter {
 
         if self.filter_parts.contains("text/html") {
             if self.filter_parts.only("text/html") {
-                tpl.push_str(&html.replace("\r", ""));
+                let html = html.replace("\r", "");
+                let html = Self::escape_mml_markup(html);
+                tpl.push_str(&html);
             } else {
+                let html = html2text(html);
+                let html = Self::escape_mml_markup(html);
                 tpl.push_str("<#part type=text/html>\n");
-                tpl.push_str(&html2text(html));
+                tpl.push_str(&html);
                 tpl.push_str("<#/part>\n");
             }
         }
