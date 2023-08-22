@@ -2,6 +2,7 @@
 
 members = [
   "email",
+  "mml",
   "email-tpl",
   "keyring",
   "maildir++",
