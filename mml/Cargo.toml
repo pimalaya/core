@@ -12,7 +12,7 @@ keywords = ["email", "mime", "message", "mml", "emacs"]
 name = "mml"
 
 [features]
-default = ["compiler", "interpreter", "pgp-cmds", "pgp-gpg", "pgp-native"]
+default = ["compiler", "interpreter", "pgp-cmds"]
 compiler = ["chumsky", "shellexpand", "tree_magic"]
 interpreter = ["nanohtml2text"]
 pgp = ["pgp-cmds"]

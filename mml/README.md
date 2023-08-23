@@ -54,12 +54,12 @@ From the [Emacs documentation](https://www.gnu.org/software/emacs/manual/html_no
 
 ## Features
 
-- Interpret raw emails as template using the `TplInterpreter` builder
-- Compile templates as raw emails using the template compiler builder
+- Compile MML message into MIME message using `MmlCompiler` builder (requires cargo feature `compiler` activated by default)
+- Interpret MIME message as MML message using the `MimeInterpreter` builder (requires cargo feature `interpreter` activated by default)
 - Multiple parts support `<#multipart>…<#/multipart>`
 - Inline part support `<#part text=mime/type>…<#/part>`
 - Attachment support `<#part filename=/path/to/attachment.ext>`
-- PGP support using system commands (encrypt, decrypt, sign, verify)
+- PGP support (encrypt, decrypt, sign, verify)
 
 ## Examples
 

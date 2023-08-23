@@ -5,7 +5,7 @@ use thiserror::Error;
 
 #[cfg(feature = "pgp")]
 use crate::Pgp;
-use crate::{header, FilterParts, MmlBodyInterpreter, Result};
+use crate::{header, FilterParts, MimeBodyInterpreter, Result};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -41,7 +41,7 @@ impl ShowHeadersStrategy {
 /// customized, calling any function matching `interpret_*()` consumes
 /// the interpreter and generates the final [`crate::Tpl`].
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct MmlInterpreter {
+pub struct MimeInterpreter {
     /// Defines the strategy to display headers.
     /// [`ShowHeadersStrategy::All`] transfers all the available
     /// headers to the interpreted template,
@@ -49,10 +49,10 @@ pub struct MmlInterpreter {
     /// to the interpreted template.
     show_headers: ShowHeadersStrategy,
 
-    mml_body_interpreter: MmlBodyInterpreter,
+    mime_body_interpreter: MimeBodyInterpreter,
 }
 
-impl MmlInterpreter {
+impl MimeInterpreter {
     pub fn new() -> Self {
         Self::default()
     }
@@ -112,43 +112,43 @@ impl MmlInterpreter {
     }
 
     pub fn with_show_multiparts(mut self, b: bool) -> Self {
-        self.mml_body_interpreter = self.mml_body_interpreter.show_multiparts(b);
+        self.mime_body_interpreter = self.mime_body_interpreter.show_multiparts(b);
         self
     }
 
     pub fn with_filter_parts(mut self, f: FilterParts) -> Self {
-        self.mml_body_interpreter = self.mml_body_interpreter.filter_parts(f);
+        self.mime_body_interpreter = self.mime_body_interpreter.filter_parts(f);
         self
     }
 
     pub fn with_show_plain_texts_signature(mut self, b: bool) -> Self {
-        self.mml_body_interpreter = self.mml_body_interpreter.show_plain_texts_signature(b);
+        self.mime_body_interpreter = self.mime_body_interpreter.show_plain_texts_signature(b);
         self
     }
 
     pub fn with_show_attachments(mut self, b: bool) -> Self {
-        self.mml_body_interpreter = self.mml_body_interpreter.show_attachments(b);
+        self.mime_body_interpreter = self.mime_body_interpreter.show_attachments(b);
         self
     }
 
     pub fn with_show_inline_attachments(mut self, b: bool) -> Self {
-        self.mml_body_interpreter = self.mml_body_interpreter.show_inline_attachments(b);
+        self.mime_body_interpreter = self.mime_body_interpreter.show_inline_attachments(b);
         self
     }
 
     pub fn with_save_attachments(mut self, b: bool) -> Self {
-        self.mml_body_interpreter = self.mml_body_interpreter.save_attachments(b);
+        self.mime_body_interpreter = self.mime_body_interpreter.save_attachments(b);
         self
     }
 
     pub fn with_save_attachments_dir(mut self, dir: impl Into<PathBuf>) -> Self {
-        self.mml_body_interpreter = self.mml_body_interpreter.save_attachments_dir(dir);
+        self.mime_body_interpreter = self.mime_body_interpreter.save_attachments_dir(dir);
         self
     }
 
     #[cfg(feature = "pgp")]
     pub fn with_pgp(mut self, pgp: impl Into<Pgp>) -> Self {
-        self.mml_body_interpreter = self.mml_body_interpreter.with_pgp(pgp.into());
+        self.mime_body_interpreter = self.mime_body_interpreter.with_pgp(pgp.into());
         self
     }
 
@@ -175,14 +175,14 @@ impl MmlInterpreter {
             mml.push_str("\n");
         }
 
-        let mml_body_interpreter = self.mml_body_interpreter;
+        let mime_body_interpreter = self.mime_body_interpreter;
 
         #[cfg(feature = "pgp")]
-        let mml_body_interpreter = mml_body_interpreter
+        let mime_body_interpreter = mime_body_interpreter
             .with_pgp_sender(header::extract_first_email(msg.from()))
             .with_pgp_recipient(header::extract_first_email(msg.to()));
 
-        let mml_body = mml_body_interpreter.interpret_msg(msg).await?;
+        let mml_body = mime_body_interpreter.interpret_msg(msg).await?;
 
         mml.push_str(mml_body.trim_end());
         mml.push('\n');
@@ -209,7 +209,7 @@ mod tests {
     use concat_with::concat_line;
     use mail_builder::MessageBuilder;
 
-    use super::MmlInterpreter;
+    use super::MimeInterpreter;
 
     fn msg_builder() -> MessageBuilder<'static> {
         MessageBuilder::new()
@@ -224,7 +224,7 @@ mod tests {
 
     #[tokio::test]
     async fn all_headers() {
-        let mml = MmlInterpreter::new()
+        let mml = MimeInterpreter::new()
             .with_show_all_headers()
             .interpret_msg_builder(msg_builder())
             .await
@@ -249,7 +249,7 @@ mod tests {
 
     #[tokio::test]
     async fn only_headers() {
-        let mml = MmlInterpreter::new()
+        let mml = MimeInterpreter::new()
             .with_show_only_headers(["From", "Subject"])
             .interpret_msg_builder(msg_builder())
             .await
@@ -268,7 +268,7 @@ mod tests {
 
     #[tokio::test]
     async fn only_headers_duplicated() {
-        let mml = MmlInterpreter::new()
+        let mml = MimeInterpreter::new()
             .with_show_only_headers(["From", "Subject", "From"])
             .interpret_msg_builder(msg_builder())
             .await
@@ -287,7 +287,7 @@ mod tests {
 
     #[tokio::test]
     async fn no_headers() {
-        let mml = MmlInterpreter::new()
+        let mml = MimeInterpreter::new()
             .with_hide_all_headers()
             .interpret_msg_builder(msg_builder())
             .await
@@ -309,7 +309,7 @@ mod tests {
             .subject("subject")
             .text_body("<#part>Should be escaped.<#/part>");
 
-        let mml = MmlInterpreter::new()
+        let mml = MimeInterpreter::new()
             .with_show_only_headers(["From", "Subject"])
             .interpret_msg_builder(msg_builder)
             .await

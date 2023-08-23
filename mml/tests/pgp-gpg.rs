@@ -2,7 +2,7 @@
 #[tokio::test]
 async fn gpg() {
     use concat_with::concat_line;
-    use mml::{Gpg, MmlCompiler, MmlInterpreter, Pgp};
+    use mml::{Gpg, MimeInterpreter, MmlCompiler, Pgp};
     use std::path::PathBuf;
 
     env_logger::builder().is_test(true).init();
@@ -26,7 +26,7 @@ async fn gpg() {
         .await
         .unwrap();
 
-    let mml = MmlInterpreter::new()
+    let mml = MimeInterpreter::new()
         .with_show_only_headers(["From", "To", "Subject"])
         .with_pgp(pgp.clone())
         .interpret_msg_builder(msg_builder)

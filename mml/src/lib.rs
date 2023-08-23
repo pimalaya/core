@@ -20,8 +20,8 @@ pub use self::pgp::{
 pub use self::{body::MmlBodyCompiler, message::MmlCompiler};
 #[cfg(feature = "interpreter")]
 pub use self::{
-    body::{FilterParts, MmlBodyInterpreter},
-    message::{MmlInterpreter, ShowHeadersStrategy},
+    body::{FilterParts, MimeBodyInterpreter},
+    message::{MimeInterpreter, ShowHeadersStrategy},
 };
 
 /// The global `Error` enum of the library.
@@ -37,11 +37,11 @@ pub enum Error {
 
     #[cfg(feature = "interpreter")]
     #[error(transparent)]
-    InterpretMmlError(#[from] message::interpreter::Error),
+    InterpretMimeError(#[from] message::interpreter::Error),
 
     #[cfg(feature = "interpreter")]
     #[error(transparent)]
-    InterpretMmlBodyError(#[from] body::interpreter::Error),
+    InterpretMimeBodyError(#[from] body::interpreter::Error),
 
     #[cfg(feature = "pgp")]
     #[error(transparent)]

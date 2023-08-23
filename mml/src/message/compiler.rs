@@ -143,7 +143,7 @@ impl MmlCompiler {
 mod tests {
     use concat_with::concat_line;
 
-    use crate::{MmlCompiler, MmlInterpreter};
+    use crate::{MimeInterpreter, MmlCompiler};
 
     #[tokio::test]
     async fn non_ascii_headers() {
@@ -160,7 +160,7 @@ mod tests {
 
         let mime_msg = MmlCompiler::new().compile(mml).await.unwrap();
 
-        let mml = MmlInterpreter::new()
+        let mml = MimeInterpreter::new()
             .with_show_only_headers(["From", "To", "Subject"])
             .interpret_msg_builder(mime_msg)
             .await
@@ -194,7 +194,7 @@ mod tests {
         let mime_msg = MmlCompiler::new().compile(mml).await.unwrap();
         let mime_msg_str = mime_msg.clone().write_to_string().unwrap();
 
-        let mml = MmlInterpreter::new()
+        let mml = MimeInterpreter::new()
             .with_show_only_headers(["From", "To", "Subject"])
             .interpret_msg_builder(mime_msg)
             .await

@@ -8,7 +8,7 @@ pub mod interpreter;
 #[cfg(feature = "compiler")]
 pub use compiler::MmlBodyCompiler;
 #[cfg(feature = "interpreter")]
-pub use interpreter::{FilterParts, MmlBodyInterpreter};
+pub use interpreter::{FilterParts, MimeBodyInterpreter};
 
 pub(crate) const SINGLE_PART_BEGIN: &str = "<#part";
 pub(crate) const SINGLE_PART_BEGIN_ESCAPED: &str = "<#!part";

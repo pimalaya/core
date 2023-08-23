@@ -3,7 +3,7 @@
 async fn native_pgp() {
     use concat_with::concat_line;
     use mml::{
-        MmlCompiler, MmlInterpreter, NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey,
+        MimeInterpreter, MmlCompiler, NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey,
         Pgp,
     };
     use pimalaya_pgp::gen_key_pair;
@@ -101,7 +101,7 @@ async fn native_pgp() {
         .await
         .unwrap();
 
-    let mml = MmlInterpreter::new()
+    let mml = MimeInterpreter::new()
         .with_show_only_headers(["From", "To", "Subject"])
         .with_pgp(Pgp::Native(NativePgp {
             secret_key: NativePgpSecretKey::Raw(bob_skey.clone()),

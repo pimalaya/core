@@ -2,7 +2,7 @@
 #[tokio::test]
 async fn cmds_pgp() {
     use concat_with::concat_line;
-    use mml::{CmdsPgp, MmlCompiler, MmlInterpreter, Pgp};
+    use mml::{CmdsPgp, MimeInterpreter, MmlCompiler, Pgp};
     use pimalaya_process::Cmd;
 
     env_logger::builder().is_test(true).init();
@@ -33,7 +33,7 @@ async fn cmds_pgp() {
         .await
         .unwrap();
 
-    let mml = MmlInterpreter::new()
+    let mml = MimeInterpreter::new()
         .with_show_only_headers(["From", "To", "Subject"])
         .with_pgp(pgp.clone())
         .interpret_msg_builder(msg_builder)

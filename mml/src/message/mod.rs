@@ -6,4 +6,4 @@ pub mod interpreter;
 #[cfg(feature = "compiler")]
 pub use compiler::MmlCompiler;
 #[cfg(feature = "interpreter")]
-pub use interpreter::{MmlInterpreter, ShowHeadersStrategy};
+pub use interpreter::{MimeInterpreter, ShowHeadersStrategy};

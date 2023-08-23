@@ -79,7 +79,7 @@ impl FilterParts {
 /// calling any function matching `interpret_*()` consumes the
 /// interpreter and generates the final [`crate::Tpl`].
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MmlBodyInterpreter {
+pub struct MimeBodyInterpreter {
     /// If `true` then shows multipart structure. It is useful to see
     /// how nested parts are structured. If `false` then multipart
     /// structure is flatten, which means all parts and subparts are
@@ -121,7 +121,7 @@ pub struct MmlBodyInterpreter {
     pgp_recipient: Option<String>,
 }
 
-impl Default for MmlBodyInterpreter {
+impl Default for MimeBodyInterpreter {
     fn default() -> Self {
         Self {
             show_multiparts: false,
@@ -141,7 +141,7 @@ impl Default for MmlBodyInterpreter {
     }
 }
 
-impl MmlBodyInterpreter {
+impl MimeBodyInterpreter {
     pub fn new() -> Self {
         Self::default()
     }
@@ -541,7 +541,7 @@ mod tests {
     use concat_with::concat_line;
     use mail_builder::{mime::MimePart, MessageBuilder};
 
-    use super::{FilterParts, MmlBodyInterpreter};
+    use super::{FilterParts, MimeBodyInterpreter};
 
     #[tokio::test]
     async fn nested_multiparts() {
@@ -559,7 +559,7 @@ mod tests {
             ],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -594,7 +594,7 @@ mod tests {
             ],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .show_multiparts(true)
             .interpret_msg_builder(builder.clone())
             .await
@@ -628,7 +628,7 @@ mod tests {
             ],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -663,7 +663,7 @@ mod tests {
             ],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .filter_parts(FilterParts::Only("text/plain".into()))
             .interpret_msg_builder(builder.clone())
             .await
@@ -688,7 +688,7 @@ mod tests {
             ],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .filter_parts(FilterParts::Only("text/html".into()))
             .interpret_msg_builder(builder.clone())
             .await
@@ -713,7 +713,7 @@ mod tests {
             ],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .filter_parts(FilterParts::Only("text/json".into()))
             .interpret_msg_builder(builder.clone())
             .await
@@ -734,7 +734,7 @@ mod tests {
             ],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -761,7 +761,7 @@ mod tests {
             ],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -787,7 +787,7 @@ mod tests {
             )],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -816,7 +816,7 @@ mod tests {
             ],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -840,7 +840,7 @@ mod tests {
             ],
         ));
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .filter_parts(FilterParts::Only("text/html".into()))
             .interpret_msg_builder(builder.clone())
             .await
@@ -859,7 +859,7 @@ mod tests {
             "Hello, world!".as_bytes(),
         );
 
-        let tpl = MmlBodyInterpreter::new()
+        let tpl = MimeBodyInterpreter::new()
             .save_attachments_dir("~/Downloads")
             .interpret_msg_builder(builder)
             .await
