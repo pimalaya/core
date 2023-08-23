@@ -1,12 +1,12 @@
 #[cfg(feature = "pgp-native")]
 #[tokio::test]
-async fn native_pgp() {
+async fn pgp_native() {
     use concat_with::concat_line;
     use mml::{
         MimeInterpreter, MmlCompiler, NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey,
         Pgp,
     };
-    use pimalaya_pgp::gen_key_pair;
+    use pgp::gen_key_pair;
     use pimalaya_secret::Secret;
     use std::collections::HashMap;
     use tempfile::tempdir;

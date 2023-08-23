@@ -1,6 +1,6 @@
 #[cfg(feature = "pgp-gpg")]
 #[tokio::test]
-async fn gpg() {
+async fn pgp_gpg() {
     use concat_with::concat_line;
     use mml::{Gpg, MimeInterpreter, MmlCompiler, Pgp};
     use std::path::PathBuf;

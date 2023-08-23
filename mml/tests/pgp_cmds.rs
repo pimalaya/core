@@ -1,6 +1,6 @@
 #[cfg(feature = "pgp-cmds")]
 #[tokio::test]
-async fn cmds_pgp() {
+async fn pgp_cmds() {
     use concat_with::concat_line;
     use mml::{CmdsPgp, MimeInterpreter, MmlCompiler, Pgp};
     use pimalaya_process::Cmd;
