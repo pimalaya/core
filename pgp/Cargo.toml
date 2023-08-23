@@ -1,7 +1,7 @@
 [package]
-name = "pimalaya-pgp"
+name = "pgp-lib"
 version = "0.0.1"
-description = "Rust library to simplify native PGP operations."
+description = "Rust library to manage PGP keys and to deal with PGP operations."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
@@ -9,7 +9,7 @@ categories = []
 keywords = ["pgp", "openpgp", "encrypt", "decrypt", "sign"]
 
 [lib]
-name = "pimalaya_pgp"
+name = "pgp"
 
 [dev-dependencies]
 concat-with = "0.2"
