@@ -1,4 +1,4 @@
-#[cfg(feature = "pgp-cmds")]
+#[cfg(feature = "pgp-commands")]
 pub mod cmds;
 #[cfg(feature = "pgp-gpg")]
 pub mod gpg;
@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::Result;
 
-#[cfg(feature = "pgp-cmds")]
+#[cfg(feature = "pgp-commands")]
 pub use self::cmds::CmdsPgp;
 #[cfg(feature = "pgp-gpg")]
 pub use self::gpg::Gpg;
@@ -35,7 +35,7 @@ pub enum Error {
 pub enum Pgp {
     #[default]
     None,
-    #[cfg(feature = "pgp-cmds")]
+    #[cfg(feature = "pgp-commands")]
     Cmds(CmdsPgp),
     #[cfg(feature = "pgp-native")]
     Native(NativePgp),
@@ -55,7 +55,7 @@ impl Pgp {
 
         match self {
             Self::None => Ok(Err(Error::PgpEncryptNoneError)?),
-            #[cfg(feature = "pgp-cmds")]
+            #[cfg(feature = "pgp-commands")]
             Self::Cmds(cmds) => cmds.encrypt(recipients, plain_bytes).await,
             #[cfg(feature = "pgp-native")]
             Self::Native(native) => native.encrypt(recipients, plain_bytes).await,
@@ -76,7 +76,7 @@ impl Pgp {
 
         match self {
             Self::None => Ok(Err(Error::PgpDecryptNoneError)?),
-            #[cfg(feature = "pgp-cmds")]
+            #[cfg(feature = "pgp-commands")]
             Self::Cmds(cmds) => cmds.decrypt(encrypted_bytes).await,
             #[cfg(feature = "pgp-native")]
             Self::Native(native) => native.decrypt(recipient, encrypted_bytes).await,
@@ -93,7 +93,7 @@ impl Pgp {
 
         match self {
             Self::None => Ok(Err(Error::PgpSignNoneError)?),
-            #[cfg(feature = "pgp-cmds")]
+            #[cfg(feature = "pgp-commands")]
             Self::Cmds(cmds) => cmds.sign(plain_bytes).await,
             #[cfg(feature = "pgp-native")]
             Self::Native(native) => native.sign(recipient, plain_bytes).await,
@@ -117,7 +117,7 @@ impl Pgp {
 
         match self {
             Self::None => Ok(Err(Error::PgpVerifyNoneError)?),
-            #[cfg(feature = "pgp-cmds")]
+            #[cfg(feature = "pgp-commands")]
             Self::Cmds(cmds) => cmds.verify(signature_bytes, signed_bytes).await,
             #[cfg(feature = "pgp-native")]
             Self::Native(native) => {

@@ -6,7 +6,7 @@ pub mod message;
 #[cfg(feature = "pgp")]
 pub mod pgp;
 
-#[cfg(feature = "pgp-cmds")]
+#[cfg(feature = "pgp-commands")]
 pub use self::pgp::CmdsPgp;
 #[cfg(feature = "pgp-gpg")]
 pub use self::pgp::Gpg;
@@ -47,7 +47,7 @@ pub enum Error {
     #[error(transparent)]
     PgpError(#[from] pgp::Error),
 
-    #[cfg(feature = "pgp-cmds")]
+    #[cfg(feature = "pgp-commands")]
     #[error(transparent)]
     CmdsPgpError(#[from] pgp::cmds::Error),
 

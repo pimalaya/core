@@ -12,11 +12,11 @@ keywords = ["email", "mime", "message", "mml", "emacs"]
 name = "mml"
 
 [features]
-default = ["compiler", "interpreter", "pgp-cmds"]
+default = ["compiler", "interpreter"]
 compiler = ["chumsky", "shellexpand", "tree_magic"]
 interpreter = ["nanohtml2text"]
-pgp = ["pgp-cmds"]
-pgp-cmds = ["pgp", "pimalaya-process"]
+pgp = ["pgp-commands"]
+pgp-commands = ["pgp", "pimalaya-process"]
 pgp-gpg = ["pgp", "gpgme"]
 pgp-native = ["pgp", "pgp-lib", "pimalaya-keyring", "pimalaya-secret", "shellexpand"]
 
@@ -24,7 +24,10 @@ pgp-native = ["pgp", "pgp-lib", "pimalaya-keyring", "pimalaya-secret", "shellexp
 concat-with = "0.2"
 env_logger = "0.10"
 tempfile = "3.3"
-tokio = { version = "1.23", default-features = false, features = ["fs", "macros", "rt"] }
+
+tokio.version = "1.23"
+tokio.default-features = false
+tokio.features = ["fs", "macros", "rt"]
 
 [dependencies]
 async-recursion = "1.0"
@@ -33,7 +36,7 @@ mail-builder = "=0.3.0"
 mail-parser = "=0.8.2"
 thiserror = "1.0"
 
-# pgp-cmds feature
+# pgp-commands feature
 pimalaya-process.version = "=0.0.5"
 pimalaya-process.optional = true
 

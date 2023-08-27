@@ -1,4 +1,4 @@
-#[cfg(feature = "pgp-cmds")]
+#[cfg(feature = "pgp-commands")]
 #[tokio::test]
 async fn pgp_cmds() {
     use concat_with::concat_line;
