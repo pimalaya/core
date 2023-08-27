@@ -1,8 +1,8 @@
-# pimalaya-process
+# process-lib
 
 Rust library to run cross-platform, asynchronous processes in pipelines.
 
-See the full [API documentation](https://docs.rs/pimalaya-process/latest/pimalaya_process/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/process/tests).
+See the full [API documentation](https://docs.rs/process-lib/latest/process/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/process/tests).
 
 *The project is under active development. Do not use in production before the `v1.0.0`.*
 
@@ -15,7 +15,7 @@ The development environment is managed by [Nix](https://nixos.org/download.html)
 $ nix-shell
 
 # then build the lib
-$ cargo build -p pimalaya-process
+$ cargo build -p process-lib
 ```
 
 ## Contributing

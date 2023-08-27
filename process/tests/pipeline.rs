@@ -1,4 +1,4 @@
-use pimalaya_process::{Cmd, Error};
+use process::{Cmd, Error};
 
 #[tokio::test]
 async fn pipeline() {
