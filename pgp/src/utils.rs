@@ -1,6 +1,6 @@
 //! Module dedicated to PGP helpers.
 
-use pgp::{
+use pgp_native::{
     crypto::{hash::HashAlgorithm, sym::SymmetricKeyAlgorithm},
     types::{CompressionAlgorithm, SecretKeyTrait},
     Deserializable, KeyType, SecretKeyParamsBuilder, SecretKeyParamsBuilderError, SignedPublicKey,
@@ -23,33 +23,33 @@ pub enum Error {
     #[error("cannot build pgp secret key params")]
     BuildSecretKeyParamsError(#[source] SecretKeyParamsBuilderError),
     #[error("cannot generate pgp secret key")]
-    GenerateSecretKeyError(#[source] pgp::errors::Error),
+    GenerateSecretKeyError(#[source] pgp_native::errors::Error),
     #[error("cannot sign pgp secret key")]
-    SignSecretKeyError(#[source] pgp::errors::Error),
+    SignSecretKeyError(#[source] pgp_native::errors::Error),
     #[error("cannot verify pgp secret key")]
-    VerifySecretKeyError(#[source] pgp::errors::Error),
+    VerifySecretKeyError(#[source] pgp_native::errors::Error),
 
     #[error("cannot build pgp public subkey params")]
     BuildPublicKeyParamsError(#[source] SubkeyParamsBuilderError),
     #[error("cannot sign pgp public subkey")]
-    SignPublicKeyError(#[source] pgp::errors::Error),
+    SignPublicKeyError(#[source] pgp_native::errors::Error),
     #[error("cannot verify pgp public subkey")]
-    VerifyPublicKeyError(#[source] pgp::errors::Error),
+    VerifyPublicKeyError(#[source] pgp_native::errors::Error),
 
     #[error("cannot read armored public key at {1}")]
     ReadArmoredPublicKeyError(#[source] io::Error, PathBuf),
     #[error("cannot parse armored public key from {1}")]
-    ParseArmoredPublicKeyError(#[source] pgp::errors::Error, PathBuf),
+    ParseArmoredPublicKeyError(#[source] pgp_native::errors::Error, PathBuf),
 
     #[error("cannot read armored secret key file {1}")]
     ReadArmoredSecretKeyFromPathError(#[source] io::Error, PathBuf),
     #[error("cannot parse armored secret key from {1}")]
-    ParseArmoredSecretKeyFromPathError(#[source] pgp::errors::Error, PathBuf),
+    ParseArmoredSecretKeyFromPathError(#[source] pgp_native::errors::Error, PathBuf),
     #[error("cannot parse armored secret key from string")]
-    ParseArmoredSecretKeyFromStringError(#[source] pgp::errors::Error),
+    ParseArmoredSecretKeyFromStringError(#[source] pgp_native::errors::Error),
 
     #[error("cannot import pgp signature from armor")]
-    ReadStandaloneSignatureFromArmoredBytesError(#[source] pgp::errors::Error),
+    ReadStandaloneSignatureFromArmoredBytesError(#[source] pgp_native::errors::Error),
 }
 
 /// Generates a new pair of secret and public keys for the given email

@@ -1,6 +1,6 @@
-# 🔐 pimalaya-pgp
+# 🔐 pgp-lib
 
-Rust library to simplify native PGP operations, based on [rPGP](https://crates.io/crates/pgp).
+Rust library to deal with PGP operations, based on [rPGP](https://crates.io/crates/pgp).
 
 ## Features
 
@@ -20,7 +20,7 @@ The development environment is managed by [Nix](https://nixos.org/download.html)
 $ nix-shell
 
 # then build the lib
-$ cargo build -p pimalaya-pgp
+$ cargo build -p pgp-lib
 ```
 
 ## Contributing

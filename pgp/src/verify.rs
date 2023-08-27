@@ -3,7 +3,7 @@
 //! This module exposes a simple function [`verify`] and its
 //! associated [`Error`]s.
 
-use pgp::{SignedPublicKey, StandaloneSignature};
+use pgp_native::{SignedPublicKey, StandaloneSignature};
 use thiserror::Error;
 use tokio::task;
 
@@ -13,7 +13,7 @@ use crate::Result;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot verify pgp signature")]
-    VerifySignatureError(#[source] pgp::errors::Error),
+    VerifySignatureError(#[source] pgp_native::errors::Error),
 }
 
 /// Verifies given standalone signature using the given public key.

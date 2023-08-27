@@ -12,7 +12,7 @@ pub mod wkd;
 pub(crate) mod client;
 
 #[doc(inline)]
-pub use pgp::{errors::Error as NativeError, SignedPublicKey, SignedSecretKey};
+pub use pgp_native as native;
 use tokio::task::JoinError;
 
 #[doc(inline)]

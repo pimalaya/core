@@ -3,9 +3,9 @@
 //! This module exposes a simple function [`encrypt`] and its
 //! associated [`Error`]s.
 
-use pgp::{
-    crypto::hash::HashAlgorithm,
-    types::{CompressionAlgorithm, KeyTrait, Mpi, PublicKeyTrait},
+use pgp_native::{
+    crypto::{hash::HashAlgorithm, public_key::PublicKeyAlgorithm},
+    types::{CompressionAlgorithm, KeyId, KeyTrait, Mpi, PublicKeyTrait},
     Message, SignedPublicKey, SignedPublicSubKey,
 };
 use rand::{thread_rng, CryptoRng, Rng};
@@ -19,11 +19,11 @@ use crate::Result;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot encrypt message using pgp")]
-    EncryptMessageError(#[source] pgp::errors::Error),
+    EncryptMessageError(#[source] pgp_native::errors::Error),
     #[error("cannot export encrypted pgp message as armored string")]
-    ExportEncryptedMessageToArmorError(#[source] pgp::errors::Error),
+    ExportEncryptedMessageToArmorError(#[source] pgp_native::errors::Error),
     #[error("cannot compress pgp message")]
-    CompressMessageError(#[source] pgp::errors::Error),
+    CompressMessageError(#[source] pgp_native::errors::Error),
 }
 
 /// Wrapper around [`pgp`] public key types.
@@ -44,14 +44,14 @@ impl KeyTrait for SignedPublicKeyOrSubkey<'_> {
         }
     }
 
-    fn key_id(&self) -> pgp::types::KeyId {
+    fn key_id(&self) -> KeyId {
         match self {
             Self::Key(k) => k.key_id(),
             Self::Subkey(k) => k.key_id(),
         }
     }
 
-    fn algorithm(&self) -> pgp::crypto::public_key::PublicKeyAlgorithm {
+    fn algorithm(&self) -> PublicKeyAlgorithm {
         match self {
             Self::Key(k) => k.algorithm(),
             Self::Subkey(k) => k.algorithm(),
@@ -65,7 +65,7 @@ impl PublicKeyTrait for SignedPublicKeyOrSubkey<'_> {
         hash: HashAlgorithm,
         data: &[u8],
         sig: &[Mpi],
-    ) -> pgp::errors::Result<()> {
+    ) -> pgp_native::errors::Result<()> {
         match self {
             Self::Key(k) => k.verify_signature(hash, data, sig),
             Self::Subkey(k) => k.verify_signature(hash, data, sig),
@@ -76,14 +76,14 @@ impl PublicKeyTrait for SignedPublicKeyOrSubkey<'_> {
         &self,
         rng: &mut R,
         plain: &[u8],
-    ) -> pgp::errors::Result<Vec<Mpi>> {
+    ) -> pgp_native::errors::Result<Vec<Mpi>> {
         match self {
             Self::Key(k) => k.encrypt(rng, plain),
             Self::Subkey(k) => k.encrypt(rng, plain),
         }
     }
 
-    fn to_writer_old(&self, writer: &mut impl io::Write) -> pgp::errors::Result<()> {
+    fn to_writer_old(&self, writer: &mut impl io::Write) -> pgp_native::errors::Result<()> {
         match self {
             Self::Key(k) => k.to_writer_old(writer),
             Self::Subkey(k) => k.to_writer_old(writer),

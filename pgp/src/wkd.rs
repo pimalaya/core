@@ -17,7 +17,7 @@ use futures::{stream, StreamExt};
 use hyper::{client::HttpConnector, http::Response, Body, Client, Uri};
 use hyper_rustls::HttpsConnector;
 use log::{debug, warn};
-use pgp::{Deserializable, SignedPublicKey};
+use pgp_native::{Deserializable, SignedPublicKey};
 use sha1::{Digest, Sha1};
 use std::{fmt, path};
 use thiserror::Error;
@@ -43,7 +43,7 @@ pub enum Error {
     #[error("cannot parse body")]
     ParseBodyError(#[source] hyper::Error),
     #[error("cannot parse certificate")]
-    ParseCertError(#[source] pgp::errors::Error),
+    ParseCertError(#[source] pgp_native::errors::Error),
 }
 
 struct EmailAddress {

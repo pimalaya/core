@@ -3,7 +3,7 @@
 //! This module exposes a simple function [`sign`] and its associated
 //! [`Error`]s.
 
-use pgp::{crypto::hash::HashAlgorithm, Message, SignedSecretKey};
+use pgp_native::{crypto::hash::HashAlgorithm, Message, SignedSecretKey};
 use thiserror::Error;
 use tokio::task;
 
@@ -13,9 +13,9 @@ use crate::Result;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot sign pgp message")]
-    SignMessageError(#[source] pgp::errors::Error),
+    SignMessageError(#[source] pgp_native::errors::Error),
     #[error("cannot export signed pgp message as armored string")]
-    ExportSignedMessageToArmoredBytesError(#[source] pgp::errors::Error),
+    ExportSignedMessageToArmoredBytesError(#[source] pgp_native::errors::Error),
 }
 
 /// Signs given bytes using the given private key and its passphrase.

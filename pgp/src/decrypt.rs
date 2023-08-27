@@ -3,7 +3,7 @@
 //! This module exposes a simple function [`decrypt`] and its
 //! associated [`Error`]s.
 
-use pgp::{Deserializable, Message, SignedSecretKey};
+use pgp_native::{Deserializable, Message, SignedSecretKey};
 use std::io::Cursor;
 use thiserror::Error;
 use tokio::task;
@@ -14,13 +14,13 @@ use crate::Result;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot import armored pgp message")]
-    ImportMessageFromArmorError(#[source] pgp::errors::Error),
+    ImportMessageFromArmorError(#[source] pgp_native::errors::Error),
     #[error("cannot decrypt pgp message")]
-    DecryptMessageError(#[source] pgp::errors::Error),
+    DecryptMessageError(#[source] pgp_native::errors::Error),
     #[error("cannot decompress pgp message")]
-    DecompressMessageError(#[source] pgp::errors::Error),
+    DecompressMessageError(#[source] pgp_native::errors::Error),
     #[error("cannot get pgp message content")]
-    GetMessageContentError(#[source] pgp::errors::Error),
+    GetMessageContentError(#[source] pgp_native::errors::Error),
     #[error("cannot get empty pgp message content")]
     GetMessageContentEmptyError,
     #[error("cannot get empty pgp message")]
@@ -41,7 +41,7 @@ pub async fn decrypt(
             .decrypt(|| passphrase, &[&skey])
             .map_err(Error::DecryptMessageError)?;
         let msgs = decryptor
-            .collect::<pgp::errors::Result<Vec<_>>>()
+            .collect::<pgp_native::errors::Result<Vec<_>>>()
             .map_err(Error::DecryptMessageError)?;
         let msg = msgs.into_iter().next().ok_or(Error::GetMessageEmptyError)?;
         let msg = msg.decompress().map_err(Error::DecompressMessageError)?;
@@ -85,7 +85,7 @@ mod tests {
         assert!(matches!(
             carl_msg,
             crate::Error::DecryptError(super::Error::DecryptMessageError(
-                pgp::errors::Error::MissingKey
+                pgp_native::errors::Error::MissingKey
             )),
         ));
     }

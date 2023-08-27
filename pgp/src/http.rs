@@ -7,7 +7,7 @@ use futures::{stream, StreamExt};
 use hyper::{client::HttpConnector, http::uri::InvalidUri, Client, Uri};
 use hyper_rustls::HttpsConnector;
 use log::{debug, warn};
-use pgp::{Deserializable, SignedPublicKey};
+use pgp_native::{Deserializable, SignedPublicKey};
 use std::{io::Cursor, sync::Arc};
 use thiserror::Error;
 use tokio::task;
@@ -24,7 +24,7 @@ pub enum Error {
     #[error("cannot parse response from {1}")]
     FetchResponseError(#[source] hyper::Error, Uri),
     #[error("cannot parse pgp public key from {1}")]
-    ParsePublicKeyError(#[source] pgp::errors::Error, Uri),
+    ParsePublicKeyError(#[source] pgp_native::errors::Error, Uri),
     #[error("cannot find pgp public key for email {0}")]
     FindPublicKeyError(String),
 }

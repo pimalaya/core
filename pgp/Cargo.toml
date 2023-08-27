@@ -1,33 +1,69 @@
 [package]
 name = "pgp-lib"
-version = "0.0.1"
-description = "Rust library to manage PGP keys and to deal with PGP operations."
+version = "0.1.0"
+description = "Rust library to deal with PGP operations."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = []
 keywords = ["pgp", "openpgp", "encrypt", "decrypt", "sign"]
+metadata.docs.rs.all-features = true
 
 [lib]
 name = "pgp"
 
-[dev-dependencies]
-concat-with = "0.2"
-env_logger = "0.10"
-tempfile = "3.3"
-tokio = { version = "1.23", default-features = false, features = ["macros", "rt"] }
+[dev-dependencies.concat-with]
+version = "0.2"
 
-[dependencies]
-async-recursion = "1.0"
-futures = "0.3"
-hyper = { version = "0.14", default-features = false, features = [ "http1", "http2" ] }
-hyper-rustls = "0.24"
-log = "0.4"
-pgp = "0.10"
-rand = "0.8"
-sha1 = "0.10"
-smallvec = "1"
-thiserror = "1.0"
-tokio = { version = "1.23", default-features = false, features = ["rt"] }
-url = "2.4"
-z-base-32 = "0.1"
+[dev-dependencies.env_logger]
+version = "0.10"
+[dev-dependencies.tempfile]
+version = "3.3"
+[dev-dependencies.tokio]
+version = "1.23"
+default-features = false
+features = ["macros", "rt"]
+
+[dependencies.async-recursion]
+version = "1.0"
+
+[dependencies.futures]
+version = "0.3"
+
+[dependencies.hyper]
+version = "0.14"
+default-features = false
+features = [ "http1", "http2" ]
+
+[dependencies.hyper-rustls]
+version = "0.24"
+
+[dependencies.log]
+version = "0.4"
+
+[dependencies.pgp_native]
+package = "pgp"
+version = "0.10"
+
+[dependencies.rand]
+version = "0.8"
+
+[dependencies.sha1]
+version = "0.10"
+
+[dependencies.smallvec]
+version = "1"
+
+[dependencies.thiserror]
+version = "1.0"
+
+[dependencies.tokio]
+version = "1.23"
+default-features = false
+features = ["rt"]
+
+[dependencies.url]
+version = "2.4"
+
+[dependencies.z-base-32]
+version = "0.1"
