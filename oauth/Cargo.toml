@@ -2,6 +2,8 @@
 name = "oauth-lib"
 version = "0.1.0"
 description = "Rust library to deal with OAuth flows."
+homepage = "https://pimalaya.org/"
+repository = "https://git.sr.ht/~soywod/pimalaya/"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
