@@ -1,34 +1,37 @@
 [package]
-name = "pimalaya-time"
-version = "0.0.2"
+name = "time-lib"
+version = "0.1.0"
 description = "Rust library to manage your time."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["network-programming"]
 keywords = ["pim", "pomodoro", "time", "management", "technique"]
-
-[package.metadata.docs.rs]
-all-features = true
+metadata.docs.rs.all-features = true
 
 [lib]
-name = "pimalaya_time"
+name = "time"
 
 [features]
 default = ["server", "client", "tcp"]
-
 server = []
 client = []
-
 tcp-binder = ["server"]
 tcp-client = ["client"]
 tcp = ["tcp-binder", "tcp-client"]
 
-[dev-dependencies]
-env_logger = "0.10"
-mock_instant = "0.3"
+[dev-dependencies.env_logger]
+version = "0.10"
 
-[dependencies]
-log = "0.4"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+[dev-dependencies.mock_instant]
+version = "0.3"
+
+[dependencies.log]
+version = "0.4"
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+
+[dependencies.serde_json]
+version = "1.0"

@@ -1,5 +1,5 @@
-use pimalaya_time::{ServerBuilder, ServerEvent, TcpBind, TcpClient, TimerEvent};
 use std::{thread, time::Duration};
+use time::{ServerBuilder, ServerEvent, TcpBind, TcpClient, TimerEvent};
 
 const HOST: &str = "127.0.0.1";
 const PORT: u16 = 3000;

@@ -1,7 +1,7 @@
-use pimalaya_time::{
+use std::{thread, time::Duration};
+use time::{
     ServerBuilder, ServerEvent, TcpBind, TcpClient, Timer, TimerCycle, TimerEvent, TimerState,
 };
-use std::{thread, time::Duration};
 
 #[test]
 fn multiple_tcp_clients() {

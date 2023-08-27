@@ -1,8 +1,8 @@
-# ⏳ pimalaya-time
+# ⏳ time-lib
 
 Rust library to manage your time.
 
-See the full [API documentation](https://docs.rs/pimalaya-time/latest/pimalaya_time/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/examples).
+See the full [API documentation](https://docs.rs/time-lib/latest/time/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/examples).
 
 *Disclaimer: the project is under active development, do not use in production before the v1.0.0.*
 
@@ -15,7 +15,7 @@ The development environment is managed by [Nix](https://nixos.org/download.html)
 $ nix-shell
 
 # then build the lib
-$ cargo build -p pimalaya-time
+$ cargo build -p time-lib
 ```
 
 ## Contributing
