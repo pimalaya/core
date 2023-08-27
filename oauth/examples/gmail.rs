@@ -1,4 +1,4 @@
-use pimalaya_oauth2::{AuthorizationCodeGrant, Client, RefreshAccessToken};
+use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use std::env;
 
 #[tokio::main]

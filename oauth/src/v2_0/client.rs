@@ -4,7 +4,7 @@
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 use thiserror::Error;
 
-use crate::Result;
+use super::Result;
 
 #[derive(Error, Debug)]
 pub enum Error {

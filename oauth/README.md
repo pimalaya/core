@@ -1,8 +1,8 @@
-# pimalaya-oauth2
+# oauth-lib
 
-Rust library to simplify OAuth 2.0 flows.
+Rust library to deal with OAuth flows.
 
-See the full [API documentation](https://docs.rs/pimalaya-oauth2/latest/pimalaya_oauth2/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/oauth2/examples).
+See the full [API documentation](https://docs.rs/oauth-lib/latest/oauth/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/oauth/examples).
 
 *The project is under active development. Do not use in production before the `v1.0.0`.*
 
@@ -15,7 +15,7 @@ The development environment is managed by [Nix](https://nixos.org/download.html)
 $ nix-shell
 
 # then build the lib
-$ cargo build -p pimalaya-oauth2
+$ cargo build -p oauth-lib
 ```
 
 ## Contributing

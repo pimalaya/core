@@ -1,10 +1,8 @@
-//! # pimalaya-oauth2
-//!
-//! This crate provides helpers to simplify OAuth 2.0 flows, based on
+//! This module provides helpers to simplify OAuth 2.0 flows, based on
 //! the [RFC6749](https://datatracker.ietf.org/doc/html/rfc6749).
 //!
 //! ```rust,ignore
-#![doc = include_str!("../examples/gmail.rs")]
+#![doc = include_str!("../../examples/gmail.rs")]
 //! ```
 
 pub mod authorization_code_grant;

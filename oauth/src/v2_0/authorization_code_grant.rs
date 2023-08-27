@@ -14,7 +14,7 @@ use tokio::{
     net::TcpListener,
 };
 
-use crate::Result;
+use super::Result;
 
 #[derive(Error, Debug)]
 pub enum Error {
