@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2023-08-27
+
+### Fixed
+
+- Fixed missing angles when compiling MML containing one of those headers: Message-ID, References, In-Reply-To, Return-Path, Content-ID, Resent-Message-ID.
+
+## [0.1.0] - 2023-08-23
+
 ### Added
 
 - Imported code from `pimalaya-email-tpl`.
-
-[#1]: https://todo.sr.ht/~soywod/pimalaya/1

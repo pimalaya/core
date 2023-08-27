@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use mail_parser::{Addr, ContentType, Group, HeaderValue};
+use mail_builder::headers::HeaderType;
+use mail_parser::{Addr, ContentType, Group, Header, HeaderName, HeaderValue, RfcHeader};
 use std::borrow::Cow;
 
 pub(super) fn display_value(key: &str, val: &HeaderValue) -> String {
@@ -87,6 +88,81 @@ fn display_content_type(ctype: &ContentType) -> String {
     let ctype = ctype.ctype();
 
     format!("{ctype}/{stype}{attrs}")
+}
+
+pub(crate) fn to_builder_val<'a>(header: &Header) -> HeaderType<'a> {
+    use mail_builder::headers::{
+        address::Address, content_type::ContentType, date::Date, raw::Raw, text::Text,
+    };
+
+    match header.value.clone().into_owned() {
+        HeaderValue::Address(addr) => match addr.address {
+            Some(email) => Address::new_address(addr.name, email).into(),
+            None => Raw::new("").into(),
+        },
+        HeaderValue::AddressList(addrs) => Address::new_list(
+            addrs
+                .into_iter()
+                .filter_map(|addr| {
+                    addr.address
+                        .map(|email| Address::new_address(addr.name, email))
+                })
+                .collect(),
+        )
+        .into(),
+        HeaderValue::Group(group) => Address::new_group(
+            group.name,
+            group
+                .addresses
+                .into_iter()
+                .filter_map(|addr| {
+                    addr.address
+                        .map(|email| Address::new_address(addr.name, email))
+                })
+                .collect(),
+        )
+        .into(),
+        HeaderValue::GroupList(groups) => Address::new_list(
+            groups
+                .into_iter()
+                .map(|group| {
+                    Address::new_group(
+                        group.name,
+                        group
+                            .addresses
+                            .into_iter()
+                            .filter_map(|addr| {
+                                addr.address
+                                    .map(|email| Address::new_address(addr.name, email))
+                            })
+                            .collect(),
+                    )
+                })
+                .collect(),
+        )
+        .into(),
+        HeaderValue::Text(text) => match header.name {
+            HeaderName::Rfc(RfcHeader::MessageId) => Text::new(format!("<{text}>")).into(),
+            HeaderName::Rfc(RfcHeader::References) => Text::new(format!("<{text}>")).into(),
+            HeaderName::Rfc(RfcHeader::InReplyTo) => Text::new(format!("<{text}>")).into(),
+            HeaderName::Rfc(RfcHeader::ReturnPath) => Text::new(format!("<{text}>")).into(),
+            HeaderName::Rfc(RfcHeader::ContentId) => Text::new(format!("<{text}>")).into(),
+            HeaderName::Rfc(RfcHeader::ResentMessageId) => Text::new(format!("<{text}>")).into(),
+            _ => Text::new(text).into(),
+        },
+        HeaderValue::TextList(texts) => Text::new(texts.join(" ")).into(),
+        HeaderValue::DateTime(date) => Date::new(date.to_timestamp()).into(),
+        HeaderValue::ContentType(ctype) => {
+            let mut final_ctype = ContentType::new(ctype.c_type);
+            if let Some(attrs) = ctype.attributes {
+                for (key, val) in attrs {
+                    final_ctype = final_ctype.attribute(key, val);
+                }
+            }
+            final_ctype.into()
+        }
+        HeaderValue::Empty => Raw::new("").into(),
+    }
 }
 
 fn extract_email_from_addr(a: &Addr) -> Option<String> {

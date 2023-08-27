@@ -1,10 +1,5 @@
-use mail_builder::{
-    headers::{
-        address::Address, content_type::ContentType, date::Date, raw::Raw, text::Text, HeaderType,
-    },
-    MessageBuilder,
-};
-use mail_parser::{HeaderValue, Message};
+use mail_builder::{headers::text::Text, MessageBuilder};
+use mail_parser::Message;
 use std::io;
 use thiserror::Error;
 
@@ -72,66 +67,7 @@ impl MmlCompiler {
 
         for header in mime_msg.headers() {
             let key = header.name.as_str().to_owned();
-            let val: HeaderType = match header.value.clone().into_owned() {
-                HeaderValue::Address(addr) => match addr.address {
-                    Some(email) => Address::new_address(addr.name, email).into(),
-                    None => Raw::new("").into(),
-                },
-                HeaderValue::AddressList(addrs) => Address::new_list(
-                    addrs
-                        .into_iter()
-                        .filter_map(|addr| {
-                            addr.address
-                                .map(|email| Address::new_address(addr.name, email))
-                        })
-                        .collect(),
-                )
-                .into(),
-                HeaderValue::Group(group) => Address::new_group(
-                    group.name,
-                    group
-                        .addresses
-                        .into_iter()
-                        .filter_map(|addr| {
-                            addr.address
-                                .map(|email| Address::new_address(addr.name, email))
-                        })
-                        .collect(),
-                )
-                .into(),
-                HeaderValue::GroupList(groups) => Address::new_list(
-                    groups
-                        .into_iter()
-                        .map(|group| {
-                            Address::new_group(
-                                group.name,
-                                group
-                                    .addresses
-                                    .into_iter()
-                                    .filter_map(|addr| {
-                                        addr.address
-                                            .map(|email| Address::new_address(addr.name, email))
-                                    })
-                                    .collect(),
-                            )
-                        })
-                        .collect(),
-                )
-                .into(),
-                HeaderValue::Text(text) => Text::new(text).into(),
-                HeaderValue::TextList(texts) => Text::new(texts.join(" ")).into(),
-                HeaderValue::DateTime(date) => Date::new(date.to_timestamp()).into(),
-                HeaderValue::ContentType(ctype) => {
-                    let mut final_ctype = ContentType::new(ctype.c_type);
-                    if let Some(attrs) = ctype.attributes {
-                        for (key, val) in attrs {
-                            final_ctype = final_ctype.attribute(key, val);
-                        }
-                    }
-                    final_ctype.into()
-                }
-                HeaderValue::Empty => Raw::new("").into(),
-            };
+            let val = crate::header::to_builder_val(header);
             mime_msg_builder = mime_msg_builder.header(key, val);
         }
 
@@ -172,6 +108,68 @@ mod tests {
             "Subject: Subjêct",
             "",
             "Hello, world!",
+            "",
+        );
+
+        assert_eq!(mml, expected_mml);
+    }
+
+    #[tokio::test]
+    async fn message_id_with_angles() {
+        let mml = concat_line!(
+            "From: Hugo Osvaldo Barrera <hugo@localhost>",
+            "To: Hugo Osvaldo Barrera <hugo@localhost>",
+            "Cc:",
+            "Subject: Blah",
+            "Message-ID: <bfb64e12-b7d4-474c-a658-8a221365f8ca@localhost>",
+            "",
+            "Test message",
+            "",
+        );
+
+        let mime_msg = MmlCompiler::new().compile(mml).await.unwrap();
+
+        let mml = MimeInterpreter::new()
+            .with_show_only_headers(["Message-ID"])
+            .interpret_msg_builder(mime_msg)
+            .await
+            .unwrap();
+
+        let expected_mml = concat_line!(
+            "Message-ID: <bfb64e12-b7d4-474c-a658-8a221365f8ca@localhost>",
+            "",
+            "Test message",
+            "",
+        );
+
+        assert_eq!(mml, expected_mml);
+    }
+
+    #[tokio::test]
+    async fn message_id_without_angles() {
+        let mml = concat_line!(
+            "From: Hugo Osvaldo Barrera <hugo@localhost>",
+            "To: Hugo Osvaldo Barrera <hugo@localhost>",
+            "Cc:",
+            "Subject: Blah",
+            "Message-ID: bfb64e12-b7d4-474c-a658-8a221365f8ca@localhost",
+            "",
+            "Test message",
+            "",
+        );
+
+        let mime_msg = MmlCompiler::new().compile(mml).await.unwrap();
+
+        let mml = MimeInterpreter::new()
+            .with_show_only_headers(["Message-ID"])
+            .interpret_msg_builder(mime_msg)
+            .await
+            .unwrap();
+
+        let expected_mml = concat_line!(
+            "Message-ID: <bfb64e12-b7d4-474c-a658-8a221365f8ca@localhost>",
+            "",
+            "Test message",
             "",
         );
 
