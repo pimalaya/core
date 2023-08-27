@@ -1,4 +1,5 @@
-pub use keyring::Error as KeyringError;
+#[doc(inline)]
+pub use keyring_native as native;
 use log::{debug, trace};
 use std::{ops::Deref, result};
 use thiserror::Error;
@@ -6,15 +7,15 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get keyring entry {1}")]
-    GetEntryError(#[source] KeyringError, String),
+    GetEntryError(#[source] keyring_native::Error, String),
     #[error("cannot get keyring entry secret for key {1}")]
-    GetSecretError(#[source] KeyringError, String),
+    GetSecretError(#[source] keyring_native::Error, String),
     #[error("cannot find keyring entry secret for key {1}")]
-    FindSecretError(#[source] KeyringError, String),
+    FindSecretError(#[source] keyring_native::Error, String),
     #[error("cannot set keyring entry secret for key {1}")]
-    SetSecretError(#[source] KeyringError, String),
+    SetSecretError(#[source] keyring_native::Error, String),
     #[error("cannot delete keyring entry secret for key {1}")]
-    DeleteSecretError(#[source] KeyringError, String),
+    DeleteSecretError(#[source] keyring_native::Error, String),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -30,8 +31,8 @@ pub type Key = String;
 pub struct Entry(Key);
 
 impl Entry {
-    fn get_entry(&self) -> Result<keyring::Entry> {
-        keyring::Entry::new(KEYRING_SERVICE, &self)
+    fn get_entry(&self) -> Result<keyring_native::Entry> {
+        keyring_native::Entry::new(KEYRING_SERVICE, &self)
             .map_err(|err| Error::GetEntryError(err, self.0.clone()))
     }
 
@@ -60,7 +61,7 @@ impl Entry {
     pub fn find_secret(&self) -> Result<Option<String>> {
         debug!("finding keyring entry secret for key {:?}", self.0);
         match self.get_entry()?.get_password() {
-            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(keyring_native::Error::NoEntry) => Ok(None),
             Err(err) => Err(Error::FindSecretError(err, self.0.clone())),
             Ok(secret) => Ok(Some(secret)),
         }

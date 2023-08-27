@@ -1,8 +1,8 @@
-# 🔐 pimalaya-keyring
+# 🔐 keyring-lib
 
-Rust library to manage keyring for the Pimalaya project.
+Rust library to manage your sensitive data.
 
-See the full [API documentation](https://docs.rs/pimalaya-keyring/latest/pimalaya_keyring/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/keyring/examples).
+See the full [API documentation](https://docs.rs/keyring-lib/latest/keyring/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/keyring/examples).
 
 *The project is under active development. Do not use in production before the `v1.0.0`.*
 
@@ -15,7 +15,7 @@ The development environment is managed by [Nix](https://nixos.org/download.html)
 $ nix-shell
 
 # then build the lib
-$ cargo build -p pimalaya-keyring
+$ cargo build -p keyring-lib
 ```
 
 ## Contributing

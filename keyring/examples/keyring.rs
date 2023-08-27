@@ -1,4 +1,4 @@
-use pimalaya_keyring::Entry;
+use keyring::Entry;
 
 const KEY: &str = "key";
 const VAL: &str = "val";

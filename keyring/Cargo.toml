@@ -1,23 +1,28 @@
 [package]
-name = "pimalaya-keyring"
-version = "0.0.6-beta"
-description = "Rust library to manage keyring for the Pimalaya project."
+name = "keyring-lib"
+version = "0.1.0"
+description = "Rust library to manage your sensitive data."
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["configuration", "database interfaces"]
 keywords = ["pim", "keyring", "password", "secret", "token"]
-
-[package.metadata.docs.rs]
-all-features = true
+metadata.docs.rs.all-features = true
 
 [lib]
-name = "pimalaya_keyring"
+name = "keyring"
 
-[dev-dependencies]
-env_logger = "0.10"
+[dev-dependencies.env_logger]
+version = "0.10"
 
-[dependencies]
-keyring = { version = "2.0.4", default-features = false, features = ["linux-no-secret-service"] }
-log = "0.4"
-thiserror = "1.0"
+[dependencies.keyring_native]
+package = "keyring"
+version = "2.0.4"
+default-features = false
+features = ["linux-no-secret-service"]
+
+[dependencies.log]
+version = "0.4"
+
+[dependencies.thiserror]
+version = "1.0"
