@@ -7,7 +7,7 @@ mod forward;
 mod new;
 mod reply;
 
-pub use pimalaya_email_tpl::{FilterParts, ShowHeadersStrategy, Tpl, TplInterpreter};
+pub use mml::{FilterParts, MimeInterpreter, ShowHeadersStrategy};
 use thiserror::Error;
 
 #[doc(inline)]
@@ -17,7 +17,7 @@ pub use self::{forward::ForwardTplBuilder, new::NewTplBuilder, reply::ReplyTplBu
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot interpret message as template")]
-    InterpretMessageAsTemplateError(#[source] pimalaya_email_tpl::Error),
+    InterpretMessageAsTemplateError(#[source] mml::Error),
     #[error("cannot interpret message as thread template")]
-    InterpretMessageAsThreadTemplateError(#[source] pimalaya_email_tpl::Error),
+    InterpretMessageAsThreadTemplateError(#[source] mml::Error),
 }

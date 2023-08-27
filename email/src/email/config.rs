@@ -3,7 +3,7 @@
 //! This module contains structs related to email configuration. They
 //! are mostly used by [crate::AccountConfig].
 
-use pimalaya_process::Cmd;
+use process::Cmd;
 
 /// The email text/plain format configuration.
 ///

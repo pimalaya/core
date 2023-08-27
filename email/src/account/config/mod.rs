@@ -10,7 +10,7 @@ pub mod pgp;
 use dirs::data_dir;
 use log::{debug, warn};
 use mail_builder::headers::address::{Address, EmailAddress};
-use pimalaya_email_tpl::TplInterpreter;
+use mml::MimeInterpreter;
 use shellexpand;
 use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, vec};
 use thiserror::Error;
@@ -23,13 +23,13 @@ use crate::{
     Result,
 };
 
-#[cfg(feature = "cmds-pgp")]
+#[cfg(feature = "pgp-commands")]
 #[doc(inline)]
 pub use self::pgp::CmdsPgpConfig;
-#[cfg(feature = "gpg")]
+#[cfg(feature = "pgp-gpg")]
 #[doc(inline)]
 pub use self::pgp::GpgConfig;
-#[cfg(feature = "native-pgp")]
+#[cfg(feature = "pgp-native")]
 #[doc(inline)]
 pub use self::pgp::{NativePgpConfig, NativePgpSecretKey, SignedPublicKey, SignedSecretKey};
 #[doc(inline)]
@@ -370,8 +370,8 @@ impl AccountConfig {
 
     /// Generate a template interpreter with prefilled options from
     /// the current user account configuration.
-    pub fn generate_tpl_interpreter(&self) -> TplInterpreter {
-        TplInterpreter::new()
+    pub fn generate_tpl_interpreter(&self) -> MimeInterpreter {
+        MimeInterpreter::new()
             .with_pgp(self.pgp.clone())
             .with_save_attachments_dir(self.downloads_dir())
     }

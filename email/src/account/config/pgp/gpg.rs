@@ -1,4 +1,4 @@
-use pimalaya_email_tpl::{Gpg, Pgp};
+use mml::{Gpg, Pgp};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct GpgConfig;

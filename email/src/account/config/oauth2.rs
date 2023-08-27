@@ -4,8 +4,8 @@
 //! configuration.
 
 use log::warn;
-use pimalaya_oauth2::{AuthorizationCodeGrant, Client, RefreshAccessToken};
-use pimalaya_secret::Secret;
+use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
+use secret::Secret;
 use std::{io, vec};
 use thiserror::Error;
 
@@ -15,36 +15,36 @@ use crate::Result;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot create oauth2 client")]
-    InitClientError(#[source] pimalaya_oauth2::Error),
+    InitClientError(#[source] oauth::v2_0::Error),
     #[error("cannot create oauth2 client")]
-    BuildClientError(#[source] pimalaya_oauth2::Error),
+    BuildClientError(#[source] oauth::v2_0::Error),
     #[error("cannot wait for oauth2 redirection error")]
-    WaitForRedirectionError(#[source] pimalaya_oauth2::Error),
+    WaitForRedirectionError(#[source] oauth::v2_0::Error),
 
     #[error("cannot get oauth2 access token from global keyring")]
-    GetAccessTokenError(#[source] pimalaya_secret::Error),
+    GetAccessTokenError(#[source] secret::Error),
     #[error("cannot set oauth2 access token")]
-    SetAccessTokenError(#[source] pimalaya_secret::Error),
+    SetAccessTokenError(#[source] secret::Error),
     #[error("cannot refresh oauth2 access token")]
-    RefreshAccessTokenError(#[source] pimalaya_oauth2::Error),
+    RefreshAccessTokenError(#[source] oauth::v2_0::Error),
     #[error("cannot delete oauth2 access token from global keyring")]
-    DeleteAccessTokenError(#[source] pimalaya_secret::Error),
+    DeleteAccessTokenError(#[source] secret::Error),
 
     #[error("cannot get oauth2 refresh token")]
-    GetRefreshTokenError(#[source] pimalaya_secret::Error),
+    GetRefreshTokenError(#[source] secret::Error),
     #[error("cannot set oauth2 refresh token")]
-    SetRefreshTokenError(#[source] pimalaya_secret::Error),
+    SetRefreshTokenError(#[source] secret::Error),
     #[error("cannot delete oauth2 refresh token from global keyring")]
-    DeleteRefreshTokenError(#[source] pimalaya_secret::Error),
+    DeleteRefreshTokenError(#[source] secret::Error),
 
     #[error("cannot get oauth2 client secret from user")]
     GetClientSecretFromUserError(#[source] io::Error),
     #[error("cannot get oauth2 client secret from global keyring")]
-    GetClientSecretFromKeyringError(#[source] pimalaya_secret::Error),
+    GetClientSecretFromKeyringError(#[source] secret::Error),
     #[error("cannot save oauth2 client secret into global keyring")]
-    SetClientSecretIntoKeyringError(#[source] pimalaya_secret::Error),
+    SetClientSecretIntoKeyringError(#[source] secret::Error),
     #[error("cannot delete oauth2 client secret from global keyring")]
-    DeleteClientSecretError(#[source] pimalaya_secret::Error),
+    DeleteClientSecretError(#[source] secret::Error),
 }
 
 /// The OAuth 2.0 configuration.

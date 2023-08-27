@@ -1,7 +1,7 @@
+use keyring::Entry;
 use log::{debug, warn};
-use pimalaya_email_tpl::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
-use pimalaya_keyring::Entry;
-use pimalaya_secret::Secret;
+use mml::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
+use secret::Secret;
 use std::{io, path::PathBuf};
 use thiserror::Error;
 use tokio::fs;
@@ -12,23 +12,23 @@ use crate::Result;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot delete pgp key from keyring")]
-    DeletePgpKeyFromKeyringError(#[source] pimalaya_keyring::Error),
+    DeletePgpKeyFromKeyringError(#[source] keyring::Error),
     #[error("cannot delete pgp key at {1}")]
     DeletePgpKeyAtPathError(#[source] io::Error, PathBuf),
     #[error("cannot generate pgp key pair for {1}")]
-    GeneratePgpKeyPairError(#[source] pimalaya_pgp::Error, String),
+    GeneratePgpKeyPairError(#[source] pgp::Error, String),
     #[error("cannot export secret key to armored string")]
-    ExportSecretKeyToArmoredStringError(#[source] pimalaya_pgp::NativeError),
+    ExportSecretKeyToArmoredStringError(#[source] pgp::native::errors::Error),
     #[error("cannot export public key to armored string")]
-    ExportPublicKeyToArmoredStringError(#[source] pimalaya_pgp::NativeError),
+    ExportPublicKeyToArmoredStringError(#[source] pgp::native::errors::Error),
     #[error("cannot write secret key file at {1}")]
     WriteSecretKeyFileError(#[source] io::Error, PathBuf),
     #[error("cannot write public key file at {1}")]
     WritePublicKeyFileError(#[source] io::Error, PathBuf),
     #[error("cannot set secret key to keyring")]
-    SetSecretKeyToKeyringError(#[source] pimalaya_keyring::Error),
+    SetSecretKeyToKeyringError(#[source] keyring::Error),
     #[error("cannot set public key to keyring")]
-    SetPublicKeyToKeyringError(#[source] pimalaya_keyring::Error),
+    SetPublicKeyToKeyringError(#[source] keyring::Error),
     #[error("cannot get secret key password")]
     GetPgpSecretKeyPasswdError(#[source] io::Error),
 }
@@ -103,7 +103,7 @@ impl NativePgpConfig {
         let email = email.to_string();
         let passwd = passwd().map_err(Error::GetPgpSecretKeyPasswdError)?;
 
-        let (skey, pkey) = pimalaya_pgp::gen_key_pair(email.clone(), passwd)
+        let (skey, pkey) = pgp::gen_key_pair(email.clone(), passwd)
             .await
             .map_err(|err| Error::GeneratePgpKeyPairError(err, email.clone()))?;
         let skey = skey

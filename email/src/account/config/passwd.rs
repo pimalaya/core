@@ -3,7 +3,7 @@
 //! This module contains everything related to password configuration.
 
 use log::warn;
-use pimalaya_secret::Secret;
+use secret::Secret;
 use std::{
     io,
     ops::{Deref, DerefMut},
@@ -18,11 +18,11 @@ pub enum Error {
     #[error("cannot get password from user")]
     GetFromUserError(#[source] io::Error),
     #[error("cannot get password from global keyring")]
-    GetFromKeyringError(#[source] pimalaya_secret::Error),
+    GetFromKeyringError(#[source] secret::Error),
     #[error("cannot save password into global keyring")]
-    SetIntoKeyringError(#[source] pimalaya_secret::Error),
+    SetIntoKeyringError(#[source] secret::Error),
     #[error("cannot delete password from global keyring")]
-    DeleteError(#[source] pimalaya_secret::Error),
+    DeleteError(#[source] secret::Error),
 }
 
 /// The password configuration.

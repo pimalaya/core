@@ -3,7 +3,7 @@
 //! This module contains the implementation of the IMAP backend and
 //! all associated structures related to it.
 
-use pimalaya_process::Cmd;
+use process::Cmd;
 use thiserror::Error;
 
 use crate::{
@@ -15,9 +15,9 @@ use crate::{
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot start the notify mode")]
-    StartNotifyModeError(#[source] pimalaya_process::Error),
+    StartNotifyModeError(#[source] process::Error),
     #[error("cannot get imap password from global keyring")]
-    GetPasswdError(#[source] pimalaya_secret::Error),
+    GetPasswdError(#[source] secret::Error),
     #[error("cannot get imap password: password is empty")]
     GetPasswdEmptyError,
 }

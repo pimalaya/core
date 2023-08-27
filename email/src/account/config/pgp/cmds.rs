@@ -1,5 +1,5 @@
-use pimalaya_email_tpl::{CmdsPgp, Pgp};
-use pimalaya_process::Cmd;
+use mml::{CmdsPgp, Pgp};
+use process::Cmd;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CmdsPgpConfig {

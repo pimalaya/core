@@ -3,7 +3,7 @@
 //! This module contains the configuration specific to the sendmail
 //! sender.
 
-use pimalaya_process::Cmd;
+use process::Cmd;
 
 /// The sendmail sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

@@ -16,7 +16,7 @@ use crate::{
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get smtp password")]
-    GetPasswdError(#[source] pimalaya_secret::Error),
+    GetPasswdError(#[source] secret::Error),
     #[error("cannot get smtp password: password is empty")]
     GetPasswdEmptyError,
 }

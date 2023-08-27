@@ -7,7 +7,7 @@ use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
 };
-use pimalaya_email_tpl::{Tpl, TplInterpreter};
+use mml::MimeInterpreter;
 
 use crate::{account::AccountConfig, email::Message, Result};
 
@@ -31,10 +31,10 @@ pub struct ForwardTplBuilder<'a> {
     body: String,
 
     /// Template interpreter instance.
-    pub interpreter: TplInterpreter,
+    pub interpreter: MimeInterpreter,
 
     /// Template interpreter instance dedicated to the message thread.
-    pub thread_interpreter: TplInterpreter,
+    pub thread_interpreter: MimeInterpreter,
 }
 
 impl<'a> ForwardTplBuilder<'a> {
@@ -97,20 +97,20 @@ impl<'a> ForwardTplBuilder<'a> {
     }
 
     /// Sets the template interpreter following the builder pattern.
-    pub fn with_interpreter(mut self, interpreter: TplInterpreter) -> Self {
+    pub fn with_interpreter(mut self, interpreter: MimeInterpreter) -> Self {
         self.interpreter = interpreter;
         self
     }
 
     /// Sets the template thread interpreter following the builder
     /// pattern.
-    pub fn with_thread_interpreter(mut self, interpreter: TplInterpreter) -> Self {
+    pub fn with_thread_interpreter(mut self, interpreter: MimeInterpreter) -> Self {
         self.thread_interpreter = interpreter;
         self
     }
 
     /// Builds the final forward message template.
-    pub async fn build(self) -> Result<Tpl> {
+    pub async fn build(self) -> Result<String> {
         let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
 

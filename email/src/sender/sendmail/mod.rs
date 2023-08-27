@@ -19,7 +19,7 @@ pub use self::config::SendmailConfig;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot run sendmail command")]
-    RunCommandError(#[source] pimalaya_process::Error),
+    RunCommandError(#[source] process::Error),
 }
 
 /// The sendmail sender.

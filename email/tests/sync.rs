@@ -1,10 +1,4 @@
-use env_logger;
-use mail_builder::MessageBuilder;
-use pimalaya_secret::Secret;
-use std::{collections::HashSet, time::Duration};
-use tempfile::tempdir;
-
-use pimalaya_email::{
+use email::{
     account::{sync::AccountSyncBuilder, AccountConfig, PasswdConfig},
     backend::{
         Backend, BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig, MaildirBackend,
@@ -13,6 +7,11 @@ use pimalaya_email::{
     email::{sync::EmailSyncCache, Flag, Flags},
     folder,
 };
+use env_logger;
+use mail_builder::MessageBuilder;
+use secret::Secret;
+use std::{collections::HashSet, time::Duration};
+use tempfile::tempdir;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sync() {

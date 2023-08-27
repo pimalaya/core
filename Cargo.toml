@@ -1,12 +1,11 @@
 [workspace]
-
+resolver = "2"
 members = [
   "email",
-  "mml",
-  "email-tpl",
   "keyring",
   "maildir++",
-  "oauth2",
+  "mml",
+  "oauth",
   "pgp",
   "process",
   "secret",

@@ -8,7 +8,7 @@ use mail_builder::{
     MessageBuilder,
 };
 use mail_parser::{Addr, HeaderValue};
-use pimalaya_email_tpl::{Tpl, TplInterpreter};
+use mml::MimeInterpreter;
 
 use crate::{
     account::AccountConfig,
@@ -39,10 +39,10 @@ pub struct ReplyTplBuilder<'a> {
     reply_all: bool,
 
     /// Template interpreter instance.
-    pub interpreter: TplInterpreter,
+    pub interpreter: MimeInterpreter,
 
     /// Template interpreter instance dedicated to the message thread.
-    pub thread_interpreter: TplInterpreter,
+    pub thread_interpreter: MimeInterpreter,
 }
 
 impl<'a> ReplyTplBuilder<'a> {
@@ -107,14 +107,14 @@ impl<'a> ReplyTplBuilder<'a> {
     }
 
     /// Sets the template interpreter following the builder pattern.
-    pub fn with_interpreter(mut self, interpreter: TplInterpreter) -> Self {
+    pub fn with_interpreter(mut self, interpreter: MimeInterpreter) -> Self {
         self.interpreter = interpreter;
         self
     }
 
     /// Sets the template thread interpreter following the builder
     /// pattern.
-    pub fn with_thread_interpreter(mut self, interpreter: TplInterpreter) -> Self {
+    pub fn with_thread_interpreter(mut self, interpreter: MimeInterpreter) -> Self {
         self.thread_interpreter = interpreter;
         self
     }
@@ -126,7 +126,7 @@ impl<'a> ReplyTplBuilder<'a> {
     }
 
     /// Builds the final reply message template.
-    pub async fn build(self) -> Result<Tpl> {
+    pub async fn build(self) -> Result<String> {
         let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
 

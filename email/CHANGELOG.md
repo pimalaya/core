@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2023-08-27
+
 ### Added
 
 - Added 3 new cargo features:
@@ -14,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `gpg`: enables the GPG backend (requires the `gpgme` lib on the system)
   - `native-pgp`: enables the native PGP backend
 - Added `AccountConfig::pgp` of type `PgpConfig`.
+
+### Changed
+
+- Renamed project `email-lib` in order to make it generic.
 
 ### Fixed
 

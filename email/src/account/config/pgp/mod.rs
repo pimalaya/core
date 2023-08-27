@@ -1,36 +1,36 @@
 //! Module dedicated to PGP configuration.
 //!
 //! This module contains everything related to PGP configuration.
-#[cfg(feature = "cmds-pgp")]
+#[cfg(feature = "pgp-commands")]
 pub mod cmds;
-#[cfg(feature = "gpg")]
+#[cfg(feature = "pgp-gpg")]
 pub mod gpg;
-#[cfg(feature = "native-pgp")]
+#[cfg(feature = "pgp-native")]
 pub mod native;
 
-#[cfg(feature = "cmds-pgp")]
+#[cfg(feature = "pgp-commands")]
 #[doc(inline)]
-pub use pimalaya_email_tpl::CmdsPgp;
-#[cfg(feature = "gpg")]
+pub use mml::CmdsPgp;
+#[cfg(feature = "pgp-gpg")]
 #[doc(inline)]
-pub use pimalaya_email_tpl::Gpg;
-use pimalaya_email_tpl::Pgp;
-#[cfg(feature = "native-pgp")]
+pub use mml::Gpg;
+use mml::Pgp;
+#[cfg(feature = "pgp-native")]
 #[doc(inline)]
-pub use pimalaya_email_tpl::{
+pub use mml::{
     NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, SignedPublicKey, SignedSecretKey,
 };
 use std::io;
 
 use crate::Result;
 
-#[cfg(feature = "cmds-pgp")]
+#[cfg(feature = "pgp-commands")]
 #[doc(inline)]
 pub use self::cmds::CmdsPgpConfig;
-#[cfg(feature = "gpg")]
+#[cfg(feature = "pgp-gpg")]
 #[doc(inline)]
 pub use self::gpg::GpgConfig;
-#[cfg(feature = "native-pgp")]
+#[cfg(feature = "pgp-native")]
 #[doc(inline)]
 pub use self::native::NativePgpConfig;
 
@@ -43,15 +43,15 @@ pub enum PgpConfig {
     #[default]
     None,
 
-    #[cfg(feature = "cmds-pgp")]
+    #[cfg(feature = "pgp-commands")]
     /// Commands configuration.
     Cmds(CmdsPgpConfig),
 
-    #[cfg(feature = "gpg")]
+    #[cfg(feature = "pgp-gpg")]
     /// GPG configuration.
     Gpg(GpgConfig),
 
-    #[cfg(feature = "native-pgp")]
+    #[cfg(feature = "pgp-native")]
     /// Native configuration.
     Native(NativePgpConfig),
 }
@@ -60,11 +60,11 @@ impl Into<Pgp> for PgpConfig {
     fn into(self) -> Pgp {
         match self {
             Self::None => Pgp::None,
-            #[cfg(feature = "cmds-pgp")]
+            #[cfg(feature = "pgp-commands")]
             Self::Cmds(config) => config.into(),
-            #[cfg(feature = "gpg")]
+            #[cfg(feature = "pgp-gpg")]
             Self::Gpg(config) => config.into(),
-            #[cfg(feature = "native-pgp")]
+            #[cfg(feature = "pgp-native")]
             Self::Native(config) => config.into(),
         }
     }
@@ -74,11 +74,11 @@ impl PgpConfig {
     pub async fn reset(&self) -> Result<()> {
         match self {
             Self::None => Ok(()),
-            #[cfg(feature = "cmds-pgp")]
+            #[cfg(feature = "pgp-commands")]
             Self::Cmds(..) => Ok(()),
-            #[cfg(feature = "gpg")]
+            #[cfg(feature = "pgp-gpg")]
             Self::Gpg(..) => Ok(()),
-            #[cfg(feature = "native-pgp")]
+            #[cfg(feature = "pgp-native")]
             Self::Native(config) => config.reset().await,
         }
     }
@@ -91,11 +91,11 @@ impl PgpConfig {
     ) -> Result<()> {
         match self {
             Self::None => Ok(()),
-            #[cfg(feature = "cmds-pgp")]
+            #[cfg(feature = "pgp-commands")]
             Self::Cmds(..) => Ok(()),
-            #[cfg(feature = "gpg")]
+            #[cfg(feature = "pgp-gpg")]
             Self::Gpg(..) => Ok(()),
-            #[cfg(feature = "native-pgp")]
+            #[cfg(feature = "pgp-native")]
             Self::Native(config) => config.configure(email, passwd).await,
         }
     }

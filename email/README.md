@@ -1,8 +1,8 @@
-# 📫 pimalaya-email
+# 📫 email-lib
 
 Rust library to manage your emails.
 
-See the full API documentation on [docs.rs](https://docs.rs/pimalaya-email/latest/pimalaya_email/).
+See the full API documentation on [docs.rs](https://docs.rs/email-lib/latest/email/).
 
 *The project is under active development. Do not use in production before the `v1.0.0`.*
 
@@ -15,7 +15,7 @@ The development environment is managed by [Nix](https://nixos.org/download.html)
 $ nix-shell
 
 # then build the lib
-$ cargo build -p pimalaya-email
+$ cargo build -p email-lib
 ```
 
 ## Testing
@@ -28,7 +28,7 @@ $ docker run -it --rm \
   -e GREENMAIL_OPTS='-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled -Dgreenmail.verbose' \
   greenmail/standalone:2.0.0
   
-$ cargo test -p pimalaya-email
+$ cargo test -p email-lib
 ```
 
 ## Contributing

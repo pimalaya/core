@@ -2,14 +2,14 @@
 #[tokio::test(flavor = "multi_thread")]
 async fn notmuch_backend() {
     use concat_with::concat_line;
-    use mail_builder::MessageBuilder;
-    use maildirpp::Maildir;
-    use notmuch::Database;
-    use pimalaya_email::{
+    use email::{
         account::AccountConfig,
         backend::{Backend, NotmuchBackend, NotmuchConfig},
         email::{Flag, Flags},
     };
+    use mail_builder::MessageBuilder;
+    use maildirpp::Maildir;
+    use notmuch::Database;
     use std::{collections::HashMap, env, fs, iter::FromIterator};
 
     env_logger::builder().is_test(true).init();
@@ -81,7 +81,7 @@ async fn notmuch_backend() {
         "",
     );
 
-    assert_eq!(*tpl, expected_tpl);
+    assert_eq!(tpl, expected_tpl);
 
     // check that the envelope of the added message exists
     let envelopes = notmuch.list_envelopes("custom", 0, 0).await.unwrap();

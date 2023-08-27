@@ -16,7 +16,7 @@ use imap::{
 use imap_proto::{NameAttribute, UidSetMember};
 use log::{debug, error, info, log_enabled, warn, Level};
 use once_cell::sync::Lazy;
-use pimalaya_process::Cmd;
+use process::Cmd;
 use rustls::{
     client::{ServerCertVerified, ServerCertVerifier},
     Certificate, ClientConfig, ClientConnection, RootCertStore, StreamOwned,
@@ -147,7 +147,7 @@ pub enum Error {
     #[error("cannot close imap session")]
     CloseError(#[source] imap::Error),
     #[error("cannot get imap password from global keyring")]
-    GetPasswdError(#[source] pimalaya_secret::Error),
+    GetPasswdError(#[source] secret::Error),
     #[error("cannot get imap password: password is empty")]
     GetPasswdEmptyError,
 }

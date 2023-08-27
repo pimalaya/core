@@ -7,7 +7,7 @@ use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
 };
-use pimalaya_email_tpl::{Tpl, TplInterpreter};
+use mml::MimeInterpreter;
 
 use crate::{account::AccountConfig, Result};
 
@@ -28,7 +28,7 @@ pub struct NewTplBuilder<'a> {
     body: String,
 
     /// Template interpreter instance.
-    pub interpreter: TplInterpreter,
+    pub interpreter: MimeInterpreter,
 }
 
 impl<'a> NewTplBuilder<'a> {
@@ -85,13 +85,13 @@ impl<'a> NewTplBuilder<'a> {
     }
 
     /// Sets the template interpreter following the builder pattern.
-    pub fn with_interpreter(mut self, interpreter: TplInterpreter) -> Self {
+    pub fn with_interpreter(mut self, interpreter: MimeInterpreter) -> Self {
         self.interpreter = interpreter;
         self
     }
 
     /// Builds the final new message template.
-    pub async fn build(self) -> Result<Tpl> {
+    pub async fn build(self) -> Result<String> {
         let mut builder = MessageBuilder::new()
             .from(self.config.from())
             .to(Vec::<Address>::new())

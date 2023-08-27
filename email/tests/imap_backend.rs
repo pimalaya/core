@@ -2,13 +2,14 @@
 #[tokio::test]
 async fn test_imap_backend() {
     use concat_with::concat_line;
-    use mail_builder::MessageBuilder;
-    use pimalaya_email::{
+    use email::{
         account::{AccountConfig, PasswdConfig},
         backend::{BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig},
-        email::{Flag, Tpl},
+        email::Flag,
     };
-    use pimalaya_secret::Secret;
+    use mail_builder::MessageBuilder;
+    use mml::MmlCompiler;
+    use secret::Secret;
 
     env_logger::builder().is_test(true).init();
 
@@ -54,8 +55,8 @@ async fn test_imap_backend() {
             "Hello, world!",
             "<#/part>",
         ));
-    let email = Tpl::from(email.write_to_string().unwrap())
-        .compile()
+    let email = MmlCompiler::new()
+        .compile(email.write_to_string().unwrap())
         .await
         .unwrap()
         .write_to_vec()
@@ -84,7 +85,7 @@ async fn test_imap_backend() {
         "",
     );
 
-    assert_eq!(*tpl, expected_tpl);
+    assert_eq!(tpl, expected_tpl);
 
     // checking that the envelope of the added email exists
     let sent = imap.list_envelopes("Sent", 0, 0).await.unwrap();

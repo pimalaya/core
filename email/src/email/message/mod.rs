@@ -14,8 +14,8 @@ use imap::types::{Fetch, Fetches};
 use log::{debug, warn};
 use mail_parser::MimeHeaders;
 use maildirpp::MailEntry;
+use mml::MimeInterpreter;
 use ouroboros::self_referencing;
-use pimalaya_email_tpl::{Tpl, TplInterpreter};
 use std::{borrow::Cow, fmt::Debug, io, path::PathBuf};
 use thiserror::Error;
 use tree_magic;
@@ -50,9 +50,9 @@ pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] account::config::Error),
     #[error("cannot decrypt encrypted email part")]
-    DecryptEmailPartError(#[source] pimalaya_process::Error),
+    DecryptEmailPartError(#[source] process::Error),
     #[error("cannot verify signed email part")]
-    VerifyEmailPartError(#[source] pimalaya_process::Error),
+    VerifyEmailPartError(#[source] process::Error),
 
     // TODO: sort me
     #[error("cannot get content type of multipart")]
@@ -65,7 +65,7 @@ pub enum Error {
     DecryptPartError(#[source] account::config::Error),
 
     #[error("cannot interpret email as template")]
-    InterpretEmailAsTplError(#[source] pimalaya_email_tpl::Error),
+    InterpretEmailAsTplError(#[source] mml::Error),
 
     #[error("cannot parse email message")]
     ParseEmailMessageError,
@@ -136,12 +136,12 @@ impl Message<'_> {
         NewTplBuilder::new(config)
     }
 
-    /// Turns the current message into a read [template](pimalaya_email_tpl::Tpl).
+    /// Turns the current message into a read.
     pub async fn to_read_tpl(
         &self,
         config: &AccountConfig,
-        with_interpreter: impl Fn(TplInterpreter) -> TplInterpreter,
-    ) -> Result<Tpl> {
+        with_interpreter: impl Fn(MimeInterpreter) -> MimeInterpreter,
+    ) -> Result<String> {
         let interpreter = config
             .generate_tpl_interpreter()
             .with_show_only_headers(config.email_reading_headers());
@@ -329,7 +329,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -354,7 +354,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -386,7 +386,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -422,7 +422,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -464,7 +464,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -508,7 +508,7 @@ mod tests {
             ""
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -547,7 +547,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -585,7 +585,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -623,7 +623,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -663,7 +663,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -702,7 +702,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -745,7 +745,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -791,7 +791,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -837,7 +837,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -889,6 +889,6 @@ mod tests {
             "",
         );
 
-        assert_eq!(*tpl, expected_tpl);
+        assert_eq!(tpl, expected_tpl);
     }
 }

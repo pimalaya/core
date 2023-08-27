@@ -1,13 +1,13 @@
 #[tokio::test]
 async fn maildir_backend() {
     use concat_with::concat_line;
-    use mail_builder::MessageBuilder;
-    use maildirpp::Maildir;
-    use pimalaya_email::{
+    use email::{
         account::AccountConfig,
         backend::{Backend, MaildirBackend, MaildirConfig},
         email::{Flag, Flags},
     };
+    use mail_builder::MessageBuilder;
+    use maildirpp::Maildir;
     use std::{collections::HashMap, fs, iter::FromIterator};
     use tempfile::tempdir;
 
@@ -84,7 +84,7 @@ async fn maildir_backend() {
         "",
     );
 
-    assert_eq!(*tpl, expected_tpl);
+    assert_eq!(tpl, expected_tpl);
 
     // check that the envelope of the added message exists
     let envelopes = mdir.list_envelopes("INBOX", 10, 0).await.unwrap();

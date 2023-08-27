@@ -1,10 +1,10 @@
-use mail_builder::MessageBuilder;
-use pimalaya_email::{
+use email::{
     account::{AccountConfig, PasswdConfig},
     backend::{BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig},
     sender::{SenderBuilder, SenderConfig, SendmailConfig},
 };
-use pimalaya_secret::Secret;
+use mail_builder::MessageBuilder;
+use secret::Secret;
 use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread")]

@@ -1,5 +1,0 @@
-/gpg-home/*
-!/gpg-home/trustdb.gpg
-!/gpg-home/pubring.kbx
-!/gpg-home/private-keys-v1.d
-!/gpg-home/openpgp-revocs.d

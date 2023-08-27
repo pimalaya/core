@@ -1,12 +1,12 @@
 #[tokio::test(flavor = "multi_thread")]
 async fn smtp_sender() {
-    use mail_builder::MessageBuilder;
-    use pimalaya_email::{
+    use email::{
         account::{AccountConfig, PasswdConfig},
         backend::{BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig},
         sender::{SenderBuilder, SenderConfig, SmtpAuthConfig, SmtpConfig},
     };
-    use pimalaya_secret::Secret;
+    use mail_builder::MessageBuilder;
+    use secret::Secret;
     use std::time::Duration;
 
     env_logger::builder().is_test(true).init();

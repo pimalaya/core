@@ -29,8 +29,7 @@ pub use self::{
     },
     message::{
         attachment::{self, Attachment},
-        template::{self, Tpl},
-        Message, Messages,
+        template, Message, Messages,
     },
     utils::*,
 };
