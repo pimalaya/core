@@ -1,4 +1,4 @@
-//! Rust library to manage secrets for the Pimalaya project.
+//! Rust library to retrieve secrets from different sources.
 //!
 //! The core concept of this library is to abstract the concept of
 //! secret. A secret can be retrieved either from a raw string, from a
@@ -6,9 +6,9 @@
 //! [`Secret`]. The usage of this library should be restricted to the
 //! pimalaya project, since the keyring scope is hard coded.
 
+use keyring::Entry;
 use log::{debug, trace, warn};
-use pimalaya_keyring::Entry;
-use pimalaya_process::Cmd;
+use process::Cmd;
 use std::result;
 use thiserror::Error;
 
@@ -18,10 +18,10 @@ pub enum Error {
     #[error("cannot get secret: secret is not defined")]
     GetSecretFromUndefinedError,
     #[error("cannot get secret from command")]
-    GetSecretFromCmd(#[source] pimalaya_process::Error),
+    GetSecretFromCmd(#[source] process::Error),
 
     #[error(transparent)]
-    KeyringError(#[from] pimalaya_keyring::Error),
+    KeyringError(#[from] keyring::Error),
 }
 
 /// The global `Result` alias of the library.

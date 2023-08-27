@@ -1,8 +1,8 @@
-# 🔐 pimalaya-secret
+# 🔐 secret-lib
 
-Rust library to manage secrets for the Pimalaya project.
+Rust library to retrieve secrets from different sources.
 
-See the full [API documentation](https://docs.rs/pimalaya-secret/latest/pimalaya_secret/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/secret/examples).
+See the full [API documentation](https://docs.rs/secret-lib/latest/secret/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/secret/examples).
 
 *The project is under active development. Do not use in production before the `v1.0.0`.*
 
@@ -15,7 +15,7 @@ The development environment is managed by [Nix](https://nixos.org/download.html)
 $ nix-shell
 
 # then build the lib
-$ cargo build -p pimalaya-secret
+$ cargo build -p secret-lib
 ```
 
 ## Contributing
