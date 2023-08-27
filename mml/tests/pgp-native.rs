@@ -7,7 +7,7 @@ async fn pgp_native() {
         Pgp,
     };
     use pgp::gen_key_pair;
-    use pimalaya_secret::Secret;
+    use secret::Secret;
     use std::collections::HashMap;
     use tempfile::tempdir;
     use tokio::{

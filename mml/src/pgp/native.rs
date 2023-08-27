@@ -1,9 +1,9 @@
 #[doc(inline)]
-pub use pgp::{SignedPublicKey, SignedSecretKey};
+pub use pgp::native::{SignedPublicKey, SignedSecretKey};
 
+use keyring::Entry;
 use log::{debug, warn};
-use pimalaya_keyring::Entry;
-use pimalaya_secret::Secret;
+use secret::Secret;
 use std::{collections::HashSet, path::PathBuf};
 use thiserror::Error;
 
@@ -12,16 +12,16 @@ use crate::Result;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get pgp secret key from keyring")]
-    GetSecretKeyFromKeyringError(pimalaya_keyring::Error),
+    GetSecretKeyFromKeyringError(keyring::Error),
     #[error("cannot read pgp secret key from keyring")]
     ReadSecretKeyFromKeyringError(pgp::Error),
     #[error("cannot read pgp secret key from path {1}")]
     ReadSecretKeyFromPathError(pgp::Error, PathBuf),
 
     #[error("cannot get pgp secret key passphrase from keyring")]
-    GetSecretKeyPassphraseFromKeyringError(#[source] pimalaya_secret::Error),
+    GetSecretKeyPassphraseFromKeyringError(#[source] secret::Error),
     #[error("cannot get pgp secret key from keyring")]
-    GetPgpSecretKeyFromKeyringError(#[source] pimalaya_keyring::Error),
+    GetPgpSecretKeyFromKeyringError(#[source] keyring::Error),
 
     #[error("cannot get native pgp secret key of {0}")]
     GetNativePgpSecretKeyNoneError(String),

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2023-08-27
+
+## Changed
+
+- Renamed feature `pgp-cmds` to `pgp-commands`, and removed it from default features. PGP needs now to be manually activated.
+
 ## [0.1.2] - 2023-08-27
 
 ### Removed

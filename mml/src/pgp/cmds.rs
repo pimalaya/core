@@ -1,4 +1,4 @@
-use pimalaya_process::Cmd;
+use process::Cmd;
 use thiserror::Error;
 
 use crate::Result;
@@ -6,13 +6,13 @@ use crate::Result;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot encrypt data using commands")]
-    EncryptError(#[source] pimalaya_process::Error),
+    EncryptError(#[source] process::Error),
     #[error("cannot decrypt data using commands")]
-    DecryptError(#[source] pimalaya_process::Error),
+    DecryptError(#[source] process::Error),
     #[error("cannot sign data using commands")]
-    SignError(#[source] pimalaya_process::Error),
+    SignError(#[source] process::Error),
     #[error("cannot verify data using commands")]
-    VerifyError(#[source] pimalaya_process::Error),
+    VerifyError(#[source] process::Error),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
