@@ -12,9 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added 3 new cargo features:
-  - `cmds-pgp`: enables the commands PGP backend (enabled by default, same behaviour as before)
-  - `gpg`: enables the GPG backend (requires the `gpgme` lib on the system)
-  - `native-pgp`: enables the native PGP backend
+  - `pgp-commands`: enables the commands PGP backend (enabled by default, same behaviour as before)
+  - `pgp-gpg`: enables the GPG backend (requires the `gpgme` lib on the system)
+  - `pgp-native`: enables the native PGP backend
 - Added `AccountConfig::pgp` of type `PgpConfig`.
 
 ### Changed
