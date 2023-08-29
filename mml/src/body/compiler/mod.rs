@@ -8,6 +8,7 @@ use mail_builder::{
     mime::{BodyPart, MimePart},
     MessageBuilder,
 };
+use shellexpand_utils::shellexpand_path;
 use std::{ffi::OsStr, fs, io, path::PathBuf};
 use thiserror::Error;
 
@@ -247,7 +248,7 @@ impl MmlBodyCompiler {
                 let filepath = props
                     .get(FILENAME)
                     .ok_or(Error::GetFilenamePropMissingError)?;
-                let filepath = shellexpand::path(&filepath);
+                let filepath = shellexpand_path(&filepath);
 
                 let body = fs::read(&filepath)
                     .map_err(|err| Error::ReadAttachmentError(err, filepath.clone()))?;

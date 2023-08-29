@@ -4,6 +4,7 @@ pub use pgp::native::{SignedPublicKey, SignedSecretKey};
 use keyring::Entry;
 use log::{debug, warn};
 use secret::Secret;
+use shellexpand_utils::shellexpand_path;
 use std::{collections::HashSet, path::PathBuf};
 use thiserror::Error;
 
@@ -62,7 +63,7 @@ impl NativePgpSecretKey {
             ))?),
             Self::Raw(skey) => Ok(skey.clone()),
             Self::Path(path) => {
-                let path = shellexpand::path(&path);
+                let path = shellexpand_path(&path);
                 let skey = pgp::read_skey_from_file(path)
                     .await
                     .map_err(Error::ReadNativePgpSecretKeyError)?;
