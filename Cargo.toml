@@ -9,6 +9,6 @@ members = [
   "pgp",
   "process",
   "secret",
-  "shellexpand",
+  "shellexpand-utils",
   "time",
 ]
