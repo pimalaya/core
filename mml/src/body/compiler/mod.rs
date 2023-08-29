@@ -8,7 +8,7 @@ use mail_builder::{
     mime::{BodyPart, MimePart},
     MessageBuilder,
 };
-use std::{env, ffi::OsStr, fs, io, path::PathBuf};
+use std::{ffi::OsStr, fs, io, path::PathBuf};
 use thiserror::Error;
 
 #[cfg(feature = "pgp")]
@@ -36,10 +36,8 @@ pub enum Error {
     WriteCompiledPartToVecError(#[source] io::Error),
     #[error("cannot find missing property filename")]
     GetFilenamePropMissingError,
-    #[error("cannot expand filename {1}")]
-    ExpandFilenameError(#[source] shellexpand::LookupError<env::VarError>, String),
-    #[error("cannot read attachment at {1}")]
-    ReadAttachmentError(#[source] io::Error, String),
+    #[error("cannot read attachment at {1:?}")]
+    ReadAttachmentError(#[source] io::Error, PathBuf),
 
     #[cfg(feature = "pgp")]
     #[error("cannot sign part using pgp: missing sender")]
@@ -249,9 +247,7 @@ impl MmlBodyCompiler {
                 let filepath = props
                     .get(FILENAME)
                     .ok_or(Error::GetFilenamePropMissingError)?;
-                let filepath = shellexpand::full(&filepath)
-                    .map_err(|err| Error::ExpandFilenameError(err, filepath.to_string()))?
-                    .to_string();
+                let filepath = shellexpand::path(&filepath);
 
                 let body = fs::read(&filepath)
                     .map_err(|err| Error::ReadAttachmentError(err, filepath.clone()))?;

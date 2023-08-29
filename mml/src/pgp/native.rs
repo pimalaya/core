@@ -62,17 +62,7 @@ impl NativePgpSecretKey {
             ))?),
             Self::Raw(skey) => Ok(skey.clone()),
             Self::Path(path) => {
-                let path = path.to_string_lossy().to_string();
-                let path = match shellexpand::full(&path) {
-                    Ok(path) => path.to_string(),
-                    Err(err) => {
-                        let msg = "cannot shell expand pgp secret key at";
-                        warn!("{msg} {path}: {err}");
-                        debug!("{msg} {path:?}: {err:?}");
-                        path.to_owned()
-                    }
-                };
-                let path = PathBuf::from(&path);
+                let path = shellexpand::path(&path);
                 let skey = pgp::read_skey_from_file(path)
                     .await
                     .map_err(Error::ReadNativePgpSecretKeyError)?;
