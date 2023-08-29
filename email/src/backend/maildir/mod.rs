@@ -79,7 +79,7 @@ pub struct MaildirBackend {
 impl MaildirBackend {
     /// Creates a new Maildir backend from configurations.
     pub fn new(account_config: AccountConfig, mdir_config: MaildirConfig) -> Result<Self> {
-        let path = &mdir_config.root_dir;
+        let path = shellexpand::path(&mdir_config.root_dir);
         let mdir = Maildir::from(path.clone());
 
         mdir.create_dirs()

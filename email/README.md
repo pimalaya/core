@@ -1,6 +1,6 @@
 # 📫 email-lib
 
-Rust library to manage your emails.
+Rust library to manage emails.
 
 See the full API documentation on [docs.rs](https://docs.rs/email-lib/latest/email/).
 

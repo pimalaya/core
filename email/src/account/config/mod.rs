@@ -202,12 +202,17 @@ impl AccountConfig {
     /// Expand the downloads directory path. Falls back to temporary
     /// directory.
     pub fn downloads_dir(&self) -> PathBuf {
-        self.downloads_dir
-            .as_ref()
-            .and_then(|dir| dir.to_str())
-            .and_then(|dir| shellexpand::full(dir).ok())
-            .map(|dir| PathBuf::from(dir.to_string()))
-            .unwrap_or_else(env::temp_dir)
+        match self.downloads_dir.as_ref() {
+            Some(dir) => shellexpand::try_path(dir).unwrap_or_else(|err| {
+                warn!("cannot expand downloads dir, falling back to tmp: {err}");
+                debug!("cannot expand downloads dir: {err:?}");
+                env::temp_dir()
+            }),
+            None => {
+                warn!("downloads dir not defined, falling back to tmp");
+                env::temp_dir()
+            }
+        }
     }
 
     /// Wrapper around `downloads_dir()` and `rename_file_if_duplicate()`.
@@ -221,14 +226,10 @@ impl AccountConfig {
     pub fn find_folder_alias(&self, folder: &str) -> Result<Option<String>> {
         let lowercase_folder = folder.trim().to_lowercase();
 
-        let alias = match self.folder_aliases.get(&lowercase_folder) {
-            None => None,
-            Some(alias) => Some(shellexpand::full(alias).map(String::from).or_else(|err| {
-                warn!("skipping shell expand for folder alias {alias}: {err}");
-                debug!("skipping shell expand for folder alias {alias}: {err:?}");
-                Result::Ok(alias.clone())
-            })?),
-        };
+        let alias = self
+            .folder_aliases
+            .get(&lowercase_folder)
+            .map(shellexpand::str);
 
         Ok(alias)
     }
@@ -242,17 +243,14 @@ impl AccountConfig {
             .folder_aliases
             .get(&lowercase_folder)
             .map(String::as_str)
+            .map(shellexpand::str)
             .unwrap_or_else(|| match lowercase_folder.as_str() {
-                "inbox" => DEFAULT_INBOX_FOLDER,
-                "draft" | "drafts" => DEFAULT_DRAFTS_FOLDER,
-                "sent" => DEFAULT_SENT_FOLDER,
-                "trash" => DEFAULT_TRASH_FOLDER,
-                _ => folder,
+                "inbox" => DEFAULT_INBOX_FOLDER.to_owned(),
+                "draft" | "drafts" => DEFAULT_DRAFTS_FOLDER.to_owned(),
+                "sent" => DEFAULT_SENT_FOLDER.to_owned(),
+                "trash" => DEFAULT_TRASH_FOLDER.to_owned(),
+                _ => shellexpand::str(folder),
             });
-        let alias = shellexpand::full(alias).map(String::from).or_else(|err| {
-            warn!("skipping shell expand for folder alias {}: {}", alias, err);
-            Result::Ok(alias.to_string())
-        })?;
 
         debug!("folder alias for {folder}: {alias}");
         Ok(alias)
@@ -319,12 +317,17 @@ impl AccountConfig {
             .unwrap_or(DEFAULT_SIGNATURE_DELIM);
 
         let signature = self.signature.as_ref();
-        let signature = signature
-            .and_then(|sig| shellexpand::full(sig).ok())
-            .map(String::from)
-            .and_then(|sig| fs::read_to_string(sig).ok())
-            .or_else(|| signature.map(ToOwned::to_owned))
-            .map(|sig| format!("{}{}", delim, sig.trim()));
+        let signature = signature.map(|path_or_raw| {
+            let signature = shellexpand::try_path(path_or_raw)
+                .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))
+                .and_then(|path| fs::read_to_string(path))
+                .unwrap_or_else(|err| {
+                    warn!("cannot read signature from path: {err}");
+                    debug!("cannot read signature from path: {err:?}");
+                    shellexpand::str(path_or_raw)
+                });
+            format!("{}{}", delim, signature.trim())
+        });
 
         Ok(signature)
     }

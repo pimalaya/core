@@ -1,5 +1,5 @@
 use keyring::Entry;
-use log::{debug, warn};
+use log::warn;
 use mml::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
 use secret::Secret;
 use std::{io, path::PathBuf};
@@ -63,27 +63,13 @@ impl NativePgpConfig {
             NativePgpSecretKey::None => (),
             NativePgpSecretKey::Raw(..) => (),
             NativePgpSecretKey::Path(path) => {
-                if let Some(path) = path.as_path().to_str() {
-                    let path_str = match shellexpand::full(path) {
-                        Ok(path) => path.to_string(),
-                        Err(err) => {
-                            warn!("cannot shell expand pgp key path {path}: {err}");
-                            debug!("cannot shell expand pgp key path {path:?}: {err:?}");
-                            path.to_owned()
-                        }
-                    };
-
-                    let path = PathBuf::from(&path_str);
-
-                    if path.is_file() {
-                        fs::remove_file(&path)
-                            .await
-                            .map_err(|err| Error::DeletePgpKeyAtPathError(err, path.clone()))?;
-                    } else {
-                        warn!("cannot delete pgp key file at {path_str}: file not found");
-                    }
+                let path = shellexpand::path(path);
+                if path.is_file() {
+                    fs::remove_file(&path)
+                        .await
+                        .map_err(|err| Error::DeletePgpKeyAtPathError(err, path.clone()))?;
                 } else {
-                    warn!("cannot get pgp key file path as str: {path:?}");
+                    warn!("cannot delete pgp key file at {path:?}: file not found");
                 }
             }
             NativePgpSecretKey::Keyring(entry) => entry
@@ -117,15 +103,7 @@ impl NativePgpConfig {
             NativePgpSecretKey::None => (),
             NativePgpSecretKey::Raw(_) => (),
             NativePgpSecretKey::Path(skey_path) => {
-                let skey_path = skey_path.to_string_lossy().to_string();
-                let skey_path = match shellexpand::full(&skey_path) {
-                    Ok(path) => PathBuf::from(path.to_string()),
-                    Err(err) => {
-                        warn!("cannot shell expand pgp secret key {skey_path}: {err}");
-                        debug!("cannot shell expand pgp secret key {skey_path:?}: {err:?}");
-                        PathBuf::from(skey_path)
-                    }
-                };
+                let skey_path = shellexpand::path(skey_path);
                 fs::write(&skey_path, skey)
                     .await
                     .map_err(|err| Error::WriteSecretKeyFileError(err, skey_path.clone()))?;

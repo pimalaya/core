@@ -118,13 +118,7 @@ impl NotmuchBackend {
     /// falls back to the default Notmuch database path from the
     /// notmuch lib.
     fn path_from(notmuch_config: &NotmuchConfig) -> PathBuf {
-        notmuch_config
-            .db_path
-            .to_str()
-            .and_then(|path| shellexpand::full(path).ok())
-            .map(|path| PathBuf::from(path.to_string()))
-            .and_then(|path| path.canonicalize().ok())
-            .unwrap_or_else(|| notmuch_config.db_path.clone())
+        shellexpand::path(&notmuch_config.db_path)
     }
 
     /// Returns the Notmuch database path.
