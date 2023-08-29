@@ -1,0 +1,22 @@
+[package]
+name = "pimalaya-shellexpand"
+version = "0.1.0"
+description = "Wrapper around the shellexpand crate for internal Pimalaya usage."
+authors = ["soywod <clement.douin@posteo.net>"]
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "shellexpand"
+
+[dependencies.log]
+version = "0.4"
+
+[dependencies.thiserror]
+version = "1.0"
+
+[dependencies.shellexpand_native]
+package = "shellexpand"
+version = "3.1"
+default-features = false
+features = ["full"]
