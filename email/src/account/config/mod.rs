@@ -11,7 +11,7 @@ use dirs::data_dir;
 use log::{debug, warn};
 use mail_builder::headers::address::{Address, EmailAddress};
 use mml::MimeInterpreter;
-use shellexpand;
+use shellexpand_utils::{shellexpand_str, try_shellexpand_path};
 use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, vec};
 use thiserror::Error;
 
@@ -203,7 +203,7 @@ impl AccountConfig {
     /// directory.
     pub fn downloads_dir(&self) -> PathBuf {
         match self.downloads_dir.as_ref() {
-            Some(dir) => shellexpand::try_path(dir).unwrap_or_else(|err| {
+            Some(dir) => try_shellexpand_path(dir).unwrap_or_else(|err| {
                 warn!("cannot expand downloads dir, falling back to tmp: {err}");
                 debug!("cannot expand downloads dir: {err:?}");
                 env::temp_dir()
@@ -229,7 +229,7 @@ impl AccountConfig {
         let alias = self
             .folder_aliases
             .get(&lowercase_folder)
-            .map(shellexpand::str);
+            .map(shellexpand_str);
 
         Ok(alias)
     }
@@ -243,13 +243,13 @@ impl AccountConfig {
             .folder_aliases
             .get(&lowercase_folder)
             .map(String::as_str)
-            .map(shellexpand::str)
+            .map(shellexpand_str)
             .unwrap_or_else(|| match lowercase_folder.as_str() {
                 "inbox" => DEFAULT_INBOX_FOLDER.to_owned(),
                 "draft" | "drafts" => DEFAULT_DRAFTS_FOLDER.to_owned(),
                 "sent" => DEFAULT_SENT_FOLDER.to_owned(),
                 "trash" => DEFAULT_TRASH_FOLDER.to_owned(),
-                _ => shellexpand::str(folder),
+                _ => shellexpand_str(folder),
             });
 
         debug!("folder alias for {folder}: {alias}");
@@ -318,13 +318,13 @@ impl AccountConfig {
 
         let signature = self.signature.as_ref();
         let signature = signature.map(|path_or_raw| {
-            let signature = shellexpand::try_path(path_or_raw)
+            let signature = try_shellexpand_path(path_or_raw)
                 .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))
                 .and_then(|path| fs::read_to_string(path))
                 .unwrap_or_else(|err| {
                     warn!("cannot read signature from path: {err}");
                     debug!("cannot read signature from path: {err:?}");
-                    shellexpand::str(path_or_raw)
+                    shellexpand_str(path_or_raw)
                 });
             format!("{}{}", delim, signature.trim())
         });

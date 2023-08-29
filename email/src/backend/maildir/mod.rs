@@ -8,6 +8,7 @@ pub mod config;
 use async_trait::async_trait;
 use log::{debug, info, warn};
 use maildirpp::Maildir;
+use shellexpand_utils::shellexpand_path;
 use std::{
     any::Any,
     env,
@@ -79,7 +80,7 @@ pub struct MaildirBackend {
 impl MaildirBackend {
     /// Creates a new Maildir backend from configurations.
     pub fn new(account_config: AccountConfig, mdir_config: MaildirConfig) -> Result<Self> {
-        let path = shellexpand::path(&mdir_config.root_dir);
+        let path = shellexpand_path(&mdir_config.root_dir);
         let mdir = Maildir::from(path.clone());
 
         mdir.create_dirs()

@@ -2,6 +2,7 @@ use keyring::Entry;
 use log::warn;
 use mml::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
 use secret::Secret;
+use shellexpand_utils::shellexpand_path;
 use std::{io, path::PathBuf};
 use thiserror::Error;
 use tokio::fs;
@@ -63,7 +64,7 @@ impl NativePgpConfig {
             NativePgpSecretKey::None => (),
             NativePgpSecretKey::Raw(..) => (),
             NativePgpSecretKey::Path(path) => {
-                let path = shellexpand::path(path);
+                let path = shellexpand_path(path);
                 if path.is_file() {
                     fs::remove_file(&path)
                         .await
@@ -103,7 +104,7 @@ impl NativePgpConfig {
             NativePgpSecretKey::None => (),
             NativePgpSecretKey::Raw(_) => (),
             NativePgpSecretKey::Path(skey_path) => {
-                let skey_path = shellexpand::path(skey_path);
+                let skey_path = shellexpand_path(skey_path);
                 fs::write(&skey_path, skey)
                     .await
                     .map_err(|err| Error::WriteSecretKeyFileError(err, skey_path.clone()))?;

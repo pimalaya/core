@@ -11,6 +11,7 @@ use maildirpp::Maildir;
 use notmuch::{Database, DatabaseMode};
 use once_cell::unsync::Lazy;
 use regex::Regex;
+use shellexpand_utils::shellexpand_path;
 use std::{any::Any, fs, io, path::PathBuf};
 use thiserror::Error;
 
@@ -118,7 +119,7 @@ impl NotmuchBackend {
     /// falls back to the default Notmuch database path from the
     /// notmuch lib.
     fn path_from(notmuch_config: &NotmuchConfig) -> PathBuf {
-        shellexpand::path(&notmuch_config.db_path)
+        shellexpand_path(&notmuch_config.db_path)
     }
 
     /// Returns the Notmuch database path.
