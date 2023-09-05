@@ -18,7 +18,6 @@ use mml::MimeInterpreter;
 use ouroboros::self_referencing;
 use std::{borrow::Cow, fmt::Debug, io, path::PathBuf};
 use thiserror::Error;
-use tree_magic;
 
 use crate::{
     account::{self, AccountConfig},
@@ -124,7 +123,7 @@ impl Message<'_> {
                     // better to guess the real mime type from the
                     // body instead of using the one given from the
                     // content type
-                    mime: tree_magic::from_u8(part.contents()),
+                    mime: tree_magic_mini::from_u8(part.contents()).to_owned(),
                     body: part.contents().to_owned(),
                 }
             })

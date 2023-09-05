@@ -136,8 +136,8 @@ features = ["fs", "net"]
 [dependencies.tokio-rustls]
 version = "0.24"
 
-[dependencies.tree_magic]
-version = "0.2"
+[dependencies.tree_magic_mini]
+version = "3.0"
 
 [dependencies.urlencoding]
 version = "2.1"

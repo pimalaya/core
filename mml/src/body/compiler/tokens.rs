@@ -1,6 +1,5 @@
 use log::warn;
 use std::collections::HashMap;
-use tree_magic;
 
 use super::TYPE;
 
@@ -20,9 +19,9 @@ pub(crate) enum Part {
 impl Part {
     pub(crate) fn get_or_guess_content_type(props: &Props, body: impl AsRef<[u8]>) -> String {
         props.get(TYPE).map(String::to_string).unwrap_or_else(|| {
-            let ctype = tree_magic::from_u8(body.as_ref());
+            let ctype = tree_magic_mini::from_u8(body.as_ref());
             warn!("no content type found, guessing from body: {ctype}");
-            ctype
+            ctype.to_owned()
         })
     }
 }
