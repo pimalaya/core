@@ -29,8 +29,8 @@ use self::{parsers::prelude::*, tokens::Part};
 #[derive(Debug, Error)]
 pub enum Error {
     // TODO: return the original chumsky::Error
-    #[error("cannot parse MML template: {0}")]
-    ParseMmlError(String),
+    #[error("cannot parse MML template")]
+    ParseMmlError(Vec<chumsky::error::Simple<char>>),
     #[error("cannot compile template: recipient is missing")]
     CompileTplMissingRecipientError,
     #[error("cannot compile template")]
@@ -300,7 +300,7 @@ impl MmlBodyCompiler {
     pub async fn compile<'a>(&self, tpl: impl AsRef<str>) -> Result<MessageBuilder<'a>> {
         let parts = parsers::parts()
             .parse(tpl.as_ref())
-            .map_err(|errs| Error::ParseMmlError(errs[0].to_string()))?;
+            .map_err(Error::ParseMmlError)?;
         self.compile_parts(parts).await
     }
 }
