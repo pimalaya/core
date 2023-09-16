@@ -29,8 +29,8 @@ use self::{parsers::prelude::*, tokens::Part};
 #[derive(Debug, Error)]
 pub enum Error {
     // TODO: return the original chumsky::Error
-    #[error("cannot parse MML template")]
-    ParseMmlError(Vec<chumsky::error::Simple<char>>),
+    #[error("cannot parse MML body")]
+    ParseMmlError(Vec<chumsky::error::Rich<'static, char>>, String),
     #[error("cannot compile template: recipient is missing")]
     CompileTplMissingRecipientError,
     #[error("cannot compile template")]
@@ -181,7 +181,7 @@ impl MmlBodyCompiler {
     #[async_recursion]
     async fn compile_part<'a>(&self, part: Part) -> Result<MimePart<'a>> {
         match part {
-            Part::MultiPart((props, parts)) => {
+            Part::MultiPart(props, parts) => {
                 let no_parts = BodyPart::Multipart(Vec::new());
 
                 let mut multi_part = match props.get(TYPE).map(String::as_str) {
@@ -213,7 +213,7 @@ impl MmlBodyCompiler {
 
                 Ok(multi_part)
             }
-            Part::SinglePart((ref props, body)) => {
+            Part::SinglePart(ref props, body) => {
                 let ctype = Part::get_or_guess_content_type(props, &body);
                 let mut part = MimePart::new(ctype, body);
 
@@ -297,11 +297,18 @@ impl MmlBodyCompiler {
         }
     }
 
-    pub async fn compile<'a>(&self, tpl: impl AsRef<str>) -> Result<MessageBuilder<'a>> {
-        let parts = parsers::parts()
-            .parse(tpl.as_ref())
-            .map_err(Error::ParseMmlError)?;
-        self.compile_parts(parts).await
+    pub async fn compile<'a>(&self, mml: impl AsRef<str>) -> Result<MessageBuilder<'a>> {
+        let mml = mml.as_ref();
+        let res = parsers::parts().parse(mml);
+        if let Some(parts) = res.output() {
+            Ok(self.compile_parts(parts.to_owned()).await?)
+        } else {
+            let errs = res.errors().map(|err| err.clone().into_owned()).collect();
+            Err(crate::Error::CompileMmlBodyError(Error::ParseMmlError(
+                errs,
+                mml.to_owned(),
+            )))
+        }
     }
 }
 

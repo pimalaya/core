@@ -10,7 +10,7 @@ use super::{maybe_quoted_val, prelude::*, quoted_val, val};
 /// Represents the multipart type property parser. It parses value for
 /// the `Content-Type` of the multipart. The value can be `mixed`,
 /// `alternative` or `related`.
-pub(crate) fn multipart_type() -> impl Parser<char, Prop, Error = Simple<char>> {
+pub(crate) fn multipart_type<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(TYPE)
         .then_ignore(just('=').padded())
         .then(choice((
@@ -24,7 +24,7 @@ pub(crate) fn multipart_type() -> impl Parser<char, Prop, Error = Simple<char>> 
 
 /// Represents the part type property parser. It parses value for the
 /// `Content-Type` header of the part.
-pub(crate) fn part_type() -> impl Parser<char, Prop, Error = Simple<char>> {
+pub(crate) fn part_type<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(TYPE)
         .then_ignore(just('=').padded())
         .then(choice((quoted_val(), val())))
@@ -33,7 +33,7 @@ pub(crate) fn part_type() -> impl Parser<char, Prop, Error = Simple<char>> {
 }
 
 /// Represents the name property parser.
-pub(crate) fn name() -> impl Parser<char, Prop, Error = Simple<char>> {
+pub(crate) fn name<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(NAME)
         .then_ignore(just('=').padded())
         .then(choice((quoted_val(), val())))
@@ -44,7 +44,7 @@ pub(crate) fn name() -> impl Parser<char, Prop, Error = Simple<char>> {
 /// Represents the disposition property parser. It parses value for
 /// the `Content-Disposition` header of the part. The value can be
 /// `inline` or `attachment`.
-pub(crate) fn disposition() -> impl Parser<char, Prop, Error = Simple<char>> {
+pub(crate) fn disposition<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(DISPOSITION)
         .then_ignore(just('=').padded())
         .then(choice((
@@ -56,7 +56,7 @@ pub(crate) fn disposition() -> impl Parser<char, Prop, Error = Simple<char>> {
 }
 
 /// Represents the filename property parser.
-pub(crate) fn filename() -> impl Parser<char, Prop, Error = Simple<char>> {
+pub(crate) fn filename<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(FILENAME)
         .then_ignore(just('=').padded())
         .then(choice((quoted_val(), val())))
@@ -69,7 +69,7 @@ pub(crate) fn filename() -> impl Parser<char, Prop, Error = Simple<char>> {
 /// like `pgp` or `smime`. The command refers to
 /// [`CompilerOpts::pgp_encrypt_cmd`].
 #[cfg(feature = "pgp")]
-pub(crate) fn encrypt() -> impl Parser<char, Prop, Error = Simple<char>> {
+pub(crate) fn encrypt<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(ENCRYPT)
         .then_ignore(just('=').padded())
         .then(maybe_quoted_val(PGP_MIME))
@@ -82,7 +82,7 @@ pub(crate) fn encrypt() -> impl Parser<char, Prop, Error = Simple<char>> {
 /// like `pgp` or `smime`. The command refers to
 /// [`CompilerOpts::pgp_sign_cmd].
 #[cfg(feature = "pgp")]
-pub(crate) fn sign() -> impl Parser<char, Prop, Error = Simple<char>> {
+pub(crate) fn sign<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(SIGN)
         .then_ignore(just('=').padded())
         .then(maybe_quoted_val(PGP_MIME))

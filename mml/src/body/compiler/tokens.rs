@@ -10,8 +10,8 @@ pub(crate) type Props = HashMap<Key, Val>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum Part {
-    MultiPart((Props, Vec<Part>)),
-    SinglePart((Props, String)),
+    MultiPart(Props, Vec<Part>),
+    SinglePart(Props, String),
     Attachment(Props),
     TextPlainPart(String),
 }
