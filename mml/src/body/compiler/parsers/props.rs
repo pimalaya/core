@@ -12,6 +12,7 @@ use super::{maybe_quoted_val, prelude::*, quoted_val, val};
 /// `alternative` or `related`.
 pub(crate) fn multipart_type<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(TYPE)
+        .labelled(TYPE)
         .then_ignore(just('=').padded())
         .then(choice((
             maybe_quoted_val(MIXED),
@@ -26,6 +27,7 @@ pub(crate) fn multipart_type<'a>() -> impl Parser<'a, &'a str, Prop, ParserError
 /// `Content-Type` header of the part.
 pub(crate) fn part_type<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(TYPE)
+        .labelled(TYPE)
         .then_ignore(just('=').padded())
         .then(choice((quoted_val(), val())))
         .padded()
@@ -35,6 +37,7 @@ pub(crate) fn part_type<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>>
 /// Represents the name property parser.
 pub(crate) fn name<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(NAME)
+        .labelled(NAME)
         .then_ignore(just('=').padded())
         .then(choice((quoted_val(), val())))
         .padded()
@@ -46,6 +49,7 @@ pub(crate) fn name<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Cl
 /// `inline` or `attachment`.
 pub(crate) fn disposition<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(DISPOSITION)
+        .labelled(DISPOSITION)
         .then_ignore(just('=').padded())
         .then(choice((
             maybe_quoted_val(INLINE),
@@ -58,6 +62,7 @@ pub(crate) fn disposition<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a
 /// Represents the filename property parser.
 pub(crate) fn filename<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(FILENAME)
+        .labelled(FILENAME)
         .then_ignore(just('=').padded())
         .then(choice((quoted_val(), val())))
         .padded()
@@ -71,6 +76,7 @@ pub(crate) fn filename<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> 
 #[cfg(feature = "pgp")]
 pub(crate) fn encrypt<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(ENCRYPT)
+        .labelled(ENCRYPT)
         .then_ignore(just('=').padded())
         .then(maybe_quoted_val(PGP_MIME))
         .padded()
@@ -84,6 +90,7 @@ pub(crate) fn encrypt<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> +
 #[cfg(feature = "pgp")]
 pub(crate) fn sign<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(SIGN)
+        .labelled(SIGN)
         .then_ignore(just('=').padded())
         .then(maybe_quoted_val(PGP_MIME))
         .padded()

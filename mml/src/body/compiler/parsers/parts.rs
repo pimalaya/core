@@ -31,10 +31,10 @@ pub(crate) fn text_plain_part<'a>() -> impl Parser<'a, &'a str, String, ParserEr
     any()
         .and_is(
             choice((
-                just(SINGLE_PART_BEGIN),
-                just(SINGLE_PART_END),
-                just(MULTI_PART_BEGIN),
-                just(MULTI_PART_END),
+                single_part_begin(),
+                single_part_end(),
+                multi_part_begin(),
+                multi_part_end(),
             ))
             .not(),
         )
@@ -80,7 +80,7 @@ pub(crate) fn attachment<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a>
     })
     .map(Part::Attachment)
     .delimited_by(
-        just(SINGLE_PART_BEGIN),
+        single_part_begin(),
         just(GREATER_THAN).then_ignore(just(NEW_LINE).or_not()),
     )
 }
@@ -89,7 +89,7 @@ pub(crate) fn attachment<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a>
 /// including properties and content till the next opening part or the
 /// next closing part/multipart.
 pub(crate) fn single_part<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a>> + Clone {
-    just(SINGLE_PART_BEGIN)
+    single_part_begin()
         .ignore_then(
             choice((
                 part_type(),
@@ -106,7 +106,7 @@ pub(crate) fn single_part<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a
             .then_ignore(just(NEW_LINE).or_not()),
         )
         .then(text_plain_part())
-        .then_ignore(just(SINGLE_PART_END).then(just(NEW_LINE).or_not()).or_not())
+        .then_ignore(single_part_end().then(just(NEW_LINE).or_not()).or_not())
         .map(|(props, content)| Part::SinglePart(props, content))
 }
 
@@ -163,6 +163,23 @@ pub(crate) fn multi_part<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a>
             )
             .map(|(props, parts)| Part::MultiPart(props, parts))
     })
+}
+
+pub(crate) fn single_part_begin<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
+{
+    just(SINGLE_PART_BEGIN).labelled("single part opening tag <#part>")
+}
+
+pub(crate) fn single_part_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+    just(SINGLE_PART_END).labelled("single part closing tag <#/part>")
+}
+
+pub(crate) fn multi_part_begin<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+    just(MULTI_PART_BEGIN).labelled("multipart opening tag <#multipart>")
+}
+
+pub(crate) fn multi_part_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+    just(MULTI_PART_END).labelled("multipart closing tag <#/multipart>")
 }
 
 #[cfg(test)]

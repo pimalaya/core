@@ -62,11 +62,12 @@ optional = true
 version = "1.0.0-alpha.4"
 optional = true
 default-features = false
-features = ["std"]
+features = ["std", "label"]
 
 [target.'cfg(not(windows))'.dependencies.chumsky]
 version = "1.0.0-alpha.4"
 optional = true
+features = ["label"]
 
 # interpreter feature
 

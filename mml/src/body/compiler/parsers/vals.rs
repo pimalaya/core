@@ -10,7 +10,9 @@ pub(crate) fn val<'a>() -> impl Parser<'a, &'a str, Val, ParserError<'a>> + Clon
     let escapable_chars = [BACKSLASH, SPACE, GREATER_THAN];
 
     choice((
-        just(BACKSLASH).ignore_then(one_of(escapable_chars)),
+        just(BACKSLASH)
+            .labelled("escaped character")
+            .ignore_then(one_of(escapable_chars)),
         none_of(escapable_chars),
     ))
     .repeated()
@@ -26,7 +28,9 @@ pub(crate) fn quoted_val<'a>() -> impl Parser<'a, &'a str, Val, ParserError<'a>>
     let escapable_chars = [BACKSLASH, DOUBLE_QUOTE];
 
     choice((
-        just(BACKSLASH).ignore_then(one_of(escapable_chars)),
+        just(BACKSLASH)
+            .labelled("escaped character")
+            .ignore_then(one_of(escapable_chars)),
         none_of(escapable_chars),
     ))
     .repeated()
@@ -41,7 +45,9 @@ pub(crate) fn maybe_quoted_val<'a>(
 ) -> impl Parser<'a, &'a str, Val, ParserError<'a>> + Clone {
     choice((
         just(key.to_string()),
-        just(key.to_string()).delimited_by(just(DOUBLE_QUOTE), just(DOUBLE_QUOTE)),
+        just(key.to_string())
+            .delimited_by(just(DOUBLE_QUOTE), just(DOUBLE_QUOTE))
+            .labelled("quoted value"),
     ))
 }
 
