@@ -1,9 +1,9 @@
-use crate::body::{
+use crate::message::body::{
     compiler::tokens::Prop, ALTERNATIVE, ATTACHMENT, DISPOSITION, FILENAME, INLINE, MIXED, NAME,
     RELATED, TYPE,
 };
 #[cfg(feature = "pgp")]
-use crate::body::{ENCRYPT, PGP_MIME, SIGN};
+use crate::message::body::{ENCRYPT, PGP_MIME, SIGN};
 
 use super::{maybe_quoted_val, prelude::*, quoted_val, val};
 

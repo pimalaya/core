@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::body::{
+use crate::message::body::{
     compiler::tokens::{Part, Props},
     FILENAME, GREATER_THAN, MULTI_PART_BEGIN, MULTI_PART_END, NEW_LINE, SINGLE_PART_BEGIN,
     SINGLE_PART_END,
@@ -187,7 +187,7 @@ mod parts {
     use concat_with::concat_line;
     use std::collections::HashMap;
 
-    use crate::body::{
+    use crate::message::body::{
         compiler::{parsers::prelude::*, tokens::Part},
         DISPOSITION, FILENAME, NAME, TYPE,
     };

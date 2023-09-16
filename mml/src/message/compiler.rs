@@ -4,7 +4,7 @@ use std::io;
 use thiserror::Error;
 
 #[cfg(feature = "pgp")]
-use crate::{header, Pgp};
+use crate::{message::header, Pgp};
 use crate::{MmlBodyCompiler, Result};
 
 #[derive(Debug, Error)]
@@ -67,7 +67,7 @@ impl MmlCompiler {
 
         for header in mime_msg.headers() {
             let key = header.name.as_str().to_owned();
-            let val = crate::header::to_builder_val(header);
+            let val = super::header::to_builder_val(header);
             mime_msg_builder = mime_msg_builder.header(key, val);
         }
 

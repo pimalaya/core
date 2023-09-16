@@ -1,4 +1,4 @@
-use crate::body::{compiler::tokens::Val, BACKSLASH, DOUBLE_QUOTE, GREATER_THAN, SPACE};
+use crate::message::body::{compiler::tokens::Val, BACKSLASH, DOUBLE_QUOTE, GREATER_THAN, SPACE};
 
 use super::prelude::*;
 

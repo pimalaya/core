@@ -1,11 +1,13 @@
 #![doc = include_str!("../README.md")]
 
-pub mod body;
-pub(crate) mod header;
 pub mod message;
 #[cfg(feature = "pgp")]
 pub mod pgp;
 
+#[cfg(feature = "interpreter")]
+pub use self::message::{FilterParts, MimeBodyInterpreter, MimeInterpreter, ShowHeadersStrategy};
+#[cfg(feature = "compiler")]
+pub use self::message::{MmlBodyCompiler, MmlCompiler};
 #[cfg(feature = "pgp-commands")]
 pub use self::pgp::CmdsPgp;
 #[cfg(feature = "pgp-gpg")]
@@ -15,13 +17,6 @@ pub use self::pgp::Pgp;
 #[cfg(feature = "pgp-native")]
 pub use self::pgp::{
     NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, SignedPublicKey, SignedSecretKey,
-};
-#[cfg(feature = "compiler")]
-pub use self::{body::MmlBodyCompiler, message::MmlCompiler};
-#[cfg(feature = "interpreter")]
-pub use self::{
-    body::{FilterParts, MimeBodyInterpreter},
-    message::{MimeInterpreter, ShowHeadersStrategy},
 };
 
 /// The global `Error` enum of the library.
@@ -33,7 +28,7 @@ pub enum Error {
 
     #[cfg(feature = "compiler")]
     #[error(transparent)]
-    CompileMmlBodyError(#[from] body::compiler::Error),
+    CompileMmlBodyError(#[from] message::body::compiler::Error),
 
     #[cfg(feature = "interpreter")]
     #[error(transparent)]
@@ -41,7 +36,7 @@ pub enum Error {
 
     #[cfg(feature = "interpreter")]
     #[error(transparent)]
-    InterpretMimeBodyError(#[from] body::interpreter::Error),
+    InterpretMimeBodyError(#[from] message::body::interpreter::Error),
 
     #[cfg(feature = "pgp")]
     #[error(transparent)]

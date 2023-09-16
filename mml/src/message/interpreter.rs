@@ -5,7 +5,9 @@ use thiserror::Error;
 
 #[cfg(feature = "pgp")]
 use crate::Pgp;
-use crate::{header, FilterParts, MimeBodyInterpreter, Result};
+use crate::{FilterParts, MimeBodyInterpreter, Result};
+
+use super::header;
 
 #[derive(Debug, Error)]
 pub enum Error {
