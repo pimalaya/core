@@ -1,7 +1,7 @@
 //! # PGP module
 //!
-//! The main structure of this module is [Pgp], which is an enum of
-//! PGP backends.
+//! This module contains available PGP backends: shell commands, GPG
+//! and native.
 
 #[cfg(feature = "pgp-commands")]
 pub mod commands;
@@ -27,7 +27,7 @@ pub use self::native::{
     NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, SignedPublicKey, SignedSecretKey,
 };
 
-/// Errors related to PGP actions.
+/// Errors dedicated to PGP.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot encrypt data using pgp: pgp not configured")]
@@ -40,19 +40,31 @@ pub enum Error {
     PgpVerifyNoneError,
 }
 
+/// The PGP backends.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum Pgp {
+    /// Disable PGP.
     #[default]
     None,
+
+    /// Use shell commands to perform PGP actions.
     #[cfg(feature = "pgp-commands")]
     Cmds(CmdsPgp),
-    #[cfg(feature = "pgp-native")]
-    Native(NativePgp),
+
+    /// Use GPG to perform PGP actions.
+    ///
+    /// GPG needs to be installed on the system as well as its
+    /// associated library `gpgme`.
     #[cfg(feature = "pgp-gpg")]
     Gpg(Gpg),
+
+    /// Use native Rust implementation of PGP to perform PGP actions.
+    #[cfg(feature = "pgp-native")]
+    Native(NativePgp),
 }
 
 impl Pgp {
+    /// Encrypts the given plain bytes using the given recipients.
     pub async fn encrypt(
         &self,
         recipients: impl IntoIterator<Item = String>,
@@ -73,6 +85,7 @@ impl Pgp {
         }
     }
 
+    /// Decrypts the given encrypted bytes using the given recipient.
     pub async fn decrypt(
         &self,
         recipient: impl ToString,
@@ -94,6 +107,7 @@ impl Pgp {
         }
     }
 
+    /// Signs the given plain bytes using the given recipient.
     pub async fn sign(&self, recipient: impl ToString, plain_bytes: Vec<u8>) -> Result<Vec<u8>> {
         let recipient = recipient.to_string();
         debug!("signing bytes for {recipient} using pgp");
@@ -111,6 +125,8 @@ impl Pgp {
         }
     }
 
+    /// Verifies the given signed bytes as well as the given signature
+    /// bytes using the given recipient.
     pub async fn verify(
         &self,
         recipient: impl AsRef<str>,

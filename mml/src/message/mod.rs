@@ -1,7 +1,7 @@
 //! # Message module
 //!
-//! A message is composed of a [header] and a [body]. A MML
-//! message/body can be compiled into a MIME message/body using the
+//! A message is composed of a header and a [body]. A MML message/body
+//! can be compiled into a MIME message/body using the
 //! [MmlCompiler]/[MmlBodyCompiler] builder. A MIME message/body can
 //! be interpreted as a MML message/body using the
 //! [MimeInterpreter]/[MimeBodyInterpreter] builder.

@@ -1,4 +1,4 @@
-//! # MML Message compiler
+//! # MML to MIME message compilation module
 //!
 //! Module dedicated to MML → MIME message compilation.
 
@@ -8,10 +8,10 @@ use std::io;
 use thiserror::Error;
 
 #[cfg(feature = "pgp")]
-use crate::{message::header, Pgp};
-use crate::{MmlBodyCompiler, Result};
+use crate::{message::header, pgp::Pgp};
+use crate::{message::MmlBodyCompiler, Result};
 
-/// Errors related to MML to MIME message compilation.
+/// Errors dedicated to MML → MIME message compilation.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot build message from template")]

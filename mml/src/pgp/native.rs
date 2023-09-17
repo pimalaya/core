@@ -1,3 +1,7 @@
+//! # PGP native module
+//!
+//! This module contains the native PGP backend.
+
 #[doc(inline)]
 pub use pgp::native::{SignedPublicKey, SignedSecretKey};
 
@@ -10,6 +14,7 @@ use thiserror::Error;
 
 use crate::Result;
 
+/// Errors dedicated to native PGP backend.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get pgp secret key from keyring")]
@@ -42,19 +47,27 @@ pub enum Error {
     ReadNativePgpSecretKeyError(#[source] pgp::Error),
 }
 
+/// The native PGP secret key source.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum NativePgpSecretKey {
     #[default]
     None,
+
+    /// The native PGP secret key is given as it is (raw).
     Raw(SignedSecretKey),
+
+    /// The native PGP secret key is located at the given path.
     Path(PathBuf),
+
+    /// The native PGP secret key is located in the user's global
+    /// keyring at the given entry.
     Keyring(Entry),
 }
 
 impl NativePgpSecretKey {
     // FIXME: use the recipient from the template instead of the PGP
-    // config. This can be done once the `pgp` module can
-    // manage both secret and public keys.
+    // config. This can be done once the `pgp` module can manage both
+    // secret and public keys.
     pub async fn get(&self, recipient: impl ToString) -> Result<SignedSecretKey> {
         let recipient = recipient.to_string();
         match self {
@@ -82,21 +95,38 @@ impl NativePgpSecretKey {
     }
 }
 
+/// The native PGP public key resolver.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativePgpPublicKeysResolver {
+    /// The given email string is associated with the given raw public
+    /// key.
     Raw(String, SignedPublicKey),
+
+    /// The public key is resolved using the Web Key Directory
+    /// protocol.
     Wkd,
+
+    /// The public key is resolved using the given key servers.
+    ///
+    /// Supported protocols: `http(s)://`, `hkp(s)://`.
     KeyServers(Vec<String>),
 }
 
+/// The native PGP backend.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct NativePgp {
+    /// The secret key of the sender.
     pub secret_key: NativePgpSecretKey,
+
+    /// The passphrase associated to the secret key.
     pub secret_key_passphrase: Secret,
+
+    /// The list of public key resolvers.
     pub public_keys_resolvers: Vec<NativePgpPublicKeysResolver>,
 }
 
 impl NativePgp {
+    /// Encrypts the given plain bytes using the given recipients.
     pub async fn encrypt(
         &self,
         emails: impl IntoIterator<Item = String>,
@@ -177,6 +207,7 @@ impl NativePgp {
         Ok(data)
     }
 
+    /// Decrypts the given encrypted bytes using the given recipient.
     pub async fn decrypt(&self, email: impl ToString, data: Vec<u8>) -> Result<Vec<u8>> {
         let skey = self.secret_key.get(email).await?;
         let passphrase = self
@@ -190,6 +221,7 @@ impl NativePgp {
         Ok(data)
     }
 
+    /// Signs the given plain bytes using the given recipient.
     pub async fn sign(&self, email: impl ToString, data: Vec<u8>) -> Result<Vec<u8>> {
         let skey = self.secret_key.get(email).await?;
         let passphrase = self
@@ -203,6 +235,8 @@ impl NativePgp {
         Ok(data)
     }
 
+    /// Verifies the given signed bytes as well as the signature bytes
+    /// using the given recipient.
     pub async fn verify(&self, email: impl AsRef<str>, sig: Vec<u8>, data: Vec<u8>) -> Result<()> {
         let email = email.as_ref();
         let mut pkey_found = None;

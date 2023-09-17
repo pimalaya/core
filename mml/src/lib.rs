@@ -13,24 +13,10 @@ pub mod pgp;
 
 #[cfg(feature = "interpreter")]
 #[doc(inline)]
-pub use self::message::{FilterParts, MimeBodyInterpreter, MimeInterpreter, ShowHeadersStrategy};
+pub use self::message::MimeInterpreter;
 #[cfg(feature = "compiler")]
 #[doc(inline)]
-pub use self::message::{MmlBodyCompiler, MmlCompiler};
-#[cfg(feature = "pgp-commands")]
-#[doc(inline)]
-pub use self::pgp::CmdsPgp;
-#[cfg(feature = "pgp-gpg")]
-#[doc(inline)]
-pub use self::pgp::Gpg;
-#[cfg(feature = "pgp")]
-#[doc(inline)]
-pub use self::pgp::Pgp;
-#[cfg(feature = "pgp-native")]
-#[doc(inline)]
-pub use self::pgp::{
-    NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, SignedPublicKey, SignedSecretKey,
-};
+pub use self::message::MmlCompiler;
 
 /// The global `Error` enum of the library.
 #[derive(Debug, thiserror::Error)]
@@ -57,7 +43,7 @@ pub enum Error {
 
     #[cfg(feature = "pgp-commands")]
     #[error(transparent)]
-    CmdsPgpError(#[from] pgp::cmds::Error),
+    CmdsPgpError(#[from] pgp::commands::Error),
 
     #[cfg(feature = "pgp-native")]
     #[error(transparent)]

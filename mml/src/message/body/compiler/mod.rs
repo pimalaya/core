@@ -1,4 +1,4 @@
-//! # MIME Message body compiler
+//! # MML to MIME message body compilation module
 //!
 //! Module dedicated to MML → MIME message body compilation.
 
@@ -17,7 +17,7 @@ use std::{ffi::OsStr, fs, io, path::PathBuf};
 use thiserror::Error;
 
 #[cfg(feature = "pgp")]
-use crate::Pgp;
+use crate::pgp::Pgp;
 use crate::Result;
 
 use super::{
@@ -30,6 +30,7 @@ use super::{ENCRYPT, PGP_MIME, SIGN};
 
 use self::{parsers::prelude::*, tokens::Part};
 
+/// Errors dedicated to MML → MIME message body compilation.
 #[derive(Debug, Error)]
 pub enum Error {
     // TODO: return the original chumsky::Error
@@ -49,6 +50,10 @@ pub enum Error {
     PgpSignMissingSenderError,
 }
 
+/// The MML to MIME message body compiler.
+///
+/// The compiler follows the builder pattern, where the build function
+/// is named `compile`.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MmlBodyCompiler {
     #[cfg(feature = "pgp")]

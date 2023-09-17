@@ -1,4 +1,4 @@
-//! # MIME Message interpreter
+//! # MIME to MML message interpretation module
 //!
 //! Module dedicated to MIME → MML message interpretation.
 
@@ -8,8 +8,11 @@ use std::{io, path::PathBuf};
 use thiserror::Error;
 
 #[cfg(feature = "pgp")]
-use crate::Pgp;
-use crate::{FilterParts, MimeBodyInterpreter, Result};
+use crate::pgp::Pgp;
+use crate::{
+    message::{FilterParts, MimeBodyInterpreter},
+    Result,
+};
 
 use super::header;
 

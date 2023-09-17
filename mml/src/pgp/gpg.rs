@@ -1,3 +1,7 @@
+//! # PGP GPG module
+//!
+//! This module contains the PGP backend based on GPG.
+
 use gpgme::{Context, Protocol};
 use log::{debug, trace, warn};
 use std::path::PathBuf;
@@ -5,6 +9,7 @@ use thiserror::Error;
 
 use crate::Result;
 
+/// Errors dedicated to GPG.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get gpg context")]
@@ -23,8 +28,12 @@ pub enum Error {
     VerifyError(#[source] gpgme::Error),
 }
 
+/// The GPG PGP backend.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Gpg {
+    /// The GPG home directory.
+    ///
+    /// Defaults to GPG default home directory (~/.gpg).
     pub home_dir: Option<PathBuf>,
 }
 
@@ -45,6 +54,7 @@ impl Gpg {
         Ok(ctx)
     }
 
+    /// Encrypts the given plain bytes using the given recipients.
     pub async fn encrypt(
         &self,
         emails: impl IntoIterator<Item = String>,
@@ -83,6 +93,7 @@ impl Gpg {
         Ok(encrypted_bytes)
     }
 
+    /// Decrypts the given encrypted bytes.
     pub async fn decrypt(&self, mut encrypted_bytes: Vec<u8>) -> Result<Vec<u8>> {
         let mut ctx = self.get_context()?;
 
@@ -95,6 +106,7 @@ impl Gpg {
         Ok(plain_bytes)
     }
 
+    /// Signs the given plain bytes.
     pub async fn sign(&self, mut plain_bytes: Vec<u8>) -> Result<Vec<u8>> {
         let mut ctx = self.get_context()?;
 
@@ -107,6 +119,7 @@ impl Gpg {
         Ok(signed_bytes)
     }
 
+    /// Verifies the given signed bytes as well as the signature_bytes.
     pub async fn verify(&self, signature_bytes: Vec<u8>, signed_bytes: Vec<u8>) -> Result<()> {
         let mut ctx = self.get_context()?;
 
