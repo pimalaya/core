@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2023-09-17
+
+### Added
+
+- Added the `description` prop parser, which correspond to the `Content-Description` header.
+- Added full of examples in `./examples`.
+
+### Changed
+
+- Renamed module `pgp::cmds` to `pgp::commands` to match the cargo feature.
+
 ## [0.2.3] - 2023-08-29
 
 ### Changed
