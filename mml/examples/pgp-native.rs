@@ -10,7 +10,10 @@ fn main() {
 #[cfg(feature = "pgp-native")]
 #[tokio::main]
 async fn main() {
-    use mml::{MmlCompiler, NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
+    use mml::{
+        pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
+        MmlCompiler,
+    };
     use pgp::gen_key_pair;
     use secret::Secret;
     use tempfile::tempdir;

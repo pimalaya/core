@@ -3,8 +3,8 @@
 async fn pgp_native() {
     use concat_with::concat_line;
     use mml::{
-        MimeInterpreter, MmlCompiler, NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey,
-        Pgp,
+        pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
+        MimeInterpreter, MmlCompiler,
     };
     use pgp::gen_key_pair;
     use secret::Secret;

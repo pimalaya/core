@@ -2,7 +2,10 @@
 #[tokio::test]
 async fn pgp_gpg() {
     use concat_with::concat_line;
-    use mml::{Gpg, MimeInterpreter, MmlCompiler, Pgp};
+    use mml::{
+        pgp::{Gpg, Pgp},
+        MimeInterpreter, MmlCompiler,
+    };
     use std::path::PathBuf;
 
     env_logger::builder().is_test(true).init();

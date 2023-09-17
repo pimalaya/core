@@ -10,7 +10,10 @@ fn main() {
 #[cfg(feature = "pgp-commands")]
 #[tokio::main]
 async fn main() {
-    use mml::{CmdsPgp, MmlCompiler, Pgp};
+    use mml::{
+        pgp::{CmdsPgp, Pgp},
+        MmlCompiler,
+    };
     use process::Cmd;
 
     env_logger::builder().is_test(true).init();

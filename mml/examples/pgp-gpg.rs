@@ -10,7 +10,10 @@ fn main() {
 #[cfg(feature = "pgp-gpg")]
 #[tokio::main]
 async fn main() {
-    use mml::{Gpg, MmlCompiler, Pgp};
+    use mml::{
+        pgp::{Gpg, Pgp},
+        MmlCompiler,
+    };
     use std::path::PathBuf;
 
     env_logger::builder().is_test(true).init();

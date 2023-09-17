@@ -2,7 +2,10 @@
 #[tokio::test]
 async fn pgp_cmds() {
     use concat_with::concat_line;
-    use mml::{CmdsPgp, MimeInterpreter, MmlCompiler, Pgp};
+    use mml::{
+        pgp::{CmdsPgp, Pgp},
+        MimeInterpreter, MmlCompiler,
+    };
     use process::Cmd;
 
     env_logger::builder().is_test(true).init();
