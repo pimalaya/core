@@ -1,5 +1,10 @@
+//! # PGP module
+//!
+//! The main structure of this module is [Pgp], which is an enum of
+//! PGP backends.
+
 #[cfg(feature = "pgp-commands")]
-pub mod cmds;
+pub mod commands;
 #[cfg(feature = "pgp-gpg")]
 pub mod gpg;
 #[cfg(feature = "pgp-native")]
@@ -11,14 +16,18 @@ use thiserror::Error;
 use crate::Result;
 
 #[cfg(feature = "pgp-commands")]
-pub use self::cmds::CmdsPgp;
+#[doc(inline)]
+pub use self::commands::CmdsPgp;
 #[cfg(feature = "pgp-gpg")]
+#[doc(inline)]
 pub use self::gpg::Gpg;
 #[cfg(feature = "pgp-native")]
+#[doc(inline)]
 pub use self::native::{
     NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, SignedPublicKey, SignedSecretKey,
 };
 
+/// Errors related to PGP actions.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot encrypt data using pgp: pgp not configured")]

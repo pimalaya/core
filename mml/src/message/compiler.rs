@@ -1,3 +1,7 @@
+//! # MML Message compiler
+//!
+//! Module dedicated to MML → MIME message compilation.
+
 use mail_builder::{headers::text::Text, MessageBuilder};
 use mail_parser::Message;
 use std::io;
@@ -7,6 +11,7 @@ use thiserror::Error;
 use crate::{message::header, Pgp};
 use crate::{MmlBodyCompiler, Result};
 
+/// Errors related to MML to MIME message compilation.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot build message from template")]
@@ -23,8 +28,13 @@ pub enum Error {
     ParseMessageError,
 }
 
+/// The MML to MIME message compiler.
+///
+/// The compiler follows the builder pattern, where the build function
+/// is named `compile`.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MmlCompiler {
+    /// The internal MML to MIME message body compiler.
     mml_body_compiler: MmlBodyCompiler,
 }
 
@@ -39,6 +49,11 @@ impl MmlCompiler {
         self
     }
 
+    /// Compiles the given raw MIME message into a [MessageBuilder].
+    ///
+    /// The fact to return a message builder allows users to customize
+    /// the final MIME message by adding custom headers, to adjust
+    /// parts etc.
     pub async fn compile<'a>(self, mime_msg: impl AsRef<[u8]>) -> Result<MessageBuilder<'a>> {
         let mime_msg = Message::parse(mime_msg.as_ref()).ok_or(Error::ParseMessageError)?;
 

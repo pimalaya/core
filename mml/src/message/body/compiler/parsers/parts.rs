@@ -6,7 +6,7 @@ use crate::message::body::{
     SINGLE_PART_END,
 };
 
-use super::{disposition, filename, multipart_type, name, part_type, prelude::*};
+use super::{description, disposition, filename, multipart_type, name, part_type, prelude::*};
 #[cfg(feature = "pgp")]
 use super::{encrypt, sign};
 
@@ -66,6 +66,7 @@ pub(crate) fn attachment<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a>
         part_type(),
         filename(),
         name(),
+        description(),
         disposition(),
         #[cfg(feature = "pgp")]
         encrypt(),
@@ -94,6 +95,7 @@ pub(crate) fn single_part<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a
             choice((
                 part_type(),
                 name(),
+                description(),
                 disposition(),
                 #[cfg(feature = "pgp")]
                 encrypt(),
@@ -139,6 +141,7 @@ pub(crate) fn multi_part<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a>
             .ignore_then(
                 choice((
                     multipart_type(),
+                    description(),
                     #[cfg(feature = "pgp")]
                     encrypt(),
                     #[cfg(feature = "pgp")]

@@ -1,0 +1,15 @@
+From: alice@localhost
+To: bob@localhost
+Subject: MML with HTML
+
+<#part type=text/html>
+<p>This is a regular HTML part.</p>
+<#/part>
+
+<#multipart type=alternative>
+The MUA that will read this email will choose between this text/plain part…
+
+<#part type=text/html>
+<p>…and this HTML part</p>
+<#/part>
+<#/multipart>

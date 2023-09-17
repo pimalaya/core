@@ -1,3 +1,8 @@
+//! # Message header internal module
+//!
+//! This modules contains header helpers around [mail_builder] and
+//! [mail_parsers].
+
 #![allow(dead_code)]
 
 use mail_builder::headers::HeaderType;

@@ -1,3 +1,7 @@
+//! # MIME Message body interpreter
+//!
+//! Module dedicated to MIME → MML message body interpretation.
+
 use async_recursion::async_recursion;
 #[allow(unused_imports)]
 use log::{debug, warn};
@@ -16,6 +20,7 @@ use super::{
     SINGLE_PART_BEGIN, SINGLE_PART_BEGIN_ESCAPED, SINGLE_PART_END, SINGLE_PART_END_ESCAPED,
 };
 
+/// Errors dedicated to MIME → MML message body interpretation.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse raw email")]
@@ -38,14 +43,17 @@ pub enum FilterParts {
     /// can be hard to navigate through.
     #[default]
     All,
+
     /// Shows only parts matching the given MIME type. This filter
     /// disables MML markup since only one MIME type is shown.
     Only(String),
+
     /// Shows only parts matching the given list of MIME types. This
     /// filter enables MML markup since multiple parts with different
     /// MIME types can be mixed together, which can be hard to
     /// navigate through.
     Include(Vec<String>),
+
     /// Shows all parts except those matching the given list of MIME
     /// types. This filter enables MML markup since multiple parts
     /// with different MIME types can be mixed together, which can be
@@ -73,11 +81,10 @@ impl FilterParts {
     }
 }
 
-/// The MML interpreter interprets full emails as [`crate::Tpl`]. The
-/// interpreter needs to be customized first. The customization
-/// follows the builder pattern. When the interpreter is customized,
-/// calling any function matching `interpret_*()` consumes the
-/// interpreter and generates the final [`crate::Tpl`].
+/// The MIME to MML message body interpreter.
+///
+/// The interpreter follows the builder pattern, where the build function
+/// is named `interpret_*`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MimeBodyInterpreter {
     /// If `true` then shows multipart structure. It is useful to see
@@ -503,19 +510,18 @@ impl MimeBodyInterpreter {
         Ok(tpl)
     }
 
-    /// Interprets the given [`mail_parser::Message`] as a MML string.
+    /// Interprets the given MIME [Message] as a MML string.
     pub async fn interpret_msg<'a>(&self, msg: &Message<'a>) -> Result<String> {
         self.interpret_part(msg, msg.root_part()).await
     }
 
-    /// Interprets the given bytes as a MML string.
+    /// Interprets the given MIME message bytes as a MML string.
     pub async fn interpret_bytes<'a>(&self, bytes: impl AsRef<[u8]> + 'a) -> Result<String> {
         let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseRawEmailError)?;
         self.interpret_msg(&msg).await
     }
 
-    /// Interprets the given [`mail_builder::MessageBuilder`] as a MML
-    /// string.
+    /// Interprets the given MIME [MessageBuilder] as a MML string.
     pub async fn interpret_msg_builder<'a>(&self, builder: MessageBuilder<'a>) -> Result<String> {
         let bytes = builder.write_to_vec().map_err(Error::WriteMessageError)?;
         self.interpret_bytes(&bytes).await

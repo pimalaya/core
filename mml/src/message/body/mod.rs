@@ -1,3 +1,9 @@
+//! # Message body module
+//!
+//! A MML body can be compiled into a MIME body using the
+//! [MmlBodyCompiler] builder. A MIME body can be interpreted as a MML
+//! body using the [MimeBodyInterpreter] builder.
+
 #![allow(dead_code)]
 
 #[cfg(feature = "compiler")]
@@ -6,9 +12,11 @@ pub mod compiler;
 pub mod interpreter;
 
 #[cfg(feature = "compiler")]
-pub use compiler::MmlBodyCompiler;
+#[doc(inline)]
+pub use self::compiler::MmlBodyCompiler;
 #[cfg(feature = "interpreter")]
-pub use interpreter::{FilterParts, MimeBodyInterpreter};
+#[doc(inline)]
+pub use self::interpreter::{FilterParts, MimeBodyInterpreter};
 
 pub(crate) const SINGLE_PART_BEGIN: &str = "<#part";
 pub(crate) const SINGLE_PART_BEGIN_ESCAPED: &str = "<#!part";
@@ -21,6 +29,7 @@ pub(crate) const MULTI_PART_END_ESCAPED: &str = "<#!/multipart>";
 
 pub(crate) const ALTERNATIVE: &str = "alternative";
 pub(crate) const ATTACHMENT: &str = "attachment";
+pub(crate) const DESCRIPTION: &str = "description";
 pub(crate) const DISPOSITION: &str = "disposition";
 #[cfg(feature = "pgp")]
 pub(crate) const ENCRYPT: &str = "encrypt";

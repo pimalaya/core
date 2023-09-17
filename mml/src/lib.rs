@@ -1,20 +1,33 @@
-#![doc = include_str!("../README.md")]
+//! # 📫 MIME Meta Language
+//!
+//! Rust implementation of the Emacs MIME message Meta Language, as known as [MML].
+//!
+//! This library exposes a [MML to MIME](MmlCompiler) message compiler
+//! and a [MIME to MML](MimeInterpreter) message interpreter.
+//!
+//! [MML]: https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html
 
 pub mod message;
 #[cfg(feature = "pgp")]
 pub mod pgp;
 
 #[cfg(feature = "interpreter")]
+#[doc(inline)]
 pub use self::message::{FilterParts, MimeBodyInterpreter, MimeInterpreter, ShowHeadersStrategy};
 #[cfg(feature = "compiler")]
+#[doc(inline)]
 pub use self::message::{MmlBodyCompiler, MmlCompiler};
 #[cfg(feature = "pgp-commands")]
+#[doc(inline)]
 pub use self::pgp::CmdsPgp;
 #[cfg(feature = "pgp-gpg")]
+#[doc(inline)]
 pub use self::pgp::Gpg;
 #[cfg(feature = "pgp")]
+#[doc(inline)]
 pub use self::pgp::Pgp;
 #[cfg(feature = "pgp-native")]
+#[doc(inline)]
 pub use self::pgp::{
     NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, SignedPublicKey, SignedSecretKey,
 };

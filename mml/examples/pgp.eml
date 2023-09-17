@@ -1,0 +1,11 @@
+From: alice@localhost
+To: bob@localhost
+Subject: MML with PGP
+
+<#part encrypt=pgpmime>
+This is an encrypted message.
+<#/part>
+
+<#part sign=pgpmime>
+This is signed message.
+<#/part>

@@ -1,6 +1,6 @@
 use crate::message::body::{
-    compiler::tokens::Prop, ALTERNATIVE, ATTACHMENT, DISPOSITION, FILENAME, INLINE, MIXED, NAME,
-    RELATED, TYPE,
+    compiler::tokens::Prop, ALTERNATIVE, ATTACHMENT, DESCRIPTION, DISPOSITION, FILENAME, INLINE,
+    MIXED, NAME, RELATED, TYPE,
 };
 #[cfg(feature = "pgp")]
 use crate::message::body::{ENCRYPT, PGP_MIME, SIGN};
@@ -38,6 +38,16 @@ pub(crate) fn part_type<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>>
 pub(crate) fn name<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
     just(NAME)
         .labelled(NAME)
+        .then_ignore(just('=').padded())
+        .then(choice((quoted_val(), val())))
+        .padded()
+        .map(|(key, val)| (key.to_string(), val.to_string()))
+}
+
+/// Represents the description property parser.
+pub(crate) fn description<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
+    just(DESCRIPTION)
+        .labelled(DESCRIPTION)
         .then_ignore(just('=').padded())
         .then(choice((quoted_val(), val())))
         .padded()

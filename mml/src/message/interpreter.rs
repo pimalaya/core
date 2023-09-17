@@ -1,3 +1,7 @@
+//! # MIME Message interpreter
+//!
+//! Module dedicated to MIME → MML message interpretation.
+
 use mail_builder::MessageBuilder;
 use mail_parser::Message;
 use std::{io, path::PathBuf};
@@ -17,14 +21,13 @@ pub enum Error {
     BuildEmailError(#[source] io::Error),
 }
 
-/// Represents the strategy used to display headers when interpreting
-/// emails.
+/// The strategy used to display headers when interpreting messages.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum ShowHeadersStrategy {
-    /// Transfers all available headers to the interpreted template.
+    /// Transfers all available headers to the MML message.
     #[default]
     All,
-    /// Transfers only specific headers to the interpreted template.
+    /// Transfers only specific headers to the MML message.
     Only(Vec<String>),
 }
 
@@ -37,20 +40,16 @@ impl ShowHeadersStrategy {
     }
 }
 
-/// The template interpreter interprets full emails as
-/// [`crate::Tpl`]. The interpreter needs to be customized first. The
-/// customization follows the builder pattern. When the interpreter is
-/// customized, calling any function matching `interpret_*()` consumes
-/// the interpreter and generates the final [`crate::Tpl`].
+/// The MIME to MML message interpreter.
+///
+/// The interpreter follows the builder pattern, where the build function
+/// is named `interpret_*`.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MimeInterpreter {
-    /// Defines the strategy to display headers.
-    /// [`ShowHeadersStrategy::All`] transfers all the available
-    /// headers to the interpreted template,
-    /// [`ShowHeadersStrategy::Only`] only transfers the given headers
-    /// to the interpreted template.
+    /// The strategy to display headers.
     show_headers: ShowHeadersStrategy,
 
+    /// The internal MIME to MML message body interpreter.
     mime_body_interpreter: MimeBodyInterpreter,
 }
 
@@ -154,7 +153,7 @@ impl MimeInterpreter {
         self
     }
 
-    /// Interprets the given [`mail_parser::Message`] as a MML string.
+    /// Interprets the given MIME [Message] as a MML string.
     pub async fn interpret_msg(self, msg: &Message<'_>) -> Result<String> {
         let mut mml = String::new();
 
@@ -192,14 +191,13 @@ impl MimeInterpreter {
         Ok(mml)
     }
 
-    /// Interprets the given bytes as a MML string.
+    /// Interprets the given MIME message bytes as a MML string.
     pub async fn interpret_bytes(self, bytes: impl AsRef<[u8]>) -> Result<String> {
         let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseRawEmailError)?;
         self.interpret_msg(&msg).await
     }
 
-    /// Interprets the given [`mail_builder::MessageBuilder`] as a MML
-    /// string.
+    /// Interprets the given MIME [MessageBuilder] as a MML string.
     pub async fn interpret_msg_builder(self, builder: MessageBuilder<'_>) -> Result<String> {
         let bytes = builder.write_to_vec().map_err(Error::BuildEmailError)?;
         self.interpret_bytes(&bytes).await

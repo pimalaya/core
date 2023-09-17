@@ -1,0 +1,23 @@
+From: alice@localhost
+To: bob@localhost
+Subject: MML with plain
+
+A single plain text without MML markup compiles to a unique text/plain
+part.
+
+Multiple plain texts without MML markup compile to a mixed multipart
+containing multiple text/plain parts.
+
+<#part>
+A plain text part can also be wrapped into a MML part.
+<#/part>
+
+<#part type=text/plain>
+A plain text part type can be omitted because it defaults to
+text/plain.
+<#/part>
+
+<#!part type=text/plain>
+Finally you can write down MML markup by quoting it using the
+exclamation point. This MML part will not be compiled into MIME part.
+<#!/part>

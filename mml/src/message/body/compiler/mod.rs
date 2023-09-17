@@ -1,3 +1,7 @@
+//! # MIME Message body compiler
+//!
+//! Module dedicated to MML → MIME message body compilation.
+
 mod parsers;
 mod tokens;
 
