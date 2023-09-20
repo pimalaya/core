@@ -137,7 +137,7 @@ impl Default for MimeBodyInterpreter {
             show_attachments: true,
             show_inline_attachments: true,
             save_attachments: Default::default(),
-            save_attachments_dir: env::temp_dir(),
+            save_attachments_dir: Self::default_save_attachments_dir(),
             #[cfg(feature = "pgp")]
             pgp: Default::default(),
             #[cfg(feature = "pgp")]
@@ -149,6 +149,10 @@ impl Default for MimeBodyInterpreter {
 }
 
 impl MimeBodyInterpreter {
+    pub fn default_save_attachments_dir() -> PathBuf {
+        env::temp_dir()
+    }
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -183,10 +187,7 @@ impl MimeBodyInterpreter {
         self
     }
 
-    pub fn save_attachments_dir<D>(mut self, dir: D) -> Self
-    where
-        D: Into<PathBuf>,
-    {
+    pub fn save_attachments_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.save_attachments_dir = dir.into();
         self
     }

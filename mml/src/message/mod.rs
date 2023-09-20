@@ -20,5 +20,5 @@ pub use self::{body::MmlBodyCompiler, compiler::MmlCompiler};
 #[doc(inline)]
 pub use self::{
     body::{FilterParts, MimeBodyInterpreter},
-    interpreter::{MimeInterpreter, ShowHeadersStrategy},
+    interpreter::{FilterHeaders, MimeInterpreter},
 };

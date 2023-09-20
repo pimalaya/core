@@ -26,19 +26,24 @@ pub enum Error {
 
 /// The strategy used to display headers when interpreting messages.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum ShowHeadersStrategy {
-    /// Transfers all available headers to the MML message.
+pub enum FilterHeaders {
+    /// Include all available headers to the interpreted message.
     #[default]
     All,
-    /// Transfers only specific headers to the MML message.
-    Only(Vec<String>),
+
+    /// Include given headers to the interpreted message.
+    Include(Vec<String>),
+
+    /// Exclude given headers from the interpreted message.
+    Exclude(Vec<String>),
 }
 
-impl ShowHeadersStrategy {
+impl FilterHeaders {
     pub fn contains(&self, header: &String) -> bool {
         match self {
             Self::All => false,
-            Self::Only(headers) => headers.contains(header),
+            Self::Include(headers) => headers.contains(header),
+            Self::Exclude(headers) => !headers.contains(header),
         }
     }
 }
@@ -50,7 +55,7 @@ impl ShowHeadersStrategy {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MimeInterpreter {
     /// The strategy to display headers.
-    show_headers: ShowHeadersStrategy,
+    show_headers: FilterHeaders,
 
     /// The internal MIME to MML message body interpreter.
     mime_body_interpreter: MimeBodyInterpreter,
@@ -61,13 +66,13 @@ impl MimeInterpreter {
         Self::default()
     }
 
-    pub fn with_show_headers(mut self, s: ShowHeadersStrategy) -> Self {
+    pub fn with_show_headers(mut self, s: FilterHeaders) -> Self {
         self.show_headers = s;
         self
     }
 
     pub fn with_show_all_headers(mut self) -> Self {
-        self.show_headers = ShowHeadersStrategy::All;
+        self.show_headers = FilterHeaders::All;
         self
     }
 
@@ -82,7 +87,7 @@ impl MimeInterpreter {
             }
             headers
         });
-        self.show_headers = ShowHeadersStrategy::Only(headers);
+        self.show_headers = FilterHeaders::Include(headers);
         self
     }
 
@@ -99,10 +104,15 @@ impl MimeInterpreter {
         });
 
         match &mut self.show_headers {
-            ShowHeadersStrategy::All => {
-                self.show_headers = ShowHeadersStrategy::Only(next_headers);
+            FilterHeaders::All => {
+                // FIXME: this excludes all previous headers, needs to
+                // be separated.
+                self.show_headers = FilterHeaders::Include(next_headers);
             }
-            ShowHeadersStrategy::Only(headers) => {
+            FilterHeaders::Include(headers) => {
+                headers.extend(next_headers);
+            }
+            FilterHeaders::Exclude(headers) => {
                 headers.extend(next_headers);
             }
         };
@@ -111,7 +121,7 @@ impl MimeInterpreter {
     }
 
     pub fn with_hide_all_headers(mut self) -> Self {
-        self.show_headers = ShowHeadersStrategy::Only(Vec::new());
+        self.show_headers = FilterHeaders::Include(Vec::new());
         self
     }
 
@@ -150,6 +160,15 @@ impl MimeInterpreter {
         self
     }
 
+    pub fn with_save_some_attachments_dir(self, dir: Option<impl Into<PathBuf>>) -> Self {
+        match dir {
+            Some(dir) => self.with_save_attachments_dir(dir),
+            None => {
+                self.with_save_attachments_dir(MimeBodyInterpreter::default_save_attachments_dir())
+            }
+        }
+    }
+
     #[cfg(feature = "pgp")]
     pub fn with_pgp(mut self, pgp: impl Into<Pgp>) -> Self {
         self.mime_body_interpreter = self.mime_body_interpreter.with_pgp(pgp.into());
@@ -161,16 +180,25 @@ impl MimeInterpreter {
         let mut mml = String::new();
 
         match self.show_headers {
-            ShowHeadersStrategy::All => msg.headers().iter().for_each(|header| {
+            FilterHeaders::All => msg.headers().iter().for_each(|header| {
                 let key = header.name.as_str();
                 let val = header::display_value(key, &header.value);
                 mml.push_str(&format!("{key}: {val}\n"));
             }),
-            ShowHeadersStrategy::Only(keys) => keys
+            FilterHeaders::Include(keys) => keys
                 .iter()
                 .filter_map(|key| msg.header(key).map(|val| (key, val)))
                 .for_each(|(key, val)| {
                     let val = header::display_value(key, val);
+                    mml.push_str(&format!("{key}: {val}\n"));
+                }),
+            FilterHeaders::Exclude(keys) => msg
+                .headers()
+                .iter()
+                .filter(|header| !keys.contains(&header.name.as_str().to_owned()))
+                .for_each(|header| {
+                    let key = header.name.as_str();
+                    let val = header::display_value(key, &header.value);
                     mml.push_str(&format!("{key}: {val}\n"));
                 }),
         };

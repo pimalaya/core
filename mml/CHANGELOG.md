@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `FilterHeaders::Exclude` variant.
+- Added `MimeBodyInterpreter::default_save_attachments_dir` function.
+
+### Changed
+
+- Renamed `ShowHeadersStrategy` to `FilterHeaders` to match `FilterParts`.
+- Renamed `ShowHeadersStrategy::Only` to `FilterHeaders::Include`.
+- Improved MML parser new line labels.
+
 ## [0.3.2] - 2023-09-17
 
 ### Fixed

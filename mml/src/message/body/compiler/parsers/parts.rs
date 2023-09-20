@@ -10,6 +10,27 @@ use super::{description, disposition, filename, multipart_type, name, part_type,
 #[cfg(feature = "pgp")]
 use super::{encrypt, sign};
 
+pub(crate) fn new_line<'a>() -> impl Parser<'a, &'a str, char, ParserError<'a>> + Clone {
+    just(NEW_LINE).labelled("new line")
+}
+
+pub(crate) fn single_part_begin<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
+{
+    just(SINGLE_PART_BEGIN).labelled("single part opening tag <#part>")
+}
+
+pub(crate) fn single_part_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+    just(SINGLE_PART_END).labelled("single part closing tag <#/part>")
+}
+
+pub(crate) fn multi_part_begin<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+    just(MULTI_PART_BEGIN).labelled("multipart opening tag <#multipart>")
+}
+
+pub(crate) fn multi_part_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+    just(MULTI_PART_END).labelled("multipart closing tag <#/multipart>")
+}
+
 /// Represents the template parser. It parses MIME headers followed by
 /// parts.
 pub(crate) fn parts<'a>() -> impl Parser<'a, &'a str, Vec<Part>, ParserError<'a>> + Clone {
@@ -82,7 +103,7 @@ pub(crate) fn attachment<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a>
     .map(Part::Attachment)
     .delimited_by(
         single_part_begin(),
-        just(GREATER_THAN).then_ignore(just(NEW_LINE).or_not()),
+        just(GREATER_THAN).then_ignore(new_line().or_not()),
     )
 }
 
@@ -105,10 +126,10 @@ pub(crate) fn single_part<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a
             .repeated()
             .collect::<HashMap<_, _>>()
             .then_ignore(just(GREATER_THAN))
-            .then_ignore(just(NEW_LINE).or_not()),
+            .then_ignore(new_line().or_not()),
         )
         .then(text_plain_part())
-        .then_ignore(single_part_end().then(just(NEW_LINE).or_not()).or_not())
+        .then_ignore(single_part_end().then(new_line().or_not()).or_not())
         .map(|(props, content)| Part::SinglePart(props, content))
 }
 
@@ -148,10 +169,10 @@ pub(crate) fn multi_part<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a>
                     sign(),
                 ))
                 .repeated()
-                .collect::<Props>()
-                .then_ignore(just(GREATER_THAN))
-                .then_ignore(just(NEW_LINE).or_not()),
+                .collect::<Props>(),
             )
+            .then_ignore(just(GREATER_THAN))
+            .then_ignore(new_line().or_not())
             .then(
                 choice((
                     multipart,
@@ -160,29 +181,12 @@ pub(crate) fn multi_part<'a>() -> impl Parser<'a, &'a str, Part, ParserError<'a>
                     text_plain_part().map(Part::TextPlainPart),
                 ))
                 .repeated()
-                .collect::<Vec<Part>>()
-                .then_ignore(just(MULTI_PART_END))
-                .then_ignore(just(NEW_LINE).or_not()),
+                .collect::<Vec<Part>>(),
             )
+            .then_ignore(just(MULTI_PART_END))
+            .then_ignore(new_line().or_not())
             .map(|(props, parts)| Part::MultiPart(props, parts))
     })
-}
-
-pub(crate) fn single_part_begin<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
-{
-    just(SINGLE_PART_BEGIN).labelled("single part opening tag <#part>")
-}
-
-pub(crate) fn single_part_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
-    just(SINGLE_PART_END).labelled("single part closing tag <#/part>")
-}
-
-pub(crate) fn multi_part_begin<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
-    just(MULTI_PART_BEGIN).labelled("multipart opening tag <#multipart>")
-}
-
-pub(crate) fn multi_part_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
-    just(MULTI_PART_END).labelled("multipart closing tag <#/multipart>")
 }
 
 #[cfg(test)]
