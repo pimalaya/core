@@ -64,7 +64,7 @@ pub struct MmlBodyCompiler {
     pgp_recipients: Vec<String>,
 }
 
-impl MmlBodyCompiler {
+impl<'a> MmlBodyCompiler {
     pub fn new() -> Self {
         Self::default()
     }
@@ -159,14 +159,15 @@ impl MmlBodyCompiler {
         }
     }
 
-    fn unescape_mml_markup(text: String) -> String {
-        text.replace(SINGLE_PART_BEGIN_ESCAPED, SINGLE_PART_BEGIN)
+    fn unescape_mml_markup(text: impl AsRef<str>) -> String {
+        text.as_ref()
+            .replace(SINGLE_PART_BEGIN_ESCAPED, SINGLE_PART_BEGIN)
             .replace(SINGLE_PART_END_ESCAPED, SINGLE_PART_END)
             .replace(MULTI_PART_BEGIN_ESCAPED, MULTI_PART_BEGIN)
             .replace(MULTI_PART_END_ESCAPED, MULTI_PART_END)
     }
 
-    async fn compile_parts<'a>(&self, parts: Vec<Part>) -> Result<MessageBuilder<'a>> {
+    async fn compile_parts(&'a self, parts: Vec<Part<'a>>) -> Result<MessageBuilder<'a>> {
         let mut builder = MessageBuilder::new();
 
         builder = match parts.len() {
@@ -188,15 +189,15 @@ impl MmlBodyCompiler {
     }
 
     #[async_recursion]
-    async fn compile_part<'a>(&self, part: Part) -> Result<MimePart<'a>> {
+    async fn compile_part(&'a self, part: Part<'a>) -> Result<MimePart<'a>> {
         match part {
             Part::MultiPart(props, parts) => {
                 let no_parts = BodyPart::Multipart(Vec::new());
 
-                let mut multi_part = match props.get(TYPE).map(String::as_str) {
-                    Some(MIXED) | None => MimePart::new("multipart/mixed", no_parts),
-                    Some(ALTERNATIVE) => MimePart::new("multipart/alternative", no_parts),
-                    Some(RELATED) => MimePart::new("multipart/related", no_parts),
+                let mut multi_part = match props.get(TYPE) {
+                    Some(&MIXED) | None => MimePart::new("multipart/mixed", no_parts),
+                    Some(&ALTERNATIVE) => MimePart::new("multipart/alternative", no_parts),
+                    Some(&RELATED) => MimePart::new("multipart/related", no_parts),
                     Some(unknown) => {
                         warn!("unknown multipart type {unknown}, falling back to mixed");
                         MimePart::new("multipart/mixed", no_parts)
@@ -224,11 +225,11 @@ impl MmlBodyCompiler {
             }
             Part::SinglePart(ref props, body) => {
                 let ctype = Part::get_or_guess_content_type(props, &body);
-                let mut part = MimePart::new(ctype, body);
+                let mut part = MimePart::new(ctype.into_owned(), body);
 
-                part = match props.get(DISPOSITION).map(String::as_str) {
-                    Some(INLINE) => part.inline(),
-                    Some(ATTACHMENT) => {
+                part = match props.get(DISPOSITION) {
+                    Some(&INLINE) => part.inline(),
+                    Some(&ATTACHMENT) => {
                         let fname = props
                             .get(NAME)
                             .map(ToOwned::to_owned)
@@ -264,22 +265,22 @@ impl MmlBodyCompiler {
 
                 let fname = props
                     .get(NAME)
-                    .map(ToOwned::to_owned)
+                    .map(ToString::to_string)
                     .or_else(|| {
                         PathBuf::from(filepath)
                             .file_name()
                             .and_then(OsStr::to_str)
-                            .map(ToOwned::to_owned)
+                            .map(ToString::to_string)
                     })
-                    .unwrap_or("noname".into());
+                    .unwrap_or("noname".to_string());
 
-                let disposition = props.get(DISPOSITION).map(String::as_str);
+                let disposition = props.get(DISPOSITION);
                 let content_type = Part::get_or_guess_content_type(props, &body);
 
-                let mut part = MimePart::new(content_type, body);
+                let mut part = MimePart::new(content_type.into_owned(), body);
 
                 part = match disposition {
-                    Some(INLINE) => part.inline(),
+                    Some(&INLINE) => part.inline(),
                     _ => part.attachment(fname),
                 };
 
@@ -306,16 +307,15 @@ impl MmlBodyCompiler {
         }
     }
 
-    pub async fn compile<'a>(&self, mml: impl AsRef<str>) -> Result<MessageBuilder<'a>> {
-        let mml = mml.as_ref();
-        let res = parsers::parts().parse(mml);
+    pub async fn compile(&'a self, mml_body: &'a str) -> Result<MessageBuilder<'a>> {
+        let res = parsers::parts().parse(mml_body);
         if let Some(parts) = res.output() {
             Ok(self.compile_parts(parts.to_owned()).await?)
         } else {
             let errs = res.errors().map(|err| err.clone().into_owned()).collect();
             Err(crate::Error::CompileMmlBodyError(Error::ParseMmlError(
                 errs,
-                mml.to_owned(),
+                mml_body.to_owned(),
             )))
         }
     }
@@ -331,10 +331,10 @@ mod tests {
 
     #[tokio::test]
     async fn plain() {
-        let tpl = concat_line!("Hello, world!", "");
+        let mml_body = concat_line!("Hello, world!", "");
 
         let msg = MmlBodyCompiler::new()
-            .compile(&tpl)
+            .compile(mml_body)
             .await
             .unwrap()
             .message_id("id@localhost")
@@ -357,14 +357,14 @@ mod tests {
 
     #[tokio::test]
     async fn html() {
-        let tpl = concat_line!(
+        let mml_body = concat_line!(
             "<#part type=\"text/html\">",
             "<h1>Hello, world!</h1>",
             "<#/part>",
         );
 
         let msg = MmlBodyCompiler::new()
-            .compile(&tpl)
+            .compile(mml_body)
             .await
             .unwrap()
             .message_id("id@localhost")
@@ -396,10 +396,10 @@ mod tests {
         write!(attachment, "Hello, world!").unwrap();
         let attachment_path = attachment.path().to_string_lossy();
 
-        let tpl = format!("<#part filename=\"{attachment_path}\" type=\"text/plain\">");
+        let mml_body = format!("<#part filename=\"{attachment_path}\" type=\"text/plain\">");
 
         let msg = MmlBodyCompiler::new()
-            .compile(&tpl)
+            .compile(&mml_body)
             .await
             .unwrap()
             .message_id("id@localhost")

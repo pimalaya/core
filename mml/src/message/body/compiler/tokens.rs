@@ -1,27 +1,34 @@
 use log::warn;
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use super::TYPE;
 
-pub(crate) type Key = String;
-pub(crate) type Val = String;
-pub(crate) type Prop = (Key, Val);
-pub(crate) type Props = HashMap<Key, Val>;
+pub(crate) type Key<'a> = &'a str;
+pub(crate) type Val<'a> = &'a str;
+pub(crate) type Body<'a> = &'a str;
+pub(crate) type Prop<'a> = (Key<'a>, Val<'a>);
+pub(crate) type Props<'a> = HashMap<Key<'a>, Val<'a>>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum Part {
-    MultiPart(Props, Vec<Part>),
-    SinglePart(Props, String),
-    Attachment(Props),
-    TextPlainPart(String),
+pub(crate) enum Part<'a> {
+    MultiPart(Props<'a>, Vec<Part<'a>>),
+    SinglePart(Props<'a>, Body<'a>),
+    Attachment(Props<'a>),
+    TextPlainPart(Body<'a>),
 }
 
-impl Part {
-    pub(crate) fn get_or_guess_content_type(props: &Props, body: impl AsRef<[u8]>) -> String {
-        props.get(TYPE).map(String::to_string).unwrap_or_else(|| {
-            let ctype = tree_magic_mini::from_u8(body.as_ref());
-            warn!("no content type found, guessing from body: {ctype}");
-            ctype.to_owned()
-        })
+impl<'a> Part<'a> {
+    pub(crate) fn get_or_guess_content_type(
+        props: &Props<'a>,
+        body: impl AsRef<[u8]>,
+    ) -> Cow<'a, str> {
+        props
+            .get(TYPE)
+            .map(|t| Cow::Borrowed(*t))
+            .unwrap_or_else(|| {
+                let ctype = tree_magic_mini::from_u8(body.as_ref());
+                warn!("no content type found, guessing from body: {ctype}");
+                Cow::Owned(ctype.to_owned())
+            })
     }
 }

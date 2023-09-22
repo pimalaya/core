@@ -95,34 +95,44 @@ fn display_content_type(ctype: &ContentType) -> String {
     format!("{ctype}/{stype}{attrs}")
 }
 
-pub(crate) fn to_builder_val<'a>(header: &Header) -> HeaderType<'a> {
+pub(crate) fn to_builder_val<'a>(header: &'a Header<'a>) -> HeaderType<'a> {
     use mail_builder::headers::{
         address::Address, content_type::ContentType, date::Date, raw::Raw, text::Text,
     };
 
-    match header.value.clone().into_owned() {
-        HeaderValue::Address(addr) => match addr.address {
-            Some(email) => Address::new_address(addr.name, email).into(),
+    match &header.value {
+        HeaderValue::Address(addr) => match &addr.address {
+            Some(email) => {
+                let name = addr.name.as_ref().map(|name| name.as_ref());
+                let email = email.as_ref();
+                Address::new_address(name, email).into()
+            }
             None => Raw::new("").into(),
         },
         HeaderValue::AddressList(addrs) => Address::new_list(
             addrs
                 .into_iter()
                 .filter_map(|addr| {
-                    addr.address
-                        .map(|email| Address::new_address(addr.name, email))
+                    addr.address.as_ref().map(|email| {
+                        let name = addr.name.as_ref().map(|name| name.as_ref());
+                        let email = email.as_ref();
+                        Address::new_address(name, email).into()
+                    })
                 })
                 .collect(),
         )
         .into(),
         HeaderValue::Group(group) => Address::new_group(
-            group.name,
+            group.name.as_ref().map(|name| name.as_ref()),
             group
                 .addresses
-                .into_iter()
+                .iter()
                 .filter_map(|addr| {
-                    addr.address
-                        .map(|email| Address::new_address(addr.name, email))
+                    addr.address.as_ref().map(|email| {
+                        let name = addr.name.as_ref().map(|name| name.as_ref());
+                        let email = email.as_ref();
+                        Address::new_address(name, email)
+                    })
                 })
                 .collect(),
         )
@@ -132,13 +142,16 @@ pub(crate) fn to_builder_val<'a>(header: &Header) -> HeaderType<'a> {
                 .into_iter()
                 .map(|group| {
                     Address::new_group(
-                        group.name,
+                        group.name.as_ref().map(|name| name.as_ref()),
                         group
                             .addresses
-                            .into_iter()
+                            .iter()
                             .filter_map(|addr| {
-                                addr.address
-                                    .map(|email| Address::new_address(addr.name, email))
+                                addr.address.as_ref().map(|email| {
+                                    let name = addr.name.as_ref().map(|name| name.as_ref());
+                                    let email = email.as_ref();
+                                    Address::new_address(name, email)
+                                })
                             })
                             .collect(),
                     )
@@ -153,15 +166,15 @@ pub(crate) fn to_builder_val<'a>(header: &Header) -> HeaderType<'a> {
             HeaderName::Rfc(RfcHeader::ReturnPath) => Text::new(format!("<{text}>")).into(),
             HeaderName::Rfc(RfcHeader::ContentId) => Text::new(format!("<{text}>")).into(),
             HeaderName::Rfc(RfcHeader::ResentMessageId) => Text::new(format!("<{text}>")).into(),
-            _ => Text::new(text).into(),
+            _ => Text::new(text.as_ref()).into(),
         },
         HeaderValue::TextList(texts) => Text::new(texts.join(" ")).into(),
         HeaderValue::DateTime(date) => Date::new(date.to_timestamp()).into(),
         HeaderValue::ContentType(ctype) => {
-            let mut final_ctype = ContentType::new(ctype.c_type);
-            if let Some(attrs) = ctype.attributes {
+            let mut final_ctype = ContentType::new(ctype.c_type.as_ref());
+            if let Some(attrs) = &ctype.attributes {
                 for (key, val) in attrs {
-                    final_ctype = final_ctype.attribute(key, val);
+                    final_ctype = final_ctype.attribute(key.as_ref(), val.as_ref());
                 }
             }
             final_ctype.into()

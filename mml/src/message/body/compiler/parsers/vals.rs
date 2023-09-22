@@ -1,18 +1,23 @@
+//! # Property value parsers
+//!
+//! This module contains all property value parsers needed to parse
+//! MML message bodies: [val], [quoted_val] and
+//! [maybe_quoted_const_val].
+
 use crate::message::body::{compiler::tokens::Val, BACKSLASH, DOUBLE_QUOTE, GREATER_THAN, SPACE};
 
 use super::prelude::*;
 
-/// Represents the property value parser. It parses all characters
-/// except the backslack, the space and the greater-than
-/// characters. They still can be parsed by prefixing them with a
-/// backslack (escaping).
-pub(crate) fn val<'a>() -> impl Parser<'a, &'a str, Val, ParserError<'a>> + Clone {
+/// The property value parser.
+///
+/// It parses all characters except the backslack, the space and the
+/// greater-than characters. They still can be parsed by escaping them
+/// with a backslash.
+pub(crate) fn val<'a>() -> impl Parser<'a, &'a str, String, ParserError<'a>> + Clone {
     let escapable_chars = [BACKSLASH, SPACE, GREATER_THAN];
 
     choice((
-        just(BACKSLASH)
-            .labelled("escaped character")
-            .ignore_then(one_of(escapable_chars)),
+        backslash().ignore_then(one_of(escapable_chars)),
         none_of(escapable_chars),
     ))
     .repeated()
@@ -20,39 +25,38 @@ pub(crate) fn val<'a>() -> impl Parser<'a, &'a str, Val, ParserError<'a>> + Clon
     .collect()
 }
 
-/// Represents the quoted property value parser. It parses all
-/// characters except the backslack and the double quote
-/// characters. They still can be parsed by prefixing them with a
-/// backslack (escaping).
-pub(crate) fn quoted_val<'a>() -> impl Parser<'a, &'a str, Val, ParserError<'a>> + Clone {
+/// The quoted property value parser.
+///
+/// It parses all characters except the backslack and the double quote
+/// characters. They still can be parsed by escaping them with a
+/// backslack.
+pub(crate) fn quoted_val<'a>() -> impl Parser<'a, &'a str, Val<'a>, ParserError<'a>> + Clone {
     let escapable_chars = [BACKSLASH, DOUBLE_QUOTE];
 
     choice((
-        just(BACKSLASH)
-            .labelled("escaped character")
-            .ignore_then(one_of(escapable_chars)),
+        backslash().ignore_then(one_of(escapable_chars)),
         none_of(escapable_chars),
     ))
     .repeated()
-    .collect::<String>()
-    .delimited_by(just(DOUBLE_QUOTE), just(DOUBLE_QUOTE))
+    .slice()
+    .delimited_by(dquote(), dquote())
 }
 
-/// Represents the parser that can parse either the given string or
-/// the quoted version of it.
-pub(crate) fn maybe_quoted_val<'a>(
-    key: impl ToString,
-) -> impl Parser<'a, &'a str, Val, ParserError<'a>> + Clone {
+/// The maybe quoted const property value parser.
+///
+/// It parses either the given const value or the quoted version of
+/// it.
+pub(crate) fn maybe_quoted_const_val<'a>(
+    val: &'a str,
+) -> impl Parser<'a, &'a str, Val<'a>, ParserError<'a>> + Clone {
     choice((
-        just(key.to_string()),
-        just(key.to_string())
-            .delimited_by(just(DOUBLE_QUOTE), just(DOUBLE_QUOTE))
-            .labelled("quoted value"),
+        just(val).slice().delimited_by(dquote(), dquote()),
+        just(val).slice(),
     ))
 }
 
 #[cfg(test)]
-mod vals {
+mod tests {
     use super::*;
 
     #[test]
@@ -61,6 +65,7 @@ mod vals {
             super::val().parse("value").into_result(),
             Ok("value".into())
         );
+
         assert_eq!(
             super::val().parse("escaped\\ space\"").into_result(),
             Ok("escaped space\"".into()),
@@ -89,18 +94,21 @@ mod vals {
             super::quoted_val()
                 .parse("\"\\\\quoted \\\"val\\\"\"")
                 .into_result(),
-            Ok("\\quoted \"val\"".into()),
+            Ok("\\\\quoted \\\"val\\\"".into()),
         );
     }
 
     #[test]
     fn maybe_quoted_val() {
         assert_eq!(
-            super::maybe_quoted_val("key").parse("key").into_result(),
+            super::maybe_quoted_const_val("key")
+                .parse("key")
+                .into_result(),
             Ok("key".into())
         );
+
         assert_eq!(
-            super::maybe_quoted_val("key")
+            super::maybe_quoted_const_val("key")
                 .parse("\"key\"")
                 .into_result(),
             Ok("key".into())

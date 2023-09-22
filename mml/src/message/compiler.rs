@@ -26,13 +26,21 @@ pub enum Error {
     // InterpretError(#[source] mml::interpreter::Error),
     #[error("cannot parse template")]
     ParseMessageError,
+    #[error("cannot parse MML message: empty body")]
+    ParseMmlEmptyBodyError,
+    #[error("cannot parse MML message: empty body content")]
+    ParseMmlEmptyBodyContentError,
+    #[error("cannot compile MML message to vec")]
+    CompileMmlMessageToVecError(#[source] io::Error),
+    #[error("cannot compile MML message to string")]
+    CompileMmlMessageToStringError(#[source] io::Error),
 }
 
 /// The MML to MIME message compiler.
 ///
 /// The compiler follows the builder pattern, where the build function
 /// is named `compile`.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub struct MmlCompiler {
     /// The internal MML to MIME message body compiler.
     mml_body_compiler: MmlBodyCompiler,
@@ -54,39 +62,63 @@ impl MmlCompiler {
     /// The fact to return a message builder allows users to customize
     /// the final MIME message by adding custom headers, to adjust
     /// parts etc.
-    pub async fn compile<'a>(self, mime_msg: impl AsRef<[u8]>) -> Result<MessageBuilder<'a>> {
-        let mime_msg = Message::parse(mime_msg.as_ref()).ok_or(Error::ParseMessageError)?;
+    pub fn compile<'a>(self, mml_msg: &'a str) -> Result<CompileMmlResult<'a>> {
+        Ok(CompileMmlResult {
+            mml_body_compiler: self.mml_body_compiler,
+            fake_mime_msg: Message::parse(mml_msg.as_bytes()).ok_or(Error::ParseMessageError)?,
+        })
+    }
+}
 
-        let mml_body = mime_msg
+#[derive(Clone, Debug, Default)]
+pub struct CompileMmlResult<'a> {
+    mml_body_compiler: MmlBodyCompiler,
+    fake_mime_msg: Message<'a>,
+}
+
+impl<'a> CompileMmlResult<'a> {
+    pub async fn to_msg_builder(&'a self) -> Result<MessageBuilder<'a>> {
+        let mml_body = self
+            .fake_mime_msg
             .text_bodies()
-            .into_iter()
-            .filter_map(|part| part.text_contents())
-            .fold(String::new(), |mut contents, content| {
-                if !contents.is_empty() {
-                    contents.push_str("\n\n");
-                }
-                contents.push_str(content.trim());
-                contents
-            });
+            .next()
+            .ok_or(Error::ParseMmlEmptyBodyError)?
+            .text_contents()
+            .ok_or(Error::ParseMmlEmptyBodyContentError)?;
 
-        let mml_body_compiler = self.mml_body_compiler;
+        let mml_body_compiler = &self.mml_body_compiler;
 
         #[cfg(feature = "pgp")]
         let mml_body_compiler = mml_body_compiler
-            .with_pgp_recipients(header::extract_emails(mime_msg.to()))
-            .with_pgp_sender(header::extract_first_email(mime_msg.from()));
+            .with_pgp_recipients(header::extract_emails(mml_msg.to()))
+            .with_pgp_sender(header::extract_first_email(mml_msg.from()));
 
-        let mut mime_msg_builder = mml_body_compiler.compile(&mml_body).await?;
+        let mut mime_msg_builder = mml_body_compiler.compile(mml_body).await?;
 
         mime_msg_builder = mime_msg_builder.header("MIME-Version", Text::new("1.0"));
 
-        for header in mime_msg.headers() {
-            let key = header.name.as_str().to_owned();
+        for header in self.fake_mime_msg.headers() {
+            let key = header.name.as_str();
             let val = super::header::to_builder_val(header);
             mime_msg_builder = mime_msg_builder.header(key, val);
         }
 
         Ok(mime_msg_builder)
+    }
+
+    pub async fn to_vec(&self) -> Result<Vec<u8>> {
+        let msg_builder = self.to_msg_builder().await?;
+        Ok(msg_builder
+            .write_to_vec()
+            .map_err(Error::CompileMmlMessageToVecError)?)
+    }
+
+    pub async fn to_string(&self) -> Result<String> {
+        Ok(self
+            .to_msg_builder()
+            .await?
+            .write_to_string()
+            .map_err(Error::CompileMmlMessageToStringError)?)
     }
 }
 
@@ -109,15 +141,16 @@ mod tests {
             "",
         );
 
-        let mime_msg = MmlCompiler::new().compile(mml).await.unwrap();
+        let mml_compile_res = MmlCompiler::new().compile(mml).unwrap();
+        let mime_msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
 
-        let mml = MimeInterpreter::new()
+        let mml_msg = MimeInterpreter::new()
             .with_show_only_headers(["From", "To", "Subject"])
-            .interpret_msg_builder(mime_msg)
+            .interpret_msg_builder(mime_msg_builder)
             .await
             .unwrap();
 
-        let expected_mml = concat_line!(
+        let expected_mml_msg = concat_line!(
             "From: Frȯm <from@localhost>",
             "To: Tó <to@localhost>",
             "Subject: Subjêct",
@@ -126,7 +159,7 @@ mod tests {
             "",
         );
 
-        assert_eq!(mml, expected_mml);
+        assert_eq!(mml_msg, expected_mml_msg);
     }
 
     #[tokio::test]
@@ -142,22 +175,23 @@ mod tests {
             "",
         );
 
-        let mime_msg = MmlCompiler::new().compile(mml).await.unwrap();
+        let mml_compile_res = MmlCompiler::new().compile(mml).unwrap();
+        let mime_msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
 
-        let mml = MimeInterpreter::new()
+        let mml_msg = MimeInterpreter::new()
             .with_show_only_headers(["Message-ID"])
-            .interpret_msg_builder(mime_msg)
+            .interpret_msg_builder(mime_msg_builder)
             .await
             .unwrap();
 
-        let expected_mml = concat_line!(
+        let expected_mml_msg = concat_line!(
             "Message-ID: <bfb64e12-b7d4-474c-a658-8a221365f8ca@localhost>",
             "",
             "Test message",
             "",
         );
 
-        assert_eq!(mml, expected_mml);
+        assert_eq!(mml_msg, expected_mml_msg);
     }
 
     #[tokio::test]
@@ -173,22 +207,23 @@ mod tests {
             "",
         );
 
-        let mime_msg = MmlCompiler::new().compile(mml).await.unwrap();
+        let mml_compile_res = MmlCompiler::new().compile(mml).unwrap();
+        let mime_msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
 
-        let mml = MimeInterpreter::new()
+        let mml_msg = MimeInterpreter::new()
             .with_show_only_headers(["Message-ID"])
-            .interpret_msg_builder(mime_msg)
+            .interpret_msg_builder(mime_msg_builder)
             .await
             .unwrap();
 
-        let expected_mml = concat_line!(
+        let expected_mml_msg = concat_line!(
             "Message-ID: <bfb64e12-b7d4-474c-a658-8a221365f8ca@localhost>",
             "",
             "Test message",
             "",
         );
 
-        assert_eq!(mml, expected_mml);
+        assert_eq!(mml_msg, expected_mml_msg);
     }
 
     #[tokio::test]
@@ -204,16 +239,17 @@ mod tests {
             "",
         );
 
-        let mime_msg = MmlCompiler::new().compile(mml).await.unwrap();
-        let mime_msg_str = mime_msg.clone().write_to_string().unwrap();
+        let mml_compile_res = MmlCompiler::new().compile(mml).unwrap();
+        let mime_msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
+        let mime_msg_str = mml_compile_res.to_string().await.unwrap();
 
-        let mml = MimeInterpreter::new()
+        let mml_msg = MimeInterpreter::new()
             .with_show_only_headers(["From", "To", "Subject"])
-            .interpret_msg_builder(mime_msg)
+            .interpret_msg_builder(mime_msg_builder)
             .await
             .unwrap();
 
-        let expected_mml = concat_line!(
+        let expected_mml_msg = concat_line!(
             "From: from@localhost",
             "To: to@localhost",
             "Subject: subject",
@@ -228,6 +264,6 @@ mod tests {
         assert!(!mime_msg_str.contains("<#!/part>"));
         assert!(mime_msg_str.contains("<#/part>"));
 
-        assert_eq!(mml, expected_mml);
+        assert_eq!(mml_msg, expected_mml_msg);
     }
 }
