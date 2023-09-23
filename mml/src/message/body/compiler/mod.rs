@@ -13,7 +13,7 @@ use mail_builder::{
     MessageBuilder,
 };
 use shellexpand_utils::shellexpand_path;
-use std::{ffi::OsStr, fs, io, path::PathBuf};
+use std::{ffi::OsStr, fs, io, ops::Deref, path::PathBuf};
 use thiserror::Error;
 
 #[cfg(feature = "pgp")]
@@ -191,7 +191,7 @@ impl<'a> MmlBodyCompiler {
     #[async_recursion]
     async fn compile_part(&'a self, part: Part<'a>) -> Result<MimePart<'a>> {
         match part {
-            Part::MultiPart(props, parts) => {
+            Part::Multi(props, parts) => {
                 let no_parts = BodyPart::Multipart(Vec::new());
 
                 let mut multi_part = match props.get(TYPE) {
@@ -223,19 +223,48 @@ impl<'a> MmlBodyCompiler {
 
                 Ok(multi_part)
             }
-            Part::SinglePart(ref props, body) => {
-                let ctype = Part::get_or_guess_content_type(props, body.as_bytes());
-                let mut part = MimePart::new(ctype, body);
+            Part::Single(ref props, body) => {
+                let fpath = props.get(FILENAME).map(shellexpand_path);
+
+                let mut part = match &fpath {
+                    Some(fpath) => {
+                        let contents = fs::read(fpath)
+                            .map_err(|err| Error::ReadAttachmentError(err, fpath.clone()))?;
+                        let ctype = Part::get_or_guess_content_type(props, &contents);
+                        MimePart::new(ctype, contents)
+                    }
+                    None => {
+                        let ctype = Part::get_or_guess_content_type(props, body.as_bytes());
+                        MimePart::new(ctype, body)
+                    }
+                };
 
                 part = match props.get(DISPOSITION) {
                     Some(&INLINE) => part.inline(),
-                    Some(&ATTACHMENT) => {
-                        let fname = props
+                    Some(&ATTACHMENT) => part.attachment(
+                        props
                             .get(NAME)
-                            .map(ToOwned::to_owned)
-                            .unwrap_or("noname".into());
-                        part.attachment(fname)
-                    }
+                            .map(Deref::deref)
+                            .or_else(|| match &fpath {
+                                Some(fpath) => fpath.file_name().and_then(OsStr::to_str),
+                                None => None,
+                            })
+                            .unwrap_or("noname")
+                            .to_owned(),
+                    ),
+                    _ if fpath.is_some() => part.attachment(
+                        props
+                            .get(NAME)
+                            .map(ToString::to_string)
+                            .or_else(|| {
+                                fpath
+                                    .unwrap()
+                                    .file_name()
+                                    .and_then(OsStr::to_str)
+                                    .map(ToString::to_string)
+                            })
+                            .unwrap_or_else(|| "noname".to_string()),
+                    ),
                     _ => part,
                 };
 
@@ -254,52 +283,7 @@ impl<'a> MmlBodyCompiler {
 
                 Ok(part)
             }
-            Part::Attachment(ref props) => {
-                let filepath = props
-                    .get(FILENAME)
-                    .ok_or(Error::GetFilenamePropMissingError)?;
-                let filepath = shellexpand_path(&filepath);
-
-                let body = fs::read(&filepath)
-                    .map_err(|err| Error::ReadAttachmentError(err, filepath.clone()))?;
-
-                let fname = props
-                    .get(NAME)
-                    .map(ToString::to_string)
-                    .or_else(|| {
-                        PathBuf::from(filepath)
-                            .file_name()
-                            .and_then(OsStr::to_str)
-                            .map(ToString::to_string)
-                    })
-                    .unwrap_or("noname".to_string());
-
-                let disposition = props.get(DISPOSITION);
-                let content_type = Part::get_or_guess_content_type(props, &body);
-
-                let mut part = MimePart::new(content_type, body);
-
-                part = match disposition {
-                    Some(&INLINE) => part.inline(),
-                    _ => part.attachment(fname),
-                };
-
-                #[cfg(feature = "pgp")]
-                {
-                    part = match props.get(SIGN) {
-                        Some(&PGP_MIME) => self.try_sign_part(part).await,
-                        _ => part,
-                    };
-
-                    part = match props.get(ENCRYPT) {
-                        Some(&PGP_MIME) => self.try_encrypt_part(part).await,
-                        _ => part,
-                    };
-                }
-
-                Ok(part)
-            }
-            Part::TextPlainPart(body) => {
+            Part::PlainText(body) => {
                 let body = Self::unescape_mml_markup(body);
                 let part = MimePart::new("text/plain", body);
                 Ok(part)

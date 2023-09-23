@@ -11,10 +11,9 @@ pub(crate) type Props<'a> = HashMap<Key<'a>, Val<'a>>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum Part<'a> {
-    MultiPart(Props<'a>, Vec<Part<'a>>),
-    SinglePart(Props<'a>, Body<'a>),
-    Attachment(Props<'a>),
-    TextPlainPart(Body<'a>),
+    Multi(Props<'a>, Vec<Part<'a>>),
+    Single(Props<'a>, Body<'a>),
+    PlainText(Body<'a>),
 }
 
 impl Part<'_> {

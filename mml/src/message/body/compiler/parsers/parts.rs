@@ -2,31 +2,33 @@ use std::collections::HashMap;
 
 use crate::message::body::{
     compiler::tokens::{Part, Props},
-    FILENAME, GREATER_THAN, MULTI_PART_BEGIN, MULTI_PART_END,
+    GREATER_THAN, MULTI_PART_BEGIN, MULTI_PART_END,
 };
 
 use super::{description, disposition, filename, multipart_type, name, part_type, prelude::*};
 #[cfg(feature = "pgp")]
 use super::{encrypt, sign};
 
-/// Represents the template parser. It parses MIME headers followed by
-/// parts.
+/// The parts parser.
+///
+/// It parses all parts the MML body is composed of.
 pub(crate) fn parts<'a>() -> impl Parser<'a, &'a str, Vec<Part<'a>>, ParserError<'a>> + Clone {
     choice((
         multi_part(),
-        attachment(),
         single_part(),
-        text_plain_part().map(Part::TextPlainPart),
+        plain_text_part(1).map(Part::PlainText),
     ))
     .repeated()
     .collect()
-    // .padded()
     .then_ignore(end())
 }
 
-/// Represents the plain text part parser. It parses everything that
-/// is inside and outside (multi)parts.
-pub(crate) fn text_plain_part<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+/// The plain text part parser.
+///
+/// It parses everything that is inside and outside (multi)parts.
+pub(crate) fn plain_text_part<'a>(
+    min: usize,
+) -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
     any()
         .and_is(
             choice((
@@ -38,61 +40,20 @@ pub(crate) fn text_plain_part<'a>() -> impl Parser<'a, &'a str, &'a str, ParserE
             .not(),
         )
         .repeated()
-        .at_least(1)
+        .at_least(min)
         .slice()
 }
 
-/// Represents the attachment parser. The attachment is a part that
-/// closes straight after its declaration and therefore does not take
-/// any children. It takes instead a special (and required) property
-/// filename which should be an expandable path to a valid file. The
-/// binary content of the file will be used as content of the
-/// part. The content type is automatically detected by
-/// [tree_magic](https://github.com/aahancoc/tree_magic/), although it
-/// can be overriden by the `type` property.
+/// The single part parser.
 ///
-/// # Examples
-///
-/// ```mml,ignore
-/// <#part filename="/absolute/path/to/file with space.ext">
-/// <#part filename=/absolute/path/to/file.ext signed=command>
-/// <#part filename=./relative/path/to/file.ext encrypted=command>
-/// <#part filename=~/path/to/file.ext encrypted=command signed=command>
-/// <#part filename=$XDG_DATA_HOME/path/to/file.ext>
-/// ```
-pub(crate) fn attachment<'a>() -> impl Parser<'a, &'a str, Part<'a>, ParserError<'a>> + Clone {
-    choice((
-        part_type(),
-        filename(),
-        name(),
-        description(),
-        disposition(),
-        #[cfg(feature = "pgp")]
-        encrypt(),
-        #[cfg(feature = "pgp")]
-        sign(),
-    ))
-    .repeated()
-    .collect::<HashMap<_, _>>()
-    .try_map(|map, span| match map.get(FILENAME) {
-        Some(_) => Ok(map),
-        None => Err(Rich::custom(span, "missing attachment property filename")),
-    })
-    .map(Part::Attachment)
-    .delimited_by(
-        single_part_begin(),
-        just(GREATER_THAN).then_ignore(new_line().or_not()),
-    )
-}
-
-/// Represents the single part parser. It parses a full part,
-/// including properties and content till the next opening part or the
-/// next closing part/multipart.
+/// It parses a full part, including properties and content till the
+/// next opening part or the next closing part/multipart.
 pub(crate) fn single_part<'a>() -> impl Parser<'a, &'a str, Part<'a>, ParserError<'a>> + Clone {
     single_part_begin()
         .ignore_then(
             choice((
                 part_type(),
+                filename(),
                 name(),
                 description(),
                 disposition(),
@@ -106,16 +67,18 @@ pub(crate) fn single_part<'a>() -> impl Parser<'a, &'a str, Part<'a>, ParserErro
             .then_ignore(just(GREATER_THAN))
             .then_ignore(new_line().or_not()),
         )
-        .then(text_plain_part())
+        .then(plain_text_part(0))
         .then_ignore(single_part_end().then(new_line().or_not()).or_not())
-        .map(|(props, content)| Part::SinglePart(props, content))
+        .map(|(props, content)| Part::Single(props, content))
 }
 
-/// Represents the multipart parser. It parses everything between tags
-/// `<#multipart>` and `<#/multipart>`. A multipart can contain
-/// multiple parts as well as multiple other multiparts
-/// (recursively). This parser is useful when you need to group parts
-/// together instead of having them at the root level.
+/// The multipart parser.
+///
+/// It parses everything between tags `<#multipart>` and
+/// `<#/multipart>`. A multipart can contain multiple parts as well as
+/// multiple other multiparts (recursively). This parser is useful
+/// when you need to group parts together instead of having them at
+/// the root level.
 ///
 /// # Examples
 ///
@@ -154,16 +117,15 @@ pub(crate) fn multi_part<'a>() -> impl Parser<'a, &'a str, Part<'a>, ParserError
             .then(
                 choice((
                     multipart,
-                    attachment(),
                     single_part(),
-                    text_plain_part().map(Part::TextPlainPart),
+                    plain_text_part(1).map(Part::PlainText),
                 ))
                 .repeated()
-                .collect::<Vec<Part>>(),
+                .collect(),
             )
             .then_ignore(just(MULTI_PART_END))
             .then_ignore(new_line().or_not())
-            .map(|(props, parts)| Part::MultiPart(props, parts))
+            .map(|(props, parts)| Part::Multi(props, parts))
     })
 }
 
@@ -183,7 +145,7 @@ mod parts {
             super::single_part()
                 .parse("<#part>This is a plain text part.")
                 .into_result(),
-            Ok(Part::SinglePart(
+            Ok(Part::Single(
                 HashMap::default(),
                 "This is a plain text part."
             )),
@@ -193,7 +155,7 @@ mod parts {
             super::single_part()
                 .parse("<#part>This is a plain text part.<#/part>")
                 .into_result(),
-            Ok(Part::SinglePart(
+            Ok(Part::Single(
                 HashMap::default(),
                 "This is a plain text part."
             )),
@@ -206,7 +168,7 @@ mod parts {
             super::single_part()
                 .parse(concat_line!("<#part>", "This is a plain text part."))
                 .into_result(),
-            Ok(Part::SinglePart(
+            Ok(Part::Single(
                 HashMap::default(),
                 "This is a plain text part."
             )),
@@ -221,7 +183,7 @@ mod parts {
                     "<#/part>",
                 ))
                 .into_result(),
-            Ok(Part::SinglePart(
+            Ok(Part::Single(
                 HashMap::default(),
                 "This is a plain text part.\n\n"
             )),
@@ -238,7 +200,7 @@ mod parts {
                     "<#/part>"
                 ))
                 .into_result(),
-            Ok(Part::SinglePart(
+            Ok(Part::Single(
                 HashMap::from_iter([(TYPE.into(), "text/html".into())]),
                 "<h1>This is a HTML text part.</h1>\n",
             )),
@@ -248,14 +210,17 @@ mod parts {
     #[test]
     fn attachment() {
         assert_eq!(
-            super::attachment()
-                .parse("<#part type=image/jpeg filename=~/rms.jpg disposition=inline>")
+            super::single_part()
+                .parse("<#part type=image/jpeg filename=~/rms.jpg disposition=inline><#/part>")
                 .into_result(),
-            Ok(Part::Attachment(HashMap::from_iter([
-                (TYPE, "image/jpeg"),
-                (FILENAME, "~/rms.jpg"),
-                (DISPOSITION, "inline")
-            ]))),
+            Ok(Part::Single(
+                HashMap::from_iter([
+                    (TYPE, "image/jpeg"),
+                    (FILENAME, "~/rms.jpg"),
+                    (DISPOSITION, "inline")
+                ]),
+                ""
+            )),
         );
     }
 
@@ -269,9 +234,9 @@ mod parts {
                     "<#/multipart>"
                 ))
                 .into_result(),
-            Ok(Part::MultiPart(
+            Ok(Part::Multi(
                 HashMap::default(),
-                vec![Part::TextPlainPart("This is a plain text part.\n")]
+                vec![Part::PlainText("This is a plain text part.\n")]
             )),
         );
     }
@@ -288,11 +253,11 @@ mod parts {
                     "<#/multipart>"
                 ))
                 .into_result(),
-            Ok(Part::MultiPart(
+            Ok(Part::Multi(
                 HashMap::default(),
-                vec![Part::MultiPart(
+                vec![Part::Multi(
                     HashMap::default(),
-                    vec![Part::TextPlainPart("This is a plain text part.\n")]
+                    vec![Part::PlainText("This is a plain text part.\n")]
                 )]
             )),
         );
@@ -311,15 +276,15 @@ mod parts {
                     "<#/multipart>"
                 ))
                 .into_result(),
-            Ok(Part::MultiPart(
+            Ok(Part::Multi(
                 HashMap::default(),
-                vec![Part::MultiPart(
+                vec![Part::Multi(
                     HashMap::default(),
-                    vec![Part::MultiPart(
+                    vec![Part::Multi(
                         HashMap::default(),
-                        vec![Part::MultiPart(
+                        vec![Part::Multi(
                             HashMap::default(),
-                            vec![Part::TextPlainPart("This is a plain text part.\n")]
+                            vec![Part::PlainText("This is a plain text part.\n")]
                         )]
                     )]
                 )]
@@ -342,16 +307,16 @@ mod parts {
                     "<#/multipart>"
                 ))
                 .into_result(),
-            Ok(Part::MultiPart(
+            Ok(Part::Multi(
                 HashMap::default(),
                 vec![
-                    Part::MultiPart(
+                    Part::Multi(
                         HashMap::default(),
-                        vec![Part::TextPlainPart("This is a plain text part.\n")]
+                        vec![Part::PlainText("This is a plain text part.\n")]
                     ),
-                    Part::MultiPart(
+                    Part::Multi(
                         HashMap::default(),
-                        vec![Part::TextPlainPart("This is a new plain text part.\n")]
+                        vec![Part::PlainText("This is a new plain text part.\n")]
                     )
                 ]
             )),
@@ -373,11 +338,11 @@ mod parts {
                     "<#/multipart>",
                 ))
                 .into_result(),
-            Ok(vec![Part::MultiPart(
+            Ok(vec![Part::Multi(
                 HashMap::from_iter([(TYPE.into(), "alternative")]),
                 vec![
-                    Part::TextPlainPart("This is a plain text part.\n"),
-                    Part::SinglePart(
+                    Part::PlainText("This is a plain text part.\n"),
+                    Part::Single(
                         HashMap::from_iter([(TYPE, "text/enriched")]),
                         "<center>This is a centered enriched part</center>\n"
                     )
@@ -407,19 +372,22 @@ mod parts {
                     "<#/multipart>",
                 ))
                 .unwrap(),
-            vec![Part::MultiPart(
+            vec![Part::Multi(
                 HashMap::from_iter([(TYPE, "mixed")]),
                 vec![
-                    Part::Attachment(HashMap::from_iter([
-                        (TYPE, "image/jpeg"),
-                        (FILENAME, "~/rms.jpg"),
-                        (DISPOSITION, "inline")
-                    ])),
-                    Part::MultiPart(
+                    Part::Single(
+                        HashMap::from_iter([
+                            (TYPE, "image/jpeg"),
+                            (FILENAME, "~/rms.jpg"),
+                            (DISPOSITION, "inline")
+                        ]),
+                        ""
+                    ),
+                    Part::Multi(
                         HashMap::from_iter([(TYPE, "alternative")]),
                         vec![
-                            Part::TextPlainPart("This is a plain text part.\n"),
-                            Part::SinglePart(
+                            Part::PlainText("This is a plain text part.\n"),
+                            Part::Single(
                                 HashMap::from_iter([
                                     (TYPE, "text/enriched"),
                                     (NAME, "enriched.txt")
@@ -428,8 +396,8 @@ mod parts {
                             )
                         ]
                     ),
-                    Part::TextPlainPart("This is a new plain text part.\n"),
-                    Part::SinglePart(
+                    Part::PlainText("This is a new plain text part.\n"),
+                    Part::Single(
                         HashMap::from_iter([(DISPOSITION, "attachment")]),
                         "This plain text part is an attachment.\n",
                     )
