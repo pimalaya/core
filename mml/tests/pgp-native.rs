@@ -89,7 +89,7 @@ async fn pgp_native() {
         "Encrypted and signed message!",
     );
 
-    let msg_builder = MmlCompiler::new()
+    let mml_compile_res = MmlCompiler::new()
         .with_pgp(Pgp::Native(NativePgp {
             secret_key: NativePgpSecretKey::Path(alice_skey_path.clone()),
             secret_key_passphrase: Secret::new_raw(""),
@@ -98,8 +98,8 @@ async fn pgp_native() {
             ])],
         }))
         .compile(mml)
-        .await
         .unwrap();
+    let msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
 
     let mml = MimeInterpreter::new()
         .with_show_only_headers(["From", "To", "Subject"])

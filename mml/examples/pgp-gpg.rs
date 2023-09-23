@@ -19,15 +19,13 @@ async fn main() {
     env_logger::builder().is_test(true).init();
 
     let mml = include_str!("./pgp.eml");
-    let mime = MmlCompiler::new()
+    let mml_compile_res = MmlCompiler::new()
         .with_pgp(Pgp::Gpg(Gpg {
             home_dir: Some(PathBuf::from("./tests/gpg-home")),
         }))
         .compile(&mml)
-        .await
-        .unwrap()
-        .write_to_string()
         .unwrap();
+    let mime = mml_compile_res.to_string().await.unwrap();
 
     println!("================================");
     println!("MML MESSAGE");

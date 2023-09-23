@@ -84,13 +84,12 @@ pub(crate) fn filename<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'
 /// like `pgp` or `smime`. The command refers to
 /// [`CompilerOpts::pgp_encrypt_cmd`].
 #[cfg(feature = "pgp")]
-pub(crate) fn encrypt<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
+pub(crate) fn encrypt<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'a>> + Clone {
     just(ENCRYPT)
         .labelled(ENCRYPT)
         .then_ignore(just('=').padded())
         .then(maybe_quoted_const_val(PGP_MIME))
         .padded()
-        .map(|(key, val)| (key.to_string(), val.to_string()))
 }
 
 /// Represents the sign property parser. The value can only be
@@ -98,11 +97,10 @@ pub(crate) fn encrypt<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> +
 /// like `pgp` or `smime`. The command refers to
 /// [`CompilerOpts::pgp_sign_cmd].
 #[cfg(feature = "pgp")]
-pub(crate) fn sign<'a>() -> impl Parser<'a, &'a str, Prop, ParserError<'a>> + Clone {
+pub(crate) fn sign<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'a>> + Clone {
     just(SIGN)
         .labelled(SIGN)
         .then_ignore(just('=').padded())
         .then(maybe_quoted_const_val(PGP_MIME))
         .padded()
-        .map(|(key, val)| (key.to_string(), val.to_string()))
 }

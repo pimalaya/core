@@ -1,5 +1,5 @@
 use log::warn;
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 use super::TYPE;
 
@@ -17,18 +17,15 @@ pub(crate) enum Part<'a> {
     TextPlainPart(Body<'a>),
 }
 
-impl<'a> Part<'a> {
-    pub(crate) fn get_or_guess_content_type(
-        props: &Props<'a>,
-        body: impl AsRef<[u8]>,
-    ) -> Cow<'a, str> {
-        props
-            .get(TYPE)
-            .map(|t| Cow::Borrowed(*t))
-            .unwrap_or_else(|| {
-                let ctype = tree_magic_mini::from_u8(body.as_ref());
+impl Part<'_> {
+    pub(crate) fn get_or_guess_content_type(props: &Props, body: &[u8]) -> String {
+        match props.get(TYPE) {
+            Some(ctype) => ctype.to_string(),
+            None => {
+                let ctype = tree_magic_mini::from_u8(body);
                 warn!("no content type found, guessing from body: {ctype}");
-                Cow::Owned(ctype.to_owned())
-            })
+                ctype.to_owned()
+            }
+        }
     }
 }

@@ -19,7 +19,7 @@ async fn main() {
     env_logger::builder().is_test(true).init();
 
     let mml = include_str!("./pgp.eml");
-    let mime = MmlCompiler::new()
+    let mml_compile_res = MmlCompiler::new()
         .with_pgp(Pgp::Cmds(CmdsPgp {
             encrypt_cmd: Some(Cmd::from(
                 "gpg --homedir ./tests/gpg-home -eqa <recipients>",
@@ -31,10 +31,8 @@ async fn main() {
             verify_cmd: Some(Cmd::from("gpg --homedir ./tests/gpg-home --verify -q")),
         }))
         .compile(&mml)
-        .await
-        .unwrap()
-        .write_to_string()
         .unwrap();
+    let mime = mml_compile_res.to_string().await.unwrap();
 
     println!("================================");
     println!("MML MESSAGE");

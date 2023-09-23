@@ -23,11 +23,11 @@ async fn pgp_gpg() {
         "Encrypted and signed message!",
     );
 
-    let msg_builder = MmlCompiler::new()
+    let mml_compile_res = MmlCompiler::new()
         .with_pgp(pgp.clone())
         .compile(mml)
-        .await
         .unwrap();
+    let msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
 
     let mml = MimeInterpreter::new()
         .with_show_only_headers(["From", "To", "Subject"])

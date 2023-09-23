@@ -76,9 +76,19 @@ impl<'a> MmlBodyCompiler {
     }
 
     #[cfg(feature = "pgp")]
+    pub fn set_pgp(&mut self, pgp: Pgp) {
+        self.pgp = pgp;
+    }
+
+    #[cfg(feature = "pgp")]
     pub fn with_pgp_sender(mut self, sender: Option<String>) -> Self {
         self.pgp_sender = sender;
         self
+    }
+
+    #[cfg(feature = "pgp")]
+    pub fn set_pgp_sender(&mut self, sender: Option<String>) {
+        self.pgp_sender = sender;
     }
 
     #[cfg(feature = "pgp")]
@@ -88,7 +98,12 @@ impl<'a> MmlBodyCompiler {
     }
 
     #[cfg(feature = "pgp")]
-    async fn encrypt_part<'a>(&self, clear_part: &MimePart<'a>) -> Result<MimePart<'a>> {
+    pub fn set_pgp_recipients(&mut self, recipients: Vec<String>) {
+        self.pgp_recipients = recipients;
+    }
+
+    #[cfg(feature = "pgp")]
+    async fn encrypt_part(&self, clear_part: &MimePart<'a>) -> Result<MimePart<'a>> {
         let recipients = self.pgp_recipients.clone();
 
         let mut clear_part_bytes = Vec::new();
@@ -110,7 +125,7 @@ impl<'a> MmlBodyCompiler {
     }
 
     #[cfg(feature = "pgp")]
-    async fn try_encrypt_part<'a>(&self, clear_part: MimePart<'a>) -> MimePart<'a> {
+    async fn try_encrypt_part(&self, clear_part: MimePart<'a>) -> MimePart<'a> {
         match self.encrypt_part(&clear_part).await {
             Ok(encrypted_part) => encrypted_part,
             Err(err) => {
@@ -122,7 +137,7 @@ impl<'a> MmlBodyCompiler {
     }
 
     #[cfg(feature = "pgp")]
-    async fn sign_part<'a>(&self, clear_part: MimePart<'a>) -> Result<MimePart<'a>> {
+    async fn sign_part(&self, clear_part: MimePart<'a>) -> Result<MimePart<'a>> {
         let sender = self
             .pgp_sender
             .as_ref()
@@ -148,7 +163,7 @@ impl<'a> MmlBodyCompiler {
     }
 
     #[cfg(feature = "pgp")]
-    async fn try_sign_part<'a>(&self, clear_part: MimePart<'a>) -> MimePart<'a> {
+    async fn try_sign_part(&self, clear_part: MimePart<'a>) -> MimePart<'a> {
         match self.sign_part(clear_part.clone()).await {
             Ok(signed_part) => signed_part,
             Err(err) => {
@@ -210,13 +225,13 @@ impl<'a> MmlBodyCompiler {
 
                 #[cfg(feature = "pgp")]
                 {
-                    multi_part = match props.get(SIGN).map(String::as_str) {
-                        Some(PGP_MIME) => self.try_sign_part(multi_part).await,
+                    multi_part = match props.get(SIGN) {
+                        Some(&PGP_MIME) => self.try_sign_part(multi_part).await,
                         _ => multi_part,
                     };
 
-                    multi_part = match props.get(ENCRYPT).map(String::as_str) {
-                        Some(PGP_MIME) => self.try_encrypt_part(multi_part).await,
+                    multi_part = match props.get(ENCRYPT) {
+                        Some(&PGP_MIME) => self.try_encrypt_part(multi_part).await,
                         _ => multi_part,
                     };
                 }
@@ -224,8 +239,8 @@ impl<'a> MmlBodyCompiler {
                 Ok(multi_part)
             }
             Part::SinglePart(ref props, body) => {
-                let ctype = Part::get_or_guess_content_type(props, &body);
-                let mut part = MimePart::new(ctype.into_owned(), body);
+                let ctype = Part::get_or_guess_content_type(props, body.as_bytes());
+                let mut part = MimePart::new(ctype, body);
 
                 part = match props.get(DISPOSITION) {
                     Some(&INLINE) => part.inline(),
@@ -241,13 +256,13 @@ impl<'a> MmlBodyCompiler {
 
                 #[cfg(feature = "pgp")]
                 {
-                    part = match props.get(SIGN).map(String::as_str) {
-                        Some(PGP_MIME) => self.try_sign_part(part).await,
+                    part = match props.get(SIGN) {
+                        Some(&PGP_MIME) => self.try_sign_part(part).await,
                         _ => part,
                     };
 
-                    part = match props.get(ENCRYPT).map(String::as_str) {
-                        Some(PGP_MIME) => self.try_encrypt_part(part).await,
+                    part = match props.get(ENCRYPT) {
+                        Some(&PGP_MIME) => self.try_encrypt_part(part).await,
                         _ => part,
                     };
                 };
@@ -277,7 +292,7 @@ impl<'a> MmlBodyCompiler {
                 let disposition = props.get(DISPOSITION);
                 let content_type = Part::get_or_guess_content_type(props, &body);
 
-                let mut part = MimePart::new(content_type.into_owned(), body);
+                let mut part = MimePart::new(content_type, body);
 
                 part = match disposition {
                     Some(&INLINE) => part.inline(),
@@ -286,13 +301,13 @@ impl<'a> MmlBodyCompiler {
 
                 #[cfg(feature = "pgp")]
                 {
-                    part = match props.get(SIGN).map(String::as_str) {
-                        Some(PGP_MIME) => self.try_sign_part(part).await,
+                    part = match props.get(SIGN) {
+                        Some(&PGP_MIME) => self.try_sign_part(part).await,
                         _ => part,
                     };
 
-                    part = match props.get(ENCRYPT).map(String::as_str) {
-                        Some(PGP_MIME) => self.try_encrypt_part(part).await,
+                    part = match props.get(ENCRYPT) {
+                        Some(&PGP_MIME) => self.try_encrypt_part(part).await,
                         _ => part,
                     };
                 }

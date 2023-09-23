@@ -36,7 +36,7 @@ async fn main() {
         .unwrap();
 
     let mml = include_str!("./pgp.eml");
-    let mime = MmlCompiler::new()
+    let mml_compile_res = MmlCompiler::new()
         .with_pgp(Pgp::Native(NativePgp {
             secret_key: NativePgpSecretKey::Path(alice_skey_path.clone()),
             secret_key_passphrase: Secret::new_raw(""),
@@ -46,10 +46,8 @@ async fn main() {
             )],
         }))
         .compile(&mml)
-        .await
-        .unwrap()
-        .write_to_string()
         .unwrap();
+    let mime = mml_compile_res.to_string().await.unwrap();
 
     println!("================================");
     println!("MML MESSAGE");

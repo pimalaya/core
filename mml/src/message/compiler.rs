@@ -63,23 +63,32 @@ impl MmlCompiler {
     /// the final MIME message by adding custom headers, to adjust
     /// parts etc.
     pub fn compile<'a>(self, mml_msg: &'a str) -> Result<CompileMmlResult<'a>> {
+        let mml_msg = Message::parse(mml_msg.as_bytes()).ok_or(Error::ParseMessageError)?;
+        let mut mml_body_compiler = self.mml_body_compiler;
+
+        #[cfg(feature = "pgp")]
+        {
+            mml_body_compiler.set_pgp_recipients(header::extract_emails(mml_msg.to()));
+            mml_body_compiler.set_pgp_sender(header::extract_first_email(mml_msg.from()));
+        }
+
         Ok(CompileMmlResult {
-            mml_body_compiler: self.mml_body_compiler,
-            fake_mime_msg: Message::parse(mml_msg.as_bytes()).ok_or(Error::ParseMessageError)?,
+            mml_msg,
+            mml_body_compiler,
         })
     }
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct CompileMmlResult<'a> {
+    mml_msg: Message<'a>,
     mml_body_compiler: MmlBodyCompiler,
-    fake_mime_msg: Message<'a>,
 }
 
 impl<'a> CompileMmlResult<'a> {
     pub async fn to_msg_builder(&'a self) -> Result<MessageBuilder<'a>> {
         let mml_body = self
-            .fake_mime_msg
+            .mml_msg
             .text_bodies()
             .next()
             .ok_or(Error::ParseMmlEmptyBodyError)?
@@ -88,16 +97,11 @@ impl<'a> CompileMmlResult<'a> {
 
         let mml_body_compiler = &self.mml_body_compiler;
 
-        #[cfg(feature = "pgp")]
-        let mml_body_compiler = mml_body_compiler
-            .with_pgp_recipients(header::extract_emails(mml_msg.to()))
-            .with_pgp_sender(header::extract_first_email(mml_msg.from()));
-
         let mut mime_msg_builder = mml_body_compiler.compile(mml_body).await?;
 
         mime_msg_builder = mime_msg_builder.header("MIME-Version", Text::new("1.0"));
 
-        for header in self.fake_mime_msg.headers() {
+        for header in self.mml_msg.headers() {
             let key = header.name.as_str();
             let val = super::header::to_builder_val(header);
             mime_msg_builder = mime_msg_builder.header(key, val);
