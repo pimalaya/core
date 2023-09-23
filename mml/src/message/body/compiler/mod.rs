@@ -76,30 +76,15 @@ impl<'a> MmlBodyCompiler {
     }
 
     #[cfg(feature = "pgp")]
-    pub fn set_pgp(&mut self, pgp: Pgp) {
-        self.pgp = pgp;
-    }
-
-    #[cfg(feature = "pgp")]
     pub fn with_pgp_sender(mut self, sender: Option<String>) -> Self {
         self.pgp_sender = sender;
         self
     }
 
     #[cfg(feature = "pgp")]
-    pub fn set_pgp_sender(&mut self, sender: Option<String>) {
-        self.pgp_sender = sender;
-    }
-
-    #[cfg(feature = "pgp")]
     pub fn with_pgp_recipients(mut self, recipients: Vec<String>) -> Self {
         self.pgp_recipients = recipients;
         self
-    }
-
-    #[cfg(feature = "pgp")]
-    pub fn set_pgp_recipients(&mut self, recipients: Vec<String>) {
-        self.pgp_recipients = recipients;
     }
 
     #[cfg(feature = "pgp")]

@@ -64,13 +64,12 @@ impl MmlCompiler {
     /// parts etc.
     pub fn compile<'a>(self, mml_msg: &'a str) -> Result<CompileMmlResult<'a>> {
         let mml_msg = Message::parse(mml_msg.as_bytes()).ok_or(Error::ParseMessageError)?;
-        let mut mml_body_compiler = self.mml_body_compiler;
+        let mml_body_compiler = self.mml_body_compiler;
 
         #[cfg(feature = "pgp")]
-        {
-            mml_body_compiler.set_pgp_recipients(header::extract_emails(mml_msg.to()));
-            mml_body_compiler.set_pgp_sender(header::extract_first_email(mml_msg.from()));
-        }
+        let mml_body_compiler = mml_body_compiler
+            .with_pgp_recipients(header::extract_emails(mml_msg.to()))
+            .with_pgp_sender(header::extract_first_email(mml_msg.from()));
 
         Ok(CompileMmlResult {
             mml_msg,
