@@ -6,13 +6,12 @@
 //! [Emacs MML definition]: https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/MML-Definition.html
 
 use crate::message::body::{
-    compiler::tokens::Prop, ALTERNATIVE, ATTACHMENT, CHARSET, CREATION_DATE, DATA_ENCODING,
-    DESCRIPTION, DISPOSITION, ENCODING, ENCODING_7BIT, ENCODING_8BIT, ENCODING_BASE64,
-    ENCODING_QUOTED_PRINTABLE, FILENAME, INLINE, MIXED, MODIFICATION_DATE, NAME, READ_DATE,
-    RECIPIENT_FILENAME, RELATED, SIZE, TYPE,
+    compiler::tokens::Prop, ALTERNATIVE, CHARSET, CREATION_DATE, DATA_ENCODING, DESCRIPTION,
+    DISPOSITION, ENCODING, FILENAME, MIXED, MODIFICATION_DATE, NAME, READ_DATE, RECIPIENT_FILENAME,
+    RELATED, SIZE, TYPE,
 };
 #[cfg(feature = "pgp")]
-use crate::message::body::{ENCRYPT, PGP_MIME, RECIPIENTS, SENDER, SIGN};
+use crate::message::body::{ENCRYPT, RECIPIENTS, SENDER, SIGN};
 
 use super::{maybe_quoted_const_val, prelude::*, quoted_val, val};
 
@@ -24,9 +23,9 @@ pub(crate) fn multipart_type<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserE
         .labelled(TYPE)
         .then_ignore(just('=').padded())
         .then(choice((
-            maybe_quoted_const_val(MIXED),
-            maybe_quoted_const_val(ALTERNATIVE),
-            maybe_quoted_const_val(RELATED),
+            maybe_quoted_const_val(MIXED).labelled(MIXED),
+            maybe_quoted_const_val(ALTERNATIVE).labelled(ALTERNATIVE),
+            maybe_quoted_const_val(RELATED).labelled(RELATED),
         )))
         .padded()
 }
@@ -101,10 +100,7 @@ pub(crate) fn disposition<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserErro
     just(DISPOSITION)
         .labelled(DISPOSITION)
         .then_ignore(just('=').padded())
-        .then(choice((
-            maybe_quoted_const_val(INLINE),
-            maybe_quoted_const_val(ATTACHMENT),
-        )))
+        .then(choice((inline(), attachment())))
         .padded()
 }
 
@@ -119,10 +115,10 @@ pub(crate) fn encoding<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'
         .labelled(ENCODING)
         .then_ignore(just('=').padded())
         .then(choice((
-            maybe_quoted_const_val(ENCODING_7BIT),
-            maybe_quoted_const_val(ENCODING_8BIT),
-            maybe_quoted_const_val(ENCODING_QUOTED_PRINTABLE),
-            maybe_quoted_const_val(ENCODING_BASE64),
+            encoding_7bit(),
+            encoding_8bit(),
+            encoding_quoted_printable(),
+            encoding_base64(),
         )))
         .padded()
 }
@@ -138,10 +134,7 @@ pub(crate) fn data_encoding<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserEr
     just(DATA_ENCODING)
         .labelled(DATA_ENCODING)
         .then_ignore(just('=').padded())
-        .then(choice((
-            maybe_quoted_const_val(ENCODING_QUOTED_PRINTABLE),
-            maybe_quoted_const_val(ENCODING_BASE64),
-        )))
+        .then(choice((encoding_quoted_printable(), encoding_base64())))
         .padded()
 }
 
@@ -239,7 +232,7 @@ pub(crate) fn sign<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'a>> 
     just(SIGN)
         .labelled(SIGN)
         .then_ignore(just('=').padded())
-        .then(maybe_quoted_const_val(PGP_MIME))
+        .then(pgp_mime())
         .padded()
 }
 
@@ -252,6 +245,6 @@ pub(crate) fn encrypt<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'a
     just(ENCRYPT)
         .labelled(ENCRYPT)
         .then_ignore(just('=').padded())
-        .then(maybe_quoted_const_val(PGP_MIME))
+        .then(pgp_mime())
         .padded()
 }

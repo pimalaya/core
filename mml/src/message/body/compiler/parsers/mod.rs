@@ -3,11 +3,17 @@ mod props;
 mod vals;
 
 pub(crate) mod prelude {
+    #[cfg(feature = "pgp")]
+    use crate::message::body::PGP_MIME;
     use crate::message::body::{
-        BACKSLASH, DOUBLE_QUOTE, MULTIPART_BEGIN, MULTIPART_END, NEW_LINE, PART_BEGIN, PART_END,
+        ATTACHMENT, BACKSLASH, DOUBLE_QUOTE, ENCODING_7BIT, ENCODING_8BIT, ENCODING_BASE64,
+        ENCODING_QUOTED_PRINTABLE, INLINE, MULTIPART_BEGIN, MULTIPART_END, NEW_LINE, PART_BEGIN,
+        PART_END,
     };
 
     pub(crate) use chumsky::prelude::*;
+
+    use super::maybe_quoted_const_val;
 
     pub type ParserError<'a> = extra::Err<Rich<'a, char>>;
 
@@ -39,6 +45,39 @@ pub(crate) mod prelude {
     pub(crate) fn multipart_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
     {
         just(MULTIPART_END).labelled("multipart closing tag '<#/multipart>'")
+    }
+
+    pub(crate) fn inline<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+        maybe_quoted_const_val(INLINE).labelled(INLINE)
+    }
+
+    pub(crate) fn attachment<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+        maybe_quoted_const_val(ATTACHMENT).labelled(ATTACHMENT)
+    }
+
+    pub(crate) fn encoding_7bit<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
+    {
+        maybe_quoted_const_val(ENCODING_7BIT).labelled(ENCODING_7BIT)
+    }
+
+    pub(crate) fn encoding_8bit<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
+    {
+        maybe_quoted_const_val(ENCODING_8BIT).labelled(ENCODING_8BIT)
+    }
+
+    pub(crate) fn encoding_quoted_printable<'a>(
+    ) -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+        maybe_quoted_const_val(ENCODING_QUOTED_PRINTABLE).labelled(ENCODING_QUOTED_PRINTABLE)
+    }
+
+    pub(crate) fn encoding_base64<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
+    {
+        maybe_quoted_const_val(ENCODING_BASE64).labelled(ENCODING_BASE64)
+    }
+
+    #[cfg(feature = "pgp")]
+    pub(crate) fn pgp_mime<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+        maybe_quoted_const_val(PGP_MIME).labelled(PGP_MIME)
     }
 }
 
