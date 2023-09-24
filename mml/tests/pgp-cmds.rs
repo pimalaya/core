@@ -4,7 +4,7 @@ async fn pgp_cmds() {
     use concat_with::concat_line;
     use mml::{
         pgp::{CmdsPgp, Pgp},
-        MimeInterpreter, MmlCompiler,
+        MimeInterpreterBuilder, MmlCompilerBuilder,
     };
     use process::Cmd;
 
@@ -30,16 +30,17 @@ async fn pgp_cmds() {
         "Encrypted and signed message!",
     );
 
-    let mml_compile_res = MmlCompiler::new()
+    let mml_compiler = MmlCompilerBuilder::new()
         .with_pgp(pgp.clone())
-        .compile(mml)
+        .build(mml)
         .unwrap();
-    let msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
+    let msg_builder = mml_compiler.compile().await.unwrap().into_msg_builder();
 
-    let mml = MimeInterpreter::new()
+    let mml = MimeInterpreterBuilder::new()
         .with_show_only_headers(["From", "To", "Subject"])
         .with_pgp(pgp.clone())
-        .interpret_msg_builder(msg_builder)
+        .build()
+        .from_msg_builder(msg_builder)
         .await
         .unwrap();
 

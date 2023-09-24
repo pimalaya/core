@@ -12,20 +12,20 @@ fn main() {
 async fn main() {
     use mml::{
         pgp::{Gpg, Pgp},
-        MmlCompiler,
+        MmlCompilerBuilder,
     };
     use std::path::PathBuf;
 
     env_logger::builder().is_test(true).init();
 
     let mml = include_str!("./pgp.eml");
-    let mml_compile_res = MmlCompiler::new()
+    let mml_compiler = MmlCompilerBuilder::new()
         .with_pgp(Pgp::Gpg(Gpg {
             home_dir: Some(PathBuf::from("./tests/gpg-home")),
         }))
-        .compile(&mml)
+        .build(&mml)
         .unwrap();
-    let mime = mml_compile_res.to_string().await.unwrap();
+    let mime = mml_compiler.compile().await.unwrap().into_string().unwrap();
 
     println!("================================");
     println!("MML MESSAGE");

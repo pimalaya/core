@@ -48,12 +48,9 @@ impl FilterHeaders {
     }
 }
 
-/// The MIME to MML message interpreter.
-///
-/// The interpreter follows the builder pattern, where the build function
-/// is named `interpret_*`.
+/// The MIME to MML message interpreter builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct MimeInterpreter {
+pub struct MimeInterpreterBuilder {
     /// The strategy to display headers.
     show_headers: FilterHeaders,
 
@@ -61,7 +58,9 @@ pub struct MimeInterpreter {
     mime_body_interpreter: MimeBodyInterpreter,
 }
 
-impl MimeInterpreter {
+impl MimeInterpreterBuilder {
+    /// Create a new MIME to MML message interpreter builder with
+    /// default options.
     pub fn new() -> Self {
         Self::default()
     }
@@ -175,8 +174,28 @@ impl MimeInterpreter {
         self
     }
 
+    /// Build the final [MimeInterpreter].
+    ///
+    /// This intermediate step is not necessary for the interpreter,
+    /// the aim is just to have a common API with the compiler.
+    pub fn build(self) -> MimeInterpreter {
+        MimeInterpreter {
+            show_headers: self.show_headers,
+            mime_body_interpreter: self.mime_body_interpreter,
+        }
+    }
+}
+
+/// The MIME to MML message interpreter.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct MimeInterpreter {
+    show_headers: FilterHeaders,
+    mime_body_interpreter: MimeBodyInterpreter,
+}
+
+impl MimeInterpreter {
     /// Interprets the given MIME [Message] as a MML string.
-    pub async fn interpret_msg(self, msg: &Message<'_>) -> Result<String> {
+    pub async fn from_msg(self, msg: &Message<'_>) -> Result<String> {
         let mut mml = String::new();
 
         match self.show_headers {
@@ -222,16 +241,16 @@ impl MimeInterpreter {
         Ok(mml)
     }
 
-    /// Interprets the given MIME message bytes as a MML string.
-    pub async fn interpret_bytes(self, bytes: impl AsRef<[u8]>) -> Result<String> {
+    /// Interpret the given MIME message bytes as a MML message string.
+    pub async fn from_bytes(self, bytes: impl AsRef<[u8]>) -> Result<String> {
         let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseRawEmailError)?;
-        self.interpret_msg(&msg).await
+        self.from_msg(&msg).await
     }
 
-    /// Interprets the given MIME [MessageBuilder] as a MML string.
-    pub async fn interpret_msg_builder(self, builder: MessageBuilder<'_>) -> Result<String> {
+    /// Interpret the given MIME [MessageBuilder] as a MML message string.
+    pub async fn from_msg_builder(self, builder: MessageBuilder<'_>) -> Result<String> {
         let bytes = builder.write_to_vec().map_err(Error::BuildEmailError)?;
-        self.interpret_bytes(&bytes).await
+        self.from_bytes(&bytes).await
     }
 }
 
@@ -240,7 +259,7 @@ mod tests {
     use concat_with::concat_line;
     use mail_builder::MessageBuilder;
 
-    use super::MimeInterpreter;
+    use super::MimeInterpreterBuilder;
 
     fn msg_builder() -> MessageBuilder<'static> {
         MessageBuilder::new()
@@ -255,9 +274,10 @@ mod tests {
 
     #[tokio::test]
     async fn all_headers() {
-        let mml = MimeInterpreter::new()
+        let mml = MimeInterpreterBuilder::new()
             .with_show_all_headers()
-            .interpret_msg_builder(msg_builder())
+            .build()
+            .from_msg_builder(msg_builder())
             .await
             .unwrap();
 
@@ -280,9 +300,10 @@ mod tests {
 
     #[tokio::test]
     async fn only_headers() {
-        let mml = MimeInterpreter::new()
+        let mml = MimeInterpreterBuilder::new()
             .with_show_only_headers(["From", "Subject"])
-            .interpret_msg_builder(msg_builder())
+            .build()
+            .from_msg_builder(msg_builder())
             .await
             .unwrap();
 
@@ -299,9 +320,10 @@ mod tests {
 
     #[tokio::test]
     async fn only_headers_duplicated() {
-        let mml = MimeInterpreter::new()
+        let mml = MimeInterpreterBuilder::new()
             .with_show_only_headers(["From", "Subject", "From"])
-            .interpret_msg_builder(msg_builder())
+            .build()
+            .from_msg_builder(msg_builder())
             .await
             .unwrap();
 
@@ -318,9 +340,10 @@ mod tests {
 
     #[tokio::test]
     async fn no_headers() {
-        let mml = MimeInterpreter::new()
+        let mml = MimeInterpreterBuilder::new()
             .with_hide_all_headers()
-            .interpret_msg_builder(msg_builder())
+            .build()
+            .from_msg_builder(msg_builder())
             .await
             .unwrap();
 
@@ -340,9 +363,10 @@ mod tests {
             .subject("subject")
             .text_body("<#part>Should be escaped.<#/part>");
 
-        let mml = MimeInterpreter::new()
+        let mml = MimeInterpreterBuilder::new()
             .with_show_only_headers(["From", "Subject"])
-            .interpret_msg_builder(msg_builder)
+            .build()
+            .from_msg_builder(msg_builder)
             .await
             .unwrap();
 

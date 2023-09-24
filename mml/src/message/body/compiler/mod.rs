@@ -21,9 +21,9 @@ use crate::pgp::Pgp;
 use crate::Result;
 
 use super::{
-    ALTERNATIVE, ATTACHMENT, DISPOSITION, FILENAME, INLINE, MIXED, MULTI_PART_BEGIN,
-    MULTI_PART_BEGIN_ESCAPED, MULTI_PART_END, MULTI_PART_END_ESCAPED, NAME, RELATED,
-    SINGLE_PART_BEGIN, SINGLE_PART_BEGIN_ESCAPED, SINGLE_PART_END, SINGLE_PART_END_ESCAPED, TYPE,
+    ALTERNATIVE, ATTACHMENT, DISPOSITION, FILENAME, INLINE, MIXED, MULTIPART_BEGIN,
+    MULTIPART_BEGIN_ESCAPED, MULTIPART_END, MULTIPART_END_ESCAPED, NAME, PART_BEGIN,
+    PART_BEGIN_ESCAPED, PART_END, PART_END_ESCAPED, RELATED, TYPE,
 };
 #[cfg(feature = "pgp")]
 use super::{ENCRYPT, PGP_MIME, SIGN};
@@ -33,18 +33,12 @@ use self::{parsers::prelude::*, tokens::Part};
 /// Errors dedicated to MML → MIME message body compilation.
 #[derive(Debug, Error)]
 pub enum Error {
-    // TODO: return the original chumsky::Error
     #[error("cannot parse MML body")]
     ParseMmlError(Vec<chumsky::error::Rich<'static, char>>, String),
-    #[error("cannot compile template: recipient is missing")]
-    CompileTplMissingRecipientError,
     #[error("cannot compile template")]
     WriteCompiledPartToVecError(#[source] io::Error),
-    #[error("cannot find missing property filename")]
-    GetFilenamePropMissingError,
     #[error("cannot read attachment at {1:?}")]
     ReadAttachmentError(#[source] io::Error, PathBuf),
-
     #[cfg(feature = "pgp")]
     #[error("cannot sign part using pgp: missing sender")]
     PgpSignMissingSenderError,
@@ -65,6 +59,7 @@ pub struct MmlBodyCompiler {
 }
 
 impl<'a> MmlBodyCompiler {
+    /// Create a new MML message body compiler with default options.
     pub fn new() -> Self {
         Self::default()
     }
@@ -87,6 +82,7 @@ impl<'a> MmlBodyCompiler {
         self
     }
 
+    /// Encrypt the given MIME part using PGP.
     #[cfg(feature = "pgp")]
     async fn encrypt_part(&self, clear_part: &MimePart<'a>) -> Result<MimePart<'a>> {
         let recipients = self.pgp_recipients.clone();
@@ -109,6 +105,10 @@ impl<'a> MmlBodyCompiler {
         Ok(encrypted_part)
     }
 
+    /// Try to encrypt the given MIME part using PGP.
+    ///
+    /// If the operation fails, log a warning and return the original
+    /// MIME part.
     #[cfg(feature = "pgp")]
     async fn try_encrypt_part(&self, clear_part: MimePart<'a>) -> MimePart<'a> {
         match self.encrypt_part(&clear_part).await {
@@ -121,6 +121,7 @@ impl<'a> MmlBodyCompiler {
         }
     }
 
+    /// Sign the given MIME part using PGP.
     #[cfg(feature = "pgp")]
     async fn sign_part(&self, clear_part: MimePart<'a>) -> Result<MimePart<'a>> {
         let sender = self
@@ -147,6 +148,10 @@ impl<'a> MmlBodyCompiler {
         Ok(signed_part)
     }
 
+    /// Try to sign the given MIME part using PGP.
+    ///
+    /// If the operation fails, log a warning and return the original
+    /// MIME part.
     #[cfg(feature = "pgp")]
     async fn try_sign_part(&self, clear_part: MimePart<'a>) -> MimePart<'a> {
         match self.sign_part(clear_part.clone()).await {
@@ -159,15 +164,19 @@ impl<'a> MmlBodyCompiler {
         }
     }
 
+    /// Replace escaped opening and closing tags by normal opening and
+    /// closing tags.
     fn unescape_mml_markup(text: impl AsRef<str>) -> String {
         text.as_ref()
-            .replace(SINGLE_PART_BEGIN_ESCAPED, SINGLE_PART_BEGIN)
-            .replace(SINGLE_PART_END_ESCAPED, SINGLE_PART_END)
-            .replace(MULTI_PART_BEGIN_ESCAPED, MULTI_PART_BEGIN)
-            .replace(MULTI_PART_END_ESCAPED, MULTI_PART_END)
+            .replace(PART_BEGIN_ESCAPED, PART_BEGIN)
+            .replace(PART_END_ESCAPED, PART_END)
+            .replace(MULTIPART_BEGIN_ESCAPED, MULTIPART_BEGIN)
+            .replace(MULTIPART_END_ESCAPED, MULTIPART_END)
     }
 
-    async fn compile_parts(&'a self, parts: Vec<Part<'a>>) -> Result<MessageBuilder<'a>> {
+    /// Compile given parts parsed from a MML body to a
+    /// [MessageBuilder].
+    async fn compile_parts(&'a self, parts: Vec<Part<'a>>) -> Result<MessageBuilder> {
         let mut builder = MessageBuilder::new();
 
         builder = match parts.len() {
@@ -188,8 +197,9 @@ impl<'a> MmlBodyCompiler {
         Ok(builder)
     }
 
+    /// Compile the given part parsed from MML body to a [MimePart].
     #[async_recursion]
-    async fn compile_part(&'a self, part: Part<'a>) -> Result<MimePart<'a>> {
+    async fn compile_part(&'a self, part: Part<'a>) -> Result<MimePart> {
         match part {
             Part::Multi(props, parts) => {
                 let no_parts = BodyPart::Multipart(Vec::new());
@@ -291,7 +301,8 @@ impl<'a> MmlBodyCompiler {
         }
     }
 
-    pub async fn compile(&'a self, mml_body: &'a str) -> Result<MessageBuilder<'a>> {
+    /// Compile the given raw MML body to MIME body.
+    pub async fn compile(&'a self, mml_body: &'a str) -> Result<MessageBuilder> {
         let res = parsers::parts().parse(mml_body);
         if let Some(parts) = res.output() {
             Ok(self.compile_parts(parts.to_owned()).await?)

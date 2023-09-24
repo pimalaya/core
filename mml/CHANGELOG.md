@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `MmlCompilerBuilder` and `MimeInterpreterBuilder`. Their `build()` function respectively return a `MmlCompiler` and a `MimeInterpreter`.
+
+### Changed
+
+- Changed the return type of `MmlCompiler::compile`. It now returns a `CompileMmlResult`, where you can get a MIME message using one of the following function: `into_msg_builder`, `into_vec` and `into_string`.
+- Renamed `MimeInterpreter::interpret_*` by `from_*`.
+- Renamed `Part::MultiPart` to `Multi`.
+- Renamed `Part::SinglePart` to `Singe`.
+- Renamed `Part::TextPlainPart` to `PlainText`.
+- Merged `Part::Attachment` with `Part::SinglePart`. The `filename` prop is no longer mandatory. Instead, if set, the content of the given file overrides the inline body of the part.
+
 ## [0.4.0] - 2023-09-20
 
 ### Added

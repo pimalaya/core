@@ -1,12 +1,12 @@
-use mml::MmlCompiler;
+use mml::MmlCompilerBuilder;
 
 #[tokio::main]
 async fn main() {
     env_logger::builder().is_test(true).init();
 
     let mml = include_str!("./plain.eml");
-    let mml_compile_res = MmlCompiler::new().compile(&mml).unwrap();
-    let mime = mml_compile_res.to_string().await.unwrap();
+    let mml_compiler = MmlCompilerBuilder::new().build(&mml).unwrap();
+    let mime = mml_compiler.compile().await.unwrap().into_string().unwrap();
 
     println!("================================");
     println!("MML MESSAGE");

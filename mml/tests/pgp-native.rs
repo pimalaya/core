@@ -4,7 +4,7 @@ async fn pgp_native() {
     use concat_with::concat_line;
     use mml::{
         pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
-        MimeInterpreter, MmlCompiler,
+        MimeInterpreterBuilder, MmlCompilerBuilder,
     };
     use pgp::gen_key_pair;
     use secret::Secret;
@@ -89,7 +89,7 @@ async fn pgp_native() {
         "Encrypted and signed message!",
     );
 
-    let mml_compile_res = MmlCompiler::new()
+    let mml_compiler = MmlCompilerBuilder::new()
         .with_pgp(Pgp::Native(NativePgp {
             secret_key: NativePgpSecretKey::Path(alice_skey_path.clone()),
             secret_key_passphrase: Secret::new_raw(""),
@@ -97,11 +97,11 @@ async fn pgp_native() {
                 String::from(key_server_addr),
             ])],
         }))
-        .compile(mml)
+        .build(mml)
         .unwrap();
-    let msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
+    let msg_builder = mml_compiler.compile().await.unwrap().into_msg_builder();
 
-    let mml = MimeInterpreter::new()
+    let mml = MimeInterpreterBuilder::new()
         .with_show_only_headers(["From", "To", "Subject"])
         .with_pgp(Pgp::Native(NativePgp {
             secret_key: NativePgpSecretKey::Raw(bob_skey.clone()),
@@ -111,7 +111,8 @@ async fn pgp_native() {
                 alice_pkey.clone(),
             )],
         }))
-        .interpret_msg_builder(msg_builder)
+        .build()
+        .from_msg_builder(msg_builder)
         .await
         .unwrap();
 

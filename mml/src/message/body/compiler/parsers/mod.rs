@@ -4,8 +4,7 @@ mod vals;
 
 pub(crate) mod prelude {
     use crate::message::body::{
-        BACKSLASH, DOUBLE_QUOTE, MULTI_PART_BEGIN, MULTI_PART_END, NEW_LINE, SINGLE_PART_BEGIN,
-        SINGLE_PART_END,
+        BACKSLASH, DOUBLE_QUOTE, MULTIPART_BEGIN, MULTIPART_END, NEW_LINE, PART_BEGIN, PART_END,
     };
 
     pub(crate) use chumsky::prelude::*;
@@ -24,24 +23,22 @@ pub(crate) mod prelude {
         just(NEW_LINE).labelled("new line")
     }
 
-    pub(crate) fn single_part_begin<'a>(
-    ) -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
-        just(SINGLE_PART_BEGIN).labelled("single part opening tag <#part>")
+    pub(crate) fn part_begin<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+        just(PART_BEGIN).labelled("part opening tag '<#part>'")
     }
 
-    pub(crate) fn single_part_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
+    pub(crate) fn part_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
+        just(PART_END).labelled("part closing tag '<#/part>'")
+    }
+
+    pub(crate) fn multipart_begin<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
     {
-        just(SINGLE_PART_END).labelled("single part closing tag <#/part>")
+        just(MULTIPART_BEGIN).labelled("multipart opening tag '<#multipart>'")
     }
 
-    pub(crate) fn multi_part_begin<'a>(
-    ) -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone {
-        just(MULTI_PART_BEGIN).labelled("multipart opening tag <#multipart>")
-    }
-
-    pub(crate) fn multi_part_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
+    pub(crate) fn multipart_end<'a>() -> impl Parser<'a, &'a str, &'a str, ParserError<'a>> + Clone
     {
-        just(MULTI_PART_END).labelled("multipart closing tag <#/multipart>")
+        just(MULTIPART_END).labelled("multipart closing tag '<#/multipart>'")
     }
 }
 

@@ -14,16 +14,6 @@ use crate::{message::MmlBodyCompiler, Result};
 /// Errors dedicated to MML → MIME message compilation.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot build message from template")]
-    CreateMessageBuilderError,
-    #[error("cannot compile template")]
-    WriteTplToStringError(#[source] io::Error),
-    #[error("cannot compile template")]
-    WriteTplToVecError(#[source] io::Error),
-    // #[error("cannot compile mime meta language")]
-    // CompileMmlError(#[source] mml::compiler::Error),
-    // #[error("cannot interpret email as a template")]
-    // InterpretError(#[source] mml::interpreter::Error),
     #[error("cannot parse template")]
     ParseMessageError,
     #[error("cannot parse MML message: empty body")]
@@ -36,33 +26,32 @@ pub enum Error {
     CompileMmlMessageToStringError(#[source] io::Error),
 }
 
-/// The MML to MIME message compiler.
+/// The MML to MIME message compiler builder.
 ///
 /// The compiler follows the builder pattern, where the build function
 /// is named `compile`.
 #[derive(Clone, Debug, Default)]
-pub struct MmlCompiler {
+pub struct MmlCompilerBuilder {
     /// The internal MML to MIME message body compiler.
     mml_body_compiler: MmlBodyCompiler,
 }
 
-impl MmlCompiler {
+impl MmlCompilerBuilder {
+    /// Create a new MML to MIME message compiler builder with default
+    /// options.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Builder option to customize PGP.
     #[cfg(feature = "pgp")]
     pub fn with_pgp(mut self, pgp: impl Into<Pgp>) -> Self {
         self.mml_body_compiler = self.mml_body_compiler.with_pgp(pgp.into());
         self
     }
 
-    /// Compiles the given raw MIME message into a [MessageBuilder].
-    ///
-    /// The fact to return a message builder allows users to customize
-    /// the final MIME message by adding custom headers, to adjust
-    /// parts etc.
-    pub fn compile<'a>(self, mml_msg: &'a str) -> Result<CompileMmlResult<'a>> {
+    /// Build the final [MmlCompiler] based on the defined options.
+    pub fn build<'a>(self, mml_msg: &'a str) -> Result<MmlCompiler<'a>> {
         let mml_msg = Message::parse(mml_msg.as_bytes()).ok_or(Error::ParseMessageError)?;
         let mml_body_compiler = self.mml_body_compiler;
 
@@ -71,21 +60,29 @@ impl MmlCompiler {
             .with_pgp_recipients(header::extract_emails(mml_msg.to()))
             .with_pgp_sender(header::extract_first_email(mml_msg.from()));
 
-        Ok(CompileMmlResult {
+        Ok(MmlCompiler {
             mml_msg,
             mml_body_compiler,
         })
     }
 }
 
+/// The MML to MIME message compilation result structure.
+///
+/// This structure allows users to choose the final form of the
+/// desired MIME message: [MessageBuilder], [Vec], [String] etc.
 #[derive(Clone, Debug, Default)]
-pub struct CompileMmlResult<'a> {
+pub struct MmlCompiler<'a> {
     mml_msg: Message<'a>,
     mml_body_compiler: MmlBodyCompiler,
 }
 
-impl<'a> CompileMmlResult<'a> {
-    pub async fn to_msg_builder(&'a self) -> Result<MessageBuilder<'a>> {
+impl MmlCompiler<'_> {
+    /// Compile the inner MML message into a [CompileMmlResult].
+    ///
+    /// The fact to return a intermediate structure allows users to
+    /// customize the final form of the desired MIME message.
+    pub async fn compile(&self) -> Result<CompileMmlResult<'_>> {
         let mml_body = self
             .mml_msg
             .text_bodies()
@@ -106,20 +103,42 @@ impl<'a> CompileMmlResult<'a> {
             mime_msg_builder = mime_msg_builder.header(key, val);
         }
 
-        Ok(mime_msg_builder)
+        Ok(CompileMmlResult { mime_msg_builder })
+    }
+}
+
+/// The MML to MIME message compilation result.
+///
+/// This structure allows users to choose the final form of the
+/// desired MIME message: [MessageBuilder], [Vec], [String] etc.
+#[derive(Clone, Debug, Default)]
+pub struct CompileMmlResult<'a> {
+    mime_msg_builder: MessageBuilder<'a>,
+}
+
+impl<'a> CompileMmlResult<'a> {
+    pub fn as_msg_builder(&self) -> &MessageBuilder {
+        &self.mime_msg_builder
     }
 
-    pub async fn to_vec(&self) -> Result<Vec<u8>> {
-        let msg_builder = self.to_msg_builder().await?;
-        Ok(msg_builder
+    pub fn to_msg_builder(&self) -> MessageBuilder {
+        self.mime_msg_builder.clone()
+    }
+
+    pub fn into_msg_builder(self) -> MessageBuilder<'a> {
+        self.mime_msg_builder
+    }
+
+    pub fn into_vec(self) -> Result<Vec<u8>> {
+        Ok(self
+            .mime_msg_builder
             .write_to_vec()
             .map_err(Error::CompileMmlMessageToVecError)?)
     }
 
-    pub async fn to_string(&self) -> Result<String> {
+    pub fn into_string(self) -> Result<String> {
         Ok(self
-            .to_msg_builder()
-            .await?
+            .mime_msg_builder
             .write_to_string()
             .map_err(Error::CompileMmlMessageToStringError)?)
     }
@@ -129,7 +148,7 @@ impl<'a> CompileMmlResult<'a> {
 mod tests {
     use concat_with::concat_line;
 
-    use crate::{MimeInterpreter, MmlCompiler};
+    use crate::{MimeInterpreterBuilder, MmlCompilerBuilder};
 
     #[tokio::test]
     async fn non_ascii_headers() {
@@ -144,12 +163,13 @@ mod tests {
             "",
         );
 
-        let mml_compile_res = MmlCompiler::new().compile(mml).unwrap();
-        let mime_msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
+        let mml_compiler = MmlCompilerBuilder::new().build(mml).unwrap();
+        let mime_msg_builder = mml_compiler.compile().await.unwrap().into_msg_builder();
 
-        let mml_msg = MimeInterpreter::new()
+        let mml_msg = MimeInterpreterBuilder::new()
             .with_show_only_headers(["From", "To", "Subject"])
-            .interpret_msg_builder(mime_msg_builder)
+            .build()
+            .from_msg_builder(mime_msg_builder)
             .await
             .unwrap();
 
@@ -178,12 +198,13 @@ mod tests {
             "",
         );
 
-        let mml_compile_res = MmlCompiler::new().compile(mml).unwrap();
-        let mime_msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
+        let mml_compiler = MmlCompilerBuilder::new().build(mml).unwrap();
+        let mime_msg_builder = mml_compiler.compile().await.unwrap().into_msg_builder();
 
-        let mml_msg = MimeInterpreter::new()
+        let mml_msg = MimeInterpreterBuilder::new()
             .with_show_only_headers(["Message-ID"])
-            .interpret_msg_builder(mime_msg_builder)
+            .build()
+            .from_msg_builder(mime_msg_builder)
             .await
             .unwrap();
 
@@ -210,12 +231,13 @@ mod tests {
             "",
         );
 
-        let mml_compile_res = MmlCompiler::new().compile(mml).unwrap();
-        let mime_msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
+        let mml_compiler = MmlCompilerBuilder::new().build(mml).unwrap();
+        let mime_msg_builder = mml_compiler.compile().await.unwrap().into_msg_builder();
 
-        let mml_msg = MimeInterpreter::new()
+        let mml_msg = MimeInterpreterBuilder::new()
             .with_show_only_headers(["Message-ID"])
-            .interpret_msg_builder(mime_msg_builder)
+            .build()
+            .from_msg_builder(mime_msg_builder)
             .await
             .unwrap();
 
@@ -242,13 +264,15 @@ mod tests {
             "",
         );
 
-        let mml_compile_res = MmlCompiler::new().compile(mml).unwrap();
-        let mime_msg_builder = mml_compile_res.to_msg_builder().await.unwrap();
-        let mime_msg_str = mml_compile_res.to_string().await.unwrap();
+        let mml_compiler = MmlCompilerBuilder::new().build(mml).unwrap();
+        let compile_mml_res = mml_compiler.compile().await.unwrap();
+        let mime_msg_builder = compile_mml_res.clone().into_msg_builder();
+        let mime_msg_str = compile_mml_res.into_string().unwrap();
 
-        let mml_msg = MimeInterpreter::new()
+        let mml_msg = MimeInterpreterBuilder::new()
             .with_show_only_headers(["From", "To", "Subject"])
-            .interpret_msg_builder(mime_msg_builder)
+            .build()
+            .from_msg_builder(mime_msg_builder)
             .await
             .unwrap();
 

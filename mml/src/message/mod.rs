@@ -1,10 +1,20 @@
 //! # Message module
 //!
-//! A message is composed of a header and a [body]. A MML message/body
-//! can be compiled into a MIME message/body using the
-//! [MmlCompiler]/[MmlBodyCompiler] builder. A MIME message/body can
-//! be interpreted as a MML message/body using the
-//! [MimeInterpreter]/[MimeBodyInterpreter] builder.
+//! A message is composed of a header and a [body].
+//!
+//! ## Compilation
+//!
+//! A MML message/body can be compiled into a MIME message/body using
+//! the [MmlCompilerBuilder]/[MmlBodyCompiler] builders.
+//!
+//! ```rust,ignore
+#![doc = include_str!("../../examples/plain.rs")]
+//! ```
+//!
+//! ## Interpretation
+//!
+//! A MIME message/body can be interpreted as a MML message/body using
+//! the [MimeInterpreter]/[MimeBodyInterpreter] builder.
 
 pub mod body;
 #[cfg(feature = "compiler")]
@@ -15,10 +25,13 @@ pub mod interpreter;
 
 #[cfg(feature = "compiler")]
 #[doc(inline)]
-pub use self::{body::MmlBodyCompiler, compiler::MmlCompiler};
+pub use self::{
+    body::MmlBodyCompiler,
+    compiler::{CompileMmlResult, MmlCompiler, MmlCompilerBuilder},
+};
 #[cfg(feature = "interpreter")]
 #[doc(inline)]
 pub use self::{
     body::{FilterParts, MimeBodyInterpreter},
-    interpreter::{FilterHeaders, MimeInterpreter},
+    interpreter::{FilterHeaders, MimeInterpreter, MimeInterpreterBuilder},
 };

@@ -2,8 +2,17 @@
 //!
 //! Rust implementation of the Emacs MIME message Meta Language, as known as [MML].
 //!
-//! This library exposes a [MML to MIME](MmlCompiler) message compiler
-//! and a [MIME to MML](MimeInterpreter) message interpreter.
+//! This library exposes a [MML to MIME](MmlCompilerBuilder) message
+//! compiler and a [MIME to MML](MimeInterpreterBuilder) message
+//! interpreter.
+//!
+//! ```eml,ignore
+#![doc = include_str!("../examples/plain.eml")]
+//! ```
+//!
+//! ```rust,ignore
+#![doc = include_str!("../examples/plain.rs")]
+//! ```
 //!
 //! [MML]: https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html
 
@@ -11,12 +20,12 @@ pub mod message;
 #[cfg(feature = "pgp")]
 pub mod pgp;
 
-#[cfg(feature = "interpreter")]
-#[doc(inline)]
-pub use self::message::MimeInterpreter;
 #[cfg(feature = "compiler")]
 #[doc(inline)]
-pub use self::message::MmlCompiler;
+pub use self::message::{CompileMmlResult, MmlCompiler, MmlCompilerBuilder};
+#[cfg(feature = "interpreter")]
+#[doc(inline)]
+pub use self::message::{MimeInterpreter, MimeInterpreterBuilder};
 
 /// The global `Error` enum of the library.
 #[derive(Debug, thiserror::Error)]

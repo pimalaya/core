@@ -15,8 +15,8 @@ metadata.docs.rs.all-features = true
 name = "mml"
 
 [features]
-all = ["compiler", "interpreter", "pgp-commands", "pgp-gpg", "pgp-native"]
-default = ["compiler", "interpreter"]
+default = ["compiler", "interpreter", "pgp-commands", "pgp-gpg", "pgp-native"]
+# default = ["compiler", "interpreter"]
 compiler = ["chumsky", "shellexpand-utils", "tree_magic_mini"]
 interpreter = ["nanohtml2text"]
 pgp = []

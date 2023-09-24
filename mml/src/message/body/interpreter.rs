@@ -16,15 +16,15 @@ use crate::pgp::Pgp;
 use crate::Result;
 
 use super::{
-    MULTI_PART_BEGIN, MULTI_PART_BEGIN_ESCAPED, MULTI_PART_END, MULTI_PART_END_ESCAPED,
-    SINGLE_PART_BEGIN, SINGLE_PART_BEGIN_ESCAPED, SINGLE_PART_END, SINGLE_PART_END_ESCAPED,
+    MULTIPART_BEGIN, MULTIPART_BEGIN_ESCAPED, MULTIPART_END, MULTIPART_END_ESCAPED, PART_BEGIN,
+    PART_BEGIN_ESCAPED, PART_END, PART_END_ESCAPED,
 };
 
 /// Errors dedicated to MIME → MML message body interpretation.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot parse raw email")]
-    ParseRawEmailError,
+    #[error("cannot parse MIME message")]
+    ParseMimeMessageError,
     #[error("cannot save attachement at {1}")]
     WriteAttachmentError(#[source] io::Error, PathBuf),
     #[error("cannot build email")]
@@ -38,23 +38,23 @@ pub enum Error {
 /// Filters parts to show by MIME type.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum FilterParts {
-    /// Shows all parts. This filter enables MML markup since multiple
+    /// Show all parts. This filter enables MML markup since multiple
     /// parts with different MIME types can be mixed together, which
     /// can be hard to navigate through.
     #[default]
     All,
 
-    /// Shows only parts matching the given MIME type. This filter
+    /// Show only parts matching the given MIME type. This filter
     /// disables MML markup since only one MIME type is shown.
     Only(String),
 
-    /// Shows only parts matching the given list of MIME types. This
+    /// Show only parts matching the given list of MIME types. This
     /// filter enables MML markup since multiple parts with different
     /// MIME types can be mixed together, which can be hard to
     /// navigate through.
     Include(Vec<String>),
 
-    /// Shows all parts except those matching the given list of MIME
+    /// Show all parts except those matching the given list of MIME
     /// types. This filter enables MML markup since multiple parts
     /// with different MIME types can be mixed together, which can be
     /// hard to navigate through.
@@ -87,13 +87,14 @@ impl FilterParts {
 /// is named `interpret_*`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MimeBodyInterpreter {
-    /// If `true` then shows multipart structure. It is useful to see
-    /// how nested parts are structured. If `false` then multipart
-    /// structure is flatten, which means all parts and subparts are
-    /// shown at the same top level.
+    /// Show multipart structure when true.
+    ///
+    /// It is useful to see how nested parts are structured. If
+    /// `false` then multipart structure is flatten, which means all
+    /// parts and subparts are shown at the same top level.
     show_multiparts: bool,
 
-    /// Filters parts to show by MIME type.
+    /// Filter parts to show by MIME type.
     filter_parts: FilterParts,
 
     /// If `false` then tries to remove signatures for text plain
@@ -210,13 +211,16 @@ impl MimeBodyInterpreter {
         self
     }
 
+    /// Replace normal opening and closing tags by escaped opening and
+    /// closing tags.
     fn escape_mml_markup(text: String) -> String {
-        text.replace(SINGLE_PART_BEGIN, SINGLE_PART_BEGIN_ESCAPED)
-            .replace(SINGLE_PART_END, SINGLE_PART_END_ESCAPED)
-            .replace(MULTI_PART_BEGIN, MULTI_PART_BEGIN_ESCAPED)
-            .replace(MULTI_PART_END, MULTI_PART_END_ESCAPED)
+        text.replace(PART_BEGIN, PART_BEGIN_ESCAPED)
+            .replace(PART_END, PART_END_ESCAPED)
+            .replace(MULTIPART_BEGIN, MULTIPART_BEGIN_ESCAPED)
+            .replace(MULTIPART_END, MULTIPART_END_ESCAPED)
     }
 
+    /// Decrypt the given [MessagePart] using PGP.
     #[cfg(feature = "pgp")]
     async fn decrypt_part(&self, encrypted_part: &MessagePart<'_>) -> Result<String> {
         let recipient = self
@@ -231,6 +235,7 @@ impl MimeBodyInterpreter {
         Ok(tpl)
     }
 
+    /// Verify the given [Message] using PGP.
     #[cfg(feature = "pgp")]
     async fn verify_msg(&self, msg: &Message<'_>, ids: &[usize]) -> Result<()> {
         let signed_part = msg.part(ids[0]).unwrap();
@@ -266,7 +271,7 @@ impl MimeBodyInterpreter {
             }
 
             let fname = fname.to_string_lossy();
-            tpl = format!("<#part type={ctype} filename=\"{fname}\">\n");
+            tpl = format!("<#part type={ctype} filename=\"{fname}\"><#/part>\n");
         }
 
         Ok(tpl)
@@ -294,7 +299,7 @@ impl MimeBodyInterpreter {
             }
 
             let fname = fname.to_string_lossy();
-            tpl = format!("<#part type={ctype} disposition=inline filename=\"{fname}\">\n");
+            tpl = format!("<#part type={ctype} disposition=inline filename=\"{fname}\"><#/part>\n");
         }
 
         Ok(tpl)
@@ -511,18 +516,20 @@ impl MimeBodyInterpreter {
         Ok(tpl)
     }
 
-    /// Interprets the given MIME [Message] as a MML string.
+    /// Interpret the given MIME [Message] as a MML message string.
     pub async fn interpret_msg<'a>(&self, msg: &Message<'a>) -> Result<String> {
         self.interpret_part(msg, msg.root_part()).await
     }
 
-    /// Interprets the given MIME message bytes as a MML string.
+    /// Interpret the given MIME message bytes as a MML message
+    /// string.
     pub async fn interpret_bytes<'a>(&self, bytes: impl AsRef<[u8]> + 'a) -> Result<String> {
-        let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseRawEmailError)?;
+        let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseMimeMessageError)?;
         self.interpret_msg(&msg).await
     }
 
-    /// Interprets the given MIME [MessageBuilder] as a MML string.
+    /// Interpret the given MIME [MessageBuilder] as a MML message
+    /// string.
     pub async fn interpret_msg_builder<'a>(&self, builder: MessageBuilder<'a>) -> Result<String> {
         let bytes = builder.write_to_vec().map_err(Error::WriteMessageError)?;
         self.interpret_bytes(&bytes).await
@@ -873,7 +880,7 @@ mod tests {
             .unwrap();
 
         let expected_tpl = concat_line!(
-            "<#part type=application/octet-stream filename=\"~/Downloads/attachment.txt\">",
+            "<#part type=application/octet-stream filename=\"~/Downloads/attachment.txt\"><#/part>",
             "",
         );
 

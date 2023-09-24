@@ -12,7 +12,7 @@ fn main() {
 async fn main() {
     use mml::{
         pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
-        MmlCompiler,
+        MmlCompilerBuilder,
     };
     use pgp::gen_key_pair;
     use secret::Secret;
@@ -36,7 +36,7 @@ async fn main() {
         .unwrap();
 
     let mml = include_str!("./pgp.eml");
-    let mml_compile_res = MmlCompiler::new()
+    let mml_compiler = MmlCompilerBuilder::new()
         .with_pgp(Pgp::Native(NativePgp {
             secret_key: NativePgpSecretKey::Path(alice_skey_path.clone()),
             secret_key_passphrase: Secret::new_raw(""),
@@ -45,9 +45,9 @@ async fn main() {
                 bob_pkey.clone(),
             )],
         }))
-        .compile(&mml)
+        .build(&mml)
         .unwrap();
-    let mime = mml_compile_res.to_string().await.unwrap();
+    let mime = mml_compiler.compile().await.unwrap().into_string().unwrap();
 
     println!("================================");
     println!("MML MESSAGE");
