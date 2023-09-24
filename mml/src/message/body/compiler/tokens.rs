@@ -1,4 +1,5 @@
 use log::warn;
+use mail_builder::headers::content_type::ContentType;
 use std::collections::HashMap;
 
 use super::TYPE;
@@ -16,8 +17,11 @@ pub(crate) enum Part<'a> {
     PlainText(Body<'a>),
 }
 
-impl Part<'_> {
-    pub(crate) fn get_or_guess_content_type(props: &Props, body: &[u8]) -> String {
+impl<'a> Part<'a> {
+    pub(crate) fn get_or_guess_content_type(
+        props: &Props,
+        body: &[u8],
+    ) -> impl Into<ContentType<'a>> {
         match props.get(TYPE) {
             Some(ctype) => ctype.to_string(),
             None => {

@@ -5,7 +5,10 @@ use crate::message::body::{
     GREATER_THAN, MULTIPART_BEGIN, MULTIPART_END,
 };
 
-use super::{description, disposition, filename, multipart_type, name, part_type, prelude::*};
+use super::{
+    description, disposition, filename, multipart_type, name, part_type, prelude::*,
+    recipient_filename,
+};
 #[cfg(feature = "pgp")]
 use super::{encrypt, sign};
 
@@ -65,6 +68,7 @@ pub(crate) fn part<'a>() -> impl Parser<'a, &'a str, Part<'a>, ParserError<'a>> 
             choice((
                 part_type(),
                 filename(),
+                recipient_filename(),
                 name(),
                 description(),
                 disposition(),

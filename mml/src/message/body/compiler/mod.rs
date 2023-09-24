@@ -23,7 +23,7 @@ use crate::Result;
 use super::{
     ALTERNATIVE, ATTACHMENT, DISPOSITION, FILENAME, INLINE, MIXED, MULTIPART_BEGIN,
     MULTIPART_BEGIN_ESCAPED, MULTIPART_END, MULTIPART_END_ESCAPED, NAME, PART_BEGIN,
-    PART_BEGIN_ESCAPED, PART_END, PART_END_ESCAPED, RELATED, TYPE,
+    PART_BEGIN_ESCAPED, PART_END, PART_END_ESCAPED, RECIPIENT_FILENAME, RELATED, TYPE,
 };
 #[cfg(feature = "pgp")]
 use super::{ENCRYPT, PGP_MIME, SIGN};
@@ -240,11 +240,18 @@ impl<'a> MmlBodyCompiler {
                     Some(fpath) => {
                         let contents = fs::read(fpath)
                             .map_err(|err| Error::ReadAttachmentError(err, fpath.clone()))?;
-                        let ctype = Part::get_or_guess_content_type(props, &contents);
+                        let mut ctype = Part::get_or_guess_content_type(props, &contents).into();
+                        if let Some(name) = props.get(NAME) {
+                            ctype = ctype.attribute("name", *name);
+                        }
                         MimePart::new(ctype, contents)
                     }
                     None => {
-                        let ctype = Part::get_or_guess_content_type(props, body.as_bytes());
+                        let mut ctype =
+                            Part::get_or_guess_content_type(props, body.as_bytes()).into();
+                        if let Some(name) = props.get(NAME) {
+                            ctype = ctype.attribute("name", *name);
+                        }
                         MimePart::new(ctype, body)
                     }
                 };
@@ -253,7 +260,7 @@ impl<'a> MmlBodyCompiler {
                     Some(&INLINE) => part.inline(),
                     Some(&ATTACHMENT) => part.attachment(
                         props
-                            .get(NAME)
+                            .get(RECIPIENT_FILENAME)
                             .map(Deref::deref)
                             .or_else(|| match &fpath {
                                 Some(fpath) => fpath.file_name().and_then(OsStr::to_str),
@@ -264,7 +271,7 @@ impl<'a> MmlBodyCompiler {
                     ),
                     _ if fpath.is_some() => part.attachment(
                         props
-                            .get(NAME)
+                            .get(RECIPIENT_FILENAME)
                             .map(ToString::to_string)
                             .or_else(|| {
                                 fpath
@@ -391,7 +398,9 @@ mod tests {
         write!(attachment, "Hello, world!").unwrap();
         let attachment_path = attachment.path().to_string_lossy();
 
-        let mml_body = format!("<#part filename=\"{attachment_path}\" type=\"text/plain\">");
+        let mml_body = format!(
+            "<#part filename=\"{attachment_path}\" type=\"text/plain\" name=custom recipient-filename=/tmp/custom>discarded body<#/part>"
+        );
 
         let msg = MmlBodyCompiler::new()
             .compile(&mml_body)
@@ -405,8 +414,8 @@ mod tests {
         let expected_msg = concat_line!(
             "Message-ID: <id@localhost>\r",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
-            "Content-Type: text/plain\r",
-            "Content-Disposition: attachment; filename=\"attachment.txt\"\r",
+            "Content-Type: text/plain; name=\"custom\"\r",
+            "Content-Disposition: attachment; filename=\"/tmp/custom\"\r",
             "Content-Transfer-Encoding: 7bit\r",
             "\r",
             "Hello, world!",
