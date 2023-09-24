@@ -6,8 +6,8 @@ use crate::message::body::{
 };
 
 use super::{
-    description, disposition, filename, multipart_type, name, part_type, prelude::*,
-    recipient_filename,
+    creation_date, data_encoding, description, disposition, encoding, filename, modification_date,
+    multipart_type, name, part_type, prelude::*, read_date, recipient_filename,
 };
 #[cfg(feature = "pgp")]
 use super::{encrypt, sign};
@@ -70,6 +70,11 @@ pub(crate) fn part<'a>() -> impl Parser<'a, &'a str, Part<'a>, ParserError<'a>> 
                 filename(),
                 recipient_filename(),
                 name(),
+                encoding(),
+                data_encoding(),
+                creation_date(),
+                modification_date(),
+                read_date(),
                 description(),
                 disposition(),
                 #[cfg(feature = "pgp")]

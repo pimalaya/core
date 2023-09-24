@@ -9,6 +9,7 @@ use async_recursion::async_recursion;
 #[allow(unused_imports)]
 use log::{debug, warn};
 use mail_builder::{
+    headers::raw::Raw,
     mime::{BodyPart, MimePart},
     MessageBuilder,
 };
@@ -21,9 +22,10 @@ use crate::pgp::Pgp;
 use crate::Result;
 
 use super::{
-    ALTERNATIVE, ATTACHMENT, DISPOSITION, FILENAME, INLINE, MIXED, MULTIPART_BEGIN,
-    MULTIPART_BEGIN_ESCAPED, MULTIPART_END, MULTIPART_END_ESCAPED, NAME, PART_BEGIN,
-    PART_BEGIN_ESCAPED, PART_END, PART_END_ESCAPED, RECIPIENT_FILENAME, RELATED, TYPE,
+    ALTERNATIVE, ATTACHMENT, DISPOSITION, ENCODING, ENCODING_7BIT, ENCODING_8BIT, ENCODING_BASE64,
+    ENCODING_QUOTED_PRINTABLE, FILENAME, INLINE, MIXED, MULTIPART_BEGIN, MULTIPART_BEGIN_ESCAPED,
+    MULTIPART_END, MULTIPART_END_ESCAPED, NAME, PART_BEGIN, PART_BEGIN_ESCAPED, PART_END,
+    PART_END_ESCAPED, RECIPIENT_FILENAME, RELATED, TYPE,
 };
 #[cfg(feature = "pgp")]
 use super::{ENCRYPT, PGP_MIME, SIGN};
@@ -256,6 +258,23 @@ impl<'a> MmlBodyCompiler {
                     }
                 };
 
+                part = match props.get(ENCODING) {
+                    Some(&ENCODING_7BIT) => {
+                        part.header("Content-Transfer-Encoding", Raw::new(ENCODING_7BIT))
+                    }
+                    Some(&ENCODING_8BIT) => {
+                        part.header("Content-Transfer-Encoding", Raw::new(ENCODING_8BIT))
+                    }
+                    Some(&ENCODING_QUOTED_PRINTABLE) => part.header(
+                        "Content-Transfer-Encoding",
+                        Raw::new(ENCODING_QUOTED_PRINTABLE),
+                    ),
+                    Some(&ENCODING_BASE64) => {
+                        part.header("Content-Transfer-Encoding", Raw::new(ENCODING_BASE64))
+                    }
+                    _ => part,
+                };
+
                 part = match props.get(DISPOSITION) {
                     Some(&INLINE) => part.inline(),
                     Some(&ATTACHMENT) => part.attachment(
@@ -399,7 +418,7 @@ mod tests {
         let attachment_path = attachment.path().to_string_lossy();
 
         let mml_body = format!(
-            "<#part filename=\"{attachment_path}\" type=\"text/plain\" name=custom recipient-filename=/tmp/custom>discarded body<#/part>"
+            "<#part filename={attachment_path} type=text/plain name=custom recipient-filename=/tmp/custom>discarded body<#/part>"
         );
 
         let msg = MmlBodyCompiler::new()

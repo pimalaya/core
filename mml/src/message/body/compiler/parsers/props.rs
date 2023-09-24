@@ -7,8 +7,9 @@
 
 use crate::message::body::{
     compiler::tokens::Prop, ALTERNATIVE, ATTACHMENT, CHARSET, CREATION_DATE, DATA_ENCODING,
-    DESCRIPTION, DISPOSITION, ENCODING, FILENAME, INLINE, MIXED, MODIFICATION_DATE, NAME,
-    READ_DATE, RECIPIENT_FILENAME, RELATED, SIZE, TYPE,
+    DESCRIPTION, DISPOSITION, ENCODING, ENCODING_7BIT, ENCODING_8BIT, ENCODING_BASE64,
+    ENCODING_QUOTED_PRINTABLE, FILENAME, INLINE, MIXED, MODIFICATION_DATE, NAME, READ_DATE,
+    RECIPIENT_FILENAME, RELATED, SIZE, TYPE,
 };
 #[cfg(feature = "pgp")]
 use crate::message::body::{ENCRYPT, PGP_MIME, RECIPIENTS, SENDER, SIGN};
@@ -117,7 +118,12 @@ pub(crate) fn encoding<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'
     just(ENCODING)
         .labelled(ENCODING)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((
+            maybe_quoted_const_val(ENCODING_7BIT),
+            maybe_quoted_const_val(ENCODING_8BIT),
+            maybe_quoted_const_val(ENCODING_QUOTED_PRINTABLE),
+            maybe_quoted_const_val(ENCODING_BASE64),
+        )))
         .padded()
 }
 
@@ -132,7 +138,10 @@ pub(crate) fn data_encoding<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserEr
     just(DATA_ENCODING)
         .labelled(DATA_ENCODING)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((
+            maybe_quoted_const_val(ENCODING_QUOTED_PRINTABLE),
+            maybe_quoted_const_val(ENCODING_BASE64),
+        )))
         .padded()
 }
 
