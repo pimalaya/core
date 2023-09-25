@@ -8,7 +8,7 @@ use mail_builder::{
     MessageBuilder,
 };
 use mail_parser::{Addr, HeaderValue};
-use mml::MimeInterpreter;
+use mml::MimeInterpreterBuilder;
 
 use crate::{
     account::AccountConfig,
@@ -39,10 +39,10 @@ pub struct ReplyTplBuilder<'a> {
     reply_all: bool,
 
     /// Template interpreter instance.
-    pub interpreter: MimeInterpreter,
+    pub interpreter: MimeInterpreterBuilder,
 
     /// Template interpreter instance dedicated to the message thread.
-    pub thread_interpreter: MimeInterpreter,
+    pub thread_interpreter: MimeInterpreterBuilder,
 }
 
 impl<'a> ReplyTplBuilder<'a> {
@@ -107,14 +107,14 @@ impl<'a> ReplyTplBuilder<'a> {
     }
 
     /// Sets the template interpreter following the builder pattern.
-    pub fn with_interpreter(mut self, interpreter: MimeInterpreter) -> Self {
+    pub fn with_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.interpreter = interpreter;
         self
     }
 
     /// Sets the template thread interpreter following the builder
     /// pattern.
-    pub fn with_thread_interpreter(mut self, interpreter: MimeInterpreter) -> Self {
+    pub fn with_thread_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.thread_interpreter = interpreter;
         self
     }
@@ -272,7 +272,8 @@ impl<'a> ReplyTplBuilder<'a> {
 
             let body = self
                 .thread_interpreter
-                .interpret_msg(&parsed)
+                .build()
+                .from_msg(&parsed)
                 .await
                 .map_err(Error::InterpretMessageAsThreadTemplateError)?;
 
@@ -295,7 +296,8 @@ impl<'a> ReplyTplBuilder<'a> {
 
         let tpl = self
             .interpreter
-            .interpret_msg_builder(builder)
+            .build()
+            .from_msg_builder(builder)
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 

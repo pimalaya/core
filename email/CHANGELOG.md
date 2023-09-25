@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `mml-lib@=0.5.0`.
+
+### Fixed
+
+- Fixed integration tests.
+
 ## [0.15.2] - 2023-08-29
 
 ### Changed

@@ -5,12 +5,13 @@
 
 pub mod oauth2;
 pub mod passwd;
+#[cfg(feature = "pgp")]
 pub mod pgp;
 
 use dirs::data_dir;
 use log::{debug, warn};
 use mail_builder::headers::address::{Address, EmailAddress};
-use mml::MimeInterpreter;
+use mml::MimeInterpreterBuilder;
 use shellexpand_utils::{shellexpand_str, try_shellexpand_path};
 use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, vec};
 use thiserror::Error;
@@ -29,6 +30,9 @@ pub use self::pgp::CmdsPgpConfig;
 #[cfg(feature = "pgp-gpg")]
 #[doc(inline)]
 pub use self::pgp::GpgConfig;
+#[cfg(feature = "pgp")]
+#[doc(inline)]
+pub use self::pgp::PgpConfig;
 #[cfg(feature = "pgp-native")]
 #[doc(inline)]
 pub use self::pgp::{NativePgpConfig, NativePgpSecretKey, SignedPublicKey, SignedSecretKey};
@@ -36,7 +40,6 @@ pub use self::pgp::{NativePgpConfig, NativePgpSecretKey, SignedPublicKey, Signed
 pub use self::{
     oauth2::{OAuth2Config, OAuth2Method, OAuth2Scopes},
     passwd::PasswdConfig,
-    pgp::PgpConfig,
 };
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
@@ -154,6 +157,7 @@ pub struct AccountConfig {
     pub sender: SenderConfig,
 
     /// The configuration related to PGP encryption.
+    #[cfg(feature = "pgp")]
     pub pgp: PgpConfig,
 }
 
@@ -183,6 +187,7 @@ impl Default for AccountConfig {
             sync_folders_strategy: Default::default(),
             backend: Default::default(),
             sender: Default::default(),
+            #[cfg(feature = "pgp")]
             pgp: Default::default(),
         }
     }
@@ -373,10 +378,13 @@ impl AccountConfig {
 
     /// Generate a template interpreter with prefilled options from
     /// the current user account configuration.
-    pub fn generate_tpl_interpreter(&self) -> MimeInterpreter {
-        MimeInterpreter::new()
-            .with_pgp(self.pgp.clone())
-            .with_save_attachments_dir(self.downloads_dir())
+    pub fn generate_tpl_interpreter(&self) -> MimeInterpreterBuilder {
+        let builder = MimeInterpreterBuilder::new().with_save_attachments_dir(self.downloads_dir());
+
+        #[cfg(feature = "pgp")]
+        let builder = builder.with_pgp(self.pgp.clone());
+
+        builder
     }
 
     /// Return the email listing datetime format, otherwise return the

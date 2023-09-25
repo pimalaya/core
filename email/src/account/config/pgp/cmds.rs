@@ -1,4 +1,4 @@
-use mml::{CmdsPgp, Pgp};
+use mml::pgp::{CmdsPgp, Pgp};
 use process::Cmd;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

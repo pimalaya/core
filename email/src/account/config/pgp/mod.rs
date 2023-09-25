@@ -10,14 +10,16 @@ pub mod native;
 
 #[cfg(feature = "pgp-commands")]
 #[doc(inline)]
-pub use mml::CmdsPgp;
+pub use mml::pgp::CmdsPgp;
 #[cfg(feature = "pgp-gpg")]
 #[doc(inline)]
-pub use mml::Gpg;
-use mml::Pgp;
+pub use mml::pgp::Gpg;
+#[cfg(feature = "pgp")]
+#[doc(inline)]
+pub use mml::pgp::Pgp;
 #[cfg(feature = "pgp-native")]
 #[doc(inline)]
-pub use mml::{
+pub use mml::pgp::{
     NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, SignedPublicKey, SignedSecretKey,
 };
 use std::io;

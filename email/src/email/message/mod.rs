@@ -14,7 +14,7 @@ use imap::types::{Fetch, Fetches};
 use log::{debug, warn};
 use mail_parser::MimeHeaders;
 use maildirpp::MailEntry;
-use mml::MimeInterpreter;
+use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
 use std::{borrow::Cow, fmt::Debug, io, path::PathBuf};
 use thiserror::Error;
@@ -139,13 +139,14 @@ impl Message<'_> {
     pub async fn to_read_tpl(
         &self,
         config: &AccountConfig,
-        with_interpreter: impl Fn(MimeInterpreter) -> MimeInterpreter,
+        with_interpreter: impl Fn(MimeInterpreterBuilder) -> MimeInterpreterBuilder,
     ) -> Result<String> {
         let interpreter = config
             .generate_tpl_interpreter()
             .with_show_only_headers(config.email_reading_headers());
         let tpl = with_interpreter(interpreter)
-            .interpret_msg(self.parsed()?)
+            .build()
+            .from_msg(self.parsed()?)
             .await
             .map_err(Error::InterpretEmailAsTplError)?;
         Ok(tpl)

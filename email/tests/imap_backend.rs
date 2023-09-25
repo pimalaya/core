@@ -7,8 +7,7 @@ async fn test_imap_backend() {
         backend::{BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig},
         email::Flag,
     };
-    use mail_builder::MessageBuilder;
-    use mml::MmlCompiler;
+    use mml::MmlCompilerBuilder;
     use secret::Secret;
 
     env_logger::builder().is_test(true).init();
@@ -46,21 +45,17 @@ async fn test_imap_backend() {
     imap.add_folder("Отправленные").await.unwrap();
 
     // checking that an email can be built and added
-    let email = MessageBuilder::new()
-        .from("alice@localhost")
-        .to("bob@localhost")
-        .subject("subject")
-        .text_body(concat_line!(
-            "<#part type=text/plain>",
-            "Hello, world!",
-            "<#/part>",
-        ));
-    let email = MmlCompiler::new()
-        .compile(email.write_to_string().unwrap())
-        .await
-        .unwrap()
-        .write_to_vec()
-        .unwrap();
+    let tpl = concat_line!(
+        "From: alice@localhost",
+        "To: bob@localhost",
+        "Subject: subject",
+        "",
+        "<#part type=text/plain>",
+        "Hello, world!",
+        "<#/part>",
+    );
+    let compiler = MmlCompilerBuilder::new().build(&tpl).unwrap();
+    let email = compiler.compile().await.unwrap().into_vec().unwrap();
 
     let id = imap
         .add_email("Sent", &email, &("seen".into()))

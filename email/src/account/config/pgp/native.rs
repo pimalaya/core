@@ -1,6 +1,6 @@
 use keyring::Entry;
 use log::warn;
-use mml::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
+use mml::pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
 use secret::Secret;
 use shellexpand_utils::shellexpand_path;
 use std::{io, path::PathBuf};

@@ -7,7 +7,10 @@ mod forward;
 mod new;
 mod reply;
 
-pub use mml::{FilterParts, MimeInterpreter, ShowHeadersStrategy};
+pub use mml::{
+    message::{FilterHeaders, FilterParts},
+    MimeInterpreter,
+};
 use thiserror::Error;
 
 #[doc(inline)]

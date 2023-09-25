@@ -7,7 +7,7 @@ use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
 };
-use mml::MimeInterpreter;
+use mml::MimeInterpreterBuilder;
 
 use crate::{account::AccountConfig, email::Message, Result};
 
@@ -31,10 +31,10 @@ pub struct ForwardTplBuilder<'a> {
     body: String,
 
     /// Template interpreter instance.
-    pub interpreter: MimeInterpreter,
+    pub interpreter: MimeInterpreterBuilder,
 
     /// Template interpreter instance dedicated to the message thread.
-    pub thread_interpreter: MimeInterpreter,
+    pub thread_interpreter: MimeInterpreterBuilder,
 }
 
 impl<'a> ForwardTplBuilder<'a> {
@@ -97,14 +97,14 @@ impl<'a> ForwardTplBuilder<'a> {
     }
 
     /// Sets the template interpreter following the builder pattern.
-    pub fn with_interpreter(mut self, interpreter: MimeInterpreter) -> Self {
+    pub fn with_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.interpreter = interpreter;
         self
     }
 
     /// Sets the template thread interpreter following the builder
     /// pattern.
-    pub fn with_thread_interpreter(mut self, interpreter: MimeInterpreter) -> Self {
+    pub fn with_thread_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.thread_interpreter = interpreter;
         self
     }
@@ -164,7 +164,8 @@ impl<'a> ForwardTplBuilder<'a> {
             lines.push_str(
                 &self
                     .thread_interpreter
-                    .interpret_msg(&parsed)
+                    .build()
+                    .from_msg(&parsed)
                     .await
                     .map_err(Error::InterpretMessageAsThreadTemplateError)?,
             );
@@ -174,7 +175,8 @@ impl<'a> ForwardTplBuilder<'a> {
 
         let tpl = self
             .interpreter
-            .interpret_msg_builder(builder)
+            .build()
+            .from_msg_builder(builder)
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 

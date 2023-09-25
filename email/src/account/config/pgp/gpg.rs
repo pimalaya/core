@@ -1,4 +1,4 @@
-use mml::{Gpg, Pgp};
+use mml::pgp::{Gpg, Pgp};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct GpgConfig;

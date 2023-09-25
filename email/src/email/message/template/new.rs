@@ -7,7 +7,7 @@ use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
 };
-use mml::MimeInterpreter;
+use mml::MimeInterpreterBuilder;
 
 use crate::{account::AccountConfig, Result};
 
@@ -28,7 +28,7 @@ pub struct NewTplBuilder<'a> {
     body: String,
 
     /// Template interpreter instance.
-    pub interpreter: MimeInterpreter,
+    pub interpreter: MimeInterpreterBuilder,
 }
 
 impl<'a> NewTplBuilder<'a> {
@@ -85,7 +85,7 @@ impl<'a> NewTplBuilder<'a> {
     }
 
     /// Sets the template interpreter following the builder pattern.
-    pub fn with_interpreter(mut self, interpreter: MimeInterpreter) -> Self {
+    pub fn with_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.interpreter = interpreter;
         self
     }
@@ -118,7 +118,8 @@ impl<'a> NewTplBuilder<'a> {
 
         let tpl = self
             .interpreter
-            .interpret_msg_builder(builder)
+            .build()
+            .from_msg_builder(builder)
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
