@@ -1,8 +1,9 @@
 [package]
 name = "mml-lib"
-version = "0.4.0"
+version = "0.5.0"
 description = "Rust implementation of the Emacs MIME message Meta Language (MML)."
 homepage = "https://pimalaya.org/"
+documentation = "https://docs.rs/mml-lib/latest/mml/"
 repository = "https://git.sr.ht/~soywod/pimalaya/"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
@@ -15,8 +16,13 @@ metadata.docs.rs.all-features = true
 name = "mml"
 
 [features]
-all = ["compiler", "interpreter", "pgp-commands", "pgp-gpg", "pgp-native"]
-default = ["compiler", "interpreter"]
+default = [
+  "compiler",
+  "interpreter",
+  # "pgp-commands",
+  # "pgp-gpg",
+  # "pgp-native",
+]
 compiler = ["chumsky", "shellexpand-utils", "tree_magic_mini"]
 interpreter = ["nanohtml2text"]
 pgp = []

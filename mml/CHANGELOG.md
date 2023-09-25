@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2023-09-25
+
 ### Added
 
 - Added `MmlCompilerBuilder` and `MimeInterpreterBuilder`. Their `build()` function respectively return a `MmlCompiler` and a `MimeInterpreter`.
