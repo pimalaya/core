@@ -9,11 +9,15 @@ For example:
 ```eml
 From: alice@localhost
 To: bob@localhost
-Subject: MML example
+Subject: MML examples
 
-See attachment!
+This is a plain text part.
 
-<#part filename=/path/to/attachment.png>
+<#part type=text/html>
+<h1>This is a HTML part.</h1>
+<#/part>
+
+<#part filename=./examples/attachment.png description="This is an attachment."><#/part>
 ```
 
 compiles to:
@@ -22,28 +26,33 @@ compiles to:
 MIME-Version: 1.0
 From: <alice@localhost>
 To: <bob@localhost>
-Subject: MML example
-Message-ID: <17859f79a642d0cf.f9706245cd3a3f97.3b41d60ef9e2fbfb@soywod>
-Date: Sun, 17 Sep 2023 07:36:19 +0000
+Subject: MML examples
+Message-ID: <17886a741feef4a2.f9706245cd3a3f97.3b41d60ef9e2fbfb@soywod>
+Date: Tue, 26 Sep 2023 09:58:26 +0000
 Content-Type: multipart/mixed; 
-	boundary="17859f79a64304be_97a7dbff4c84bbac_3b41d60ef9e2fbfb"
+	boundary="17886a741fef2cb2_97a7dbff4c84bbac_3b41d60ef9e2fbfb"
 
 
---17859f79a64304be_97a7dbff4c84bbac_3b41d60ef9e2fbfb
+--17886a741fef2cb2_97a7dbff4c84bbac_3b41d60ef9e2fbfb
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 
-See attachment!
+This is a plain text part.
 
 
---17859f79a64304be_97a7dbff4c84bbac_3b41d60ef9e2fbfb
+--17886a741fef2cb2_97a7dbff4c84bbac_3b41d60ef9e2fbfb
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<h1>This is a HTML part.</h1>
+
 Content-Type: application/octet-stream
 Content-Disposition: attachment; filename="attachment.png"
 Content-Transfer-Encoding: base64
 
 iVBORw0KGgo…
 
---17859f79a64304be_97a7dbff4c84bbac_3b41d60ef9e2fbfb--
+--17886a741fef2cb2_97a7dbff4c84bbac_3b41d60ef9e2fbfb--
 ```
 
 ## Definition
@@ -62,20 +71,20 @@ From the [Emacs documentation](https://www.gnu.org/software/emacs/manual/html_no
 
 ## Features
 
-- Compile MML messages into MIME messages using [`MmlCompiler`](https://docs.rs/mml-lib/latest/mml/message/compiler/struct.MmlCompiler.html) builder (cargo feature `compiler` required, enabled by default)
-- Interpret MIME messages as MML messages using the [`MimeInterpreter`](https://docs.rs/mml-lib/latest/mml/message/interpreter/struct.MimeInterpreter.html) builder (cargo feature `interpreter` required, activated by default)
+- Compile MML messages into MIME messages using [`MmlCompilerBuilder`](https://docs.rs/mml-lib/latest/mml/message/compiler/struct.MmlCompilerBuilder.html)  (cargo feature `compiler` required, enabled by default)
+- Interpret MIME messages as MML messages using the [`MimeInterpreterBuilder`](https://docs.rs/mml-lib/latest/mml/message/interpreter/struct.MimeInterpreterBuilder.html) (cargo feature `interpreter` required, activated by default)
 - Multiple parts support `<#multipart>…<#/multipart>`
 - Inline part support `<#part text=mime/type>…<#/part>`
-- Attachment support `<#part filename=/path/to/attachment.ext>`
+- Attachment support `<#part disposition=attachment filename=/path/to/attachment.ext><#/part>`
 - Comment support `<#!part>This will not be compiled<#!/part>`
-- PGP supported by:
+- PGP support:
   - Shell commands (cargo feature `pgp-commands` required)
   - GPG bindings (cargo feature `pgp-gpg` and [`gpgme`](https://gnupg.org/software/gpgme/index.html) lib required)
   - Native Rust implementation (cargo feature `pgp-native` required)
 
 ## Examples
 
-See [`./examples`](https://git.sr.ht/~soywod/pimalaya/tree/master/item/email-tpl/examples):
+See [`./examples`](https://git.sr.ht/~soywod/pimalaya/tree/master/item/mml/examples):
 
 ```sh
 cargo run --example

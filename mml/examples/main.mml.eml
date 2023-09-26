@@ -1,0 +1,12 @@
+From: alice@localhost
+To: bob@localhost
+Subject: MML examples
+
+This is a plain text part.
+
+<#part type=text/html>
+<h1>This is a HTML part.</h1>
+<#/part>
+
+<#part filename=./examples/attachment.png disposition=attachment description="This is an attachment.">
+<#/part>

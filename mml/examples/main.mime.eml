@@ -1,0 +1,30 @@
+MIME-Version: 1.0
+From: <alice@localhost>
+To: <bob@localhost>
+Subject: MML examples
+Message-ID: <17886a741feef4a2.f9706245cd3a3f97.3b41d60ef9e2fbfb@soywod>
+Date: Tue, 26 Sep 2023 09:58:26 +0000
+Content-Type: multipart/mixed; 
+	boundary="17886a741fef2cb2_97a7dbff4c84bbac_3b41d60ef9e2fbfb"
+
+
+--17886a741fef2cb2_97a7dbff4c84bbac_3b41d60ef9e2fbfb
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+This is a plain text part.
+
+
+--17886a741fef2cb2_97a7dbff4c84bbac_3b41d60ef9e2fbfb
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<h1>This is a HTML part.</h1>
+
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="attachment.png"
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgo…
+
+--17886a741fef2cb2_97a7dbff4c84bbac_3b41d60ef9e2fbfb--

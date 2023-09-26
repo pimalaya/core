@@ -1,17 +1,22 @@
 //! # 📫 MIME Meta Language
 //!
-//! Rust implementation of the Emacs MIME message Meta Language, as known as [MML].
+//! Rust implementation of the Emacs MIME message Meta Language, as
+//! known as [MML].
 //!
 //! This library exposes a [MML to MIME](MmlCompilerBuilder) message
 //! compiler and a [MIME to MML](MimeInterpreterBuilder) message
 //! interpreter.
 //!
-//! ```eml,ignore
-#![doc = include_str!("../examples/plain.eml")]
+//! For example:
+//!
+//! ```mml,ignore
+#![doc = include_str!("../examples/main.mml.eml")]
 //! ```
 //!
-//! ```rust,ignore
-#![doc = include_str!("../examples/plain.rs")]
+//! compiles to:
+//!
+//! ```eml,ignore
+#![doc = include_str!("../examples/main.mime.eml")]
 //! ```
 //!
 //! [MML]: https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html
