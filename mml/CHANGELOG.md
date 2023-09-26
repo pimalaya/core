@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2023-09-26
+
+### Added
+
+- Added `doc_auto_cfg` feature to have feature tags on `docs.rs`.
+
 ## [0.5.0] - 2023-09-25
 
 ### Added

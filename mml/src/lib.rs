@@ -21,6 +21,8 @@
 //!
 //! [MML]: https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html
 
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 pub mod message;
 #[cfg(feature = "pgp")]
 pub mod pgp;
