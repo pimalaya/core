@@ -115,9 +115,6 @@ version = "1.6"
 [dependencies.regex]
 version = "1.5"
 
-[dependencies.rfc2047-decoder]
-version = "=0.2.0"
-
 [dependencies.rustls]
 version = "0.21"
 features = ["dangerous_configuration"]

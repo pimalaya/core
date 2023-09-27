@@ -108,20 +108,8 @@ pub enum Error {
     AppendEmailError(#[source] imap::Error, String),
 
     // Parsing/decoding
-    #[error("cannot parse sender from imap envelope")]
-    ParseSenderFromImapEnvelopeError,
-    #[error("cannot decode sender name from imap envelope")]
-    DecodeSenderNameFromImapEnvelopeError(rfc2047_decoder::Error),
-    #[error("cannot decode sender mailbox from imap envelope")]
-    DecodeSenderMailboxFromImapEnvelopeError(rfc2047_decoder::Error),
-    #[error("cannot decode sender host from imap envelope")]
-    DecodeSenderHostFromImapEnvelopeError(rfc2047_decoder::Error),
-    #[error("cannot decode date from imap envelope")]
-    DecodeDateFromImapEnvelopeError(rfc2047_decoder::Error),
     #[error("cannot parse imap sort criterion {0}")]
     ParseSortCriterionError(String),
-    #[error("cannot decode subject of imap email {1}")]
-    DecodeSubjectError(#[source] rfc2047_decoder::Error, String),
     #[error("cannot get imap sender of email {0}")]
     GetSenderError(String),
 
