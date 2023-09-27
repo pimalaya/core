@@ -24,7 +24,7 @@ pub enum Error {
     BuildEmailError(#[source] io::Error),
 }
 
-/// The strategy used to display headers when interpreting messages.
+/// Filters headers to show in the interpreted message.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum FilterHeaders {
     /// Include all available headers to the interpreted message.
@@ -48,7 +48,7 @@ impl FilterHeaders {
     }
 }
 
-/// The MIME to MML message interpreter builder.
+/// MIME → MML message interpreter builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MimeInterpreterBuilder {
     /// The strategy to display headers.
@@ -59,22 +59,24 @@ pub struct MimeInterpreterBuilder {
 }
 
 impl MimeInterpreterBuilder {
-    /// Create a new MIME to MML message interpreter builder with
-    /// default options.
+    /// Create a new interpreter builder with default options.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Filter headers with the given strategy.
     pub fn with_show_headers(mut self, s: FilterHeaders) -> Self {
         self.show_headers = s;
         self
     }
 
+    /// Show all headers.
     pub fn with_show_all_headers(mut self) -> Self {
         self.show_headers = FilterHeaders::All;
         self
     }
 
+    /// Show only headers matching the given ones.
     pub fn with_show_only_headers(
         mut self,
         headers: impl IntoIterator<Item = impl ToString>,
@@ -90,6 +92,9 @@ impl MimeInterpreterBuilder {
         self
     }
 
+    /// Show additional headers.
+    // FIXME: seems not to work as expected, maybe need to use a
+    // different structure than [FilterHeaders].
     pub fn with_show_additional_headers(
         mut self,
         headers: impl IntoIterator<Item = impl ToString>,
@@ -119,46 +124,64 @@ impl MimeInterpreterBuilder {
         self
     }
 
+    /// Hide all headers.
     pub fn with_hide_all_headers(mut self) -> Self {
         self.show_headers = FilterHeaders::Include(Vec::new());
         self
     }
 
+    /// Show MML multipart tags.
     pub fn with_show_multiparts(mut self, b: bool) -> Self {
-        self.mime_body_interpreter = self.mime_body_interpreter.show_multiparts(b);
+        self.mime_body_interpreter = self.mime_body_interpreter.with_show_multiparts(b);
         self
     }
 
+    /// Filter parts using the given strategy.
     pub fn with_filter_parts(mut self, f: FilterParts) -> Self {
-        self.mime_body_interpreter = self.mime_body_interpreter.filter_parts(f);
+        self.mime_body_interpreter = self.mime_body_interpreter.with_filter_parts(f);
         self
     }
 
+    /// Show plain texts signature.
     pub fn with_show_plain_texts_signature(mut self, b: bool) -> Self {
-        self.mime_body_interpreter = self.mime_body_interpreter.show_plain_texts_signature(b);
+        self.mime_body_interpreter = self
+            .mime_body_interpreter
+            .with_show_plain_texts_signature(b);
         self
     }
 
+    /// Show MML attachments tags.
     pub fn with_show_attachments(mut self, b: bool) -> Self {
-        self.mime_body_interpreter = self.mime_body_interpreter.show_attachments(b);
+        self.mime_body_interpreter = self.mime_body_interpreter.with_show_attachments(b);
         self
     }
 
+    /// Show MML inline attachments tags.
     pub fn with_show_inline_attachments(mut self, b: bool) -> Self {
-        self.mime_body_interpreter = self.mime_body_interpreter.show_inline_attachments(b);
+        self.mime_body_interpreter = self.mime_body_interpreter.with_show_inline_attachments(b);
         self
     }
 
+    /// Automatically save attachments to the `save_attachments_dir`.
     pub fn with_save_attachments(mut self, b: bool) -> Self {
-        self.mime_body_interpreter = self.mime_body_interpreter.save_attachments(b);
+        self.mime_body_interpreter = self.mime_body_interpreter.with_save_attachments(b);
         self
     }
 
+    /// Customize the download attachments directory.
+    ///
+    /// This can be used to display the `filename` property but also
+    /// to automatically save attachment with `save_attachments`.
     pub fn with_save_attachments_dir(mut self, dir: impl Into<PathBuf>) -> Self {
-        self.mime_body_interpreter = self.mime_body_interpreter.save_attachments_dir(dir);
+        self.mime_body_interpreter = self.mime_body_interpreter.with_save_attachments_dir(dir);
         self
     }
 
+    /// Customize the download attachments directory using an optional
+    /// path.
+    ///
+    /// This can be used to display the `filename` property but also
+    /// to automatically save attachment with `save_attachments`.
     pub fn with_save_some_attachments_dir(self, dir: Option<impl Into<PathBuf>>) -> Self {
         match dir {
             Some(dir) => self.with_save_attachments_dir(dir),
@@ -168,6 +191,7 @@ impl MimeInterpreterBuilder {
         }
     }
 
+    /// Customize PGP.
     #[cfg(feature = "pgp")]
     pub fn with_pgp(mut self, pgp: impl Into<Pgp>) -> Self {
         self.mime_body_interpreter = self.mime_body_interpreter.with_pgp(pgp.into());
@@ -186,7 +210,7 @@ impl MimeInterpreterBuilder {
     }
 }
 
-/// The MIME to MML message interpreter.
+/// MIME → MML message interpreter.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MimeInterpreter {
     show_headers: FilterHeaders,
@@ -194,7 +218,7 @@ pub struct MimeInterpreter {
 }
 
 impl MimeInterpreter {
-    /// Interprets the given MIME [Message] as a MML string.
+    /// Interpret the given MIME [Message] as a MML [String].
     pub async fn from_msg(self, msg: &Message<'_>) -> Result<String> {
         let mut mml = String::new();
 
@@ -241,13 +265,13 @@ impl MimeInterpreter {
         Ok(mml)
     }
 
-    /// Interpret the given MIME message bytes as a MML message string.
+    /// Interpret the given MIME message bytes as a MML [String].
     pub async fn from_bytes(self, bytes: impl AsRef<[u8]>) -> Result<String> {
         let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseRawEmailError)?;
         self.from_msg(&msg).await
     }
 
-    /// Interpret the given MIME [MessageBuilder] as a MML message string.
+    /// Interpret the given MIME [MessageBuilder] as a MML [String].
     pub async fn from_msg_builder(self, builder: MessageBuilder<'_>) -> Result<String> {
         let bytes = builder.write_to_vec().map_err(Error::BuildEmailError)?;
         self.from_bytes(&bytes).await

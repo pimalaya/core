@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed `CompileMmlResult` to `MmlCompileResult`.
+- Improved inline docs.
+
 ## [0.5.1] - 2023-09-26
 
 ### Added

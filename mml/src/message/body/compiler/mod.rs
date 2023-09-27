@@ -46,7 +46,7 @@ pub enum Error {
     PgpSignMissingSenderError,
 }
 
-/// The MML to MIME message body compiler.
+/// MML → MIME message body compiler.
 ///
 /// The compiler follows the builder pattern, where the build function
 /// is named `compile`.

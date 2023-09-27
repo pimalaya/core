@@ -7,14 +7,10 @@
 //! A MML message/body can be compiled into a MIME message/body using
 //! the [MmlCompilerBuilder]/[MmlBodyCompiler] builders.
 //!
-//! ```rust,ignore
-#![doc = include_str!("../../examples/plain.rs")]
-//! ```
-//!
 //! ## Interpretation
 //!
 //! A MIME message/body can be interpreted as a MML message/body using
-//! the [MimeInterpreter]/[MimeBodyInterpreter] builder.
+//! the [MimeInterpreterBuilder]/[MimeBodyInterpreter] builder.
 
 pub mod body;
 #[cfg(feature = "compiler")]
@@ -27,7 +23,7 @@ pub mod interpreter;
 #[doc(inline)]
 pub use self::{
     body::MmlBodyCompiler,
-    compiler::{CompileMmlResult, MmlCompiler, MmlCompilerBuilder},
+    compiler::{MmlCompileResult, MmlCompiler, MmlCompilerBuilder},
 };
 #[cfg(feature = "interpreter")]
 #[doc(inline)]

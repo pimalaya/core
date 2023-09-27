@@ -19,7 +19,10 @@
 #![doc = include_str!("../examples/main.mime.eml")]
 //! ```
 //!
+//! See [more examples].
+//!
 //! [MML]: https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html
+//! [more examples]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/mml/examples
 
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
@@ -27,12 +30,12 @@ pub mod message;
 #[cfg(feature = "pgp")]
 pub mod pgp;
 
-#[cfg(feature = "compiler")]
-#[doc(inline)]
-pub use self::message::{CompileMmlResult, MmlCompiler, MmlCompilerBuilder};
 #[cfg(feature = "interpreter")]
 #[doc(inline)]
 pub use self::message::{MimeInterpreter, MimeInterpreterBuilder};
+#[cfg(feature = "compiler")]
+#[doc(inline)]
+pub use self::message::{MmlCompileResult, MmlCompiler, MmlCompilerBuilder};
 
 /// The global `Error` enum of the library.
 #[derive(Debug, thiserror::Error)]

@@ -81,7 +81,7 @@ impl FilterParts {
     }
 }
 
-/// The MIME to MML message body interpreter.
+/// MIME → MML message body interpreter.
 ///
 /// The interpreter follows the builder pattern, where the build function
 /// is named `interpret_*`.
@@ -158,37 +158,37 @@ impl MimeBodyInterpreter {
         Self::default()
     }
 
-    pub fn show_multiparts(mut self, b: bool) -> Self {
+    pub fn with_show_multiparts(mut self, b: bool) -> Self {
         self.show_multiparts = b;
         self
     }
 
-    pub fn filter_parts(mut self, f: FilterParts) -> Self {
+    pub fn with_filter_parts(mut self, f: FilterParts) -> Self {
         self.filter_parts = f;
         self
     }
 
-    pub fn show_plain_texts_signature(mut self, b: bool) -> Self {
+    pub fn with_show_plain_texts_signature(mut self, b: bool) -> Self {
         self.show_plain_texts_signature = b;
         self
     }
 
-    pub fn show_attachments(mut self, b: bool) -> Self {
+    pub fn with_show_attachments(mut self, b: bool) -> Self {
         self.show_attachments = b;
         self
     }
 
-    pub fn show_inline_attachments(mut self, b: bool) -> Self {
+    pub fn with_show_inline_attachments(mut self, b: bool) -> Self {
         self.show_inline_attachments = b;
         self
     }
 
-    pub fn save_attachments(mut self, b: bool) -> Self {
+    pub fn with_save_attachments(mut self, b: bool) -> Self {
         self.save_attachments = b;
         self
     }
 
-    pub fn save_attachments_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+    pub fn with_save_attachments_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.save_attachments_dir = dir.into();
         self
     }
@@ -609,7 +609,7 @@ mod tests {
         ));
 
         let tpl = MimeBodyInterpreter::new()
-            .show_multiparts(true)
+            .with_show_multiparts(true)
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -678,7 +678,7 @@ mod tests {
         ));
 
         let tpl = MimeBodyInterpreter::new()
-            .filter_parts(FilterParts::Only("text/plain".into()))
+            .with_filter_parts(FilterParts::Only("text/plain".into()))
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -703,7 +703,7 @@ mod tests {
         ));
 
         let tpl = MimeBodyInterpreter::new()
-            .filter_parts(FilterParts::Only("text/html".into()))
+            .with_filter_parts(FilterParts::Only("text/html".into()))
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -728,7 +728,7 @@ mod tests {
         ));
 
         let tpl = MimeBodyInterpreter::new()
-            .filter_parts(FilterParts::Only("text/json".into()))
+            .with_filter_parts(FilterParts::Only("text/json".into()))
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -855,7 +855,7 @@ mod tests {
         ));
 
         let tpl = MimeBodyInterpreter::new()
-            .filter_parts(FilterParts::Only("text/html".into()))
+            .with_filter_parts(FilterParts::Only("text/html".into()))
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
@@ -874,7 +874,7 @@ mod tests {
         );
 
         let tpl = MimeBodyInterpreter::new()
-            .save_attachments_dir("~/Downloads")
+            .with_save_attachments_dir("~/Downloads")
             .interpret_msg_builder(builder)
             .await
             .unwrap();

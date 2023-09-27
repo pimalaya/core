@@ -71,8 +71,8 @@ From the [Emacs documentation](https://www.gnu.org/software/emacs/manual/html_no
 
 ## Features
 
-- Compile MML messages into MIME messages using [`MmlCompilerBuilder`](https://docs.rs/mml-lib/latest/mml/message/compiler/struct.MmlCompilerBuilder.html)  (cargo feature `compiler` required, enabled by default)
-- Interpret MIME messages as MML messages using the [`MimeInterpreterBuilder`](https://docs.rs/mml-lib/latest/mml/message/interpreter/struct.MimeInterpreterBuilder.html) (cargo feature `interpreter` required, activated by default)
+- MML to MIME messages compilation using [`MmlCompilerBuilder`](https://docs.rs/mml-lib/latest/mml/message/compiler/struct.MmlCompilerBuilder.html)  (cargo feature `compiler` required, enabled by default)
+- MIME to MML messages interpretation using the [`MimeInterpreterBuilder`](https://docs.rs/mml-lib/latest/mml/message/interpreter/struct.MimeInterpreterBuilder.html) (cargo feature `interpreter` required, activated by default)
 - Multiple parts support `<#multipart>…<#/multipart>`
 - Inline part support `<#part text=mime/type>…<#/part>`
 - Attachment support `<#part disposition=attachment filename=/path/to/attachment.ext><#/part>`

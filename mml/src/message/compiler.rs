@@ -26,7 +26,7 @@ pub enum Error {
     CompileMmlMessageToStringError(#[source] io::Error),
 }
 
-/// The MML to MIME message compiler builder.
+/// MML → MIME message compiler builder.
 ///
 /// The compiler follows the builder pattern, where the build function
 /// is named `compile`.
@@ -37,13 +37,12 @@ pub struct MmlCompilerBuilder {
 }
 
 impl MmlCompilerBuilder {
-    /// Create a new MML to MIME message compiler builder with default
-    /// options.
+    /// Create a new compiler builder with default options.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Builder option to customize PGP.
+    /// Customize PGP.
     #[cfg(feature = "pgp")]
     pub fn with_pgp(mut self, pgp: impl Into<Pgp>) -> Self {
         self.mml_body_compiler = self.mml_body_compiler.with_pgp(pgp.into());
@@ -67,7 +66,7 @@ impl MmlCompilerBuilder {
     }
 }
 
-/// The MML to MIME message compilation result structure.
+/// MML → MIME message compiler.
 ///
 /// This structure allows users to choose the final form of the
 /// desired MIME message: [MessageBuilder], [Vec], [String] etc.
@@ -78,11 +77,11 @@ pub struct MmlCompiler<'a> {
 }
 
 impl MmlCompiler<'_> {
-    /// Compile the inner MML message into a [CompileMmlResult].
+    /// Compile the inner MML message into a [MmlCompileResult].
     ///
     /// The fact to return a intermediate structure allows users to
     /// customize the final form of the desired MIME message.
-    pub async fn compile(&self) -> Result<CompileMmlResult<'_>> {
+    pub async fn compile(&self) -> Result<MmlCompileResult<'_>> {
         let mml_body = self
             .mml_msg
             .text_bodies()
@@ -103,32 +102,36 @@ impl MmlCompiler<'_> {
             mime_msg_builder = mime_msg_builder.header(key, val);
         }
 
-        Ok(CompileMmlResult { mime_msg_builder })
+        Ok(MmlCompileResult { mime_msg_builder })
     }
 }
 
-/// The MML to MIME message compilation result.
+/// MML → MIME message compilation result.
 ///
 /// This structure allows users to choose the final form of the
 /// desired MIME message: [MessageBuilder], [Vec], [String] etc.
 #[derive(Clone, Debug, Default)]
-pub struct CompileMmlResult<'a> {
+pub struct MmlCompileResult<'a> {
     mime_msg_builder: MessageBuilder<'a>,
 }
 
-impl<'a> CompileMmlResult<'a> {
+impl<'a> MmlCompileResult<'a> {
+    /// Return a reference to the final MIME message builder.
     pub fn as_msg_builder(&self) -> &MessageBuilder {
         &self.mime_msg_builder
     }
 
+    /// Return a copy of the final MIME message builder.
     pub fn to_msg_builder(&self) -> MessageBuilder {
         self.mime_msg_builder.clone()
     }
 
+    /// Return the final MIME message builder.
     pub fn into_msg_builder(self) -> MessageBuilder<'a> {
         self.mime_msg_builder
     }
 
+    /// Return the final MIME message as a [Vec].
     pub fn into_vec(self) -> Result<Vec<u8>> {
         Ok(self
             .mime_msg_builder
@@ -136,6 +139,7 @@ impl<'a> CompileMmlResult<'a> {
             .map_err(Error::CompileMmlMessageToVecError)?)
     }
 
+    /// Return the final MIME message as a [String].
     pub fn into_string(self) -> Result<String> {
         Ok(self
             .mime_msg_builder
