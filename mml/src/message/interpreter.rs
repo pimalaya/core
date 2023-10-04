@@ -3,7 +3,7 @@
 //! Module dedicated to MIME → MML message interpretation.
 
 use mail_builder::MessageBuilder;
-use mail_parser::Message;
+use mail_parser::{Message, MessageParser};
 use std::{io, path::PathBuf};
 use thiserror::Error;
 
@@ -230,7 +230,7 @@ impl MimeInterpreter {
             }),
             FilterHeaders::Include(keys) => keys
                 .iter()
-                .filter_map(|key| msg.header(key).map(|val| (key, val)))
+                .filter_map(|key| msg.header(key.as_str()).map(|val| (key, val)))
                 .for_each(|(key, val)| {
                     let val = header::display_value(key, val);
                     mml.push_str(&format!("{key}: {val}\n"));
@@ -267,7 +267,9 @@ impl MimeInterpreter {
 
     /// Interpret the given MIME message bytes as a MML [String].
     pub async fn from_bytes(self, bytes: impl AsRef<[u8]>) -> Result<String> {
-        let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseRawEmailError)?;
+        let msg = MessageParser::new()
+            .parse(bytes.as_ref())
+            .ok_or(Error::ParseRawEmailError)?;
         self.from_msg(&msg).await
     }
 

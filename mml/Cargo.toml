@@ -58,10 +58,10 @@ version = "1.0"
 version = "0.4"
 
 [dependencies.mail-builder]
-version = "=0.3.0"
+version = "0.3"
 
 [dependencies.mail-parser]
-version = "=0.8.2"
+version = "0.9"
 
 [dependencies.thiserror]
 version = "1.0"

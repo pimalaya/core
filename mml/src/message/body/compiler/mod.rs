@@ -9,7 +9,6 @@ use async_recursion::async_recursion;
 #[allow(unused_imports)]
 use log::{debug, warn};
 use mail_builder::{
-    headers::raw::Raw,
     mime::{BodyPart, MimePart},
     MessageBuilder,
 };
@@ -259,19 +258,12 @@ impl<'a> MmlBodyCompiler {
                 };
 
                 part = match props.get(ENCODING) {
-                    Some(&ENCODING_7BIT) => {
-                        part.header("Content-Transfer-Encoding", Raw::new(ENCODING_7BIT))
+                    Some(&ENCODING_7BIT) => part.transfer_encoding(ENCODING_7BIT),
+                    Some(&ENCODING_8BIT) => part.transfer_encoding(ENCODING_8BIT),
+                    Some(&ENCODING_QUOTED_PRINTABLE) => {
+                        part.transfer_encoding(ENCODING_QUOTED_PRINTABLE)
                     }
-                    Some(&ENCODING_8BIT) => {
-                        part.header("Content-Transfer-Encoding", Raw::new(ENCODING_8BIT))
-                    }
-                    Some(&ENCODING_QUOTED_PRINTABLE) => part.header(
-                        "Content-Transfer-Encoding",
-                        Raw::new(ENCODING_QUOTED_PRINTABLE),
-                    ),
-                    Some(&ENCODING_BASE64) => {
-                        part.header("Content-Transfer-Encoding", Raw::new(ENCODING_BASE64))
-                    }
+                    Some(&ENCODING_BASE64) => part.transfer_encoding(ENCODING_BASE64),
                     _ => part,
                 };
 
@@ -418,7 +410,7 @@ mod tests {
         let attachment_path = attachment.path().to_string_lossy();
 
         let mml_body = format!(
-            "<#part filename={attachment_path} type=text/plain name=custom recipient-filename=/tmp/custom>discarded body<#/part>"
+            "<#part filename={attachment_path} type=text/plain name=custom recipient-filename=/tmp/custom encoding=base64>discarded body<#/part>"
         );
 
         let msg = MmlBodyCompiler::new()
@@ -434,8 +426,8 @@ mod tests {
             "Message-ID: <id@localhost>\r",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
             "Content-Type: text/plain; name=\"custom\"\r",
+            "Content-Transfer-Encoding: base64\r",
             "Content-Disposition: attachment; filename=\"/tmp/custom\"\r",
-            "Content-Transfer-Encoding: 7bit\r",
             "\r",
             "Hello, world!",
         );

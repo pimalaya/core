@@ -6,15 +6,13 @@
 #![allow(dead_code)]
 
 use mail_builder::headers::HeaderType;
-use mail_parser::{Addr, ContentType, Group, Header, HeaderName, HeaderValue, RfcHeader};
+use mail_parser::{Addr, Address, ContentType, Group, Header, HeaderName, HeaderValue};
 use std::borrow::Cow;
 
 pub(super) fn display_value(key: &str, val: &HeaderValue) -> String {
     match val {
-        HeaderValue::Address(addr) => display_addr(addr),
-        HeaderValue::AddressList(addrs) => display_addrs(addrs),
-        HeaderValue::Group(group) => display_group(group),
-        HeaderValue::GroupList(groups) => display_groups(groups),
+        HeaderValue::Address(Address::List(addrs)) => display_addrs(addrs),
+        HeaderValue::Address(Address::Group(groups)) => display_groups(groups),
         HeaderValue::Text(id) if key == "Message-ID" => format!("<{id}>"),
         HeaderValue::Text(id) if key == "References" => format!("<{id}>"),
         HeaderValue::Text(id) if key == "In-Reply-To" => format!("<{id}>"),
@@ -25,6 +23,7 @@ pub(super) fn display_value(key: &str, val: &HeaderValue) -> String {
         HeaderValue::TextList(texts) => display_texts(texts),
         HeaderValue::DateTime(datetime) => datetime.to_rfc822(),
         HeaderValue::ContentType(ctype) => display_content_type(ctype),
+        HeaderValue::Received(_) => String::new(),
         HeaderValue::Empty => String::new(),
     }
 }
@@ -97,51 +96,29 @@ fn display_content_type(ctype: &ContentType) -> String {
 
 pub(crate) fn to_builder_val<'a>(header: &'a Header<'a>) -> HeaderType<'a> {
     use mail_builder::headers::{
-        address::Address, content_type::ContentType, date::Date, raw::Raw, text::Text,
+        address::Address as AddressBuilder, content_type::ContentType, date::Date, raw::Raw,
+        text::Text,
     };
 
     match &header.value {
-        HeaderValue::Address(addr) => match &addr.address {
-            Some(email) => {
-                let name = addr.name.as_ref().map(|name| name.as_ref());
-                let email = email.as_ref();
-                Address::new_address(name, email).into()
-            }
-            None => Raw::new("").into(),
-        },
-        HeaderValue::AddressList(addrs) => Address::new_list(
+        HeaderValue::Address(Address::List(addrs)) => AddressBuilder::new_list(
             addrs
                 .into_iter()
                 .filter_map(|addr| {
                     addr.address.as_ref().map(|email| {
                         let name = addr.name.as_ref().map(|name| name.as_ref());
                         let email = email.as_ref();
-                        Address::new_address(name, email).into()
+                        AddressBuilder::new_address(name, email).into()
                     })
                 })
                 .collect(),
         )
         .into(),
-        HeaderValue::Group(group) => Address::new_group(
-            group.name.as_ref().map(|name| name.as_ref()),
-            group
-                .addresses
-                .iter()
-                .filter_map(|addr| {
-                    addr.address.as_ref().map(|email| {
-                        let name = addr.name.as_ref().map(|name| name.as_ref());
-                        let email = email.as_ref();
-                        Address::new_address(name, email)
-                    })
-                })
-                .collect(),
-        )
-        .into(),
-        HeaderValue::GroupList(groups) => Address::new_list(
+        HeaderValue::Address(Address::Group(groups)) => AddressBuilder::new_list(
             groups
                 .into_iter()
                 .map(|group| {
-                    Address::new_group(
+                    AddressBuilder::new_group(
                         group.name.as_ref().map(|name| name.as_ref()),
                         group
                             .addresses
@@ -150,7 +127,7 @@ pub(crate) fn to_builder_val<'a>(header: &'a Header<'a>) -> HeaderType<'a> {
                                 addr.address.as_ref().map(|email| {
                                     let name = addr.name.as_ref().map(|name| name.as_ref());
                                     let email = email.as_ref();
-                                    Address::new_address(name, email)
+                                    AddressBuilder::new_address(name, email)
                                 })
                             })
                             .collect(),
@@ -160,12 +137,12 @@ pub(crate) fn to_builder_val<'a>(header: &'a Header<'a>) -> HeaderType<'a> {
         )
         .into(),
         HeaderValue::Text(text) => match header.name {
-            HeaderName::Rfc(RfcHeader::MessageId) => Text::new(format!("<{text}>")).into(),
-            HeaderName::Rfc(RfcHeader::References) => Text::new(format!("<{text}>")).into(),
-            HeaderName::Rfc(RfcHeader::InReplyTo) => Text::new(format!("<{text}>")).into(),
-            HeaderName::Rfc(RfcHeader::ReturnPath) => Text::new(format!("<{text}>")).into(),
-            HeaderName::Rfc(RfcHeader::ContentId) => Text::new(format!("<{text}>")).into(),
-            HeaderName::Rfc(RfcHeader::ResentMessageId) => Text::new(format!("<{text}>")).into(),
+            HeaderName::MessageId => Text::new(format!("<{text}>")).into(),
+            HeaderName::References => Text::new(format!("<{text}>")).into(),
+            HeaderName::InReplyTo => Text::new(format!("<{text}>")).into(),
+            HeaderName::ReturnPath => Text::new(format!("<{text}>")).into(),
+            HeaderName::ContentId => Text::new(format!("<{text}>")).into(),
+            HeaderName::ResentMessageId => Text::new(format!("<{text}>")).into(),
             _ => Text::new(text.as_ref()).into(),
         },
         HeaderValue::TextList(texts) => Text::new(texts.join(" ")).into(),
@@ -179,6 +156,7 @@ pub(crate) fn to_builder_val<'a>(header: &'a Header<'a>) -> HeaderType<'a> {
             }
             final_ctype.into()
         }
+        HeaderValue::Received(_) => Raw::new("").into(),
         HeaderValue::Empty => Raw::new("").into(),
     }
 }
@@ -216,24 +194,18 @@ fn extract_emails_from_groups(g: &Vec<Group>) -> Vec<String> {
         .collect()
 }
 
-pub(super) fn extract_first_email(h: &HeaderValue) -> Option<String> {
+pub(super) fn extract_first_email(h: Option<&Address>) -> Option<String> {
     match h {
-        HeaderValue::Address(a) => extract_email_from_addr(a),
-        HeaderValue::AddressList(a) => extract_first_email_from_addrs(a),
-        HeaderValue::Group(g) => extract_first_email_from_group(g),
-        HeaderValue::GroupList(g) => extract_first_email_from_groups(g),
+        Some(Address::List(a)) => extract_first_email_from_addrs(a),
+        Some(Address::Group(g)) => extract_first_email_from_groups(g),
         _ => None,
     }
 }
 
-pub(super) fn extract_emails(h: &HeaderValue) -> Vec<String> {
+pub(super) fn extract_emails(h: Option<&Address>) -> Vec<String> {
     match h {
-        HeaderValue::Address(a) => extract_email_from_addr(a)
-            .map(|a| vec![a])
-            .unwrap_or_default(),
-        HeaderValue::AddressList(a) => extract_emails_from_addrs(a),
-        HeaderValue::Group(g) => extract_emails_from_group(g),
-        HeaderValue::GroupList(g) => extract_emails_from_groups(g),
+        Some(Address::List(a)) => extract_emails_from_addrs(a),
+        Some(Address::Group(g)) => extract_emails_from_groups(g),
         _ => vec![],
     }
 }

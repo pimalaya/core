@@ -3,7 +3,7 @@
 //! Module dedicated to MML → MIME message compilation.
 
 use mail_builder::{headers::text::Text, MessageBuilder};
-use mail_parser::Message;
+use mail_parser::{Message, MessageParser};
 use std::io;
 use thiserror::Error;
 
@@ -51,7 +51,9 @@ impl MmlCompilerBuilder {
 
     /// Build the final [MmlCompiler] based on the defined options.
     pub fn build<'a>(self, mml_msg: &'a str) -> Result<MmlCompiler<'a>> {
-        let mml_msg = Message::parse(mml_msg.as_bytes()).ok_or(Error::ParseMessageError)?;
+        let mml_msg = MessageParser::new()
+            .parse(mml_msg.as_bytes())
+            .ok_or(Error::ParseMessageError)?;
         let mml_body_compiler = self.mml_body_compiler;
 
         #[cfg(feature = "pgp")]

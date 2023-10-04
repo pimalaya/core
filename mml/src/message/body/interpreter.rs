@@ -6,7 +6,7 @@ use async_recursion::async_recursion;
 #[allow(unused_imports)]
 use log::{debug, warn};
 use mail_builder::MessageBuilder;
-use mail_parser::{Message, MessagePart, MimeHeaders, PartType};
+use mail_parser::{Message, MessageParser, MessagePart, MimeHeaders, PartType};
 use nanohtml2text::html2text;
 use std::{env, fs, io, path::PathBuf};
 use thiserror::Error;
@@ -229,8 +229,9 @@ impl MimeBodyInterpreter {
             .ok_or(Error::PgpDecryptMissingRecipientError)?;
         let encrypted_bytes = encrypted_part.contents().to_owned();
         let decrypted_part = self.pgp.decrypt(recipient, encrypted_bytes).await?;
-        let clear_part =
-            Message::parse(&decrypted_part).ok_or(Error::ParsePgpDecryptedPartError)?;
+        let clear_part = MessageParser::new()
+            .parse(&decrypted_part)
+            .ok_or(Error::ParsePgpDecryptedPartError)?;
         let tpl = self.interpret_msg(&clear_part).await?;
         Ok(tpl)
     }
@@ -524,7 +525,9 @@ impl MimeBodyInterpreter {
     /// Interpret the given MIME message bytes as a MML message
     /// string.
     pub async fn interpret_bytes<'a>(&self, bytes: impl AsRef<[u8]> + 'a) -> Result<String> {
-        let msg = Message::parse(bytes.as_ref()).ok_or(Error::ParseMimeMessageError)?;
+        let msg = MessageParser::new()
+            .parse(bytes.as_ref())
+            .ok_or(Error::ParseMimeMessageError)?;
         self.interpret_msg(&msg).await
     }
 
