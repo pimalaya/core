@@ -7,7 +7,7 @@ pub mod config;
 
 use async_trait::async_trait;
 use log::{debug, warn};
-use mail_parser::Message;
+use mail_parser::MessageParser;
 use thiserror::Error;
 
 use crate::{account::AccountConfig, sender::Sender, Result};
@@ -40,7 +40,7 @@ impl Sendmail {
     /// Sends the given raw message.
     pub async fn send(&mut self, msg: &[u8]) -> Result<()> {
         let buffer: Vec<u8>;
-        let mut msg = Message::parse(&msg).unwrap_or_else(|| {
+        let mut msg = MessageParser::new().parse(msg).unwrap_or_else(|| {
             warn!("cannot parse raw message");
             Default::default()
         });
@@ -49,7 +49,7 @@ impl Sendmail {
             match cmd.run_with(msg.raw_message()).await {
                 Ok(res) => {
                     buffer = res.into();
-                    msg = Message::parse(&buffer).unwrap_or_else(|| {
+                    msg = MessageParser::new().parse(&buffer).unwrap_or_else(|| {
                         warn!("cannot parse raw message after pre-send hook");
                         Default::default()
                     });

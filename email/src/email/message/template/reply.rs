@@ -162,7 +162,10 @@ impl<'a> ReplyTplBuilder<'a> {
             } else {
                 reply_to.clone()
             }
-        } else if address::equal(&from, &HeaderValue::Address(me.clone())) {
+        } else if address::equal(
+            &from,
+            &HeaderValue::Address(mail_parser::Address::List(vec![me.clone()])),
+        ) {
             // when replying to one of your own email
             to.clone()
         } else if address::is_empty(&reply_to) {
@@ -181,19 +184,8 @@ impl<'a> ReplyTplBuilder<'a> {
                 let mut addresses = Vec::new();
 
                 match to {
-                    HeaderValue::Address(a) => {
-                        if a.address != me.address
-                            && !address::contains(&from, &a.address)
-                            && !address::contains(&recipients, &a.address)
-                        {
-                            addresses.push(Address::new_address(
-                                a.name.clone(),
-                                a.address.clone().unwrap(),
-                            ));
-                        }
-                    }
-                    HeaderValue::AddressList(a) => {
-                        for a in a {
+                    HeaderValue::Address(mail_parser::Address::List(addrs)) => {
+                        for a in addrs {
                             if a.address != me.address
                                 && !address::contains(&from, &a.address)
                                 && !address::contains(&recipients, &a.address)
@@ -209,19 +201,8 @@ impl<'a> ReplyTplBuilder<'a> {
                 }
 
                 match cc {
-                    HeaderValue::Address(a) => {
-                        if a.address != me.address
-                            && !address::contains(&from, &a.address)
-                            && !address::contains(&recipients, &a.address)
-                        {
-                            addresses.push(Address::new_address(
-                                a.name.clone(),
-                                a.address.clone().unwrap(),
-                            ));
-                        }
-                    }
-                    HeaderValue::AddressList(a) => {
-                        for a in a {
+                    HeaderValue::Address(mail_parser::Address::List(addrs)) => {
+                        for a in addrs {
                             if a.address != me.address
                                 && !address::contains(&from, &a.address)
                                 && !address::contains(&recipients, &a.address)

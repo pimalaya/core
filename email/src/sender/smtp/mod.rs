@@ -7,7 +7,7 @@ pub mod config;
 
 use async_trait::async_trait;
 use log::{debug, warn};
-use mail_parser::{HeaderValue, Message};
+use mail_parser::{Address, HeaderName, HeaderValue, Message, MessageParser};
 use mail_send::{smtp::message as smtp, SmtpClientBuilder};
 use std::collections::HashSet;
 use thiserror::Error;
@@ -135,7 +135,8 @@ impl Smtp {
 
     async fn send(&mut self, msg: &[u8]) -> Result<()> {
         let buffer: Vec<u8>;
-        let mut msg = Message::parse(&msg).unwrap_or_else(|| {
+
+        let mut msg = MessageParser::new().parse(msg).unwrap_or_else(|| {
             warn!("cannot parse raw message");
             Default::default()
         });
@@ -144,8 +145,8 @@ impl Smtp {
             match cmd.run_with(msg.raw_message()).await {
                 Ok(res) => {
                     buffer = res.into();
-                    msg = Message::parse(&buffer).unwrap_or_else(|| {
-                        warn!("cannot parse raw message after pre-send hook");
+                    msg = MessageParser::new().parse(&buffer).unwrap_or_else(|| {
+                        warn!("cannot parse raw message");
                         Default::default()
                     });
                 }
@@ -208,51 +209,52 @@ fn into_smtp_msg<'a>(msg: Message<'a>) -> Result<smtp::Message<'a>> {
     let mut rcpt_to = HashSet::new();
 
     for header in msg.headers() {
-        let key = header.name();
+        let key = &header.name;
         let val = header.value();
 
-        if key.eq_ignore_ascii_case("from") {
-            if let HeaderValue::Address(addr) = val {
-                if let Some(email) = &addr.address {
-                    mail_from = email.to_string().into();
-                }
-            }
-        } else if key.eq_ignore_ascii_case("to")
-            || key.eq_ignore_ascii_case("cc")
-            || key.eq_ignore_ascii_case("bcc")
-        {
-            match val {
-                HeaderValue::Address(addr) => {
-                    if let Some(email) = &addr.address {
-                        rcpt_to.insert(email.to_string());
-                    }
-                }
-                HeaderValue::AddressList(addrs) => {
-                    for addr in addrs {
-                        if let Some(email) = &addr.address {
-                            rcpt_to.insert(email.to_string());
+        match key {
+            HeaderName::From => match val {
+                HeaderValue::Address(Address::List(addrs)) => {
+                    if let Some(addr) = addrs.first() {
+                        if let Some(ref email) = addr.address {
+                            mail_from = email.to_string().into();
                         }
                     }
                 }
-                HeaderValue::Group(group) => {
-                    for addr in &group.addresses {
-                        if let Some(email) = &addr.address {
-                            rcpt_to.insert(email.to_string());
-                        }
-                    }
-                }
-                HeaderValue::GroupList(groups) => {
-                    for group in groups {
-                        for addr in &group.addresses {
-                            if let Some(email) = &addr.address {
-                                rcpt_to.insert(email.to_string());
+                HeaderValue::Address(Address::Group(groups)) => {
+                    if let Some(group) = groups.first() {
+                        if let Some(ref addr) = group.addresses.first() {
+                            if let Some(ref email) = addr.address {
+                                mail_from = email.to_string().into();
                             }
                         }
                     }
                 }
                 _ => (),
-            }
-        }
+            },
+            HeaderName::To | HeaderName::Cc | HeaderName::Bcc => match val {
+                HeaderValue::Address(Address::List(addrs)) => {
+                    if let Some(addr) = addrs.first() {
+                        if let Some(ref email) = addr.address {
+                            rcpt_to.insert(email.to_string());
+                        }
+                    }
+                }
+                HeaderValue::Address(Address::Group(groups)) => {
+                    if let Some(group) = groups.first() {
+                        if let Some(ref addr) = group.addresses.first() {
+                            if let Some(ref email) = addr.address {
+                                {
+                                    rcpt_to.insert(email.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => (),
+            },
+            _ => (),
+        };
     }
 
     if rcpt_to.is_empty() {

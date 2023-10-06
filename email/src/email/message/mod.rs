@@ -12,7 +12,7 @@ pub mod template;
 #[cfg(feature = "imap-backend")]
 use imap::types::{Fetch, Fetches};
 use log::{debug, warn};
-use mail_parser::MimeHeaders;
+use mail_parser::{MessageParser, MimeHeaders};
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
@@ -90,10 +90,10 @@ impl Message<'_> {
     /// Builds an optional message from a raw message.
     fn parsed_builder<'a>(raw: &'a mut RawMessage) -> Option<mail_parser::Message<'a>> {
         match raw {
-            RawMessage::Cow(bytes) => mail_parser::Message::parse(bytes),
+            RawMessage::Cow(ref bytes) => MessageParser::new().parse(bytes.as_ref()),
             #[cfg(feature = "imap-backend")]
             RawMessage::Fetch(fetch) => {
-                mail_parser::Message::parse(fetch.body().unwrap_or_default())
+                MessageParser::new().parse(fetch.body().unwrap_or_default())
             }
         }
     }

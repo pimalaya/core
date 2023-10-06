@@ -14,7 +14,6 @@ pub mod notmuch;
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::warn;
-use mail_parser::HeaderValue;
 use std::ops::{Deref, DerefMut};
 
 use crate::account::AccountConfig;
@@ -64,12 +63,7 @@ impl Envelope {
 
         if let Ok(msg) = msg.parsed() {
             match msg.from() {
-                HeaderValue::Address(addr) if addr.address.is_some() => {
-                    let name = addr.name.as_ref().map(|name| name.to_string());
-                    let email = addr.address.as_ref().map(|name| name.to_string()).unwrap();
-                    envelope.from = Address::new(name, email);
-                }
-                HeaderValue::AddressList(addrs)
+                Some(mail_parser::Address::List(addrs))
                     if !addrs.is_empty() && addrs[0].address.is_some() =>
                 {
                     let name = addrs[0].name.as_ref().map(|name| name.to_string());
@@ -80,18 +74,7 @@ impl Envelope {
                         .unwrap();
                     envelope.from = Address::new(name, email);
                 }
-                HeaderValue::Group(group)
-                    if !group.addresses.is_empty() && group.addresses[0].address.is_some() =>
-                {
-                    let name = group.name.as_ref().map(|name| name.to_string());
-                    let email = group.addresses[0]
-                        .address
-                        .as_ref()
-                        .map(|name| name.to_string())
-                        .unwrap();
-                    envelope.from = Address::new(name, email)
-                }
-                HeaderValue::GroupList(groups)
+                Some(mail_parser::Address::Group(groups))
                     if !groups.is_empty()
                         && !groups[0].addresses.is_empty()
                         && groups[0].addresses[0].address.is_some() =>

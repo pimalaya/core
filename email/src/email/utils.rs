@@ -19,15 +19,14 @@ pub fn remove_local_draft() -> io::Result<()> {
 
 /// Module dedicated to email address utils.
 pub(crate) mod address {
-    use mail_builder::headers::address::Address;
-    use mail_parser::HeaderValue;
+    use mail_builder::headers::address::Address as AddressBuilder;
+    use mail_parser::{Address, HeaderValue};
     use std::borrow::Cow;
 
     pub(crate) fn is_empty(header: &HeaderValue) -> bool {
         match header {
-            HeaderValue::AddressList(addresses) => addresses.is_empty(),
-            HeaderValue::Group(group) => group.addresses.is_empty(),
-            HeaderValue::GroupList(groups) => groups.is_empty() || groups[0].addresses.is_empty(),
+            HeaderValue::Address(Address::List(addrs)) => addrs.is_empty(),
+            HeaderValue::Address(Address::Group(groups)) => groups.is_empty(),
             HeaderValue::Empty => true,
             _ => false,
         }
@@ -35,14 +34,12 @@ pub(crate) mod address {
 
     pub(crate) fn contains(header: &HeaderValue, a: &Option<Cow<str>>) -> bool {
         match header {
-            HeaderValue::Address(b) => a == &b.address,
-            HeaderValue::AddressList(addresses) => {
-                addresses.iter().find(|b| a == &b.address).is_some()
+            HeaderValue::Address(Address::List(addrs)) => {
+                addrs.iter().find(|b| a == &b.address).is_some()
             }
-            HeaderValue::Group(group) => group.addresses.iter().find(|b| a == &b.address).is_some(),
-            HeaderValue::GroupList(groups) => groups
+            HeaderValue::Address(Address::Group(groups)) => groups
                 .iter()
-                .find(|group| group.addresses.iter().find(|b| a == &b.address).is_some())
+                .find_map(|g| g.addresses.iter().find(|b| a == &b.address))
                 .is_some(),
             _ => false,
         }
@@ -50,40 +47,41 @@ pub(crate) mod address {
 
     pub(crate) fn get_address_id(header: &HeaderValue) -> Vec<String> {
         match header {
-            HeaderValue::Address(a) => {
-                vec![a.address.clone().unwrap_or_default().to_string()]
-            }
-            HeaderValue::AddressList(addresses) => addresses
+            HeaderValue::Address(Address::List(addrs)) => addrs
                 .iter()
                 .map(|a| a.address.clone().unwrap_or_default().to_string())
                 .collect(),
-            HeaderValue::Group(group) => vec![group.name.clone().unwrap_or_default().to_string()],
-            HeaderValue::GroupList(groups) => groups
+            HeaderValue::Address(Address::Group(groups)) => groups
                 .iter()
-                .map(|group| group.name.clone().unwrap_or_default().to_string())
+                .map(|g| g.name.clone().unwrap_or_default().to_string())
                 .collect(),
             _ => Vec::new(),
         }
     }
 
-    pub(crate) fn into(header: HeaderValue) -> Address {
+    pub(crate) fn into(header: HeaderValue) -> AddressBuilder {
         match header {
-            HeaderValue::Address(a) if a.address.is_some() => {
-                Address::new_address(a.name, a.address.unwrap())
-            }
-            HeaderValue::AddressList(a) => Address::new_list(
-                a.into_iter()
-                    .filter_map(|a| a.address.map(|email| Address::new_address(a.name, email)))
-                    .collect(),
-            ),
-            HeaderValue::Group(g) => Address::new_group(
-                g.name,
-                g.addresses
+            HeaderValue::Address(Address::List(addrs)) => AddressBuilder::new_list(
+                addrs
                     .into_iter()
-                    .filter_map(|a| a.address.map(|email| Address::new_address(a.name, email)))
+                    .filter_map(|a| {
+                        a.address
+                            .map(|email| AddressBuilder::new_address(a.name, email))
+                    })
                     .collect(),
             ),
-            _ => Address::new_list(Vec::new()),
+            HeaderValue::Address(Address::Group(groups)) => AddressBuilder::new_list(
+                groups
+                    .into_iter()
+                    .flat_map(|g| {
+                        g.addresses.into_iter().filter_map(|a| {
+                            a.address
+                                .map(|email| AddressBuilder::new_address(a.name, email))
+                        })
+                    })
+                    .collect(),
+            ),
+            _ => AddressBuilder::new_list(Vec::new()),
         }
     }
 
