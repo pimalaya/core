@@ -4,8 +4,6 @@ Rust library to manage time.
 
 See the full [API documentation](https://docs.rs/time-lib/latest/time/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/examples).
 
-*Disclaimer: the project is under active development, do not use in production before the v1.0.0.*
-
 ## Features
 
 - Custom timers using cycles and handlers

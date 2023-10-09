@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2023-10-09
+
+### Added
+
+- Improved inline documentation, examples and tests.
+
+### Changed
+
+- Exposed all modules to public API.
+
 ## [0.1.0] - 2023-08-27
+
+### Changed
 
 - Renamed project `time-lib` in order to make it generic.
 
