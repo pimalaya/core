@@ -1,6 +1,6 @@
-# 💼 Pimalaya [![Matrix](https://img.shields.io/matrix/pimalaya:matrix.org?color=success&label=chat)](https://matrix.to/#/#pimalaya:matrix.org)
+# 💼 Pimalaya [![Matrix](https://img.shields.io/matrix/pimalaya.general:matrix.org?color=success&label=chat)](https://matrix.to/#/#pimalaya.general:matrix.org)
 
-https://pimalaya.org/
+<https://pimalaya.org/>
 
 **Pimalaya** is an ambitious project that aims to improve open-source tools related to Personal Information Management ([PIM]) which includes emails, contacts, calendars, tasks and more.
 
@@ -11,37 +11,37 @@ https://pimalaya.org/
     <tr>
       <th>Library</th>
       <th>
-        Pim domain
+        Description
       </th>
       <th>Links</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>pimalaya-email</td>
-      <td>Email</td>
+      <td>email-lib</td>
+      <td>Email management</td>
       <td>
         <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/README.md">git</a>,
-        <a href="https://docs.rs/pimalaya-email/latest/pimalaya_email/">api</a>,
-        <a href="https://crates.io/crates/pimalaya-email">crate</a>
+        <a href="https://docs.rs/email-lib/latest/email/">api</a>,
+        <a href="https://crates.io/crates/email-lib">crate</a>
       </td>
     </tr>
     <tr>
-      <td>pimalaya-email-tpl</td>
-      <td>Email</td>
+      <td>mml-lib</td>
+      <td>MIME Meta Language</td>
       <td>
-        <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/email-tpl/README.md">git</a>,
-        <a href="https://docs.rs/pimalaya-email-tpl/latest/pimalaya_email_tpl/">api</a>,
-        <a href="https://crates.io/crates/pimalaya-email-tpl">crate</a>
+        <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/mml/README.md">git</a>,
+        <a href="https://docs.rs/mml-lib/latest/mml/">api</a>,
+        <a href="https://crates.io/crates/mml-lib">crate</a>
       </td>
     </tr>
     <tr>
-      <td>pimalaya-time</td>
-      <td>Time</td>
+      <td>time-lib</td>
+      <td>Time management</td>
       <td>
         <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/README.md">git</a>,
-        <a href="https://docs.rs/pimalaya-time/latest/pimalaya_time/">api</a>,
-        <a href="https://crates.io/crates/pimalaya-time">crate</a>
+        <a href="https://docs.rs/time-lib/latest/time/">api</a>,
+        <a href="https://crates.io/crates/time-lib">crate</a>
       </td>
     </tr>
   </tbody>
@@ -60,7 +60,7 @@ https://pimalaya.org/
   <tbody>
     <tr>
       <td>Himalaya</td>
-      <td>email, email-tpl</td>
+      <td>email-lib, mml-lib</td>
       <td>
         CLI (<a href="https://github.com/soywod/himalaya">git</a>, <a href="https://pimalaya.org/himalaya/">doc</a>),
         <a href="https://git.sr.ht/~soywod/himalaya-vim">Vim</a>,
@@ -69,8 +69,16 @@ https://pimalaya.org/
       </td>
     </tr>
     <tr>
+      <td>MML</td>
+      <td>mml-lib</td>
+      <td>
+        CLI (<a href="https://github.com/soywod/mml">git</a>, <a href="https://pimalaya.org/mml/">doc</a>),
+        <a href="https://git.sr.ht/~soywod/mml-vim">Vim</a>
+      </td>
+    </tr>
+    <tr>
       <td>Comodoro</td>
-      <td>time</td>
+      <td>time-lib</td>
       <td>
         CLI (<a href="https://github.com/soywod/comodoro">git</a>, <a href="https://pimalaya.org/comodoro/">doc</a>),
         <a href="https://www.raycast.com/jns/comodoro">Raycast</a>
@@ -83,37 +91,34 @@ https://pimalaya.org/
 
 ## Development
 
-The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`, `notmuch`…
+The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`…
 
 ```sh
 # Start a Nix shell
 $ nix-shell
 
-# then build all the libs
-$ cargo build
+# then build the lib
+$ cargo build -p mml-lib
 ```
 
 ## Contributing
 
-If you find a **bug** that [does not exist yet](https://todo.sr.ht/~soywod/pimalaya), please send an email at [~soywod/pimalaya@todo.sr.ht](mailto:~soywod/pimalaya@todo.sr.ht).
+If you want to **report a bug** that [does not exist yet](https://todo.sr.ht/~soywod/pimalaya), please send an email at [~soywod/pimalaya@todo.sr.ht](mailto:~soywod/pimalaya@todo.sr.ht).
 
-If you have a **question**, please send an email at [~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht).
+If you want to **propose a feature** or **fix a bug**, please send a patch at [~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht) using [git send-email](https://git-scm.com/docs/git-send-email). Follow [this guide](https://git-send-email.io/) to configure git properly.
 
-If you want to **propose a feature** or **fix a bug**, please send a patch at [~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht) using [git send-email](https://git-scm.com/docs/git-send-email) (see [this guide](https://git-send-email.io/) on how to configure it).
+If you just want to **discuss** about the project, feel free to join the [Matrix](https://matrix.org/) workspace [#pimalaya.general](https://matrix.to/#/#pimalaya.general:matrix.org) or contact me directly [@soywod](https://matrix.to/#/@soywod:matrix.org). You can also use the mailing list [[send an email](mailto:~soywod/pimalaya@lists.sr.ht)|[subscribe](mailto:~soywod/pimalaya+subscribe@lists.sr.ht)|[unsubscribe](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht)].
 
-If you want to **subscribe** to the mailing list, please send an email at [~soywod/pimalaya+subscribe@lists.sr.ht](mailto:~soywod/pimalaya+subscribe@lists.sr.ht).
-
-If you want to **unsubscribe** to the mailing list, please send an email at [~soywod/pimalaya+unsubscribe@lists.sr.ht](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht).
-
-If you want to **discuss** about the project, feel free to join the [Matrix](https://matrix.org/) workspace [#pimalaya](https://matrix.to/#/#pimalaya:matrix.org) or contact me directly [@soywod](https://matrix.to/#/@soywod:matrix.org).
-
-## Credits
+## Sponsoring
 
 [![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/project/Himalaya/index.html)
 
-Special thanks to the [nlnet](https://nlnet.nl/project/Himalaya/index.html) foundation that helped Pimalaya to receive financial support from the [NGI Assure](https://www.ngi.eu/ngi-projects/ngi-assure/) program of the European Commission in September, 2022.
+Special thanks to the [NLnet foundation](https://nlnet.nl/project/Himalaya/index.html) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from:
 
-## Sponsoring
+- [NGI Assure](https://nlnet.nl/assure/) in 2022
+- [NGI Zero Untrust](https://nlnet.nl/entrust/) in 2023
+
+If you appreciate the project, feel free to donate using one of the following providers:
 
 [![GitHub](https://img.shields.io/badge/-GitHub%20Sponsors-fafbfc?logo=GitHub%20Sponsors)](https://github.com/sponsors/soywod)
 [![PayPal](https://img.shields.io/badge/-PayPal-0079c1?logo=PayPal&logoColor=ffffff)](https://www.paypal.com/paypalme/soywod)
