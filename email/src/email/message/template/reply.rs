@@ -3,12 +3,15 @@
 //! The main structure of this module is the [ReplyTplBuilder], which
 //! helps you to build template in order to reply to a message.
 
+use log::warn;
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
 };
 use mail_parser::{Addr, HeaderValue};
 use mml::MimeInterpreterBuilder;
+use once_cell::sync::Lazy;
+use regex::Regex;
 
 use crate::{
     account::AccountConfig,
@@ -17,6 +20,28 @@ use crate::{
 };
 
 use super::Error;
+
+/// Regex used to trim out prefix(es) from a subject.
+///
+/// Everything starting by "Re:" (case and whitespace insensitive) is
+/// considered a prefix.
+const PREFIXLESS_SUBJECT_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new("(?i:\\s*re\\s*:\\s*)*(.*)").unwrap());
+
+/// Trim out prefix(es) from the given subject.
+fn prefixless_subject(subject: &str) -> &str {
+    let cap = PREFIXLESS_SUBJECT_REGEX
+        .captures(subject)
+        .and_then(|cap| cap.get(1));
+
+    match cap {
+        Some(prefixless_subject) => prefixless_subject.as_str(),
+        None => {
+            warn!("cannot remove prefix from subject {subject:?}");
+            subject
+        }
+    }
+}
 
 /// The message reply template builder.
 ///
@@ -223,17 +248,11 @@ impl<'a> ReplyTplBuilder<'a> {
 
         // Subject
 
-        let subject = parsed
-            .header("Subject")
-            .cloned()
-            .map(|h| h.unwrap_text())
-            .unwrap_or_default();
+        // TODO: make this customizable?
+        let prefix = String::from("Re: ");
+        let subject = prefixless_subject(parsed.subject().unwrap_or_default());
 
-        builder = builder.subject(if subject.to_lowercase().starts_with("re:") {
-            subject
-        } else {
-            format!("Re: {subject}").into()
-        });
+        builder = builder.subject(prefix + subject);
 
         // Additional headers
 
@@ -283,5 +302,29 @@ impl<'a> ReplyTplBuilder<'a> {
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
         Ok(tpl)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn prefixless_subject() {
+        assert_eq!(super::prefixless_subject("Hello, world!"), "Hello, world!");
+        assert_eq!(
+            super::prefixless_subject("re:Hello, world!"),
+            "Hello, world!"
+        );
+        assert_eq!(
+            super::prefixless_subject("Re   :Hello, world!"),
+            "Hello, world!"
+        );
+        assert_eq!(
+            super::prefixless_subject("rE:   Hello, world!"),
+            "Hello, world!"
+        );
+        assert_eq!(
+            super::prefixless_subject("  RE:  re  :Hello, world!"),
+            "Hello, world!"
+        );
     }
 }

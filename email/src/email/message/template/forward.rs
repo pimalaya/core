@@ -3,15 +3,40 @@
 //! The main structure of this module is the [ForwardTplBuilder],
 //! which helps you to build template in order to forward a message.
 
+use log::warn;
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
 };
 use mml::MimeInterpreterBuilder;
+use once_cell::sync::Lazy;
+use regex::Regex;
 
 use crate::{account::AccountConfig, email::Message, Result};
 
 use super::Error;
+
+/// Regex used to trim out prefix(es) from a subject.
+///
+/// Everything starting by "Fwd:" (case and whitespace insensitive) is
+/// considered a prefix.
+const PREFIXLESS_SUBJECT_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new("(?i:\\s*fwd\\s*:\\s*)*(.*)").unwrap());
+
+/// Trim out prefix(es) from the given subject.
+fn prefixless_subject(subject: &str) -> &str {
+    let cap = PREFIXLESS_SUBJECT_REGEX
+        .captures(subject)
+        .and_then(|cap| cap.get(1));
+
+    match cap {
+        Some(prefixless_subject) => prefixless_subject.as_str(),
+        None => {
+            warn!("cannot remove prefix from subject {subject:?}");
+            subject
+        }
+    }
+}
 
 /// The message reply template builder.
 ///
@@ -124,17 +149,11 @@ impl<'a> ForwardTplBuilder<'a> {
 
         // Subject
 
-        let subject = parsed
-            .header("Subject")
-            .cloned()
-            .map(|h| h.unwrap_text())
-            .unwrap_or_default();
+        // TODO: make this customizable?
+        let prefix = String::from("Fwd: ");
+        let subject = prefixless_subject(parsed.subject().unwrap_or_default());
 
-        builder = builder.subject(if subject.to_lowercase().starts_with("fwd:") {
-            subject
-        } else {
-            format!("Fwd: {subject}").into()
-        });
+        builder = builder.subject(prefix + subject);
 
         // Additional headers
 
@@ -181,5 +200,29 @@ impl<'a> ForwardTplBuilder<'a> {
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
         Ok(tpl)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn prefixless_subject() {
+        assert_eq!(super::prefixless_subject("Hello, world!"), "Hello, world!");
+        assert_eq!(
+            super::prefixless_subject("fwd:Hello, world!"),
+            "Hello, world!"
+        );
+        assert_eq!(
+            super::prefixless_subject("Fwd   :Hello, world!"),
+            "Hello, world!"
+        );
+        assert_eq!(
+            super::prefixless_subject("fWd:   Hello, world!"),
+            "Hello, world!"
+        );
+        assert_eq!(
+            super::prefixless_subject("  FWD:  fwd  :Hello, world!"),
+            "Hello, world!"
+        );
     }
 }

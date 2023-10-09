@@ -7,11 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `mml@1.0.1`.
+
+### Fixed
+
+- Fixed prefixes not set properly in reply and forward templates. Now prefixes are identified using `Regex` and removed, which should avoid multiple nested prefixes like `Re: RE:Hello, world!`.
+
 ## [0.15.3] - 2023-09-25
 
 ### Changed
 
-- Bumped `mml-lib@=0.5.0`.
+- Bumped `mml@0.5.0`.
 
 ### Fixed
 

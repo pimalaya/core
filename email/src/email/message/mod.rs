@@ -655,7 +655,7 @@ mod tests {
             "From: to@localhost",
             "To: from2@localhost",
             "In-Reply-To: <id@localhost>",
-            "Subject: RE:subject",
+            "Subject: Re: subject",
             "",
             "",
             "",
