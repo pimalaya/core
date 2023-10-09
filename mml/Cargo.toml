@@ -1,6 +1,6 @@
 [package]
 name = "mml-lib"
-version = "1.0.0"
+version = "1.0.1"
 description = "Rust implementation of the Emacs MIME message Meta Language (MML)."
 homepage = "https://pimalaya.org/"
 documentation = "https://docs.rs/mml-lib/latest/mml/"
@@ -69,12 +69,12 @@ version = "1.0"
 # compiler dependencies
 
 [target.'cfg(unix)'.dependencies.chumsky]
-version = "1.0.0-alpha.4"
+version = "=1.0.0-alpha.5"
 optional = true
 features = ["label"]
 
 [target.'cfg(windows)'.dependencies.chumsky]
-version = "1.0.0-alpha.4"
+version = "=1.0.0-alpha.5"
 optional = true
 default-features = false
 features = ["std", "label"]

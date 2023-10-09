@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2023-10-09
+
 ### Changed
 
+- Bumped `chumsky@v1.0.0-alpha.5`.
 - Bumped `mail-parser@v0.9`.
+
+### Fixed
+
+- Fixed `encoding` property not set properly.
 
 ## [1.0.0] - 2023-09-27
 

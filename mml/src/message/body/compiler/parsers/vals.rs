@@ -38,7 +38,7 @@ pub(crate) fn quoted_val<'a>() -> impl Parser<'a, &'a str, Val<'a>, ParserError<
         none_of(escapable_chars),
     ))
     .repeated()
-    .slice()
+    .to_slice()
     .delimited_by(dquote(), dquote())
 }
 
@@ -50,8 +50,8 @@ pub(crate) fn maybe_quoted_const_val<'a>(
     val: &'a str,
 ) -> impl Parser<'a, &'a str, Val<'a>, ParserError<'a>> + Clone {
     choice((
-        just(val).slice().delimited_by(dquote(), dquote()),
-        just(val).slice(),
+        just(val).to_slice().delimited_by(dquote(), dquote()),
+        just(val).to_slice(),
     ))
 }
 

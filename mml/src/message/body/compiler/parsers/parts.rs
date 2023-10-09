@@ -102,7 +102,7 @@ pub(crate) fn plain_text_part<'a>(
         .and_is(choice((part_begin(), part_end(), multipart_begin(), multipart_end())).not())
         .repeated()
         .at_least(min)
-        .slice()
+        .to_slice()
 }
 
 #[cfg(test)]

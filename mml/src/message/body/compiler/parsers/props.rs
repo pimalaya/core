@@ -37,7 +37,7 @@ pub(crate) fn part_type<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<
     just(TYPE)
         .labelled(TYPE)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -49,7 +49,7 @@ pub(crate) fn filename<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'
     just(FILENAME)
         .labelled(FILENAME)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -64,7 +64,7 @@ pub(crate) fn recipient_filename<'a>() -> impl Parser<'a, &'a str, Prop<'a>, Par
     just(RECIPIENT_FILENAME)
         .labelled(RECIPIENT_FILENAME)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -76,7 +76,7 @@ pub(crate) fn charset<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'a
     just(CHARSET)
         .labelled(CHARSET)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -88,7 +88,7 @@ pub(crate) fn name<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'a>> 
     just(NAME)
         .labelled(NAME)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -145,7 +145,7 @@ pub(crate) fn description<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserErro
     just(DESCRIPTION)
         .labelled(DESCRIPTION)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -157,7 +157,7 @@ pub(crate) fn creation_date<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserEr
     just(CREATION_DATE)
         .labelled(CREATION_DATE)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -170,7 +170,7 @@ pub(crate) fn modification_date<'a>() -> impl Parser<'a, &'a str, Prop<'a>, Pars
     just(MODIFICATION_DATE)
         .labelled(MODIFICATION_DATE)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -182,7 +182,7 @@ pub(crate) fn read_date<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<
     just(READ_DATE)
         .labelled(READ_DATE)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -195,7 +195,7 @@ pub(crate) fn recipients<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError
     just(RECIPIENTS)
         .labelled(RECIPIENTS)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -208,7 +208,7 @@ pub(crate) fn sender<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'a>
     just(SENDER)
         .labelled(SENDER)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
@@ -219,7 +219,7 @@ pub(crate) fn size<'a>() -> impl Parser<'a, &'a str, Prop<'a>, ParserError<'a>> 
     just(SIZE)
         .labelled(SIZE)
         .then_ignore(just('=').padded())
-        .then(choice((quoted_val(), val().slice())))
+        .then(choice((quoted_val(), val().to_slice())))
         .padded()
 }
 
