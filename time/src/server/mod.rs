@@ -1,7 +1,7 @@
 //! # Server module.
 //!
 //! The [`Server`] runs the timer, accepts connections from clients
-//! and sends responses. The [`Server`] accepts connections thanks to
+//! and sends responses. The [`Server`] accepts connections using
 //! [`ServerBind`]ers. The [`Server`] should have at least one
 //! [`ServerBind`], otherwise it stops by itself.
 
@@ -23,6 +23,9 @@ use crate::{TimerCycle, TimerLoop};
 
 use super::{Request, Response, ThreadSafeTimer, TimerConfig, TimerEvent};
 
+/// The server state enum.
+///
+/// This enum represents the different states the server can be in.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum ServerState {
     /// The server is in running mode, which blocks the main process.
@@ -34,8 +37,12 @@ pub enum ServerState {
     Stopped,
 }
 
+/// The server configuration.
 pub struct ServerConfig {
+    /// The server state change handler.
     handler: ServerStateChangedHandler,
+
+    /// The binders list the server should use when starting up.
     binders: Vec<Box<dyn ServerBind>>,
 }
 
@@ -48,6 +55,9 @@ impl Default for ServerConfig {
     }
 }
 
+/// The server state changed event.
+///
+/// Event triggered by [`ServerStateChangedHandler`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ServerEvent {
     Started,
@@ -55,20 +65,23 @@ pub enum ServerEvent {
     Stopped,
 }
 
-pub type ServerStateChangedHandler =
-    Arc<dyn Fn(ServerEvent) -> io::Result<()> + Sync + Send + 'static>;
+/// The server state changed handler alias.
+pub type ServerStateChangedHandler = Arc<dyn Fn(ServerEvent) -> io::Result<()> + Sync + Send>;
 
-/// Thread safe version of the [`ServerState`] which allows the
-/// [`Server`] to mutate its state even from a
+/// Thread safe version of the [`ServerState`].
+///
+/// It allows the [`Server`] to mutate its state even from a
 /// [`std::thread::spawn`]).
 #[derive(Clone, Debug, Default)]
 pub struct ThreadSafeState(Arc<Mutex<ServerState>>);
 
 impl ThreadSafeState {
+    /// Create a new server thread safe state using defaults.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Change the inner server state with the given one.
     fn set(&self, next_state: ServerState) -> io::Result<()> {
         match self.lock() {
             Ok(mut state) => {
@@ -82,14 +95,17 @@ impl ThreadSafeState {
         }
     }
 
+    /// Change the inner server state to running.
     pub fn set_running(&self) -> io::Result<()> {
         self.set(ServerState::Running)
     }
 
+    /// Change the inner server state to stopping.
     pub fn set_stopping(&self) -> io::Result<()> {
         self.set(ServerState::Stopping)
     }
 
+    /// Change the inner server state to stopped.
     pub fn set_stopped(&self) -> io::Result<()> {
         self.set(ServerState::Stopped)
     }
@@ -109,6 +125,8 @@ impl DerefMut for ThreadSafeState {
     }
 }
 
+/// The server bind trait.
+///
 /// [`ServerBind`]ers must implement this trait.
 pub trait ServerBind: Sync + Send {
     /// Describe how the server should bind to accept connections from
@@ -116,6 +134,8 @@ pub trait ServerBind: Sync + Send {
     fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()>;
 }
 
+/// The server stream trait.
+///
 /// [`ServerBind`]ers may implement this trait, but it is not
 /// mandatory. It can be seen as a helper: by implementing the
 /// [`ServerStream::read`] and the [`ServerStream::write`] functions,
@@ -164,17 +184,24 @@ pub trait ServerStream<T> {
     }
 }
 
+/// The server struct.
 #[derive(Default)]
 pub struct Server {
+    /// The server configuration.
     config: ServerConfig,
+
+    /// The current server state.
     state: ThreadSafeState,
+
+    /// The current server timer.
     timer: ThreadSafeTimer,
 }
 
 impl Server {
-    /// Start the server by running the timer in a dedicated thread
-    /// and running all the binders in dedicated threads. The main
-    /// thread is then blocked by the given `wait` closure.
+    /// Start the server by running the timer in a dedicated thread as
+    /// well as all the binders in dedicated threads.
+    ///
+    /// The main thread is then blocked by the given `wait` closure.
     pub fn bind_with(self, wait: impl Fn() -> io::Result<()>) -> io::Result<()> {
         debug!("starting server");
 
@@ -255,33 +282,41 @@ impl Server {
     }
 }
 
-/// Convenient builder that helps you to build a [`Server`].
+/// The server builder.
+///
+/// Convenient builder to help building a final [`Server`].
 #[derive(Default)]
 pub struct ServerBuilder {
+    /// The server configuration.
     server_config: ServerConfig,
+
+    /// The timer configuration.
     timer_config: TimerConfig,
 }
 
 impl ServerBuilder {
+    /// Create a new server builder using defaults.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Set the server configuration.
     pub fn with_server_config(mut self, config: ServerConfig) -> Self {
         self.server_config = config;
         self
     }
 
+    /// Set the timer configuration.
     pub fn with_timer_config(mut self, config: TimerConfig) -> Self {
         self.timer_config = config;
         self
     }
 
-    /// Configures the timer to follow the Pomodoro time management
+    /// Configure the timer to follow the Pomodoro time management
     /// method, which alternates 25 min of work and 5 min of breaks 4
     /// times, then ends with a long break of 15 min.
     ///
-    /// https://en.wikipedia.org/wiki/Pomodoro_Technique
+    /// See <https://en.wikipedia.org/wiki/Pomodoro_Technique>.
     pub fn with_pomodoro_config(mut self) -> Self {
         let work = TimerCycle::new("Work", 25 * 60);
         let short_break = TimerCycle::new("Short break", 5 * 60);
@@ -301,10 +336,10 @@ impl ServerBuilder {
         self
     }
 
-    /// Configures the timer to follow the 52/17 time management
+    /// Configure the timer to follow the 52/17 time management
     /// method, which alternates 52 min of work and 17 min of resting.
     ///
-    /// https://en.wikipedia.org/wiki/52/17_rule
+    /// See <https://en.wikipedia.org/wiki/52/17_rule>.
     pub fn with_52_17_config(mut self) -> Self {
         let work = TimerCycle::new("Work", 52 * 60);
         let rest = TimerCycle::new("Rest", 17 * 60);
@@ -313,6 +348,7 @@ impl ServerBuilder {
         self
     }
 
+    /// Set the server handler.
     pub fn with_server_handler<H>(mut self, handler: H) -> Self
     where
         H: Fn(ServerEvent) -> io::Result<()> + Sync + Send + 'static,
@@ -321,11 +357,13 @@ impl ServerBuilder {
         self
     }
 
+    /// Push the given server binder.
     pub fn with_binder(mut self, binder: Box<dyn ServerBind>) -> Self {
         self.server_config.binders.push(binder);
         self
     }
 
+    /// Set the timer handler.
     pub fn with_timer_handler<H>(mut self, handler: H) -> Self
     where
         H: Fn(TimerEvent) -> io::Result<()> + Sync + Send + 'static,
@@ -334,6 +372,7 @@ impl ServerBuilder {
         self
     }
 
+    /// Push the given timer cycle.
     pub fn with_cycle<C>(mut self, cycle: C) -> Self
     where
         C: Into<TimerCycle>,
@@ -342,6 +381,7 @@ impl ServerBuilder {
         self
     }
 
+    /// Set the timer cycles.
     pub fn with_cycles<C, I>(mut self, cycles: I) -> Self
     where
         C: Into<TimerCycle>,
@@ -353,11 +393,13 @@ impl ServerBuilder {
         self
     }
 
+    /// Set the timer cycles count.
     pub fn with_cycles_count(mut self, count: impl Into<TimerLoop>) -> Self {
         self.timer_config.cycles_count = count.into();
         self
     }
 
+    /// Build the final server.
     pub fn build(self) -> io::Result<Server> {
         Ok(Server {
             config: self.server_config,

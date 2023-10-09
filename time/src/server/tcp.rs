@@ -3,7 +3,7 @@
 //! This module contains the implementation of the TCP server binder,
 //! based on [`std::net::TcpStream`].
 
-use log::{error, trace, warn};
+use log::{debug, trace, warn};
 use std::{
     io::{self, BufRead, BufReader, Write},
     net::{TcpListener, TcpStream},
@@ -11,16 +11,21 @@ use std::{
 
 use crate::{Request, Response, ServerBind, ServerStream, ThreadSafeTimer};
 
+/// The TCP server binder.
+///
+/// This [`ServerBind`]er uses the TCP protocol to bind a listener, to
+/// read requests and write responses.
 pub struct TcpBind {
+    /// The TCP host of the listener.
     pub host: String,
+
+    /// The TCP port of the listener.
     pub port: u16,
 }
 
 impl TcpBind {
-    pub fn new<H>(host: H, port: u16) -> Box<dyn ServerBind>
-    where
-        H: ToString,
-    {
+    /// Create a new TCP binder using the given host and port.
+    pub fn new(host: impl ToString, port: u16) -> Box<dyn ServerBind> {
         Box::new(Self {
             host: host.to_string(),
             port,
@@ -36,7 +41,7 @@ impl ServerStream<TcpStream> for TcpBind {
         let mut req = String::new();
         reader.read_line(&mut req).unwrap();
 
-        trace!("request: {req:?}");
+        trace!("receiving request: {req:?}");
 
         let mut tokens = req.trim().split_whitespace();
         match tokens.next() {
@@ -69,6 +74,8 @@ impl ServerStream<TcpStream> for TcpBind {
 
     /// Write the given response to the given [`std::net::TcpStream`].
     fn write(&self, stream: &mut TcpStream, res: Response) -> io::Result<()> {
+        trace!("sending response: {res:?}");
+
         let res = match res {
             Response::Ok => String::from("ok"),
             Response::Timer(timer) => format!("timer {}", serde_json::to_string(&timer).unwrap()),
@@ -79,6 +86,8 @@ impl ServerStream<TcpStream> for TcpBind {
 }
 
 impl ServerBind for TcpBind {
+    /// Bind the TCP listener.
+    ///
     /// To bind, the [`TcpBind`] gets a [`std::net::TcpListener`] then
     /// indefinitely waits for incoming requests. When a connection
     /// comes, [`TcpBind`] retrieves the associated
@@ -90,13 +99,13 @@ impl ServerBind for TcpBind {
         for stream in binder.incoming() {
             match stream {
                 Err(err) => {
-                    warn!("skipping invalid listener stream");
-                    error!("{err}");
+                    warn!("cannot get stream from client: {err}");
+                    debug!("cannot get stream from client: {err:?}");
                 }
                 Ok(mut stream) => {
                     if let Err(err) = self.handle(timer.clone(), &mut stream) {
-                        warn!("skipping invalid request");
-                        error!("{err}");
+                        warn!("cannot handle request: {err}");
+                        debug!("cannot handle request: {err:?}");
                     }
                 }
             };

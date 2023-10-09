@@ -5,10 +5,14 @@
 
 use super::Timer;
 
+/// The response struct.
+///
+/// Responses are sent by servers and received by clients.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Response {
     /// Default response when everything goes fine.
     Ok,
+
     /// Response that contains the current timer.
     Timer(Timer),
 }

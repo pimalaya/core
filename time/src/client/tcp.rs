@@ -11,16 +11,21 @@ use std::{
 
 use crate::{Client, ClientStream, Request, Response, Timer};
 
+/// The TCP client.
+///
+/// This [`Client`] uses the TCP protocol to connect to a listener, to
+/// read responses and write requests.
 pub struct TcpClient {
+    /// The TCP host the client should connect to.
     pub host: String,
+
+    /// The TCP port the client should connect to.
     pub port: u16,
 }
 
 impl TcpClient {
-    pub fn new<H>(host: H, port: u16) -> Box<dyn Client>
-    where
-        H: ToString,
-    {
+    /// Create a new TCP client using the given host and port.
+    pub fn new(host: impl ToString, port: u16) -> Box<dyn Client> {
         Box::new(Self {
             host: host.to_string(),
             port,
@@ -36,7 +41,7 @@ impl ClientStream<TcpStream> for TcpClient {
         let mut res = String::new();
         reader.read_line(&mut res).unwrap();
 
-        trace!("response: {res:?}");
+        trace!("receiving response: {res:?}");
 
         let mut tokens = res.trim().split_whitespace();
         match tokens.next() {
@@ -65,6 +70,8 @@ impl ClientStream<TcpStream> for TcpClient {
 
     /// Write the given request to the given [`std::net::TcpStream`].
     fn write(&self, stream: &mut TcpStream, req: Request) -> io::Result<()> {
+        trace!("sending request: {req:?}");
+
         let req = match req {
             Request::Start => String::from("start"),
             Request::Get => String::from("get"),
@@ -79,6 +86,8 @@ impl ClientStream<TcpStream> for TcpClient {
 }
 
 impl Client for TcpClient {
+    /// Send the given request to the TCP server.
+    ///
     /// To send a request, the [`TcpClient`] retrieves the
     /// [`std::net::TcpStream`] by connecting to the server, then
     /// handles it using the helper [`crate::ClientStream::handle`].

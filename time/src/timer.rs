@@ -1,4 +1,9 @@
-//! Module dedicated to the timer.
+//! # Timer module.
+//!
+//! The [`Timer`] is the core structure of this module. A timer can be
+//! configured with [`TimerConfig`]. The state of the timer is managed
+//! by [`TimerState`], [`TimerCycle`] and [`TimerLoop`]. During the
+//! lifetime of the timer, [`TimerEvent`] are triggered.
 
 use log::{debug, warn};
 #[cfg(test)]
@@ -24,6 +29,7 @@ pub enum TimerLoop {
     /// requests.
     #[default]
     Infinite,
+
     /// The timer stops by itself after the given number of loops.
     Fixed(usize),
 }
@@ -63,10 +69,14 @@ impl DerefMut for TimerCycles {
 }
 
 /// The timer cycle.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+///
+/// A cycle is a step in the timer lifetime, represented by a name and
+/// a duration.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TimerCycle {
     /// The name of the timer cycle.
     pub name: String,
+
     /// The duration of the timer cycle. This field has two meanings,
     /// depending on where it is used. *From the config point of
     /// view*, the duration represents the total duration of the
@@ -75,19 +85,11 @@ pub struct TimerCycle {
     pub duration: usize,
 }
 
-impl Eq for TimerCycle {}
-impl PartialEq for TimerCycle {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.duration == other.duration
-    }
-}
-
 impl TimerCycle {
     pub fn new(name: impl ToString, duration: usize) -> Self {
         Self {
             name: name.to_string(),
             duration,
-            ..Self::default()
         }
     }
 }
@@ -103,8 +105,10 @@ impl<T: ToString> From<(T, usize)> for TimerCycle {
 pub enum TimerState {
     /// The timer is running.
     Running,
+
     /// The timer has been paused.
     Paused,
+
     /// The timer is not running.
     #[default]
     Stopped,
@@ -113,18 +117,33 @@ pub enum TimerState {
 /// The timer event.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TimerEvent {
+    /// The timer started.
     Started,
+
+    /// The timer began the given cycle.
     Began(TimerCycle),
+
+    /// The timer is running the given cycle (tick).
     Running(TimerCycle),
+
+    /// The timer has been set to the given cycle.
     Set(TimerCycle),
+
+    /// The timer has been paused at the given cycle.
     Paused(TimerCycle),
+
+    /// The timer has been resumed at the given cycle.
     Resumed(TimerCycle),
+
+    /// The timer ended with the given cycle.
     Ended(TimerCycle),
+
+    /// The timer stopped.
     Stopped,
 }
 
 /// The timer changed handler.
-pub type TimerChangedHandler = Arc<dyn Fn(TimerEvent) -> io::Result<()> + Sync + Send + 'static>;
+pub type TimerChangedHandler = Arc<dyn Fn(TimerEvent) -> io::Result<()> + Sync + Send>;
 
 /// The timer configuration.
 #[derive(Clone)]
@@ -155,7 +174,7 @@ impl TimerConfig {
     }
 }
 
-/// The timer.
+/// The timer struct.
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Timer {
     /// The current timer configuration.

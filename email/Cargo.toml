@@ -10,7 +10,10 @@ edition = "2021"
 license = "MIT"
 categories = ["email", "network-programming"]
 keywords = ["pim", "email", "imap", "smtp", "sendmail"]
-metadata.docs.rs.all-features = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [lib]
 name = "email"

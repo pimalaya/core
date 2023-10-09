@@ -3,22 +3,23 @@ use time::{
     ServerBuilder, ServerEvent, TcpBind, TcpClient, Timer, TimerCycle, TimerEvent, TimerState,
 };
 
+const HOST: &str = "127.0.0.1";
+const PORT: u16 = 3000;
+
 #[test]
 fn multiple_tcp_clients() {
     env_logger::builder().is_test(true).init();
 
-    let host = "127.0.0.1";
-    let port = 3000;
     let server = ServerBuilder::new()
         .with_server_handler(|event: ServerEvent| {
-            println!("server event: {:?}", event);
+            println!("server event: {event:?}");
             Ok(())
         })
         .with_timer_handler(|event: TimerEvent| {
-            println!("timer event: {:?}", event);
+            println!("timer event: {event:?}");
             Ok(())
         })
-        .with_binder(TcpBind::new(host, port))
+        .with_binder(TcpBind::new(HOST, PORT))
         .with_cycle(("Work", 3))
         .with_cycle(("Break", 5))
         .build()
@@ -26,8 +27,11 @@ fn multiple_tcp_clients() {
 
     server
         .bind_with(|| {
-            let client1 = TcpClient::new(host, port);
-            let client2 = TcpClient::new(host, port);
+            // wait for the binder to be ready
+            thread::sleep(Duration::from_secs(1));
+
+            let client1 = TcpClient::new(HOST, PORT);
+            let client2 = TcpClient::new(HOST, PORT);
 
             client1.start().unwrap();
             thread::sleep(Duration::from_secs(2));
