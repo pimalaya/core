@@ -5,6 +5,7 @@
 //! You also have everything you need to synchronize a remote folder
 //! with a local one.
 
+pub mod add;
 pub mod list;
 pub mod sync;
 

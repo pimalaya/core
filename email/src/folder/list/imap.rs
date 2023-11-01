@@ -1,22 +1,19 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use imap_proto::NameAttribute;
 use log::{debug, info};
-use tokio::sync::Mutex;
 use utf7_imap::decode_utf7_imap as decode_utf7;
 
-use crate::{imap::ImapSessionManager, Result};
+use crate::{imap::ImapSessionManagerSafe, Result};
 
 use super::{Folder, Folders, ListFolders};
 
 #[derive(Debug)]
 pub struct ListImapFolders {
-    session_manager: Arc<Mutex<ImapSessionManager>>,
+    session_manager: ImapSessionManagerSafe,
 }
 
 impl ListImapFolders {
-    pub fn new(session_manager: Arc<Mutex<ImapSessionManager>>) -> Box<dyn ListFolders> {
+    pub fn new(session_manager: ImapSessionManagerSafe) -> Box<dyn ListFolders> {
         Box::new(Self { session_manager })
     }
 }

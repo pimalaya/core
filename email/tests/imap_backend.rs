@@ -6,13 +6,11 @@ async fn test_imap_backend() {
         account::{AccountConfig, PasswdConfig},
         backend::{BackendBuilder, BackendConfig, BackendV2, ImapAuthConfig, ImapConfig},
         email::Flag,
-        folder::list::imap::ListImapFolders,
+        folder::{add::imap::AddImapFolder, list::imap::ListImapFolders},
         imap::ImapSessionManager,
     };
     use mml::MmlCompilerBuilder;
     use secret::Secret;
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
 
     env_logger::builder().is_test(true).init();
 
@@ -34,10 +32,12 @@ async fn test_imap_backend() {
         ..AccountConfig::default()
     };
 
-    let imap_session_manager = ImapSessionManager::new(imap_config, None).await.unwrap();
-    let imap_session_manager = Arc::new(Mutex::new(imap_session_manager));
-    let backend_v2 =
-        BackendV2::default().with_list_folders(ListImapFolders::new(imap_session_manager.clone()));
+    let imap_session_manager = ImapSessionManager::new(config.clone(), imap_config, None)
+        .await
+        .unwrap();
+    let backend_v2 = BackendV2::default()
+        .with_add_folder(AddImapFolder::new(imap_session_manager.clone()))
+        .with_list_folders(ListImapFolders::new(imap_session_manager.clone()));
 
     let imap_builder = BackendBuilder::new(config.clone());
     let mut imap = imap_builder.build().await.unwrap();

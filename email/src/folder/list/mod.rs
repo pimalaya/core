@@ -10,5 +10,6 @@ pub mod imap;
 
 #[async_trait]
 pub trait ListFolders: Debug {
+    /// List all available folders (alias mailboxes).
     async fn list_folders(&self) -> Result<Folders>;
 }

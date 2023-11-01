@@ -8,13 +8,16 @@ use rustls::{
 use std::{
     io::{self, Read, Write},
     net::TcpStream,
+    ops::Deref,
     result,
+    sync::Arc,
     time::Duration,
 };
 use thiserror::Error;
+use tokio::sync::Mutex;
 
 use crate::{
-    account::OAuth2Method,
+    account::{AccountConfig, OAuth2Method},
     backend::{ImapAuthConfig, ImapConfig},
     Result,
 };
@@ -157,8 +160,14 @@ impl Authenticator for OAuthBearer {
 /// The IMAP backend.
 #[derive(Debug)]
 pub struct ImapSessionManager {
+    /// The account configuration.
+    pub account_config: AccountConfig,
+
     /// The IMAP configuration.
-    imap_config: ImapConfig,
+    pub imap_config: ImapConfig,
+
+    default_credentials: Option<String>,
+    disable_cache: bool,
 
     /// The current IMAP session.
     session: ImapSession,
@@ -170,10 +179,12 @@ impl ImapSessionManager {
     /// The IMAP session is created at this moment. If the session
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new session is created.
+    // TODO: split new and build
     pub async fn new(
+        account_config: AccountConfig,
         imap_config: ImapConfig,
         default_credentials: Option<String>,
-    ) -> Result<ImapSessionManager> {
+    ) -> Result<ImapSessionManagerSafe> {
         let session = match &imap_config.auth {
             ImapAuthConfig::Passwd(_) => {
                 Self::build_session(&imap_config, default_credentials.clone()).await
@@ -195,10 +206,13 @@ impl ImapSessionManager {
             }
         }?;
 
-        Ok(Self {
+        Ok(ImapSessionManagerSafe(Arc::new(Mutex::new(Self {
+            account_config,
             imap_config,
+            default_credentials: None,
+            disable_cache: false,
             session,
-        })
+        }))))
     }
 
     /// Creates a new session from an IMAP configuration and optional
@@ -293,7 +307,6 @@ impl ImapSessionManager {
         imap_config: &ImapConfig,
     ) -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
         use rustls::client::WebPkiVerifier;
-        use std::sync::Arc;
 
         struct DummyCertVerifier;
         impl ServerCertVerifier for DummyCertVerifier {
@@ -366,5 +379,16 @@ impl ImapSessionManager {
                 },
             },
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ImapSessionManagerSafe(Arc<Mutex<ImapSessionManager>>);
+
+impl Deref for ImapSessionManagerSafe {
+    type Target = Mutex<ImapSessionManager>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
