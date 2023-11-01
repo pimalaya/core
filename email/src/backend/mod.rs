@@ -22,7 +22,7 @@ use thiserror::Error;
 use crate::{
     account::AccountConfig,
     email::{Envelope, Envelopes, Flag, Flags, Messages},
-    folder::Folders,
+    folder::{list::ListFolders, Folders},
     Result,
 };
 
@@ -42,6 +42,8 @@ pub use self::notmuch::{NotmuchBackend, NotmuchBackendBuilder, NotmuchConfig};
 pub enum Error {
     #[error("cannot build undefined backend")]
     BuildUndefinedBackendError,
+    #[error("cannot list folders: feature not available")]
+    ListFoldersNotAvailableError,
 }
 
 /// The backend abstraction.
@@ -164,6 +166,30 @@ pub trait Backend: Send {
     }
 
     fn as_any(&self) -> &dyn Any;
+}
+
+#[derive(Debug, Default)]
+pub struct BackendV2 {
+    list_folders: Option<Box<dyn ListFolders>>,
+}
+
+impl BackendV2 {
+    pub fn with_list_folders(mut self, feature: Box<dyn ListFolders>) -> Self {
+        self.list_folders = Some(feature);
+        self
+    }
+
+    pub fn has_list_folders(&self) -> Option<&dyn ListFolders> {
+        self.list_folders.as_ref().map(AsRef::as_ref)
+    }
+
+    pub async fn list_folders(&self) -> Result<Folders> {
+        self.list_folders
+            .as_ref()
+            .ok_or(Error::ListFoldersNotAvailableError)?
+            .list_folders()
+            .await
+    }
 }
 
 /// The backend builder.

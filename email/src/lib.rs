@@ -35,6 +35,8 @@ pub mod account;
 pub mod backend;
 pub mod email;
 pub mod folder;
+#[cfg(feature = "imap-backend")]
+pub mod imap;
 pub mod sender;
 
 #[doc(inline)]
@@ -78,7 +80,7 @@ pub enum Error {
     BackendError(#[from] backend::Error),
     #[cfg(feature = "imap-backend")]
     #[error(transparent)]
-    ImapError(#[from] backend::imap::Error),
+    ImapBackendError(#[from] backend::imap::Error),
     #[cfg(feature = "imap-backend")]
     #[error(transparent)]
     ImapConfigError(#[from] backend::imap::config::Error),
@@ -101,6 +103,13 @@ pub enum Error {
 
     #[error(transparent)]
     SqliteError(#[from] rusqlite::Error),
+
+    #[cfg(feature = "imap-backend")]
+    #[error("cannot list imap folders")]
+    ListImapFoldersError(#[source] imap::Error),
+    #[cfg(feature = "imap-backend")]
+    #[error(transparent)]
+    ImapError(#[from] imap::Error),
 }
 
 /// The global `Result` alias of the library.

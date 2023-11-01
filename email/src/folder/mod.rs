@@ -1,10 +1,11 @@
-//! Module dedicated to folder management.
+//! Module dedicated to folder (alias mailbox) management.
 //!
 //! This module contains [`Folder`] and [`Folders`] representations.
 //!
 //! You also have everything you need to synchronize a remote folder
 //! with a local one.
 
+pub mod list;
 pub mod sync;
 
 use std::{

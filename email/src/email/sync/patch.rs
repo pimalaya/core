@@ -294,7 +294,7 @@ pub fn build_patch(
     message_ids.extend(remote_cache.iter().map(|(id, _)| id.as_str()));
     message_ids.extend(remote.iter().map(|(id, _)| id.as_str()));
 
-    // Given the matrix local_cache × local × remote_cache × remote,
+    // Given the matrice local_cache × local × remote_cache × remote,
     // check every 2⁴ = 16 possibilities:
     for message_id in message_ids {
         let local_cache = local_cache.get(message_id);

@@ -4,36 +4,47 @@ async fn test_imap_backend() {
     use concat_with::concat_line;
     use email::{
         account::{AccountConfig, PasswdConfig},
-        backend::{BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig},
+        backend::{BackendBuilder, BackendConfig, BackendV2, ImapAuthConfig, ImapConfig},
         email::Flag,
+        folder::list::imap::ListImapFolders,
+        imap::ImapSessionManager,
     };
     use mml::MmlCompilerBuilder;
     use secret::Secret;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
 
     env_logger::builder().is_test(true).init();
 
-    let config = AccountConfig {
-        backend: BackendConfig::Imap(ImapConfig {
-            host: "127.0.0.1".into(),
-            port: 3143,
-            ssl: Some(false),
-            starttls: Some(false),
-            insecure: Some(true),
-            login: "bob@localhost".into(),
-            auth: ImapAuthConfig::Passwd(PasswdConfig {
-                passwd: Secret::new_raw("password"),
-            }),
-            ..ImapConfig::default()
+    let imap_config = ImapConfig {
+        host: "127.0.0.1".into(),
+        port: 3143,
+        ssl: Some(false),
+        starttls: Some(false),
+        insecure: Some(true),
+        login: "bob@localhost".into(),
+        auth: ImapAuthConfig::Passwd(PasswdConfig {
+            passwd: Secret::new_raw("password"),
         }),
+        ..ImapConfig::default()
+    };
+
+    let config = AccountConfig {
+        backend: BackendConfig::Imap(imap_config.clone()),
         ..AccountConfig::default()
     };
+
+    let imap_session_manager = ImapSessionManager::new(imap_config, None).await.unwrap();
+    let imap_session_manager = Arc::new(Mutex::new(imap_session_manager));
+    let backend_v2 =
+        BackendV2::default().with_list_folders(ListImapFolders::new(imap_session_manager.clone()));
 
     let imap_builder = BackendBuilder::new(config.clone());
     let mut imap = imap_builder.build().await.unwrap();
 
     // setting up folders
 
-    for folder in imap.list_folders().await.unwrap().iter() {
+    for folder in backend_v2.list_folders().await.unwrap().iter() {
         match folder.name.as_str() {
             "INBOX" => imap.purge_folder("INBOX").await.unwrap(),
             folder => imap.delete_folder(folder).await.unwrap(),

@@ -295,9 +295,9 @@ impl ImapBackend {
                 match Self::build_session(&imap_config, default_credentials.clone()).await {
                     Ok(sess) => Ok(sess),
                     Err(err) => match err {
-                        crate::Error::ImapError(Error::AuthenticateError(imap::Error::Parse(
-                            imap::error::ParseError::Authentication(_, _),
-                        ))) => {
+                        crate::Error::ImapBackendError(Error::AuthenticateError(
+                            imap::Error::Parse(imap::error::ParseError::Authentication(_, _)),
+                        )) => {
                             warn!("error while authenticating user, refreshing access token");
                             oauth2_config.refresh_access_token().await?;
                             Self::build_session(&imap_config, None).await
@@ -1222,13 +1222,13 @@ mod tests {
         // page * page_size = size
         assert!(matches!(
             super::build_page_range(1, 5, 5).unwrap_err(),
-            crate::Error::ImapError(super::Error::BuildPageRangeOutOfBoundsError(2)),
+            crate::Error::ImapBackendError(super::Error::BuildPageRangeOutOfBoundsError(2)),
         ));
 
         // page * page_size > size
         assert!(matches!(
             super::build_page_range(2, 5, 5).unwrap_err(),
-            crate::Error::ImapError(super::Error::BuildPageRangeOutOfBoundsError(3)),
+            crate::Error::ImapBackendError(super::Error::BuildPageRangeOutOfBoundsError(3)),
         ));
     }
 
