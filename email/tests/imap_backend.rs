@@ -7,7 +7,9 @@ async fn test_imap_backend() {
         backend::{BackendBuilder, BackendConfig, BackendV2, ImapAuthConfig, ImapConfig},
         email::Flag,
         folder::{
-            add::imap::AddImapFolder, expunge::imap::ExpungeImapFolder, list::imap::ListImapFolders,
+            add::imap::AddImapFolder, delete::imap::DeleteImapFolder,
+            expunge::imap::ExpungeImapFolder, list::imap::ListImapFolders,
+            purge::imap::PurgeImapFolder,
         },
         imap::ImapSessionManagerBuilder,
     };
@@ -41,7 +43,9 @@ async fn test_imap_backend() {
     let backend_v2 = BackendV2::default()
         .with_add_folder(AddImapFolder::new(imap_session_manager.clone()))
         .with_list_folders(ListImapFolders::new(imap_session_manager.clone()))
-        .with_expunge_folder(ExpungeImapFolder::new(imap_session_manager.clone()));
+        .with_expunge_folder(ExpungeImapFolder::new(imap_session_manager.clone()))
+        .with_purge_folder(PurgeImapFolder::new(imap_session_manager.clone()))
+        .with_delete_folder(DeleteImapFolder::new(imap_session_manager.clone()));
 
     let imap_builder = BackendBuilder::new(config.clone());
     let mut imap = imap_builder.build().await.unwrap();
@@ -50,8 +54,8 @@ async fn test_imap_backend() {
 
     for folder in backend_v2.list_folders().await.unwrap().iter() {
         match folder.name.as_str() {
-            "INBOX" => imap.purge_folder("INBOX").await.unwrap(),
-            folder => imap.delete_folder(folder).await.unwrap(),
+            "INBOX" => backend_v2.purge_folder("INBOX").await.unwrap(),
+            folder => backend_v2.delete_folder(folder).await.unwrap(),
         }
     }
 

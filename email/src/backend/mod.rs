@@ -22,7 +22,10 @@ use thiserror::Error;
 use crate::{
     account::AccountConfig,
     email::{Envelope, Envelopes, Flag, Flags, Messages},
-    folder::{add::AddFolder, expunge::ExpungeFolder, list::ListFolders, Folders},
+    folder::{
+        add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
+        purge::PurgeFolder, Folders,
+    },
     Result,
 };
 
@@ -48,6 +51,10 @@ pub enum Error {
     ListFoldersNotAvailableError,
     #[error("cannot expunge folder: feature not available")]
     ExpungeFolderNotAvailableError,
+    #[error("cannot purge folder: feature not available")]
+    PurgeFolderNotAvailableError,
+    #[error("cannot delete folder: feature not available")]
+    DeleteFolderNotAvailableError,
 }
 
 /// The backend abstraction.
@@ -177,6 +184,8 @@ pub struct BackendV2 {
     add_folder: Option<Box<dyn AddFolder>>,
     list_folders: Option<Box<dyn ListFolders>>,
     expunge_folder: Option<Box<dyn ExpungeFolder>>,
+    purge_folder: Option<Box<dyn PurgeFolder>>,
+    delete_folder: Option<Box<dyn DeleteFolder>>,
 }
 
 impl BackendV2 {
@@ -228,6 +237,40 @@ impl BackendV2 {
             .as_ref()
             .ok_or(Error::ExpungeFolderNotAvailableError)?
             .expunge_folder(folder)
+            .await
+    }
+
+    pub fn with_purge_folder(mut self, feature: Box<dyn PurgeFolder>) -> Self {
+        self.purge_folder = Some(feature);
+        self
+    }
+
+    pub fn has_purge_folder(&self) -> Option<&dyn PurgeFolder> {
+        self.purge_folder.as_ref().map(AsRef::as_ref)
+    }
+
+    pub async fn purge_folder(&self, folder: &str) -> Result<()> {
+        self.purge_folder
+            .as_ref()
+            .ok_or(Error::PurgeFolderNotAvailableError)?
+            .purge_folder(folder)
+            .await
+    }
+
+    pub fn with_delete_folder(mut self, feature: Box<dyn DeleteFolder>) -> Self {
+        self.delete_folder = Some(feature);
+        self
+    }
+
+    pub fn has_delete_folder(&self) -> Option<&dyn DeleteFolder> {
+        self.delete_folder.as_ref().map(AsRef::as_ref)
+    }
+
+    pub async fn delete_folder(&self, folder: &str) -> Result<()> {
+        self.delete_folder
+            .as_ref()
+            .ok_or(Error::DeleteFolderNotAvailableError)?
+            .delete_folder(folder)
             .await
     }
 }

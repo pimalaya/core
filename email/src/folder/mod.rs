@@ -6,8 +6,10 @@
 //! with a local one.
 
 pub mod add;
+pub mod delete;
 pub mod expunge;
 pub mod list;
+pub mod purge;
 pub mod sync;
 
 use std::{
