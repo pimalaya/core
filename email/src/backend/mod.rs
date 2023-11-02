@@ -22,7 +22,7 @@ use thiserror::Error;
 use crate::{
     account::AccountConfig,
     email::{Envelope, Envelopes, Flag, Flags, Messages},
-    folder::{add::AddFolder, list::ListFolders, Folders},
+    folder::{add::AddFolder, expunge::ExpungeFolder, list::ListFolders, Folders},
     Result,
 };
 
@@ -42,10 +42,12 @@ pub use self::notmuch::{NotmuchBackend, NotmuchBackendBuilder, NotmuchConfig};
 pub enum Error {
     #[error("cannot build undefined backend")]
     BuildUndefinedBackendError,
-    #[error("cannot list folders: feature not available")]
-    ListFoldersNotAvailableError,
     #[error("cannot add folder: feature not available")]
     AddFolderNotAvailableError,
+    #[error("cannot list folders: feature not available")]
+    ListFoldersNotAvailableError,
+    #[error("cannot expunge folder: feature not available")]
+    ExpungeFolderNotAvailableError,
 }
 
 /// The backend abstraction.
@@ -174,6 +176,7 @@ pub trait Backend: Send {
 pub struct BackendV2 {
     add_folder: Option<Box<dyn AddFolder>>,
     list_folders: Option<Box<dyn ListFolders>>,
+    expunge_folder: Option<Box<dyn ExpungeFolder>>,
 }
 
 impl BackendV2 {
@@ -208,6 +211,23 @@ impl BackendV2 {
             .as_ref()
             .ok_or(Error::ListFoldersNotAvailableError)?
             .list_folders()
+            .await
+    }
+
+    pub fn with_expunge_folder(mut self, feature: Box<dyn ExpungeFolder>) -> Self {
+        self.expunge_folder = Some(feature);
+        self
+    }
+
+    pub fn has_expunge_folder(&self) -> Option<&dyn ExpungeFolder> {
+        self.expunge_folder.as_ref().map(AsRef::as_ref)
+    }
+
+    pub async fn expunge_folder(&self, folder: &str) -> Result<()> {
+        self.expunge_folder
+            .as_ref()
+            .ok_or(Error::ExpungeFolderNotAvailableError)?
+            .expunge_folder(folder)
             .await
     }
 }

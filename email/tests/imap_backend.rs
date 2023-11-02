@@ -6,7 +6,9 @@ async fn test_imap_backend() {
         account::{AccountConfig, PasswdConfig},
         backend::{BackendBuilder, BackendConfig, BackendV2, ImapAuthConfig, ImapConfig},
         email::Flag,
-        folder::{add::imap::AddImapFolder, list::imap::ListImapFolders},
+        folder::{
+            add::imap::AddImapFolder, expunge::imap::ExpungeImapFolder, list::imap::ListImapFolders,
+        },
         imap::ImapSessionManagerBuilder,
     };
     use mml::MmlCompilerBuilder;
@@ -38,7 +40,8 @@ async fn test_imap_backend() {
         .unwrap();
     let backend_v2 = BackendV2::default()
         .with_add_folder(AddImapFolder::new(imap_session_manager.clone()))
-        .with_list_folders(ListImapFolders::new(imap_session_manager.clone()));
+        .with_list_folders(ListImapFolders::new(imap_session_manager.clone()))
+        .with_expunge_folder(ExpungeImapFolder::new(imap_session_manager.clone()));
 
     let imap_builder = BackendBuilder::new(config.clone());
     let mut imap = imap_builder.build().await.unwrap();
@@ -123,7 +126,7 @@ async fn test_imap_backend() {
     assert_eq!(0, trash.len());
     assert!(sent_ru[0].flags.contains(&Flag::Deleted));
 
-    imap.expunge_folder("Отправленные").await.unwrap();
+    backend_v2.expunge_folder("Отправленные").await.unwrap();
     let sent_ru = imap.list_envelopes("Отправленные", 0, 0).await.unwrap();
     assert_eq!(0, sent_ru.len());
 
@@ -156,7 +159,7 @@ async fn test_imap_backend() {
     assert_eq!(1, trash.len());
     assert!(trash[0].flags.contains(&Flag::Deleted));
 
-    imap.expunge_folder("Trash").await.unwrap();
+    backend_v2.expunge_folder("Trash").await.unwrap();
     let trash = imap.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(0, trash.len());
 }
