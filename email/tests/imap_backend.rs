@@ -7,7 +7,7 @@ async fn test_imap_backend() {
         backend::{BackendBuilder, BackendConfig, BackendV2, ImapAuthConfig, ImapConfig},
         email::Flag,
         folder::{add::imap::AddImapFolder, list::imap::ListImapFolders},
-        imap::ImapSessionManager,
+        imap::ImapSessionManagerBuilder,
     };
     use mml::MmlCompilerBuilder;
     use secret::Secret;
@@ -32,7 +32,8 @@ async fn test_imap_backend() {
         ..AccountConfig::default()
     };
 
-    let imap_session_manager = ImapSessionManager::new(config.clone(), imap_config, None)
+    let imap_session_manager = ImapSessionManagerBuilder::new(config.clone(), imap_config)
+        .build_sync()
         .await
         .unwrap();
     let backend_v2 = BackendV2::default()
@@ -51,9 +52,9 @@ async fn test_imap_backend() {
         }
     }
 
-    imap.add_folder("Sent").await.unwrap();
-    imap.add_folder("Trash").await.unwrap();
-    imap.add_folder("Отправленные").await.unwrap();
+    backend_v2.add_folder("Sent").await.unwrap();
+    backend_v2.add_folder("Trash").await.unwrap();
+    backend_v2.add_folder("Отправленные").await.unwrap();
 
     // checking that an email can be built and added
     let tpl = concat_line!(

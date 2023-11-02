@@ -3,17 +3,17 @@ use imap_proto::NameAttribute;
 use log::{debug, info};
 use utf7_imap::decode_utf7_imap as decode_utf7;
 
-use crate::{imap::ImapSessionManagerSafe, Result};
+use crate::{imap::ImapSessionManagerSync, Result};
 
 use super::{Folder, Folders, ListFolders};
 
 #[derive(Debug)]
 pub struct ListImapFolders {
-    session_manager: ImapSessionManagerSafe,
+    session_manager: ImapSessionManagerSync,
 }
 
 impl ListImapFolders {
-    pub fn new(session_manager: ImapSessionManagerSafe) -> Box<dyn ListFolders> {
+    pub fn new(session_manager: ImapSessionManagerSync) -> Box<dyn ListFolders> {
         Box::new(Self { session_manager })
     }
 }
@@ -23,13 +23,11 @@ impl ListFolders for ListImapFolders {
     async fn list_folders(&self) -> Result<Folders> {
         info!("listing imap folders");
 
-        let folders = self
-            .session_manager
-            .lock()
-            .await
+        let mut session = self.session_manager.lock().await;
+
+        let folders = session
             .execute(|session| session.list(Some(""), Some("*")))
             .await?;
-
         let folders = Folders::from_iter(folders.iter().filter_map(|folder| {
             if folder.attributes().contains(&NameAttribute::NoSelect) {
                 None
