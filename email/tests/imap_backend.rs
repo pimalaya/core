@@ -4,14 +4,14 @@ async fn test_imap_backend() {
     use concat_with::concat_line;
     use email::{
         account::{AccountConfig, PasswdConfig},
-        backend::{BackendBuilder, BackendConfig, BackendV2, ImapAuthConfig, ImapConfig},
+        backend::{BackendBuilder, BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig},
         email::Flag,
         folder::{
             add::imap::AddImapFolder, delete::imap::DeleteImapFolder,
             expunge::imap::ExpungeImapFolder, list::imap::ListImapFolders,
             purge::imap::PurgeImapFolder,
         },
-        imap::ImapSessionManagerBuilder,
+        imap::ImapSessionBuilder,
     };
     use mml::MmlCompilerBuilder;
     use secret::Secret;
@@ -36,16 +36,14 @@ async fn test_imap_backend() {
         ..AccountConfig::default()
     };
 
-    let imap_session_manager = ImapSessionManagerBuilder::new(config.clone(), imap_config)
-        .build_sync()
-        .await
-        .unwrap();
-    let backend_v2 = BackendV2::default()
-        .with_add_folder(AddImapFolder::new(imap_session_manager.clone()))
-        .with_list_folders(ListImapFolders::new(imap_session_manager.clone()))
-        .with_expunge_folder(ExpungeImapFolder::new(imap_session_manager.clone()))
-        .with_purge_folder(PurgeImapFolder::new(imap_session_manager.clone()))
-        .with_delete_folder(DeleteImapFolder::new(imap_session_manager.clone()));
+    let backend_context_v2 = ImapSessionBuilder::new(config.clone(), imap_config);
+    let backend_builder_v2 = BackendBuilderV2::new(backend_context_v2)
+        .with_add_folder(AddImapFolder::new)
+        .with_list_folders(ListImapFolders::new)
+        .with_expunge_folder(ExpungeImapFolder::new)
+        .with_purge_folder(PurgeImapFolder::new)
+        .with_delete_folder(DeleteImapFolder::new);
+    let backend_v2 = backend_builder_v2.build().await.unwrap();
 
     let imap_builder = BackendBuilder::new(config.clone());
     let mut imap = imap_builder.build().await.unwrap();

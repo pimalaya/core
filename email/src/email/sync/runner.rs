@@ -202,7 +202,7 @@ impl EmailSyncRunner {
         let mut remote = self.remote_builder.build().await?;
 
         loop {
-            // wraps in a block to free the lock as quick as possible
+            // wrap in a block to free the lock as quickly as possible
             let hunks = {
                 let mut lock = self.patch.lock().await;
                 lock.pop()

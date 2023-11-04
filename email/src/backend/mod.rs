@@ -16,7 +16,7 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 use log::error;
-use std::any::Any;
+use std::{any::Any, sync::Arc};
 use thiserror::Error;
 
 use crate::{
@@ -179,23 +179,163 @@ pub trait Backend: Send {
     fn as_any(&self) -> &dyn Any;
 }
 
-#[derive(Debug, Default)]
-pub struct BackendV2 {
-    add_folder: Option<Box<dyn AddFolder>>,
-    list_folders: Option<Box<dyn ListFolders>>,
-    expunge_folder: Option<Box<dyn ExpungeFolder>>,
-    purge_folder: Option<Box<dyn PurgeFolder>>,
-    delete_folder: Option<Box<dyn DeleteFolder>>,
+#[async_trait]
+pub trait BackendContextBuilder {
+    type Context;
+
+    async fn build(self) -> Result<Self::Context>;
 }
 
-impl BackendV2 {
-    pub fn with_add_folder(mut self, feature: Box<dyn AddFolder>) -> Self {
-        self.add_folder = Some(feature);
+#[async_trait]
+impl BackendContextBuilder for () {
+    type Context = ();
+
+    async fn build(self) -> Result<Self::Context> {
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub struct BackendBuilderV2<B: BackendContextBuilder> {
+    context_builder: B,
+
+    add_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddFolder>>>,
+    list_folders: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ListFolders>>>,
+    expunge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ExpungeFolder>>>,
+    purge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn PurgeFolder>>>,
+    delete_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn DeleteFolder>>>,
+}
+
+impl Default for BackendBuilderV2<()> {
+    fn default() -> Self {
+        Self {
+            context_builder: (),
+            add_folder: None,
+            list_folders: None,
+            expunge_folder: None,
+            purge_folder: None,
+            delete_folder: None,
+        }
+    }
+}
+
+impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
+    pub fn new(context_builder: B) -> Self {
+        Self {
+            context_builder,
+            add_folder: None,
+            list_folders: None,
+            expunge_folder: None,
+            purge_folder: None,
+            delete_folder: None,
+        }
+    }
+
+    pub fn with_add_folder(mut self, feature: impl Fn(&C) -> Box<dyn AddFolder> + 'static) -> Self {
+        self.add_folder = Some(Arc::new(feature));
         self
     }
 
-    pub fn has_add_folder(&self) -> Option<&dyn AddFolder> {
-        self.add_folder.as_ref().map(AsRef::as_ref)
+    pub fn with_list_folders(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn ListFolders> + 'static,
+    ) -> Self {
+        self.list_folders = Some(Arc::new(feature));
+        self
+    }
+
+    pub fn with_expunge_folder(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn ExpungeFolder> + 'static,
+    ) -> Self {
+        self.expunge_folder = Some(Arc::new(feature));
+        self
+    }
+
+    pub fn with_purge_folder(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn PurgeFolder> + 'static,
+    ) -> Self {
+        self.purge_folder = Some(Arc::new(feature));
+        self
+    }
+
+    pub fn with_delete_folder(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn DeleteFolder> + 'static,
+    ) -> Self {
+        self.delete_folder = Some(Arc::new(feature));
+        self
+    }
+
+    pub async fn build(self) -> Result<BackendV2<C>> {
+        let context = self.context_builder.build().await?;
+        let mut backend = BackendV2::new(context);
+
+        if let Some(feature) = self.add_folder.as_ref() {
+            backend.set_add_folder(feature(&backend.context));
+        }
+
+        if let Some(feature) = self.list_folders.as_ref() {
+            backend.set_list_folders(feature(&backend.context));
+        }
+
+        if let Some(feature) = self.expunge_folder.as_ref() {
+            backend.set_expunge_folder(feature(&backend.context));
+        }
+
+        if let Some(feature) = self.purge_folder.as_ref() {
+            backend.set_purge_folder(feature(&backend.context));
+        }
+
+        if let Some(feature) = self.delete_folder.as_ref() {
+            backend.set_delete_folder(feature(&backend.context));
+        }
+
+        Ok(backend)
+    }
+}
+
+pub struct BackendV2<C> {
+    context: C,
+
+    pub add_folder: Option<Box<dyn AddFolder>>,
+    pub list_folders: Option<Box<dyn ListFolders>>,
+    pub expunge_folder: Option<Box<dyn ExpungeFolder>>,
+    pub purge_folder: Option<Box<dyn PurgeFolder>>,
+    pub delete_folder: Option<Box<dyn DeleteFolder>>,
+}
+
+impl<C> BackendV2<C> {
+    pub fn new(context: C) -> BackendV2<C> {
+        BackendV2 {
+            context,
+            add_folder: None,
+            list_folders: None,
+            expunge_folder: None,
+            purge_folder: None,
+            delete_folder: None,
+        }
+    }
+
+    pub fn set_add_folder(&mut self, feature: Box<dyn AddFolder>) {
+        self.add_folder = Some(feature);
+    }
+
+    pub fn set_list_folders(&mut self, feature: Box<dyn ListFolders>) {
+        self.list_folders = Some(feature);
+    }
+
+    pub fn set_expunge_folder(&mut self, feature: Box<dyn ExpungeFolder>) {
+        self.expunge_folder = Some(feature);
+    }
+
+    pub fn set_purge_folder(&mut self, feature: Box<dyn PurgeFolder>) {
+        self.purge_folder = Some(feature);
+    }
+
+    pub fn set_delete_folder(&mut self, feature: Box<dyn DeleteFolder>) {
+        self.delete_folder = Some(feature);
     }
 
     pub async fn add_folder(&self, folder: &str) -> Result<()> {
@@ -206,30 +346,12 @@ impl BackendV2 {
             .await
     }
 
-    pub fn with_list_folders(mut self, feature: Box<dyn ListFolders>) -> Self {
-        self.list_folders = Some(feature);
-        self
-    }
-
-    pub fn has_list_folders(&self) -> Option<&dyn ListFolders> {
-        self.list_folders.as_ref().map(AsRef::as_ref)
-    }
-
     pub async fn list_folders(&self) -> Result<Folders> {
         self.list_folders
             .as_ref()
             .ok_or(Error::ListFoldersNotAvailableError)?
             .list_folders()
             .await
-    }
-
-    pub fn with_expunge_folder(mut self, feature: Box<dyn ExpungeFolder>) -> Self {
-        self.expunge_folder = Some(feature);
-        self
-    }
-
-    pub fn has_expunge_folder(&self) -> Option<&dyn ExpungeFolder> {
-        self.expunge_folder.as_ref().map(AsRef::as_ref)
     }
 
     pub async fn expunge_folder(&self, folder: &str) -> Result<()> {
@@ -240,30 +362,12 @@ impl BackendV2 {
             .await
     }
 
-    pub fn with_purge_folder(mut self, feature: Box<dyn PurgeFolder>) -> Self {
-        self.purge_folder = Some(feature);
-        self
-    }
-
-    pub fn has_purge_folder(&self) -> Option<&dyn PurgeFolder> {
-        self.purge_folder.as_ref().map(AsRef::as_ref)
-    }
-
     pub async fn purge_folder(&self, folder: &str) -> Result<()> {
         self.purge_folder
             .as_ref()
             .ok_or(Error::PurgeFolderNotAvailableError)?
             .purge_folder(folder)
             .await
-    }
-
-    pub fn with_delete_folder(mut self, feature: Box<dyn DeleteFolder>) -> Self {
-        self.delete_folder = Some(feature);
-        self
-    }
-
-    pub fn has_delete_folder(&self) -> Option<&dyn DeleteFolder> {
-        self.delete_folder.as_ref().map(AsRef::as_ref)
     }
 
     pub async fn delete_folder(&self, folder: &str) -> Result<()> {

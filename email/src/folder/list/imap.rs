@@ -1,20 +1,35 @@
 use async_trait::async_trait;
 use imap_proto::NameAttribute;
 use log::{debug, info};
+use std::error;
+use thiserror::Error;
 use utf7_imap::decode_utf7_imap as decode_utf7;
 
-use crate::{imap::ImapSessionManagerSync, Result};
+use crate::{imap::ImapSessionSync, Result};
 
 use super::{Folder, Folders, ListFolders};
 
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("cannot list imap folders")]
+    ListFoldersError(#[source] imap::Error),
+}
+
+impl Error {
+    pub fn list_folders(err: imap::Error) -> Box<dyn error::Error + Send> {
+        Box::new(Self::ListFoldersError(err))
+    }
+}
+
 #[derive(Debug)]
 pub struct ListImapFolders {
-    session_manager: ImapSessionManagerSync,
+    session: ImapSessionSync,
 }
 
 impl ListImapFolders {
-    pub fn new(session_manager: ImapSessionManagerSync) -> Box<dyn ListFolders> {
-        Box::new(Self { session_manager })
+    pub fn new(session: &ImapSessionSync) -> Box<dyn ListFolders> {
+        let session = session.clone();
+        Box::new(Self { session })
     }
 }
 
@@ -23,10 +38,13 @@ impl ListFolders for ListImapFolders {
     async fn list_folders(&self) -> Result<Folders> {
         info!("listing imap folders");
 
-        let mut session = self.session_manager.lock().await;
+        let mut session = self.session.lock().await;
 
         let folders = session
-            .execute(|session| session.list(Some(""), Some("*")))
+            .execute(
+                |session| session.list(Some(""), Some("*")),
+                Error::list_folders,
+            )
             .await?;
         let folders = Folders::from_iter(folders.iter().filter_map(|folder| {
             if folder.attributes().contains(&NameAttribute::NoSelect) {

@@ -1,19 +1,41 @@
+use std::error;
+
 use async_trait::async_trait;
 use log::{debug, info};
+use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapSessionManagerSync, Result};
+use crate::{imap::ImapSessionSync, Result};
 
 use super::ExpungeFolder;
 
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("cannot select imap folder {1}")]
+    SelectFolderError(#[source] imap::Error, String),
+    #[error("cannot expunge imap folder {1}")]
+    ExpungeFolderError(#[source] imap::Error, String),
+}
+
+impl Error {
+    pub fn select_folder(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
+        Box::new(Self::SelectFolderError(err, folder))
+    }
+
+    pub fn expunge_folder(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
+        Box::new(Self::ExpungeFolderError(err, folder))
+    }
+}
+
 #[derive(Debug)]
 pub struct ExpungeImapFolder {
-    session_manager: ImapSessionManagerSync,
+    session: ImapSessionSync,
 }
 
 impl ExpungeImapFolder {
-    pub fn new(session_manager: ImapSessionManagerSync) -> Box<dyn ExpungeFolder> {
-        Box::new(Self { session_manager })
+    pub fn new(session: &ImapSessionSync) -> Box<dyn ExpungeFolder> {
+        let session = session.clone();
+        Box::new(Self { session })
     }
 }
 
@@ -22,17 +44,24 @@ impl ExpungeFolder for ExpungeImapFolder {
     async fn expunge_folder(&self, folder: &str) -> Result<()> {
         info!("expunging imap folder {folder}");
 
-        let mut session = self.session_manager.lock().await;
+        let mut session = self.session.lock().await;
 
         let folder = session.account_config.get_folder_alias(folder)?;
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
         session
-            .execute(|session| {
-                session.select(&folder_encoded)?;
-                session.expunge()
-            })
+            .execute(
+                |session| session.select(&folder_encoded),
+                |err| Error::select_folder(err, folder.clone()),
+            )
+            .await?;
+
+        session
+            .execute(
+                |session| session.expunge(),
+                |err| Error::expunge_folder(err, folder.clone()),
+            )
             .await?;
 
         Ok(())

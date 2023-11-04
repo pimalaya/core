@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use imap::{extensions::idle::SetReadTimeout, Authenticator, Client, Session};
 use log::{debug, log_enabled, warn, Level};
 use once_cell::sync::Lazy;
@@ -18,7 +19,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     account::{AccountConfig, OAuth2Method},
-    backend::{BackendConfig, ImapAuthConfig, ImapConfig},
+    backend::{BackendConfig, BackendContextBuilder, ImapAuthConfig, ImapConfig},
     Result,
 };
 
@@ -36,7 +37,7 @@ pub enum Error {
     #[error("cannot connect to imap server")]
     ConnectError(#[source] imap::Error),
     #[error("cannot execute imap action")]
-    ExecuteSessionActionError(#[source] imap::Error),
+    ExecuteSessionActionError(#[source] Box<dyn std::error::Error + Send>),
 }
 
 /// Native certificates store, mostly used by
@@ -48,9 +49,6 @@ const ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     }
     store
 });
-
-/// Alias for the IMAP session.
-pub type ImapSession = Session<ImapSessionStream>;
 
 /// Alias for the TLS/SSL stream, which is basically a
 /// [std::net::TcpStream] wrapped by a [rustls::StreamOwned].
@@ -157,9 +155,9 @@ impl Authenticator for OAuthBearer {
     }
 }
 
-/// The IMAP session manager builder.
+/// The IMAP session builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ImapSessionManagerBuilder {
+pub struct ImapSessionBuilder {
     /// The account configuration.
     pub account_config: AccountConfig,
 
@@ -173,7 +171,7 @@ pub struct ImapSessionManagerBuilder {
     disable_cache: bool,
 }
 
-impl ImapSessionManagerBuilder {
+impl ImapSessionBuilder {
     pub fn new(account_config: AccountConfig, imap_config: ImapConfig) -> Self {
         Self {
             account_config,
@@ -193,6 +191,12 @@ impl ImapSessionManagerBuilder {
         self
     }
 
+    /// Credentials setter following the builder pattern.
+    pub fn with_credentials(mut self, credentials: Option<String>) -> Self {
+        self.default_credentials = credentials;
+        self
+    }
+
     /// Default credentials setter following the builder pattern.
     pub async fn with_default_credentials(mut self) -> Result<Self> {
         self.default_credentials = match &self.account_config.backend {
@@ -203,13 +207,18 @@ impl ImapSessionManagerBuilder {
         };
         Ok(self)
     }
+}
 
-    /// Build an IMAP session manager.
+#[async_trait]
+impl BackendContextBuilder for ImapSessionBuilder {
+    type Context = ImapSessionSync;
+
+    /// Build an IMAP sync session.
     ///
     /// The IMAP session is created at this moment. If the session
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new session is created.
-    pub async fn build(self) -> Result<ImapSessionManager> {
+    async fn build(self) -> Result<Self::Context> {
         let creds = self.default_credentials.as_ref();
         let session = match &self.imap_config.auth {
             ImapAuthConfig::Passwd(_) => build_session(&self.imap_config, creds).await,
@@ -230,27 +239,21 @@ impl ImapSessionManagerBuilder {
             }
         }?;
 
-        Ok(ImapSessionManager {
+        Ok(ImapSessionSync::new(ImapSession {
             account_config: self.account_config,
             imap_config: self.imap_config,
             default_credentials: self.default_credentials,
             session,
-        })
-    }
-
-    /// Build a thread-safe IMAP session manager.
-    ///
-    /// The IMAP session is created at this moment. If the session
-    /// cannot be created using the OAuth 2.0 authentication, the
-    /// access token is refreshed first then a new session is created.
-    pub async fn build_sync(self) -> Result<ImapSessionManagerSync> {
-        Ok(ImapSessionManagerSync::new(self.build().await?))
+        }))
     }
 }
 
-/// The IMAP session manager.
+/// The IMAP session.
+///
+/// This session is unsync, which means it cannot be shared between
+/// threads. For the sync version, see [`ImapSessionSync`].
 #[derive(Debug)]
-pub struct ImapSessionManager {
+pub struct ImapSession {
     /// The account configuration.
     pub account_config: AccountConfig,
 
@@ -258,25 +261,26 @@ pub struct ImapSessionManager {
     pub imap_config: ImapConfig,
 
     /// The default IMAP credentials.
-    default_credentials: Option<String>,
+    pub default_credentials: Option<String>,
 
     /// The current IMAP session.
-    session: ImapSession,
+    session: Session<ImapSessionStream>,
 }
 
-impl ImapSessionManager {
-    /// Execute the given action on the current session.
+impl ImapSession {
+    /// Execute the given action on the current IMAP session.
     ///
     /// If an OAuth 2.0 authentication error occurs, the access token
     /// is refreshed and the action is executed once again.
     pub async fn execute<T>(
         &mut self,
-        action: impl Fn(&mut ImapSession) -> imap::Result<T>,
+        action: impl Fn(&mut Session<ImapSessionStream>) -> imap::Result<T>,
+        map_err: impl Fn(imap::Error) -> Box<dyn std::error::Error + Send>,
     ) -> Result<T> {
         match &self.imap_config.auth {
-            ImapAuthConfig::Passwd(_) => {
-                Ok(action(&mut self.session).map_err(Error::ExecuteSessionActionError)?)
-            }
+            ImapAuthConfig::Passwd(_) => Ok(action(&mut self.session)
+                .map_err(map_err)
+                .map_err(Error::ExecuteSessionActionError)?),
             ImapAuthConfig::OAuth2(oauth2_config) => match action(&mut self.session) {
                 Ok(res) => Ok(res),
                 Err(err) => match err {
@@ -285,27 +289,42 @@ impl ImapSessionManager {
                         oauth2_config.refresh_access_token().await?;
                         let creds = self.default_credentials.as_ref();
                         self.session = build_session(&self.imap_config, creds).await?;
-                        Ok(action(&mut self.session).map_err(Error::ExecuteSessionActionError)?)
+                        Ok(action(&mut self.session)
+                            .map_err(map_err)
+                            .map_err(Error::ExecuteSessionActionError)?)
                     }
-                    err => Ok(Err(Error::ExecuteSessionActionError(err))?),
+                    err => Ok(Err(Error::ExecuteSessionActionError(Box::new(err)))?),
                 },
             },
         }
     }
 }
 
-/// The thread-safe version of the IMAP session manager.
-#[derive(Clone, Debug)]
-pub struct ImapSessionManagerSync(Arc<Mutex<ImapSessionManager>>);
-
-impl ImapSessionManagerSync {
-    pub fn new(manager: ImapSessionManager) -> Self {
-        Self(Arc::new(Mutex::new(manager)))
+impl Drop for ImapSession {
+    fn drop(&mut self) {
+        if let Err(err) = self.session.close() {
+            warn!("cannot close imap session: {err}");
+            debug!("cannot close imap session: {err:?}");
+        }
     }
 }
 
-impl Deref for ImapSessionManagerSync {
-    type Target = Mutex<ImapSessionManager>;
+/// The sync version of the IMAP session.
+///
+/// This is just an IMAP session wrapped into a mutex, so the same
+/// IMAP session can be shared and updated across multiple threads.
+#[derive(Clone, Debug)]
+pub struct ImapSessionSync(Arc<Mutex<ImapSession>>);
+
+impl ImapSessionSync {
+    /// Create a new IMAP sync session from an IMAP session.
+    pub fn new(session: ImapSession) -> Self {
+        Self(Arc::new(Mutex::new(session)))
+    }
+}
+
+impl Deref for ImapSessionSync {
+    type Target = Mutex<ImapSession>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -319,10 +338,10 @@ impl Deref for ImapSessionManagerSync {
 /// every time a new session is created. The main use case is for
 /// the synchronization, where multiple sessions can be created in
 /// a row.
-async fn build_session(
+pub async fn build_session(
     imap_config: &ImapConfig,
     credentials: Option<&String>,
-) -> Result<ImapSession> {
+) -> Result<Session<ImapSessionStream>> {
     let mut session = match &imap_config.auth {
         ImapAuthConfig::Passwd(passwd) => {
             debug!("creating session using login and password");
