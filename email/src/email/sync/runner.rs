@@ -25,10 +25,10 @@ pub struct EmailSyncRunner {
     pub id: usize,
 
     /// The local Maildir backend builder.
-    pub local_builder: Arc<MaildirBackendBuilder>,
+    pub local_builder: MaildirBackendBuilder,
 
     /// The remote backend builder.
-    pub remote_builder: Arc<BackendBuilder>,
+    pub remote_builder: BackendBuilder,
 
     /// The synchronization progress callback.
     pub on_progress: AccountSyncProgress,

@@ -8,10 +8,7 @@
 
 use futures::{stream, StreamExt};
 use log::{debug, info, trace, warn};
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     account::{
@@ -41,8 +38,8 @@ pub type FolderSyncCachePatch = Vec<FolderSyncCacheHunk>;
 /// This structure helps you to build a patch and to apply it.
 pub struct FolderSyncPatchManager<'a> {
     account_config: &'a AccountConfig,
-    local_builder: Arc<MaildirBackendBuilder>,
-    remote_builder: Arc<BackendBuilder>,
+    local_builder: MaildirBackendBuilder,
+    remote_builder: BackendBuilder,
     strategy: &'a FolderSyncStrategy,
     on_progress: AccountSyncProgress,
     dry_run: bool,
@@ -52,8 +49,8 @@ impl<'a> FolderSyncPatchManager<'a> {
     /// Creates a new folder synchronization patch manager.
     pub fn new(
         account_config: &'a AccountConfig,
-        local_builder: Arc<MaildirBackendBuilder>,
-        remote_builder: Arc<BackendBuilder>,
+        local_builder: MaildirBackendBuilder,
+        remote_builder: BackendBuilder,
         strategy: &'a FolderSyncStrategy,
         on_progress: AccountSyncProgress,
         dry_run: bool,
@@ -185,8 +182,8 @@ impl<'a> FolderSyncPatchManager<'a> {
     }
 
     async fn process_hunk(
-        local_builder: Arc<MaildirBackendBuilder>,
-        remote_builder: Arc<BackendBuilder>,
+        local_builder: MaildirBackendBuilder,
+        remote_builder: BackendBuilder,
         hunk: &FolderSyncHunk,
     ) -> Result<FolderSyncCachePatch> {
         let cache_hunks = match &hunk {

@@ -150,9 +150,7 @@ pub struct AccountSyncReport {
 
 /// The account synchronization progress callback.
 #[derive(Clone)]
-pub struct AccountSyncProgress(
-    Arc<dyn Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'static>,
-);
+pub struct AccountSyncProgress(Arc<dyn Fn(AccountSyncProgressEvent) -> Result<()> + Send + Sync>);
 
 impl Default for AccountSyncProgress {
     fn default() -> Self {
@@ -161,7 +159,7 @@ impl Default for AccountSyncProgress {
 }
 
 impl AccountSyncProgress {
-    pub fn new(f: impl Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'static) -> Self {
+    pub fn new(f: impl Fn(AccountSyncProgressEvent) -> Result<()> + Send + Sync + 'static) -> Self {
         Self(Arc::new(f))
     }
 
@@ -182,7 +180,7 @@ impl AccountSyncProgress {
 /// given remote builder.
 pub struct AccountSyncBuilder {
     account_config: AccountConfig,
-    remote_builder: Arc<BackendBuilder>,
+    remote_builder: BackendBuilder,
     on_progress: AccountSyncProgress,
     folders_strategy: FolderSyncStrategy,
     dry_run: bool,
@@ -197,12 +195,10 @@ impl<'a> AccountSyncBuilder {
         let folders_strategy = account_config.sync_folders_strategy.clone();
         Ok(Self {
             account_config,
-            remote_builder: Arc::new(
-                remote_builder
-                    .with_cache_disabled(true)
-                    .with_default_credentials()
-                    .await?,
-            ),
+            remote_builder: remote_builder
+                .with_cache_disabled(true)
+                .with_default_credentials()
+                .await?,
             on_progress: Default::default(),
             dry_run: Default::default(),
             folders_strategy,
@@ -212,7 +208,7 @@ impl<'a> AccountSyncBuilder {
     /// Sets the progress callback following the builder pattern.
     pub fn with_on_progress(
         mut self,
-        f: impl Fn(AccountSyncProgressEvent) -> Result<()> + Sync + Send + 'static,
+        f: impl Fn(AccountSyncProgressEvent) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
         self.on_progress = AccountSyncProgress::new(f);
         self
@@ -275,12 +271,12 @@ impl<'a> AccountSyncBuilder {
         FolderSyncCache::init(conn)?;
         EmailSyncCache::init(conn)?;
 
-        let local_builder = Arc::new(MaildirBackendBuilder::new(
+        let local_builder = MaildirBackendBuilder::new(
             self.account_config.clone(),
             MaildirConfig {
                 root_dir: sync_dir.clone(),
             },
-        ));
+        );
 
         debug!("applying folder aliases to the folder sync strategy");
         let folders_strategy = match &self.folders_strategy {
