@@ -11,6 +11,7 @@
 //! This module also contains stuff related to email configuration and
 //! synchronization.
 
+pub mod add;
 pub mod config;
 pub mod envelope;
 pub mod message;

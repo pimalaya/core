@@ -10,5 +10,5 @@ pub mod imap;
 #[async_trait]
 pub trait GetEnvelope: Send + Sync {
     /// Get the envelope from the given folder matching the given id.
-    async fn get_envelope(&mut self, folder: &str, id: &str) -> Result<Envelope>;
+    async fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope>;
 }

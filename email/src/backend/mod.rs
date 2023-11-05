@@ -21,7 +21,9 @@ use thiserror::Error;
 
 use crate::{
     account::AccountConfig,
-    email::{envelope::get::GetEnvelope, Envelope, Envelopes, Flag, Flags, Messages},
+    email::{
+        add::AddEmail, envelope::get::GetEnvelope, Envelope, Envelopes, Flag, Flags, Messages,
+    },
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
         purge::PurgeFolder, Folders,
@@ -31,7 +33,7 @@ use crate::{
 
 pub mod prelude {
     pub use crate::{
-        email::envelope::get::GetEnvelope,
+        email::{add::AddEmail, envelope::get::GetEnvelope},
         folder::{
             add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
             purge::PurgeFolder, Folders,
@@ -55,6 +57,7 @@ pub use self::notmuch::{NotmuchBackend, NotmuchBackendBuilder, NotmuchConfig};
 pub enum Error {
     #[error("cannot build undefined backend")]
     BuildUndefinedBackendError,
+
     #[error("cannot add folder: feature not available")]
     AddFolderNotAvailableError,
     #[error("cannot list folders: feature not available")]
@@ -65,6 +68,12 @@ pub enum Error {
     PurgeFolderNotAvailableError,
     #[error("cannot delete folder: feature not available")]
     DeleteFolderNotAvailableError,
+
+    #[error("cannot add email: feature not available")]
+    AddEmailNotAvailableError,
+
+    #[error("cannot get envelope: feature not available")]
+    GetEnvelopeNotAvailableError,
 }
 
 /// The backend abstraction.
@@ -214,6 +223,8 @@ pub struct BackendBuilderV2<B: BackendContextBuilder> {
     purge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn PurgeFolder> + Send + Sync>>,
     delete_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn DeleteFolder> + Send + Sync>>,
 
+    add_email: Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddEmail> + Send + Sync>>,
+
     get_envelope: Option<Arc<dyn Fn(&B::Context) -> Box<dyn GetEnvelope> + Send + Sync>>,
 }
 
@@ -227,6 +238,8 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
             expunge_folder: None,
             purge_folder: None,
             delete_folder: None,
+
+            add_email: None,
 
             get_envelope: None,
         }
@@ -272,6 +285,14 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
         self
     }
 
+    pub fn with_add_email(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn AddEmail> + Send + Sync + 'static,
+    ) -> Self {
+        self.add_email = Some(Arc::new(feature));
+        self
+    }
+
     pub fn with_get_envelope(
         mut self,
         feature: impl Fn(&C) -> Box<dyn GetEnvelope> + Send + Sync + 'static,
@@ -300,6 +321,10 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
             backend.set_delete_folder(feature(&backend.context));
         }
 
+        if let Some(feature) = self.add_email {
+            backend.set_add_email(feature(&backend.context));
+        }
+
         if let Some(feature) = self.get_envelope {
             backend.set_get_envelope(feature(&backend.context));
         }
@@ -319,6 +344,8 @@ impl<B: BackendContextBuilder> Clone for BackendBuilderV2<B> {
             purge_folder: self.purge_folder.clone(),
             delete_folder: self.delete_folder.clone(),
 
+            add_email: self.add_email.clone(),
+
             get_envelope: self.get_envelope.clone(),
         }
     }
@@ -335,6 +362,8 @@ impl Default for BackendBuilderV2<()> {
             purge_folder: None,
             delete_folder: None,
 
+            add_email: None,
+
             get_envelope: None,
         }
     }
@@ -349,6 +378,8 @@ pub struct BackendV2<C> {
     pub purge_folder: Option<Box<dyn PurgeFolder>>,
     pub delete_folder: Option<Box<dyn DeleteFolder>>,
 
+    pub add_email: Option<Box<dyn AddEmail>>,
+
     pub get_envelope: Option<Box<dyn GetEnvelope>>,
 }
 
@@ -362,6 +393,8 @@ impl<C> BackendV2<C> {
             expunge_folder: None,
             purge_folder: None,
             delete_folder: None,
+
+            add_email: None,
 
             get_envelope: None,
         }
@@ -381,6 +414,10 @@ impl<C> BackendV2<C> {
     }
     pub fn set_delete_folder(&mut self, feature: Box<dyn DeleteFolder>) {
         self.delete_folder = Some(feature);
+    }
+
+    pub fn set_add_email(&mut self, feature: Box<dyn AddEmail>) {
+        self.add_email = Some(feature);
     }
 
     pub fn set_get_envelope(&mut self, feature: Box<dyn GetEnvelope>) {
@@ -439,6 +476,28 @@ impl<C: Send + Sync> DeleteFolder for BackendV2<C> {
             .as_ref()
             .ok_or(Error::DeleteFolderNotAvailableError)?
             .delete_folder(folder)
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: Send + Sync> AddEmail for BackendV2<C> {
+    async fn add_email(&self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
+        self.add_email
+            .as_ref()
+            .ok_or(Error::AddEmailNotAvailableError)?
+            .add_email(folder, email, flags)
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: Send + Sync> GetEnvelope for BackendV2<C> {
+    async fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope> {
+        self.get_envelope
+            .as_ref()
+            .ok_or(Error::GetEnvelopeNotAvailableError)?
+            .get_envelope(folder, id)
             .await
     }
 }

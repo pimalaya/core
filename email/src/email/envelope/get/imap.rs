@@ -59,7 +59,7 @@ impl GetImapEnvelope {
 
 #[async_trait]
 impl GetEnvelope for GetImapEnvelope {
-    async fn get_envelope(&mut self, folder: &str, id: &str) -> Result<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope> {
         info!("getting imap envelope {id} from folder {folder}");
 
         let mut session = self.session.lock().await;
