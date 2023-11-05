@@ -3,6 +3,7 @@
 //! This module contains everything to serialize and deserialize email
 //! envelope flags.
 
+pub mod add;
 #[cfg(feature = "imap-backend")]
 pub mod imap;
 pub mod maildir;
@@ -13,6 +14,7 @@ mod sync;
 use log::{debug, warn};
 use std::{
     collections::HashSet,
+    fmt,
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
     str::FromStr,
@@ -114,16 +116,17 @@ impl TryFrom<String> for Flag {
     }
 }
 
-impl ToString for Flag {
-    fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for Flag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let flag = match self {
             Flag::Seen => "seen".into(),
             Flag::Answered => "answered".into(),
             Flag::Flagged => "flagged".into(),
             Flag::Deleted => "deleted".into(),
             Flag::Draft => "draft".into(),
             Flag::Custom(flag) => flag.clone(),
-        }
+        };
+        write!(f, "{flag}")
     }
 }
 
@@ -142,15 +145,15 @@ impl Hash for Flags {
     }
 }
 
-impl ToString for Flags {
-    fn to_string(&self) -> String {
-        self.iter().fold(String::new(), |mut flags, flag| {
-            if !flags.is_empty() {
-                flags.push(' ')
+impl fmt::Display for Flags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, flag) in self.iter().enumerate() {
+            if i > 0 {
+                write!(f, " ")?;
             }
-            flags.push_str(&flag.to_string());
-            flags
-        })
+            write!(f, "{flag}")?;
+        }
+        Ok(())
     }
 }
 

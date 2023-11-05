@@ -22,7 +22,8 @@ use thiserror::Error;
 use crate::{
     account::AccountConfig,
     email::{
-        add::AddEmail, envelope::get::GetEnvelope, Envelope, Envelopes, Flag, Flags, Messages,
+        envelope::get::GetEnvelope, message::add_raw_with_flags::AddRawMessageWithFlags, Envelope,
+        Envelopes, Flag, Flags, Messages,
     },
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
@@ -33,7 +34,7 @@ use crate::{
 
 pub mod prelude {
     pub use crate::{
-        email::{add::AddEmail, envelope::get::GetEnvelope},
+        email::{envelope::get::GetEnvelope, message::add_raw_with_flags::AddRawMessageWithFlags},
         folder::{
             add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
             purge::PurgeFolder, Folders,
@@ -223,7 +224,7 @@ pub struct BackendBuilderV2<B: BackendContextBuilder> {
     purge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn PurgeFolder> + Send + Sync>>,
     delete_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn DeleteFolder> + Send + Sync>>,
 
-    add_email: Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddEmail> + Send + Sync>>,
+    add_email: Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddRawMessageWithFlags> + Send + Sync>>,
 
     get_envelope: Option<Arc<dyn Fn(&B::Context) -> Box<dyn GetEnvelope> + Send + Sync>>,
 }
@@ -287,7 +288,7 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
 
     pub fn with_add_email(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn AddEmail> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Box<dyn AddRawMessageWithFlags> + Send + Sync + 'static,
     ) -> Self {
         self.add_email = Some(Arc::new(feature));
         self
@@ -378,7 +379,7 @@ pub struct BackendV2<C> {
     pub purge_folder: Option<Box<dyn PurgeFolder>>,
     pub delete_folder: Option<Box<dyn DeleteFolder>>,
 
-    pub add_email: Option<Box<dyn AddEmail>>,
+    pub add_email: Option<Box<dyn AddRawMessageWithFlags>>,
 
     pub get_envelope: Option<Box<dyn GetEnvelope>>,
 }
@@ -416,7 +417,7 @@ impl<C> BackendV2<C> {
         self.delete_folder = Some(feature);
     }
 
-    pub fn set_add_email(&mut self, feature: Box<dyn AddEmail>) {
+    pub fn set_add_email(&mut self, feature: Box<dyn AddRawMessageWithFlags>) {
         self.add_email = Some(feature);
     }
 
@@ -481,12 +482,17 @@ impl<C: Send + Sync> DeleteFolder for BackendV2<C> {
 }
 
 #[async_trait]
-impl<C: Send + Sync> AddEmail for BackendV2<C> {
-    async fn add_email(&self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
+impl<C: Send + Sync> AddRawMessageWithFlags for BackendV2<C> {
+    async fn add_raw_message_with_flags(
+        &self,
+        folder: &str,
+        email: &[u8],
+        flags: &Flags,
+    ) -> Result<String> {
         self.add_email
             .as_ref()
             .ok_or(Error::AddEmailNotAvailableError)?
-            .add_email(folder, email, flags)
+            .add_raw_message_with_flags(folder, email, flags)
             .await
     }
 }

@@ -7,6 +7,7 @@
 pub mod address;
 pub mod flag;
 pub mod get;
+pub mod id;
 #[cfg(feature = "imap-backend")]
 pub mod imap;
 pub mod maildir;
@@ -25,6 +26,7 @@ use super::Message;
 pub use self::{
     address::Address,
     flag::{Flag, Flags},
+    id::{Id, MultipleIds, SingleId},
 };
 
 /// The email envelope.

@@ -7,43 +7,49 @@ use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{imap::ImapSessionSync, Result};
 
-use super::{AddEmail, Flags};
+use super::{AddRawMessageWithFlags, Flags};
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("cannot add raw email to the imap folder {1}")]
-    AppendRawEmailError(#[source] imap::Error, String),
-    #[error("cannot get added email imap uid from range {0}")]
-    GetAddedEmailUidFromRangeError(String),
-    #[error("cannot get added email imap uid (extensions UIDPLUS not enabled on the server?)")]
-    GetAddedEmailUidError,
+    #[error("cannot add raw imap message to folder {1} with flags {2}")]
+    AppendRawMessageWithFlagsError(#[source] imap::Error, String, Flags),
+    #[error("cannot get added imap message uid from range {0}")]
+    GetAddedMessageUidFromRangeError(String),
+    #[error("cannot get added imap message uid: extension UIDPLUS may be missing on the server")]
+    GetAddedMessageUidError,
 }
 
 impl Error {
-    pub fn append_raw_email(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
-        Box::new(Self::AppendRawEmailError(err, folder))
+    pub fn append_raw_email_with_flags(
+        err: imap::Error,
+        folder: String,
+        flags: Flags,
+    ) -> Box<dyn error::Error + Send> {
+        Box::new(Self::AppendRawMessageWithFlagsError(err, folder, flags))
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct AddImapEmail {
+pub struct AddRawImapMessageWithFlags {
     session: ImapSessionSync,
 }
 
-impl AddImapEmail {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn AddEmail> {
+impl AddRawImapMessageWithFlags {
+    pub fn new(session: &ImapSessionSync) -> Box<dyn AddRawMessageWithFlags> {
         let session = session.clone();
         Box::new(Self { session })
     }
 }
 
 #[async_trait]
-impl AddEmail for AddImapEmail {
-    async fn add_email(&self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
-        info!(
-            "adding imap email to folder {folder} with flags {flags}",
-            flags = flags.to_string(),
-        );
+impl AddRawMessageWithFlags for AddRawImapMessageWithFlags {
+    async fn add_raw_message_with_flags(
+        &self,
+        folder: &str,
+        raw_msg: &[u8],
+        flags: &Flags,
+    ) -> Result<String> {
+        info!("adding imap message to folder {folder} with flags {flags}");
 
         let mut session = self.session.lock().await;
 
@@ -55,11 +61,11 @@ impl AddEmail for AddImapEmail {
             .execute(
                 |session| {
                     session
-                        .append(&folder, email)
+                        .append(&folder, raw_msg)
                         .flags(flags.to_imap_flags_vec())
                         .finish()
                 },
-                |err| Error::append_raw_email(err, folder.clone()),
+                |err| Error::append_raw_email_with_flags(err, folder.clone(), flags.clone()),
             )
             .await?;
 
@@ -68,7 +74,7 @@ impl AddEmail for AddImapEmail {
                 UidSetMember::Uid(uid) => Ok(*uid),
                 UidSetMember::UidRange(uids) => Ok(uids.next().ok_or_else(|| {
                     crate::imap::Error::ExecuteSessionActionError(Box::new(
-                        Error::GetAddedEmailUidFromRangeError(uids.fold(
+                        Error::GetAddedMessageUidFromRangeError(uids.fold(
                             String::new(),
                             |range, uid| {
                                 if range.is_empty() {
@@ -82,14 +88,13 @@ impl AddEmail for AddImapEmail {
                 })?),
             },
             _ => {
-                // TODO: find a way to retrieve the UID of the added
-                // email (by Message-ID?)
+                // TODO: manage other cases
                 Err(crate::imap::Error::ExecuteSessionActionError(Box::new(
-                    Error::GetAddedEmailUidError,
+                    Error::GetAddedMessageUidError,
                 )))
             }
         }?;
-        debug!("uid: {uid}");
+        debug!("added message uid: {uid}");
 
         Ok(uid.to_string())
     }

@@ -7,7 +7,7 @@ async fn test_imap_backend() {
         backend::{
             prelude::*, BackendBuilder, BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig,
         },
-        email::{add::imap::AddImapEmail, Flag},
+        email::{add::imap::AddRawImapMessageWithFlags, Flag},
         folder::{
             add::imap::AddImapFolder, delete::imap::DeleteImapFolder,
             expunge::imap::ExpungeImapFolder, list::imap::ListImapFolders,
@@ -45,7 +45,7 @@ async fn test_imap_backend() {
         .with_expunge_folder(ExpungeImapFolder::new)
         .with_purge_folder(PurgeImapFolder::new)
         .with_delete_folder(DeleteImapFolder::new)
-        .with_add_email(AddImapEmail::new);
+        .with_add_email(AddRawImapMessageWithFlags::new);
     let backend_v2 = backend_builder_v2.build().await.unwrap();
 
     let imap_builder = BackendBuilder::new(config.clone());
@@ -78,7 +78,7 @@ async fn test_imap_backend() {
     let email = compiler.compile().await.unwrap().into_vec().unwrap();
 
     let id = backend_v2
-        .add_email("Sent", &email, &("seen".into()))
+        .add_raw_message_with_flags("Sent", &email, &("seen".into()))
         .await
         .unwrap()
         .to_string();
