@@ -21,13 +21,23 @@ use thiserror::Error;
 
 use crate::{
     account::AccountConfig,
-    email::{Envelope, Envelopes, Flag, Flags, Messages},
+    email::{envelope::get::GetEnvelope, Envelope, Envelopes, Flag, Flags, Messages},
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
         purge::PurgeFolder, Folders,
     },
     Result,
 };
+
+pub mod prelude {
+    pub use crate::{
+        email::envelope::get::GetEnvelope,
+        folder::{
+            add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
+            purge::PurgeFolder, Folders,
+        },
+    };
+}
 
 #[doc(inline)]
 pub use self::config::BackendConfig;
@@ -203,17 +213,22 @@ pub struct BackendBuilderV2<B: BackendContextBuilder> {
     expunge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ExpungeFolder> + Send + Sync>>,
     purge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn PurgeFolder> + Send + Sync>>,
     delete_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn DeleteFolder> + Send + Sync>>,
+
+    get_envelope: Option<Arc<dyn Fn(&B::Context) -> Box<dyn GetEnvelope> + Send + Sync>>,
 }
 
 impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
     pub fn new(context_builder: B) -> Self {
         Self {
             context_builder,
+
             add_folder: None,
             list_folders: None,
             expunge_folder: None,
             purge_folder: None,
             delete_folder: None,
+
+            get_envelope: None,
         }
     }
 
@@ -257,6 +272,14 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
         self
     }
 
+    pub fn with_get_envelope(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn GetEnvelope> + Send + Sync + 'static,
+    ) -> Self {
+        self.get_envelope = Some(Arc::new(feature));
+        self
+    }
+
     pub async fn build(self) -> Result<BackendV2<C>> {
         let context = self.context_builder.build().await?;
         let mut backend = BackendV2::new(context);
@@ -264,21 +287,21 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
         if let Some(feature) = self.add_folder {
             backend.set_add_folder(feature(&backend.context));
         }
-
         if let Some(feature) = self.list_folders {
             backend.set_list_folders(feature(&backend.context));
         }
-
         if let Some(feature) = self.expunge_folder {
             backend.set_expunge_folder(feature(&backend.context));
         }
-
         if let Some(feature) = self.purge_folder {
             backend.set_purge_folder(feature(&backend.context));
         }
-
         if let Some(feature) = self.delete_folder {
             backend.set_delete_folder(feature(&backend.context));
+        }
+
+        if let Some(feature) = self.get_envelope {
+            backend.set_get_envelope(feature(&backend.context));
         }
 
         Ok(backend)
@@ -289,11 +312,14 @@ impl<B: BackendContextBuilder> Clone for BackendBuilderV2<B> {
     fn clone(&self) -> Self {
         Self {
             context_builder: self.context_builder.clone(),
+
             add_folder: self.add_folder.clone(),
             list_folders: self.list_folders.clone(),
             expunge_folder: self.expunge_folder.clone(),
             purge_folder: self.purge_folder.clone(),
             delete_folder: self.delete_folder.clone(),
+
+            get_envelope: self.get_envelope.clone(),
         }
     }
 }
@@ -302,11 +328,14 @@ impl Default for BackendBuilderV2<()> {
     fn default() -> Self {
         Self {
             context_builder: (),
+
             add_folder: None,
             list_folders: None,
             expunge_folder: None,
             purge_folder: None,
             delete_folder: None,
+
+            get_envelope: None,
         }
     }
 }
@@ -319,73 +348,93 @@ pub struct BackendV2<C> {
     pub expunge_folder: Option<Box<dyn ExpungeFolder>>,
     pub purge_folder: Option<Box<dyn PurgeFolder>>,
     pub delete_folder: Option<Box<dyn DeleteFolder>>,
+
+    pub get_envelope: Option<Box<dyn GetEnvelope>>,
 }
 
 impl<C> BackendV2<C> {
     pub fn new(context: C) -> BackendV2<C> {
         BackendV2 {
             context,
+
             add_folder: None,
             list_folders: None,
             expunge_folder: None,
             purge_folder: None,
             delete_folder: None,
+
+            get_envelope: None,
         }
     }
 
     pub fn set_add_folder(&mut self, feature: Box<dyn AddFolder>) {
         self.add_folder = Some(feature);
     }
-
     pub fn set_list_folders(&mut self, feature: Box<dyn ListFolders>) {
         self.list_folders = Some(feature);
     }
-
     pub fn set_expunge_folder(&mut self, feature: Box<dyn ExpungeFolder>) {
         self.expunge_folder = Some(feature);
     }
-
     pub fn set_purge_folder(&mut self, feature: Box<dyn PurgeFolder>) {
         self.purge_folder = Some(feature);
     }
-
     pub fn set_delete_folder(&mut self, feature: Box<dyn DeleteFolder>) {
         self.delete_folder = Some(feature);
     }
 
-    pub async fn add_folder(&self, folder: &str) -> Result<()> {
+    pub fn set_get_envelope(&mut self, feature: Box<dyn GetEnvelope>) {
+        self.get_envelope = Some(feature);
+    }
+}
+
+#[async_trait]
+impl<C: Send + Sync> AddFolder for BackendV2<C> {
+    async fn add_folder(&self, folder: &str) -> Result<()> {
         self.add_folder
             .as_ref()
             .ok_or(Error::AddFolderNotAvailableError)?
             .add_folder(folder)
             .await
     }
+}
 
-    pub async fn list_folders(&self) -> Result<Folders> {
+#[async_trait]
+impl<C: Send + Sync> ListFolders for BackendV2<C> {
+    async fn list_folders(&self) -> Result<Folders> {
         self.list_folders
             .as_ref()
             .ok_or(Error::ListFoldersNotAvailableError)?
             .list_folders()
             .await
     }
+}
 
-    pub async fn expunge_folder(&self, folder: &str) -> Result<()> {
+#[async_trait]
+impl<C: Send + Sync> ExpungeFolder for BackendV2<C> {
+    async fn expunge_folder(&self, folder: &str) -> Result<()> {
         self.expunge_folder
             .as_ref()
             .ok_or(Error::ExpungeFolderNotAvailableError)?
             .expunge_folder(folder)
             .await
     }
+}
 
-    pub async fn purge_folder(&self, folder: &str) -> Result<()> {
+#[async_trait]
+impl<C: Send + Sync> PurgeFolder for BackendV2<C> {
+    async fn purge_folder(&self, folder: &str) -> Result<()> {
         self.purge_folder
             .as_ref()
             .ok_or(Error::PurgeFolderNotAvailableError)?
             .purge_folder(folder)
             .await
     }
+}
 
-    pub async fn delete_folder(&self, folder: &str) -> Result<()> {
+#[async_trait]
+impl<C: Send + Sync> DeleteFolder for BackendV2<C> {
+    async fn delete_folder(&self, folder: &str) -> Result<()> {
         self.delete_folder
             .as_ref()
             .ok_or(Error::DeleteFolderNotAvailableError)?

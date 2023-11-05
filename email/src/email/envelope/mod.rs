@@ -6,6 +6,7 @@
 
 pub mod address;
 pub mod flag;
+pub mod get;
 #[cfg(feature = "imap-backend")]
 pub mod imap;
 pub mod maildir;

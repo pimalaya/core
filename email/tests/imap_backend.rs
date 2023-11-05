@@ -4,7 +4,9 @@ async fn test_imap_backend() {
     use concat_with::concat_line;
     use email::{
         account::{AccountConfig, PasswdConfig},
-        backend::{BackendBuilder, BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig},
+        backend::{
+            prelude::*, BackendBuilder, BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig,
+        },
         email::Flag,
         folder::{
             add::imap::AddImapFolder, delete::imap::DeleteImapFolder,

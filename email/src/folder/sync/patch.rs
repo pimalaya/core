@@ -16,6 +16,7 @@ use crate::{
         AccountConfig,
     },
     backend::{Backend, BackendBuilderV2, BackendContextBuilder, MaildirBackendBuilder},
+    folder::{add::AddFolder, delete::DeleteFolder, list::ListFolders},
     Result,
 };
 
