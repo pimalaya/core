@@ -18,7 +18,10 @@ use thiserror::Error;
 
 use crate::{
     account::AccountConfig,
-    backend::{Backend, BackendBuilder, MaildirBackendBuilder, MaildirConfig},
+    backend::{
+        Backend, BackendBuilder, BackendBuilderV2, BackendContextBuilder, MaildirBackendBuilder,
+        MaildirConfig,
+    },
     email::sync::{
         EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
         EmailSyncPatchManager,
@@ -178,20 +181,22 @@ impl AccountSyncProgress {
 /// but it follows the builder pattern. When all the options are set
 /// up, `sync()` synchronizes the current account locally, using the
 /// given remote builder.
-pub struct AccountSyncBuilder {
+pub struct AccountSyncBuilder<B: BackendContextBuilder> {
     account_config: AccountConfig,
     remote_builder: BackendBuilder,
+    remote_builder_v2: BackendBuilderV2<B>,
     on_progress: AccountSyncProgress,
     folders_strategy: FolderSyncStrategy,
     dry_run: bool,
 }
 
-impl<'a> AccountSyncBuilder {
+impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
     /// Creates a new account synchronization builder.
     pub async fn new(
         account_config: AccountConfig,
         remote_builder: BackendBuilder,
-    ) -> Result<AccountSyncBuilder> {
+        remote_builder_v2: BackendBuilderV2<B>,
+    ) -> Result<AccountSyncBuilder<B>> {
         let folders_strategy = account_config.sync_folders_strategy.clone();
         Ok(Self {
             account_config,
@@ -199,6 +204,7 @@ impl<'a> AccountSyncBuilder {
                 .with_cache_disabled(true)
                 .with_default_credentials()
                 .await?,
+            remote_builder_v2,
             on_progress: Default::default(),
             dry_run: Default::default(),
             folders_strategy,
@@ -301,7 +307,7 @@ impl<'a> AccountSyncBuilder {
         let folder_sync_patch_manager = FolderSyncPatchManager::new(
             &self.account_config,
             local_builder.clone(),
-            self.remote_builder.clone(),
+            self.remote_builder_v2.clone(),
             &folders_strategy,
             self.on_progress.clone(),
             self.dry_run,
@@ -311,11 +317,11 @@ impl<'a> AccountSyncBuilder {
         let folder_sync_patch = folder_sync_patch_manager.build_patches().await?;
         debug!("{folder_sync_patch:#?}");
 
-        debug!("applying folder sync patch");
+        info!("applying folder sync patch");
         let folder_sync_report = folder_sync_patch_manager
             .apply_patches(folder_sync_patch)
             .await?;
-        debug!("{folder_sync_report:#?}");
+        info!("{folder_sync_report:#?}");
 
         let folders = folder_sync_report.folders.clone();
 

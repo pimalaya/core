@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use std::fmt::Debug;
 
 use crate::Result;
 
@@ -9,7 +8,7 @@ use super::{Folder, Folders};
 pub mod imap;
 
 #[async_trait]
-pub trait ListFolders: Debug {
+pub trait ListFolders: Send + Sync {
     /// List all available folders (alias mailboxes).
     async fn list_folders(&self) -> Result<Folders>;
 }

@@ -15,7 +15,7 @@ use crate::{
         sync::{AccountSyncProgress, AccountSyncProgressEvent, Destination},
         AccountConfig,
     },
-    backend::{Backend, BackendBuilder, MaildirBackendBuilder},
+    backend::{Backend, BackendBuilderV2, BackendContextBuilder, MaildirBackendBuilder},
     Result,
 };
 
@@ -36,21 +36,21 @@ pub type FolderSyncCachePatch = Vec<FolderSyncCacheHunk>;
 /// The folder synchronization patch manager.
 ///
 /// This structure helps you to build a patch and to apply it.
-pub struct FolderSyncPatchManager<'a> {
+pub struct FolderSyncPatchManager<'a, B: BackendContextBuilder> {
     account_config: &'a AccountConfig,
     local_builder: MaildirBackendBuilder,
-    remote_builder: BackendBuilder,
+    remote_builder_v2: BackendBuilderV2<B>,
     strategy: &'a FolderSyncStrategy,
     on_progress: AccountSyncProgress,
     dry_run: bool,
 }
 
-impl<'a> FolderSyncPatchManager<'a> {
+impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
     /// Creates a new folder synchronization patch manager.
     pub fn new(
         account_config: &'a AccountConfig,
         local_builder: MaildirBackendBuilder,
-        remote_builder: BackendBuilder,
+        remote_builder_v2: BackendBuilderV2<B>,
         strategy: &'a FolderSyncStrategy,
         on_progress: AccountSyncProgress,
         dry_run: bool,
@@ -58,7 +58,7 @@ impl<'a> FolderSyncPatchManager<'a> {
         Self {
             account_config,
             local_builder,
-            remote_builder,
+            remote_builder_v2,
             strategy,
             on_progress,
             dry_run,
@@ -132,7 +132,8 @@ impl<'a> FolderSyncPatchManager<'a> {
             .emit(AccountSyncProgressEvent::GetRemoteFolders);
 
         let remote_folders: FoldersName = HashSet::from_iter(
-            self.remote_builder
+            self.remote_builder_v2
+                .clone()
                 .build()
                 .await?
                 .list_folders()
@@ -183,7 +184,7 @@ impl<'a> FolderSyncPatchManager<'a> {
 
     async fn process_hunk(
         local_builder: MaildirBackendBuilder,
-        remote_builder: BackendBuilder,
+        remote_builder_v2: BackendBuilderV2<B>,
         hunk: &FolderSyncHunk,
     ) -> Result<FolderSyncCachePatch> {
         let cache_hunks = match &hunk {
@@ -204,7 +205,7 @@ impl<'a> FolderSyncPatchManager<'a> {
                 )]
             }
             FolderSyncHunk::Create(ref folder, Destination::Remote) => {
-                remote_builder.build().await?.add_folder(&folder).await?;
+                remote_builder_v2.build().await?.add_folder(&folder).await?;
                 vec![]
             }
             FolderSyncHunk::Uncache(ref folder, Destination::Local) => {
@@ -224,7 +225,11 @@ impl<'a> FolderSyncPatchManager<'a> {
                 )]
             }
             FolderSyncHunk::Delete(ref folder, Destination::Remote) => {
-                remote_builder.build().await?.delete_folder(&folder).await?;
+                remote_builder_v2
+                    .build()
+                    .await?
+                    .delete_folder(&folder)
+                    .await?;
                 vec![]
             }
         };
@@ -262,7 +267,7 @@ impl<'a> FolderSyncPatchManager<'a> {
                 .map(|hunk| {
                     let on_progress = self.on_progress.clone();
                     let local_builder = self.local_builder.clone();
-                    let remote_builder = self.remote_builder.clone();
+                    let remote_builder_v2 = self.remote_builder_v2.clone();
 
                     tokio::spawn(async move {
                         debug!("processing folder hunk: {hunk:?}");
@@ -271,7 +276,7 @@ impl<'a> FolderSyncPatchManager<'a> {
 
                         on_progress.emit(AccountSyncProgressEvent::ApplyFolderHunk(hunk.clone()));
 
-                        match Self::process_hunk(local_builder, remote_builder, &hunk).await {
+                        match Self::process_hunk(local_builder, remote_builder_v2, &hunk).await {
                             Ok(cache_hunks) => {
                                 report.patch.push((hunk.clone(), None));
                                 report.cache_patch.0.extend(cache_hunks);

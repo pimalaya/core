@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use std::fmt::Debug;
 
 use crate::Result;
 
@@ -7,7 +6,7 @@ use crate::Result;
 pub mod imap;
 
 #[async_trait]
-pub trait PurgeFolder: Debug {
+pub trait PurgeFolder: Send + Sync {
     /// Purge the given folder.
     ///
     /// Manipulate with caution: all emails contained in the given

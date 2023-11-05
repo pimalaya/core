@@ -1,11 +1,14 @@
 use email::{
     account::{sync::AccountSyncBuilder, AccountConfig, PasswdConfig},
     backend::{
-        Backend, BackendBuilder, BackendConfig, ImapAuthConfig, ImapConfig, MaildirBackend,
-        MaildirConfig,
+        Backend, BackendBuilder, BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig,
+        MaildirBackend, MaildirConfig,
     },
     email::{sync::EmailSyncCache, Flag, Flags},
-    folder,
+    folder::{
+        self, add::imap::AddImapFolder, delete::imap::DeleteImapFolder, list::imap::ListImapFolders,
+    },
+    imap::ImapSessionBuilder,
 };
 use env_logger;
 use mail_builder::MessageBuilder;
@@ -20,22 +23,23 @@ async fn sync() {
     // set up config
 
     let sync_dir = tempdir().unwrap().path().join("sync-dir");
+    let imap_config = ImapConfig {
+        host: "localhost".into(),
+        port: 3143,
+        ssl: Some(false),
+        starttls: Some(false),
+        insecure: Some(true),
+        login: "bob@localhost".into(),
+        auth: ImapAuthConfig::Passwd(PasswdConfig {
+            passwd: Secret::new_raw("password"),
+        }),
+        ..ImapConfig::default()
+    };
     let config = AccountConfig {
         name: "account".into(),
         sync: true,
         sync_dir: Some(sync_dir.clone()),
-        backend: BackendConfig::Imap(ImapConfig {
-            host: "localhost".into(),
-            port: 3143,
-            ssl: Some(false),
-            starttls: Some(false),
-            insecure: Some(true),
-            login: "bob@localhost".into(),
-            auth: ImapAuthConfig::Passwd(PasswdConfig {
-                passwd: Secret::new_raw("password"),
-            }),
-            ..ImapConfig::default()
-        }),
+        backend: BackendConfig::Imap(imap_config.clone()),
         ..AccountConfig::default()
     };
 
@@ -164,7 +168,13 @@ async fn sync() {
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
 
-    let sync_builder = AccountSyncBuilder::new(config.clone(), imap_builder)
+    let backend_context_v2 = ImapSessionBuilder::new(config.clone(), imap_config);
+    let backend_builder_v2 = BackendBuilderV2::new(backend_context_v2)
+        .with_add_folder(AddImapFolder::new)
+        .with_list_folders(ListImapFolders::new)
+        .with_delete_folder(DeleteImapFolder::new);
+
+    let sync_builder = AccountSyncBuilder::new(config.clone(), imap_builder, backend_builder_v2)
         .await
         .unwrap();
     sync_builder.sync().await.unwrap();

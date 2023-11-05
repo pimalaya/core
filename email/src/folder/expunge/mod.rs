@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use std::fmt::Debug;
 
 use crate::Result;
 
@@ -7,7 +6,7 @@ use crate::Result;
 pub mod imap;
 
 #[async_trait]
-pub trait ExpungeFolder: Debug {
+pub trait ExpungeFolder: Send + Sync {
     /// Expunge the given folder.
     ///
     /// The concept is similar to the IMAP expunge: it definitely

@@ -180,8 +180,8 @@ pub trait Backend: Send {
 }
 
 #[async_trait]
-pub trait BackendContextBuilder {
-    type Context;
+pub trait BackendContextBuilder: Clone + Send + Sync {
+    type Context: Send + Sync;
 
     async fn build(self) -> Result<Self::Context>;
 }
@@ -195,28 +195,14 @@ impl BackendContextBuilder for () {
     }
 }
 
-#[derive(Clone)]
 pub struct BackendBuilderV2<B: BackendContextBuilder> {
-    context_builder: B,
+    pub context_builder: B,
 
-    add_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddFolder>>>,
-    list_folders: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ListFolders>>>,
-    expunge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ExpungeFolder>>>,
-    purge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn PurgeFolder>>>,
-    delete_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn DeleteFolder>>>,
-}
-
-impl Default for BackendBuilderV2<()> {
-    fn default() -> Self {
-        Self {
-            context_builder: (),
-            add_folder: None,
-            list_folders: None,
-            expunge_folder: None,
-            purge_folder: None,
-            delete_folder: None,
-        }
-    }
+    add_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddFolder> + Send + Sync>>,
+    list_folders: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ListFolders> + Send + Sync>>,
+    expunge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ExpungeFolder> + Send + Sync>>,
+    purge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn PurgeFolder> + Send + Sync>>,
+    delete_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn DeleteFolder> + Send + Sync>>,
 }
 
 impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
@@ -231,14 +217,17 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
         }
     }
 
-    pub fn with_add_folder(mut self, feature: impl Fn(&C) -> Box<dyn AddFolder> + 'static) -> Self {
+    pub fn with_add_folder(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn AddFolder> + Send + Sync + 'static,
+    ) -> Self {
         self.add_folder = Some(Arc::new(feature));
         self
     }
 
     pub fn with_list_folders(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn ListFolders> + 'static,
+        feature: impl Fn(&C) -> Box<dyn ListFolders> + Send + Sync + 'static,
     ) -> Self {
         self.list_folders = Some(Arc::new(feature));
         self
@@ -246,7 +235,7 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
 
     pub fn with_expunge_folder(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn ExpungeFolder> + 'static,
+        feature: impl Fn(&C) -> Box<dyn ExpungeFolder> + Send + Sync + 'static,
     ) -> Self {
         self.expunge_folder = Some(Arc::new(feature));
         self
@@ -254,7 +243,7 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
 
     pub fn with_purge_folder(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn PurgeFolder> + 'static,
+        feature: impl Fn(&C) -> Box<dyn PurgeFolder> + Send + Sync + 'static,
     ) -> Self {
         self.purge_folder = Some(Arc::new(feature));
         self
@@ -262,7 +251,7 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
 
     pub fn with_delete_folder(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn DeleteFolder> + 'static,
+        feature: impl Fn(&C) -> Box<dyn DeleteFolder> + Send + Sync + 'static,
     ) -> Self {
         self.delete_folder = Some(Arc::new(feature));
         self
@@ -272,27 +261,53 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
         let context = self.context_builder.build().await?;
         let mut backend = BackendV2::new(context);
 
-        if let Some(feature) = self.add_folder.as_ref() {
+        if let Some(feature) = self.add_folder {
             backend.set_add_folder(feature(&backend.context));
         }
 
-        if let Some(feature) = self.list_folders.as_ref() {
+        if let Some(feature) = self.list_folders {
             backend.set_list_folders(feature(&backend.context));
         }
 
-        if let Some(feature) = self.expunge_folder.as_ref() {
+        if let Some(feature) = self.expunge_folder {
             backend.set_expunge_folder(feature(&backend.context));
         }
 
-        if let Some(feature) = self.purge_folder.as_ref() {
+        if let Some(feature) = self.purge_folder {
             backend.set_purge_folder(feature(&backend.context));
         }
 
-        if let Some(feature) = self.delete_folder.as_ref() {
+        if let Some(feature) = self.delete_folder {
             backend.set_delete_folder(feature(&backend.context));
         }
 
         Ok(backend)
+    }
+}
+
+impl<B: BackendContextBuilder> Clone for BackendBuilderV2<B> {
+    fn clone(&self) -> Self {
+        Self {
+            context_builder: self.context_builder.clone(),
+            add_folder: self.add_folder.clone(),
+            list_folders: self.list_folders.clone(),
+            expunge_folder: self.expunge_folder.clone(),
+            purge_folder: self.purge_folder.clone(),
+            delete_folder: self.delete_folder.clone(),
+        }
+    }
+}
+
+impl Default for BackendBuilderV2<()> {
+    fn default() -> Self {
+        Self {
+            context_builder: (),
+            add_folder: None,
+            list_folders: None,
+            expunge_folder: None,
+            purge_folder: None,
+            delete_folder: None,
+        }
     }
 }
 

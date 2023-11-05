@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use imap::{extensions::idle::SetReadTimeout, Authenticator, Client, Session};
-use log::{debug, log_enabled, warn, Level};
+use log::{debug, info, log_enabled, warn, Level};
 use once_cell::sync::Lazy;
 use rustls::{
     client::{ServerCertVerified, ServerCertVerifier},
@@ -219,6 +219,7 @@ impl BackendContextBuilder for ImapSessionBuilder {
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new session is created.
     async fn build(self) -> Result<Self::Context> {
+        info!("building new imap session");
         let creds = self.default_credentials.as_ref();
         let session = match &self.imap_config.auth {
             ImapAuthConfig::Passwd(_) => build_session(&self.imap_config, creds).await,
@@ -305,6 +306,10 @@ impl Drop for ImapSession {
         if let Err(err) = self.session.close() {
             warn!("cannot close imap session: {err}");
             debug!("cannot close imap session: {err:?}");
+        }
+        if let Err(err) = self.session.logout() {
+            warn!("cannot logout imap session: {err}");
+            debug!("cannot logout imap session: {err:?}");
         }
     }
 }
