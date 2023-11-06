@@ -1,6 +1,11 @@
 use async_trait::async_trait;
 
-use crate::{email::Flags, Result};
+use crate::{
+    email::{envelope::Id, flag::add::AddFlags, Flags},
+    Result,
+};
+
+use super::add_raw::AddRawMessage;
 
 #[cfg(feature = "imap-backend")]
 pub mod imap;
@@ -14,5 +19,19 @@ pub trait AddRawMessageWithFlags: Send + Sync {
         folder: &str,
         raw_msg: &[u8],
         flags: &Flags,
-    ) -> Result<String>;
+    ) -> Result<Id>;
+}
+
+#[async_trait]
+impl<T: AddRawMessage + AddFlags> AddRawMessageWithFlags for T {
+    async fn add_raw_message_with_flags(
+        &self,
+        folder: &str,
+        raw_msg: &[u8],
+        flags: &Flags,
+    ) -> Result<Id> {
+        let id = self.add_raw_message(folder, raw_msg).await?;
+        self.add_flags(folder, &id, flags).await?;
+        Ok(id)
+    }
 }

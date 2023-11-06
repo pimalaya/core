@@ -149,7 +149,7 @@ impl fmt::Display for Flags {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (i, flag) in self.iter().enumerate() {
             if i > 0 {
-                write!(f, " ")?;
+                write!(f, ", ")?;
             }
             write!(f, "{flag}")?;
         }
@@ -206,7 +206,7 @@ impl FromStr for Flags {
 
 impl FromIterator<Flag> for Flags {
     fn from_iter<T: IntoIterator<Item = Flag>>(iter: T) -> Self {
-        Flags(iter.into_iter().collect())
+        Self(iter.into_iter().collect())
     }
 }
 

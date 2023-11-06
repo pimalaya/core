@@ -1,24 +1,23 @@
-use std::error;
-
 use async_trait::async_trait;
 use log::{debug, info};
+use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{
-    email::{envelope::Id, Flag},
+    email::{envelope::Id, Flags},
     imap::ImapSessionSync,
     Result,
 };
 
-use super::AddFlag;
+use super::AddFlags;
 
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
     SelectFolderError(#[source] imap::Error, String),
-    #[error("cannot add flag {3} to envelope(s) {2} from folder {1}")]
-    AddFlagError(#[source] imap::Error, String, Id, Flag),
+    #[error("cannot add flags {3} to envelope(s) {2} from folder {1}")]
+    AddFlagError(#[source] imap::Error, String, Id, Flags),
 }
 
 impl Error {
@@ -26,34 +25,33 @@ impl Error {
         Box::new(Self::SelectFolderError(err, folder))
     }
 
-    pub fn add_flag(
+    pub fn add_flags(
         err: imap::Error,
         folder: String,
         id: Id,
-        flag: Flag,
+        flags: Flags,
     ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::AddFlagError(err, folder, id, flag))
+        Box::new(Self::AddFlagError(err, folder, id, flags))
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct AddImapFlag {
+pub struct AddImapFlags {
     session: ImapSessionSync,
 }
 
-impl AddImapFlag {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn AddFlag> {
+impl AddImapFlags {
+    pub fn new(session: &ImapSessionSync) -> Box<dyn AddFlags> {
         let session = session.clone();
         Box::new(Self { session })
     }
 }
 
 #[async_trait]
-impl AddFlag for AddImapFlag {
-    async fn add_flag(&mut self, folder: &str, id: Id, flag: Flag) -> Result<()> {
-        info!("adding flag {flag} to imap envelope {id} from folder {folder}");
+impl AddFlags for AddImapFlags {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        info!("adding imap flag(s) {flags} to envelope {id} from folder {folder}");
 
-        let uids = id.join(",");
         let mut session = self.session.lock().await;
 
         let folder = session.account_config.get_folder_alias(folder)?;
@@ -70,10 +68,10 @@ impl AddFlag for AddImapFlag {
         session
             .execute(
                 |session| {
-                    let query = format!("+FLAGS ({})", flag.to_imap_query_string());
-                    session.uid_store(&uids, query)
+                    let query = format!("+FLAGS ({})", flags.to_imap_query_string());
+                    session.uid_store(id.join(","), query)
                 },
-                |err| Error::add_flag(err, folder.clone(), id.clone(), flag.clone()),
+                |err| Error::add_flags(err, folder.clone(), id.clone(), flags.clone()),
             )
             .await?;
 

@@ -22,8 +22,9 @@ use thiserror::Error;
 use crate::{
     account::AccountConfig,
     email::{
-        envelope::get::GetEnvelope, message::add_raw_with_flags::AddRawMessageWithFlags, Envelope,
-        Envelopes, Flag, Flags, Messages,
+        envelope::{get::GetEnvelope, Id},
+        message::add_raw_with_flags::AddRawMessageWithFlags,
+        Envelope, Envelopes, Flag, Flags, Messages,
     },
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
@@ -488,7 +489,7 @@ impl<C: Send + Sync> AddRawMessageWithFlags for BackendV2<C> {
         folder: &str,
         email: &[u8],
         flags: &Flags,
-    ) -> Result<String> {
+    ) -> Result<Id> {
         self.add_email
             .as_ref()
             .ok_or(Error::AddEmailNotAvailableError)?

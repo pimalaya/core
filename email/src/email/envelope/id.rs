@@ -19,6 +19,14 @@ impl fmt::Display for Id {
 }
 
 impl Id {
+    pub fn single(id: impl ToString) -> Self {
+        Self::Single(id.to_string().into())
+    }
+
+    pub fn multiple(id: impl IntoIterator<Item = impl ToString>) -> Self {
+        Self::Multiple(id.into())
+    }
+
     pub fn join(&self, sep: impl AsRef<str>) -> String {
         match self {
             Self::Single(id) => id.to_string(),

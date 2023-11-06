@@ -7,6 +7,7 @@
 //! is just wrapper around the [mail_parser::Message] struct.
 
 pub mod add_raw;
+pub mod add_raw_with_flag;
 pub mod add_raw_with_flags;
 pub mod attachment;
 pub mod template;
