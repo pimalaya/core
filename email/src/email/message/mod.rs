@@ -9,6 +9,7 @@
 pub mod add_raw;
 pub mod add_raw_with_flags;
 pub mod attachment;
+pub mod copy;
 pub mod get;
 pub mod peek;
 pub mod template;
@@ -33,6 +34,7 @@ pub use self::{
     add_raw::AddRawMessage,
     add_raw_with_flags::AddRawMessageWithFlags,
     attachment::Attachment,
+    copy::CopyMessages,
     get::GetMessages,
     peek::PeekMessages,
     template::{ForwardTplBuilder, NewTplBuilder, ReplyTplBuilder},

@@ -30,6 +30,7 @@
 //! - [`AddRawMessageWithFlags`](crate::email::message::AddRawMessageWithFlags) (implemented for `T: AddRawMessage + AddFlags`)
 //! - [`PeekMessages`](crate::email::message::PeekMessages)
 //! - [`GetMessages`](crate::email::message::GetMessages) (implemented for `T: PeekMessages + AddFlags`)
+//! - [`CopyMessages`](crate::email::message::CopyMessages)
 //!
 
 pub mod account;
