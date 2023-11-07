@@ -35,6 +35,30 @@ impl Id {
     }
 }
 
+impl From<SingleId> for Id {
+    fn from(id: SingleId) -> Self {
+        Self::Single(id)
+    }
+}
+
+impl From<&SingleId> for Id {
+    fn from(id: &SingleId) -> Self {
+        Self::Single(id.clone())
+    }
+}
+
+impl From<MultipleIds> for Id {
+    fn from(ids: MultipleIds) -> Self {
+        Self::Multiple(ids)
+    }
+}
+
+impl From<&MultipleIds> for Id {
+    fn from(ids: &MultipleIds) -> Self {
+        Self::Multiple(ids.clone())
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SingleId(String);
 
@@ -55,12 +79,6 @@ impl DerefMut for SingleId {
 impl<T: AsRef<str>> From<T> for SingleId {
     fn from(id: T) -> Self {
         Self(id.as_ref().to_owned())
-    }
-}
-
-impl Into<Id> for SingleId {
-    fn into(self) -> Id {
-        Id::Single(self)
     }
 }
 
@@ -90,12 +108,6 @@ impl DerefMut for MultipleIds {
 impl<T: IntoIterator<Item = impl ToString>> From<T> for MultipleIds {
     fn from(ids: T) -> Self {
         Self(ids.into_iter().map(|id| id.to_string()).collect())
-    }
-}
-
-impl Into<Id> for MultipleIds {
-    fn into(self) -> Id {
-        Id::Multiple(self)
     }
 }
 

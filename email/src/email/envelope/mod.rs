@@ -10,6 +10,7 @@ pub mod get;
 pub mod id;
 #[cfg(feature = "imap-backend")]
 pub mod imap;
+pub mod list;
 pub mod maildir;
 #[cfg(feature = "notmuch-backend")]
 pub mod notmuch;
@@ -28,6 +29,7 @@ pub use self::{
     flag::{Flag, Flags},
     get::GetEnvelope,
     id::{Id, MultipleIds, SingleId},
+    list::ListEnvelopes,
 };
 
 /// The email envelope.

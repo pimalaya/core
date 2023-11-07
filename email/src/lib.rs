@@ -17,6 +17,7 @@
 //!
 //! ### Envelope
 //!
+//! - [`ListEnvelopes`](crate::email::envelope::ListEnvelopes)
 //! - [`GetEnvelope`](crate::email::envelope::GetEnvelope)
 //!
 //! ### Flag
@@ -28,6 +29,7 @@
 //! - [`AddRawMessage`](crate::email::message::AddRawMessage)
 //! - [`AddRawMessageWithFlags`](crate::email::message::AddRawMessageWithFlags) (implemented for `T: AddRawMessage + AddFlags`)
 //! - [`PeekMessages`](crate::email::message::PeekMessages)
+//! - [`GetMessages`](crate::email::message::GetMessages) (implemented for `T: PeekMessages + AddFlags`)
 //!
 
 pub mod account;
