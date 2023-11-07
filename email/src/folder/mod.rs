@@ -17,6 +17,12 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+#[doc(inline)]
+pub use self::{
+    add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
+    purge::PurgeFolder,
+};
+
 /// The folder.
 ///
 /// A folder is an email container. Depending on the [crate::Backend],

@@ -23,7 +23,8 @@ use thiserror::Error;
 
 use crate::Result;
 
-pub use self::sync::sync;
+#[doc(inline)]
+pub use self::{add::AddFlags, sync::sync};
 
 /// Errors related to email envelope flags.
 #[derive(Debug, Error)]
