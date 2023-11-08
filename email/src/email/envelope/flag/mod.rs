@@ -9,6 +9,8 @@ pub mod imap;
 pub mod maildir;
 #[cfg(feature = "notmuch-backend")]
 pub mod notmuch;
+pub mod remove;
+pub mod set;
 mod sync;
 
 use log::{debug, warn};

@@ -10,6 +10,6 @@ pub trait ExpungeFolder: Send + Sync {
     /// Expunge the given folder.
     ///
     /// The concept is similar to the IMAP expunge: it definitely
-    /// deletes emails that have the Deleted flag.
+    /// deletes messages with [`Flag::Deleted`](crate::email::Flag).
     async fn expunge_folder(&self, folder: &str) -> Result<()>;
 }

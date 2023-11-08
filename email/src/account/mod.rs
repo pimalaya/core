@@ -26,3 +26,7 @@ pub use self::config::{
 #[cfg(feature = "pgp-native")]
 #[doc(inline)]
 pub use self::config::{NativePgpConfig, NativePgpSecretKey, SignedPublicKey, SignedSecretKey};
+
+pub trait WithAccountConfig {
+    fn account_config(&self) -> &AccountConfig;
+}

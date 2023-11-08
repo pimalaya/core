@@ -6,14 +6,14 @@ use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{email::envelope::Id, imap::ImapSessionSync, Result};
 
-use super::CopyMessages;
+use super::MoveMessages;
 
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
     SelectFolderError(#[source] imap::Error, String),
-    #[error("cannot copy imap messages {3} from folder {1} to folder {2}")]
-    CopyMessagesError(#[source] imap::Error, String, String, Id),
+    #[error("cannot move imap messages {3} from folder {1} to folder {2}")]
+    MoveMessagesError(#[source] imap::Error, String, String, Id),
 }
 
 impl Error {
@@ -21,32 +21,32 @@ impl Error {
         Box::new(Self::SelectFolderError(err, folder))
     }
 
-    pub fn copy_messages(
+    pub fn move_messages(
         err: imap::Error,
         from_folder: String,
         to_folder: String,
         id: Id,
     ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::CopyMessagesError(err, from_folder, to_folder, id))
+        Box::new(Self::MoveMessagesError(err, from_folder, to_folder, id))
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct CopyImapMessages {
+pub struct MoveImapMessages {
     session: ImapSessionSync,
 }
 
-impl CopyImapMessages {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn CopyMessages> {
+impl MoveImapMessages {
+    pub fn new(session: &ImapSessionSync) -> Box<dyn MoveMessages> {
         let session = session.clone();
         Box::new(Self { session })
     }
 }
 
 #[async_trait]
-impl CopyMessages for CopyImapMessages {
-    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: Id) -> Result<()> {
-        info!("copying imap messages {id} from folder {from_folder} to folder {to_folder}");
+impl MoveMessages for MoveImapMessages {
+    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+        info!("moving imap messages {id} from folder {from_folder} to folder {to_folder}");
 
         let mut session = self.session.lock().await;
 
@@ -67,8 +67,8 @@ impl CopyMessages for CopyImapMessages {
 
         session
             .execute(
-                |session| session.uid_copy(id.join(","), &to_folder_encoded),
-                |err| Error::copy_messages(err, from_folder.clone(), to_folder.clone(), id.clone()),
+                |session| session.uid_mv(id.join(","), &to_folder_encoded),
+                |err| Error::move_messages(err, from_folder.clone(), to_folder.clone(), id.clone()),
             )
             .await?;
 
