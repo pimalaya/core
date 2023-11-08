@@ -42,6 +42,7 @@ pub use self::{
     get::GetMessages,
     move_::MoveMessages,
     peek::PeekMessages,
+    send_raw::SendRawMessage,
     template::{ForwardTplBuilder, NewTplBuilder, ReplyTplBuilder},
 };
 

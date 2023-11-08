@@ -1,12 +1,10 @@
 #[cfg(feature = "imap-backend")]
 #[tokio::test]
-async fn test_imap_backend() {
+async fn test_imap_features() {
     use concat_with::concat_line;
     use email::{
         account::{AccountConfig, PasswdConfig},
-        backend::{
-            prelude::*, BackendBuilder, BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig,
-        },
+        backend::{BackendBuilder, BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig},
         email::{message::add_raw_with_flags::imap::AddRawImapMessageWithFlags, Flag},
         folder::{
             add::imap::AddImapFolder, delete::imap::DeleteImapFolder,
@@ -14,6 +12,7 @@ async fn test_imap_backend() {
             purge::imap::PurgeImapFolder,
         },
         imap::ImapSessionBuilder,
+        prelude::*,
     };
     use mml::MmlCompilerBuilder;
     use secret::Secret;
@@ -45,7 +44,7 @@ async fn test_imap_backend() {
         .with_expunge_folder(ExpungeImapFolder::new)
         .with_purge_folder(PurgeImapFolder::new)
         .with_delete_folder(DeleteImapFolder::new)
-        .with_add_email(AddRawImapMessageWithFlags::new);
+        .with_add_raw_message_with_flags(AddRawImapMessageWithFlags::new);
     let backend_v2 = backend_builder_v2.build().await.unwrap();
 
     let imap_builder = BackendBuilder::new(config.clone());

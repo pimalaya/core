@@ -28,7 +28,7 @@ pub enum Error {
     ConnectTlsError(#[source] mail_send::Error),
 }
 
-/// The SMTP session builder.
+/// The SMTP client builder.
 #[derive(Clone)]
 pub struct SmtpClientBuilder {
     account_config: AccountConfig,
@@ -36,7 +36,7 @@ pub struct SmtpClientBuilder {
 }
 
 impl SmtpClientBuilder {
-    pub async fn new(account_config: AccountConfig, smtp_config: SmtpConfig) -> Self {
+    pub fn new(account_config: AccountConfig, smtp_config: SmtpConfig) -> Self {
         Self {
             account_config,
             smtp_config,
@@ -48,11 +48,11 @@ impl SmtpClientBuilder {
 impl BackendContextBuilder for SmtpClientBuilder {
     type Context = SmtpClientSync;
 
-    /// Build an SMTP sync session.
+    /// Build an SMTP sync client.
     ///
-    /// The SMTP session is created at this moment. If the session
+    /// The SMTP client is created at this moment. If the client
     /// cannot be created using the OAuth 2.0 authentication, the
-    /// access token is refreshed first then a new session is created.
+    /// access token is refreshed first then a new client is created.
     async fn build(self) -> Result<Self::Context> {
         info!("building new smtp client");
 
@@ -78,8 +78,8 @@ impl BackendContextBuilder for SmtpClientBuilder {
 
 /// The SMTP client.
 ///
-/// This session is unsync, which means it cannot be shared between
-/// threads. For the sync version, see [`SmtpSessionSync`].
+/// This client is unsync, which means it cannot be shared between
+/// threads. For the sync version, see [`SmtpClientSync`].
 pub struct SmtpClient {
     /// The account configuration.
     pub account_config: AccountConfig,
@@ -88,17 +88,15 @@ pub struct SmtpClient {
     pub smtp_config: SmtpConfig,
 
     client_builder: mail_send::SmtpClientBuilder<String>,
-    client: SmtpClientKind,
+    client: SmtpClientStream,
 }
 
 impl SmtpClient {
     pub async fn send(&mut self, msg: &[u8]) -> Result<()> {
-        info!("smtp: sending raw email message");
-
         let buffer: Vec<u8>;
 
         let mut msg = MessageParser::new().parse(msg).unwrap_or_else(|| {
-            warn!("cannot parse raw message");
+            warn!("cannot parse raw email message");
             Default::default()
         });
 
@@ -107,7 +105,7 @@ impl SmtpClient {
                 Ok(res) => {
                     buffer = res.into();
                     msg = MessageParser::new().parse(&buffer).unwrap_or_else(|| {
-                        warn!("cannot parse raw message");
+                        warn!("cannot parse email raw message");
                         Default::default()
                     });
                 }
@@ -154,12 +152,12 @@ impl SmtpClient {
     }
 }
 
-pub enum SmtpClientKind {
+pub enum SmtpClientStream {
     Tcp(mail_send::SmtpClient<TcpStream>),
     Tls(mail_send::SmtpClient<TlsStream<TcpStream>>),
 }
 
-impl SmtpClientKind {
+impl SmtpClientStream {
     pub async fn send(&mut self, msg: impl IntoMessage<'_>) -> mail_send::Result<()> {
         match self {
             Self::Tcp(client) => client.send(msg).await,
@@ -168,15 +166,15 @@ impl SmtpClientKind {
     }
 }
 
-/// The sync version of the SMTP session.
+/// The sync version of the SMTP client.
 ///
-/// This is just an SMTP session wrapped into a mutex, so the same
-/// SMTP session can be shared and updated across multiple threads.
+/// This is just an SMTP client wrapped into a mutex, so the same SMTP
+/// client can be shared and updated across multiple threads.
 #[derive(Clone)]
 pub struct SmtpClientSync(Arc<Mutex<SmtpClient>>);
 
 impl SmtpClientSync {
-    /// Create a new SMTP sync session from an SMTP session.
+    /// Create a new SMTP sync client from an SMTP client.
     pub fn new(client: SmtpClient) -> Self {
         Self(Arc::new(Mutex::new(client)))
     }
@@ -193,7 +191,7 @@ impl Deref for SmtpClientSync {
 pub async fn build_client(
     smtp_config: &SmtpConfig,
     mut client_builder: mail_send::SmtpClientBuilder<String>,
-) -> Result<(mail_send::SmtpClientBuilder<String>, SmtpClientKind)> {
+) -> Result<(mail_send::SmtpClientBuilder<String>, SmtpClientStream)> {
     match (&smtp_config.auth, smtp_config.ssl()) {
         (SmtpAuthConfig::Passwd(_), false) => {
             let client = build_tcp_client(&client_builder).await?;
@@ -232,18 +230,18 @@ pub async fn build_client(
 
 pub async fn build_tcp_client(
     client_builder: &mail_send::SmtpClientBuilder<String>,
-) -> Result<SmtpClientKind> {
+) -> Result<SmtpClientStream> {
     match client_builder.connect_plain().await {
-        Ok(client) => Ok(SmtpClientKind::Tcp(client)),
+        Ok(client) => Ok(SmtpClientStream::Tcp(client)),
         Err(err) => Ok(Err(Error::ConnectTcpError(err))?),
     }
 }
 
 pub async fn build_tls_client(
     client_builder: &mail_send::SmtpClientBuilder<String>,
-) -> Result<SmtpClientKind> {
+) -> Result<SmtpClientStream> {
     match client_builder.connect().await {
-        Ok(client) => Ok(SmtpClientKind::Tls(client)),
+        Ok(client) => Ok(SmtpClientStream::Tls(client)),
         Err(err) => Ok(Err(Error::ConnectTlsError(err))?),
     }
 }

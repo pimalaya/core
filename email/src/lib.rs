@@ -122,3 +122,13 @@ pub enum Error {
 
 /// The global `Result` alias of the library.
 pub type Result<T> = std::result::Result<T, Error>;
+
+pub mod prelude {
+    pub use crate::{
+        email::{
+            envelope::{GetEnvelope, ListEnvelopes},
+            message::{AddRawMessageWithFlags, SendRawMessage},
+        },
+        folder::{AddFolder, DeleteFolder, ExpungeFolder, ListFolders, PurgeFolder},
+    };
+}
