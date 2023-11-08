@@ -14,6 +14,7 @@ pub mod delete_;
 pub mod get;
 pub mod move_;
 pub mod peek;
+pub mod send_raw;
 pub mod template;
 
 #[cfg(feature = "imap-backend")]

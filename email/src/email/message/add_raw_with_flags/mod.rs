@@ -1,7 +1,11 @@
 use async_trait::async_trait;
 
 use crate::{
-    email::{envelope::Id, flag::add::AddFlags, Flag, Flags},
+    email::{
+        envelope::{Id, SingleId},
+        flag::add::AddFlags,
+        Flag, Flags,
+    },
     Result,
 };
 
@@ -19,7 +23,7 @@ pub trait AddRawMessageWithFlags: Send + Sync {
         folder: &str,
         raw_msg: &[u8],
         flags: &Flags,
-    ) -> Result<Id>;
+    ) -> Result<SingleId>;
 
     /// Add the given raw email message with the given flag to the
     /// given folder.
@@ -28,7 +32,7 @@ pub trait AddRawMessageWithFlags: Send + Sync {
         folder: &str,
         raw_msg: &[u8],
         flag: Flag,
-    ) -> Result<Id> {
+    ) -> Result<SingleId> {
         self.add_raw_message_with_flags(folder, raw_msg, &Flags::from_iter([flag]))
             .await
     }
@@ -41,9 +45,9 @@ impl<T: AddRawMessage + AddFlags> AddRawMessageWithFlags for T {
         folder: &str,
         raw_msg: &[u8],
         flags: &Flags,
-    ) -> Result<Id> {
+    ) -> Result<SingleId> {
         let id = self.add_raw_message(folder, raw_msg).await?;
-        self.add_flags(folder, &id, flags).await?;
+        self.add_flags(folder, &Id::from(&id), flags).await?;
         Ok(id)
     }
 }

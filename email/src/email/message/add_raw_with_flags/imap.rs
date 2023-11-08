@@ -5,7 +5,7 @@ use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::envelope::Id, imap::ImapSessionSync, Result};
+use crate::{email::envelope::SingleId, imap::ImapSessionSync, Result};
 
 use super::{AddRawMessageWithFlags, Flags};
 
@@ -48,7 +48,7 @@ impl AddRawMessageWithFlags for AddRawImapMessageWithFlags {
         folder: &str,
         raw_msg: &[u8],
         flags: &Flags,
-    ) -> Result<Id> {
+    ) -> Result<SingleId> {
         info!("adding imap message to folder {folder} with flags {flags}");
 
         let mut session = self.session.lock().await;
@@ -96,6 +96,6 @@ impl AddRawMessageWithFlags for AddRawImapMessageWithFlags {
         }?;
         debug!("added imap message uid: {uid}");
 
-        Ok(Id::single(uid))
+        Ok(SingleId::from(uid.to_string()))
     }
 }

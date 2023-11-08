@@ -40,6 +40,8 @@ pub mod folder;
 #[cfg(feature = "imap-backend")]
 pub mod imap;
 pub mod sender;
+#[cfg(feature = "smtp-sender")]
+pub mod smtp;
 
 #[doc(inline)]
 pub use backend::Backend;
@@ -98,7 +100,7 @@ pub enum Error {
     SendmailError(#[from] sender::sendmail::Error),
     #[cfg(feature = "smtp-sender")]
     #[error(transparent)]
-    SmtpError(#[from] sender::smtp::Error),
+    SmtpSenderError(#[from] sender::smtp::Error),
     #[cfg(feature = "smtp-sender")]
     #[error(transparent)]
     SmtpConfigError(#[from] sender::smtp::config::Error),
@@ -109,9 +111,13 @@ pub enum Error {
     #[cfg(feature = "imap-backend")]
     #[error("cannot list imap folders")]
     ListImapFoldersError(#[source] imap::Error),
+
     #[cfg(feature = "imap-backend")]
     #[error(transparent)]
     ImapError(#[from] imap::Error),
+    #[cfg(feature = "smtp-sender")]
+    #[error(transparent)]
+    SmtpError(#[from] smtp::Error),
 }
 
 /// The global `Result` alias of the library.

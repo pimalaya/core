@@ -7,7 +7,7 @@ async fn test_imap_backend() {
         backend::{
             prelude::*, BackendBuilder, BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig,
         },
-        email::{add::imap::AddRawImapMessageWithFlags, Flag},
+        email::{message::add_raw_with_flags::imap::AddRawImapMessageWithFlags, Flag},
         folder::{
             add::imap::AddImapFolder, delete::imap::DeleteImapFolder,
             expunge::imap::ExpungeImapFolder, list::imap::ListImapFolders,
@@ -80,8 +80,7 @@ async fn test_imap_backend() {
     let id = backend_v2
         .add_raw_message_with_flags("Sent", &email, &("seen".into()))
         .await
-        .unwrap()
-        .to_string();
+        .unwrap();
 
     // checking that the added email exists
     let emails = imap.get_emails("Sent", vec![&id]).await.unwrap();

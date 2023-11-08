@@ -4,8 +4,8 @@
 //! an abstraction over emails manipulation.
 //!
 //! Then you have the [`BackendConfig`] which represents the
-//! backend-specific configuration, mostly used by the [account
-//! configuration](crate::AccountConfig).
+//! backend-specific configuration, mostly used by the
+//! [AccountConfiguration](crate::account::AccountConfig).
 
 mod config;
 #[cfg(feature = "imap-backend")]
@@ -22,7 +22,7 @@ use thiserror::Error;
 use crate::{
     account::AccountConfig,
     email::{
-        envelope::{get::GetEnvelope, Id},
+        envelope::{get::GetEnvelope, SingleId},
         message::add_raw_with_flags::AddRawMessageWithFlags,
         Envelope, Envelopes, Flag, Flags, Messages,
     },
@@ -489,7 +489,7 @@ impl<C: Send + Sync> AddRawMessageWithFlags for BackendV2<C> {
         folder: &str,
         email: &[u8],
         flags: &Flags,
-    ) -> Result<Id> {
+    ) -> Result<SingleId> {
         self.add_email
             .as_ref()
             .ok_or(Error::AddEmailNotAvailableError)?
