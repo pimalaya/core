@@ -313,7 +313,7 @@ fn into_smtp_msg<'a>(msg: Message<'a>) -> Result<SmtpMessage<'a>> {
             .into_iter()
             .map(|email| SmtpAddress {
                 email: email.into(),
-                parameters: Default::default(),
+                ..Default::default()
             })
             .collect(),
         body: msg.raw_message.into(),

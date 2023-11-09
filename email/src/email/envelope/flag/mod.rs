@@ -26,7 +26,7 @@ use thiserror::Error;
 use crate::Result;
 
 #[doc(inline)]
-pub use self::{add::AddFlags, sync::sync};
+pub use self::{add::AddFlags, remove::RemoveFlags, set::SetFlags, sync::sync};
 
 /// Errors related to email envelope flags.
 #[derive(Debug, Error)]

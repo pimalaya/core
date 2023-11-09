@@ -1,9 +1,9 @@
+#[cfg(feature = "imap-backend")]
+pub mod imap;
+
 use async_trait::async_trait;
 
 use crate::{email::envelope::Id, Result};
-
-#[cfg(feature = "imap-backend")]
-pub mod imap;
 
 #[async_trait]
 pub trait MoveMessages: Send + Sync {

@@ -27,6 +27,6 @@ pub use self::config::{
 #[doc(inline)]
 pub use self::config::{NativePgpConfig, NativePgpSecretKey, SignedPublicKey, SignedSecretKey};
 
-pub trait WithAccountConfig {
+pub trait WithAccountConfig: Send + Sync {
     fn account_config(&self) -> &AccountConfig;
 }

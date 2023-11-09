@@ -45,7 +45,7 @@ impl CopyImapMessages {
 
 #[async_trait]
 impl CopyMessages for CopyImapMessages {
-    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: Id) -> Result<()> {
+    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         info!("copying imap messages {id} from folder {from_folder} to folder {to_folder}");
 
         let mut session = self.session.lock().await;

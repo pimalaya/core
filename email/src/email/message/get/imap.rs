@@ -4,7 +4,7 @@ use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::envelope::MultipleIds, imap::ImapSessionSync, Result};
+use crate::{email::envelope::Id, imap::ImapSessionSync, Result};
 
 use super::{GetMessages, Messages};
 
@@ -16,7 +16,7 @@ pub enum Error {
     #[error("cannot select imap folder {1}")]
     SelectFolderError(#[source] imap::Error, String),
     #[error("cannot get imap messages {2} from folder {1}")]
-    GetMessagesError(#[source] imap::Error, String, MultipleIds),
+    GetMessagesError(#[source] imap::Error, String, Id),
 }
 
 impl Error {
@@ -24,12 +24,8 @@ impl Error {
         Box::new(Self::SelectFolderError(err, folder))
     }
 
-    pub fn get_messages(
-        err: imap::Error,
-        folder: String,
-        ids: MultipleIds,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::GetMessagesError(err, folder, ids))
+    pub fn get_messages(err: imap::Error, folder: String, id: Id) -> Box<dyn error::Error + Send> {
+        Box::new(Self::GetMessagesError(err, folder, id))
     }
 }
 
@@ -47,8 +43,8 @@ impl GetImapMessages {
 
 #[async_trait]
 impl GetMessages for GetImapMessages {
-    async fn get_messages(&self, folder: &str, ids: &MultipleIds) -> Result<Messages> {
-        info!("geting messages {ids} from folder {folder}");
+    async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        info!("getting messages {id} from folder {folder}");
 
         let mut session = self.session.lock().await;
 
@@ -65,8 +61,8 @@ impl GetMessages for GetImapMessages {
 
         let fetches = session
             .execute(
-                |session| session.uid_fetch(ids.join(","), GET_MESSAGES_QUERY),
-                |err| Error::get_messages(err, folder.clone(), ids.clone()),
+                |session| session.uid_fetch(id.join(","), GET_MESSAGES_QUERY),
+                |err| Error::get_messages(err, folder.clone(), id.clone()),
             )
             .await?;
 

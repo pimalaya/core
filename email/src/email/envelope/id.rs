@@ -12,19 +12,19 @@ pub enum Id {
 impl fmt::Display for Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Single(id) => write!(f, "{id}"),
+            Self::Single(id) => write!(f, "{}", id.deref()),
             Self::Multiple(ids) => write!(f, "{ids}"),
         }
     }
 }
 
 impl Id {
-    pub fn single(id: impl ToString) -> Self {
-        Self::Single(id.to_string().into())
+    pub fn single(id: impl Into<SingleId>) -> Self {
+        Self::Single(id.into())
     }
 
-    pub fn multiple(id: impl IntoIterator<Item = impl ToString>) -> Self {
-        Self::Multiple(id.into())
+    pub fn multiple(ids: impl Into<MultipleIds>) -> Self {
+        Self::Multiple(ids.into())
     }
 
     pub fn join(&self, sep: impl AsRef<str>) -> String {
@@ -76,15 +76,9 @@ impl DerefMut for SingleId {
     }
 }
 
-impl<T: AsRef<str>> From<T> for SingleId {
+impl<T: ToString> From<T> for SingleId {
     fn from(id: T) -> Self {
-        Self(id.as_ref().to_owned())
-    }
-}
-
-impl fmt::Display for SingleId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{self}")
+        Self(id.to_string())
     }
 }
 

@@ -4,7 +4,7 @@ use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::envelope::MultipleIds, imap::ImapSessionSync, Result};
+use crate::{email::envelope::Id, imap::ImapSessionSync, Result};
 
 use super::{Messages, PeekMessages};
 
@@ -16,7 +16,7 @@ pub enum Error {
     #[error("cannot select imap folder {1}")]
     SelectFolderError(#[source] imap::Error, String),
     #[error("cannot peek imap messages {2} from folder {1}")]
-    PeekMessagesError(#[source] imap::Error, String, MultipleIds),
+    PeekMessagesError(#[source] imap::Error, String, Id),
 }
 
 impl Error {
@@ -24,12 +24,8 @@ impl Error {
         Box::new(Self::SelectFolderError(err, folder))
     }
 
-    pub fn peek_messages(
-        err: imap::Error,
-        folder: String,
-        ids: MultipleIds,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::PeekMessagesError(err, folder, ids))
+    pub fn peek_messages(err: imap::Error, folder: String, id: Id) -> Box<dyn error::Error + Send> {
+        Box::new(Self::PeekMessagesError(err, folder, id))
     }
 }
 
@@ -47,8 +43,8 @@ impl PeekImapMessages {
 
 #[async_trait]
 impl PeekMessages for PeekImapMessages {
-    async fn peek_messages(&self, folder: &str, ids: &MultipleIds) -> Result<Messages> {
-        info!("peeking messages {ids} from folder {folder}");
+    async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        info!("peeking messages {id} from folder {folder}");
 
         let mut session = self.session.lock().await;
 
@@ -65,8 +61,8 @@ impl PeekMessages for PeekImapMessages {
 
         let fetches = session
             .execute(
-                |session| session.uid_fetch(ids.join(","), PEEK_MESSAGES_QUERY),
-                |err| Error::peek_messages(err, folder.clone(), ids.clone()),
+                |session| session.uid_fetch(id.join(","), PEEK_MESSAGES_QUERY),
+                |err| Error::peek_messages(err, folder.clone(), id.clone()),
             )
             .await?;
 

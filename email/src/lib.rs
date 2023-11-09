@@ -126,8 +126,14 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub mod prelude {
     pub use crate::{
         email::{
-            envelope::{GetEnvelope, ListEnvelopes},
-            message::{AddRawMessageWithFlags, SendRawMessage},
+            envelope::{
+                flag::{AddFlags, RemoveFlags, SetFlags},
+                GetEnvelope, ListEnvelopes,
+            },
+            message::{
+                AddRawMessageWithFlags, CopyMessages, DeleteMessages, GetMessages, MoveMessages,
+                SendRawMessage,
+            },
         },
         folder::{AddFolder, DeleteFolder, ExpungeFolder, ListFolders, PurgeFolder},
     };

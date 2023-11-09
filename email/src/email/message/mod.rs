@@ -10,7 +10,7 @@ pub mod add_raw;
 pub mod add_raw_with_flags;
 pub mod attachment;
 pub mod copy;
-pub mod delete_;
+pub mod delete;
 pub mod get;
 pub mod move_;
 pub mod peek;
@@ -38,7 +38,7 @@ pub use self::{
     add_raw_with_flags::AddRawMessageWithFlags,
     attachment::Attachment,
     copy::CopyMessages,
-    delete_::DeleteMessages,
+    delete::DeleteMessages,
     get::GetMessages,
     move_::MoveMessages,
     peek::PeekMessages,

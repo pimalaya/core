@@ -22,8 +22,12 @@ use thiserror::Error;
 use crate::{
     account::AccountConfig,
     email::{
-        envelope::{get::GetEnvelope, ListEnvelopes, SingleId},
-        message::{add_raw_with_flags::AddRawMessageWithFlags, SendRawMessage},
+        envelope::{get::GetEnvelope, Id, ListEnvelopes, SingleId},
+        flag::{AddFlags, RemoveFlags, SetFlags},
+        message::{
+            add_raw_with_flags::AddRawMessageWithFlags, delete::DefaultDeleteMessages,
+            CopyMessages, DeleteMessages, GetMessages, MoveMessages, SendRawMessage,
+        },
         Envelope, Envelopes, Flag, Flags, Messages,
     },
     folder::{
@@ -66,8 +70,23 @@ pub enum Error {
     #[error("cannot get envelope: feature not available")]
     GetEnvelopeNotAvailableError,
 
+    #[error("cannot add flag(s): feature not available")]
+    AddFlagsNotAvailableError,
+    #[error("cannot set flag(s): feature not available")]
+    SetFlagsNotAvailableError,
+    #[error("cannot remove flag(s): feature not available")]
+    RemoveFlagsNotAvailableError,
+
     #[error("cannot add raw message with flags: feature not available")]
     AddRawMessageWithFlagsNotAvailableError,
+    #[error("cannot get messages: feature not available")]
+    GetMessagesNotAvailableError,
+    #[error("cannot copy messages: feature not available")]
+    CopyMessagesNotAvailableError,
+    #[error("cannot move messages: feature not available")]
+    MoveMessagesNotAvailableError,
+    #[error("cannot delete messages: feature not available")]
+    DeleteMessagesNotAvailableError,
     #[error("cannot send raw message: feature not available")]
     SendRawMessageNotAvailableError,
 }
@@ -219,7 +238,24 @@ impl<T: BackendContextBuilder, U: BackendContextBuilder> BackendContextBuilder f
     }
 }
 
+#[async_trait]
+impl<T: BackendContextBuilder, U: BackendContextBuilder, V: BackendContextBuilder>
+    BackendContextBuilder for (T, U, V)
+{
+    type Context = (T::Context, U::Context, V::Context);
+
+    async fn build(self) -> Result<Self::Context> {
+        Ok((
+            self.0.build().await?,
+            self.1.build().await?,
+            self.2.build().await?,
+        ))
+    }
+}
+
 pub struct BackendBuilderV2<B: BackendContextBuilder> {
+    pub account_config: AccountConfig,
+
     pub context_builder: B,
 
     add_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddFolder> + Send + Sync>>,
@@ -231,14 +267,24 @@ pub struct BackendBuilderV2<B: BackendContextBuilder> {
     list_envelopes: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ListEnvelopes> + Send + Sync>>,
     get_envelope: Option<Arc<dyn Fn(&B::Context) -> Box<dyn GetEnvelope> + Send + Sync>>,
 
+    add_flags: Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddFlags> + Send + Sync>>,
+    set_flags: Option<Arc<dyn Fn(&B::Context) -> Box<dyn SetFlags> + Send + Sync>>,
+    remove_flags: Option<Arc<dyn Fn(&B::Context) -> Box<dyn RemoveFlags> + Send + Sync>>,
+
     add_raw_message_with_flags:
         Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddRawMessageWithFlags> + Send + Sync>>,
+    get_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn GetMessages> + Send + Sync>>,
+    copy_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn CopyMessages> + Send + Sync>>,
+    move_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn MoveMessages> + Send + Sync>>,
+    delete_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn DeleteMessages> + Send + Sync>>,
     send_raw_message: Option<Arc<dyn Fn(&B::Context) -> Box<dyn SendRawMessage> + Send + Sync>>,
 }
 
 impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
-    pub fn new(context_builder: B) -> Self {
+    pub fn new(account_config: AccountConfig, context_builder: B) -> Self {
         Self {
+            account_config,
+
             context_builder,
 
             add_folder: None,
@@ -250,7 +296,15 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
             get_envelope: None,
             list_envelopes: None,
 
+            add_flags: None,
+            set_flags: None,
+            remove_flags: None,
+
             add_raw_message_with_flags: None,
+            get_messages: None,
+            copy_messages: None,
+            move_messages: None,
+            delete_messages: None,
             send_raw_message: None,
         }
     }
@@ -306,11 +360,61 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
         self
     }
 
+    pub fn with_add_flags(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn AddFlags> + Send + Sync + 'static,
+    ) -> Self {
+        self.add_flags = Some(Arc::new(feature));
+        self
+    }
+    pub fn with_set_flags(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn SetFlags> + Send + Sync + 'static,
+    ) -> Self {
+        self.set_flags = Some(Arc::new(feature));
+        self
+    }
+    pub fn with_remove_flags(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn RemoveFlags> + Send + Sync + 'static,
+    ) -> Self {
+        self.remove_flags = Some(Arc::new(feature));
+        self
+    }
+
     pub fn with_add_raw_message_with_flags(
         mut self,
         feature: impl Fn(&C) -> Box<dyn AddRawMessageWithFlags> + Send + Sync + 'static,
     ) -> Self {
         self.add_raw_message_with_flags = Some(Arc::new(feature));
+        self
+    }
+    pub fn with_get_messages(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn GetMessages> + Send + Sync + 'static,
+    ) -> Self {
+        self.get_messages = Some(Arc::new(feature));
+        self
+    }
+    pub fn with_copy_messages(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn CopyMessages> + Send + Sync + 'static,
+    ) -> Self {
+        self.copy_messages = Some(Arc::new(feature));
+        self
+    }
+    pub fn with_move_messages(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn MoveMessages> + Send + Sync + 'static,
+    ) -> Self {
+        self.move_messages = Some(Arc::new(feature));
+        self
+    }
+    pub fn with_delete_messages(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn DeleteMessages> + Send + Sync + 'static,
+    ) -> Self {
+        self.delete_messages = Some(Arc::new(feature));
         self
     }
     pub fn with_send_raw_message(
@@ -323,33 +427,61 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
 
     pub async fn build(self) -> Result<BackendV2<C>> {
         let context = self.context_builder.build().await?;
-        let mut backend = BackendV2::new(context);
+        let mut backend = BackendV2::new(self.account_config.clone(), context);
 
-        if let Some(feature) = self.add_folder {
+        if let Some(feature) = &self.add_folder {
             backend.set_add_folder(feature(&backend.context));
         }
-        if let Some(feature) = self.list_folders {
+        if let Some(feature) = &self.list_folders {
             backend.set_list_folders(feature(&backend.context));
         }
-        if let Some(feature) = self.expunge_folder {
+        if let Some(feature) = &self.expunge_folder {
             backend.set_expunge_folder(feature(&backend.context));
         }
-        if let Some(feature) = self.purge_folder {
+        if let Some(feature) = &self.purge_folder {
             backend.set_purge_folder(feature(&backend.context));
         }
-        if let Some(feature) = self.delete_folder {
+        if let Some(feature) = &self.delete_folder {
             backend.set_delete_folder(feature(&backend.context));
         }
 
-        if let Some(feature) = self.list_envelopes {
+        if let Some(feature) = &self.list_envelopes {
             backend.set_list_envelopes(feature(&backend.context));
         }
-        if let Some(feature) = self.get_envelope {
+        if let Some(feature) = &self.get_envelope {
             backend.set_get_envelope(feature(&backend.context));
         }
 
-        if let Some(feature) = self.add_raw_message_with_flags {
+        if let Some(feature) = &self.add_flags {
+            backend.set_add_flags(feature(&backend.context));
+        }
+        if let Some(feature) = &self.set_flags {
+            backend.set_set_flags(feature(&backend.context));
+        }
+        if let Some(feature) = &self.remove_flags {
+            backend.set_remove_flags(feature(&backend.context));
+        }
+
+        if let Some(feature) = &self.add_raw_message_with_flags {
             backend.set_add_raw_message_with_flags(feature(&backend.context));
+        }
+        if let Some(feature) = &self.get_messages {
+            backend.set_get_messages(feature(&backend.context));
+        }
+        if let Some(feature) = &self.copy_messages {
+            backend.set_copy_messages(feature(&backend.context));
+        }
+        if let Some(feature) = &self.move_messages {
+            backend.set_move_messages(feature(&backend.context));
+        }
+        if let Some(feature) = &self.delete_messages {
+            backend.set_delete_messages(feature(&backend.context));
+        } else if let (Some(a), Some(b)) = (&self.move_messages, &self.add_flags) {
+            backend.set_delete_messages(DefaultDeleteMessages::new(
+                self.account_config.clone(),
+                a(&backend.context),
+                b(&backend.context),
+            ))
         }
         if let Some(feature) = self.send_raw_message {
             backend.set_send_raw_message(feature(&backend.context));
@@ -364,6 +496,8 @@ impl<B: BackendContextBuilder> Clone for BackendBuilderV2<B> {
         Self {
             context_builder: self.context_builder.clone(),
 
+            account_config: self.account_config.clone(),
+
             add_folder: self.add_folder.clone(),
             list_folders: self.list_folders.clone(),
             expunge_folder: self.expunge_folder.clone(),
@@ -373,7 +507,15 @@ impl<B: BackendContextBuilder> Clone for BackendBuilderV2<B> {
             list_envelopes: self.list_envelopes.clone(),
             get_envelope: self.get_envelope.clone(),
 
+            add_flags: self.add_flags.clone(),
+            set_flags: self.set_flags.clone(),
+            remove_flags: self.remove_flags.clone(),
+
             add_raw_message_with_flags: self.add_raw_message_with_flags.clone(),
+            get_messages: self.get_messages.clone(),
+            copy_messages: self.copy_messages.clone(),
+            move_messages: self.move_messages.clone(),
+            delete_messages: self.delete_messages.clone(),
             send_raw_message: self.send_raw_message.clone(),
         }
     }
@@ -384,23 +526,35 @@ impl Default for BackendBuilderV2<()> {
         Self {
             context_builder: (),
 
-            add_folder: None,
-            list_folders: None,
-            expunge_folder: None,
-            purge_folder: None,
-            delete_folder: None,
+            account_config: Default::default(),
 
-            list_envelopes: None,
-            get_envelope: None,
+            add_folder: Default::default(),
+            list_folders: Default::default(),
+            expunge_folder: Default::default(),
+            purge_folder: Default::default(),
+            delete_folder: Default::default(),
 
-            add_raw_message_with_flags: None,
-            send_raw_message: None,
+            add_flags: Default::default(),
+            set_flags: Default::default(),
+            remove_flags: Default::default(),
+
+            list_envelopes: Default::default(),
+            get_envelope: Default::default(),
+
+            add_raw_message_with_flags: Default::default(),
+            get_messages: Default::default(),
+            copy_messages: Default::default(),
+            move_messages: Default::default(),
+            delete_messages: Default::default(),
+            send_raw_message: Default::default(),
         }
     }
 }
 
 pub struct BackendV2<C> {
     context: C,
+
+    pub account_config: AccountConfig,
 
     pub add_folder: Option<Box<dyn AddFolder>>,
     pub list_folders: Option<Box<dyn ListFolders>>,
@@ -411,14 +565,24 @@ pub struct BackendV2<C> {
     pub list_envelopes: Option<Box<dyn ListEnvelopes>>,
     pub get_envelope: Option<Box<dyn GetEnvelope>>,
 
+    pub add_flags: Option<Box<dyn AddFlags>>,
+    pub set_flags: Option<Box<dyn SetFlags>>,
+    pub remove_flags: Option<Box<dyn RemoveFlags>>,
+
     pub add_raw_message_with_flags: Option<Box<dyn AddRawMessageWithFlags>>,
+    pub get_messages: Option<Box<dyn GetMessages>>,
+    pub copy_messages: Option<Box<dyn CopyMessages>>,
+    pub move_messages: Option<Box<dyn MoveMessages>>,
+    pub delete_messages: Option<Box<dyn DeleteMessages>>,
     pub send_raw_message: Option<Box<dyn SendRawMessage>>,
 }
 
 impl<C> BackendV2<C> {
-    pub fn new(context: C) -> BackendV2<C> {
+    pub fn new(account_config: AccountConfig, context: C) -> BackendV2<C> {
         BackendV2 {
             context,
+
+            account_config,
 
             add_folder: None,
             list_folders: None,
@@ -429,7 +593,15 @@ impl<C> BackendV2<C> {
             get_envelope: None,
             list_envelopes: None,
 
+            add_flags: None,
+            set_flags: None,
+            remove_flags: None,
+
             add_raw_message_with_flags: None,
+            get_messages: None,
+            copy_messages: None,
+            move_messages: None,
+            delete_messages: None,
             send_raw_message: None,
         }
     }
@@ -457,8 +629,30 @@ impl<C> BackendV2<C> {
         self.get_envelope = Some(feature);
     }
 
+    pub fn set_add_flags(&mut self, feature: Box<dyn AddFlags>) {
+        self.add_flags = Some(feature);
+    }
+    pub fn set_set_flags(&mut self, feature: Box<dyn SetFlags>) {
+        self.set_flags = Some(feature);
+    }
+    pub fn set_remove_flags(&mut self, feature: Box<dyn RemoveFlags>) {
+        self.remove_flags = Some(feature);
+    }
+
     pub fn set_add_raw_message_with_flags(&mut self, feature: Box<dyn AddRawMessageWithFlags>) {
         self.add_raw_message_with_flags = Some(feature);
+    }
+    pub fn set_get_messages(&mut self, feature: Box<dyn GetMessages>) {
+        self.get_messages = Some(feature);
+    }
+    pub fn set_copy_messages(&mut self, feature: Box<dyn CopyMessages>) {
+        self.copy_messages = Some(feature);
+    }
+    pub fn set_move_messages(&mut self, feature: Box<dyn MoveMessages>) {
+        self.move_messages = Some(feature);
+    }
+    pub fn set_delete_messages(&mut self, feature: Box<dyn DeleteMessages>) {
+        self.delete_messages = Some(feature);
     }
     pub fn set_send_raw_message(&mut self, feature: Box<dyn SendRawMessage>) {
         self.send_raw_message = Some(feature);
@@ -535,6 +729,7 @@ impl<C: Send + Sync> ListEnvelopes for BackendV2<C> {
             .await
     }
 }
+
 #[async_trait]
 impl<C: Send + Sync> GetEnvelope for BackendV2<C> {
     async fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope> {
@@ -542,6 +737,39 @@ impl<C: Send + Sync> GetEnvelope for BackendV2<C> {
             .as_ref()
             .ok_or(Error::GetEnvelopeNotAvailableError)?
             .get_envelope(folder, id)
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: Send + Sync> AddFlags for BackendV2<C> {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        self.add_flags
+            .as_ref()
+            .ok_or(Error::AddFlagsNotAvailableError)?
+            .add_flags(folder, id, flags)
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: Send + Sync> SetFlags for BackendV2<C> {
+    async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        self.set_flags
+            .as_ref()
+            .ok_or(Error::SetFlagsNotAvailableError)?
+            .set_flags(folder, id, flags)
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: Send + Sync> RemoveFlags for BackendV2<C> {
+    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        self.remove_flags
+            .as_ref()
+            .ok_or(Error::RemoveFlagsNotAvailableError)?
+            .remove_flags(folder, id, flags)
             .await
     }
 }
@@ -558,6 +786,50 @@ impl<C: Send + Sync> AddRawMessageWithFlags for BackendV2<C> {
             .as_ref()
             .ok_or(Error::AddRawMessageWithFlagsNotAvailableError)?
             .add_raw_message_with_flags(folder, email, flags)
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: Send + Sync> GetMessages for BackendV2<C> {
+    async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        self.get_messages
+            .as_ref()
+            .ok_or(Error::GetMessagesNotAvailableError)?
+            .get_messages(folder, id)
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: Send + Sync> CopyMessages for BackendV2<C> {
+    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+        self.copy_messages
+            .as_ref()
+            .ok_or(Error::CopyMessagesNotAvailableError)?
+            .copy_messages(from_folder, to_folder, id)
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: Send + Sync> MoveMessages for BackendV2<C> {
+    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+        self.move_messages
+            .as_ref()
+            .ok_or(Error::MoveMessagesNotAvailableError)?
+            .move_messages(from_folder, to_folder, id)
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: Send + Sync> DeleteMessages for BackendV2<C> {
+    async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
+        self.delete_messages
+            .as_ref()
+            .ok_or(Error::DeleteMessagesNotAvailableError)?
+            .delete_messages(folder, id)
             .await
     }
 }

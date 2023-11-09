@@ -240,12 +240,16 @@ impl BackendContextBuilder for ImapSessionBuilder {
             }
         }?;
 
-        Ok(ImapSessionSync::new(ImapSession {
-            account_config: self.account_config,
-            imap_config: self.imap_config,
-            default_credentials: self.default_credentials,
-            session,
-        }))
+        Ok(ImapSessionSync {
+            account_config: self.account_config.clone(),
+            imap_config: self.imap_config.clone(),
+            session: Arc::new(Mutex::new(ImapSession {
+                account_config: self.account_config,
+                imap_config: self.imap_config,
+                default_credentials: self.default_credentials,
+                session,
+            })),
+        })
     }
 }
 
@@ -319,12 +323,29 @@ impl Drop for ImapSession {
 /// This is just an IMAP session wrapped into a mutex, so the same
 /// IMAP session can be shared and updated across multiple threads.
 #[derive(Clone, Debug)]
-pub struct ImapSessionSync(Arc<Mutex<ImapSession>>);
+pub struct ImapSessionSync {
+    /// The account configuration.
+    pub account_config: AccountConfig,
+
+    /// The IMAP configuration.
+    pub imap_config: ImapConfig,
+
+    /// The IMAP session wrapped into a mutex.
+    session: Arc<Mutex<ImapSession>>,
+}
 
 impl ImapSessionSync {
     /// Create a new IMAP sync session from an IMAP session.
-    pub fn new(session: ImapSession) -> Self {
-        Self(Arc::new(Mutex::new(session)))
+    pub fn new(
+        account_config: AccountConfig,
+        imap_config: ImapConfig,
+        session: ImapSession,
+    ) -> Self {
+        Self {
+            account_config,
+            imap_config,
+            session: Arc::new(Mutex::new(session)),
+        }
     }
 }
 
@@ -332,7 +353,7 @@ impl Deref for ImapSessionSync {
     type Target = Mutex<ImapSession>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.session
     }
 }
 

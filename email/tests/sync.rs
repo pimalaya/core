@@ -169,7 +169,7 @@ async fn sync() {
     // without duplicate items
 
     let backend_context_v2 = ImapSessionBuilder::new(config.clone(), imap_config);
-    let backend_builder_v2 = BackendBuilderV2::new(backend_context_v2)
+    let backend_builder_v2 = BackendBuilderV2::new(config.clone(), backend_context_v2)
         .with_add_folder(AddImapFolder::new)
         .with_list_folders(ListImapFolders::new)
         .with_delete_folder(DeleteImapFolder::new);

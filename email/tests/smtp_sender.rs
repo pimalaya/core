@@ -52,7 +52,7 @@ async fn test_smtp_features() {
 
     let imap_ctx = ImapSessionBuilder::new(config.clone(), imap_config);
     let smtp_ctx = SmtpClientBuilder::new(config.clone(), smtp_config);
-    let backend_builder = BackendBuilderV2::new((imap_ctx, smtp_ctx))
+    let backend_builder = BackendBuilderV2::new(config.clone(), (imap_ctx, smtp_ctx))
         .with_purge_folder(|ctx| PurgeImapFolder::new(&ctx.0))
         .with_list_envelopes(|ctx| ListImapEnvelopes::new(&ctx.0))
         .with_send_raw_message(|ctx| SendRawMessageSmtp::new(&ctx.1));
