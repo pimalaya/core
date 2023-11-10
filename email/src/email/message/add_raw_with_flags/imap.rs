@@ -30,11 +30,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct AddRawImapMessageWithFlags {
+pub struct AddRawMessageWithFlagsImap {
     session: ImapSessionSync,
 }
 
-impl AddRawImapMessageWithFlags {
+impl AddRawMessageWithFlagsImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn AddRawMessageWithFlags> {
         let session = session.clone();
         Box::new(Self { session })
@@ -42,7 +42,7 @@ impl AddRawImapMessageWithFlags {
 }
 
 #[async_trait]
-impl AddRawMessageWithFlags for AddRawImapMessageWithFlags {
+impl AddRawMessageWithFlags for AddRawMessageWithFlagsImap {
     async fn add_raw_message_with_flags(
         &self,
         folder: &str,

@@ -32,11 +32,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct CopyImapMessages {
+pub struct CopyMessagesImap {
     session: ImapSessionSync,
 }
 
-impl CopyImapMessages {
+impl CopyMessagesImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn CopyMessages> {
         let session = session.clone();
         Box::new(Self { session })
@@ -44,7 +44,7 @@ impl CopyImapMessages {
 }
 
 #[async_trait]
-impl CopyMessages for CopyImapMessages {
+impl CopyMessages for CopyMessagesImap {
     async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         info!("copying imap messages {id} from folder {from_folder} to folder {to_folder}");
 

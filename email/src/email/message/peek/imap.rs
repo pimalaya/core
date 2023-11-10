@@ -30,11 +30,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct PeekImapMessages {
+pub struct PeekMessagesImap {
     session: ImapSessionSync,
 }
 
-impl PeekImapMessages {
+impl PeekMessagesImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn PeekMessages> {
         let session = session.clone();
         Box::new(Self { session })
@@ -42,7 +42,7 @@ impl PeekImapMessages {
 }
 
 #[async_trait]
-impl PeekMessages for PeekImapMessages {
+impl PeekMessages for PeekMessagesImap {
     async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
         info!("peeking messages {id} from folder {folder}");
 

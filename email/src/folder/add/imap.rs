@@ -1,7 +1,6 @@
-use std::error;
-
 use async_trait::async_trait;
 use log::{debug, info};
+use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
@@ -22,11 +21,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct AddImapFolder {
+pub struct AddFolderImap {
     session: ImapSessionSync,
 }
 
-impl AddImapFolder {
+impl AddFolderImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn AddFolder> {
         let session = session.clone();
         Box::new(Self { session })
@@ -34,7 +33,7 @@ impl AddImapFolder {
 }
 
 #[async_trait]
-impl AddFolder for AddImapFolder {
+impl AddFolder for AddFolderImap {
     async fn add_folder(&self, folder: &str) -> Result<()> {
         info!("creating imap folder {folder}");
 

@@ -22,11 +22,11 @@ impl Error {
 }
 
 #[derive(Debug)]
-pub struct ListImapFolders {
+pub struct ListFoldersImap {
     session: ImapSessionSync,
 }
 
-impl ListImapFolders {
+impl ListFoldersImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn ListFolders> {
         let session = session.clone();
         Box::new(Self { session })
@@ -34,7 +34,7 @@ impl ListImapFolders {
 }
 
 #[async_trait]
-impl ListFolders for ListImapFolders {
+impl ListFolders for ListFoldersImap {
     async fn list_folders(&self) -> Result<Folders> {
         info!("listing imap folders");
 

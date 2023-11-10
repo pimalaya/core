@@ -6,7 +6,7 @@ use email::{
     },
     email::{sync::EmailSyncCache, Flag, Flags},
     folder::{
-        self, add::imap::AddImapFolder, delete::imap::DeleteImapFolder, list::imap::ListImapFolders,
+        self, add::imap::AddFolderImap, delete::imap::DeleteFolderImap, list::imap::ListFoldersImap,
     },
     imap::ImapSessionBuilder,
 };
@@ -35,7 +35,7 @@ async fn sync() {
         }),
         ..ImapConfig::default()
     };
-    let config = AccountConfig {
+    let account_config = AccountConfig {
         name: "account".into(),
         sync: true,
         sync_dir: Some(sync_dir.clone()),
@@ -45,7 +45,7 @@ async fn sync() {
 
     // set up imap
 
-    let imap_builder = BackendBuilder::new(config.clone());
+    let imap_builder = BackendBuilder::new(account_config.clone());
     let mut imap = imap_builder
         .clone()
         .with_cache_disabled(true)
@@ -56,7 +56,7 @@ async fn sync() {
     // set up maildir reader
 
     let mut mdir = MaildirBackend::new(
-        config.clone(),
+        account_config.clone(),
         MaildirConfig {
             root_dir: sync_dir.clone(),
         },
@@ -168,15 +168,16 @@ async fn sync() {
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
 
-    let backend_context_v2 = ImapSessionBuilder::new(config.clone(), imap_config);
-    let backend_builder_v2 = BackendBuilderV2::new(config.clone(), backend_context_v2)
-        .with_add_folder(AddImapFolder::new)
-        .with_list_folders(ListImapFolders::new)
-        .with_delete_folder(DeleteImapFolder::new);
+    let backend_context_v2 = ImapSessionBuilder::new(account_config.clone(), imap_config);
+    let backend_builder_v2 = BackendBuilderV2::new(account_config.clone(), backend_context_v2)
+        .with_add_folder(AddFolderImap::new)
+        .with_list_folders(ListFoldersImap::new)
+        .with_delete_folder(DeleteFolderImap::new);
 
-    let sync_builder = AccountSyncBuilder::new(config.clone(), imap_builder, backend_builder_v2)
-        .await
-        .unwrap();
+    let sync_builder =
+        AccountSyncBuilder::new(account_config.clone(), imap_builder, backend_builder_v2)
+            .await
+            .unwrap();
     sync_builder.sync().await.unwrap();
     sync_builder.sync().await.unwrap();
 
@@ -240,7 +241,7 @@ async fn sync() {
 
     let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
         &mut conn,
-        &config.name,
+        &account_config.name,
         &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
@@ -249,7 +250,7 @@ async fn sync() {
 
     let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
         &mut conn,
-        &config.name,
+        &account_config.name,
         &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
@@ -258,7 +259,7 @@ async fn sync() {
 
     let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
         &mut conn,
-        &config.name,
+        &account_config.name,
         &folder::sync::FolderSyncStrategy::All,
     )
     .unwrap();
@@ -267,7 +268,7 @@ async fn sync() {
 
     let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
         &mut conn,
-        &config.name,
+        &account_config.name,
         &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
@@ -276,7 +277,7 @@ async fn sync() {
 
     let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
         &mut conn,
-        &config.name,
+        &account_config.name,
         &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
     )
     .unwrap();
@@ -285,7 +286,7 @@ async fn sync() {
 
     let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
         &mut conn,
-        &config.name,
+        &account_config.name,
         &folder::sync::FolderSyncStrategy::All,
     )
     .unwrap();
@@ -295,17 +296,19 @@ async fn sync() {
     // check envelopes cache integrity
 
     let mdir_inbox_envelopes_cached =
-        EmailSyncCache::list_local_envelopes(&mut conn, &config.name, "INBOX").unwrap();
+        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, "INBOX").unwrap();
     let imap_inbox_envelopes_cached =
-        EmailSyncCache::list_remote_envelopes(&mut conn, &config.name, "INBOX").unwrap();
+        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, "INBOX").unwrap();
 
     assert_eq!(mdir_inbox_envelopes, mdir_inbox_envelopes_cached);
     assert_eq!(imap_inbox_envelopes, imap_inbox_envelopes_cached);
 
     let mdir_sent_envelopes_cached =
-        EmailSyncCache::list_local_envelopes(&mut conn, &config.name, "[Gmail]/Sent").unwrap();
+        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, "[Gmail]/Sent")
+            .unwrap();
     let imap_sent_envelopes_cached =
-        EmailSyncCache::list_remote_envelopes(&mut conn, &config.name, "[Gmail]/Sent").unwrap();
+        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, "[Gmail]/Sent")
+            .unwrap();
 
     assert_eq!(mdir_sent_envelopes, mdir_sent_envelopes_cached);
     assert_eq!(imap_sent_envelopes, imap_sent_envelopes_cached);
@@ -347,10 +350,10 @@ async fn sync() {
     assert_eq!(imap_envelopes, mdir_envelopes);
 
     let cached_mdir_envelopes =
-        EmailSyncCache::list_local_envelopes(&mut conn, &config.name, "INBOX").unwrap();
+        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, "INBOX").unwrap();
     assert_eq!(cached_mdir_envelopes, mdir_envelopes);
 
     let cached_imap_envelopes =
-        EmailSyncCache::list_remote_envelopes(&mut conn, &config.name, "INBOX").unwrap();
+        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, "INBOX").unwrap();
     assert_eq!(cached_imap_envelopes, imap_envelopes);
 }

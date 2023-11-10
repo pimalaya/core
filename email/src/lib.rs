@@ -39,9 +39,12 @@ pub mod email;
 pub mod folder;
 #[cfg(feature = "imap-backend")]
 pub mod imap;
+pub mod maildir;
 pub mod sender;
 #[cfg(feature = "smtp-sender")]
 pub mod smtp;
+
+use std::error;
 
 #[doc(inline)]
 pub use backend::Backend;
@@ -89,7 +92,7 @@ pub enum Error {
     #[error(transparent)]
     ImapConfigError(#[from] backend::imap::config::Error),
     #[error(transparent)]
-    MaildirError(#[from] backend::maildir::Error),
+    MaildirBackendError(#[from] backend::maildir::Error),
     #[cfg(feature = "notmuch-backend")]
     #[error(transparent)]
     NotmuchError(#[from] backend::notmuch::Error),
@@ -114,10 +117,15 @@ pub enum Error {
 
     #[cfg(feature = "imap-backend")]
     #[error(transparent)]
-    ImapError(#[from] imap::Error),
+    ImapError(#[from] crate::imap::Error),
+    #[error(transparent)]
+    MaildirError(#[from] crate::maildir::Error),
     #[cfg(feature = "smtp-sender")]
     #[error(transparent)]
-    SmtpError(#[from] smtp::Error),
+    SmtpError(#[from] crate::smtp::Error),
+
+    #[error(transparent)]
+    BoxedError(#[from] Box<dyn error::Error + Send>),
 }
 
 /// The global `Result` alias of the library.

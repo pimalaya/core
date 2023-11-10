@@ -1,7 +1,6 @@
-use std::error;
-
 use async_trait::async_trait;
 use log::{debug, info};
+use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
@@ -22,11 +21,11 @@ impl Error {
 }
 
 #[derive(Debug)]
-pub struct DeleteImapFolder {
+pub struct DeleteFolderImap {
     session: ImapSessionSync,
 }
 
-impl DeleteImapFolder {
+impl DeleteFolderImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn DeleteFolder> {
         let session = session.clone();
         Box::new(Self { session })
@@ -34,7 +33,7 @@ impl DeleteImapFolder {
 }
 
 #[async_trait]
-impl DeleteFolder for DeleteImapFolder {
+impl DeleteFolder for DeleteFolderImap {
     async fn delete_folder(&self, folder: &str) -> Result<()> {
         info!("deleting imap folder {folder}");
 

@@ -26,11 +26,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct AddRawImapMessage {
+pub struct AddRawMessageImap {
     session: ImapSessionSync,
 }
 
-impl AddRawImapMessage {
+impl AddRawMessageImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn AddRawMessage> {
         let session = session.clone();
         Box::new(Self { session })
@@ -38,7 +38,7 @@ impl AddRawImapMessage {
 }
 
 #[async_trait]
-impl AddRawMessage for AddRawImapMessage {
+impl AddRawMessage for AddRawMessageImap {
     async fn add_raw_message(&self, folder: &str, raw_msg: &[u8]) -> Result<SingleId> {
         info!("adding imap message to folder {folder}");
 

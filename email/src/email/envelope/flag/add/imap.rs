@@ -36,11 +36,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct AddImapFlags {
+pub struct AddFlagsImap {
     session: ImapSessionSync,
 }
 
-impl AddImapFlags {
+impl AddFlagsImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn AddFlags> {
         let session = session.clone();
         Box::new(Self { session })
@@ -48,7 +48,7 @@ impl AddImapFlags {
 }
 
 #[async_trait]
-impl AddFlags for AddImapFlags {
+impl AddFlags for AddFlagsImap {
     async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         info!("adding imap flag(s) {flags} to envelope {id} from folder {folder}");
 

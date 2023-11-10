@@ -36,11 +36,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct RemoveImapFlags {
+pub struct RemoveFlagsImap {
     session: ImapSessionSync,
 }
 
-impl RemoveImapFlags {
+impl RemoveFlagsImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn RemoveFlags> {
         let session = session.clone();
         Box::new(Self { session })
@@ -48,7 +48,7 @@ impl RemoveImapFlags {
 }
 
 #[async_trait]
-impl RemoveFlags for RemoveImapFlags {
+impl RemoveFlags for RemoveFlagsImap {
     async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         info!("removing imap flag(s) {flags} to envelope {id} from folder {folder}");
 

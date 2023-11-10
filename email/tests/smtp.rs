@@ -6,9 +6,9 @@ async fn test_smtp_features() {
         account::{AccountConfig, PasswdConfig},
         backend::{BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig},
         email::{
-            envelope::list::imap::ListImapEnvelopes, message::send_raw::smtp::SendRawMessageSmtp,
+            envelope::list::imap::ListEnvelopesImap, message::send_raw::smtp::SendRawMessageSmtp,
         },
-        folder::purge::imap::PurgeImapFolder,
+        folder::purge::imap::PurgeFolderImap,
         imap::ImapSessionBuilder,
         prelude::*,
         sender::{SenderConfig, SmtpAuthConfig, SmtpConfig},
@@ -44,17 +44,17 @@ async fn test_smtp_features() {
         }),
         ..SmtpConfig::default()
     };
-    let config = AccountConfig {
+    let account_config = AccountConfig {
         backend: BackendConfig::Imap(imap_config.clone()),
         sender: SenderConfig::Smtp(smtp_config.clone()),
         ..AccountConfig::default()
     };
 
-    let imap_ctx = ImapSessionBuilder::new(config.clone(), imap_config);
-    let smtp_ctx = SmtpClientBuilder::new(config.clone(), smtp_config);
-    let backend_builder = BackendBuilderV2::new(config.clone(), (imap_ctx, smtp_ctx))
-        .with_purge_folder(|ctx| PurgeImapFolder::new(&ctx.0))
-        .with_list_envelopes(|ctx| ListImapEnvelopes::new(&ctx.0))
+    let imap_ctx = ImapSessionBuilder::new(account_config.clone(), imap_config);
+    let smtp_ctx = SmtpClientBuilder::new(account_config.clone(), smtp_config);
+    let backend_builder = BackendBuilderV2::new(account_config.clone(), (imap_ctx, smtp_ctx))
+        .with_purge_folder(|ctx| PurgeFolderImap::new(&ctx.0))
+        .with_list_envelopes(|ctx| ListEnvelopesImap::new(&ctx.0))
         .with_send_raw_message(|ctx| SendRawMessageSmtp::new(&ctx.1));
     let backend = backend_builder.build().await.unwrap();
 

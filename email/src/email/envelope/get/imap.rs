@@ -1,7 +1,6 @@
-use std::error;
-
 use async_trait::async_trait;
 use log::{debug, info};
+use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
@@ -46,11 +45,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct GetImapEnvelope {
+pub struct GetEnvelopeImap {
     session: ImapSessionSync,
 }
 
-impl GetImapEnvelope {
+impl GetEnvelopeImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn GetEnvelope> {
         let session = session.clone();
         Box::new(Self { session })
@@ -58,7 +57,7 @@ impl GetImapEnvelope {
 }
 
 #[async_trait]
-impl GetEnvelope for GetImapEnvelope {
+impl GetEnvelope for GetEnvelopeImap {
     async fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope> {
         info!("getting imap envelope {id} from folder {folder}");
 

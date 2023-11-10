@@ -39,11 +39,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct ListImapEnvelopes {
+pub struct ListEnvelopesImap {
     session: ImapSessionSync,
 }
 
-impl ListImapEnvelopes {
+impl ListEnvelopesImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn ListEnvelopes> {
         let session = session.clone();
         Box::new(Self { session })
@@ -51,7 +51,7 @@ impl ListImapEnvelopes {
 }
 
 #[async_trait]
-impl ListEnvelopes for ListImapEnvelopes {
+impl ListEnvelopes for ListEnvelopesImap {
     async fn list_envelopes(
         &self,
         folder: &str,

@@ -1,7 +1,6 @@
-use std::error;
-
 use async_trait::async_trait;
 use log::{debug, info};
+use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
@@ -38,11 +37,11 @@ impl Error {
 }
 
 #[derive(Debug)]
-pub struct PurgeImapFolder {
+pub struct PurgeFolderImap {
     session: ImapSessionSync,
 }
 
-impl PurgeImapFolder {
+impl PurgeFolderImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn PurgeFolder> {
         let session = session.clone();
         Box::new(Self { session })
@@ -50,7 +49,7 @@ impl PurgeImapFolder {
 }
 
 #[async_trait]
-impl PurgeFolder for PurgeImapFolder {
+impl PurgeFolder for PurgeFolderImap {
     async fn purge_folder(&self, folder: &str) -> Result<()> {
         info!("purging imap folder {folder}");
 

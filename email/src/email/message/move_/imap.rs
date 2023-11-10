@@ -32,11 +32,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct MoveImapMessages {
+pub struct MoveMessagesImap {
     session: ImapSessionSync,
 }
 
-impl MoveImapMessages {
+impl MoveMessagesImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn MoveMessages> {
         let session = session.clone();
         Box::new(Self { session })
@@ -44,7 +44,7 @@ impl MoveImapMessages {
 }
 
 #[async_trait]
-impl MoveMessages for MoveImapMessages {
+impl MoveMessages for MoveMessagesImap {
     async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         info!("moving imap messages {id} from folder {from_folder} to folder {to_folder}");
 

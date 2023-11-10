@@ -30,11 +30,11 @@ impl Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct GetImapMessages {
+pub struct GetMessagesImap {
     session: ImapSessionSync,
 }
 
-impl GetImapMessages {
+impl GetMessagesImap {
     pub fn new(session: &ImapSessionSync) -> Box<dyn GetMessages> {
         let session = session.clone();
         Box::new(Self { session })
@@ -42,7 +42,7 @@ impl GetImapMessages {
 }
 
 #[async_trait]
-impl GetMessages for GetImapMessages {
+impl GetMessages for GetMessagesImap {
     async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
         info!("getting messages {id} from folder {folder}");
 
