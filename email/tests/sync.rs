@@ -9,14 +9,15 @@ use email::{
         flag::{add::imap::AddFlagsImap, set::imap::SetFlagsImap},
         message::{
             add_raw_with_flags::imap::AddRawMessageWithFlagsImap, get::imap::GetMessagesImap,
-            peek::imap::PeekMessagesImap,
+            move_::imap::MoveMessagesImap, peek::imap::PeekMessagesImap,
         },
         sync::EmailSyncCache,
         Flag, Flags,
     },
     folder::{
         self, add::imap::AddFolderImap, delete::imap::DeleteFolderImap,
-        list::imap::ListFoldersImap, purge::imap::PurgeFolderImap,
+        expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
+        purge::imap::PurgeFolderImap,
     },
     imap::ImapSessionBuilder,
 };
@@ -59,6 +60,7 @@ async fn sync() {
     let imap_builder = BackendBuilderV2::new(account_config.clone(), imap_ctx)
         .with_add_folder(AddFolderImap::new)
         .with_list_folders(ListFoldersImap::new)
+        .with_expunge_folder(ExpungeFolderImap::new)
         .with_purge_folder(PurgeFolderImap::new)
         .with_delete_folder(DeleteFolderImap::new)
         .with_get_envelope(GetEnvelopeImap::new)
@@ -67,7 +69,7 @@ async fn sync() {
         .with_set_flags(SetFlagsImap::new)
         .with_peek_messages(PeekMessagesImap::new)
         .with_get_messages(GetMessagesImap::new)
-        // TODO: delete_messages
+        .with_move_messages(MoveMessagesImap::new)
         .with_add_raw_message_with_flags(AddRawMessageWithFlagsImap::new);
     let imap = imap_builder.clone().build().await.unwrap();
 

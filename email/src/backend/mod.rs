@@ -25,8 +25,8 @@ use crate::{
         envelope::{get::GetEnvelope, Id, ListEnvelopes, SingleId},
         flag::{AddFlags, RemoveFlags, SetFlags},
         message::{
-            get::default_get_messages, AddRawMessageWithFlags, CopyMessages, DefaultDeleteMessages,
-            DeleteMessages, GetMessages, MoveMessages, PeekMessages, SendRawMessage,
+            delete::default_delete_messages, get::default_get_messages, AddRawMessageWithFlags,
+            CopyMessages, DeleteMessages, GetMessages, MoveMessages, PeekMessages, SendRawMessage,
         },
         Envelope, Envelopes, Flag, Flags, Messages,
     },
@@ -490,12 +490,6 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
         }
         if let Some(feature) = &self.delete_messages {
             backend.set_delete_messages(feature(&backend.context));
-        } else if let (Some(a), Some(b)) = (&self.move_messages, &self.add_flags) {
-            backend.set_delete_messages(DefaultDeleteMessages::new(
-                self.account_config.clone(),
-                a(&backend.context),
-                b(&backend.context),
-            ))
         }
         if let Some(feature) = self.send_raw_message {
             backend.set_send_raw_message(feature(&backend.context));
@@ -833,11 +827,13 @@ impl<C> BackendV2<C> {
     }
 
     pub async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
-        self.delete_messages
-            .as_ref()
-            .ok_or(Error::DeleteMessagesNotAvailableError)?
-            .delete_messages(folder, id)
-            .await
+        if let Some(f) = self.delete_messages.as_ref() {
+            f.delete_messages(folder, id).await
+        } else if let (Some(a), Some(b)) = (self.move_messages.as_ref(), self.add_flags.as_ref()) {
+            default_delete_messages(&self.account_config, a.as_ref(), b.as_ref(), folder, id).await
+        } else {
+            Err(Error::DeleteMessagesNotAvailableError)?
+        }
     }
 
     pub async fn send_raw_message(&self, raw_msg: &[u8]) -> Result<()> {

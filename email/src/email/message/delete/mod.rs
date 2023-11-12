@@ -1,11 +1,8 @@
-#[cfg(feature = "imap-backend")]
-pub mod imap;
-
 use async_trait::async_trait;
 
 use crate::{
     account::AccountConfig,
-    email::{envelope::Id, flag::AddFlags, Flag, Flags},
+    email::{envelope::Id, flag::AddFlags, Flag},
     Result,
 };
 
@@ -23,49 +20,6 @@ pub trait DeleteMessages: Send + Sync {
     /// [`ExpungeFolder`](crate::folder::ExpungeFolder) can definitely
     /// delete messages.
     async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()>;
-}
-
-pub struct DefaultDeleteMessages {
-    account_config: AccountConfig,
-    move_messages: Box<dyn MoveMessages>,
-    add_flags: Box<dyn AddFlags>,
-}
-
-#[async_trait]
-impl MoveMessages for DefaultDeleteMessages {
-    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
-        self.move_messages
-            .move_messages(from_folder, to_folder, id)
-            .await
-    }
-}
-
-#[async_trait]
-impl AddFlags for DefaultDeleteMessages {
-    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
-        self.add_flags.add_flags(folder, id, flags).await
-    }
-}
-
-impl DefaultDeleteMessages {
-    pub fn new(
-        account_config: AccountConfig,
-        move_messages: Box<dyn MoveMessages>,
-        add_flags: Box<dyn AddFlags>,
-    ) -> Box<dyn DeleteMessages> {
-        Box::new(Self {
-            account_config,
-            move_messages,
-            add_flags,
-        })
-    }
-}
-
-#[async_trait]
-impl DeleteMessages for DefaultDeleteMessages {
-    async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
-        default_delete_messages(&self.account_config, self, self, folder, id).await
-    }
 }
 
 #[async_trait]

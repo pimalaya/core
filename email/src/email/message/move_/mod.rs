@@ -1,5 +1,6 @@
 #[cfg(feature = "imap-backend")]
 pub mod imap;
+pub mod maildir;
 
 use async_trait::async_trait;
 

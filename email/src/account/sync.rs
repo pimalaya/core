@@ -24,7 +24,7 @@ use crate::{
         flag::{add::maildir::AddFlagsMaildir, set::maildir::SetFlagsMaildir},
         message::{
             add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
-            peek::maildir::PeekMessagesMaildir,
+            move_::maildir::MoveMessagesMaildir, peek::maildir::PeekMessagesMaildir,
         },
         sync::{
             EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
@@ -436,6 +436,7 @@ impl LocalBackendBuilder {
             .with_add_flags(AddFlagsMaildir::new)
             .with_set_flags(SetFlagsMaildir::new)
             .with_peek_messages(PeekMessagesMaildir::new)
+            .with_move_messages(MoveMessagesMaildir::new)
             .with_add_raw_message_with_flags(AddRawMessageWithFlagsMaildir::new);
 
         Self(backend_builder)
