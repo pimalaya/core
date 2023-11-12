@@ -25,8 +25,8 @@ use crate::{
         envelope::{get::GetEnvelope, Id, ListEnvelopes, SingleId},
         flag::{AddFlags, RemoveFlags, SetFlags},
         message::{
-            add_raw_with_flags::AddRawMessageWithFlags, delete::DefaultDeleteMessages,
-            CopyMessages, DeleteMessages, GetMessages, MoveMessages, SendRawMessage,
+            get::default_get_messages, AddRawMessageWithFlags, CopyMessages, DefaultDeleteMessages,
+            DeleteMessages, GetMessages, MoveMessages, PeekMessages, SendRawMessage,
         },
         Envelope, Envelopes, Flag, Flags, Messages,
     },
@@ -81,6 +81,8 @@ pub enum Error {
     AddRawMessageWithFlagsNotAvailableError,
     #[error("cannot get messages: feature not available")]
     GetMessagesNotAvailableError,
+    #[error("cannot peek messages: feature not available")]
+    PeekMessagesNotAvailableError,
     #[error("cannot copy messages: feature not available")]
     CopyMessagesNotAvailableError,
     #[error("cannot move messages: feature not available")]
@@ -274,6 +276,7 @@ pub struct BackendBuilderV2<B: BackendContextBuilder> {
     add_raw_message_with_flags:
         Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddRawMessageWithFlags> + Send + Sync>>,
     get_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn GetMessages> + Send + Sync>>,
+    peek_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn PeekMessages> + Send + Sync>>,
     copy_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn CopyMessages> + Send + Sync>>,
     move_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn MoveMessages> + Send + Sync>>,
     delete_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn DeleteMessages> + Send + Sync>>,
@@ -287,25 +290,26 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
 
             context_builder,
 
-            add_folder: None,
-            list_folders: None,
-            expunge_folder: None,
-            purge_folder: None,
-            delete_folder: None,
+            add_folder: Default::default(),
+            list_folders: Default::default(),
+            expunge_folder: Default::default(),
+            purge_folder: Default::default(),
+            delete_folder: Default::default(),
 
-            get_envelope: None,
-            list_envelopes: None,
+            get_envelope: Default::default(),
+            list_envelopes: Default::default(),
 
-            add_flags: None,
-            set_flags: None,
-            remove_flags: None,
+            add_flags: Default::default(),
+            set_flags: Default::default(),
+            remove_flags: Default::default(),
 
-            add_raw_message_with_flags: None,
-            get_messages: None,
-            copy_messages: None,
-            move_messages: None,
-            delete_messages: None,
-            send_raw_message: None,
+            add_raw_message_with_flags: Default::default(),
+            get_messages: Default::default(),
+            peek_messages: Default::default(),
+            copy_messages: Default::default(),
+            move_messages: Default::default(),
+            delete_messages: Default::default(),
+            send_raw_message: Default::default(),
         }
     }
 
@@ -396,6 +400,13 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
         self.get_messages = Some(Arc::new(feature));
         self
     }
+    pub fn with_peek_messages(
+        mut self,
+        feature: impl Fn(&C) -> Box<dyn PeekMessages> + Send + Sync + 'static,
+    ) -> Self {
+        self.peek_messages = Some(Arc::new(feature));
+        self
+    }
     pub fn with_copy_messages(
         mut self,
         feature: impl Fn(&C) -> Box<dyn CopyMessages> + Send + Sync + 'static,
@@ -468,6 +479,9 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
         if let Some(feature) = &self.get_messages {
             backend.set_get_messages(feature(&backend.context));
         }
+        if let Some(feature) = &self.peek_messages {
+            backend.set_peek_messages(feature(&backend.context));
+        }
         if let Some(feature) = &self.copy_messages {
             backend.set_copy_messages(feature(&backend.context));
         }
@@ -513,6 +527,7 @@ impl<B: BackendContextBuilder> Clone for BackendBuilderV2<B> {
 
             add_raw_message_with_flags: self.add_raw_message_with_flags.clone(),
             get_messages: self.get_messages.clone(),
+            peek_messages: self.peek_messages.clone(),
             copy_messages: self.copy_messages.clone(),
             move_messages: self.move_messages.clone(),
             delete_messages: self.delete_messages.clone(),
@@ -543,6 +558,7 @@ impl Default for BackendBuilderV2<()> {
 
             add_raw_message_with_flags: Default::default(),
             get_messages: Default::default(),
+            peek_messages: Default::default(),
             copy_messages: Default::default(),
             move_messages: Default::default(),
             delete_messages: Default::default(),
@@ -571,6 +587,7 @@ pub struct BackendV2<C> {
 
     pub add_raw_message_with_flags: Option<Box<dyn AddRawMessageWithFlags>>,
     pub get_messages: Option<Box<dyn GetMessages>>,
+    pub peek_messages: Option<Box<dyn PeekMessages>>,
     pub copy_messages: Option<Box<dyn CopyMessages>>,
     pub move_messages: Option<Box<dyn MoveMessages>>,
     pub delete_messages: Option<Box<dyn DeleteMessages>>,
@@ -599,6 +616,7 @@ impl<C> BackendV2<C> {
 
             add_raw_message_with_flags: None,
             get_messages: None,
+            peek_messages: None,
             copy_messages: None,
             move_messages: None,
             delete_messages: None,
@@ -645,6 +663,9 @@ impl<C> BackendV2<C> {
     pub fn set_get_messages(&mut self, feature: Box<dyn GetMessages>) {
         self.get_messages = Some(feature);
     }
+    pub fn set_peek_messages(&mut self, feature: Box<dyn PeekMessages>) {
+        self.peek_messages = Some(feature);
+    }
     pub fn set_copy_messages(&mut self, feature: Box<dyn CopyMessages>) {
         self.copy_messages = Some(feature);
     }
@@ -657,66 +678,48 @@ impl<C> BackendV2<C> {
     pub fn set_send_raw_message(&mut self, feature: Box<dyn SendRawMessage>) {
         self.send_raw_message = Some(feature);
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> AddFolder for BackendV2<C> {
-    async fn add_folder(&self, folder: &str) -> Result<()> {
+    pub async fn add_folder(&self, folder: &str) -> Result<()> {
         self.add_folder
             .as_ref()
             .ok_or(Error::AddFolderNotAvailableError)?
             .add_folder(folder)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> ListFolders for BackendV2<C> {
-    async fn list_folders(&self) -> Result<Folders> {
+    pub async fn list_folders(&self) -> Result<Folders> {
         self.list_folders
             .as_ref()
             .ok_or(Error::ListFoldersNotAvailableError)?
             .list_folders()
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> ExpungeFolder for BackendV2<C> {
-    async fn expunge_folder(&self, folder: &str) -> Result<()> {
+    pub async fn expunge_folder(&self, folder: &str) -> Result<()> {
         self.expunge_folder
             .as_ref()
             .ok_or(Error::ExpungeFolderNotAvailableError)?
             .expunge_folder(folder)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> PurgeFolder for BackendV2<C> {
-    async fn purge_folder(&self, folder: &str) -> Result<()> {
+    pub async fn purge_folder(&self, folder: &str) -> Result<()> {
         self.purge_folder
             .as_ref()
             .ok_or(Error::PurgeFolderNotAvailableError)?
             .purge_folder(folder)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> DeleteFolder for BackendV2<C> {
-    async fn delete_folder(&self, folder: &str) -> Result<()> {
+    pub async fn delete_folder(&self, folder: &str) -> Result<()> {
         self.delete_folder
             .as_ref()
             .ok_or(Error::DeleteFolderNotAvailableError)?
             .delete_folder(folder)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> ListEnvelopes for BackendV2<C> {
-    async fn list_envelopes(
+    pub async fn list_envelopes(
         &self,
         folder: &str,
         page_size: usize,
@@ -728,55 +731,48 @@ impl<C: Send + Sync> ListEnvelopes for BackendV2<C> {
             .list_envelopes(folder, page_size, page)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> GetEnvelope for BackendV2<C> {
-    async fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope> {
+    pub async fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope> {
         self.get_envelope
             .as_ref()
             .ok_or(Error::GetEnvelopeNotAvailableError)?
             .get_envelope(folder, id)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> AddFlags for BackendV2<C> {
-    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+    pub async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         self.add_flags
             .as_ref()
             .ok_or(Error::AddFlagsNotAvailableError)?
             .add_flags(folder, id, flags)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> SetFlags for BackendV2<C> {
-    async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+    pub async fn add_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
+        self.add_flags
+            .as_ref()
+            .ok_or(Error::AddFlagsNotAvailableError)?
+            .add_flag(folder, id, flag)
+            .await
+    }
+
+    pub async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         self.set_flags
             .as_ref()
             .ok_or(Error::SetFlagsNotAvailableError)?
             .set_flags(folder, id, flags)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> RemoveFlags for BackendV2<C> {
-    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+    pub async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         self.remove_flags
             .as_ref()
             .ok_or(Error::RemoveFlagsNotAvailableError)?
             .remove_flags(folder, id, flags)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> AddRawMessageWithFlags for BackendV2<C> {
-    async fn add_raw_message_with_flags(
+    pub async fn add_raw_message_with_flags(
         &self,
         folder: &str,
         email: &[u8],
@@ -788,55 +784,63 @@ impl<C: Send + Sync> AddRawMessageWithFlags for BackendV2<C> {
             .add_raw_message_with_flags(folder, email, flags)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> GetMessages for BackendV2<C> {
-    async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
-        self.get_messages
+    pub async fn add_raw_message_with_flag(
+        &self,
+        folder: &str,
+        email: &[u8],
+        flag: Flag,
+    ) -> Result<SingleId> {
+        self.add_raw_message_with_flags
             .as_ref()
-            .ok_or(Error::GetMessagesNotAvailableError)?
-            .get_messages(folder, id)
+            .ok_or(Error::AddRawMessageWithFlagsNotAvailableError)?
+            .add_raw_message_with_flag(folder, email, flag)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> CopyMessages for BackendV2<C> {
-    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+    pub async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        if let Some(f) = self.get_messages.as_ref() {
+            f.get_messages(folder, id).await
+        } else if let (Some(a), Some(b)) = (self.peek_messages.as_ref(), self.add_flags.as_ref()) {
+            default_get_messages(a.as_ref(), b.as_ref(), folder, id).await
+        } else {
+            Err(Error::PeekMessagesNotAvailableError)?
+        }
+    }
+
+    pub async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        self.peek_messages
+            .as_ref()
+            .ok_or(Error::PeekMessagesNotAvailableError)?
+            .peek_messages(folder, id)
+            .await
+    }
+
+    pub async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         self.copy_messages
             .as_ref()
             .ok_or(Error::CopyMessagesNotAvailableError)?
             .copy_messages(from_folder, to_folder, id)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> MoveMessages for BackendV2<C> {
-    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+    pub async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         self.move_messages
             .as_ref()
             .ok_or(Error::MoveMessagesNotAvailableError)?
             .move_messages(from_folder, to_folder, id)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> DeleteMessages for BackendV2<C> {
-    async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
+    pub async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
         self.delete_messages
             .as_ref()
             .ok_or(Error::DeleteMessagesNotAvailableError)?
             .delete_messages(folder, id)
             .await
     }
-}
 
-#[async_trait]
-impl<C: Send + Sync> SendRawMessage for BackendV2<C> {
-    async fn send_raw_message(&self, raw_msg: &[u8]) -> Result<()> {
+    pub async fn send_raw_message(&self, raw_msg: &[u8]) -> Result<()> {
         self.send_raw_message
             .as_ref()
             .ok_or(Error::SendRawMessageNotAvailableError)?

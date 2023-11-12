@@ -13,9 +13,9 @@ use super::{Folder, Folders, ListFolders};
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("maildir: cannot get subfolder at {1}")]
+    #[error("maildir: cannot get subfolder from {1}")]
     GetSubfolderError(#[source] maildirpp::Error, PathBuf),
-    #[error("maildir: cannot parse subfolder {1} at {0}")]
+    #[error("maildir: cannot parse subfolder {1} from {0}")]
     ParseSubfolderError(PathBuf, PathBuf),
 }
 

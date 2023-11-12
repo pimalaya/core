@@ -18,18 +18,30 @@ use thiserror::Error;
 
 use crate::{
     account::AccountConfig,
-    backend::{
-        Backend, BackendBuilder, BackendBuilderV2, BackendContextBuilder, MaildirBackendBuilder,
-        MaildirConfig,
+    backend::{BackendBuilderV2, BackendContextBuilder, BackendV2, MaildirConfig},
+    email::{
+        envelope::{get::maildir::GetEnvelopeMaildir, list::maildir::ListEnvelopesMaildir},
+        flag::{add::maildir::AddFlagsMaildir, set::maildir::SetFlagsMaildir},
+        message::{
+            add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
+            peek::maildir::PeekMessagesMaildir,
+        },
+        sync::{
+            EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
+            EmailSyncPatchManager,
+        },
     },
-    email::sync::{
-        EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
-        EmailSyncPatchManager,
+    folder::{
+        add::maildir::AddFolderMaildir,
+        delete::maildir::DeleteFolderMaildir,
+        expunge::maildir::ExpungeFolderMaildir,
+        list::maildir::ListFoldersMaildir,
+        sync::{
+            FolderName, FolderSyncCache, FolderSyncCacheHunk, FolderSyncHunk,
+            FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy, FoldersName,
+        },
     },
-    folder::sync::{
-        FolderName, FolderSyncCache, FolderSyncCacheHunk, FolderSyncHunk, FolderSyncPatchManager,
-        FolderSyncPatches, FolderSyncStrategy, FoldersName,
-    },
+    maildir::{MaildirSessionBuilder, MaildirSessionSync},
     Result,
 };
 
@@ -183,7 +195,6 @@ impl AccountSyncProgress {
 /// given remote builder.
 pub struct AccountSyncBuilder<B: BackendContextBuilder> {
     account_config: AccountConfig,
-    remote_builder: BackendBuilder,
     remote_builder_v2: BackendBuilderV2<B>,
     on_progress: AccountSyncProgress,
     folders_strategy: FolderSyncStrategy,
@@ -194,16 +205,11 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
     /// Creates a new account synchronization builder.
     pub async fn new(
         account_config: AccountConfig,
-        remote_builder: BackendBuilder,
         remote_builder_v2: BackendBuilderV2<B>,
     ) -> Result<AccountSyncBuilder<B>> {
         let folders_strategy = account_config.sync_folders_strategy.clone();
         Ok(Self {
             account_config,
-            remote_builder: remote_builder
-                .with_cache_disabled(true)
-                .with_default_credentials()
-                .await?,
             remote_builder_v2,
             on_progress: Default::default(),
             dry_run: Default::default(),
@@ -277,7 +283,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
         FolderSyncCache::init(conn)?;
         EmailSyncCache::init(conn)?;
 
-        let local_builder = MaildirBackendBuilder::new(
+        let local_builder = LocalBackendBuilder::new(
             self.account_config.clone(),
             MaildirConfig {
                 root_dir: sync_dir.clone(),
@@ -333,7 +339,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
         let envelope_sync_patch_manager = EmailSyncPatchManager::new(
             &self.account_config,
             local_builder.clone(),
-            self.remote_builder.clone(),
+            self.remote_builder_v2.clone(),
             self.on_progress.clone(),
             self.dry_run,
         );
@@ -376,8 +382,14 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
 
         debug!("expunging folders");
         FuturesUnordered::from_iter(folders.iter().map(|folder| async {
-            local_builder.build()?.expunge_folder(folder).await?;
-            self.remote_builder
+            local_builder
+                .clone()
+                .build()
+                .await?
+                .expunge_folder(folder)
+                .await?;
+            self.remote_builder_v2
+                .clone()
                 .build()
                 .await?
                 .expunge_folder(folder)
@@ -405,5 +417,31 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
         debug!("{sync_report:#?}");
 
         Ok(sync_report)
+    }
+}
+
+#[derive(Clone)]
+pub struct LocalBackendBuilder(BackendBuilderV2<MaildirSessionBuilder>);
+
+impl LocalBackendBuilder {
+    pub fn new(account_config: AccountConfig, maildir_config: MaildirConfig) -> Self {
+        let session_builder = MaildirSessionBuilder::new(account_config.clone(), maildir_config);
+        let backend_builder = BackendBuilderV2::new(account_config, session_builder)
+            .with_add_folder(AddFolderMaildir::new)
+            .with_list_folders(ListFoldersMaildir::new)
+            .with_expunge_folder(ExpungeFolderMaildir::new)
+            .with_delete_folder(DeleteFolderMaildir::new)
+            .with_get_envelope(GetEnvelopeMaildir::new)
+            .with_list_envelopes(ListEnvelopesMaildir::new)
+            .with_add_flags(AddFlagsMaildir::new)
+            .with_set_flags(SetFlagsMaildir::new)
+            .with_peek_messages(PeekMessagesMaildir::new)
+            .with_add_raw_message_with_flags(AddRawMessageWithFlagsMaildir::new);
+
+        Self(backend_builder)
+    }
+
+    pub async fn build(self) -> Result<BackendV2<MaildirSessionSync>> {
+        self.0.build().await
     }
 }

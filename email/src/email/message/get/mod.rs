@@ -1,10 +1,8 @@
 use async_trait::async_trait;
 
 use crate::{
-    email::{
-        envelope::{flag::AddFlags, Id},
-        Flag,
-    },
+    email::{envelope::Id, Flag},
+    prelude::AddFlags,
     Result,
 };
 
@@ -28,8 +26,17 @@ pub trait GetMessages: Send + Sync {
 #[async_trait]
 impl<T: PeekMessages + AddFlags> GetMessages for T {
     async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
-        let messages = self.peek_messages(folder, id).await?;
-        self.add_flag(folder, id, Flag::Seen).await?;
-        Ok(messages)
+        default_get_messages(self, self, folder, id).await
     }
+}
+
+pub async fn default_get_messages(
+    a: &dyn PeekMessages,
+    b: &dyn AddFlags,
+    folder: &str,
+    id: &Id,
+) -> Result<Messages> {
+    let messages = a.peek_messages(folder, id).await?;
+    b.add_flag(folder, id, Flag::Seen).await?;
+    Ok(messages)
 }

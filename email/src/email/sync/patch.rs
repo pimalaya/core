@@ -15,7 +15,10 @@ use std::{
 };
 
 use crate::{
-    account::sync::{AccountSyncProgress, AccountSyncProgressEvent, Source, Target},
+    account::sync::{
+        AccountSyncProgress, AccountSyncProgressEvent, LocalBackendBuilder, Source, Target,
+    },
+    backend::BackendContextBuilder,
     email::flag,
     Result,
 };
@@ -36,20 +39,20 @@ pub type EmailSyncCachePatch = Vec<EmailSyncCacheHunk>;
 /// The email synchronization patch manager.
 ///
 /// This structure helps you to build a patch and to apply it.
-pub struct EmailSyncPatchManager<'a> {
+pub struct EmailSyncPatchManager<'a, B: BackendContextBuilder> {
     account_config: &'a AccountConfig,
-    local_builder: MaildirBackendBuilder,
-    remote_builder: BackendBuilder,
+    local_builder: LocalBackendBuilder,
+    remote_builder: BackendBuilderV2<B>,
     on_progress: AccountSyncProgress,
     dry_run: bool,
 }
 
-impl<'a> EmailSyncPatchManager<'a> {
+impl<'a, B: BackendContextBuilder + 'static> EmailSyncPatchManager<'a, B> {
     /// Creates a new email synchronization patch manager.
     pub fn new(
         account_config: &'a AccountConfig,
-        local_builder: MaildirBackendBuilder,
-        remote_builder: BackendBuilder,
+        local_builder: LocalBackendBuilder,
+        remote_builder: BackendBuilderV2<B>,
         on_progress: AccountSyncProgress,
         dry_run: bool,
     ) -> Self {
@@ -73,8 +76,8 @@ impl<'a> EmailSyncPatchManager<'a> {
         self.on_progress
             .emit(AccountSyncProgressEvent::GetLocalCachedEnvelopes);
 
-        let mut local = self.local_builder.build()?;
-        let mut remote = self.remote_builder.build().await?;
+        let local = self.local_builder.clone().build().await?;
+        let remote = self.remote_builder.clone().build().await?;
 
         debug!("getting local cached envelopes");
         let local_envelopes_cached: Envelopes = HashMap::from_iter(

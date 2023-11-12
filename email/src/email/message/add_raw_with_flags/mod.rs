@@ -13,6 +13,7 @@ use super::add_raw::AddRawMessage;
 
 #[cfg(feature = "imap-backend")]
 pub mod imap;
+pub mod maildir;
 
 #[async_trait]
 pub trait AddRawMessageWithFlags: Send + Sync {

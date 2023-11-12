@@ -4,6 +4,7 @@ use crate::Result;
 
 #[cfg(feature = "imap-backend")]
 pub mod imap;
+pub mod maildir;
 
 #[async_trait]
 pub trait DeleteFolder: Send + Sync {

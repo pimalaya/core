@@ -19,7 +19,6 @@ async fn test_imap_features() {
             purge::imap::PurgeFolderImap,
         },
         imap::ImapSessionBuilder,
-        prelude::*,
     };
     use mml::MmlCompilerBuilder;
     use secret::Secret;

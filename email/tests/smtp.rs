@@ -10,7 +10,6 @@ async fn test_smtp_features() {
         },
         folder::purge::imap::PurgeFolderImap,
         imap::ImapSessionBuilder,
-        prelude::*,
         sender::{SenderConfig, SmtpAuthConfig, SmtpConfig},
         smtp::SmtpClientBuilder,
     };

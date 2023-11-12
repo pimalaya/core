@@ -38,7 +38,7 @@ pub use self::{
     add_raw_with_flags::AddRawMessageWithFlags,
     attachment::Attachment,
     copy::CopyMessages,
-    delete::DeleteMessages,
+    delete::{DefaultDeleteMessages, DeleteMessages},
     get::GetMessages,
     move_::MoveMessages,
     peek::PeekMessages,

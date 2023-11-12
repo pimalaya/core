@@ -9,15 +9,6 @@ pub enum Id {
     Multiple(MultipleIds),
 }
 
-impl fmt::Display for Id {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Single(id) => write!(f, "{}", id.deref()),
-            Self::Multiple(ids) => write!(f, "{ids}"),
-        }
-    }
-}
-
 impl Id {
     pub fn single(id: impl Into<SingleId>) -> Self {
         Self::Single(id.into())
@@ -31,6 +22,19 @@ impl Id {
         match self {
             Self::Single(id) => id.to_string(),
             Self::Multiple(ids) => ids.join(sep.as_ref()),
+        }
+    }
+
+    pub fn iter(&self) -> IdIterator {
+        IdIterator::new(self)
+    }
+}
+
+impl fmt::Display for Id {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Single(id) => write!(f, "{}", id.deref()),
+            Self::Multiple(ids) => write!(f, "{ids}"),
         }
     }
 }
@@ -114,5 +118,39 @@ impl fmt::Display for MultipleIds {
             write!(f, "{id}")?;
         }
         Ok(())
+    }
+}
+
+pub struct IdIterator<'a> {
+    id: &'a Id,
+    index: usize,
+}
+
+impl<'a> IdIterator<'a> {
+    pub fn new(id: &'a Id) -> Self {
+        Self { id, index: 0 }
+    }
+}
+
+impl<'a> Iterator for IdIterator<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.id {
+            Id::Single(_) if self.index > 0 => None,
+            Id::Single(SingleId(id)) => {
+                self.index = 1;
+                Some(id.as_str())
+            }
+            Id::Multiple(MultipleIds(ids)) => {
+                if self.index < ids.len() {
+                    let id = Some(ids[self.index].as_str());
+                    self.index += 1;
+                    id
+                } else {
+                    None
+                }
+            }
+        }
     }
 }

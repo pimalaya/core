@@ -6,6 +6,7 @@ use super::{Flag, Flags};
 
 #[cfg(feature = "imap-backend")]
 pub mod imap;
+pub mod maildir;
 
 #[async_trait]
 pub trait AddFlags: Send + Sync {

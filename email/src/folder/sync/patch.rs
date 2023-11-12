@@ -12,11 +12,10 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     account::{
-        sync::{AccountSyncProgress, AccountSyncProgressEvent, Destination},
+        sync::{AccountSyncProgress, AccountSyncProgressEvent, Destination, LocalBackendBuilder},
         AccountConfig,
     },
-    backend::{Backend, BackendBuilderV2, BackendContextBuilder, MaildirBackendBuilder},
-    folder::{add::AddFolder, delete::DeleteFolder, list::ListFolders},
+    backend::{BackendBuilderV2, BackendContextBuilder},
     Result,
 };
 
@@ -39,7 +38,7 @@ pub type FolderSyncCachePatch = Vec<FolderSyncCacheHunk>;
 /// This structure helps you to build a patch and to apply it.
 pub struct FolderSyncPatchManager<'a, B: BackendContextBuilder> {
     account_config: &'a AccountConfig,
-    local_builder: MaildirBackendBuilder,
+    local_builder: LocalBackendBuilder,
     remote_builder_v2: BackendBuilderV2<B>,
     strategy: &'a FolderSyncStrategy,
     on_progress: AccountSyncProgress,
@@ -50,7 +49,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
     /// Creates a new folder synchronization patch manager.
     pub fn new(
         account_config: &'a AccountConfig,
-        local_builder: MaildirBackendBuilder,
+        local_builder: LocalBackendBuilder,
         remote_builder_v2: BackendBuilderV2<B>,
         strategy: &'a FolderSyncStrategy,
         on_progress: AccountSyncProgress,
@@ -88,7 +87,9 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
 
         let local_folders: FoldersName = HashSet::from_iter(
             self.local_builder
-                .build()?
+                .clone()
+                .build()
+                .await?
                 .list_folders()
                 .await?
                 .iter()
@@ -184,8 +185,8 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
     }
 
     async fn process_hunk(
-        local_builder: MaildirBackendBuilder,
-        remote_builder_v2: BackendBuilderV2<B>,
+        local_builder: LocalBackendBuilder,
+        remote_builder: BackendBuilderV2<B>,
         hunk: &FolderSyncHunk,
     ) -> Result<FolderSyncCachePatch> {
         let cache_hunks = match &hunk {
@@ -196,7 +197,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
                 )]
             }
             FolderSyncHunk::Create(ref folder, Destination::Local) => {
-                local_builder.build()?.add_folder(folder).await?;
+                local_builder.build().await?.add_folder(folder).await?;
                 vec![]
             }
             FolderSyncHunk::Cache(ref folder, Destination::Remote) => {
@@ -206,7 +207,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
                 )]
             }
             FolderSyncHunk::Create(ref folder, Destination::Remote) => {
-                remote_builder_v2.build().await?.add_folder(&folder).await?;
+                remote_builder.build().await?.add_folder(&folder).await?;
                 vec![]
             }
             FolderSyncHunk::Uncache(ref folder, Destination::Local) => {
@@ -216,7 +217,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
                 )]
             }
             FolderSyncHunk::Delete(ref folder, Destination::Local) => {
-                local_builder.build()?.delete_folder(folder).await?;
+                local_builder.build().await?.delete_folder(folder).await?;
                 vec![]
             }
             FolderSyncHunk::Uncache(ref folder, Destination::Remote) => {
@@ -226,11 +227,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
                 )]
             }
             FolderSyncHunk::Delete(ref folder, Destination::Remote) => {
-                remote_builder_v2
-                    .build()
-                    .await?
-                    .delete_folder(&folder)
-                    .await?;
+                remote_builder.build().await?.delete_folder(&folder).await?;
                 vec![]
             }
         };

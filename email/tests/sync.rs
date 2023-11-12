@@ -1,12 +1,22 @@
 use email::{
-    account::{sync::AccountSyncBuilder, AccountConfig, PasswdConfig},
-    backend::{
-        Backend, BackendBuilder, BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig,
-        MaildirBackend, MaildirConfig,
+    account::{
+        sync::{AccountSyncBuilder, LocalBackendBuilder},
+        AccountConfig, PasswdConfig,
     },
-    email::{sync::EmailSyncCache, Flag, Flags},
+    backend::{BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig, MaildirConfig},
+    email::{
+        envelope::{get::imap::GetEnvelopeImap, list::imap::ListEnvelopesImap, Id},
+        flag::{add::imap::AddFlagsImap, set::imap::SetFlagsImap},
+        message::{
+            add_raw_with_flags::imap::AddRawMessageWithFlagsImap, get::imap::GetMessagesImap,
+            peek::imap::PeekMessagesImap,
+        },
+        sync::EmailSyncCache,
+        Flag, Flags,
+    },
     folder::{
-        self, add::imap::AddFolderImap, delete::imap::DeleteFolderImap, list::imap::ListFoldersImap,
+        self, add::imap::AddFolderImap, delete::imap::DeleteFolderImap,
+        list::imap::ListFoldersImap, purge::imap::PurgeFolderImap,
     },
     imap::ImapSessionBuilder,
 };
@@ -45,22 +55,32 @@ async fn sync() {
 
     // set up imap
 
-    let imap_builder = BackendBuilder::new(account_config.clone());
-    let mut imap = imap_builder
-        .clone()
-        .with_cache_disabled(true)
-        .into_build()
-        .await
-        .unwrap();
+    let imap_ctx = ImapSessionBuilder::new(account_config.clone(), imap_config);
+    let imap_builder = BackendBuilderV2::new(account_config.clone(), imap_ctx)
+        .with_add_folder(AddFolderImap::new)
+        .with_list_folders(ListFoldersImap::new)
+        .with_purge_folder(PurgeFolderImap::new)
+        .with_delete_folder(DeleteFolderImap::new)
+        .with_get_envelope(GetEnvelopeImap::new)
+        .with_list_envelopes(ListEnvelopesImap::new)
+        .with_add_flags(AddFlagsImap::new)
+        .with_set_flags(SetFlagsImap::new)
+        .with_peek_messages(PeekMessagesImap::new)
+        .with_get_messages(GetMessagesImap::new)
+        // TODO: delete_messages
+        .with_add_raw_message_with_flags(AddRawMessageWithFlagsImap::new);
+    let imap = imap_builder.clone().build().await.unwrap();
 
     // set up maildir reader
 
-    let mut mdir = MaildirBackend::new(
+    let mdir = LocalBackendBuilder::new(
         account_config.clone(),
         MaildirConfig {
             root_dir: sync_dir.clone(),
         },
     )
+    .build()
+    .await
     .unwrap();
 
     // set up folders
@@ -78,7 +98,7 @@ async fn sync() {
     // add three emails to folder INBOX with delay (in order to have
     // different dates)
 
-    imap.add_email(
+    imap.add_raw_message_with_flag(
         "INBOX",
         &MessageBuilder::new()
             .message_id("<a@localhost>")
@@ -88,14 +108,14 @@ async fn sync() {
             .text_body("A")
             .write_to_vec()
             .unwrap(),
-        &Flags::from_iter([Flag::Seen]),
+        Flag::Seen,
     )
     .await
     .unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    imap.add_email(
+    imap.add_raw_message_with_flags(
         "INBOX",
         &MessageBuilder::new()
             .message_id("<b@localhost>")
@@ -112,7 +132,7 @@ async fn sync() {
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    imap.add_email(
+    imap.add_raw_message_with_flags(
         "INBOX",
         &MessageBuilder::new()
             .message_id("<c@localhost>")
@@ -131,7 +151,7 @@ async fn sync() {
 
     // add two more emails to folder [Gmail]/Sent
 
-    imap.add_email(
+    imap.add_raw_message_with_flags(
         "[Gmail]/Sent",
         &MessageBuilder::new()
             .message_id("<d@localhost>")
@@ -148,7 +168,7 @@ async fn sync() {
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    imap.add_email(
+    imap.add_raw_message_with_flags(
         "[Gmail]/Sent",
         &MessageBuilder::new()
             .message_id("<e@localhost>")
@@ -168,16 +188,9 @@ async fn sync() {
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
 
-    let backend_context_v2 = ImapSessionBuilder::new(account_config.clone(), imap_config);
-    let backend_builder_v2 = BackendBuilderV2::new(account_config.clone(), backend_context_v2)
-        .with_add_folder(AddFolderImap::new)
-        .with_list_folders(ListFoldersImap::new)
-        .with_delete_folder(DeleteFolderImap::new);
-
-    let sync_builder =
-        AccountSyncBuilder::new(account_config.clone(), imap_builder, backend_builder_v2)
-            .await
-            .unwrap();
+    let sync_builder = AccountSyncBuilder::new(account_config.clone(), imap_builder)
+        .await
+        .unwrap();
     sync_builder.sync().await.unwrap();
     sync_builder.sync().await.unwrap();
 
@@ -220,20 +233,20 @@ async fn sync() {
 
     // check maildir emails content integrity
 
-    let ids = mdir_inbox_envelopes.iter().map(|e| e.id.as_str()).collect();
-    let emails = mdir.get_emails("INBOX", ids).await.unwrap();
-    let emails = emails.to_vec();
-    assert_eq!(3, emails.len());
-    assert_eq!("C", emails[0].parsed().unwrap().body_text(0).unwrap());
-    assert_eq!("B", emails[1].parsed().unwrap().body_text(0).unwrap());
-    assert_eq!("A", emails[2].parsed().unwrap().body_text(0).unwrap());
+    let ids = Id::multiple(mdir_inbox_envelopes.iter().map(|e| &e.id));
+    let msgs = mdir.get_messages("INBOX", &ids).await.unwrap();
+    let msgs = msgs.to_vec();
+    assert_eq!(3, msgs.len());
+    assert_eq!("C", msgs[0].parsed().unwrap().body_text(0).unwrap());
+    assert_eq!("B", msgs[1].parsed().unwrap().body_text(0).unwrap());
+    assert_eq!("A", msgs[2].parsed().unwrap().body_text(0).unwrap());
 
-    let ids = mdir_sent_envelopes.iter().map(|e| e.id.as_str()).collect();
-    let emails = mdir.get_emails("[Gmail]/Sent", ids).await.unwrap();
-    let emails = emails.to_vec();
-    assert_eq!(2, emails.len());
-    assert_eq!("E", emails[0].parsed().unwrap().body_text(0).unwrap());
-    assert_eq!("D", emails[1].parsed().unwrap().body_text(0).unwrap());
+    let ids = Id::multiple(mdir_sent_envelopes.iter().map(|e| &e.id));
+    let msgs = mdir.get_messages("[Gmail]/Sent", &ids).await.unwrap();
+    let msgs = msgs.to_vec();
+    assert_eq!(2, msgs.len());
+    assert_eq!("E", msgs[0].parsed().unwrap().body_text(0).unwrap());
+    assert_eq!("D", msgs[1].parsed().unwrap().body_text(0).unwrap());
 
     // check folders cache integrity
 
@@ -316,23 +329,23 @@ async fn sync() {
     // remove emails and update flags from both side, sync again and
     // check integrity
 
-    imap.delete_emails("INBOX", vec![&imap_inbox_envelopes[0].id])
+    imap.delete_messages("INBOX", &Id::single(&imap_inbox_envelopes[0].id))
         .await
         .unwrap();
     imap.add_flags(
         "INBOX",
-        vec![&imap_inbox_envelopes[1].id],
+        &Id::single(&imap_inbox_envelopes[1].id),
         &Flags::from_iter([Flag::Draft]),
     )
     .await
     .unwrap();
     imap.expunge_folder("INBOX").await.unwrap();
-    mdir.delete_emails("INBOX", vec![&mdir_inbox_envelopes[2].id])
+    mdir.delete_messages("INBOX", &Id::single(&mdir_inbox_envelopes[2].id))
         .await
         .unwrap();
     mdir.add_flags(
         "INBOX",
-        vec![&mdir_inbox_envelopes[1].id],
+        &Id::single(&mdir_inbox_envelopes[1].id),
         &Flags::from_iter([Flag::Flagged, Flag::Answered]),
     )
     .await

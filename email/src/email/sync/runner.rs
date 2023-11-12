@@ -7,8 +7,10 @@ use log::{trace, warn};
 use std::sync::Arc;
 
 use crate::{
-    account::sync::{AccountSyncProgress, AccountSyncProgressEvent},
-    backend::{Backend, BackendBuilder, MaildirBackend, MaildirBackendBuilder},
+    account::sync::{AccountSyncProgress, AccountSyncProgressEvent, LocalBackendBuilder},
+    backend::{BackendBuilderV2, BackendContextBuilder, BackendV2},
+    email::{envelope::Id, Flag},
+    maildir::MaildirSessionSync,
     Result,
 };
 
@@ -20,15 +22,15 @@ use super::*;
 /// the given patch and process it, then loops until there is no more
 /// hunks available in the patch. The patch is in a mutex, which makes
 /// the runner thread safe. Multiple runners can run in parallel.
-pub struct EmailSyncRunner {
+pub struct EmailSyncRunner<B: BackendContextBuilder> {
     /// The runner identifier, for logging purpose.
     pub id: usize,
 
     /// The local Maildir backend builder.
-    pub local_builder: MaildirBackendBuilder,
+    pub local_builder: LocalBackendBuilder,
 
     /// The remote backend builder.
-    pub remote_builder: BackendBuilder,
+    pub remote_builder: BackendBuilderV2<B>,
 
     /// The synchronization progress callback.
     pub on_progress: AccountSyncProgress,
@@ -37,10 +39,10 @@ pub struct EmailSyncRunner {
     pub patch: Arc<Mutex<Vec<Vec<EmailSyncHunk>>>>,
 }
 
-impl EmailSyncRunner {
+impl<B: BackendContextBuilder> EmailSyncRunner<B> {
     async fn process_hunk(
-        local: &mut MaildirBackend,
-        remote: &mut dyn Backend,
+        local: &BackendV2<MaildirSessionSync>,
+        remote: &BackendV2<B::Context>,
         hunk: &EmailSyncHunk,
     ) -> Result<EmailSyncCachePatch> {
         let cache_hunks = match hunk {
@@ -68,7 +70,7 @@ impl EmailSyncRunner {
                 refresh_source_cache,
             ) => {
                 let mut cache_hunks = vec![];
-                let internal_ids = vec![envelope.id.as_str()];
+                let id = Id::single(&envelope.id);
                 let emails = match source {
                     Destination::Local => {
                         if *refresh_source_cache {
@@ -78,7 +80,7 @@ impl EmailSyncRunner {
                                 Destination::Local,
                             ))
                         };
-                        local.preview_emails(&folder, internal_ids).await?
+                        local.peek_messages(&folder, &id).await?
                     }
                     Destination::Remote => {
                         if *refresh_source_cache {
@@ -88,7 +90,7 @@ impl EmailSyncRunner {
                                 Destination::Remote,
                             ))
                         };
-                        remote.preview_emails(&folder, internal_ids).await?
+                        remote.peek_messages(&folder, &id).await?
                     }
                 };
 
@@ -100,7 +102,7 @@ impl EmailSyncRunner {
                 match target {
                     Destination::Local => {
                         let internal_id = local
-                            .add_email(&folder, email.raw()?, &envelope.flags)
+                            .add_raw_message_with_flags(&folder, email.raw()?, &envelope.flags)
                             .await?;
                         let envelope = local.get_envelope(&folder, &internal_id).await?;
                         cache_hunks.push(EmailSyncCacheHunk::Insert(
@@ -111,7 +113,7 @@ impl EmailSyncRunner {
                     }
                     Destination::Remote => {
                         let internal_id = remote
-                            .add_email(&folder, email.raw()?, &envelope.flags)
+                            .add_raw_message_with_flags(&folder, email.raw()?, &envelope.flags)
                             .await?;
                         let envelope = remote.get_envelope(&folder, &internal_id).await?;
                         cache_hunks.push(EmailSyncCacheHunk::Insert(
@@ -130,9 +132,9 @@ impl EmailSyncRunner {
                     Destination::Local,
                 )]
             }
-            EmailSyncHunk::Delete(folder, internal_id, Destination::Local) => {
+            EmailSyncHunk::Delete(folder, id, Destination::Local) => {
                 local
-                    .mark_emails_as_deleted(&folder, vec![&internal_id])
+                    .add_flag(&folder, &Id::single(id), Flag::Deleted)
                     .await?;
                 vec![]
             }
@@ -143,9 +145,9 @@ impl EmailSyncRunner {
                     Destination::Remote,
                 )]
             }
-            EmailSyncHunk::Delete(folder, internal_id, Destination::Remote) => {
+            EmailSyncHunk::Delete(folder, id, Destination::Remote) => {
                 remote
-                    .mark_emails_as_deleted(&folder, vec![&internal_id])
+                    .add_flag(&folder, &Id::single(id), Flag::Deleted)
                     .await?;
                 vec![]
             }
@@ -165,7 +167,7 @@ impl EmailSyncRunner {
             }
             EmailSyncHunk::UpdateFlags(folder, envelope, Destination::Local) => {
                 local
-                    .set_flags(&folder, vec![&envelope.id], &envelope.flags)
+                    .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
                     .await?;
                 vec![]
             }
@@ -185,7 +187,7 @@ impl EmailSyncRunner {
             }
             EmailSyncHunk::UpdateFlags(folder, envelope, Destination::Remote) => {
                 remote
-                    .set_flags(&folder, vec![&envelope.id], &envelope.flags)
+                    .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
                     .await?;
                 vec![]
             }
@@ -198,8 +200,8 @@ impl EmailSyncRunner {
     /// more hunks in the patch.
     pub async fn run(&self) -> Result<EmailSyncReport> {
         let mut report = EmailSyncReport::default();
-        let mut local = self.local_builder.build()?;
-        let mut remote = self.remote_builder.build().await?;
+        let local = self.local_builder.clone().build().await?;
+        let remote = self.remote_builder.clone().build().await?;
 
         loop {
             // wrap in a block to free the lock as quickly as possible
@@ -214,7 +216,7 @@ impl EmailSyncRunner {
                     for hunk in hunks {
                         trace!("sync runner {} processing envelope hunk: {hunk:?}", self.id);
 
-                        match Self::process_hunk(&mut local, remote.as_mut(), &hunk).await {
+                        match Self::process_hunk(&local, &remote, &hunk).await {
                             Ok(cache_hunks) => {
                                 report.patch.push((hunk.clone(), None));
                                 report.cache_patch.0.extend(cache_hunks);

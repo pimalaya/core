@@ -140,7 +140,7 @@ pub mod prelude {
             },
             message::{
                 AddRawMessageWithFlags, CopyMessages, DeleteMessages, GetMessages, MoveMessages,
-                SendRawMessage,
+                PeekMessages, SendRawMessage,
             },
         },
         folder::{AddFolder, DeleteFolder, ExpungeFolder, ListFolders, PurgeFolder},

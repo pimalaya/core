@@ -75,7 +75,7 @@ impl<T: MoveMessages + AddFlags> DeleteMessages for (AccountConfig, T) {
     }
 }
 
-async fn default_delete_messages(
+pub async fn default_delete_messages(
     account_config: &AccountConfig,
     a: &dyn MoveMessages,
     b: &dyn AddFlags,
