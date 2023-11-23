@@ -7,7 +7,7 @@ use log::{debug, warn};
 use maildirpp::MailEntry;
 use thiserror::Error;
 
-use crate::Result;
+use crate::{boxed_err, Result};
 
 use super::{Flag, Flags};
 
@@ -25,7 +25,7 @@ impl Flag {
             't' | 'T' => Ok(Flag::Deleted),
             'd' | 'D' => Ok(Flag::Draft),
             'f' | 'F' => Ok(Flag::Flagged),
-            unknown => Ok(Err(Error::ParseFlagError(unknown))?),
+            unknown => Err(boxed_err(Error::ParseFlagError(unknown))),
         }
     }
 

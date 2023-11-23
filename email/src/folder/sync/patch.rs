@@ -16,7 +16,7 @@ use crate::{
         AccountConfig,
     },
     backend::{BackendBuilderV2, BackendContextBuilder},
-    Result,
+    boxed_err, Result,
 };
 
 use super::*;
@@ -304,7 +304,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
                 .await;
 
             let mut process_cache_patch = || {
-                let tx = conn.transaction()?;
+                let tx = conn.transaction().map_err(boxed_err)?;
                 for hunk in &report.cache_patch.0 {
                     match hunk {
                         FolderSyncCacheHunk::Insert(folder, Destination::Local) => {
@@ -321,7 +321,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
                         }
                     }
                 }
-                tx.commit()?;
+                tx.commit().map_err(boxed_err)?;
                 Result::Ok(())
             };
 

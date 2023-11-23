@@ -1,10 +1,9 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapSessionSync, Result};
+use crate::{boxed_err, imap::ImapSessionSync, Result};
 
 use super::{Envelope, GetEnvelope};
 
@@ -22,26 +21,6 @@ pub enum Error {
     FetchEnvolpesError(#[source] imap::Error, String, String),
     #[error("cannot find envelope {1} from folder {0}")]
     GetFirstEnvelopeError(String, String),
-}
-
-impl Error {
-    pub fn select_folder(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
-        Box::new(Self::SelectFolderError(err, folder))
-    }
-
-    pub fn fetch_envelopes(
-        err: imap::Error,
-        folder: String,
-        id: String,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::FetchEnvolpesError(err, folder, id))
-    }
-
-    pub fn get_first_envelope(folder: String, id: String) -> crate::imap::Error {
-        crate::imap::Error::ExecuteSessionActionError(Box::new(Self::GetFirstEnvelopeError(
-            folder, id,
-        )))
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -70,20 +49,26 @@ impl GetEnvelope for GetEnvelopeImap {
         session
             .execute(
                 |session| session.select(&folder_encoded),
-                |err| Error::select_folder(err, folder.clone()),
+                |err| boxed_err(Error::SelectFolderError(err, folder.clone())),
             )
             .await?;
 
         let fetches = session
             .execute(
                 |session| session.uid_fetch(id, ENVELOPE_QUERY),
-                |err| Error::fetch_envelopes(err, folder.clone(), id.to_owned()),
+                |err| {
+                    boxed_err(Error::FetchEnvolpesError(
+                        err,
+                        folder.clone(),
+                        id.to_owned(),
+                    ))
+                },
             )
             .await?;
 
-        let fetch = fetches
-            .get(0)
-            .ok_or_else(|| Error::get_first_envelope(folder.clone(), id.to_owned()))?;
+        let fetch = fetches.get(0).ok_or_else(|| {
+            boxed_err(Error::GetFirstEnvelopeError(folder.clone(), id.to_owned()))
+        })?;
 
         let envelope = Envelope::from_imap_fetch(fetch)?;
         debug!("imap envelope: {envelope:#?}");

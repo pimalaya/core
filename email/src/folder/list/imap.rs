@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 use imap_proto::NameAttribute;
 use log::{debug, info};
-use std::error;
 use thiserror::Error;
 use utf7_imap::decode_utf7_imap as decode_utf7;
 
-use crate::{imap::ImapSessionSync, Result};
+use crate::{boxed_err, imap::ImapSessionSync, Result};
 
 use super::{Folder, Folders, ListFolders};
 
@@ -13,12 +12,6 @@ use super::{Folder, Folders, ListFolders};
 pub enum Error {
     #[error("cannot list imap folders")]
     ListFoldersError(#[source] imap::Error),
-}
-
-impl Error {
-    pub fn list_folders(err: imap::Error) -> Box<dyn error::Error + Send> {
-        Box::new(Self::ListFoldersError(err))
-    }
 }
 
 #[derive(Debug)]
@@ -43,7 +36,7 @@ impl ListFolders for ListFoldersImap {
         let folders = session
             .execute(
                 |session| session.list(Some(""), Some("*")),
-                Error::list_folders,
+                |err| boxed_err(Error::ListFoldersError(err)),
             )
             .await?;
         let folders = Folders::from_iter(folders.iter().filter_map(|folder| {

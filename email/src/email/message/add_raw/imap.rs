@@ -5,7 +5,7 @@ use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::envelope::SingleId, imap::ImapSessionSync, Result};
+use crate::{boxed_err, email::envelope::SingleId, imap::ImapSessionSync, Result};
 
 use super::AddRawMessage;
 
@@ -59,25 +59,21 @@ impl AddRawMessage for AddRawMessageImap {
             Some(mut uids) if uids.len() == 1 => match uids.get_mut(0).unwrap() {
                 UidSetMember::Uid(uid) => Ok(*uid),
                 UidSetMember::UidRange(uids) => Ok(uids.next().ok_or_else(|| {
-                    crate::imap::Error::ExecuteSessionActionError(Box::new(
-                        Error::GetAddedMessageUidFromRangeError(uids.fold(
-                            String::new(),
-                            |range, uid| {
-                                if range.is_empty() {
-                                    uid.to_string()
-                                } else {
-                                    range + ", " + &uid.to_string()
-                                }
-                            },
-                        )),
-                    ))
+                    boxed_err(Error::GetAddedMessageUidFromRangeError(uids.fold(
+                        String::new(),
+                        |range, uid| {
+                            if range.is_empty() {
+                                uid.to_string()
+                            } else {
+                                range + ", " + &uid.to_string()
+                            }
+                        },
+                    )))
                 })?),
             },
             _ => {
                 // TODO: manage other cases
-                Err(crate::imap::Error::ExecuteSessionActionError(Box::new(
-                    Error::GetAddedMessageUidError,
-                )))
+                Err(boxed_err(Error::GetAddedMessageUidError))
             }
         }?;
         debug!("added imap message uid: {uid}");

@@ -1,3 +1,5 @@
+mod config;
+
 use async_trait::async_trait;
 use log::{debug, info, warn};
 use mail_parser::{Address, HeaderName, HeaderValue, Message, MessageParser};
@@ -7,12 +9,10 @@ use thiserror::Error;
 use tokio::{net::TcpStream, sync::Mutex};
 use tokio_rustls::client::TlsStream;
 
-use crate::{
-    account::AccountConfig,
-    backend::BackendContextBuilder,
-    sender::{SmtpAuthConfig, SmtpConfig},
-    Result,
-};
+use crate::{account::AccountConfig, backend::BackendContextBuilder, boxed_err, Result};
+
+#[doc(inline)]
+use self::config::{SmtpAuthConfig, SmtpConfig};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -121,7 +121,7 @@ impl SmtpClient {
                 self.client
                     .send(into_smtp_msg(msg)?)
                     .await
-                    .map_err(Error::SendEmailError)?;
+                    .map_err(|err| boxed_err(Error::SendEmailError(err)))?;
                 Ok(())
             }
             SmtpAuthConfig::OAuth2(oauth2_config) => {
@@ -142,10 +142,10 @@ impl SmtpClient {
                         self.client
                             .send(into_smtp_msg(msg)?)
                             .await
-                            .map_err(Error::SendEmailError)?;
+                            .map_err(|err| boxed_err(Error::SendEmailError(err)))?;
                         Ok(())
                     }
-                    Err(err) => Ok(Err(Error::SendEmailError(err))?),
+                    Err(err) => Ok(Err(boxed_err(Error::SendEmailError(err)))?),
                 }
             }
         }
@@ -210,7 +210,7 @@ pub async fn build_client(
                     let client = build_tcp_client(&client_builder).await?;
                     Ok((client_builder, client))
                 }
-                Err(err) => Ok(Err(err)?),
+                Err(err) => Err(boxed_err(err)),
             }
         }
         (SmtpAuthConfig::OAuth2(oauth2_config), true) => {
@@ -222,7 +222,7 @@ pub async fn build_client(
                     let client = build_tls_client(&client_builder).await?;
                     Ok((client_builder, client))
                 }
-                Err(err) => Ok(Err(err)?),
+                Err(err) => Err(boxed_err(err)),
             }
         }
     }
@@ -233,7 +233,7 @@ pub async fn build_tcp_client(
 ) -> Result<SmtpClientStream> {
     match client_builder.connect_plain().await {
         Ok(client) => Ok(SmtpClientStream::Tcp(client)),
-        Err(err) => Ok(Err(Error::ConnectTcpError(err))?),
+        Err(err) => Ok(Err(boxed_err(Error::ConnectTcpError(err)))?),
     }
 }
 
@@ -242,7 +242,7 @@ pub async fn build_tls_client(
 ) -> Result<SmtpClientStream> {
     match client_builder.connect().await {
         Ok(client) => Ok(SmtpClientStream::Tls(client)),
-        Err(err) => Ok(Err(Error::ConnectTlsError(err))?),
+        Err(err) => Ok(Err(boxed_err(Error::ConnectTlsError(err)))?),
     }
 }
 
@@ -304,11 +304,13 @@ fn into_smtp_msg<'a>(msg: Message<'a>) -> Result<SmtpMessage<'a>> {
     }
 
     if rcpt_to.is_empty() {
-        return Ok(Err(Error::SendEmailMissingRecipientError)?);
+        return Err(boxed_err(Error::SendEmailMissingRecipientError));
     }
 
     let msg = SmtpMessage {
-        mail_from: mail_from.ok_or(Error::SendEmailMissingSenderError)?.into(),
+        mail_from: mail_from
+            .ok_or_else(|| boxed_err(Error::SendEmailMissingSenderError))?
+            .into(),
         rcpt_to: rcpt_to
             .into_iter()
             .map(|email| SmtpAddress {

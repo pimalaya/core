@@ -4,20 +4,31 @@
 //! current account. One account can have only one backend and so one
 //! backend configuration.
 
+use std::ops::Deref;
+
 #[cfg(feature = "imap-backend")]
-use crate::backend::ImapConfig;
-use crate::backend::MaildirConfig;
+use crate::imap::ImapConfig;
+use crate::maildir::MaildirConfig;
 #[cfg(feature = "notmuch-backend")]
-use crate::backend::NotmuchConfig;
+use crate::notmuch::NotmuchConfig;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BackendConfig {
+    pub default: bool,
+    pub kind: BackendConfigKind,
+}
+
+impl Deref for BackendConfig {
+    type Target = BackendConfigKind;
+
+    fn deref(&self) -> &Self::Target {
+        &self.kind
+    }
+}
 
 /// The backend configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum BackendConfig {
-    /// The undefined backend is useful when you need to create an
-    /// account that only send emails using a [crate::Sender].
-    #[default]
-    None,
-
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum BackendConfigKind {
     /// The Maildir backend configuration.
     Maildir(MaildirConfig),
 

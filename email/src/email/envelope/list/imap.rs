@@ -4,7 +4,7 @@ use std::{error, result};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapSessionSync, Result};
+use crate::{boxed_err, imap::ImapSessionSync, Result};
 
 use super::{Envelopes, ListEnvelopes};
 
@@ -79,8 +79,7 @@ impl ListEnvelopes for ListEnvelopesImap {
             return Ok(Envelopes::default());
         }
 
-        let range = build_page_range(page, page_size, folder_size)
-            .map_err(|err| crate::imap::Error::ExecuteSessionActionError(Box::new(err)))?;
+        let range = build_page_range(page, page_size, folder_size).map_err(boxed_err)?;
         debug!("page range: {range}");
 
         let fetches = session

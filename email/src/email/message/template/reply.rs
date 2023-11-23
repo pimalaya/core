@@ -15,6 +15,7 @@ use regex::Regex;
 
 use crate::{
     account::AccountConfig,
+    boxed_err,
     email::{address, Message},
     Result,
 };
@@ -275,7 +276,7 @@ impl<'a> ReplyTplBuilder<'a> {
                 .build()
                 .from_msg(&parsed)
                 .await
-                .map_err(Error::InterpretMessageAsThreadTemplateError)?;
+                .map_err(|err| boxed_err(Error::InterpretMessageAsThreadTemplateError(err)))?;
 
             for line in body.trim().lines() {
                 lines.push('>');
@@ -299,7 +300,7 @@ impl<'a> ReplyTplBuilder<'a> {
             .build()
             .from_msg_builder(builder)
             .await
-            .map_err(Error::InterpretMessageAsTemplateError)?;
+            .map_err(|err| boxed_err(Error::InterpretMessageAsTemplateError(err)))?;
 
         Ok(tpl)
     }

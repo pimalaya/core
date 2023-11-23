@@ -1,3 +1,5 @@
+mod config;
+
 use async_trait::async_trait;
 use log::info;
 use maildirpp::Maildir;
@@ -13,9 +15,12 @@ use tokio::sync::Mutex;
 
 use crate::{
     account::{AccountConfig, DEFAULT_INBOX_FOLDER},
-    backend::{BackendContextBuilder, MaildirConfig},
-    Result,
+    backend::BackendContextBuilder,
+    boxed_err, Result,
 };
+
+#[doc(inline)]
+pub use self::config::MaildirConfig;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -100,9 +105,12 @@ impl Deref for MaildirSession {
 
 impl MaildirSession {
     pub fn create_dirs(&self) -> Result<()> {
-        self.session
-            .create_dirs()
-            .map_err(|err| Error::InitFoldersStructureError(err, self.session.path().to_owned()))?;
+        self.session.create_dirs().map_err(|err| {
+            boxed_err(Error::InitFoldersStructureError(
+                err,
+                self.session.path().to_owned(),
+            ))
+        })?;
         Ok(())
     }
 
@@ -112,7 +120,9 @@ impl MaildirSession {
         if mdir_path.is_dir() {
             Ok(mdir_path)
         } else {
-            Ok(Err(Error::ReadFolderInvalidError(mdir_path.to_owned()))?)
+            Err(boxed_err(Error::ReadFolderInvalidError(
+                mdir_path.to_owned(),
+            )))
         }
     }
 
@@ -137,7 +147,7 @@ impl MaildirSession {
             .or_else(|_| {
                 self.validate_mdir_path(
                     env::current_dir()
-                        .map_err(Error::GetCurrentFolderError)?
+                        .map_err(|err| boxed_err(Error::GetCurrentFolderError(err)))?
                         .join(&folder),
                 )
             })

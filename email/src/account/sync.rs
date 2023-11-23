@@ -18,7 +18,8 @@ use thiserror::Error;
 
 use crate::{
     account::AccountConfig,
-    backend::{BackendBuilderV2, BackendContextBuilder, BackendV2, MaildirConfig},
+    backend::{BackendBuilderV2, BackendContextBuilder, BackendV2},
+    boxed_err,
     email::{
         envelope::{get::maildir::GetEnvelopeMaildir, list::maildir::ListEnvelopesMaildir},
         flag::{add::maildir::AddFlagsMaildir, set::maildir::SetFlagsMaildir},
@@ -41,7 +42,7 @@ use crate::{
             FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy, FoldersName,
         },
     },
-    maildir::{MaildirSessionBuilder, MaildirSessionSync},
+    maildir::{MaildirConfig, MaildirSessionBuilder, MaildirSessionSync},
     Result,
 };
 
@@ -258,9 +259,11 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
         let account = &self.account_config.name;
         info!("starting synchronization of account {account}");
 
-        if !self.account_config.sync {
+        if !self.account_config.sync.unwrap_or_default() {
             warn!("sync feature not enabled for account {account}, aborting");
-            return Ok(Err(Error::SyncAccountNotEnabledError(account.clone()))?);
+            return Err(boxed_err(Error::SyncAccountNotEnabledError(
+                account.clone(),
+            )));
         }
 
         let lock_file_path = env::temp_dir().join(format!("himalaya-sync-{}.lock", account));
@@ -271,10 +274,10 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             .write(true)
             .truncate(true)
             .open(lock_file_path)
-            .map_err(|err| Error::SyncAccountOpenLockFileError(err, account.clone()))?;
+            .map_err(|err| boxed_err(Error::SyncAccountOpenLockFileError(err, account.clone())))?;
         lock_file
             .try_lock(FileLockMode::Exclusive)
-            .map_err(|err| Error::SyncAccountLockFileError(err, account.clone()))?;
+            .map_err(|err| boxed_err(Error::SyncAccountLockFileError(err, account.clone())))?;
 
         let sync_dir = self.account_config.sync_dir()?;
 
@@ -404,7 +407,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
         debug!("unlocking sync file");
         lock_file
             .unlock()
-            .map_err(|err| Error::SyncAccountUnlockFileError(err, account.clone()))?;
+            .map_err(|err| boxed_err(Error::SyncAccountUnlockFileError(err, account.clone())))?;
 
         debug!("building final sync report");
         let sync_report = AccountSyncReport {

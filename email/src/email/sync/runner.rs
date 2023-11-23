@@ -9,6 +9,7 @@ use std::sync::Arc;
 use crate::{
     account::sync::{AccountSyncProgress, AccountSyncProgressEvent, LocalBackendBuilder},
     backend::{BackendBuilderV2, BackendContextBuilder, BackendV2},
+    boxed_err,
     email::{envelope::Id, Flag},
     maildir::MaildirSessionSync,
     Result,
@@ -97,7 +98,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
                 let emails = emails.to_vec();
                 let email = emails
                     .first()
-                    .ok_or_else(|| Error::FindEmailError(envelope.id.clone()))?;
+                    .ok_or_else(|| boxed_err(Error::FindEmailError(envelope.id.clone())))?;
 
                 match target {
                     Destination::Local => {

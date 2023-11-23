@@ -18,9 +18,9 @@ use thiserror::Error;
 
 use crate::{
     backend::BackendConfig,
+    boxed_err,
     email::config::{EmailHooks, EmailTextPlainFormat},
     folder::sync::FolderSyncStrategy,
-    sender::SenderConfig,
     Result,
 };
 
@@ -69,7 +69,7 @@ pub enum Error {
 /// account. It is the main configuration used by all other
 /// modules. Usually, it serves as a reference for building config
 /// file structure.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AccountConfig {
     /// The name of the user account. It serves as an unique
     /// identifier for a given configuration.
@@ -138,59 +138,24 @@ pub struct AccountConfig {
     ///     ..Default::default()
     /// };
     /// ```
-    pub email_sending_save_copy: bool,
+    pub email_sending_save_copy: Option<bool>,
     /// Represents the email hooks.
     pub email_hooks: EmailHooks,
 
     /// Enables the synchronization of this account with a local
     /// Maildir backend.
-    pub sync: bool,
+    pub sync: Option<bool>,
     /// Custom root directory where the Maildir cache is
     /// saved. Defaults to `$XDG_DATA_HOME/himalaya/<account-name>`.
     pub sync_dir: Option<PathBuf>,
     /// Represents the synchronization strategy to use for folders.
     pub sync_folders_strategy: FolderSyncStrategy,
 
-    /// The [Backend](crate::Backend) configuration.
-    pub backend: BackendConfig,
-    /// The [Sender](crate::Sender) configuration.
-    pub sender: SenderConfig,
+    pub backends: HashMap<String, BackendConfig>,
 
     /// The configuration related to PGP encryption.
     #[cfg(feature = "pgp")]
     pub pgp: PgpConfig,
-}
-
-impl Default for AccountConfig {
-    fn default() -> Self {
-        Self {
-            name: Default::default(),
-            email: Default::default(),
-            display_name: Default::default(),
-            signature_delim: Default::default(),
-            signature: Default::default(),
-            downloads_dir: Default::default(),
-            folder_listing_page_size: Default::default(),
-            folder_aliases: Default::default(),
-            email_listing_page_size: Default::default(),
-            email_listing_datetime_fmt: Default::default(),
-            email_listing_datetime_local_tz: Default::default(),
-            email_reading_headers: Default::default(),
-            email_reading_format: Default::default(),
-            email_writing_headers: Default::default(),
-            // NOTE: manually implementing the Default trait just for
-            // this field:
-            email_sending_save_copy: true,
-            email_hooks: Default::default(),
-            sync: Default::default(),
-            sync_dir: Default::default(),
-            sync_folders_strategy: Default::default(),
-            backend: Default::default(),
-            sender: Default::default(),
-            #[cfg(feature = "pgp")]
-            pgp: Default::default(),
-        }
-    }
 }
 
 impl AccountConfig {
@@ -350,7 +315,7 @@ impl AccountConfig {
     /// Return `true` if the sync directory already exists and if the
     /// sync feature is enabled.
     pub fn sync(&self) -> bool {
-        self.sync && self.sync_dir_exists()
+        matches!(self.sync, Some(true)) && self.sync_dir_exists()
     }
 
     /// Return the sync directory if exist, otherwise create it.
@@ -361,9 +326,10 @@ impl AccountConfig {
                 warn!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/himalaya");
                 let sync_dir = data_dir()
                     .map(|dir| dir.join("himalaya"))
-                    .ok_or(Error::GetXdgDataDirError)?
+                    .ok_or_else(|| boxed_err(Error::GetXdgDataDirError))?
                     .join(&self.name);
-                fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsError)?;
+                fs::create_dir_all(&sync_dir)
+                    .map_err(|err| boxed_err(Error::CreateXdgDataDirsError(err)))?;
                 Ok(sync_dir)
             }
         }
@@ -372,7 +338,7 @@ impl AccountConfig {
     /// Open a SQLite connection to the synchronization database.
     pub fn sync_db_builder(&self) -> Result<rusqlite::Connection> {
         let conn = rusqlite::Connection::open(self.sync_dir()?.join(".sync.sqlite"))
-            .map_err(Error::BuildSyncDatabaseError)?;
+            .map_err(|err| boxed_err(Error::BuildSyncDatabaseError(err)))?;
         Ok(conn)
     }
 
@@ -427,7 +393,7 @@ pub(crate) fn rename_file_if_duplicate(
                 .file_stem()
                 .and_then(OsStr::to_str)
                 .map(|fstem| format!("{}_{}{}", fstem, count, fext))
-                .ok_or_else(|| Error::ParseDownloadFileNameError(fpath.to_owned()))?,
+                .ok_or_else(|| boxed_err(Error::ParseDownloadFileNameError(fpath.to_owned())))?,
         ));
     }
 

@@ -23,7 +23,7 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::Result;
+use crate::{boxed_err, Result};
 
 #[doc(inline)]
 pub use self::{add::AddFlags, remove::RemoveFlags, set::SetFlags, sync::sync};
@@ -97,7 +97,7 @@ impl FromStr for Flag {
     type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        Ok(match s.trim() {
+        match s.trim() {
             seen if seen.eq_ignore_ascii_case("seen") => Ok(Flag::Seen),
             answered if answered.eq_ignore_ascii_case("answered") => Ok(Flag::Answered),
             replied if replied.eq_ignore_ascii_case("replied") => Ok(Flag::Answered),
@@ -105,8 +105,8 @@ impl FromStr for Flag {
             deleted if deleted.eq_ignore_ascii_case("deleted") => Ok(Flag::Deleted),
             trashed if trashed.eq_ignore_ascii_case("trashed") => Ok(Flag::Deleted),
             draft if draft.eq_ignore_ascii_case("draft") => Ok(Flag::Draft),
-            unknown => Err(Error::ParseFlagError(unknown.to_string())),
-        }?)
+            unknown => Err(boxed_err(Error::ParseFlagError(unknown.to_string()))),
+        }
     }
 }
 

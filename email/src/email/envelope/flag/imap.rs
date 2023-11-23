@@ -8,6 +8,7 @@ use log::{debug, warn};
 use thiserror::Error;
 
 use crate::{
+    boxed_err,
     email::{Flag, Flags},
     Result,
 };
@@ -26,7 +27,7 @@ impl Flag {
             imap::types::Flag::Flagged => Ok(Flag::Flagged),
             imap::types::Flag::Deleted => Ok(Flag::Deleted),
             imap::types::Flag::Draft => Ok(Flag::Draft),
-            unknown => Ok(Err(Error::ParseFlagError(unknown.to_string()))?),
+            unknown => Err(boxed_err(Error::ParseFlagError(unknown.to_string()))),
         }
     }
 

@@ -9,7 +9,7 @@ use mail_builder::{
 };
 use mml::MimeInterpreterBuilder;
 
-use crate::{account::AccountConfig, Result};
+use crate::{account::AccountConfig, boxed_err, Result};
 
 use super::Error;
 
@@ -121,7 +121,7 @@ impl<'a> NewTplBuilder<'a> {
             .build()
             .from_msg_builder(builder)
             .await
-            .map_err(Error::InterpretMessageAsTemplateError)?;
+            .map_err(|err| boxed_err(Error::InterpretMessageAsTemplateError(err)))?;
 
         Ok(tpl)
     }
