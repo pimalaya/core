@@ -4,7 +4,7 @@ async fn test_imap_features() {
     use concat_with::concat_line;
     use email::{
         account::{AccountConfig, PasswdConfig},
-        backend::{BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig},
+        backend::BackendBuilder,
         email::{
             envelope::{flag::add::imap::AddFlagsImap, list::imap::ListEnvelopesImap, Id},
             message::{
@@ -18,13 +18,14 @@ async fn test_imap_features() {
             expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
             purge::imap::PurgeFolderImap,
         },
-        imap::ImapSessionBuilder,
+        imap::{ImapAuthConfig, ImapConfig, ImapSessionBuilder},
     };
     use mml::MmlCompilerBuilder;
     use secret::Secret;
 
     env_logger::builder().is_test(true).init();
 
+    let account_config = AccountConfig::default();
     let imap_config = ImapConfig {
         host: "127.0.0.1".into(),
         port: 3143,
@@ -35,16 +36,11 @@ async fn test_imap_features() {
         auth: ImapAuthConfig::Passwd(PasswdConfig {
             passwd: Secret::new_raw("password"),
         }),
-        ..ImapConfig::default()
-    };
-
-    let account_config = AccountConfig {
-        backend: BackendConfig::Imap(imap_config.clone()),
-        ..AccountConfig::default()
+        ..Default::default()
     };
 
     let imap_ctx = ImapSessionBuilder::new(account_config.clone(), imap_config);
-    let backend_builder = BackendBuilderV2::new(account_config.clone(), imap_ctx)
+    let backend_builder = BackendBuilder::new(account_config.clone(), imap_ctx)
         .with_add_folder(AddFolderImap::new)
         .with_list_folders(ListFoldersImap::new)
         .with_expunge_folder(ExpungeFolderImap::new)

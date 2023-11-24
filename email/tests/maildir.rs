@@ -1,10 +1,27 @@
+use email::email::{
+    flag::{remove::maildir::RemoveFlagsMaildir, set::maildir::SetFlagsMaildir},
+    message::{copy::maildir::CopyMessagesMaildir, peek::maildir::PeekMessagesMaildir},
+};
+
 #[tokio::test]
-async fn maildir_backend() {
+async fn test_maildir_features() {
     use concat_with::concat_line;
+    use email::{account::AccountConfig, email::Flag};
     use email::{
-        account::AccountConfig,
-        backend::{Backend, MaildirBackend, MaildirConfig},
-        email::{Flag, Flags},
+        backend::BackendBuilder,
+        email::{
+            envelope::{list::maildir::ListEnvelopesMaildir, Id},
+            flag::add::maildir::AddFlagsMaildir,
+            message::{
+                add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
+                move_::maildir::MoveMessagesMaildir,
+            },
+        },
+        folder::{
+            add::maildir::AddFolderMaildir, delete::maildir::DeleteFolderMaildir,
+            expunge::maildir::ExpungeFolderMaildir, list::maildir::ListFoldersMaildir,
+        },
+        maildir::{MaildirConfig, MaildirSessionBuilder},
     };
     use mail_builder::MessageBuilder;
     use maildirpp::Maildir;
@@ -27,7 +44,7 @@ async fn maildir_backend() {
     if let Err(_) = fs::remove_dir_all(mdir_trash.path()) {}
     mdir_trash.create_dirs().unwrap();
 
-    let config = AccountConfig {
+    let account_config = AccountConfig {
         name: "account".into(),
         folder_aliases: HashMap::from_iter([
             ("subdir".into(), "Subdir".into()),
@@ -36,25 +53,51 @@ async fn maildir_backend() {
                 mdir.path().join(".Subdir").to_string_lossy().into(),
             ),
         ]),
-        ..AccountConfig::default()
+        ..Default::default()
     };
 
-    let mdir_path = mdir.path().to_owned();
-    let mut mdir = MaildirBackend::new(
-        config.clone(),
-        MaildirConfig {
-            root_dir: mdir_path.clone(),
-        },
-    )
-    .unwrap();
+    // Main maildir backend
 
-    let mut submdir = MaildirBackend::new(
-        config.clone(),
-        MaildirConfig {
-            root_dir: mdir_path.clone(),
-        },
-    )
-    .unwrap();
+    let mdir_path = mdir.path().to_owned();
+    let mdir_config = MaildirConfig {
+        root_dir: mdir_path.clone(),
+    };
+    let mdir_ctx = MaildirSessionBuilder::new(account_config.clone(), mdir_config);
+    let backend_builder = BackendBuilder::new(account_config.clone(), mdir_ctx)
+        .with_add_folder(AddFolderMaildir::new)
+        .with_list_folders(ListFoldersMaildir::new)
+        .with_expunge_folder(ExpungeFolderMaildir::new)
+        .with_delete_folder(DeleteFolderMaildir::new)
+        .with_list_envelopes(ListEnvelopesMaildir::new)
+        .with_add_flags(AddFlagsMaildir::new)
+        .with_set_flags(SetFlagsMaildir::new)
+        .with_remove_flags(RemoveFlagsMaildir::new)
+        .with_peek_messages(PeekMessagesMaildir::new)
+        .with_add_raw_message_with_flags(AddRawMessageWithFlagsMaildir::new)
+        .with_copy_messages(CopyMessagesMaildir::new)
+        .with_move_messages(MoveMessagesMaildir::new);
+    let mdir = backend_builder.build().await.unwrap();
+
+    // Sub maildir backend
+
+    let mdir_config = MaildirConfig {
+        root_dir: mdir_path.clone(),
+    };
+    let mdir_ctx = MaildirSessionBuilder::new(account_config.clone(), mdir_config);
+    let backend_builder = BackendBuilder::new(account_config.clone(), mdir_ctx)
+        .with_add_folder(AddFolderMaildir::new)
+        .with_list_folders(ListFoldersMaildir::new)
+        .with_expunge_folder(ExpungeFolderMaildir::new)
+        .with_delete_folder(DeleteFolderMaildir::new)
+        .with_list_envelopes(ListEnvelopesMaildir::new)
+        .with_add_flags(AddFlagsMaildir::new)
+        .with_set_flags(SetFlagsMaildir::new)
+        .with_remove_flags(RemoveFlagsMaildir::new)
+        .with_peek_messages(PeekMessagesMaildir::new)
+        .with_add_raw_message_with_flags(AddRawMessageWithFlagsMaildir::new)
+        .with_copy_messages(CopyMessagesMaildir::new)
+        .with_move_messages(MoveMessagesMaildir::new);
+    let submdir = backend_builder.build().await.unwrap();
 
     // check that a message can be built and added
     let email = MessageBuilder::new()
@@ -64,16 +107,20 @@ async fn maildir_backend() {
         .text_body("Plain message!")
         .write_to_vec()
         .unwrap();
-    let flags = Flags::from_iter([Flag::Seen]);
-    let id = mdir.add_email("INBOX", &email, &flags).await.unwrap();
+    let id = mdir
+        .add_raw_message_with_flag("INBOX", &email, Flag::Seen)
+        .await
+        .unwrap();
 
     // check that the added message exists
-    let emails = mdir.get_emails("INBOX", vec![&id]).await.unwrap();
+    let emails = mdir.get_messages("INBOX", &id.into()).await.unwrap();
     let tpl = emails
         .to_vec()
         .first()
         .unwrap()
-        .to_read_tpl(&config, |i| i.with_show_only_headers(["From", "To"]))
+        .to_read_tpl(&account_config, |i| {
+            i.with_show_only_headers(["From", "To"])
+        })
         .await
         .unwrap();
     let expected_tpl = concat_line!(
@@ -94,8 +141,7 @@ async fn maildir_backend() {
     assert_eq!("Plain message!", envelope.subject);
 
     // check that a flag can be added to the message
-    let flags = Flags::from_iter([Flag::Flagged]);
-    mdir.add_flags("INBOX", vec![&envelope.id], &flags)
+    mdir.add_flag("INBOX", &Id::single(&envelope.id), Flag::Flagged)
         .await
         .unwrap();
     let envelopes = mdir.list_envelopes("INBOX", 1, 0).await.unwrap();
@@ -104,8 +150,7 @@ async fn maildir_backend() {
     assert!(envelope.flags.contains(&Flag::Flagged));
 
     // check that the message flags can be changed
-    let flags = Flags::from_iter([Flag::Answered]);
-    mdir.set_flags("INBOX", vec![&envelope.id], &flags)
+    mdir.set_flag("INBOX", &Id::single(&envelope.id), Flag::Answered)
         .await
         .unwrap();
     let envelopes = mdir.list_envelopes("INBOX", 1, 0).await.unwrap();
@@ -115,8 +160,7 @@ async fn maildir_backend() {
     assert!(envelope.flags.contains(&Flag::Answered));
 
     // check that a flag can be removed from the message
-    let flags = Flags::from_iter([Flag::Answered]);
-    mdir.remove_flags("INBOX", vec![&envelope.id], &flags)
+    mdir.remove_flag("INBOX", &Id::single(&envelope.id), Flag::Answered)
         .await
         .unwrap();
     let envelopes = mdir.list_envelopes("INBOX", 1, 0).await.unwrap();
@@ -126,7 +170,7 @@ async fn maildir_backend() {
     assert!(!envelope.flags.contains(&Flag::Answered));
 
     // check that the message can be copied
-    mdir.copy_emails("INBOX", "subdir", vec![&envelope.id])
+    mdir.copy_messages("INBOX", "subdir", &Id::single(&envelope.id))
         .await
         .unwrap();
     let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
@@ -137,15 +181,21 @@ async fn maildir_backend() {
     assert_eq!(1, subdir.len());
     assert_eq!(1, abs_subdir.len());
     assert_eq!(0, trash.len());
-    assert!(mdir.get_emails("INBOX", vec![&inbox[0].id]).await.is_ok());
-    assert!(mdir.get_emails("subdir", vec![&subdir[0].id]).await.is_ok());
+    assert!(mdir
+        .get_messages("INBOX", &Id::single(&inbox[0].id))
+        .await
+        .is_ok());
+    assert!(mdir
+        .get_messages("subdir", &Id::single(&subdir[0].id))
+        .await
+        .is_ok());
     assert!(submdir
-        .get_emails("INBOX", vec![&subdir[0].id])
+        .get_messages("INBOX", &Id::single(&subdir[0].id))
         .await
         .is_ok());
 
     // check that the email can be marked as deleted then expunged
-    mdir.mark_emails_as_deleted("subdir", vec![&subdir[0].id])
+    mdir.add_flag("subdir", &Id::single(&subdir[0].id), Flag::Deleted)
         .await
         .unwrap();
     let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
@@ -164,7 +214,7 @@ async fn maildir_backend() {
     assert_eq!(0, abs_subdir.len());
 
     // check that the message can be moved
-    mdir.move_emails("INBOX", "subdir", vec![&envelope.id])
+    mdir.move_messages("INBOX", "subdir", &Id::single(&envelope.id))
         .await
         .unwrap();
     let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
@@ -175,7 +225,7 @@ async fn maildir_backend() {
     assert_eq!(0, trash.len());
 
     // check that the message can be deleted
-    mdir.delete_emails("subdir", vec![&subdir[0].id])
+    mdir.delete_messages("subdir", &Id::single(&subdir[0].id))
         .await
         .unwrap();
     let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
@@ -185,7 +235,7 @@ async fn maildir_backend() {
     assert_eq!(0, subdir.len());
     assert_eq!(1, trash.len());
 
-    mdir.delete_emails("Trash", vec![&trash[0].id])
+    mdir.delete_messages("Trash", &Id::single(&trash[0].id))
         .await
         .unwrap();
     let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();

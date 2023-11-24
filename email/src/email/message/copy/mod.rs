@@ -4,6 +4,7 @@ use crate::{email::envelope::Id, Result};
 
 #[cfg(feature = "imap-backend")]
 pub mod imap;
+pub mod maildir;
 
 #[async_trait]
 pub trait CopyMessages: Send + Sync {

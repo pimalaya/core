@@ -12,7 +12,7 @@ use tokio_rustls::client::TlsStream;
 use crate::{account::AccountConfig, backend::BackendContextBuilder, boxed_err, Result};
 
 #[doc(inline)]
-use self::config::{SmtpAuthConfig, SmtpConfig};
+pub use self::config::{SmtpAuthConfig, SmtpConfig};
 
 #[derive(Error, Debug)]
 pub enum Error {

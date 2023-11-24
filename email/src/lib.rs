@@ -41,6 +41,7 @@ pub mod folder;
 #[cfg(feature = "imap-backend")]
 pub mod imap;
 pub mod maildir;
+pub mod sendmail;
 #[cfg(feature = "smtp-sender")]
 pub mod smtp;
 

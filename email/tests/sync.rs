@@ -3,7 +3,7 @@ use email::{
         sync::{AccountSyncBuilder, LocalBackendBuilder},
         AccountConfig, PasswdConfig,
     },
-    backend::{BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig, MaildirConfig},
+    backend::BackendBuilder,
     email::{
         envelope::{get::imap::GetEnvelopeImap, list::imap::ListEnvelopesImap, Id},
         flag::{add::imap::AddFlagsImap, set::imap::SetFlagsImap},
@@ -19,7 +19,8 @@ use email::{
         expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
         purge::imap::PurgeFolderImap,
     },
-    imap::ImapSessionBuilder,
+    imap::{ImapAuthConfig, ImapConfig, ImapSessionBuilder},
+    maildir::MaildirConfig,
 };
 use env_logger;
 use mail_builder::MessageBuilder;
@@ -48,16 +49,15 @@ async fn sync() {
     };
     let account_config = AccountConfig {
         name: "account".into(),
-        sync: true,
+        sync: Some(true),
         sync_dir: Some(sync_dir.clone()),
-        backend: BackendConfig::Imap(imap_config.clone()),
-        ..AccountConfig::default()
+        ..Default::default()
     };
 
     // set up imap
 
     let imap_ctx = ImapSessionBuilder::new(account_config.clone(), imap_config);
-    let imap_builder = BackendBuilderV2::new(account_config.clone(), imap_ctx)
+    let imap_builder = BackendBuilder::new(account_config.clone(), imap_ctx)
         .with_add_folder(AddFolderImap::new)
         .with_list_folders(ListFoldersImap::new)
         .with_expunge_folder(ExpungeFolderImap::new)

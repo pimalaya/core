@@ -17,7 +17,6 @@ use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, vec};
 use thiserror::Error;
 
 use crate::{
-    backend::BackendConfig,
     boxed_err,
     email::config::{EmailHooks, EmailTextPlainFormat},
     folder::sync::FolderSyncStrategy,
@@ -150,8 +149,6 @@ pub struct AccountConfig {
     pub sync_dir: Option<PathBuf>,
     /// Represents the synchronization strategy to use for folders.
     pub sync_folders_strategy: FolderSyncStrategy,
-
-    pub backends: HashMap<String, BackendConfig>,
 
     /// The configuration related to PGP encryption.
     #[cfg(feature = "pgp")]

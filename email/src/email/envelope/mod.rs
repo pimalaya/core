@@ -42,6 +42,7 @@ pub struct Envelope {
     /// The shape of the envelope identifier may vary depending on the backend.
     /// For IMAP backend, it is an stringified auto-incremented integer.
     /// For Notmuch backend it is a Git-like hash.
+    // TODO: replace me with SingleId
     pub id: String,
     /// The Message-ID header from the email message.
     pub message_id: String,

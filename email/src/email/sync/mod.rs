@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::{
     account::{sync::Destination, AccountConfig},
-    backend::BackendBuilderV2,
+    backend::BackendBuilder,
     email::Envelope,
 };
 

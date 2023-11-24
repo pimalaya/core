@@ -4,14 +4,13 @@
 async fn test_smtp_features() {
     use email::{
         account::{AccountConfig, PasswdConfig},
-        backend::{BackendBuilderV2, BackendConfig, ImapAuthConfig, ImapConfig},
+        backend::BackendBuilder,
         email::{
             envelope::list::imap::ListEnvelopesImap, message::send_raw::smtp::SendRawMessageSmtp,
         },
         folder::purge::imap::PurgeFolderImap,
-        imap::ImapSessionBuilder,
-        sender::{SenderConfig, SmtpAuthConfig, SmtpConfig},
-        smtp::SmtpClientBuilder,
+        imap::{ImapAuthConfig, ImapConfig, ImapSessionBuilder},
+        smtp::{SmtpAuthConfig, SmtpClientBuilder, SmtpConfig},
     };
     use mail_builder::MessageBuilder;
     use secret::Secret;
@@ -19,6 +18,7 @@ async fn test_smtp_features() {
 
     env_logger::builder().is_test(true).init();
 
+    let account_config = AccountConfig::default();
     let imap_config = ImapConfig {
         host: "localhost".into(),
         port: 3143,
@@ -29,7 +29,7 @@ async fn test_smtp_features() {
         auth: ImapAuthConfig::Passwd(PasswdConfig {
             passwd: Secret::new_raw("echo 'password'"),
         }),
-        ..ImapConfig::default()
+        ..Default::default()
     };
     let smtp_config = SmtpConfig {
         host: "localhost".into(),
@@ -41,17 +41,12 @@ async fn test_smtp_features() {
         auth: SmtpAuthConfig::Passwd(PasswdConfig {
             passwd: Secret::new_raw("password"),
         }),
-        ..SmtpConfig::default()
-    };
-    let account_config = AccountConfig {
-        backend: BackendConfig::Imap(imap_config.clone()),
-        sender: SenderConfig::Smtp(smtp_config.clone()),
-        ..AccountConfig::default()
+        ..Default::default()
     };
 
     let imap_ctx = ImapSessionBuilder::new(account_config.clone(), imap_config);
     let smtp_ctx = SmtpClientBuilder::new(account_config.clone(), smtp_config);
-    let backend_builder = BackendBuilderV2::new(account_config.clone(), (imap_ctx, smtp_ctx))
+    let backend_builder = BackendBuilder::new(account_config.clone(), (imap_ctx, smtp_ctx))
         .with_purge_folder(|ctx| PurgeFolderImap::new(&ctx.0))
         .with_list_envelopes(|ctx| ListEnvelopesImap::new(&ctx.0))
         .with_send_raw_message(|ctx| SendRawMessageSmtp::new(&ctx.1));

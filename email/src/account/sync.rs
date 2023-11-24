@@ -18,7 +18,7 @@ use thiserror::Error;
 
 use crate::{
     account::AccountConfig,
-    backend::{BackendBuilderV2, BackendContextBuilder, BackendV2},
+    backend::{Backend, BackendBuilder, BackendContextBuilder},
     boxed_err,
     email::{
         envelope::{get::maildir::GetEnvelopeMaildir, list::maildir::ListEnvelopesMaildir},
@@ -196,7 +196,7 @@ impl AccountSyncProgress {
 /// given remote builder.
 pub struct AccountSyncBuilder<B: BackendContextBuilder> {
     account_config: AccountConfig,
-    remote_builder_v2: BackendBuilderV2<B>,
+    remote_builder_v2: BackendBuilder<B>,
     on_progress: AccountSyncProgress,
     folders_strategy: FolderSyncStrategy,
     dry_run: bool,
@@ -206,7 +206,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
     /// Creates a new account synchronization builder.
     pub async fn new(
         account_config: AccountConfig,
-        remote_builder_v2: BackendBuilderV2<B>,
+        remote_builder_v2: BackendBuilder<B>,
     ) -> Result<AccountSyncBuilder<B>> {
         let folders_strategy = account_config.sync_folders_strategy.clone();
         Ok(Self {
@@ -424,12 +424,12 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
 }
 
 #[derive(Clone)]
-pub struct LocalBackendBuilder(BackendBuilderV2<MaildirSessionBuilder>);
+pub struct LocalBackendBuilder(BackendBuilder<MaildirSessionBuilder>);
 
 impl LocalBackendBuilder {
     pub fn new(account_config: AccountConfig, maildir_config: MaildirConfig) -> Self {
         let session_builder = MaildirSessionBuilder::new(account_config.clone(), maildir_config);
-        let backend_builder = BackendBuilderV2::new(account_config, session_builder)
+        let backend_builder = BackendBuilder::new(account_config, session_builder)
             .with_add_folder(AddFolderMaildir::new)
             .with_list_folders(ListFoldersMaildir::new)
             .with_expunge_folder(ExpungeFolderMaildir::new)
@@ -445,7 +445,7 @@ impl LocalBackendBuilder {
         Self(backend_builder)
     }
 
-    pub async fn build(self) -> Result<BackendV2<MaildirSessionSync>> {
+    pub async fn build(self) -> Result<Backend<MaildirSessionSync>> {
         self.0.build().await
     }
 }

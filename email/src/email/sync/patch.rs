@@ -43,7 +43,7 @@ pub type EmailSyncCachePatch = Vec<EmailSyncCacheHunk>;
 pub struct EmailSyncPatchManager<'a, B: BackendContextBuilder> {
     account_config: &'a AccountConfig,
     local_builder: LocalBackendBuilder,
-    remote_builder: BackendBuilderV2<B>,
+    remote_builder: BackendBuilder<B>,
     on_progress: AccountSyncProgress,
     dry_run: bool,
 }
@@ -53,7 +53,7 @@ impl<'a, B: BackendContextBuilder + 'static> EmailSyncPatchManager<'a, B> {
     pub fn new(
         account_config: &'a AccountConfig,
         local_builder: LocalBackendBuilder,
-        remote_builder: BackendBuilderV2<B>,
+        remote_builder: BackendBuilder<B>,
         on_progress: AccountSyncProgress,
         dry_run: bool,
     ) -> Self {

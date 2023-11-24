@@ -43,7 +43,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn get_single_account_config(&self, name: impl AsRef<str>) -> Result<AccountConfig> {
+    pub fn account(&self, name: impl AsRef<str>) -> Result<AccountConfig> {
         let name = name.as_ref();
 
         match self.accounts.get(name) {
@@ -120,7 +120,6 @@ impl Config {
                     sync_dir: account_config.sync_dir.clone(),
                     sync_folders_strategy: account_config.sync_folders_strategy.clone(),
 
-                    backends: account_config.backends.clone(),
                     // sender: {
                     //     let mut sender = self.sender.clone();
 

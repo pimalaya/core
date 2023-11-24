@@ -15,7 +15,7 @@ use crate::{
         sync::{AccountSyncProgress, AccountSyncProgressEvent, Destination, LocalBackendBuilder},
         AccountConfig,
     },
-    backend::{BackendBuilderV2, BackendContextBuilder},
+    backend::{BackendBuilder, BackendContextBuilder},
     boxed_err, Result,
 };
 
@@ -39,7 +39,7 @@ pub type FolderSyncCachePatch = Vec<FolderSyncCacheHunk>;
 pub struct FolderSyncPatchManager<'a, B: BackendContextBuilder> {
     account_config: &'a AccountConfig,
     local_builder: LocalBackendBuilder,
-    remote_builder_v2: BackendBuilderV2<B>,
+    remote_builder_v2: BackendBuilder<B>,
     strategy: &'a FolderSyncStrategy,
     on_progress: AccountSyncProgress,
     dry_run: bool,
@@ -50,7 +50,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
     pub fn new(
         account_config: &'a AccountConfig,
         local_builder: LocalBackendBuilder,
-        remote_builder_v2: BackendBuilderV2<B>,
+        remote_builder_v2: BackendBuilder<B>,
         strategy: &'a FolderSyncStrategy,
         on_progress: AccountSyncProgress,
         dry_run: bool,
@@ -186,7 +186,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
 
     async fn process_hunk(
         local_builder: LocalBackendBuilder,
-        remote_builder: BackendBuilderV2<B>,
+        remote_builder: BackendBuilder<B>,
         hunk: &FolderSyncHunk,
     ) -> Result<FolderSyncCachePatch> {
         let cache_hunks = match &hunk {

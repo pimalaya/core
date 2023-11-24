@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use crate::{
     account::sync::{AccountSyncProgress, AccountSyncProgressEvent, LocalBackendBuilder},
-    backend::{BackendBuilderV2, BackendContextBuilder, BackendV2},
+    backend::{Backend, BackendBuilder, BackendContextBuilder},
     boxed_err,
     email::{envelope::Id, Flag},
     maildir::MaildirSessionSync,
@@ -31,7 +31,7 @@ pub struct EmailSyncRunner<B: BackendContextBuilder> {
     pub local_builder: LocalBackendBuilder,
 
     /// The remote backend builder.
-    pub remote_builder: BackendBuilderV2<B>,
+    pub remote_builder: BackendBuilder<B>,
 
     /// The synchronization progress callback.
     pub on_progress: AccountSyncProgress,
@@ -42,8 +42,8 @@ pub struct EmailSyncRunner<B: BackendContextBuilder> {
 
 impl<B: BackendContextBuilder> EmailSyncRunner<B> {
     async fn process_hunk(
-        local: &BackendV2<MaildirSessionSync>,
-        remote: &BackendV2<B::Context>,
+        local: &Backend<MaildirSessionSync>,
+        remote: &Backend<B::Context>,
         hunk: &EmailSyncHunk,
     ) -> Result<EmailSyncCachePatch> {
         let cache_hunks = match hunk {

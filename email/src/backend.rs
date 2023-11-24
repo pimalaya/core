@@ -7,8 +7,6 @@
 //! backend-specific configuration, mostly used by the
 //! [AccountConfiguration](crate::account::AccountConfig).
 
-mod config;
-
 use async_trait::async_trait;
 use log::error;
 use std::sync::Arc;
@@ -32,9 +30,6 @@ use crate::{
     },
     Result,
 };
-
-#[doc(inline)]
-pub use self::config::BackendConfig;
 
 /// Errors related to backend.
 #[derive(Debug, Error)]
@@ -118,7 +113,7 @@ impl<T: BackendContextBuilder, U: BackendContextBuilder, V: BackendContextBuilde
     }
 }
 
-pub struct BackendBuilderV2<B: BackendContextBuilder> {
+pub struct BackendBuilder<B: BackendContextBuilder> {
     pub account_config: AccountConfig,
 
     pub context_builder: B,
@@ -146,7 +141,7 @@ pub struct BackendBuilderV2<B: BackendContextBuilder> {
     send_raw_message: Option<Arc<dyn Fn(&B::Context) -> Box<dyn SendRawMessage> + Send + Sync>>,
 }
 
-impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
+impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
     pub fn new(account_config: AccountConfig, context_builder: B) -> Self {
         Self {
             account_config,
@@ -299,9 +294,9 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
         self
     }
 
-    pub async fn build(self) -> Result<BackendV2<C>> {
+    pub async fn build(self) -> Result<Backend<C>> {
         let context = self.context_builder.build().await?;
-        let mut backend = BackendV2::new(self.account_config.clone(), context);
+        let mut backend = Backend::new(self.account_config.clone(), context);
 
         if let Some(feature) = &self.add_folder {
             backend.set_add_folder(feature(&backend.context));
@@ -362,7 +357,7 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilderV2<B> {
     }
 }
 
-impl<B: BackendContextBuilder> Clone for BackendBuilderV2<B> {
+impl<B: BackendContextBuilder> Clone for BackendBuilder<B> {
     fn clone(&self) -> Self {
         Self {
             context_builder: self.context_builder.clone(),
@@ -393,7 +388,7 @@ impl<B: BackendContextBuilder> Clone for BackendBuilderV2<B> {
     }
 }
 
-impl Default for BackendBuilderV2<()> {
+impl Default for BackendBuilder<()> {
     fn default() -> Self {
         Self {
             context_builder: (),
@@ -424,7 +419,7 @@ impl Default for BackendBuilderV2<()> {
     }
 }
 
-pub struct BackendV2<C> {
+pub struct Backend<C> {
     context: C,
 
     pub account_config: AccountConfig,
@@ -451,9 +446,9 @@ pub struct BackendV2<C> {
     pub send_raw_message: Option<Box<dyn SendRawMessage>>,
 }
 
-impl<C> BackendV2<C> {
-    pub fn new(account_config: AccountConfig, context: C) -> BackendV2<C> {
-        BackendV2 {
+impl<C> Backend<C> {
+    pub fn new(account_config: AccountConfig, context: C) -> Backend<C> {
+        Backend {
             context,
 
             account_config,
@@ -621,11 +616,27 @@ impl<C> BackendV2<C> {
             .await
     }
 
+    pub async fn set_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
+        self.set_flags
+            .as_ref()
+            .ok_or_else(|| boxed_err(Error::SetFlagsNotAvailableError))?
+            .set_flag(folder, id, flag)
+            .await
+    }
+
     pub async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         self.remove_flags
             .as_ref()
             .ok_or_else(|| boxed_err(Error::RemoveFlagsNotAvailableError))?
             .remove_flags(folder, id, flags)
+            .await
+    }
+
+    pub async fn remove_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
+        self.remove_flags
+            .as_ref()
+            .ok_or_else(|| boxed_err(Error::RemoveFlagsNotAvailableError))?
+            .remove_flag(folder, id, flag)
             .await
     }
 
