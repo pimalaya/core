@@ -7,7 +7,7 @@ use std::{io, path::PathBuf};
 use thiserror::Error;
 use tokio::fs;
 
-use crate::Result;
+use crate::{boxed_err, Result};
 
 /// Errors related to PGP configuration.
 #[derive(Debug, Error)]
@@ -66,16 +66,16 @@ impl NativePgpConfig {
             NativePgpSecretKey::Path(path) => {
                 let path = shellexpand_path(path);
                 if path.is_file() {
-                    fs::remove_file(&path)
-                        .await
-                        .map_err(|err| Error::DeletePgpKeyAtPathError(err, path.clone()))?;
+                    fs::remove_file(&path).await.map_err(|err| {
+                        boxed_err(Error::DeletePgpKeyAtPathError(err, path.clone()))
+                    })?;
                 } else {
                     warn!("cannot delete pgp key file at {path:?}: file not found");
                 }
             }
             NativePgpSecretKey::Keyring(entry) => entry
                 .delete_secret()
-                .map_err(Error::DeletePgpKeyFromKeyringError)?,
+                .map_err(|err| boxed_err(Error::DeletePgpKeyFromKeyringError(err)))?,
         };
 
         Ok(())
@@ -88,41 +88,41 @@ impl NativePgpConfig {
         passwd: impl Fn() -> io::Result<String>,
     ) -> Result<()> {
         let email = email.to_string();
-        let passwd = passwd().map_err(Error::GetPgpSecretKeyPasswdError)?;
+        let passwd = passwd().map_err(|err| boxed_err(Error::GetPgpSecretKeyPasswdError(err)))?;
 
         let (skey, pkey) = pgp::gen_key_pair(email.clone(), passwd)
             .await
-            .map_err(|err| Error::GeneratePgpKeyPairError(err, email.clone()))?;
+            .map_err(|err| boxed_err(Error::GeneratePgpKeyPairError(err, email.clone())))?;
         let skey = skey
             .to_armored_string(None)
-            .map_err(Error::ExportSecretKeyToArmoredStringError)?;
+            .map_err(|err| boxed_err(Error::ExportSecretKeyToArmoredStringError(err)))?;
         let pkey = pkey
             .to_armored_string(None)
-            .map_err(Error::ExportPublicKeyToArmoredStringError)?;
+            .map_err(|err| boxed_err(Error::ExportPublicKeyToArmoredStringError(err)))?;
 
         match &self.secret_key {
             NativePgpSecretKey::None => (),
             NativePgpSecretKey::Raw(_) => (),
             NativePgpSecretKey::Path(skey_path) => {
                 let skey_path = shellexpand_path(skey_path);
-                fs::write(&skey_path, skey)
-                    .await
-                    .map_err(|err| Error::WriteSecretKeyFileError(err, skey_path.clone()))?;
+                fs::write(&skey_path, skey).await.map_err(|err| {
+                    boxed_err(Error::WriteSecretKeyFileError(err, skey_path.clone()))
+                })?;
 
                 let pkey_path = skey_path.with_extension("pub");
                 fs::write(&pkey_path, pkey)
                     .await
-                    .map_err(|err| Error::WritePublicKeyFileError(err, pkey_path))?;
+                    .map_err(|err| boxed_err(Error::WritePublicKeyFileError(err, pkey_path)))?;
             }
             NativePgpSecretKey::Keyring(skey_entry) => {
                 let pkey_entry = Entry::from(skey_entry.get_key().to_owned() + "-pub");
 
                 skey_entry
                     .set_secret(skey)
-                    .map_err(Error::SetSecretKeyToKeyringError)?;
+                    .map_err(|err| boxed_err(Error::SetSecretKeyToKeyringError(err)))?;
                 pkey_entry
                     .set_secret(pkey)
-                    .map_err(Error::SetPublicKeyToKeyringError)?;
+                    .map_err(|err| boxed_err(Error::SetPublicKeyToKeyringError(err)))?;
             }
         }
 

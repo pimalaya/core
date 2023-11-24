@@ -6,7 +6,6 @@
 use std::path::PathBuf;
 
 /// The Notmuch backend config.
-#[cfg(feature = "notmuch-backend")]
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct NotmuchConfig {
     /// The path to the Notmuch database.

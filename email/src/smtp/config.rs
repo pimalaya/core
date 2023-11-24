@@ -143,4 +143,25 @@ impl SmtpAuthConfig {
 
         Ok(())
     }
+
+    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) {
+        let name = name.as_ref();
+
+        match self {
+            SmtpAuthConfig::Passwd(secret) => {
+                secret.set_keyring_entry_if_undefined(format!("{name}-smtp-passwd"));
+            }
+            SmtpAuthConfig::OAuth2(config) => {
+                config
+                    .client_secret
+                    .set_keyring_entry_if_undefined(format!("{name}-smtp-oauth2-client-secret"));
+                config
+                    .access_token
+                    .set_keyring_entry_if_undefined(format!("{name}-smtp-oauth2-access-token"));
+                config
+                    .refresh_token
+                    .set_keyring_entry_if_undefined(format!("{name}-smtp-oauth2-refresh-token"));
+            }
+        }
+    }
 }

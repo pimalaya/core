@@ -181,4 +181,25 @@ impl ImapAuthConfig {
             ImapAuthConfig::OAuth2(oauth2) => Ok(oauth2.access_token().await?),
         }
     }
+
+    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) {
+        let name = name.as_ref();
+
+        match self {
+            Self::Passwd(secret) => {
+                secret.set_keyring_entry_if_undefined(format!("{name}-imap-passwd"));
+            }
+            Self::OAuth2(config) => {
+                config
+                    .client_secret
+                    .set_keyring_entry_if_undefined(format!("{name}-imap-oauth2-client-secret"));
+                config
+                    .access_token
+                    .set_keyring_entry_if_undefined(format!("{name}-imap-oauth2-access-token"));
+                config
+                    .refresh_token
+                    .set_keyring_entry_if_undefined(format!("{name}-imap-oauth2-refresh-token"));
+            }
+        }
+    }
 }

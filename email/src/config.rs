@@ -120,33 +120,8 @@ impl Config {
                     sync_dir: account_config.sync_dir.clone(),
                     sync_folders_strategy: account_config.sync_folders_strategy.clone(),
 
-                    // sender: {
-                    //     let mut sender = self.sender.clone();
-
-                    //     #[cfg(feature = "smtp-sender")]
-                    //     if let SenderConfig::Smtp(config) = &mut sender {
-                    //         match &mut config.auth {
-                    //             SmtpAuthConfig::Passwd(secret) => {
-                    //                 secret.set_keyring_entry_if_undefined(format!("{name}-smtp-passwd"));
-                    //             }
-                    //             SmtpAuthConfig::OAuth2(config) => {
-                    //                 config.client_secret.set_keyring_entry_if_undefined(format!(
-                    //                     "{name}-smtp-oauth2-client-secret"
-                    //                 ));
-                    //                 config.access_token.set_keyring_entry_if_undefined(format!(
-                    //                     "{name}-smtp-oauth2-access-token"
-                    //                 ));
-                    //                 config.refresh_token.set_keyring_entry_if_undefined(format!(
-                    //                     "{name}-smtp-oauth2-refresh-token"
-                    //                 ));
-                    //             }
-                    //         };
-                    //     }
-
-                    //     sender
-                    // },
                     #[cfg(feature = "pgp")]
-                    pgp: self.pgp.clone(),
+                    pgp: account_config.pgp.clone(),
                 }
             }),
             None => Err(Error::not_found(name))?,
