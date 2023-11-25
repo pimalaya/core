@@ -3,7 +3,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{boxed_err, imap::ImapSessionSync, Result};
+use crate::{imap::ImapSessionSync, Result};
 
 use super::{Envelope, GetEnvelope};
 
@@ -49,26 +49,20 @@ impl GetEnvelope for GetEnvelopeImap {
         session
             .execute(
                 |session| session.select(&folder_encoded),
-                |err| boxed_err(Error::SelectFolderError(err, folder.clone())),
+                |err| Error::SelectFolderError(err, folder.clone()).into(),
             )
             .await?;
 
         let fetches = session
             .execute(
                 |session| session.uid_fetch(id, ENVELOPE_QUERY),
-                |err| {
-                    boxed_err(Error::FetchEnvolpesError(
-                        err,
-                        folder.clone(),
-                        id.to_owned(),
-                    ))
-                },
+                |err| Error::FetchEnvolpesError(err, folder.clone(), id.to_owned()).into(),
             )
             .await?;
 
-        let fetch = fetches.get(0).ok_or_else(|| {
-            boxed_err(Error::GetFirstEnvelopeError(folder.clone(), id.to_owned()))
-        })?;
+        let fetch = fetches
+            .get(0)
+            .ok_or_else(|| Error::GetFirstEnvelopeError(folder.clone(), id.to_owned()))?;
 
         let envelope = Envelope::from_imap_fetch(fetch)?;
         debug!("imap envelope: {envelope:#?}");

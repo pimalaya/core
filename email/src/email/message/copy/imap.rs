@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
@@ -14,21 +13,6 @@ pub enum Error {
     SelectFolderError(#[source] imap::Error, String),
     #[error("cannot copy imap messages {3} from folder {1} to folder {2}")]
     CopyMessagesError(#[source] imap::Error, String, String, Id),
-}
-
-impl Error {
-    pub fn select_folder(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
-        Box::new(Self::SelectFolderError(err, folder))
-    }
-
-    pub fn copy_messages(
-        err: imap::Error,
-        from_folder: String,
-        to_folder: String,
-        id: Id,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::CopyMessagesError(err, from_folder, to_folder, id))
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -61,14 +45,22 @@ impl CopyMessages for CopyMessagesImap {
         session
             .execute(
                 |session| session.select(&from_folder_encoded),
-                |err| Error::select_folder(err, from_folder.clone()),
+                |err| Error::SelectFolderError(err, from_folder.clone()).into(),
             )
             .await?;
 
         session
             .execute(
                 |session| session.uid_copy(id.join(","), &to_folder_encoded),
-                |err| Error::copy_messages(err, from_folder.clone(), to_folder.clone(), id.clone()),
+                |err| {
+                    Error::CopyMessagesError(
+                        err,
+                        from_folder.clone(),
+                        to_folder.clone(),
+                        id.clone(),
+                    )
+                    .into()
+                },
             )
             .await?;
 

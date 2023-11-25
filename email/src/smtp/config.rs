@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     account::{OAuth2Config, OAuth2Method, PasswdConfig},
-    boxed_err, Result,
+    Result,
 };
 
 #[derive(Debug, Error)]
@@ -67,14 +67,8 @@ impl SmtpConfig {
     pub async fn credentials(&self) -> Result<Credentials<String>> {
         Ok(match &self.auth {
             SmtpAuthConfig::Passwd(passwd) => {
-                let passwd = passwd
-                    .get()
-                    .await
-                    .map_err(|err| boxed_err(Error::GetPasswdError(err)))?;
-                let passwd = passwd
-                    .lines()
-                    .next()
-                    .ok_or_else(|| boxed_err(Error::GetPasswdEmptyError))?;
+                let passwd = passwd.get().await.map_err(Error::GetPasswdError)?;
+                let passwd = passwd.lines().next().ok_or(Error::GetPasswdEmptyError)?;
                 Credentials::new(self.login.clone(), passwd.to_owned())
             }
             SmtpAuthConfig::OAuth2(oauth2) => match oauth2.method {

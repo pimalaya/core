@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use log::info;
-use std::error;
 use thiserror::Error;
 
 use crate::{email::envelope::SingleId, maildir::MaildirSessionSync, Result};
@@ -11,20 +10,6 @@ use super::{AddRawMessageWithFlags, Flags};
 pub enum Error {
     #[error("maildir: cannot add raw email message to folder {1} with flags {2}")]
     StoreWithFlagsError(#[source] maildirpp::Error, String, Flags),
-}
-
-impl Error {
-    pub fn store_with_flags(
-        err: maildirpp::Error,
-        folder: &str,
-        flags: &Flags,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::StoreWithFlagsError(
-            err,
-            folder.to_owned(),
-            flags.clone(),
-        ))
-    }
 }
 
 #[derive(Clone)]
@@ -54,7 +39,7 @@ impl AddRawMessageWithFlags for AddRawMessageWithFlagsMaildir {
 
         let id = mdir
             .store_cur_with_flags(raw_msg, &flags.to_mdir_string())
-            .map_err(|err| Error::store_with_flags(err, folder, flags))?;
+            .map_err(|err| Error::StoreWithFlagsError(err, folder.to_owned(), flags.clone()))?;
 
         Ok(SingleId::from(id))
     }

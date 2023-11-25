@@ -10,7 +10,7 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::{boxed_err, Result};
+use crate::Result;
 
 /// Errors related to password configuration.
 #[derive(Debug, Error)]
@@ -50,7 +50,7 @@ impl PasswdConfig {
     /// If the current password secret is a keyring entry, delete it.
     pub fn reset(&self) -> Result<()> {
         self.delete_keyring_entry_secret()
-            .map_err(|err| boxed_err(Error::DeleteError(err)))?;
+            .map_err(Error::DeleteError)?;
         Ok(())
     }
 
@@ -59,13 +59,13 @@ impl PasswdConfig {
         match self.find().await {
             Ok(None) => {
                 warn!("cannot find imap password from keyring, setting it");
-                let passwd = get_passwd().map_err(|err| boxed_err(Error::GetFromUserError(err)))?;
+                let passwd = get_passwd().map_err(Error::GetFromUserError)?;
                 self.set_keyring_entry_secret(passwd)
-                    .map_err(|err| boxed_err(Error::SetIntoKeyringError(err)))?;
+                    .map_err(Error::SetIntoKeyringError)?;
                 Ok(())
             }
             Ok(_) => Ok(()),
-            Err(err) => Err(boxed_err(Error::GetFromKeyringError(err))),
+            Err(err) => Err(Error::GetFromKeyringError(err).into()),
         }
     }
 }

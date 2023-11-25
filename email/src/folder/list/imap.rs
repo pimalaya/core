@@ -4,7 +4,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::decode_utf7_imap as decode_utf7;
 
-use crate::{boxed_err, imap::ImapSessionSync, Result};
+use crate::{imap::ImapSessionSync, Result};
 
 use super::{Folder, Folders, ListFolders};
 
@@ -36,7 +36,7 @@ impl ListFolders for ListFoldersImap {
         let folders = session
             .execute(
                 |session| session.list(Some(""), Some("*")),
-                |err| boxed_err(Error::ListFoldersError(err)),
+                |err| Error::ListFoldersError(err).into(),
             )
             .await?;
         let folders = Folders::from_iter(folders.iter().filter_map(|folder| {

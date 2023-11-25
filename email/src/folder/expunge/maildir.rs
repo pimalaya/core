@@ -1,9 +1,6 @@
 use async_trait::async_trait;
 use log::info;
-use std::{
-    error,
-    path::{Path, PathBuf},
-};
+use std::path::PathBuf;
 use thiserror::Error;
 
 use crate::{maildir::MaildirSessionSync, Result};
@@ -16,24 +13,6 @@ pub enum Error {
     ListCurrentFolderError(#[source] maildirpp::Error, PathBuf),
     #[error("maildir: cannot delete message {2} from folder {1}")]
     DeleteMessageError(#[source] maildirpp::Error, PathBuf, String),
-}
-
-impl Error {
-    pub fn list_current_folder(err: maildirpp::Error, path: &Path) -> Box<dyn error::Error + Send> {
-        Box::new(Self::ListCurrentFolderError(err, path.to_owned()))
-    }
-
-    fn delete_message(
-        err: maildirpp::Error,
-        path: &Path,
-        id: &str,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::DeleteMessageError(
-            err,
-            path.to_owned(),
-            id.to_owned(),
-        ))
-    }
 }
 
 pub struct ExpungeFolderMaildir {
@@ -58,7 +37,7 @@ impl ExpungeFolder for ExpungeFolderMaildir {
         let entries = mdir
             .list_cur()
             .collect::<maildirpp::Result<Vec<_>>>()
-            .map_err(|err| Error::list_current_folder(err, mdir.path()))?;
+            .map_err(|err| Error::ListCurrentFolderError(err, mdir.path().to_owned()))?;
         entries
             .iter()
             .filter_map(|entry| {
@@ -68,9 +47,10 @@ impl ExpungeFolder for ExpungeFolderMaildir {
                     None
                 }
             })
-            .try_for_each(|internal_id| {
-                mdir.delete(internal_id)
-                    .map_err(|err| Error::delete_message(err, mdir.path(), internal_id))
+            .try_for_each(|id| {
+                mdir.delete(id).map_err(|err| {
+                    Error::DeleteMessageError(err, mdir.path().to_owned(), id.to_owned())
+                })
             })?;
 
         Ok(())

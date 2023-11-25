@@ -8,7 +8,6 @@ use log::{error, warn};
 use rusqlite::{types::Value, Connection, Transaction};
 
 use crate::{
-    boxed_err,
     email::{envelope::Address, Envelope, Envelopes},
     Result,
 };
@@ -59,8 +58,7 @@ impl EmailSyncCache {
     const LOCAL_SUFFIX: &str = ":cache";
 
     pub fn init(conn: &mut Connection) -> Result<()> {
-        conn.execute(CREATE_ENVELOPES_TABLE, ())
-            .map_err(boxed_err)?;
+        conn.execute(CREATE_ENVELOPES_TABLE, ())?;
         Ok(())
     }
 
@@ -69,7 +67,7 @@ impl EmailSyncCache {
         account: impl AsRef<str>,
         folder: impl AsRef<str>,
     ) -> Result<Envelopes> {
-        let mut stmt = conn.prepare(SELECT_ENVELOPES).map_err(boxed_err)?;
+        let mut stmt = conn.prepare(SELECT_ENVELOPES)?;
         let envelopes: Vec<Envelope> = stmt
             .query_map([account.as_ref(), folder.as_ref()], |row| {
                 Ok(Envelope {
@@ -96,10 +94,8 @@ impl EmailSyncCache {
                         }
                     },
                 })
-            })
-            .map_err(boxed_err)?
-            .collect::<rusqlite::Result<_>>()
-            .map_err(boxed_err)?;
+            })?
+            .collect::<rusqlite::Result<_>>()?;
 
         Ok(Envelopes::from_iter(envelopes))
     }
@@ -127,8 +123,23 @@ impl EmailSyncCache {
         envelope: Envelope,
     ) -> Result<()> {
         if envelope.flags.is_empty() {
-            transaction
-                .execute(
+            transaction.execute(
+                INSERT_ENVELOPE,
+                (
+                    &envelope.id,
+                    &envelope.id,
+                    &envelope.message_id,
+                    account.as_ref(),
+                    folder.as_ref(),
+                    Value::Null,
+                    &envelope.from.addr,
+                    &envelope.subject,
+                    envelope.date.to_rfc3339(),
+                ),
+            )?;
+        } else {
+            for flag in envelope.flags.iter() {
+                transaction.execute(
                     INSERT_ENVELOPE,
                     (
                         &envelope.id,
@@ -136,31 +147,12 @@ impl EmailSyncCache {
                         &envelope.message_id,
                         account.as_ref(),
                         folder.as_ref(),
-                        Value::Null,
+                        flag.to_string(),
                         &envelope.from.addr,
                         &envelope.subject,
                         envelope.date.to_rfc3339(),
                     ),
-                )
-                .map_err(boxed_err)?;
-        } else {
-            for flag in envelope.flags.iter() {
-                transaction
-                    .execute(
-                        INSERT_ENVELOPE,
-                        (
-                            &envelope.id,
-                            &envelope.id,
-                            &envelope.message_id,
-                            account.as_ref(),
-                            folder.as_ref(),
-                            flag.to_string(),
-                            &envelope.from.addr,
-                            &envelope.subject,
-                            envelope.date.to_rfc3339(),
-                        ),
-                    )
-                    .map_err(boxed_err)?;
+                )?;
             }
         }
 
@@ -194,8 +186,7 @@ impl EmailSyncCache {
         tx.execute(
             DELETE_ENVELOPE,
             [account.as_ref(), folder.as_ref(), internal_id.as_ref()],
-        )
-        .map_err(boxed_err)?;
+        )?;
 
         Ok(())
     }

@@ -56,6 +56,9 @@ features = ["macros", "rt", "rt-multi-thread", "time"]
 [dependencies.advisory-lock]
 version = "0.3.0"
 
+[dependencies.anyhow]
+version = "1.0"
+
 [dependencies.async-trait]
 version = "0.1"
 

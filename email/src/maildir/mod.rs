@@ -16,7 +16,7 @@ use tokio::sync::Mutex;
 use crate::{
     account::{AccountConfig, DEFAULT_INBOX_FOLDER},
     backend::BackendContextBuilder,
-    boxed_err, Result,
+    Result,
 };
 
 #[doc(inline)]
@@ -105,12 +105,9 @@ impl Deref for MaildirSession {
 
 impl MaildirSession {
     pub fn create_dirs(&self) -> Result<()> {
-        self.session.create_dirs().map_err(|err| {
-            boxed_err(Error::InitFoldersStructureError(
-                err,
-                self.session.path().to_owned(),
-            ))
-        })?;
+        self.session
+            .create_dirs()
+            .map_err(|err| Error::InitFoldersStructureError(err, self.session.path().to_owned()))?;
         Ok(())
     }
 
@@ -120,9 +117,7 @@ impl MaildirSession {
         if mdir_path.is_dir() {
             Ok(mdir_path)
         } else {
-            Err(boxed_err(Error::ReadFolderInvalidError(
-                mdir_path.to_owned(),
-            )))
+            Err(Error::ReadFolderInvalidError(mdir_path.to_owned()).into())
         }
     }
 
@@ -147,7 +142,7 @@ impl MaildirSession {
             .or_else(|_| {
                 self.validate_mdir_path(
                     env::current_dir()
-                        .map_err(|err| boxed_err(Error::GetCurrentFolderError(err)))?
+                        .map_err(Error::GetCurrentFolderError)?
                         .join(&folder),
                 )
             })

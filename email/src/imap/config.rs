@@ -8,7 +8,7 @@ use thiserror::Error;
 
 use crate::{
     account::{OAuth2Config, PasswdConfig},
-    boxed_err, Result,
+    Result,
 };
 
 /// Errors related to the IMAP backend configuration.
@@ -127,9 +127,7 @@ impl ImapConfig {
             .replace("<sender>", sender.as_ref())
             .into();
 
-        cmd.run()
-            .await
-            .map_err(|err| boxed_err(Error::StartNotifyModeError(err)))?;
+        cmd.run().await.map_err(Error::StartNotifyModeError)?;
 
         Ok(())
     }
@@ -168,14 +166,8 @@ impl ImapAuthConfig {
     pub async fn build_credentials(&self) -> Result<String> {
         match self {
             ImapAuthConfig::Passwd(passwd) => {
-                let passwd = passwd
-                    .get()
-                    .await
-                    .map_err(|err| boxed_err(Error::GetPasswdError(err)))?;
-                let passwd = passwd
-                    .lines()
-                    .next()
-                    .ok_or_else(|| boxed_err(Error::GetPasswdEmptyError))?;
+                let passwd = passwd.get().await.map_err(Error::GetPasswdError)?;
+                let passwd = passwd.lines().next().ok_or(Error::GetPasswdEmptyError)?;
                 Ok(passwd.to_owned())
             }
             ImapAuthConfig::OAuth2(oauth2) => Ok(oauth2.access_token().await?),

@@ -9,7 +9,7 @@ use secret::Secret;
 use std::{io, vec};
 use thiserror::Error;
 
-use crate::{boxed_err, Result};
+use crate::Result;
 
 /// Errors related to OAuth 2.0 configuration.
 #[derive(Debug, Error)]
@@ -126,13 +126,13 @@ impl OAuth2Config {
     pub fn reset(&self) -> Result<()> {
         self.client_secret
             .delete_keyring_entry_secret()
-            .map_err(|err| boxed_err(Error::DeleteClientSecretError(err)))?;
+            .map_err(Error::DeleteClientSecretError)?;
         self.access_token
             .delete_keyring_entry_secret()
-            .map_err(|err| boxed_err(Error::DeleteAccessTokenError(err)))?;
+            .map_err(Error::DeleteAccessTokenError)?;
         self.refresh_token
             .delete_keyring_entry_secret()
-            .map_err(|err| boxed_err(Error::DeleteRefreshTokenError(err)))?;
+            .map_err(Error::DeleteRefreshTokenError)?;
         Ok(())
     }
 
@@ -150,10 +150,9 @@ impl OAuth2Config {
         let set_client_secret = || {
             self.client_secret
                 .set_keyring_entry_secret(
-                    get_client_secret()
-                        .map_err(|err| boxed_err(Error::GetClientSecretFromUserError(err)))?,
+                    get_client_secret().map_err(Error::GetClientSecretFromUserError)?,
                 )
-                .map_err(|err| boxed_err(Error::SetClientSecretIntoKeyringError(err)))
+                .map_err(Error::SetClientSecretIntoKeyringError)
         };
 
         let client_secret = match self.client_secret.find().await {
@@ -162,7 +161,7 @@ impl OAuth2Config {
                 set_client_secret()
             }
             Ok(Some(client_secret)) => Ok(client_secret),
-            Err(err) => Err(boxed_err(Error::GetClientSecretFromKeyringError(err))),
+            Err(err) => Err(Error::GetClientSecretFromKeyringError(err)),
         }?;
 
         let client = Client::new(
@@ -171,11 +170,11 @@ impl OAuth2Config {
             self.auth_url.clone(),
             self.token_url.clone(),
         )
-        .map_err(|err| boxed_err(Error::InitClientError(err)))?
+        .map_err(Error::InitClientError)?
         .with_redirect_host(self.redirect_host.clone())
         .with_redirect_port(self.redirect_port)
         .build()
-        .map_err(|err| boxed_err(Error::BuildClientError(err)))?;
+        .map_err(Error::BuildClientError)?;
 
         let mut auth_code_grant = AuthorizationCodeGrant::new()
             .with_redirect_host(self.redirect_host.clone())
@@ -198,16 +197,16 @@ impl OAuth2Config {
         let (access_token, refresh_token) = auth_code_grant
             .wait_for_redirection(&client, csrf_token)
             .await
-            .map_err(|err| boxed_err(Error::WaitForRedirectionError(err)))?;
+            .map_err(Error::WaitForRedirectionError)?;
 
         self.access_token
             .set_keyring_entry_secret(access_token)
-            .map_err(|err| boxed_err(Error::SetAccessTokenError(err)))?;
+            .map_err(Error::SetAccessTokenError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
                 .set_keyring_entry_secret(refresh_token)
-                .map_err(|err| boxed_err(Error::SetRefreshTokenError(err)))?;
+                .map_err(Error::SetRefreshTokenError)?;
         }
 
         Ok(())
@@ -220,7 +219,7 @@ impl OAuth2Config {
             .client_secret
             .get()
             .await
-            .map_err(|err| boxed_err(Error::GetClientSecretFromKeyringError(err)))?;
+            .map_err(Error::GetClientSecretFromKeyringError)?;
 
         let client = Client::new(
             self.client_id.clone(),
@@ -228,31 +227,31 @@ impl OAuth2Config {
             self.auth_url.clone(),
             self.token_url.clone(),
         )
-        .map_err(|err| boxed_err(Error::InitClientError(err)))?
+        .map_err(Error::InitClientError)?
         .with_redirect_host(self.redirect_host.clone())
         .with_redirect_port(self.redirect_port)
         .build()
-        .map_err(|err| boxed_err(Error::BuildClientError(err)))?;
+        .map_err(Error::BuildClientError)?;
 
         let refresh_token = self
             .refresh_token
             .get()
             .await
-            .map_err(|err| boxed_err(Error::GetRefreshTokenError(err)))?;
+            .map_err(Error::GetRefreshTokenError)?;
 
         let (access_token, refresh_token) = RefreshAccessToken::new()
             .refresh_access_token(&client, refresh_token)
             .await
-            .map_err(|err| boxed_err(Error::RefreshAccessTokenError(err)))?;
+            .map_err(Error::RefreshAccessTokenError)?;
 
         self.access_token
             .set_keyring_entry_secret(&access_token)
-            .map_err(|err| boxed_err(Error::SetAccessTokenError(err)))?;
+            .map_err(Error::SetAccessTokenError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
                 .set_keyring_entry_secret(refresh_token)
-                .map_err(|err| boxed_err(Error::SetRefreshTokenError(err)))?;
+                .map_err(Error::SetRefreshTokenError)?;
         }
 
         Ok(access_token)
@@ -265,7 +264,7 @@ impl OAuth2Config {
             .access_token
             .get()
             .await
-            .map_err(|err| boxed_err(Error::GetAccessTokenError(err)))?;
+            .map_err(Error::GetAccessTokenError)?;
         Ok(access_token)
     }
 }

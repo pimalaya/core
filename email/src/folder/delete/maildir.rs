@@ -1,9 +1,6 @@
 use async_trait::async_trait;
 use log::info;
-use std::{
-    error, fs, io,
-    path::{Path, PathBuf},
-};
+use std::{fs, io, path::PathBuf};
 use thiserror::Error;
 
 use crate::{account::DEFAULT_INBOX_FOLDER, maildir::MaildirSessionSync, Result};
@@ -14,12 +11,6 @@ use super::DeleteFolder;
 pub enum Error {
     #[error("maildir: cannot delete folder {1}")]
     DeleteFolderError(#[source] io::Error, PathBuf),
-}
-
-impl Error {
-    pub fn delete_folder(err: io::Error, path: &Path) -> Box<dyn error::Error + Send> {
-        Box::new(Self::DeleteFolderError(err, path.to_owned()))
-    }
 }
 
 pub struct DeleteFolderMaildir {
@@ -48,7 +39,7 @@ impl DeleteFolder for DeleteFolderMaildir {
             }
         };
 
-        fs::remove_dir_all(&path).map_err(|err| Error::delete_folder(err, &path))?;
+        fs::remove_dir_all(&path).map_err(|err| Error::DeleteFolderError(err, path))?;
 
         Ok(())
     }

@@ -1,10 +1,6 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::{
-    error,
-    ffi::OsStr,
-    path::{Path, PathBuf},
-};
+use std::{ffi::OsStr, path::PathBuf};
 use thiserror::Error;
 
 use crate::{account::DEFAULT_INBOX_FOLDER, maildir::MaildirSessionSync, Result};
@@ -17,19 +13,6 @@ pub enum Error {
     GetSubfolderError(#[source] maildirpp::Error, PathBuf),
     #[error("maildir: cannot parse subfolder {1} from {0}")]
     ParseSubfolderError(PathBuf, PathBuf),
-}
-
-impl Error {
-    pub fn get_subfolder(err: maildirpp::Error, root_path: &Path) -> Box<dyn error::Error + Send> {
-        Box::new(Self::GetSubfolderError(err, root_path.to_owned()))
-    }
-
-    pub fn parse_subfolder(root_path: &Path, path: &Path) -> Box<dyn error::Error + Send> {
-        Box::new(Self::ParseSubfolderError(
-            root_path.to_owned(),
-            path.to_owned(),
-        ))
-    }
 }
 
 pub struct ListFoldersMaildir {
@@ -58,12 +41,15 @@ impl ListFolders for ListFoldersMaildir {
         });
 
         for entry in session.list_subdirs() {
-            let dir = entry.map_err(|err| Error::get_subfolder(err, session.path()))?;
+            let dir =
+                entry.map_err(|err| Error::GetSubfolderError(err, session.path().to_owned()))?;
             let dirname = dir.path().file_name();
             let name = dirname
                 .and_then(OsStr::to_str)
                 .and_then(|s| if s.len() < 2 { None } else { Some(&s[1..]) })
-                .ok_or_else(|| Error::parse_subfolder(session.path(), dir.path()))?
+                .ok_or_else(|| {
+                    Error::ParseSubfolderError(session.path().to_owned(), dir.path().to_owned())
+                })?
                 .to_string();
 
             if name == "notmuch" {

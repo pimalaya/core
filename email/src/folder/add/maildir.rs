@@ -1,10 +1,7 @@
 use async_trait::async_trait;
 use log::{debug, info};
 use maildirpp::Maildir;
-use std::{
-    error,
-    path::{Path, PathBuf},
-};
+use std::path::PathBuf;
 use thiserror::Error;
 
 use crate::{account::DEFAULT_INBOX_FOLDER, maildir::MaildirSessionSync, Result};
@@ -19,23 +16,6 @@ pub enum Error {
     ParseSubfolderError(PathBuf, PathBuf),
     #[error("cannot create maildir {1} folder structure")]
     InitFolderError(#[source] maildirpp::Error, PathBuf),
-}
-
-impl Error {
-    pub fn get_subfolder(err: maildirpp::Error, root_path: &Path) -> Box<dyn error::Error + Send> {
-        Box::new(Self::GetSubfolderError(err, root_path.to_owned()))
-    }
-
-    pub fn parse_subfolder(root_path: &Path, path: &Path) -> Box<dyn error::Error + Send> {
-        Box::new(Self::ParseSubfolderError(
-            root_path.to_owned(),
-            path.to_owned(),
-        ))
-    }
-
-    pub fn init_folder(err: maildirpp::Error, path: &Path) -> Box<dyn error::Error + Send> {
-        Box::new(Self::InitFolderError(err, path.to_owned()))
-    }
 }
 
 pub struct AddFolderMaildir {
@@ -69,7 +49,7 @@ impl AddFolder for AddFolderMaildir {
 
         Maildir::from(path.clone())
             .create_dirs()
-            .map_err(|err| Error::init_folder(err, &path))?;
+            .map_err(|err| Error::InitFolderError(err, path))?;
 
         Ok(())
     }

@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::{error, result};
+use std::result;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{boxed_err, imap::ImapSessionSync, Result};
+use crate::{imap::ImapSessionSync, Result};
 
 use super::{Envelopes, ListEnvelopes};
 
@@ -22,20 +22,6 @@ pub enum Error {
     ListEnvelopesError(#[source] imap::Error, String, String),
     #[error("cannot list imap envelopes: page {0} out of bounds")]
     BuildPageRangeOutOfBoundsError(usize),
-}
-
-impl Error {
-    pub fn select_folder(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
-        Box::new(Self::SelectFolderError(err, folder))
-    }
-
-    pub fn list_envelopes(
-        err: imap::Error,
-        folder: String,
-        range: String,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::ListEnvelopesError(err, folder, range))
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -69,7 +55,7 @@ impl ListEnvelopes for ListEnvelopesImap {
         let folder_size = session
             .execute(
                 |session| session.select(&folder_encoded),
-                |err| Error::select_folder(err, folder.clone()),
+                |err| Error::SelectFolderError(err, folder.clone()).into(),
             )
             .await?
             .exists as usize;
@@ -79,13 +65,13 @@ impl ListEnvelopes for ListEnvelopesImap {
             return Ok(Envelopes::default());
         }
 
-        let range = build_page_range(page, page_size, folder_size).map_err(boxed_err)?;
+        let range = build_page_range(page, page_size, folder_size)?;
         debug!("page range: {range}");
 
         let fetches = session
             .execute(
                 |session| session.fetch(&range, LIST_ENVELOPES_QUERY),
-                |err| Error::list_envelopes(err, folder.clone(), range.clone()),
+                |err| Error::ListEnvelopesError(err, folder.clone(), range.clone()).into(),
             )
             .await?;
 

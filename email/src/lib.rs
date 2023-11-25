@@ -47,16 +47,11 @@ pub mod sendmail;
 #[cfg(feature = "smtp-sender")]
 pub mod smtp;
 
-use std::error;
-
-pub type Error = Box<dyn error::Error + Send>;
+/// The global `Error` alias of the library.
+pub type Error = anyhow::Error;
 
 /// The global `Result` alias of the library.
-pub type Result<T> = std::result::Result<T, Error>;
-
-pub(crate) fn boxed_err(err: impl error::Error + Send + 'static) -> Error {
-    Box::new(err)
-}
+pub type Result<T> = anyhow::Result<T>;
 
 pub mod prelude {
     pub use crate::{

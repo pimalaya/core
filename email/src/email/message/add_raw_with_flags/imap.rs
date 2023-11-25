@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 use imap_proto::UidSetMember;
 use log::{debug, info};
-use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{boxed_err, email::envelope::SingleId, imap::ImapSessionSync, Result};
+use crate::{email::envelope::SingleId, imap::ImapSessionSync, Result};
 
 use super::{AddRawMessageWithFlags, Flags};
 
@@ -17,16 +16,6 @@ pub enum Error {
     GetAddedMessageUidFromRangeError(String),
     #[error("cannot get added imap message uid: extension UIDPLUS may be missing on the server")]
     GetAddedMessageUidError,
-}
-
-impl Error {
-    pub fn append_raw_email_with_flags(
-        err: imap::Error,
-        folder: String,
-        flags: Flags,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::AppendRawMessageWithFlagsError(err, folder, flags))
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -65,15 +54,17 @@ impl AddRawMessageWithFlags for AddRawMessageWithFlagsImap {
                         .flags(flags.to_imap_flags_vec())
                         .finish()
                 },
-                |err| Error::append_raw_email_with_flags(err, folder.clone(), flags.clone()),
+                |err| {
+                    Error::AppendRawMessageWithFlagsError(err, folder.clone(), flags.clone()).into()
+                },
             )
             .await?;
 
         let uid = match appended.uids {
             Some(mut uids) if uids.len() == 1 => match uids.get_mut(0).unwrap() {
-                UidSetMember::Uid(uid) => Ok(*uid),
+                UidSetMember::Uid(uid) => anyhow::Ok(*uid),
                 UidSetMember::UidRange(uids) => Ok(uids.next().ok_or_else(|| {
-                    boxed_err(Error::GetAddedMessageUidFromRangeError(uids.fold(
+                    Error::GetAddedMessageUidFromRangeError(uids.fold(
                         String::new(),
                         |range, uid| {
                             if range.is_empty() {
@@ -82,12 +73,12 @@ impl AddRawMessageWithFlags for AddRawMessageWithFlagsImap {
                                 range + ", " + &uid.to_string()
                             }
                         },
-                    )))
+                    ))
                 })?),
             },
             _ => {
                 // TODO: manage other cases
-                Err(boxed_err(Error::GetAddedMessageUidError))
+                Err(Error::GetAddedMessageUidError.into())
             }
         }?;
         debug!("added imap message uid: {uid}");

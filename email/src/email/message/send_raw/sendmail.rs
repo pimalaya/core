@@ -3,7 +3,7 @@ use log::{debug, info, warn};
 use mail_parser::MessageParser;
 use thiserror::Error;
 
-use crate::{boxed_err, sendmail::SendmailContext, Result};
+use crate::{sendmail::SendmailContext, Result};
 
 use super::SendRawMessage;
 
@@ -57,7 +57,7 @@ impl SendRawMessage for SendRawMessageSendmail {
             .cmd
             .run_with(msg.raw_message())
             .await
-            .map_err(|err| boxed_err(Error::RunSendmailCommandError(err)))?;
+            .map_err(Error::RunSendmailCommandError)?;
 
         Ok(())
     }

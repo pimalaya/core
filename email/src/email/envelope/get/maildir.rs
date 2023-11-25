@@ -1,9 +1,6 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::{
-    error,
-    path::{Path, PathBuf},
-};
+use std::path::PathBuf;
 use thiserror::Error;
 
 use crate::{maildir::MaildirSessionSync, Result};
@@ -14,12 +11,6 @@ use super::{Envelope, GetEnvelope};
 pub enum Error {
     #[error("maildir: cannot find envelope {1} from folder {0}")]
     GetEnvelopeError(PathBuf, String),
-}
-
-impl Error {
-    pub fn get_envelope(folder: &Path, id: &str) -> Box<dyn error::Error + Send> {
-        Box::new(Self::GetEnvelopeError(folder.to_owned(), id.to_owned()))
-    }
 }
 
 #[derive(Clone)]
@@ -44,7 +35,7 @@ impl GetEnvelope for GetEnvelopeMaildir {
 
         let envelope: Envelope = Envelope::from_mdir_entry(
             mdir.find(id)
-                .ok_or_else(|| Error::get_envelope(mdir.path(), id))?,
+                .ok_or_else(|| Error::GetEnvelopeError(mdir.path().to_owned(), id.to_owned()))?,
         );
         debug!("maildir envelope: {envelope:#?}");
 

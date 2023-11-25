@@ -14,7 +14,6 @@ use thiserror::Error;
 
 use crate::{
     account::AccountConfig,
-    boxed_err,
     email::{
         envelope::{get::GetEnvelope, Id, ListEnvelopes, SingleId},
         flag::{AddFlags, RemoveFlags, SetFlags},
@@ -534,7 +533,7 @@ impl<C> Backend<C> {
     pub async fn add_folder(&self, folder: &str) -> Result<()> {
         self.add_folder
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::AddFolderNotAvailableError))?
+            .ok_or(Error::AddFolderNotAvailableError)?
             .add_folder(folder)
             .await
     }
@@ -542,7 +541,7 @@ impl<C> Backend<C> {
     pub async fn list_folders(&self) -> Result<Folders> {
         self.list_folders
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::ListFoldersNotAvailableError))?
+            .ok_or(Error::ListFoldersNotAvailableError)?
             .list_folders()
             .await
     }
@@ -550,7 +549,7 @@ impl<C> Backend<C> {
     pub async fn expunge_folder(&self, folder: &str) -> Result<()> {
         self.expunge_folder
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::ExpungeFolderNotAvailableError))?
+            .ok_or(Error::ExpungeFolderNotAvailableError)?
             .expunge_folder(folder)
             .await
     }
@@ -558,7 +557,7 @@ impl<C> Backend<C> {
     pub async fn purge_folder(&self, folder: &str) -> Result<()> {
         self.purge_folder
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::PurgeFolderNotAvailableError))?
+            .ok_or(Error::PurgeFolderNotAvailableError)?
             .purge_folder(folder)
             .await
     }
@@ -566,7 +565,7 @@ impl<C> Backend<C> {
     pub async fn delete_folder(&self, folder: &str) -> Result<()> {
         self.delete_folder
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::DeleteFolderNotAvailableError))?
+            .ok_or(Error::DeleteFolderNotAvailableError)?
             .delete_folder(folder)
             .await
     }
@@ -579,7 +578,7 @@ impl<C> Backend<C> {
     ) -> Result<Envelopes> {
         self.list_envelopes
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::ListEnvelopesNotAvailableError))?
+            .ok_or(Error::ListEnvelopesNotAvailableError)?
             .list_envelopes(folder, page_size, page)
             .await
     }
@@ -587,7 +586,7 @@ impl<C> Backend<C> {
     pub async fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope> {
         self.get_envelope
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::GetEnvelopeNotAvailableError))?
+            .ok_or(Error::GetEnvelopeNotAvailableError)?
             .get_envelope(folder, id)
             .await
     }
@@ -595,7 +594,7 @@ impl<C> Backend<C> {
     pub async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         self.add_flags
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::AddFlagsNotAvailableError))?
+            .ok_or(Error::AddFlagsNotAvailableError)?
             .add_flags(folder, id, flags)
             .await
     }
@@ -603,7 +602,7 @@ impl<C> Backend<C> {
     pub async fn add_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
         self.add_flags
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::AddFlagsNotAvailableError))?
+            .ok_or(Error::AddFlagsNotAvailableError)?
             .add_flag(folder, id, flag)
             .await
     }
@@ -611,7 +610,7 @@ impl<C> Backend<C> {
     pub async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         self.set_flags
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::SetFlagsNotAvailableError))?
+            .ok_or(Error::SetFlagsNotAvailableError)?
             .set_flags(folder, id, flags)
             .await
     }
@@ -619,7 +618,7 @@ impl<C> Backend<C> {
     pub async fn set_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
         self.set_flags
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::SetFlagsNotAvailableError))?
+            .ok_or(Error::SetFlagsNotAvailableError)?
             .set_flag(folder, id, flag)
             .await
     }
@@ -627,7 +626,7 @@ impl<C> Backend<C> {
     pub async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         self.remove_flags
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::RemoveFlagsNotAvailableError))?
+            .ok_or(Error::RemoveFlagsNotAvailableError)?
             .remove_flags(folder, id, flags)
             .await
     }
@@ -635,7 +634,7 @@ impl<C> Backend<C> {
     pub async fn remove_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
         self.remove_flags
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::RemoveFlagsNotAvailableError))?
+            .ok_or(Error::RemoveFlagsNotAvailableError)?
             .remove_flag(folder, id, flag)
             .await
     }
@@ -648,7 +647,7 @@ impl<C> Backend<C> {
     ) -> Result<SingleId> {
         self.add_raw_message_with_flags
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::AddRawMessageWithFlagsNotAvailableError))?
+            .ok_or(Error::AddRawMessageWithFlagsNotAvailableError)?
             .add_raw_message_with_flags(folder, email, flags)
             .await
     }
@@ -661,7 +660,7 @@ impl<C> Backend<C> {
     ) -> Result<SingleId> {
         self.add_raw_message_with_flags
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::AddRawMessageWithFlagsNotAvailableError))?
+            .ok_or(Error::AddRawMessageWithFlagsNotAvailableError)?
             .add_raw_message_with_flag(folder, email, flag)
             .await
     }
@@ -672,14 +671,14 @@ impl<C> Backend<C> {
         } else if let (Some(a), Some(b)) = (self.peek_messages.as_ref(), self.add_flags.as_ref()) {
             default_get_messages(a.as_ref(), b.as_ref(), folder, id).await
         } else {
-            Err(boxed_err(Error::PeekMessagesNotAvailableError))
+            Ok(Err(Error::PeekMessagesNotAvailableError)?)
         }
     }
 
     pub async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
         self.peek_messages
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::PeekMessagesNotAvailableError))?
+            .ok_or(Error::PeekMessagesNotAvailableError)?
             .peek_messages(folder, id)
             .await
     }
@@ -687,7 +686,7 @@ impl<C> Backend<C> {
     pub async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         self.copy_messages
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::CopyMessagesNotAvailableError))?
+            .ok_or(Error::CopyMessagesNotAvailableError)?
             .copy_messages(from_folder, to_folder, id)
             .await
     }
@@ -695,7 +694,7 @@ impl<C> Backend<C> {
     pub async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         self.move_messages
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::MoveMessagesNotAvailableError))?
+            .ok_or(Error::MoveMessagesNotAvailableError)?
             .move_messages(from_folder, to_folder, id)
             .await
     }
@@ -706,14 +705,14 @@ impl<C> Backend<C> {
         } else if let (Some(a), Some(b)) = (self.move_messages.as_ref(), self.add_flags.as_ref()) {
             default_delete_messages(&self.account_config, a.as_ref(), b.as_ref(), folder, id).await
         } else {
-            Err(boxed_err(Error::DeleteMessagesNotAvailableError))
+            Ok(Err(Error::DeleteMessagesNotAvailableError)?)
         }
     }
 
     pub async fn send_raw_message(&self, raw_msg: &[u8]) -> Result<()> {
         self.send_raw_message
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::SendRawMessageNotAvailableError))?
+            .ok_or(Error::SendRawMessageNotAvailableError)?
             .send_raw_message(raw_msg)
             .await
     }

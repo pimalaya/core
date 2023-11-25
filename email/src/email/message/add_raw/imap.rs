@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 use imap_proto::UidSetMember;
 use log::{debug, info};
-use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{boxed_err, email::envelope::SingleId, imap::ImapSessionSync, Result};
+use crate::{email::envelope::SingleId, imap::ImapSessionSync, Result};
 
 use super::AddRawMessage;
 
@@ -17,12 +16,6 @@ pub enum Error {
     GetAddedMessageUidFromRangeError(String),
     #[error("cannot get added imap message uid: extension UIDPLUS may be missing on the server")]
     GetAddedMessageUidError,
-}
-
-impl Error {
-    pub fn append_raw_message(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
-        Box::new(Self::AppendRawMessage(err, folder))
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -51,15 +44,15 @@ impl AddRawMessage for AddRawMessageImap {
         let appended = session
             .execute(
                 |session| session.append(&folder, raw_msg).finish(),
-                |err| Error::append_raw_message(err, folder.clone()),
+                |err| Error::AppendRawMessage(err, folder.clone()).into(),
             )
             .await?;
 
         let uid = match appended.uids {
             Some(mut uids) if uids.len() == 1 => match uids.get_mut(0).unwrap() {
-                UidSetMember::Uid(uid) => Ok(*uid),
+                UidSetMember::Uid(uid) => anyhow::Ok(*uid),
                 UidSetMember::UidRange(uids) => Ok(uids.next().ok_or_else(|| {
-                    boxed_err(Error::GetAddedMessageUidFromRangeError(uids.fold(
+                    Error::GetAddedMessageUidFromRangeError(uids.fold(
                         String::new(),
                         |range, uid| {
                             if range.is_empty() {
@@ -68,12 +61,12 @@ impl AddRawMessage for AddRawMessageImap {
                                 range + ", " + &uid.to_string()
                             }
                         },
-                    )))
+                    ))
                 })?),
             },
             _ => {
                 // TODO: manage other cases
-                Err(boxed_err(Error::GetAddedMessageUidError))
+                Err(Error::GetAddedMessageUidError.into())
             }
         }?;
         debug!("added imap message uid: {uid}");

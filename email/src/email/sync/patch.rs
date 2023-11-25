@@ -19,7 +19,6 @@ use crate::{
         AccountSyncProgress, AccountSyncProgressEvent, LocalBackendBuilder, Source, Target,
     },
     backend::BackendContextBuilder,
-    boxed_err,
     email::flag,
     Result,
 };
@@ -224,7 +223,7 @@ impl<'a, B: BackendContextBuilder + 'static> EmailSyncPatchManager<'a, B> {
                 ));
 
             let mut process_cache_patch = || {
-                let tx = conn.transaction().map_err(boxed_err)?;
+                let tx = conn.transaction()?;
                 for hunk in &report.cache_patch.0 {
                     match hunk {
                         EmailSyncCacheHunk::Insert(folder, envelope, Target::Local) => {
@@ -261,7 +260,7 @@ impl<'a, B: BackendContextBuilder + 'static> EmailSyncPatchManager<'a, B> {
                         }
                     }
                 }
-                tx.commit().map_err(boxed_err)?;
+                tx.commit()?;
                 Result::Ok(())
             };
 

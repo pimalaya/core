@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use log::info;
-use std::error;
 use thiserror::Error;
 
 use crate::{
@@ -15,22 +14,6 @@ use super::AddFlags;
 pub enum Error {
     #[error("cannot add flags {3} to envelope(s) {2} from folder {1}")]
     AddFlagsError(#[source] maildirpp::Error, String, String, Flags),
-}
-
-impl Error {
-    pub fn add_flags(
-        err: maildirpp::Error,
-        folder: &str,
-        id: &str,
-        flags: &Flags,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::AddFlagsError(
-            err,
-            folder.to_owned(),
-            id.to_owned(),
-            flags.clone(),
-        ))
-    }
 }
 
 #[derive(Clone)]
@@ -54,8 +37,9 @@ impl AddFlags for AddFlagsMaildir {
         let mdir = session.get_mdir_from_dir(folder)?;
 
         id.iter().try_for_each(|ref id| {
-            mdir.add_flags(id, &flags.to_mdir_string())
-                .map_err(|err| Error::add_flags(err, folder, id, flags))
+            mdir.add_flags(id, &flags.to_mdir_string()).map_err(|err| {
+                Error::AddFlagsError(err, folder.to_owned(), id.to_string(), flags.clone())
+            })
         })?;
 
         Ok(())

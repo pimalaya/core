@@ -22,7 +22,7 @@ use tokio::sync::Mutex;
 use crate::{
     account::{AccountConfig, OAuth2Method},
     backend::BackendContextBuilder,
-    boxed_err, Result,
+    Result,
 };
 
 #[doc(inline)]
@@ -286,7 +286,7 @@ impl ImapSession {
     pub async fn execute<T>(
         &mut self,
         action: impl Fn(&mut Session<ImapSessionStream>) -> imap::Result<T>,
-        map_err: impl Fn(imap::Error) -> Box<dyn std::error::Error + Send>,
+        map_err: impl Fn(imap::Error) -> anyhow::Error,
     ) -> Result<T> {
         match &self.imap_config.auth {
             ImapAuthConfig::Passwd(_) => Ok(action(&mut self.session).map_err(map_err)?),
@@ -298,9 +298,9 @@ impl ImapSession {
                         oauth2_config.refresh_access_token().await?;
                         let creds = self.default_credentials.as_ref();
                         self.session = build_session(&self.imap_config, creds).await?;
-                        Ok(action(&mut self.session).map_err(map_err)?)
+                        Ok(action(&mut self.session)?)
                     }
-                    err => Ok(Err(boxed_err(err))?),
+                    err => Ok(Err(err)?),
                 },
             },
         }
@@ -378,15 +378,15 @@ pub async fn build_session(
                 None => passwd
                     .get()
                     .await
-                    .map_err(|err| boxed_err(Error::GetPasswdError(err)))?
+                    .map_err(Error::GetPasswdError)?
                     .lines()
                     .next()
-                    .ok_or_else(|| boxed_err(Error::GetPasswdEmptyError))?
+                    .ok_or(Error::GetPasswdEmptyError)?
                     .to_owned(),
             };
             build_client(imap_config)?
                 .login(&imap_config.login, passwd)
-                .map_err(|res| boxed_err(Error::LoginError(res.0)))
+                .map_err(|res| Error::LoginError(res.0))
         }
         ImapAuthConfig::OAuth2(oauth2_config) => {
             let access_token = match credentials {
@@ -399,7 +399,7 @@ pub async fn build_session(
                     let xoauth2 = XOAuth2::new(imap_config.login.clone(), access_token);
                     build_client(imap_config)?
                         .authenticate("XOAUTH2", &xoauth2)
-                        .map_err(|(err, _client)| boxed_err(Error::AuthenticateError(err)))
+                        .map_err(|(err, _client)| Error::AuthenticateError(err))
                 }
                 OAuth2Method::OAuthBearer => {
                     debug!("creating session using oauthbearer");
@@ -411,7 +411,7 @@ pub async fn build_session(
                     );
                     build_client(imap_config)?
                         .authenticate("OAUTHBEARER", &bearer)
-                        .map_err(|(err, _client)| boxed_err(Error::AuthenticateError(err)))
+                        .map_err(|(err, _client)| Error::AuthenticateError(err))
                 }
             }
         }
@@ -435,7 +435,7 @@ fn build_client(imap_config: &ImapConfig) -> Result<Client<ImapSessionStream>> {
     } else {
         client_builder.connect(tcp_handshake()?)
     }
-    .map_err(|err| boxed_err(Error::ConnectError(err)))?;
+    .map_err(Error::ConnectError)?;
 
     Ok(client)
 }

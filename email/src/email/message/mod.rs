@@ -29,7 +29,7 @@ use thiserror::Error;
 
 use crate::{
     account::{self, AccountConfig},
-    boxed_err, Result,
+    Result,
 };
 
 #[doc(inline)]
@@ -119,7 +119,7 @@ impl Message<'_> {
         let msg = self
             .borrow_parsed()
             .as_ref()
-            .ok_or_else(|| boxed_err(Error::ParseEmailMessageError))?;
+            .ok_or(Error::ParseEmailMessageError)?;
         Ok(msg)
     }
 
@@ -164,7 +164,7 @@ impl Message<'_> {
             .build()
             .from_msg(self.parsed()?)
             .await
-            .map_err(|err| boxed_err(Error::InterpretEmailAsTplError(err)))?;
+            .map_err(Error::InterpretEmailAsTplError)?;
         Ok(tpl)
     }
 
@@ -293,7 +293,7 @@ impl TryFrom<Fetches> for Messages {
 
     fn try_from(fetches: Fetches) -> Result<Self> {
         if fetches.is_empty() {
-            Err(boxed_err(Error::ParseEmailFromEmptyEntriesError))
+            Err(Error::ParseEmailFromEmptyEntriesError.into())
         } else {
             Ok(MessagesBuilder {
                 raw: RawMessages::Fetches(fetches),
@@ -309,7 +309,7 @@ impl TryFrom<Vec<MailEntry>> for Messages {
 
     fn try_from(entries: Vec<MailEntry>) -> Result<Self> {
         if entries.is_empty() {
-            Err(boxed_err(Error::ParseEmailFromEmptyEntriesError))
+            Err(Error::ParseEmailFromEmptyEntriesError.into())
         } else {
             Ok(MessagesBuilder {
                 raw: RawMessages::MailEntries(entries),

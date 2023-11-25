@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
@@ -18,21 +17,6 @@ pub enum Error {
     SelectFolderError(#[source] imap::Error, String),
     #[error("cannot set flags {3} to envelope(s) {2} from folder {1}")]
     SetFlagError(#[source] imap::Error, String, Id, Flags),
-}
-
-impl Error {
-    pub fn select_folder(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
-        Box::new(Self::SelectFolderError(err, folder))
-    }
-
-    pub fn set_flags(
-        err: imap::Error,
-        folder: String,
-        id: Id,
-        flags: Flags,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::SetFlagError(err, folder, id, flags))
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -61,7 +45,7 @@ impl SetFlags for SetFlagsImap {
         session
             .execute(
                 |session| session.select(&folder_encoded),
-                |err| Error::select_folder(err, folder.clone()),
+                |err| Error::SelectFolderError(err, folder.clone()).into(),
             )
             .await?;
 
@@ -71,7 +55,7 @@ impl SetFlags for SetFlagsImap {
                     let query = format!("FLAGS ({})", flags.to_imap_query_string());
                     session.uid_store(id.join(","), query)
                 },
-                |err| Error::set_flags(err, folder.clone(), id.clone(), flags.clone()),
+                |err| Error::SetFlagError(err, folder.clone(), id.clone(), flags.clone()).into(),
             )
             .await?;
 

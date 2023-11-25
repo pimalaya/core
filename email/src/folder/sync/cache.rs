@@ -7,7 +7,7 @@ pub use rusqlite::Error;
 use rusqlite::{Connection, Transaction};
 use std::collections::HashSet;
 
-use crate::{boxed_err, Result};
+use crate::Result;
 
 use super::{FolderSyncStrategy, FoldersName};
 
@@ -61,17 +61,15 @@ impl FolderSyncCache {
 
     /// Creates the folder synchronization SQLite table.
     pub fn init(conn: &mut Connection) -> Result<()> {
-        conn.execute(CREATE_FOLDERS_TABLE, ()).map_err(boxed_err)?;
+        conn.execute(CREATE_FOLDERS_TABLE, ())?;
         Ok(())
     }
 
     fn list_all_folders(conn: &mut Connection, account: impl AsRef<str>) -> Result<FoldersName> {
-        let mut stmt = conn.prepare(SELECT_ALL_FOLDERS).map_err(boxed_err)?;
+        let mut stmt = conn.prepare(SELECT_ALL_FOLDERS)?;
         let folders: Vec<String> = stmt
-            .query_map([account.as_ref()], |row| row.get(0))
-            .map_err(boxed_err)?
-            .collect::<rusqlite::Result<_>>()
-            .map_err(boxed_err)?;
+            .query_map([account.as_ref()], |row| row.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
 
         Ok(FoldersName::from_iter(folders))
     }
@@ -88,15 +86,11 @@ impl FolderSyncCache {
             .collect::<Vec<_>>()
             .join(", ");
 
-        let mut stmt = conn
-            .prepare(&query.replace("!", &folders))
-            .map_err(boxed_err)?;
+        let mut stmt = conn.prepare(&query.replace("!", &folders))?;
 
         let folders: Vec<String> = stmt
-            .query_map([account.as_ref()], |row| row.get(0))
-            .map_err(boxed_err)?
-            .collect::<rusqlite::Result<_>>()
-            .map_err(boxed_err)?;
+            .query_map([account.as_ref()], |row| row.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
 
         Ok(FoldersName::from_iter(folders))
     }
@@ -146,8 +140,7 @@ impl FolderSyncCache {
         account: impl AsRef<str>,
         folder: impl AsRef<str>,
     ) -> Result<()> {
-        tx.execute(INSERT_FOLDER, [account.as_ref(), folder.as_ref()])
-            .map_err(boxed_err)?;
+        tx.execute(INSERT_FOLDER, [account.as_ref(), folder.as_ref()])?;
         Ok(())
     }
 
@@ -172,8 +165,7 @@ impl FolderSyncCache {
         account: impl AsRef<str>,
         folder: impl AsRef<str>,
     ) -> Result<()> {
-        tx.execute(DELETE_FOLDER, [account.as_ref(), folder.as_ref()])
-            .map_err(boxed_err)?;
+        tx.execute(DELETE_FOLDER, [account.as_ref(), folder.as_ref()])?;
         Ok(())
     }
 

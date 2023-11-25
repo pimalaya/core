@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
@@ -17,16 +16,6 @@ pub enum Error {
     SelectFolderError(#[source] imap::Error, String),
     #[error("cannot get imap messages {2} from folder {1}")]
     GetMessagesError(#[source] imap::Error, String, Id),
-}
-
-impl Error {
-    pub fn select_folder(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
-        Box::new(Self::SelectFolderError(err, folder))
-    }
-
-    pub fn get_messages(err: imap::Error, folder: String, id: Id) -> Box<dyn error::Error + Send> {
-        Box::new(Self::GetMessagesError(err, folder, id))
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -55,14 +44,14 @@ impl GetMessages for GetMessagesImap {
         session
             .execute(
                 |session| session.select(&folder_encoded),
-                |err| Error::select_folder(err, folder.clone()),
+                |err| Error::SelectFolderError(err, folder.clone()).into(),
             )
             .await?;
 
         let fetches = session
             .execute(
                 |session| session.uid_fetch(id.join(","), GET_MESSAGES_QUERY),
-                |err| Error::get_messages(err, folder.clone(), id.clone()),
+                |err| Error::GetMessagesError(err, folder.clone(), id.clone()).into(),
             )
             .await?;
 

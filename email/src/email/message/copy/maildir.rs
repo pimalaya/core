@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{boxed_err, email::envelope::Id, maildir::MaildirSessionSync, Result};
+use crate::{email::envelope::Id, maildir::MaildirSessionSync, Result};
 
 use super::CopyMessages;
 
@@ -35,12 +35,12 @@ impl CopyMessages for CopyMessagesMaildir {
 
         id.iter().try_for_each(|id| {
             from_mdir.copy_to(id, &to_mdir).map_err(|err| {
-                boxed_err(Error::CopyMessagesError(
+                Error::CopyMessagesError(
                     err,
                     from_folder.to_owned(),
                     to_folder.to_owned(),
                     id.to_owned(),
-                ))
+                )
             })
         })?;
 

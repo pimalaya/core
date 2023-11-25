@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
@@ -14,16 +13,6 @@ pub enum Error {
     SelectFolderError(#[source] imap::Error, String),
     #[error("cannot expunge imap folder {1}")]
     ExpungeFolderError(#[source] imap::Error, String),
-}
-
-impl Error {
-    pub fn select_folder(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
-        Box::new(Self::SelectFolderError(err, folder))
-    }
-
-    pub fn expunge_folder(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
-        Box::new(Self::ExpungeFolderError(err, folder))
-    }
 }
 
 #[derive(Debug)]
@@ -52,14 +41,14 @@ impl ExpungeFolder for ExpungeFolderImap {
         session
             .execute(
                 |session| session.select(&folder_encoded),
-                |err| Error::select_folder(err, folder.clone()),
+                |err| Error::SelectFolderError(err, folder.clone()).into(),
             )
             .await?;
 
         session
             .execute(
                 |session| session.expunge(),
-                |err| Error::expunge_folder(err, folder.clone()),
+                |err| Error::ExpungeFolderError(err, folder.clone()).into(),
             )
             .await?;
 

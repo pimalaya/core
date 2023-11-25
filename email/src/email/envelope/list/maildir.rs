@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::error;
 use thiserror::Error;
 
 use crate::{maildir::MaildirSessionSync, Result};
@@ -11,12 +10,6 @@ use super::{Envelopes, ListEnvelopes};
 pub enum Error {
     #[error("cannot list maildir envelopes from {0}: page {1} out of bounds")]
     GetEnvelopesOutOfBoundsError(String, usize),
-}
-
-impl Error {
-    pub fn out_of_bounds(folder: &str, page: usize) -> Box<dyn error::Error + Send> {
-        Box::new(Self::GetEnvelopesOutOfBoundsError(folder.to_owned(), page))
-    }
 }
 
 #[derive(Clone)]
@@ -50,7 +43,9 @@ impl ListEnvelopes for ListEnvelopesMaildir {
         let page_begin = page * page_size;
         debug!("page begin: {}", page_begin);
         if page_begin > envelopes.len() {
-            return Err(Error::out_of_bounds(folder, page_begin + 1))?;
+            return Err(
+                Error::GetEnvelopesOutOfBoundsError(folder.to_owned(), page_begin + 1).into(),
+            );
         }
 
         let page_end = envelopes.len().min(if page_size == 0 {

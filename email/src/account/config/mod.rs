@@ -17,7 +17,6 @@ use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, vec};
 use thiserror::Error;
 
 use crate::{
-    boxed_err,
     email::config::{EmailHooks, EmailTextPlainFormat},
     folder::sync::FolderSyncStrategy,
     Result,
@@ -323,10 +322,9 @@ impl AccountConfig {
                 warn!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/himalaya");
                 let sync_dir = data_dir()
                     .map(|dir| dir.join("himalaya"))
-                    .ok_or_else(|| boxed_err(Error::GetXdgDataDirError))?
+                    .ok_or(Error::GetXdgDataDirError)?
                     .join(&self.name);
-                fs::create_dir_all(&sync_dir)
-                    .map_err(|err| boxed_err(Error::CreateXdgDataDirsError(err)))?;
+                fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsError)?;
                 Ok(sync_dir)
             }
         }
@@ -335,7 +333,7 @@ impl AccountConfig {
     /// Open a SQLite connection to the synchronization database.
     pub fn sync_db_builder(&self) -> Result<rusqlite::Connection> {
         let conn = rusqlite::Connection::open(self.sync_dir()?.join(".sync.sqlite"))
-            .map_err(|err| boxed_err(Error::BuildSyncDatabaseError(err)))?;
+            .map_err(Error::BuildSyncDatabaseError)?;
         Ok(conn)
     }
 
@@ -390,7 +388,7 @@ pub(crate) fn rename_file_if_duplicate(
                 .file_stem()
                 .and_then(OsStr::to_str)
                 .map(|fstem| format!("{}_{}{}", fstem, count, fext))
-                .ok_or_else(|| boxed_err(Error::ParseDownloadFileNameError(fpath.to_owned())))?,
+                .ok_or_else(|| Error::ParseDownloadFileNameError(fpath.to_owned()))?,
         ));
     }
 

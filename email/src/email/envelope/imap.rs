@@ -18,7 +18,6 @@ pub enum Error {
 }
 
 use crate::{
-    boxed_err,
     email::{Envelope, Envelopes, Flags, Message},
     Result,
 };
@@ -44,7 +43,7 @@ impl Envelope {
     pub fn from_imap_fetch(fetch: &Fetch) -> Result<Self> {
         let id = fetch
             .uid
-            .ok_or_else(|| boxed_err(Error::GetUidMissingError(fetch.message)))?
+            .ok_or(Error::GetUidMissingError(fetch.message))?
             .to_string();
 
         let flags = Flags::from_imap_fetch(fetch);
@@ -98,10 +97,10 @@ impl FromStr for SortCriteria<'_> {
                 "subject:desc" => Ok(SortCriterion::Reverse(&SortCriterion::Subject)),
                 "to:asc" | "to" => Ok(SortCriterion::To),
                 "to:desc" => Ok(SortCriterion::Reverse(&SortCriterion::To)),
-                _ => Err(boxed_err(io::Error::new(
+                _ => Ok(Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     s.to_owned(),
-                ))),
+                ))?),
             })
             .collect::<Result<_>>()
     }

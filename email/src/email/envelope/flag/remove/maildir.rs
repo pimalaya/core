@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use log::info;
-use std::error;
 use thiserror::Error;
 
 use crate::{
@@ -15,22 +14,6 @@ use super::RemoveFlags;
 pub enum Error {
     #[error("cannot remove flags {3} to envelope(s) {2} from folder {1}")]
     RemoveFlagsError(#[source] maildirpp::Error, String, String, Flags),
-}
-
-impl Error {
-    pub fn remove_flags(
-        err: maildirpp::Error,
-        folder: &str,
-        id: &str,
-        flags: &Flags,
-    ) -> Box<dyn error::Error + Send> {
-        Box::new(Self::RemoveFlagsError(
-            err,
-            folder.to_owned(),
-            id.to_owned(),
-            flags.clone(),
-        ))
-    }
 }
 
 #[derive(Clone)]
@@ -55,7 +38,9 @@ impl RemoveFlags for RemoveFlagsMaildir {
 
         id.iter().try_for_each(|ref id| {
             mdir.remove_flags(id, &flags.to_mdir_string())
-                .map_err(|err| Error::remove_flags(err, folder, id, flags))
+                .map_err(|err| {
+                    Error::RemoveFlagsError(err, folder.to_owned(), id.to_string(), flags.clone())
+                })
         })?;
 
         Ok(())

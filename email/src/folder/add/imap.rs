@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::error;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
@@ -12,12 +11,6 @@ use super::AddFolder;
 pub enum Error {
     #[error("cannot create imap folder {1}")]
     CreateFolderError(#[source] imap::Error, String),
-}
-
-impl Error {
-    pub fn create_folder(err: imap::Error, folder: String) -> Box<dyn error::Error + Send> {
-        Box::new(Self::CreateFolderError(err, folder))
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -46,7 +39,7 @@ impl AddFolder for AddFolderImap {
         session
             .execute(
                 |session| session.create(&folder_encoded),
-                |err| Error::create_folder(err, folder.clone()),
+                |err| Error::CreateFolderError(err, folder.clone()).into(),
             )
             .await?;
 
