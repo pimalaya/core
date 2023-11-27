@@ -27,9 +27,7 @@ use super::Message;
 pub use self::{
     address::Address,
     flag::{Flag, Flags},
-    get::GetEnvelope,
     id::{Id, MultipleIds, SingleId},
-    list::ListEnvelopes,
 };
 
 /// The email envelope.

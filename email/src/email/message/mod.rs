@@ -34,15 +34,7 @@ use crate::{
 
 #[doc(inline)]
 pub use self::{
-    add_raw::AddRawMessage,
-    add_raw_with_flags::AddRawMessageWithFlags,
     attachment::Attachment,
-    copy::CopyMessages,
-    delete::DeleteMessages,
-    get::GetMessages,
-    move_::MoveMessages,
-    peek::PeekMessages,
-    send_raw::SendRawMessage,
     template::{ForwardTplBuilder, NewTplBuilder, ReplyTplBuilder},
 };
 

@@ -2,11 +2,12 @@ use async_trait::async_trait;
 
 use crate::{
     account::AccountConfig,
-    email::{envelope::Id, flag::AddFlags, Flag},
+    email::{envelope::Id, Flag},
+    flag::add::AddFlags,
     Result,
 };
 
-use super::MoveMessages;
+use super::move_::MoveMessages;
 
 #[async_trait]
 pub trait DeleteMessages: Send + Sync {

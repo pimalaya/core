@@ -15,12 +15,12 @@ use thiserror::Error;
 use crate::{
     account::AccountConfig,
     email::{
-        envelope::{get::GetEnvelope, Id, ListEnvelopes, SingleId},
-        flag::{AddFlags, RemoveFlags, SetFlags},
+        envelope::{get::GetEnvelope, list::ListEnvelopes, Id, SingleId},
+        flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
         message::{
-            delete::default_delete_messages, get::default_get_messages, AddRawMessage,
-            AddRawMessageWithFlags, CopyMessages, DeleteMessages, GetMessages, MoveMessages,
-            PeekMessages, SendRawMessage,
+            add_raw::AddRawMessage, add_raw_with_flags::AddRawMessageWithFlags, copy::CopyMessages,
+            delete::default_delete_messages, delete::DeleteMessages, get::default_get_messages,
+            get::GetMessages, move_::MoveMessages, peek::PeekMessages, send_raw::SendRawMessage,
         },
         Envelope, Envelopes, Flag, Flags, Messages,
     },
