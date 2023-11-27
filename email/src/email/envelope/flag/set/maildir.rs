@@ -22,9 +22,9 @@ pub struct SetFlagsMaildir {
 }
 
 impl SetFlagsMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Box<dyn SetFlags> {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn SetFlags>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

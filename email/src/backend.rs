@@ -18,8 +18,9 @@ use crate::{
         envelope::{get::GetEnvelope, Id, ListEnvelopes, SingleId},
         flag::{AddFlags, RemoveFlags, SetFlags},
         message::{
-            delete::default_delete_messages, get::default_get_messages, AddRawMessageWithFlags,
-            CopyMessages, DeleteMessages, GetMessages, MoveMessages, PeekMessages, SendRawMessage,
+            delete::default_delete_messages, get::default_get_messages, AddRawMessage,
+            AddRawMessageWithFlags, CopyMessages, DeleteMessages, GetMessages, MoveMessages,
+            PeekMessages, SendRawMessage,
         },
         Envelope, Envelopes, Flag, Flags, Messages,
     },
@@ -56,6 +57,8 @@ pub enum Error {
     #[error("cannot remove flag(s): feature not available")]
     RemoveFlagsNotAvailableError,
 
+    #[error("cannot add raw message: feature not available")]
+    AddRawMessageNotAvailableError,
     #[error("cannot add raw message with flags: feature not available")]
     AddRawMessageWithFlagsNotAvailableError,
     #[error("cannot get messages: feature not available")]
@@ -117,27 +120,33 @@ pub struct BackendBuilder<B: BackendContextBuilder> {
 
     pub context_builder: B,
 
-    add_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddFolder> + Send + Sync>>,
-    list_folders: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ListFolders> + Send + Sync>>,
-    expunge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ExpungeFolder> + Send + Sync>>,
-    purge_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn PurgeFolder> + Send + Sync>>,
-    delete_folder: Option<Arc<dyn Fn(&B::Context) -> Box<dyn DeleteFolder> + Send + Sync>>,
+    add_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn AddFolder>> + Send + Sync>>,
+    list_folders: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn ListFolders>> + Send + Sync>>,
+    expunge_folder:
+        Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn ExpungeFolder>> + Send + Sync>>,
+    purge_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn PurgeFolder>> + Send + Sync>>,
+    delete_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn DeleteFolder>> + Send + Sync>>,
 
-    list_envelopes: Option<Arc<dyn Fn(&B::Context) -> Box<dyn ListEnvelopes> + Send + Sync>>,
-    get_envelope: Option<Arc<dyn Fn(&B::Context) -> Box<dyn GetEnvelope> + Send + Sync>>,
+    list_envelopes:
+        Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn ListEnvelopes>> + Send + Sync>>,
+    get_envelope: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn GetEnvelope>> + Send + Sync>>,
 
-    add_flags: Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddFlags> + Send + Sync>>,
-    set_flags: Option<Arc<dyn Fn(&B::Context) -> Box<dyn SetFlags> + Send + Sync>>,
-    remove_flags: Option<Arc<dyn Fn(&B::Context) -> Box<dyn RemoveFlags> + Send + Sync>>,
+    add_flags: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn AddFlags>> + Send + Sync>>,
+    set_flags: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn SetFlags>> + Send + Sync>>,
+    remove_flags: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn RemoveFlags>> + Send + Sync>>,
 
+    add_raw_message:
+        Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn AddRawMessage>> + Send + Sync>>,
     add_raw_message_with_flags:
-        Option<Arc<dyn Fn(&B::Context) -> Box<dyn AddRawMessageWithFlags> + Send + Sync>>,
-    get_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn GetMessages> + Send + Sync>>,
-    peek_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn PeekMessages> + Send + Sync>>,
-    copy_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn CopyMessages> + Send + Sync>>,
-    move_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn MoveMessages> + Send + Sync>>,
-    delete_messages: Option<Arc<dyn Fn(&B::Context) -> Box<dyn DeleteMessages> + Send + Sync>>,
-    send_raw_message: Option<Arc<dyn Fn(&B::Context) -> Box<dyn SendRawMessage> + Send + Sync>>,
+        Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn AddRawMessageWithFlags>> + Send + Sync>>,
+    get_messages: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn GetMessages>> + Send + Sync>>,
+    peek_messages: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn PeekMessages>> + Send + Sync>>,
+    copy_messages: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn CopyMessages>> + Send + Sync>>,
+    move_messages: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn MoveMessages>> + Send + Sync>>,
+    delete_messages:
+        Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn DeleteMessages>> + Send + Sync>>,
+    send_raw_message:
+        Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn SendRawMessage>> + Send + Sync>>,
 }
 
 impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
@@ -160,6 +169,7 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
             set_flags: Default::default(),
             remove_flags: Default::default(),
 
+            add_raw_message: Default::default(),
             add_raw_message_with_flags: Default::default(),
             get_messages: Default::default(),
             peek_messages: Default::default(),
@@ -170,126 +180,254 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         }
     }
 
+    pub fn set_add_folder(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn AddFolder>> + Send + Sync + 'static,
+    ) {
+        self.add_folder = Some(Arc::new(feature));
+    }
     pub fn with_add_folder(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn AddFolder> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn AddFolder>> + Send + Sync + 'static,
     ) -> Self {
-        self.add_folder = Some(Arc::new(feature));
+        self.set_add_folder(feature);
         self
+    }
+
+    pub fn set_list_folders(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn ListFolders>> + Send + Sync + 'static,
+    ) {
+        self.list_folders = Some(Arc::new(feature));
     }
     pub fn with_list_folders(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn ListFolders> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn ListFolders>> + Send + Sync + 'static,
     ) -> Self {
-        self.list_folders = Some(Arc::new(feature));
+        self.set_list_folders(feature);
         self
+    }
+
+    pub fn set_expunge_folder(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn ExpungeFolder>> + Send + Sync + 'static,
+    ) {
+        self.expunge_folder = Some(Arc::new(feature));
     }
     pub fn with_expunge_folder(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn ExpungeFolder> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn ExpungeFolder>> + Send + Sync + 'static,
     ) -> Self {
-        self.expunge_folder = Some(Arc::new(feature));
+        self.set_expunge_folder(feature);
         self
+    }
+
+    pub fn set_purge_folder(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn PurgeFolder>> + Send + Sync + 'static,
+    ) {
+        self.purge_folder = Some(Arc::new(feature));
     }
     pub fn with_purge_folder(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn PurgeFolder> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn PurgeFolder>> + Send + Sync + 'static,
     ) -> Self {
-        self.purge_folder = Some(Arc::new(feature));
+        self.set_purge_folder(feature);
         self
+    }
+
+    pub fn set_delete_folder(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn DeleteFolder>> + Send + Sync + 'static,
+    ) {
+        self.delete_folder = Some(Arc::new(feature));
     }
     pub fn with_delete_folder(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn DeleteFolder> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn DeleteFolder>> + Send + Sync + 'static,
     ) -> Self {
-        self.delete_folder = Some(Arc::new(feature));
+        self.set_delete_folder(feature);
         self
     }
 
+    pub fn set_list_envelopes(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn ListEnvelopes>> + Send + Sync + 'static,
+    ) {
+        self.list_envelopes = Some(Arc::new(feature));
+    }
     pub fn with_list_envelopes(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn ListEnvelopes> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn ListEnvelopes>> + Send + Sync + 'static,
     ) -> Self {
-        self.list_envelopes = Some(Arc::new(feature));
+        self.set_list_envelopes(feature);
         self
+    }
+
+    pub fn set_get_envelope(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn GetEnvelope>> + Send + Sync + 'static,
+    ) {
+        self.get_envelope = Some(Arc::new(feature));
     }
     pub fn with_get_envelope(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn GetEnvelope> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn GetEnvelope>> + Send + Sync + 'static,
     ) -> Self {
-        self.get_envelope = Some(Arc::new(feature));
+        self.set_get_envelope(feature);
         self
     }
 
+    pub fn set_add_flags(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn AddFlags>> + Send + Sync + 'static,
+    ) {
+        self.add_flags = Some(Arc::new(feature));
+    }
     pub fn with_add_flags(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn AddFlags> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn AddFlags>> + Send + Sync + 'static,
     ) -> Self {
-        self.add_flags = Some(Arc::new(feature));
+        self.set_add_flags(feature);
         self
+    }
+
+    pub fn set_set_flags(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn SetFlags>> + Send + Sync + 'static,
+    ) {
+        self.set_flags = Some(Arc::new(feature));
     }
     pub fn with_set_flags(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn SetFlags> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn SetFlags>> + Send + Sync + 'static,
     ) -> Self {
-        self.set_flags = Some(Arc::new(feature));
+        self.set_set_flags(feature);
         self
+    }
+    pub fn set_remove_flags(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn RemoveFlags>> + Send + Sync + 'static,
+    ) {
+        self.remove_flags = Some(Arc::new(feature));
     }
     pub fn with_remove_flags(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn RemoveFlags> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn RemoveFlags>> + Send + Sync + 'static,
     ) -> Self {
-        self.remove_flags = Some(Arc::new(feature));
+        self.set_remove_flags(feature);
         self
     }
 
+    pub fn set_add_raw_message(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn AddRawMessage>> + Send + Sync + 'static,
+    ) {
+        self.add_raw_message = Some(Arc::new(feature));
+    }
+    pub fn with_add_raw_message(
+        mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn AddRawMessage>> + Send + Sync + 'static,
+    ) -> Self {
+        self.set_add_raw_message(feature);
+        self
+    }
+
+    pub fn set_add_raw_message_with_flags(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn AddRawMessageWithFlags>> + Send + Sync + 'static,
+    ) {
+        self.add_raw_message_with_flags = Some(Arc::new(feature));
+    }
     pub fn with_add_raw_message_with_flags(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn AddRawMessageWithFlags> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn AddRawMessageWithFlags>> + Send + Sync + 'static,
     ) -> Self {
-        self.add_raw_message_with_flags = Some(Arc::new(feature));
+        self.set_add_raw_message_with_flags(feature);
         self
+    }
+
+    pub fn set_get_messages(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn GetMessages>> + Send + Sync + 'static,
+    ) {
+        self.get_messages = Some(Arc::new(feature));
     }
     pub fn with_get_messages(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn GetMessages> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn GetMessages>> + Send + Sync + 'static,
     ) -> Self {
-        self.get_messages = Some(Arc::new(feature));
+        self.set_get_messages(feature);
         self
+    }
+
+    pub fn set_peek_messages(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn PeekMessages>> + Send + Sync + 'static,
+    ) {
+        self.peek_messages = Some(Arc::new(feature));
     }
     pub fn with_peek_messages(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn PeekMessages> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn PeekMessages>> + Send + Sync + 'static,
     ) -> Self {
-        self.peek_messages = Some(Arc::new(feature));
+        self.set_peek_messages(feature);
         self
+    }
+
+    pub fn set_copy_messages(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn CopyMessages>> + Send + Sync + 'static,
+    ) {
+        self.copy_messages = Some(Arc::new(feature));
     }
     pub fn with_copy_messages(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn CopyMessages> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn CopyMessages>> + Send + Sync + 'static,
     ) -> Self {
-        self.copy_messages = Some(Arc::new(feature));
+        self.set_copy_messages(feature);
         self
+    }
+
+    pub fn set_move_messages(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn MoveMessages>> + Send + Sync + 'static,
+    ) {
+        self.move_messages = Some(Arc::new(feature));
     }
     pub fn with_move_messages(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn MoveMessages> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn MoveMessages>> + Send + Sync + 'static,
     ) -> Self {
-        self.move_messages = Some(Arc::new(feature));
+        self.set_move_messages(feature);
         self
+    }
+
+    pub fn set_delete_messages(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn DeleteMessages>> + Send + Sync + 'static,
+    ) {
+        self.delete_messages = Some(Arc::new(feature));
     }
     pub fn with_delete_messages(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn DeleteMessages> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn DeleteMessages>> + Send + Sync + 'static,
     ) -> Self {
-        self.delete_messages = Some(Arc::new(feature));
+        self.set_delete_messages(feature);
         self
+    }
+
+    pub fn set_send_raw_message(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn SendRawMessage>> + Send + Sync + 'static,
+    ) {
+        self.send_raw_message = Some(Arc::new(feature));
     }
     pub fn with_send_raw_message(
         mut self,
-        feature: impl Fn(&C) -> Box<dyn SendRawMessage> + Send + Sync + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn SendRawMessage>> + Send + Sync + 'static,
     ) -> Self {
-        self.send_raw_message = Some(Arc::new(feature));
+        self.set_send_raw_message(feature);
         self
     }
 
@@ -376,6 +514,7 @@ impl<B: BackendContextBuilder> Clone for BackendBuilder<B> {
             set_flags: self.set_flags.clone(),
             remove_flags: self.remove_flags.clone(),
 
+            add_raw_message: self.add_raw_message.clone(),
             add_raw_message_with_flags: self.add_raw_message_with_flags.clone(),
             get_messages: self.get_messages.clone(),
             peek_messages: self.peek_messages.clone(),
@@ -407,6 +546,7 @@ impl Default for BackendBuilder<()> {
             list_envelopes: Default::default(),
             get_envelope: Default::default(),
 
+            add_raw_message: Default::default(),
             add_raw_message_with_flags: Default::default(),
             get_messages: Default::default(),
             peek_messages: Default::default(),
@@ -436,6 +576,7 @@ pub struct Backend<C> {
     pub set_flags: Option<Box<dyn SetFlags>>,
     pub remove_flags: Option<Box<dyn RemoveFlags>>,
 
+    pub add_raw_message: Option<Box<dyn AddRawMessage>>,
     pub add_raw_message_with_flags: Option<Box<dyn AddRawMessageWithFlags>>,
     pub get_messages: Option<Box<dyn GetMessages>>,
     pub peek_messages: Option<Box<dyn PeekMessages>>,
@@ -465,6 +606,7 @@ impl<C> Backend<C> {
             set_flags: None,
             remove_flags: None,
 
+            add_raw_message: None,
             add_raw_message_with_flags: None,
             get_messages: None,
             peek_messages: None,
@@ -475,59 +617,62 @@ impl<C> Backend<C> {
         }
     }
 
-    pub fn set_add_folder(&mut self, feature: Box<dyn AddFolder>) {
-        self.add_folder = Some(feature);
+    pub fn set_add_folder(&mut self, feature: Option<Box<dyn AddFolder>>) {
+        self.add_folder = feature;
     }
-    pub fn set_list_folders(&mut self, feature: Box<dyn ListFolders>) {
-        self.list_folders = Some(feature);
+    pub fn set_list_folders(&mut self, feature: Option<Box<dyn ListFolders>>) {
+        self.list_folders = feature;
     }
-    pub fn set_expunge_folder(&mut self, feature: Box<dyn ExpungeFolder>) {
-        self.expunge_folder = Some(feature);
+    pub fn set_expunge_folder(&mut self, feature: Option<Box<dyn ExpungeFolder>>) {
+        self.expunge_folder = feature;
     }
-    pub fn set_purge_folder(&mut self, feature: Box<dyn PurgeFolder>) {
-        self.purge_folder = Some(feature);
+    pub fn set_purge_folder(&mut self, feature: Option<Box<dyn PurgeFolder>>) {
+        self.purge_folder = feature;
     }
-    pub fn set_delete_folder(&mut self, feature: Box<dyn DeleteFolder>) {
-        self.delete_folder = Some(feature);
-    }
-
-    pub fn set_list_envelopes(&mut self, feature: Box<dyn ListEnvelopes>) {
-        self.list_envelopes = Some(feature);
-    }
-    pub fn set_get_envelope(&mut self, feature: Box<dyn GetEnvelope>) {
-        self.get_envelope = Some(feature);
+    pub fn set_delete_folder(&mut self, feature: Option<Box<dyn DeleteFolder>>) {
+        self.delete_folder = feature;
     }
 
-    pub fn set_add_flags(&mut self, feature: Box<dyn AddFlags>) {
-        self.add_flags = Some(feature);
+    pub fn set_list_envelopes(&mut self, feature: Option<Box<dyn ListEnvelopes>>) {
+        self.list_envelopes = feature;
     }
-    pub fn set_set_flags(&mut self, feature: Box<dyn SetFlags>) {
-        self.set_flags = Some(feature);
-    }
-    pub fn set_remove_flags(&mut self, feature: Box<dyn RemoveFlags>) {
-        self.remove_flags = Some(feature);
+    pub fn set_get_envelope(&mut self, feature: Option<Box<dyn GetEnvelope>>) {
+        self.get_envelope = feature;
     }
 
-    pub fn set_add_raw_message_with_flags(&mut self, feature: Box<dyn AddRawMessageWithFlags>) {
-        self.add_raw_message_with_flags = Some(feature);
+    pub fn set_add_flags(&mut self, feature: Option<Box<dyn AddFlags>>) {
+        self.add_flags = feature;
     }
-    pub fn set_get_messages(&mut self, feature: Box<dyn GetMessages>) {
-        self.get_messages = Some(feature);
+    pub fn set_set_flags(&mut self, feature: Option<Box<dyn SetFlags>>) {
+        self.set_flags = feature;
     }
-    pub fn set_peek_messages(&mut self, feature: Box<dyn PeekMessages>) {
-        self.peek_messages = Some(feature);
+    pub fn set_remove_flags(&mut self, feature: Option<Box<dyn RemoveFlags>>) {
+        self.remove_flags = feature;
     }
-    pub fn set_copy_messages(&mut self, feature: Box<dyn CopyMessages>) {
-        self.copy_messages = Some(feature);
+
+    pub fn set_add_raw_message_with_flags(
+        &mut self,
+        feature: Option<Box<dyn AddRawMessageWithFlags>>,
+    ) {
+        self.add_raw_message_with_flags = feature;
     }
-    pub fn set_move_messages(&mut self, feature: Box<dyn MoveMessages>) {
-        self.move_messages = Some(feature);
+    pub fn set_get_messages(&mut self, feature: Option<Box<dyn GetMessages>>) {
+        self.get_messages = feature;
     }
-    pub fn set_delete_messages(&mut self, feature: Box<dyn DeleteMessages>) {
-        self.delete_messages = Some(feature);
+    pub fn set_peek_messages(&mut self, feature: Option<Box<dyn PeekMessages>>) {
+        self.peek_messages = feature;
     }
-    pub fn set_send_raw_message(&mut self, feature: Box<dyn SendRawMessage>) {
-        self.send_raw_message = Some(feature);
+    pub fn set_copy_messages(&mut self, feature: Option<Box<dyn CopyMessages>>) {
+        self.copy_messages = feature;
+    }
+    pub fn set_move_messages(&mut self, feature: Option<Box<dyn MoveMessages>>) {
+        self.move_messages = feature;
+    }
+    pub fn set_delete_messages(&mut self, feature: Option<Box<dyn DeleteMessages>>) {
+        self.delete_messages = feature;
+    }
+    pub fn set_send_raw_message(&mut self, feature: Option<Box<dyn SendRawMessage>>) {
+        self.send_raw_message = feature;
     }
 
     pub async fn add_folder(&self, folder: &str) -> Result<()> {
@@ -637,6 +782,17 @@ impl<C> Backend<C> {
             .ok_or(Error::RemoveFlagsNotAvailableError)?
             .remove_flag(folder, id, flag)
             .await
+    }
+
+    pub async fn add_raw_message(&self, folder: &str, email: &[u8]) -> Result<SingleId> {
+        if let Some(f) = self.add_raw_message.as_ref() {
+            f.add_raw_message(folder, email).await
+        } else if let Some(f) = self.add_raw_message_with_flags.as_ref() {
+            f.add_raw_message_with_flags(folder, email, &Default::default())
+                .await
+        } else {
+            Ok(Err(Error::AddRawMessageNotAvailableError)?)
+        }
     }
 
     pub async fn add_raw_message_with_flags(

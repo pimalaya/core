@@ -18,9 +18,9 @@ pub struct ListEnvelopesMaildir {
 }
 
 impl ListEnvelopesMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Box<dyn ListEnvelopes> {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn ListEnvelopes>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

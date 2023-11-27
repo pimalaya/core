@@ -19,9 +19,9 @@ pub struct SendRawMessageSendmail {
 }
 
 impl SendRawMessageSendmail {
-    pub fn new(ctx: &SendmailContext) -> Box<dyn SendRawMessage> {
+    pub fn new(ctx: &SendmailContext) -> Option<Box<dyn SendRawMessage>> {
         let ctx = ctx.clone();
-        Box::new(Self { ctx })
+        Some(Box::new(Self { ctx }))
     }
 }
 

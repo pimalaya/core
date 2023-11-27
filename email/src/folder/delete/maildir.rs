@@ -18,9 +18,9 @@ pub struct DeleteFolderMaildir {
 }
 
 impl DeleteFolderMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Box<dyn DeleteFolder> {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn DeleteFolder>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

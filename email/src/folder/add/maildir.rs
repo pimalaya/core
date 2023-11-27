@@ -23,9 +23,9 @@ pub struct AddFolderMaildir {
 }
 
 impl AddFolderMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Box<dyn AddFolder> {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn AddFolder>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

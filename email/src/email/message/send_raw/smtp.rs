@@ -11,9 +11,9 @@ pub struct SendRawMessageSmtp {
 }
 
 impl SendRawMessageSmtp {
-    pub fn new(client: &SmtpClientSync) -> Box<dyn SendRawMessage> {
+    pub fn new(client: &SmtpClientSync) -> Option<Box<dyn SendRawMessage>> {
         let client = client.clone();
-        Box::new(Self { client })
+        Some(Box::new(Self { client }))
     }
 }
 

@@ -24,9 +24,9 @@ pub struct AddRawMessageImap {
 }
 
 impl AddRawMessageImap {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn AddRawMessage> {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn AddRawMessage>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

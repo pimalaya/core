@@ -27,7 +27,7 @@ async fn test_imap_features() {
 
     let account_config = AccountConfig::default();
     let imap_config = ImapConfig {
-        host: "127.0.0.1".into(),
+        host: "localhost".into(),
         port: 3143,
         ssl: Some(false),
         starttls: Some(false),

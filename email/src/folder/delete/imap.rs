@@ -19,9 +19,9 @@ pub struct DeleteFolderImap {
 }
 
 impl DeleteFolderImap {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn DeleteFolder> {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn DeleteFolder>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

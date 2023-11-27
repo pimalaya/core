@@ -194,8 +194,7 @@ impl AccountSyncProgress {
 /// up, `sync()` synchronizes the current account locally, using the
 /// given remote builder.
 pub struct AccountSyncBuilder<B: BackendContextBuilder> {
-    account_config: AccountConfig,
-    remote_builder_v2: BackendBuilder<B>,
+    remote_builder: BackendBuilder<B>,
     on_progress: AccountSyncProgress,
     folders_strategy: FolderSyncStrategy,
     dry_run: bool,
@@ -203,14 +202,10 @@ pub struct AccountSyncBuilder<B: BackendContextBuilder> {
 
 impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
     /// Creates a new account synchronization builder.
-    pub async fn new(
-        account_config: AccountConfig,
-        remote_builder_v2: BackendBuilder<B>,
-    ) -> Result<AccountSyncBuilder<B>> {
-        let folders_strategy = account_config.sync_folders_strategy.clone();
+    pub async fn new(remote_builder: BackendBuilder<B>) -> Result<AccountSyncBuilder<B>> {
+        let folders_strategy = remote_builder.account_config.sync_folders_strategy.clone();
         Ok(Self {
-            account_config,
-            remote_builder_v2,
+            remote_builder,
             on_progress: Default::default(),
             dry_run: Default::default(),
             folders_strategy,
@@ -255,10 +250,10 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
     /// Acts like a `build()` function in a regular builder pattern,
     /// except that the synchronizer builder is not consumed.
     pub async fn sync(&self) -> Result<AccountSyncReport> {
-        let account = &self.account_config.name;
+        let account = &self.remote_builder.account_config.name;
         info!("starting synchronization of account {account}");
 
-        if !self.account_config.sync.unwrap_or_default() {
+        if !self.remote_builder.account_config.sync.unwrap_or_default() {
             warn!("sync feature not enabled for account {account}, aborting");
             return Err(Error::SyncAccountNotEnabledError(account.clone()).into());
         }
@@ -276,15 +271,15 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             .try_lock(FileLockMode::Exclusive)
             .map_err(|err| Error::SyncAccountLockFileError(err, account.clone()))?;
 
-        let sync_dir = self.account_config.sync_dir()?;
+        let sync_dir = self.remote_builder.account_config.sync_dir()?;
 
         debug!("initializing folder and envelope cache");
-        let conn = &mut self.account_config.sync_db_builder()?;
+        let conn = &mut self.remote_builder.account_config.sync_db_builder()?;
         FolderSyncCache::init(conn)?;
         EmailSyncCache::init(conn)?;
 
         let local_builder = LocalBackendBuilder::new(
-            self.account_config.clone(),
+            self.remote_builder.account_config.clone(),
             MaildirConfig {
                 root_dir: sync_dir.clone(),
             },
@@ -296,13 +291,23 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             FolderSyncStrategy::Include(folders) => FolderSyncStrategy::Include(
                 folders
                     .iter()
-                    .map(|folder| Ok(self.account_config.get_folder_alias(folder)?))
+                    .map(|folder| {
+                        Ok(self
+                            .remote_builder
+                            .account_config
+                            .get_folder_alias(folder)?)
+                    })
                     .collect::<Result<_>>()?,
             ),
             FolderSyncStrategy::Exclude(folders) => FolderSyncStrategy::Exclude(
                 folders
                     .iter()
-                    .map(|folder| Ok(self.account_config.get_folder_alias(folder)?))
+                    .map(|folder| {
+                        Ok(self
+                            .remote_builder
+                            .account_config
+                            .get_folder_alias(folder)?)
+                    })
                     .collect::<Result<_>>()?,
             ),
         };
@@ -311,9 +316,9 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             .emit(AccountSyncProgressEvent::BuildFolderPatch);
 
         let folder_sync_patch_manager = FolderSyncPatchManager::new(
-            &self.account_config,
+            &self.remote_builder.account_config,
             local_builder.clone(),
-            self.remote_builder_v2.clone(),
+            self.remote_builder.clone(),
             &folders_strategy,
             self.on_progress.clone(),
             self.dry_run,
@@ -337,9 +342,9 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             ));
 
         let envelope_sync_patch_manager = EmailSyncPatchManager::new(
-            &self.account_config,
+            &self.remote_builder.account_config,
             local_builder.clone(),
-            self.remote_builder_v2.clone(),
+            self.remote_builder.clone(),
             self.on_progress.clone(),
             self.dry_run,
         );
@@ -388,7 +393,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
                 .await?
                 .expunge_folder(folder)
                 .await?;
-            self.remote_builder_v2
+            self.remote_builder
                 .clone()
                 .build()
                 .await?

@@ -27,9 +27,9 @@ pub struct PurgeFolderImap {
 }
 
 impl PurgeFolderImap {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn PurgeFolder> {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn PurgeFolder>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

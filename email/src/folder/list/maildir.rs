@@ -20,9 +20,9 @@ pub struct ListFoldersMaildir {
 }
 
 impl ListFoldersMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Box<dyn ListFolders> {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn ListFolders>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

@@ -29,9 +29,9 @@ pub struct GetEnvelopeImap {
 }
 
 impl GetEnvelopeImap {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn GetEnvelope> {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn GetEnvelope>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

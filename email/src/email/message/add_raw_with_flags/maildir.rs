@@ -18,9 +18,9 @@ pub struct AddRawMessageWithFlagsMaildir {
 }
 
 impl AddRawMessageWithFlagsMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Box<dyn AddRawMessageWithFlags> {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn AddRawMessageWithFlags>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

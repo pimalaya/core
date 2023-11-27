@@ -21,9 +21,9 @@ pub struct CopyMessagesImap {
 }
 
 impl CopyMessagesImap {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn CopyMessages> {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn CopyMessages>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

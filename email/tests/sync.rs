@@ -190,9 +190,7 @@ async fn sync() {
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
 
-    let sync_builder = AccountSyncBuilder::new(account_config.clone(), imap_builder)
-        .await
-        .unwrap();
+    let sync_builder = AccountSyncBuilder::new(imap_builder).await.unwrap();
     sync_builder.sync().await.unwrap();
     sync_builder.sync().await.unwrap();
 

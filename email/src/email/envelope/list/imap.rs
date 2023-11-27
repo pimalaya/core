@@ -30,9 +30,9 @@ pub struct ListEnvelopesImap {
 }
 
 impl ListEnvelopesImap {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn ListEnvelopes> {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn ListEnvelopes>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

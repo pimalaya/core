@@ -18,9 +18,9 @@ pub struct CopyMessagesMaildir {
 }
 
 impl CopyMessagesMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Box<dyn CopyMessages> {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn CopyMessages>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

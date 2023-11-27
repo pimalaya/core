@@ -25,9 +25,9 @@ pub struct RemoveFlagsImap {
 }
 
 impl RemoveFlagsImap {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn RemoveFlags> {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn RemoveFlags>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

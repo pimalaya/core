@@ -22,9 +22,9 @@ pub struct RemoveFlagsMaildir {
 }
 
 impl RemoveFlagsMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Box<dyn RemoveFlags> {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn RemoveFlags>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

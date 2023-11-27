@@ -11,9 +11,9 @@ pub struct PeekMessagesMaildir {
 }
 
 impl PeekMessagesMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Box<dyn PeekMessages> {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn PeekMessages>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

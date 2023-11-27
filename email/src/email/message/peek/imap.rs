@@ -24,9 +24,9 @@ pub struct PeekMessagesImap {
 }
 
 impl PeekMessagesImap {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn PeekMessages> {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn PeekMessages>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 

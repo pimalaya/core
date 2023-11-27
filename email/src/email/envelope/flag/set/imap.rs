@@ -25,9 +25,9 @@ pub struct SetFlagsImap {
 }
 
 impl SetFlagsImap {
-    pub fn new(session: &ImapSessionSync) -> Box<dyn SetFlags> {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn SetFlags>> {
         let session = session.clone();
-        Box::new(Self { session })
+        Some(Box::new(Self { session }))
     }
 }
 
