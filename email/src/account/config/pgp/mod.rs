@@ -37,8 +37,6 @@ pub use self::gpg::GpgConfig;
 pub use self::native::NativePgpConfig;
 
 /// The PGP configuration.
-// TODO: `Gpg` variant using `libgpgme`
-// TODO: `Autocrypt` variant based on `pimalaya-pgp`
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum PgpConfig {
     /// No configuration.

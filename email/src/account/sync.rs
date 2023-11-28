@@ -253,7 +253,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
         let account = &self.remote_builder.account_config.name;
         info!("starting synchronization of account {account}");
 
-        if !self.remote_builder.account_config.sync.unwrap_or_default() {
+        if !self.remote_builder.account_config.sync {
             warn!("sync feature not enabled for account {account}, aborting");
             return Err(Error::SyncAccountNotEnabledError(account.clone()).into());
         }

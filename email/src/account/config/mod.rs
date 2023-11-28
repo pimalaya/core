@@ -12,7 +12,7 @@ use dirs::data_dir;
 use log::{debug, warn};
 use mail_builder::headers::address::{Address, EmailAddress};
 use mml::MimeInterpreterBuilder;
-use shellexpand_utils::{shellexpand_str, try_shellexpand_path};
+use shellexpand_utils::{shellexpand_path, shellexpand_str, try_shellexpand_path};
 use std::{collections::HashMap, env, ffi::OsStr, fs, io, path::PathBuf, vec};
 use thiserror::Error;
 
@@ -142,7 +142,7 @@ pub struct AccountConfig {
 
     /// Enables the synchronization of this account with a local
     /// Maildir backend.
-    pub sync: Option<bool>,
+    pub sync: bool,
     /// Custom root directory where the Maildir cache is
     /// saved. Defaults to `$XDG_DATA_HOME/himalaya/<account-name>`.
     pub sync_dir: Option<PathBuf>,
@@ -311,13 +311,19 @@ impl AccountConfig {
     /// Return `true` if the sync directory already exists and if the
     /// sync feature is enabled.
     pub fn sync(&self) -> bool {
-        matches!(self.sync, Some(true)) && self.sync_dir_exists()
+        self.sync && self.sync_dir_exists()
     }
 
     /// Return the sync directory if exist, otherwise create it.
     pub fn sync_dir(&self) -> Result<PathBuf> {
-        match self.sync_dir.as_ref().filter(|dir| dir.is_dir()) {
-            Some(dir) => Ok(dir.clone()),
+        match self.sync_dir.as_ref() {
+            Some(dir) => {
+                let sync_dir = shellexpand_path(dir);
+                if !sync_dir.exists() {
+                    fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsError)?;
+                }
+                Ok(sync_dir)
+            }
             None => {
                 warn!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/himalaya");
                 let sync_dir = data_dir()
