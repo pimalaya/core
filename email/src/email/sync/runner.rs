@@ -46,16 +46,16 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
         hunk: &EmailSyncHunk,
     ) -> Result<EmailSyncCachePatch> {
         let cache_hunks = match hunk {
-            EmailSyncHunk::GetThenCache(folder, internal_id, Destination::Local) => {
-                let envelope = local.get_envelope(&folder, &internal_id).await?;
+            EmailSyncHunk::GetThenCache(folder, id, Destination::Local) => {
+                let envelope = local.get_envelope(&folder, &Id::single(id)).await?;
                 vec![EmailSyncCacheHunk::Insert(
                     folder.clone(),
                     envelope.clone(),
                     Destination::Local,
                 )]
             }
-            EmailSyncHunk::GetThenCache(folder, internal_id, Destination::Remote) => {
-                let envelope = remote.get_envelope(&folder, &internal_id).await?;
+            EmailSyncHunk::GetThenCache(folder, id, Destination::Remote) => {
+                let envelope = remote.get_envelope(&folder, &Id::single(id)).await?;
                 vec![EmailSyncCacheHunk::Insert(
                     folder.clone(),
                     envelope.clone(),
@@ -101,10 +101,10 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
 
                 match target {
                     Destination::Local => {
-                        let internal_id = local
+                        let id = local
                             .add_raw_message_with_flags(&folder, email.raw()?, &envelope.flags)
                             .await?;
-                        let envelope = local.get_envelope(&folder, &internal_id).await?;
+                        let envelope = local.get_envelope(&folder, &Id::single(id)).await?;
                         cache_hunks.push(EmailSyncCacheHunk::Insert(
                             folder.clone(),
                             envelope.clone(),
@@ -112,10 +112,10 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
                         ));
                     }
                     Destination::Remote => {
-                        let internal_id = remote
+                        let id = remote
                             .add_raw_message_with_flags(&folder, email.raw()?, &envelope.flags)
                             .await?;
-                        let envelope = remote.get_envelope(&folder, &internal_id).await?;
+                        let envelope = remote.get_envelope(&folder, &Id::single(id)).await?;
                         cache_hunks.push(EmailSyncCacheHunk::Insert(
                             folder.clone(),
                             envelope.clone(),

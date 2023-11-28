@@ -3,7 +3,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapSessionSync, Result};
+use crate::{envelope::Id, imap::ImapSessionSync, Result};
 
 use super::{Envelope, GetEnvelope};
 
@@ -18,9 +18,9 @@ pub enum Error {
     #[error("cannot select imap folder {1}")]
     SelectFolderError(#[source] imap::Error, String),
     #[error("cannot fetch imap envelopes {2} from folder {1}")]
-    FetchEnvolpesError(#[source] imap::Error, String, String),
+    FetchEnvolpesError(#[source] imap::Error, String, Id),
     #[error("cannot find envelope {1} from folder {0}")]
-    GetFirstEnvelopeError(String, String),
+    GetFirstEnvelopeError(String, Id),
 }
 
 #[derive(Clone, Debug)]
@@ -37,7 +37,7 @@ impl GetEnvelopeImap {
 
 #[async_trait]
 impl GetEnvelope for GetEnvelopeImap {
-    async fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &Id) -> Result<Envelope> {
         info!("getting imap envelope {id} from folder {folder}");
 
         let mut session = self.session.lock().await;
@@ -55,14 +55,14 @@ impl GetEnvelope for GetEnvelopeImap {
 
         let fetches = session
             .execute(
-                |session| session.uid_fetch(id, ENVELOPE_QUERY),
-                |err| Error::FetchEnvolpesError(err, folder.clone(), id.to_owned()).into(),
+                |session| session.uid_fetch(id.to_string(), ENVELOPE_QUERY),
+                |err| Error::FetchEnvolpesError(err, folder.clone(), id.clone()).into(),
             )
             .await?;
 
         let fetch = fetches
             .get(0)
-            .ok_or_else(|| Error::GetFirstEnvelopeError(folder.clone(), id.to_owned()))?;
+            .ok_or_else(|| Error::GetFirstEnvelopeError(folder.clone(), id.clone()))?;
 
         let envelope = Envelope::from_imap_fetch(fetch)?;
         debug!("imap envelope: {envelope:#?}");

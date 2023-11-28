@@ -728,7 +728,7 @@ impl<C> Backend<C> {
             .await
     }
 
-    pub async fn get_envelope(&self, folder: &str, id: &str) -> Result<Envelope> {
+    pub async fn get_envelope(&self, folder: &str, id: &Id) -> Result<Envelope> {
         self.get_envelope
             .as_ref()
             .ok_or(Error::GetEnvelopeNotAvailableError)?

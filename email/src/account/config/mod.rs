@@ -319,7 +319,7 @@ impl AccountConfig {
         match self.sync_dir.as_ref() {
             Some(dir) => {
                 let sync_dir = shellexpand_path(dir);
-                if !sync_dir.exists() {
+                if !sync_dir.is_dir() {
                     fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsError)?;
                 }
                 Ok(sync_dir)
