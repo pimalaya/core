@@ -44,8 +44,27 @@ impl MmlCompilerBuilder {
 
     /// Customize PGP.
     #[cfg(feature = "pgp")]
+    pub fn set_pgp(&mut self, pgp: impl Into<Pgp>) {
+        self.mml_body_compiler.set_pgp(pgp);
+    }
+
+    /// Customize PGP.
+    #[cfg(feature = "pgp")]
     pub fn with_pgp(mut self, pgp: impl Into<Pgp>) -> Self {
-        self.mml_body_compiler = self.mml_body_compiler.with_pgp(pgp.into());
+        self.mml_body_compiler.set_pgp(pgp);
+        self
+    }
+
+    /// Customize some PGP.
+    #[cfg(feature = "pgp")]
+    pub fn set_some_pgp(&mut self, pgp: Option<impl Into<Pgp>>) {
+        self.mml_body_compiler.set_some_pgp(pgp);
+    }
+
+    /// Customize some PGP.
+    #[cfg(feature = "pgp")]
+    pub fn with_some_pgp(mut self, pgp: Option<impl Into<Pgp>>) -> Self {
+        self.mml_body_compiler.set_some_pgp(pgp);
         self
     }
 

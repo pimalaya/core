@@ -37,12 +37,8 @@ pub use self::gpg::GpgConfig;
 pub use self::native::NativePgpConfig;
 
 /// The PGP configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PgpConfig {
-    /// No configuration.
-    #[default]
-    None,
-
     #[cfg(feature = "pgp-commands")]
     /// Commands configuration.
     Cmds(CmdsPgpConfig),
@@ -59,7 +55,6 @@ pub enum PgpConfig {
 impl Into<Pgp> for PgpConfig {
     fn into(self) -> Pgp {
         match self {
-            Self::None => Pgp::None,
             #[cfg(feature = "pgp-commands")]
             Self::Cmds(config) => config.into(),
             #[cfg(feature = "pgp-gpg")]
@@ -73,7 +68,6 @@ impl Into<Pgp> for PgpConfig {
 impl PgpConfig {
     pub async fn reset(&self) -> Result<()> {
         match self {
-            Self::None => Ok(()),
             #[cfg(feature = "pgp-commands")]
             Self::Cmds(..) => Ok(()),
             #[cfg(feature = "pgp-gpg")]
@@ -90,7 +84,6 @@ impl PgpConfig {
         passwd: impl Fn() -> io::Result<String>,
     ) -> Result<()> {
         match self {
-            Self::None => Ok(()),
             #[cfg(feature = "pgp-commands")]
             Self::Cmds(..) => Ok(()),
             #[cfg(feature = "pgp-gpg")]

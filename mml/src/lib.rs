@@ -56,10 +56,6 @@ pub enum Error {
     #[error(transparent)]
     InterpretMimeBodyError(#[from] message::body::interpreter::Error),
 
-    #[cfg(feature = "pgp")]
-    #[error(transparent)]
-    PgpError(#[from] pgp::Error),
-
     #[cfg(feature = "pgp-commands")]
     #[error(transparent)]
     CmdsPgpError(#[from] pgp::commands::Error),

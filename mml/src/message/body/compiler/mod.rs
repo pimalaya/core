@@ -52,7 +52,7 @@ pub enum Error {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MmlBodyCompiler {
     #[cfg(feature = "pgp")]
-    pgp: Pgp,
+    pgp: Option<Pgp>,
     #[cfg(feature = "pgp")]
     pgp_sender: Option<String>,
     #[cfg(feature = "pgp")]
@@ -66,8 +66,24 @@ impl<'a> MmlBodyCompiler {
     }
 
     #[cfg(feature = "pgp")]
-    pub fn with_pgp(mut self, pgp: Pgp) -> Self {
-        self.pgp = pgp;
+    pub fn set_pgp(&mut self, pgp: impl Into<Pgp>) {
+        self.pgp = Some(pgp.into());
+    }
+
+    #[cfg(feature = "pgp")]
+    pub fn with_pgp(mut self, pgp: impl Into<Pgp>) -> Self {
+        self.set_pgp(pgp);
+        self
+    }
+
+    #[cfg(feature = "pgp")]
+    pub fn set_some_pgp(&mut self, pgp: Option<impl Into<Pgp>>) {
+        self.pgp = pgp.map(Into::into);
+    }
+
+    #[cfg(feature = "pgp")]
+    pub fn with_some_pgp(mut self, pgp: Option<impl Into<Pgp>>) -> Self {
+        self.set_some_pgp(pgp);
         self
     }
 
@@ -86,24 +102,32 @@ impl<'a> MmlBodyCompiler {
     /// Encrypt the given MIME part using PGP.
     #[cfg(feature = "pgp")]
     async fn encrypt_part(&self, clear_part: &MimePart<'a>) -> Result<MimePart<'a>> {
-        let recipients = self.pgp_recipients.clone();
+        match &self.pgp {
+            None => {
+                warn!("cannot encrypt part: pgp not configured");
+                Ok(clear_part.clone())
+            }
+            Some(pgp) => {
+                let recipients = self.pgp_recipients.clone();
 
-        let mut clear_part_bytes = Vec::new();
-        clear_part
-            .clone()
-            .write_part(&mut clear_part_bytes)
-            .map_err(Error::WriteCompiledPartToVecError)?;
+                let mut clear_part_bytes = Vec::new();
+                clear_part
+                    .clone()
+                    .write_part(&mut clear_part_bytes)
+                    .map_err(Error::WriteCompiledPartToVecError)?;
 
-        let encrypted_part_bytes = self.pgp.encrypt(recipients, clear_part_bytes).await?;
-        let encrypted_part = MimePart::new(
-            "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
-            vec![
-                MimePart::new("application/pgp-encrypted", "Version: 1"),
-                MimePart::new("application/octet-stream", encrypted_part_bytes),
-            ],
-        );
+                let encrypted_part_bytes = pgp.encrypt(recipients, clear_part_bytes).await?;
+                let encrypted_part = MimePart::new(
+                    "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
+                    vec![
+                        MimePart::new("application/pgp-encrypted", "Version: 1"),
+                        MimePart::new("application/octet-stream", encrypted_part_bytes),
+                    ],
+                );
 
-        Ok(encrypted_part)
+                Ok(encrypted_part)
+            }
+        }
     }
 
     /// Try to encrypt the given MIME part using PGP.
@@ -125,28 +149,36 @@ impl<'a> MmlBodyCompiler {
     /// Sign the given MIME part using PGP.
     #[cfg(feature = "pgp")]
     async fn sign_part(&self, clear_part: MimePart<'a>) -> Result<MimePart<'a>> {
-        let sender = self
-            .pgp_sender
-            .as_ref()
-            .ok_or(Error::PgpSignMissingSenderError)?;
+        match &self.pgp {
+            None => {
+                warn!("cannot sign part: pgp not configured");
+                Ok(clear_part.clone())
+            }
+            Some(pgp) => {
+                let sender = self
+                    .pgp_sender
+                    .as_ref()
+                    .ok_or(Error::PgpSignMissingSenderError)?;
 
-        let mut clear_part_bytes = Vec::new();
-        clear_part
-            .clone()
-            .write_part(&mut clear_part_bytes)
-            .map_err(Error::WriteCompiledPartToVecError)?;
+                let mut clear_part_bytes = Vec::new();
+                clear_part
+                    .clone()
+                    .write_part(&mut clear_part_bytes)
+                    .map_err(Error::WriteCompiledPartToVecError)?;
 
-        let signature_bytes = self.pgp.sign(sender, clear_part_bytes).await?;
+                let signature_bytes = pgp.sign(sender, clear_part_bytes).await?;
 
-        let signed_part = MimePart::new(
-            "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
-            vec![
-                clear_part,
-                MimePart::new("application/pgp-signature", signature_bytes),
-            ],
-        );
+                let signed_part = MimePart::new(
+                    "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
+                    vec![
+                        clear_part,
+                        MimePart::new("application/pgp-signature", signature_bytes),
+                    ],
+                );
 
-        Ok(signed_part)
+                Ok(signed_part)
+            }
+        }
     }
 
     /// Try to sign the given MIME part using PGP.

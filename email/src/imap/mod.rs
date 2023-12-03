@@ -167,11 +167,8 @@ pub struct ImapSessionBuilder {
     /// The IMAP configuration.
     pub imap_config: ImapConfig,
 
-    /// The default credentials.
-    default_credentials: Option<String>,
-
-    /// The disable cache flag.
-    disable_cache: bool,
+    /// The prebuilt IMAP credentials.
+    imap_prebuilt_credentials: Option<String>,
 }
 
 impl ImapSessionBuilder {
@@ -183,33 +180,15 @@ impl ImapSessionBuilder {
         }
     }
 
-    /// Disable cache flag setter.
-    pub fn disable_cache(&mut self, disable_cache: bool) {
-        self.disable_cache = disable_cache;
+    pub async fn prebuild_credentials(&mut self) -> Result<()> {
+        self.imap_prebuilt_credentials = Some(self.imap_config.build_credentials().await?);
+        Ok(())
     }
 
-    /// Disable cache flag setter following the builder pattern.
-    pub fn with_cache_disabled(mut self, disable_cache: bool) -> Self {
-        self.disable_cache = disable_cache;
-        self
+    pub async fn with_prebuilt_credentials(mut self) -> Result<Self> {
+        self.prebuild_credentials().await?;
+        Ok(self)
     }
-
-    /// Credentials setter following the builder pattern.
-    pub fn with_credentials(mut self, credentials: Option<String>) -> Self {
-        self.default_credentials = credentials;
-        self
-    }
-
-    // /// Default credentials setter following the builder pattern.
-    // pub async fn with_default_credentials(mut self) -> Result<Self> {
-    //     self.default_credentials = match &self.account_config.backend {
-    //         BackendConfig::Imap(imap_config) if !self.account_config.sync || self.disable_cache => {
-    //             Some(imap_config.build_credentials().await?)
-    //         }
-    //         _ => None,
-    //     };
-    //     Ok(self)
-    // }
 }
 
 #[async_trait]
@@ -223,7 +202,7 @@ impl BackendContextBuilder for ImapSessionBuilder {
     /// access token is refreshed first then a new session is created.
     async fn build(self) -> Result<Self::Context> {
         info!("building new imap session");
-        let creds = self.default_credentials.as_ref();
+        let creds = self.imap_prebuilt_credentials.as_ref();
         let session = match &self.imap_config.auth {
             ImapAuthConfig::Passwd(_) => build_session(&self.imap_config, creds).await,
             ImapAuthConfig::OAuth2(oauth2_config) => {
@@ -231,13 +210,14 @@ impl BackendContextBuilder for ImapSessionBuilder {
                     Ok(sess) => Ok(sess),
                     Err(err) => {
                         let downcast_err = err.downcast_ref::<Error>();
+
                         if let Some(Error::AuthenticateError(imap::Error::Parse(
                             imap::error::ParseError::Authentication(_, _),
                         ))) = downcast_err
                         {
                             warn!("error while authenticating user, refreshing access token");
-                            oauth2_config.refresh_access_token().await?;
-                            build_session(&self.imap_config, creds).await
+                            let access_token = oauth2_config.refresh_access_token().await?;
+                            build_session(&self.imap_config, Some(&access_token)).await
                         } else {
                             Err(err)
                         }
@@ -252,7 +232,6 @@ impl BackendContextBuilder for ImapSessionBuilder {
             session: Arc::new(Mutex::new(ImapSession {
                 account_config: self.account_config,
                 imap_config: self.imap_config,
-                default_credentials: self.default_credentials,
                 session,
             })),
         })
@@ -270,9 +249,6 @@ pub struct ImapSession {
 
     /// The IMAP configuration.
     pub imap_config: ImapConfig,
-
-    /// The default IMAP credentials.
-    pub default_credentials: Option<String>,
 
     /// The current IMAP session.
     session: Session<ImapSessionStream>,
@@ -296,8 +272,7 @@ impl ImapSession {
                     imap::Error::Parse(imap::error::ParseError::Authentication(_, _)) => {
                         warn!("error while authenticating user, refreshing access token");
                         oauth2_config.refresh_access_token().await?;
-                        let creds = self.default_credentials.as_ref();
-                        self.session = build_session(&self.imap_config, creds).await?;
+                        self.session = build_session(&self.imap_config, None).await?;
                         Ok(action(&mut self.session)?)
                     }
                     err => Ok(Err(err)?),

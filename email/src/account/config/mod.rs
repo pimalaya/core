@@ -151,7 +151,7 @@ pub struct AccountConfig {
 
     /// The configuration related to PGP encryption.
     #[cfg(feature = "pgp")]
-    pub pgp: PgpConfig,
+    pub pgp: Option<PgpConfig>,
 }
 
 impl AccountConfig {
@@ -349,7 +349,9 @@ impl AccountConfig {
         let builder = MimeInterpreterBuilder::new().with_save_attachments_dir(self.downloads_dir());
 
         #[cfg(feature = "pgp")]
-        let builder = builder.with_pgp(self.pgp.clone());
+        if let Some(ref pgp) = self.pgp {
+            return builder.with_pgp(pgp.clone());
+        }
 
         builder
     }

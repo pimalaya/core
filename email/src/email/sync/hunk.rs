@@ -51,28 +51,37 @@ pub enum EmailSyncHunk {
 impl fmt::Display for EmailSyncHunk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::GetThenCache(_folder, id, source) => {
-                write!(f, "Adding envelope {id} to {source} cache")
+            Self::GetThenCache(folder, id, source) => {
+                write!(f, "Adding envelope {id} to {source} cache ({folder})")
             }
-            Self::CopyThenCache(_folder, envelope, source, target, _) => {
+            Self::CopyThenCache(folder, envelope, source, target, _) => {
                 let id = &envelope.id;
-                write!(f, "Copying {source} envelope {id} to {target} folder")
+                write!(
+                    f,
+                    "Copying {source} envelope {id} to {target} folder {folder}"
+                )
             }
-            Self::UpdateCachedFlags(_folder, envelope, target) => {
-                let id = &envelope.id;
-                let flags = envelope.flags.to_string();
-                write!(f, "Updating flags {flags} of {target} cached envelope {id}")
-            }
-            Self::UpdateFlags(_folder, envelope, target) => {
+            Self::UpdateCachedFlags(folder, envelope, target) => {
                 let id = &envelope.id;
                 let flags = envelope.flags.to_string();
-                write!(f, "Setting flags {flags} of {target} envelope {id}")
+                write!(
+                    f,
+                    "Updating flags {flags} of {target} cached envelope {id} ({folder})"
+                )
             }
-            Self::Uncache(_folder, id, target) => {
-                write!(f, "Removing envelope {id} from {target} cache")
+            Self::UpdateFlags(folder, envelope, target) => {
+                let id = &envelope.id;
+                let flags = envelope.flags.to_string();
+                write!(
+                    f,
+                    "Setting flags {flags} of {target} envelope {id} ({folder})"
+                )
             }
-            Self::Delete(_folder, id, target) => {
-                write!(f, "Deleting {target} email {id}")
+            Self::Uncache(folder, id, target) => {
+                write!(f, "Removing envelope {id}from {target} cache ({folder})")
+            }
+            Self::Delete(folder, id, target) => {
+                write!(f, "Deleting {target} email {id} ({folder})")
             }
         }
     }

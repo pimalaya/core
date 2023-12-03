@@ -49,7 +49,7 @@ async fn sync() {
     };
     let account_config = AccountConfig {
         name: "account".into(),
-        sync: Some(true),
+        sync: true,
         sync_dir: Some(sync_dir.clone()),
         ..Default::default()
     };

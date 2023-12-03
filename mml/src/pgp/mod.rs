@@ -11,7 +11,6 @@ pub mod gpg;
 pub mod native;
 
 use log::{debug, trace};
-use thiserror::Error;
 
 use crate::Result;
 
@@ -27,26 +26,9 @@ pub use self::native::{
     NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, SignedPublicKey, SignedSecretKey,
 };
 
-/// Errors dedicated to PGP.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot encrypt data using pgp: pgp not configured")]
-    PgpEncryptNoneError,
-    #[error("cannot decrypt data using pgp: pgp not configured")]
-    PgpDecryptNoneError,
-    #[error("cannot sign data using pgp: pgp not configured")]
-    PgpSignNoneError,
-    #[error("cannot verify data using pgp: pgp not configured")]
-    PgpVerifyNoneError,
-}
-
 /// The PGP backends.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Pgp {
-    /// Disable PGP.
-    #[default]
-    None,
-
     /// Use shell commands to perform PGP actions.
     #[cfg(feature = "pgp-commands")]
     Cmds(CmdsPgp),
@@ -75,7 +57,6 @@ impl Pgp {
         trace!("plain bytes: {plain_str}");
 
         match self {
-            Self::None => Ok(Err(Error::PgpEncryptNoneError)?),
             #[cfg(feature = "pgp-commands")]
             Self::Cmds(cmds) => cmds.encrypt(recipients, plain_bytes).await,
             #[cfg(feature = "pgp-native")]
@@ -97,7 +78,6 @@ impl Pgp {
         trace!("encrypted bytes: {encrypted_str}");
 
         match self {
-            Self::None => Ok(Err(Error::PgpDecryptNoneError)?),
             #[cfg(feature = "pgp-commands")]
             Self::Cmds(cmds) => cmds.decrypt(encrypted_bytes).await,
             #[cfg(feature = "pgp-native")]
@@ -115,7 +95,6 @@ impl Pgp {
         trace!("plain bytes: {plain_str}");
 
         match self {
-            Self::None => Ok(Err(Error::PgpSignNoneError)?),
             #[cfg(feature = "pgp-commands")]
             Self::Cmds(cmds) => cmds.sign(plain_bytes).await,
             #[cfg(feature = "pgp-native")]
@@ -141,7 +120,6 @@ impl Pgp {
         trace!("signed bytes: {signed_str}");
 
         match self {
-            Self::None => Ok(Err(Error::PgpVerifyNoneError)?),
             #[cfg(feature = "pgp-commands")]
             Self::Cmds(cmds) => cmds.verify(signature_bytes, signed_bytes).await,
             #[cfg(feature = "pgp-native")]

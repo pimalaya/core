@@ -122,7 +122,7 @@ pub struct MimeBodyInterpreter {
     save_attachments_dir: PathBuf,
 
     #[cfg(feature = "pgp")]
-    pgp: Pgp,
+    pgp: Option<Pgp>,
     #[cfg(feature = "pgp")]
     pgp_sender: Option<String>,
     #[cfg(feature = "pgp")]
@@ -194,8 +194,24 @@ impl MimeBodyInterpreter {
     }
 
     #[cfg(feature = "pgp")]
-    pub fn with_pgp(mut self, pgp: Pgp) -> Self {
-        self.pgp = pgp;
+    pub fn set_pgp(&mut self, pgp: impl Into<Pgp>) {
+        self.pgp = Some(pgp.into());
+    }
+
+    #[cfg(feature = "pgp")]
+    pub fn with_pgp(mut self, pgp: impl Into<Pgp>) -> Self {
+        self.set_pgp(pgp);
+        self
+    }
+
+    #[cfg(feature = "pgp")]
+    pub fn set_some_pgp(&mut self, pgp: Option<impl Into<Pgp>>) {
+        self.pgp = pgp.map(Into::into);
+    }
+
+    #[cfg(feature = "pgp")]
+    pub fn with_some_pgp(mut self, pgp: Option<impl Into<Pgp>>) -> Self {
+        self.set_some_pgp(pgp);
         self
     }
 
@@ -223,37 +239,51 @@ impl MimeBodyInterpreter {
     /// Decrypt the given [MessagePart] using PGP.
     #[cfg(feature = "pgp")]
     async fn decrypt_part(&self, encrypted_part: &MessagePart<'_>) -> Result<String> {
-        let recipient = self
-            .pgp_recipient
-            .as_ref()
-            .ok_or(Error::PgpDecryptMissingRecipientError)?;
-        let encrypted_bytes = encrypted_part.contents().to_owned();
-        let decrypted_part = self.pgp.decrypt(recipient, encrypted_bytes).await?;
-        let clear_part = MessageParser::new()
-            .parse(&decrypted_part)
-            .ok_or(Error::ParsePgpDecryptedPartError)?;
-        let tpl = self.interpret_msg(&clear_part).await?;
-        Ok(tpl)
+        match &self.pgp {
+            None => {
+                warn!("cannot decrypt part: pgp not configured");
+                Ok(String::from_utf8_lossy(encrypted_part.contents()).to_string())
+            }
+            Some(pgp) => {
+                let recipient = self
+                    .pgp_recipient
+                    .as_ref()
+                    .ok_or(Error::PgpDecryptMissingRecipientError)?;
+                let encrypted_bytes = encrypted_part.contents().to_owned();
+                let decrypted_part = pgp.decrypt(recipient, encrypted_bytes).await?;
+                let clear_part = MessageParser::new()
+                    .parse(&decrypted_part)
+                    .ok_or(Error::ParsePgpDecryptedPartError)?;
+                let tpl = self.interpret_msg(&clear_part).await?;
+                Ok(tpl)
+            }
+        }
     }
 
     /// Verify the given [Message] using PGP.
     #[cfg(feature = "pgp")]
     async fn verify_msg(&self, msg: &Message<'_>, ids: &[usize]) -> Result<()> {
-        let signed_part = msg.part(ids[0]).unwrap();
-        let signed_part_bytes = msg.raw_message
-            [signed_part.raw_header_offset()..signed_part.raw_end_offset()]
-            .to_owned();
+        match &self.pgp {
+            None => {
+                warn!("cannot verify message: pgp not configured");
+            }
+            Some(pgp) => {
+                let signed_part = msg.part(ids[0]).unwrap();
+                let signed_part_bytes = msg.raw_message
+                    [signed_part.raw_header_offset()..signed_part.raw_end_offset()]
+                    .to_owned();
 
-        let signature_part = msg.part(ids[1]).unwrap();
-        let signature_bytes = signature_part.contents().to_owned();
+                let signature_part = msg.part(ids[1]).unwrap();
+                let signature_bytes = signature_part.contents().to_owned();
 
-        let recipient = self
-            .pgp_recipient
-            .as_ref()
-            .ok_or(Error::PgpDecryptMissingRecipientError)?;
-        self.pgp
-            .verify(recipient, signature_bytes, signed_part_bytes)
-            .await?;
+                let recipient = self
+                    .pgp_recipient
+                    .as_ref()
+                    .ok_or(Error::PgpDecryptMissingRecipientError)?;
+                pgp.verify(recipient, signature_bytes, signed_part_bytes)
+                    .await?;
+            }
+        };
 
         Ok(())
     }

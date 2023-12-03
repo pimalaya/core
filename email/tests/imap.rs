@@ -39,7 +39,10 @@ async fn test_imap_features() {
         ..Default::default()
     };
 
-    let imap_ctx = ImapSessionBuilder::new(account_config.clone(), imap_config);
+    let imap_ctx = ImapSessionBuilder::new(account_config.clone(), imap_config)
+        .with_prebuilt_credentials()
+        .await
+        .unwrap();
     let backend_builder = BackendBuilder::new(account_config.clone(), imap_ctx)
         .with_add_folder(AddFolderImap::new)
         .with_list_folders(ListFoldersImap::new)
