@@ -19,18 +19,12 @@ use thiserror::Error;
 use crate::{
     account::AccountConfig,
     backend::{Backend, BackendBuilder, BackendContextBuilder},
-    email::{
-        envelope::{get::maildir::GetEnvelopeMaildir, list::maildir::ListEnvelopesMaildir},
-        flag::{add::maildir::AddFlagsMaildir, set::maildir::SetFlagsMaildir},
-        message::{
-            add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
-            move_::maildir::MoveMessagesMaildir, peek::maildir::PeekMessagesMaildir,
-        },
-        sync::{
-            EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
-            EmailSyncPatchManager,
-        },
+    email::sync::{
+        EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
+        EmailSyncPatchManager,
     },
+    envelope::{get::maildir::GetEnvelopeMaildir, list::maildir::ListEnvelopesMaildir},
+    flag::{add::maildir::AddFlagsMaildir, set::maildir::SetFlagsMaildir},
     folder::{
         add::maildir::AddFolderMaildir,
         delete::maildir::DeleteFolderMaildir,
@@ -42,6 +36,10 @@ use crate::{
         },
     },
     maildir::{MaildirConfig, MaildirSessionBuilder, MaildirSessionSync},
+    message::{
+        add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
+        move_::maildir::MoveMessagesMaildir, peek::maildir::PeekMessagesMaildir,
+    },
     Result,
 };
 

@@ -9,7 +9,8 @@ use std::sync::Arc;
 use crate::{
     account::sync::{AccountSyncProgress, AccountSyncProgressEvent, LocalBackendBuilder},
     backend::{Backend, BackendBuilder, BackendContextBuilder},
-    email::{envelope::Id, Flag},
+    envelope::Id,
+    flag::Flag,
     maildir::MaildirSessionSync,
     Result,
 };

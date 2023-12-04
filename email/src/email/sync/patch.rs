@@ -19,8 +19,7 @@ use crate::{
         AccountSyncProgress, AccountSyncProgressEvent, LocalBackendBuilder, Source, Target,
     },
     backend::BackendContextBuilder,
-    email::flag,
-    Result,
+    flag, Result,
 };
 
 use super::*;
@@ -760,7 +759,8 @@ pub fn build_patch(
 mod tests {
     use crate::{
         account::sync::{Source, Target},
-        email::{Envelope, Flag, Flags},
+        envelope::Envelope,
+        flag::{Flag, Flags},
     };
 
     use super::{EmailSyncHunk, EmailSyncPatch, Envelopes};

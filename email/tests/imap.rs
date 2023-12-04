@@ -1,24 +1,22 @@
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 #[tokio::test]
 async fn test_imap_features() {
     use concat_with::concat_line;
     use email::{
         account::{AccountConfig, PasswdConfig},
         backend::BackendBuilder,
-        email::{
-            envelope::{flag::add::imap::AddFlagsImap, list::imap::ListEnvelopesImap, Id},
-            message::{
-                add_raw_with_flags::imap::AddRawMessageWithFlagsImap, copy::imap::CopyMessagesImap,
-                get::imap::GetMessagesImap, move_::imap::MoveMessagesImap,
-            },
-            Flag,
-        },
+        envelope::{flag::add::imap::AddFlagsImap, list::imap::ListEnvelopesImap, Id},
+        flag::Flag,
         folder::{
             add::imap::AddFolderImap, delete::imap::DeleteFolderImap,
             expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
             purge::imap::PurgeFolderImap,
         },
         imap::{ImapAuthConfig, ImapConfig, ImapSessionBuilder},
+        message::{
+            add_raw_with_flags::imap::AddRawMessageWithFlagsImap, copy::imap::CopyMessagesImap,
+            get::imap::GetMessagesImap, move_::imap::MoveMessagesImap,
+        },
     };
     use mml::MmlCompilerBuilder;
     use secret::Secret;

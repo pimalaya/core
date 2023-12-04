@@ -1,17 +1,14 @@
 use async_trait::async_trait;
 
 use crate::{
-    email::{
-        envelope::{Id, SingleId},
-        flag::add::AddFlags,
-        Flag, Flags,
-    },
+    envelope::{Id, SingleId},
+    flag::{add::AddFlags, Flag, Flags},
     Result,
 };
 
 use super::add_raw::AddRawMessage;
 
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 pub mod imap;
 pub mod maildir;
 

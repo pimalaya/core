@@ -8,7 +8,7 @@ use log::{error, warn};
 use rusqlite::{types::Value, Connection, Transaction};
 
 use crate::{
-    email::{envelope::Address, Envelope, Envelopes},
+    envelope::{Address, Envelope, Envelopes},
     Result,
 };
 

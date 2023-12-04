@@ -14,19 +14,17 @@ use thiserror::Error;
 
 use crate::{
     account::AccountConfig,
-    email::{
-        envelope::{get::GetEnvelope, list::ListEnvelopes, Id, SingleId},
-        flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
-        message::{
-            add_raw::AddRawMessage, add_raw_with_flags::AddRawMessageWithFlags, copy::CopyMessages,
-            delete::default_delete_messages, delete::DeleteMessages, get::default_get_messages,
-            get::GetMessages, move_::MoveMessages, peek::PeekMessages, send_raw::SendRawMessage,
-        },
-        Envelope, Envelopes, Flag, Flags, Messages,
-    },
+    envelope::{get::GetEnvelope, list::ListEnvelopes, Envelope, Envelopes, Id, SingleId},
+    flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag, Flags},
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
         purge::PurgeFolder, Folders,
+    },
+    message::{
+        add_raw::AddRawMessage, add_raw_with_flags::AddRawMessageWithFlags, copy::CopyMessages,
+        delete::default_delete_messages, delete::DeleteMessages, get::default_get_messages,
+        get::GetMessages, move_::MoveMessages, peek::PeekMessages, send_raw::SendRawMessage,
+        Messages,
     },
     Result,
 };

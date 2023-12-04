@@ -17,7 +17,7 @@ pub mod peek;
 pub mod send_raw;
 pub mod template;
 
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 use imap::types::{Fetch, Fetches};
 use log::{debug, warn};
 use mail_parser::{MessageParser, MimeHeaders};
@@ -81,7 +81,7 @@ pub enum Error {
 /// The raw message wrapper.
 enum RawMessage<'a> {
     Cow(Cow<'a, [u8]>),
-    #[cfg(feature = "imap-backend")]
+    #[cfg(feature = "imap")]
     Fetch(&'a Fetch<'a>),
 }
 
@@ -99,7 +99,7 @@ impl Message<'_> {
     fn parsed_builder<'a>(raw: &'a mut RawMessage) -> Option<mail_parser::Message<'a>> {
         match raw {
             RawMessage::Cow(ref bytes) => MessageParser::new().parse(bytes.as_ref()),
-            #[cfg(feature = "imap-backend")]
+            #[cfg(feature = "imap")]
             RawMessage::Fetch(fetch) => {
                 MessageParser::new().parse(fetch.body().unwrap_or_default())
             }
@@ -197,7 +197,7 @@ impl<'a> From<&'a [u8]> for Message<'a> {
     }
 }
 
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 impl<'a> From<&'a Fetch<'a>> for Message<'a> {
     fn from(fetch: &'a Fetch) -> Self {
         MessageBuilder {
@@ -226,7 +226,7 @@ impl<'a> From<&'a str> for Message<'a> {
 
 enum RawMessages {
     Vec(Vec<Vec<u8>>),
-    #[cfg(feature = "imap-backend")]
+    #[cfg(feature = "imap")]
     Fetches(Fetches),
     MailEntries(Vec<MailEntry>),
 }
@@ -243,7 +243,7 @@ impl Messages {
     fn emails_builder<'a>(raw: &'a mut RawMessages) -> Vec<Message> {
         match raw {
             RawMessages::Vec(vec) => vec.iter().map(Vec::as_slice).map(Message::from).collect(),
-            #[cfg(feature = "imap-backend")]
+            #[cfg(feature = "imap")]
             RawMessages::Fetches(fetches) => fetches
                 .iter()
                 .filter_map(|fetch| match fetch.body() {
@@ -279,7 +279,7 @@ impl From<Vec<Vec<u8>>> for Messages {
     }
 }
 
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 impl TryFrom<Fetches> for Messages {
     type Error = crate::Error;
 
@@ -316,7 +316,7 @@ impl TryFrom<Vec<MailEntry>> for Messages {
 mod tests {
     use concat_with::concat_line;
 
-    use crate::{account::AccountConfig, email::Message};
+    use crate::{account::AccountConfig, message::Message};
 
     #[tokio::test]
     async fn new_tpl_builder() {

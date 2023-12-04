@@ -8,20 +8,18 @@ pub mod address;
 pub mod flag;
 pub mod get;
 pub mod id;
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 pub mod imap;
 pub mod list;
 pub mod maildir;
-#[cfg(feature = "notmuch-backend")]
+#[cfg(feature = "notmuch")]
 pub mod notmuch;
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::warn;
 use std::ops::{Deref, DerefMut};
 
-use crate::account::AccountConfig;
-
-use super::Message;
+use crate::{account::AccountConfig, message::Message};
 
 #[doc(inline)]
 pub use self::{

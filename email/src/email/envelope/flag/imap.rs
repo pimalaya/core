@@ -7,10 +7,9 @@ use imap::{self, types::Fetch};
 use log::{debug, warn};
 use thiserror::Error;
 
-use crate::{
-    email::{Flag, Flags},
-    Result,
-};
+use crate::Result;
+
+use super::{Flag, Flags};
 
 #[derive(Debug, Error)]
 pub enum Error {

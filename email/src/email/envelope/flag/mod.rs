@@ -4,10 +4,10 @@
 //! envelope flags.
 
 pub mod add;
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 pub mod imap;
 pub mod maildir;
-#[cfg(feature = "notmuch-backend")]
+#[cfg(feature = "notmuch")]
 pub mod notmuch;
 pub mod remove;
 pub mod set;

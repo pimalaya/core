@@ -1,4 +1,4 @@
-#[cfg(feature = "notmuch-backend")]
+#[cfg(feature = "notmuch")]
 #[tokio::test(flavor = "multi_thread")]
 async fn notmuch_backend() {
     use concat_with::concat_line;

@@ -4,7 +4,7 @@ use crate::Result;
 
 use super::Envelopes;
 
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 pub mod imap;
 pub mod maildir;
 

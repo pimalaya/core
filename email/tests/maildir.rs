@@ -1,27 +1,25 @@
-use email::email::{
-    flag::{remove::maildir::RemoveFlagsMaildir, set::maildir::SetFlagsMaildir},
-    message::{copy::maildir::CopyMessagesMaildir, peek::maildir::PeekMessagesMaildir},
-};
-
+#[cfg(feature = "maildir")]
 #[tokio::test]
 async fn test_maildir_features() {
     use concat_with::concat_line;
-    use email::{account::AccountConfig, email::Flag};
     use email::{
+        account::AccountConfig,
         backend::BackendBuilder,
-        email::{
-            envelope::{list::maildir::ListEnvelopesMaildir, Id},
-            flag::add::maildir::AddFlagsMaildir,
-            message::{
-                add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
-                move_::maildir::MoveMessagesMaildir,
-            },
+        envelope::{list::maildir::ListEnvelopesMaildir, Id},
+        flag::{
+            add::maildir::AddFlagsMaildir, remove::maildir::RemoveFlagsMaildir,
+            set::maildir::SetFlagsMaildir, Flag,
         },
         folder::{
             add::maildir::AddFolderMaildir, delete::maildir::DeleteFolderMaildir,
             expunge::maildir::ExpungeFolderMaildir, list::maildir::ListFoldersMaildir,
         },
         maildir::{MaildirConfig, MaildirSessionBuilder},
+        message::{
+            add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
+            copy::maildir::CopyMessagesMaildir, move_::maildir::MoveMessagesMaildir,
+            peek::maildir::PeekMessagesMaildir,
+        },
     };
     use mail_builder::MessageBuilder;
     use maildirpp::Maildir;

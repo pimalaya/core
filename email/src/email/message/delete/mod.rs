@@ -2,8 +2,8 @@ use async_trait::async_trait;
 
 use crate::{
     account::AccountConfig,
-    email::{envelope::Id, Flag},
-    flag::add::AddFlags,
+    envelope::Id,
+    flag::{add::AddFlags, Flag},
     Result,
 };
 

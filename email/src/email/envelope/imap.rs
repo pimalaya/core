@@ -18,7 +18,9 @@ pub enum Error {
 }
 
 use crate::{
-    email::{Envelope, Envelopes, Flags, Message},
+    envelope::{Envelope, Envelopes},
+    flag::Flags,
+    message::Message,
     Result,
 };
 

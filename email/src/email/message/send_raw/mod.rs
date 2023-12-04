@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use crate::Result;
 
 pub mod sendmail;
-#[cfg(feature = "smtp-sender")]
+#[cfg(feature = "smtp")]
 pub mod smtp;
 
 #[async_trait]

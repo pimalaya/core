@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
-use crate::{email::envelope::Id, Result};
+use crate::{envelope::Id, Result};
 
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 pub mod imap;
 pub mod maildir;
 

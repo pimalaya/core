@@ -21,15 +21,4 @@ pub mod utils;
 pub use mail_builder::MessageBuilder;
 
 #[doc(inline)]
-pub use self::{
-    config::{EmailHooks, EmailTextPlainFormat},
-    envelope::{
-        flag::{self, Flag, Flags},
-        Envelope, Envelopes,
-    },
-    message::{
-        attachment::{self, Attachment},
-        template, Message, Messages,
-    },
-    utils::*,
-};
+pub use self::utils::*;

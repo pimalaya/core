@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use crate::{
     account::AccountConfig,
-    email::{EmailHooks, EmailTextPlainFormat},
+    email::config::{EmailHooks, EmailTextPlainFormat},
     Result,
 };
 

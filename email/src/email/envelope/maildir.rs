@@ -7,7 +7,10 @@ use log::{debug, warn};
 use maildirpp::{MailEntries, MailEntry};
 use rayon::prelude::*;
 
-use crate::email::{Envelope, Envelopes, Flags, Message};
+use crate::{
+    envelope::{Envelope, Envelopes, Flags},
+    message::Message,
+};
 
 impl Envelopes {
     pub fn from_mdir_entries(entries: MailEntries) -> Self {

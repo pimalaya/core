@@ -4,16 +4,9 @@ use email::{
         AccountConfig, PasswdConfig,
     },
     backend::BackendBuilder,
-    email::{
-        envelope::{get::imap::GetEnvelopeImap, list::imap::ListEnvelopesImap, Id},
-        flag::{add::imap::AddFlagsImap, set::imap::SetFlagsImap},
-        message::{
-            add_raw_with_flags::imap::AddRawMessageWithFlagsImap, get::imap::GetMessagesImap,
-            move_::imap::MoveMessagesImap, peek::imap::PeekMessagesImap,
-        },
-        sync::EmailSyncCache,
-        Flag, Flags,
-    },
+    email::sync::EmailSyncCache,
+    envelope::{get::imap::GetEnvelopeImap, list::imap::ListEnvelopesImap, Id},
+    flag::{add::imap::AddFlagsImap, set::imap::SetFlagsImap, Flag, Flags},
     folder::{
         self, add::imap::AddFolderImap, delete::imap::DeleteFolderImap,
         expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
@@ -21,6 +14,10 @@ use email::{
     },
     imap::{ImapAuthConfig, ImapConfig, ImapSessionBuilder},
     maildir::MaildirConfig,
+    message::{
+        add_raw_with_flags::imap::AddRawMessageWithFlagsImap, get::imap::GetMessagesImap,
+        move_::imap::MoveMessagesImap, peek::imap::PeekMessagesImap,
+    },
 };
 use env_logger;
 use mail_builder::MessageBuilder;

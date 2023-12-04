@@ -2,13 +2,9 @@ use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{
-    email::{envelope::Id, Flags},
-    maildir::MaildirSessionSync,
-    Result,
-};
+use crate::{envelope::Id, maildir::MaildirSessionSync, Result};
 
-use super::RemoveFlags;
+use super::{Flags, RemoveFlags};
 
 #[derive(Error, Debug)]
 pub enum Error {

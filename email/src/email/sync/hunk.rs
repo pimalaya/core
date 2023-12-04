@@ -7,7 +7,7 @@ use std::fmt;
 
 use crate::{
     account::sync::{Source, Target},
-    email::Envelope,
+    envelope::Envelope,
     folder::sync::FolderName,
 };
 

@@ -1,14 +1,10 @@
 use async_trait::async_trait;
 
-use crate::{
-    email::{envelope::Id, Flag},
-    flag::add::AddFlags,
-    Result,
-};
+use crate::{envelope::Id, flag::add::AddFlags, flag::Flag, Result};
 
 use super::{peek::PeekMessages, Messages};
 
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 pub mod imap;
 
 #[async_trait]

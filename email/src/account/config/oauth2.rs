@@ -6,7 +6,7 @@
 use log::warn;
 use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use secret::Secret;
-use std::{io, vec};
+use std::{io, net::TcpListener, vec};
 use thiserror::Error;
 
 use crate::Result;
@@ -45,6 +45,9 @@ pub enum Error {
     SetClientSecretIntoKeyringError(#[source] secret::Error),
     #[error("cannot delete oauth2 client secret from global keyring")]
     DeleteClientSecretError(#[source] secret::Error),
+
+    #[error("cannot get available port")]
+    GetAvailablePortError,
 }
 
 /// The OAuth 2.0 configuration.
@@ -110,6 +113,15 @@ impl Default for OAuth2Config {
 }
 
 impl OAuth2Config {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            redirect_port: (49_152..65_535)
+                .find(|port| TcpListener::bind((Self::default_redirect_host(), *port)).is_ok())
+                .ok_or(Error::GetAvailablePortError)?,
+            ..Default::default()
+        })
+    }
+
     /// Returns the default redirect host name. Combines well with
     /// serde's `default` and `skip_serializing_if` macros.
     pub fn default_redirect_host() -> String {

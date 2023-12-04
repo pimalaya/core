@@ -3,13 +3,9 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{
-    email::{envelope::Id, Flags},
-    imap::ImapSessionSync,
-    Result,
-};
+use crate::{envelope::Id, imap::ImapSessionSync, Result};
 
-use super::SetFlags;
+use super::{Flags, SetFlags};
 
 #[derive(Error, Debug)]
 pub enum Error {

@@ -20,16 +20,20 @@ name = "email"
 
 [features]
 default = [
-  "imap-backend",
-  # "notmuch-backend",
-  "smtp-sender",
+  "maildir",
+  "imap",
+  # "notmuch",
+  "smtp",
+  "sendmail",
   # "pgp-commands",
   # "pgp-gpg",
   # "pgp-native",
 ]
-imap-backend = ["imap", "imap-proto", "utf7-imap"]
-notmuch-backend = ["notmuch"]
-smtp-sender = ["mail-send"]
+maildir = []
+imap = ["dep:imap", "imap-proto", "utf7-imap"]
+notmuch = ["dep:notmuch"]
+smtp = ["mail-send"]
+sendmail = []
 pgp = []
 pgp-commands = ["pgp", "mml-lib/pgp-commands"]
 pgp-gpg = ["pgp", "mml-lib/pgp-gpg"]

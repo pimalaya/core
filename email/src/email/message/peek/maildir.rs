@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::{info, warn};
 
-use crate::{email::envelope::Id, maildir::MaildirSessionSync, Result};
+use crate::{envelope::Id, maildir::MaildirSessionSync, Result};
 
 use super::{Messages, PeekMessages};
 

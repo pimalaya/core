@@ -1,6 +1,6 @@
 //! Rust library to manage emails.
 //!
-//! The main purpose of this library is to help you to build custom
+//! The main purpose of this library is to help people to build custom
 //! email interfaces without caring about how to connect to an IMAP
 //! server or how to send an email via SMTP.
 //!
@@ -8,8 +8,8 @@
 //! [`Backend`](crate::backend::Backend) struct which is just a set of
 //! customizable features like adding a folder, listing envelopes or
 //! sending a message. You also have access to a
-//! [`BackendBuilder`](crate::backend::BackendBuilder) which helps you
-//! to build a custom backend.
+//! [`BackendBuilder`](crate::backend::BackendBuilder) which helps to
+//! build a custom backend.
 //!
 //! The library also exposes pre-configured backend features for
 //! Maildir, IMAP, Notmuch, SMTP and Sendmail.
@@ -53,13 +53,13 @@ pub mod backend;
 pub mod config;
 pub mod email;
 pub mod folder;
-#[cfg(feature = "imap-backend")]
+#[cfg(feature = "imap")]
 pub mod imap;
 pub mod maildir;
-#[cfg(feature = "notmuch-backend")]
+#[cfg(feature = "notmuch")]
 pub mod notmuch;
 pub mod sendmail;
-#[cfg(feature = "smtp-sender")]
+#[cfg(feature = "smtp")]
 pub mod smtp;
 
 #[doc(inline)]

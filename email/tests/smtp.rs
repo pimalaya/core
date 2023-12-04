@@ -1,15 +1,14 @@
-#[cfg(feature = "imap-backend")]
-#[cfg(feature = "smtp-sender")]
+#[cfg(feature = "imap")]
+#[cfg(feature = "smtp")]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_smtp_features() {
     use email::{
         account::{AccountConfig, PasswdConfig},
         backend::BackendBuilder,
-        email::{
-            envelope::list::imap::ListEnvelopesImap, message::send_raw::smtp::SendRawMessageSmtp,
-        },
+        envelope::list::imap::ListEnvelopesImap,
         folder::purge::imap::PurgeFolderImap,
         imap::{ImapAuthConfig, ImapConfig, ImapSessionBuilder},
+        message::send_raw::smtp::SendRawMessageSmtp,
         smtp::{SmtpAuthConfig, SmtpClientBuilder, SmtpConfig},
     };
     use mail_builder::MessageBuilder;

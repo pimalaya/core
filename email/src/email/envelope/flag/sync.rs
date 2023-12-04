@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use crate::email::{Flag, Flags};
+use super::{Flag, Flags};
 
 /// The email envelope flag synchronizer.
 ///
@@ -173,7 +173,7 @@ pub fn sync(
 
 #[cfg(test)]
 mod tests {
-    use crate::email::{Flag, Flags};
+    use crate::flag::{Flag, Flags};
 
     #[test]
     fn sync() {

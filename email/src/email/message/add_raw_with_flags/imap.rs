@@ -4,7 +4,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::envelope::SingleId, imap::ImapSessionSync, Result};
+use crate::{envelope::SingleId, imap::ImapSessionSync, Result};
 
 use super::{AddRawMessageWithFlags, Flags};
 
