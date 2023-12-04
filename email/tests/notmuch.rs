@@ -3,7 +3,7 @@
 async fn notmuch_backend() {
     use concat_with::concat_line;
     use email::{
-        account::AccountConfig,
+        account::config::AccountConfig,
         backend::{Backend, NotmuchBackend, NotmuchConfig},
         email::{Flag, Flags},
     };

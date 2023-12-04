@@ -1,4 +1,4 @@
-mod config;
+pub mod config;
 
 use async_trait::async_trait;
 use imap::{extensions::idle::SetReadTimeout, Authenticator, Client, Session};
@@ -20,13 +20,12 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::{
-    account::{AccountConfig, OAuth2Method},
+    account::config::{oauth2::OAuth2Method, AccountConfig},
     backend::BackendContextBuilder,
     Result,
 };
 
-#[doc(inline)]
-pub use self::config::{ImapAuthConfig, ImapConfig};
+use self::config::{ImapAuthConfig, ImapConfig};
 
 /// Errors related to the IMAP backend.
 #[derive(Error, Debug)]

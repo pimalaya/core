@@ -18,7 +18,4 @@ pub mod sync;
 pub mod utils;
 
 #[doc(inline)]
-pub use mail_builder::MessageBuilder;
-
-#[doc(inline)]
 pub use self::utils::*;

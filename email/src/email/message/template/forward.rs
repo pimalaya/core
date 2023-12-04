@@ -12,7 +12,7 @@ use mml::MimeInterpreterBuilder;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::{account::AccountConfig, message::Message, Result};
+use crate::{account::config::AccountConfig, message::Message, Result};
 
 use super::Error;
 

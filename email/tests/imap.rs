@@ -3,7 +3,7 @@
 async fn test_imap_features() {
     use concat_with::concat_line;
     use email::{
-        account::{AccountConfig, PasswdConfig},
+        account::config::{passwd::PasswdConfig, AccountConfig},
         backend::BackendBuilder,
         envelope::{flag::add::imap::AddFlagsImap, list::imap::ListEnvelopesImap, Id},
         flag::Flag,

@@ -8,20 +8,7 @@ pub mod gpg;
 #[cfg(feature = "pgp-native")]
 pub mod native;
 
-#[cfg(feature = "pgp-commands")]
-#[doc(inline)]
-pub use mml::pgp::CmdsPgp;
-#[cfg(feature = "pgp-gpg")]
-#[doc(inline)]
-pub use mml::pgp::Gpg;
-#[cfg(feature = "pgp")]
-#[doc(inline)]
-pub use mml::pgp::Pgp;
-#[cfg(feature = "pgp-native")]
-#[doc(inline)]
-pub use mml::pgp::{
-    NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, SignedPublicKey, SignedSecretKey,
-};
+use mml::pgp::Pgp;
 use std::io;
 
 use crate::Result;

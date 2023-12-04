@@ -3,7 +3,7 @@
 #[tokio::test(flavor = "multi_thread")]
 async fn test_smtp_features() {
     use email::{
-        account::{AccountConfig, PasswdConfig},
+        account::config::{passwd::PasswdConfig, AccountConfig},
         backend::BackendBuilder,
         envelope::list::imap::ListEnvelopesImap,
         folder::purge::imap::PurgeFolderImap,

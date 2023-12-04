@@ -1,4 +1,4 @@
-mod config;
+pub mod config;
 
 use async_trait::async_trait;
 use log::{debug, info, warn};
@@ -9,10 +9,9 @@ use thiserror::Error;
 use tokio::{net::TcpStream, sync::Mutex};
 use tokio_rustls::client::TlsStream;
 
-use crate::{account::AccountConfig, backend::BackendContextBuilder, Result};
+use crate::{account::config::AccountConfig, backend::BackendContextBuilder, Result};
 
-#[doc(inline)]
-pub use self::config::{SmtpAuthConfig, SmtpConfig};
+use self::config::{SmtpAuthConfig, SmtpConfig};
 
 #[derive(Error, Debug)]
 pub enum Error {

@@ -5,7 +5,7 @@
 //!
 //! Then you have the [`BackendConfig`] which represents the
 //! backend-specific configuration, mostly used by the
-//! [AccountConfiguration](crate::account::AccountConfig).
+//! [AccountConfiguration](crate::account::config::AccountConfig).
 
 use async_trait::async_trait;
 use log::error;
@@ -13,7 +13,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::{
-    account::AccountConfig,
+    account::config::AccountConfig,
     envelope::{get::GetEnvelope, list::ListEnvelopes, Envelope, Envelopes, Id, SingleId},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag, Flags},
     folder::{

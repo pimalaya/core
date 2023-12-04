@@ -1,7 +1,7 @@
 use email::{
     account::{
+        config::{passwd::PasswdConfig, AccountConfig},
         sync::{AccountSyncBuilder, LocalBackendBuilder},
-        AccountConfig, PasswdConfig,
     },
     backend::BackendBuilder,
     email::sync::EmailSyncCache,

@@ -1,4 +1,4 @@
-mod config;
+pub mod config;
 
 use async_trait::async_trait;
 use log::info;
@@ -14,13 +14,12 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::{
-    account::{AccountConfig, DEFAULT_INBOX_FOLDER},
+    account::config::{AccountConfig, DEFAULT_INBOX_FOLDER},
     backend::BackendContextBuilder,
     Result,
 };
 
-#[doc(inline)]
-pub use self::config::MaildirConfig;
+use self::config::MaildirConfig;
 
 #[derive(Debug, Error)]
 pub enum Error {

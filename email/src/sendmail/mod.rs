@@ -1,12 +1,11 @@
-mod config;
+pub mod config;
 
 use async_trait::async_trait;
 use log::info;
 
-use crate::{account::AccountConfig, backend::BackendContextBuilder, Result};
+use crate::{account::config::AccountConfig, backend::BackendContextBuilder, Result};
 
-#[doc(inline)]
-pub use self::config::SendmailConfig;
+use self::config::SendmailConfig;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SendmailContext {

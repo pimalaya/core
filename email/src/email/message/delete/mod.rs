@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{
-    account::AccountConfig,
+    account::config::AccountConfig,
     envelope::Id,
     flag::{add::AddFlags, Flag},
     Result,

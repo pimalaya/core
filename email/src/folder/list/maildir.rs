@@ -3,7 +3,7 @@ use log::{debug, info};
 use std::{ffi::OsStr, path::PathBuf};
 use thiserror::Error;
 
-use crate::{account::DEFAULT_INBOX_FOLDER, maildir::MaildirSessionSync, Result};
+use crate::{account::config::DEFAULT_INBOX_FOLDER, maildir::MaildirSessionSync, Result};
 
 use super::{Folder, Folders, ListFolders};
 

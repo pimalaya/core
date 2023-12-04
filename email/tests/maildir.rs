@@ -3,7 +3,7 @@
 async fn test_maildir_features() {
     use concat_with::concat_line;
     use email::{
-        account::AccountConfig,
+        account::config::AccountConfig,
         backend::BackendBuilder,
         envelope::{list::maildir::ListEnvelopesMaildir, Id},
         flag::{

@@ -19,7 +19,7 @@ use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::warn;
 use std::ops::{Deref, DerefMut};
 
-use crate::{account::AccountConfig, message::Message};
+use crate::{account::config::AccountConfig, message::Message};
 
 #[doc(inline)]
 pub use self::{

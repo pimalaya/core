@@ -22,23 +22,8 @@ use crate::{
     Result,
 };
 
-#[cfg(feature = "pgp-commands")]
-#[doc(inline)]
-pub use self::pgp::CmdsPgpConfig;
-#[cfg(feature = "pgp-gpg")]
-#[doc(inline)]
-pub use self::pgp::GpgConfig;
 #[cfg(feature = "pgp")]
-#[doc(inline)]
-pub use self::pgp::PgpConfig;
-#[cfg(feature = "pgp-native")]
-#[doc(inline)]
-pub use self::pgp::{NativePgpConfig, NativePgpSecretKey, SignedPublicKey, SignedSecretKey};
-#[doc(inline)]
-pub use self::{
-    oauth2::{OAuth2Config, OAuth2Method, OAuth2Scopes},
-    passwd::PasswdConfig,
-};
+use self::pgp::PgpConfig;
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
 pub const DEFAULT_SIGNATURE_DELIM: &str = "-- \n";

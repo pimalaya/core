@@ -3,7 +3,7 @@ use log::info;
 use std::{fs, io, path::PathBuf};
 use thiserror::Error;
 
-use crate::{account::DEFAULT_INBOX_FOLDER, maildir::MaildirSessionSync, Result};
+use crate::{account::config::DEFAULT_INBOX_FOLDER, maildir::MaildirSessionSync, Result};
 
 use super::DeleteFolder;
 

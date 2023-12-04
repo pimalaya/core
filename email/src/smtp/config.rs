@@ -9,7 +9,10 @@ use std::io;
 use thiserror::Error;
 
 use crate::{
-    account::{OAuth2Config, OAuth2Method, PasswdConfig},
+    account::config::{
+        oauth2::{OAuth2Config, OAuth2Method},
+        passwd::PasswdConfig,
+    },
     Result,
 };
 

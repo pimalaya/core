@@ -17,7 +17,7 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    account::AccountConfig,
+    account::config::AccountConfig,
     backend::{Backend, BackendBuilder, BackendContextBuilder},
     email::sync::{
         EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
@@ -35,7 +35,7 @@ use crate::{
             FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy, FoldersName,
         },
     },
-    maildir::{MaildirConfig, MaildirSessionBuilder, MaildirSessionSync},
+    maildir::{config::MaildirConfig, MaildirSessionBuilder, MaildirSessionSync},
     message::{
         add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
         move_::maildir::MoveMessagesMaildir, peek::maildir::PeekMessagesMaildir,

@@ -9,7 +9,7 @@ use mail_builder::{
 };
 use mml::MimeInterpreterBuilder;
 
-use crate::{account::AccountConfig, Result};
+use crate::{account::config::AccountConfig, Result};
 
 use super::Error;
 

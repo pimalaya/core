@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error;
 
 use crate::{
-    account::AccountConfig,
+    account::config::AccountConfig,
     email::config::{EmailHooks, EmailTextPlainFormat},
     Result,
 };

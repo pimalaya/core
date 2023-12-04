@@ -12,8 +12,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     account::{
+        config::AccountConfig,
         sync::{AccountSyncProgress, AccountSyncProgressEvent, Destination, LocalBackendBuilder},
-        AccountConfig,
     },
     backend::{BackendBuilder, BackendContextBuilder},
     Result,

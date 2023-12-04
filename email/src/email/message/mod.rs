@@ -28,7 +28,7 @@ use std::{borrow::Cow, fmt::Debug, io, path::PathBuf};
 use thiserror::Error;
 
 use crate::{
-    account::{self, AccountConfig},
+    account::{self, config::AccountConfig},
     Result,
 };
 
@@ -316,7 +316,7 @@ impl TryFrom<Vec<MailEntry>> for Messages {
 mod tests {
     use concat_with::concat_line;
 
-    use crate::{account::AccountConfig, message::Message};
+    use crate::{account::config::AccountConfig, message::Message};
 
     #[tokio::test]
     async fn new_tpl_builder() {

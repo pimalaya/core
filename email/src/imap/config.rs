@@ -7,7 +7,7 @@ use process::Cmd;
 use thiserror::Error;
 
 use crate::{
-    account::{OAuth2Config, PasswdConfig},
+    account::config::{oauth2::OAuth2Config, passwd::PasswdConfig},
     Result,
 };
 

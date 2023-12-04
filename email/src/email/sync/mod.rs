@@ -13,7 +13,7 @@ mod runner;
 use thiserror::Error;
 
 use crate::{
-    account::{sync::Destination, AccountConfig},
+    account::{config::AccountConfig, sync::Destination},
     backend::BackendBuilder,
     envelope::Envelope,
 };
