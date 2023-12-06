@@ -78,7 +78,7 @@ impl fmt::Display for EmailSyncHunk {
                 )
             }
             Self::Uncache(folder, id, target) => {
-                write!(f, "Removing envelope {id}from {target} cache ({folder})")
+                write!(f, "Removing envelope {id} from {target} cache ({folder})")
             }
             Self::Delete(folder, id, target) => {
                 write!(f, "Deleting {target} email {id} ({folder})")

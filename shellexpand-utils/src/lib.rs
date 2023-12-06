@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-mod canonicalize;
-mod expand;
+pub mod canonicalize;
+pub mod expand;
 
 /// The global `Error` enum of the library.
 #[derive(Debug, Error)]
