@@ -70,7 +70,7 @@ impl NativePgpConfig {
                         .await
                         .map_err(|err| Error::DeletePgpKeyAtPathError(err, path.clone()))?;
                 } else {
-                    warn!("cannot delete pgp key file at {path:?}: file not found");
+                    debug!("cannot delete pgp key file at {path:?}: file not found");
                 }
             }
             NativePgpSecretKey::Keyring(entry) => entry

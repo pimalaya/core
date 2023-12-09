@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use log::{info, warn};
+use log::{debug, info};
 
 use crate::{envelope::Id, maildir::MaildirSessionSync, Result};
 
@@ -33,7 +33,7 @@ impl PeekMessages for PeekMessagesMaildir {
                     .position(|id| id == entry.id())
                     .map(|pos| (pos, entry)),
                 Err(err) => {
-                    warn!("skipping invalid maildir entry: {}", err);
+                    debug!("skipping invalid maildir entry: {}", err);
                     None
                 }
             })

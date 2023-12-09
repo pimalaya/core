@@ -3,7 +3,7 @@
 //! The core structure of this module is the [`EmailSyncRunner`].
 
 use futures::lock::Mutex;
-use log::{trace, warn};
+use log::{debug, trace};
 use std::sync::Arc;
 
 use crate::{
@@ -223,7 +223,8 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
                                 report.cache_patch.0.extend(cache_hunks);
                             }
                             Err(err) => {
-                                warn!("error while processing hunk {hunk:?}, skipping it: {err:?}");
+                                debug!("error while processing hunk {hunk:?}: {err}");
+                                debug!("{err:?}");
                                 report.patch.push((hunk.clone(), Some(err)));
                             }
                         };

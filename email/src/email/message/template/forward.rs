@@ -3,7 +3,7 @@
 //! The main structure of this module is the [ForwardTplBuilder],
 //! which helps you to build template in order to forward a message.
 
-use log::warn;
+use log::debug;
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
@@ -32,7 +32,7 @@ fn prefixless_subject(subject: &str) -> &str {
     match cap {
         Some(prefixless_subject) => prefixless_subject.as_str(),
         None => {
-            warn!("cannot remove prefix from subject {subject:?}");
+            debug!("cannot remove prefix from subject {subject:?}");
             subject
         }
     }

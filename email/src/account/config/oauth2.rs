@@ -3,7 +3,7 @@
 //! This module contains everything related to OAuth 2.0
 //! configuration.
 
-use log::warn;
+use log::debug;
 use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use secret::Secret;
 use std::{io, net::TcpListener, vec};
@@ -169,7 +169,7 @@ impl OAuth2Config {
 
         let client_secret = match self.client_secret.find().await {
             Ok(None) => {
-                warn!("cannot find oauth2 client secret from keyring, setting it");
+                debug!("cannot find oauth2 client secret from keyring, setting it");
                 set_client_secret()
             }
             Ok(Some(client_secret)) => Ok(client_secret),

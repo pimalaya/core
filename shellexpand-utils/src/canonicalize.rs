@@ -1,4 +1,4 @@
-use log::{debug, warn};
+use log::debug;
 use std::{
     io,
     path::{Path, PathBuf},
@@ -22,7 +22,6 @@ pub fn try_path(path: impl AsRef<Path>) -> Result<PathBuf, Error> {
 pub fn path(path: impl AsRef<Path>) -> PathBuf {
     let path = path.as_ref();
     try_path(path).unwrap_or_else(|err| {
-        warn!("{err}");
         debug!("{err:?}");
         path.to_owned()
     })

@@ -1,7 +1,7 @@
 pub mod config;
 
 use async_trait::async_trait;
-use log::{debug, info, warn};
+use log::{debug, info};
 use mail_parser::{Address, HeaderName, HeaderValue, Message, MessageParser};
 use mail_send::smtp::message::{Address as SmtpAddress, IntoMessage, Message as SmtpMessage};
 use std::{collections::HashSet, ops::Deref, sync::Arc};
@@ -95,7 +95,7 @@ impl SmtpClient {
         let buffer: Vec<u8>;
 
         let mut msg = MessageParser::new().parse(msg).unwrap_or_else(|| {
-            warn!("cannot parse raw email message");
+            debug!("cannot parse raw email message");
             Default::default()
         });
 
@@ -104,13 +104,13 @@ impl SmtpClient {
                 Ok(res) => {
                     buffer = res.into();
                     msg = MessageParser::new().parse(&buffer).unwrap_or_else(|| {
-                        warn!("cannot parse email raw message");
+                        debug!("cannot parse email raw message");
                         Default::default()
                     });
                 }
                 Err(err) => {
-                    warn!("cannot execute pre-send hook: {err}");
-                    debug!("cannot execute pre-send hook {cmd:?}: {err:?}");
+                    debug!("cannot execute pre-send hook: {err}");
+                    debug!("{err:?}");
                 }
             }
         };

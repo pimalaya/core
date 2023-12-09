@@ -39,8 +39,8 @@ fn get_header(msg: &notmuch::Message, key: impl AsRef<str>) -> String {
         Ok(Some(val)) => val,
         Ok(None) => Default::default(),
         Err(err) => {
-            warn!("cannot get header {key} from notmuch message, skipping it: {err}");
-            debug!("cannot get header {key} from notmuch message: {err:?}");
+            debug!("cannot get header {key} from notmuch message: {err}");
+            debug!("{err:?}");
             Default::default()
         }
     };

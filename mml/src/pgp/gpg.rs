@@ -72,7 +72,7 @@ impl Gpg {
                     keys.push(key);
                 }
                 Err(err) => {
-                    warn!("cannot locate gpg key for {email}: {err}");
+                    debug!("cannot locate gpg key for {email}: {err}");
                     debug!("cannot locate gpg key for {email}: {err}");
                 }
             }
@@ -86,7 +86,7 @@ impl Gpg {
 
         let recipients_count = res.invalid_recipients().count();
         if recipients_count > 0 {
-            warn!("skipping {recipients_count} recipients from gpg encryption");
+            debug!("skipping {recipients_count} recipients from gpg encryption");
             debug!("invalid recipients: {:#?}", res.invalid_recipients());
         }
 

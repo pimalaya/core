@@ -3,7 +3,7 @@
 //! This module contains flag-related mapping functions from the
 //! [maildirpp] crate types.
 
-use log::{debug, warn};
+use log::debug;
 use maildirpp::MailEntry;
 use thiserror::Error;
 
@@ -49,8 +49,8 @@ impl Flags {
             .filter_map(|c| match Flag::try_from_mdir_char(c) {
                 Ok(flag) => Some(flag),
                 Err(err) => {
-                    warn!("cannot parse maildir flag char {c}, skipping it: {err}");
-                    debug!("cannot parse maildir flag char {c}: {err:?}");
+                    debug!("cannot parse maildir flag char {c}, skipping it: {err}");
+                    debug!("{err:?}");
                     None
                 }
             })

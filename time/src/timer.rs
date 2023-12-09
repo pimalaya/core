@@ -5,7 +5,7 @@
 //! by [`TimerState`], [`TimerCycle`] and [`TimerLoop`]. During the
 //! lifetime of the timer, [`TimerEvent`] are triggered.
 
-use log::{debug, warn};
+use log::debug;
 #[cfg(test)]
 use mock_instant::Instant;
 use serde::{Deserialize, Serialize};
@@ -278,8 +278,8 @@ impl Timer {
 
     pub fn fire_event(&self, event: TimerEvent) {
         if let Err(err) = (self.config.handler)(event.clone()) {
-            warn!("cannot fire event {event:?}, skipping it: {err}");
-            debug!("cannot fire event {event:?}: {err:?}");
+            debug!("cannot fire event {event:?}, skipping it: {err}");
+            debug!("{err:?}");
         }
     }
 

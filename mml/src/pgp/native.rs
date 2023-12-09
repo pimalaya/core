@@ -6,7 +6,7 @@
 pub use pgp::native::{SignedPublicKey, SignedSecretKey};
 
 use keyring::Entry;
-use log::{debug, warn};
+use log::debug;
 use secret::Secret;
 use shellexpand_utils::shellexpand_path;
 use std::{collections::HashSet, path::PathBuf};
@@ -159,8 +159,8 @@ impl NativePgp {
                                 }
                                 Err(err) => {
                                     let msg = format!("cannot find pgp public key for {recipient}");
-                                    warn!("{msg} using wkd: {err}");
-                                    debug!("{msg} using wkd: {err:?}");
+                                    debug!("{msg} using wkd: {err}");
+                                    debug!("{err:?}");
                                 }
                             }
                             pkeys
@@ -185,8 +185,8 @@ impl NativePgp {
                                 }
                                 Err(err) => {
                                     let msg = format!("cannot find pgp public key for {recipient}");
-                                    warn!("{msg} using key servers: {err}");
-                                    debug!("{msg} using key servers: {err:?}");
+                                    debug!("{msg} using key servers: {err}");
+                                    debug!("{err:?}");
                                 }
                             }
                             pkeys
@@ -262,8 +262,8 @@ impl NativePgp {
                         }
                         Err(err) => {
                             let msg = format!("cannot find pgp public key for {email}");
-                            warn!("{msg} using wkd: {err}");
-                            debug!("{msg} using wkd: {err:?}");
+                            debug!("{msg} using wkd: {err}");
+                            debug!("{err:?}");
                             continue;
                         }
                     }
@@ -278,8 +278,8 @@ impl NativePgp {
                         }
                         Err(err) => {
                             let msg = format!("cannot find pgp public key for {email}");
-                            warn!("{msg} using key servers: {err}");
-                            debug!("{msg} using key servers: {err:?}");
+                            debug!("{msg} using key servers: {err}");
+                            debug!("{err:?}");
                             continue;
                         }
                     }

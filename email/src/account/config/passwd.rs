@@ -2,7 +2,7 @@
 //!
 //! This module contains everything related to password configuration.
 
-use log::warn;
+use log::debug;
 use secret::Secret;
 use std::{
     io,
@@ -58,7 +58,7 @@ impl PasswdConfig {
     pub async fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
         match self.find().await {
             Ok(None) => {
-                warn!("cannot find imap password from keyring, setting it");
+                debug!("cannot find imap password from keyring, setting it");
                 let passwd = get_passwd().map_err(Error::GetFromUserError)?;
                 self.set_keyring_entry_secret(passwd)
                     .map_err(Error::SetIntoKeyringError)?;

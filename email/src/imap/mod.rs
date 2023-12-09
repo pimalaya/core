@@ -2,7 +2,7 @@ pub mod config;
 
 use async_trait::async_trait;
 use imap::{extensions::idle::SetReadTimeout, Authenticator, Client, Session};
-use log::{debug, info, log_enabled, warn, Level};
+use log::{debug, info, log_enabled, Level};
 use once_cell::sync::Lazy;
 use rustls::{
     client::{ServerCertVerified, ServerCertVerifier},
@@ -214,7 +214,7 @@ impl BackendContextBuilder for ImapSessionBuilder {
                             imap::error::ParseError::Authentication(_, _),
                         ))) = downcast_err
                         {
-                            warn!("error while authenticating user, refreshing access token");
+                            debug!("error while authenticating user, refreshing access token");
                             let access_token = oauth2_config.refresh_access_token().await?;
                             build_session(&self.imap_config, Some(&access_token)).await
                         } else {
@@ -269,7 +269,7 @@ impl ImapSession {
                 Ok(res) => Ok(res),
                 Err(err) => match err {
                     imap::Error::Parse(imap::error::ParseError::Authentication(_, _)) => {
-                        warn!("error while authenticating user, refreshing access token");
+                        debug!("error while authenticating user, refreshing access token");
                         oauth2_config.refresh_access_token().await?;
                         self.session = build_session(&self.imap_config, None).await?;
                         Ok(action(&mut self.session)?)
@@ -283,13 +283,15 @@ impl ImapSession {
 
 impl Drop for ImapSession {
     fn drop(&mut self) {
+        // TODO: check if a mailbox is selected before
         if let Err(err) = self.session.close() {
-            warn!("cannot close imap session: {err}");
-            debug!("cannot close imap session: {err:?}");
+            debug!("cannot close imap session: {err}");
+            debug!("{err:?}");
         }
+
         if let Err(err) = self.session.logout() {
-            warn!("cannot logout imap session: {err}");
-            debug!("cannot logout imap session: {err:?}");
+            debug!("cannot logout from imap session: {err}");
+            debug!("{err:?}");
         }
     }
 }

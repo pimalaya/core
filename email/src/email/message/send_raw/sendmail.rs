@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use log::{debug, info, warn};
+use log::{debug, info};
 use mail_parser::MessageParser;
 use thiserror::Error;
 
@@ -32,7 +32,7 @@ impl SendRawMessage for SendRawMessageSendmail {
 
         let buffer: Vec<u8>;
         let mut msg = MessageParser::new().parse(raw_msg).unwrap_or_else(|| {
-            warn!("cannot parse raw message");
+            debug!("cannot parse raw message");
             Default::default()
         });
 
@@ -41,13 +41,13 @@ impl SendRawMessage for SendRawMessageSendmail {
                 Ok(res) => {
                     buffer = res.into();
                     msg = MessageParser::new().parse(&buffer).unwrap_or_else(|| {
-                        warn!("cannot parse raw message after pre-send hook");
+                        debug!("cannot parse raw message after pre-send hook");
                         Default::default()
                     });
                 }
                 Err(err) => {
-                    warn!("cannot execute pre-send hook: {err}");
-                    debug!("cannot execute pre-send hook {cmd:?}: {err:?}");
+                    debug!("cannot execute pre-send hook: {err}");
+                    debug!("{err:?}");
                 }
             }
         };

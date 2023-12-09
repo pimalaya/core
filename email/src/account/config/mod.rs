@@ -9,7 +9,7 @@ pub mod passwd;
 pub mod pgp;
 
 use dirs::data_dir;
-use log::{debug, warn};
+use log::debug;
 use mail_builder::headers::address::{Address, EmailAddress};
 use mml::MimeInterpreterBuilder;
 use shellexpand_utils::{shellexpand_path, shellexpand_str, try_shellexpand_path};
@@ -155,12 +155,12 @@ impl AccountConfig {
     pub fn downloads_dir(&self) -> PathBuf {
         match self.downloads_dir.as_ref() {
             Some(dir) => try_shellexpand_path(dir).unwrap_or_else(|err| {
-                warn!("cannot expand downloads dir, falling back to tmp: {err}");
-                debug!("cannot expand downloads dir: {err:?}");
+                debug!("cannot expand downloads dir, falling back to tmp: {err}");
+                debug!("{err:?}");
                 env::temp_dir()
             }),
             None => {
-                warn!("downloads dir not defined, falling back to tmp");
+                debug!("downloads dir not defined, falling back to tmp");
                 env::temp_dir()
             }
         }
@@ -273,8 +273,8 @@ impl AccountConfig {
                 .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))
                 .and_then(|path| fs::read_to_string(path))
                 .unwrap_or_else(|err| {
-                    warn!("cannot read signature from path: {err}");
-                    debug!("cannot read signature from path: {err:?}");
+                    debug!("cannot read signature from path: {err}");
+                    debug!("{err:?}");
                     shellexpand_str(path_or_raw)
                 });
             format!("{}{}", delim, signature.trim())
@@ -310,7 +310,7 @@ impl AccountConfig {
                 Ok(sync_dir)
             }
             None => {
-                warn!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/himalaya");
+                debug!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/himalaya");
                 let sync_dir = data_dir()
                     .map(|dir| dir.join("himalaya"))
                     .ok_or(Error::GetXdgDataDirError)?

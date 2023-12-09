@@ -1,4 +1,4 @@
-use log::warn;
+use log::debug;
 use mail_builder::headers::content_type::ContentType;
 use std::collections::HashMap;
 
@@ -26,7 +26,7 @@ impl<'a> Part<'a> {
             Some(ctype) => ctype.to_string(),
             None => {
                 let ctype = tree_magic_mini::from_u8(body);
-                warn!("no content type found, guessing from body: {ctype}");
+                debug!("no content type found, guessing from body: {ctype}");
                 ctype.to_owned()
             }
         }

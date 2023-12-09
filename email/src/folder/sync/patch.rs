@@ -7,7 +7,7 @@
 //! you to build and to apply a folder patch.
 
 use futures::{stream, StreamExt};
-use log::{debug, info, trace, warn};
+use log::{debug, info, trace};
 use std::collections::{HashMap, HashSet};
 
 use crate::{
@@ -280,8 +280,8 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
                                 report.cache_patch.0.extend(cache_hunks);
                             }
                             Err(err) => {
-                                warn!("error while processing folder hunk: {err}");
-                                debug!("error while processing folder hunk: {err:?}");
+                                debug!("error while processing folder hunk: {err}");
+                                debug!("{err:?}");
                                 report.patch.push((hunk.clone(), Some(err)));
                             }
                         };
@@ -326,7 +326,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
             };
 
             if let Err(err) = process_cache_patch() {
-                warn!("error while processing cache patch: {err}");
+                debug!("error while processing cache patch: {err}");
                 report.cache_patch.1 = Some(err);
             }
         };

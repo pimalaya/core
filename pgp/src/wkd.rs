@@ -16,7 +16,7 @@ use async_recursion::async_recursion;
 use futures::{stream, StreamExt};
 use hyper::{client::HttpConnector, http::Response, Body, Client, Uri};
 use hyper_rustls::HttpsConnector;
-use log::{debug, warn};
+use log::debug;
 use pgp_native::{Deserializable, SignedPublicKey};
 use sha1::{Digest, Sha1};
 use std::{fmt, path};
@@ -293,8 +293,8 @@ pub async fn get_all(emails: Vec<String>) -> Vec<(String, Result<SignedPublicKey
             match res {
                 Ok(res) => Some(res),
                 Err(err) => {
-                    warn!("cannot join async task: {err}");
-                    debug!("cannot join async task: {err:?}");
+                    debug!("cannot join async task: {err}");
+                    debug!("{err:?}");
                     None
                 }
             }

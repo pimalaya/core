@@ -4,7 +4,7 @@
 //! [imap] crate types.
 
 use imap::{self, types::Fetch};
-use log::{debug, warn};
+use log::debug;
 use thiserror::Error;
 
 use crate::Result;
@@ -58,8 +58,8 @@ impl Flags {
             match Flag::try_from_imap_flag(flag) {
                 Ok(flag) => Some(flag),
                 Err(err) => {
-                    warn!("cannot parse imap flag {flag}, skipping it: {err}");
-                    debug!("cannot parse imap flag {flag}: {err:?}");
+                    debug!("cannot parse imap flag {flag}: {err}");
+                    debug!("{err:?}");
                     None
                 }
             }

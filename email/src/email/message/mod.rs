@@ -19,7 +19,7 @@ pub mod template;
 
 #[cfg(feature = "imap")]
 use imap::types::{Fetch, Fetches};
-use log::{debug, warn};
+use log::debug;
 use mail_parser::{MessageParser, MimeHeaders};
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
@@ -249,7 +249,7 @@ impl Messages {
                 .filter_map(|fetch| match fetch.body() {
                     Some(_) => Some(fetch),
                     None => {
-                        warn!("skipping imap fetch with an empty body");
+                        debug!("skipping imap fetch with an empty body");
                         debug!("skipping imap fetch with an empty body: {fetch:#?}");
                         None
                     }

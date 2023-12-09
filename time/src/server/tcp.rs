@@ -3,7 +3,7 @@
 //! This module contains the implementation of the TCP server binder,
 //! based on [`std::net::TcpStream`].
 
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use std::{
     io::{self, BufRead, BufReader, Write},
     net::{TcpListener, TcpStream},
@@ -99,13 +99,13 @@ impl ServerBind for TcpBind {
         for stream in binder.incoming() {
             match stream {
                 Err(err) => {
-                    warn!("cannot get stream from client: {err}");
-                    debug!("cannot get stream from client: {err:?}");
+                    debug!("cannot get stream from client: {err}");
+                    debug!("{err:?}");
                 }
                 Ok(mut stream) => {
                     if let Err(err) = self.handle(timer.clone(), &mut stream) {
-                        warn!("cannot handle request: {err}");
-                        debug!("cannot handle request: {err:?}");
+                        debug!("cannot handle request: {err}");
+                        debug!("{err:?}");
                     }
                 }
             };

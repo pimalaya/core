@@ -241,7 +241,7 @@ impl MimeBodyInterpreter {
     async fn decrypt_part(&self, encrypted_part: &MessagePart<'_>) -> Result<String> {
         match &self.pgp {
             None => {
-                warn!("cannot decrypt part: pgp not configured");
+                debug!("cannot decrypt part: pgp not configured");
                 Ok(String::from_utf8_lossy(encrypted_part.contents()).to_string())
             }
             Some(pgp) => {
@@ -265,7 +265,7 @@ impl MimeBodyInterpreter {
     async fn verify_msg(&self, msg: &Message<'_>, ids: &[usize]) -> Result<()> {
         match &self.pgp {
             None => {
-                warn!("cannot verify message: pgp not configured");
+                debug!("cannot verify message: pgp not configured");
             }
             Some(pgp) => {
                 let signed_part = msg.part(ids[0]).unwrap();
@@ -494,8 +494,8 @@ impl MimeBodyInterpreter {
                 match self.decrypt_part(msg.part(ids[1]).unwrap()).await {
                     Ok(ref clear_part) => tpl.push_str(clear_part),
                     Err(err) => {
-                        warn!("cannot decrypt email part using pgp: {err}");
-                        debug!("cannot decrypt email part using pgp: {err:?}");
+                        debug!("cannot decrypt email part using pgp: {err}");
+                        debug!("{err:?}");
                     }
                 }
             }
@@ -506,8 +506,8 @@ impl MimeBodyInterpreter {
                         debug!("email part successfully verified using pgp");
                     }
                     Err(err) => {
-                        warn!("cannot verify email part using pgp: {err}");
-                        debug!("cannot verify email part using pgp: {err:?}");
+                        debug!("cannot verify email part using pgp: {err}");
+                        debug!("{err:?}");
                     }
                 }
 
@@ -534,7 +534,7 @@ impl MimeBodyInterpreter {
                     if let Some(part) = msg.part(*id) {
                         tpl.push_str(&self.interpret_part(msg, part).await?);
                     } else {
-                        warn!("cannot find part {id}, skipping it");
+                        debug!("cannot find part {id}, skipping it");
                     }
                 }
 

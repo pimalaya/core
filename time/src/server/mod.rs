@@ -10,7 +10,7 @@ mod tcp;
 #[cfg(feature = "tcp-binder")]
 pub use tcp::*;
 
-use log::{debug, error, trace, warn};
+use log::{debug, trace};
 use std::{
     io,
     ops::{Deref, DerefMut},
@@ -207,8 +207,8 @@ impl Server {
 
         let fire_event = |event: ServerEvent| {
             if let Err(err) = (self.config.handler)(event.clone()) {
-                warn!("cannot fire event {event:?}, skipping it");
-                error!("{err}");
+                debug!("cannot fire event {event:?}: {err}");
+                debug!("{err:?}");
             }
         };
 
@@ -230,16 +230,16 @@ impl Server {
                     }
                     ServerState::Running => {
                         if let Err(err) = timer.update() {
-                            warn!("cannot update timer, exiting: {err}");
-                            debug!("cannot update timer: {err:?}");
+                            debug!("cannot update timer, exiting: {err}");
+                            debug!("{err:?}");
                             *state = ServerState::Stopping;
                             break;
                         }
                     }
                 },
                 Err(err) => {
-                    warn!("cannot determine if server should stop, exiting: {err}");
-                    debug!("cannot determine if server should stop: {err:?}");
+                    debug!("cannot determine if server should stop, exiting: {err}");
+                    debug!("{err:?}");
                     break;
                 }
             }
@@ -254,8 +254,8 @@ impl Server {
             let timer = self.timer.clone();
             thread::spawn(move || {
                 if let Err(err) = binder.bind(timer) {
-                    warn!("cannot bind, exiting: {err}");
-                    debug!("cannot bind: {err:?}");
+                    debug!("cannot bind, exiting: {err}");
+                    debug!("{err:?}");
                 }
             });
         }

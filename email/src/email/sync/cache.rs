@@ -4,7 +4,7 @@
 //! synchronization cache entities using SQLite.
 
 use chrono::DateTime;
-use log::{error, warn};
+use log::debug;
 use rusqlite::{types::Value, Connection, Transaction};
 
 use crate::{
@@ -87,8 +87,8 @@ impl EmailSyncCache {
                         match DateTime::parse_from_rfc3339(&date) {
                             Ok(date) => date,
                             Err(err) => {
-                                warn!("invalid date {date}, skipping it");
-                                error!("invalid date {date}: {err:?}");
+                                debug!("invalid date {date}, skipping it");
+                                debug!("{err:?}");
                                 DateTime::default()
                             }
                         }

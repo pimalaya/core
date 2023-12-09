@@ -7,7 +7,7 @@
 //! you to build and to apply an email patch.
 
 use futures::{lock::Mutex, stream, StreamExt};
-use log::{debug, error, info, warn};
+use log::{debug, info};
 use rusqlite::Connection;
 use std::{
     collections::{HashMap, HashSet},
@@ -171,7 +171,7 @@ impl<'a, B: BackendContextBuilder + 'static> EmailSyncPatchManager<'a, B> {
         let mut report = EmailSyncReport::default();
 
         if self.dry_run {
-            warn!("dry run enabled, skipping patch");
+            debug!("dry run enabled, skipping patch");
             report.patch = patch
                 .into_iter()
                 .flatten()
@@ -195,8 +195,8 @@ impl<'a, B: BackendContextBuilder + 'static> EmailSyncPatchManager<'a, B> {
                         match runner.run().await {
                             Ok(report) => Some(report),
                             Err(err) => {
-                                warn!("error while starting email sync runner: {err}");
-                                debug!("error while starting email sync runner: {err:?}");
+                                debug!("error while starting email sync runner: {err}");
+                                debug!("{err:?}");
                                 None
                             }
                         }
@@ -264,8 +264,8 @@ impl<'a, B: BackendContextBuilder + 'static> EmailSyncPatchManager<'a, B> {
             };
 
             if let Err(err) = process_cache_patch() {
-                warn!("error while applying envelope cache patch: {err:?}");
-                error!("{err}");
+                debug!("error while applying envelope cache patch: {err}");
+                debug!("{err:?}");
                 report.cache_patch.1 = Some(err);
             }
         }

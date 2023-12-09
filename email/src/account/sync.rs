@@ -6,7 +6,7 @@
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use futures::{stream::FuturesUnordered, StreamExt};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use std::{
     collections::{HashMap, HashSet},
     env, fmt,
@@ -179,8 +179,8 @@ impl AccountSyncProgress {
     pub fn emit(&self, evt: AccountSyncProgressEvent) {
         debug!("emitting sync progress event {evt:?}");
         if let Err(err) = (self.0)(evt.clone()) {
-            warn!("error while emitting backend sync event {evt:?}, skipping it");
-            error!("error while emitting backend sync event: {err:?}");
+            debug!("error while emitting backend sync event {evt:?}, skipping it");
+            debug!("{err:?}");
         }
     }
 }
@@ -252,7 +252,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
         info!("starting synchronization of account {account}");
 
         if !self.remote_builder.account_config.sync {
-            warn!("sync feature not enabled for account {account}, aborting");
+            debug!("sync feature not enabled for account {account}, aborting");
             return Err(Error::SyncAccountNotEnabledError(account.clone()).into());
         }
 

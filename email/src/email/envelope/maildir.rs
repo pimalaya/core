@@ -3,7 +3,7 @@
 //! This module contains envelope-related mapping functions from the
 //! [maildirpp] crate types.
 
-use log::{debug, warn};
+use log::debug;
 use maildirpp::{MailEntries, MailEntry};
 use rayon::prelude::*;
 
@@ -21,8 +21,8 @@ impl Envelopes {
                 .filter_map(|entry| match entry {
                     Ok(entry) => Some(Envelope::from_mdir_entry(entry)),
                     Err(err) => {
-                        warn!("cannot parse maildir entry, skipping it: {err}");
-                        debug!("cannot parse maildir entry: {err:?}");
+                        debug!("cannot parse maildir entry, skipping it: {err}");
+                        debug!("{err:?}");
                         None
                     }
                 })

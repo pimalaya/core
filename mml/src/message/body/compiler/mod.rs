@@ -104,7 +104,7 @@ impl<'a> MmlBodyCompiler {
     async fn encrypt_part(&self, clear_part: &MimePart<'a>) -> Result<MimePart<'a>> {
         match &self.pgp {
             None => {
-                warn!("cannot encrypt part: pgp not configured");
+                debug!("cannot encrypt part: pgp not configured");
                 Ok(clear_part.clone())
             }
             Some(pgp) => {
@@ -139,8 +139,8 @@ impl<'a> MmlBodyCompiler {
         match self.encrypt_part(&clear_part).await {
             Ok(encrypted_part) => encrypted_part,
             Err(err) => {
-                warn!("cannot encrypt email part using pgp: {err}");
-                debug!("cannot encrypt email part using pgp: {err:?}");
+                debug!("cannot encrypt email part using pgp: {err}");
+                debug!("{err:?}");
                 clear_part
             }
         }
@@ -151,7 +151,7 @@ impl<'a> MmlBodyCompiler {
     async fn sign_part(&self, clear_part: MimePart<'a>) -> Result<MimePart<'a>> {
         match &self.pgp {
             None => {
-                warn!("cannot sign part: pgp not configured");
+                debug!("cannot sign part: pgp not configured");
                 Ok(clear_part.clone())
             }
             Some(pgp) => {
@@ -190,8 +190,8 @@ impl<'a> MmlBodyCompiler {
         match self.sign_part(clear_part.clone()).await {
             Ok(signed_part) => signed_part,
             Err(err) => {
-                warn!("cannot sign email part using pgp: {err}");
-                debug!("cannot sign email part using pgp: {err:?}");
+                debug!("cannot sign email part using pgp: {err}");
+                debug!("{err:?}");
                 clear_part
             }
         }
@@ -242,7 +242,7 @@ impl<'a> MmlBodyCompiler {
                     Some(&ALTERNATIVE) => MimePart::new("multipart/alternative", no_parts),
                     Some(&RELATED) => MimePart::new("multipart/related", no_parts),
                     Some(unknown) => {
-                        warn!("unknown multipart type {unknown}, falling back to mixed");
+                        debug!("unknown multipart type {unknown}, falling back to mixed");
                         MimePart::new("multipart/mixed", no_parts)
                     }
                 };

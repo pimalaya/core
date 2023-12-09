@@ -7,7 +7,7 @@ use imap::{
     extensions::sort::SortCriterion,
     types::{Fetch, Fetches},
 };
-use log::{debug, warn};
+use log::debug;
 use std::{io, ops::Deref, str::FromStr};
 use thiserror::Error;
 
@@ -32,8 +32,8 @@ impl Envelopes {
             .filter_map(|envelope| match Envelope::from_imap_fetch(envelope) {
                 Ok(envelope) => Some(envelope),
                 Err(err) => {
-                    warn!("cannot build imap envelope: {err}");
-                    debug!("cannot build imap envelope: {err:?}");
+                    debug!("cannot build imap envelope: {err}");
+                    debug!("{err:?}");
                     None
                 }
             })

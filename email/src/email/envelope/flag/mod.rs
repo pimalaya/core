@@ -13,7 +13,7 @@ pub mod remove;
 pub mod set;
 mod sync;
 
-use log::{debug, warn};
+use log::debug;
 use std::{
     collections::HashSet,
     fmt,
@@ -44,7 +44,7 @@ pub enum Error {
 /// called `R` (replied) for Maildir backend. This implementation
 /// tries to be as simple as possible and should fit most of the use
 /// cases.
-#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum Flag {
     /// Flag used when the email envelope has been opened.
     Seen,
@@ -180,8 +180,8 @@ impl From<&str> for Flags {
             .filter_map(|flag| match flag.parse() {
                 Ok(flag) => Some(flag),
                 Err(err) => {
-                    warn!("cannot parse flag {flag}, skipping it: {err}");
-                    debug!("cannot parse flag {flag}: {err:?}");
+                    debug!("cannot parse flag {flag}, skipping it: {err}");
+                    debug!("{err:?}");
                     None
                 }
             })

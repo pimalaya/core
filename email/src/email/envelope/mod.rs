@@ -16,7 +16,7 @@ pub mod maildir;
 pub mod notmuch;
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
-use log::warn;
+use log::debug;
 use std::ops::{Deref, DerefMut};
 
 use crate::{account::config::AccountConfig, message::Message};
@@ -91,7 +91,7 @@ impl Envelope {
                     envelope.from = Address::new(name, email)
                 }
                 _ => {
-                    warn!("cannot extract envelope sender from message header, skipping it");
+                    debug!("cannot extract envelope sender from message header, skipping it");
                 }
             };
 
@@ -99,7 +99,7 @@ impl Envelope {
 
             match msg.date() {
                 Some(date) => envelope.set_date(date),
-                None => warn!("cannot extract envelope date from message header, skipping it"),
+                None => debug!("cannot extract envelope date from message header, skipping it"),
             };
 
             envelope.message_id = msg
@@ -110,7 +110,7 @@ impl Envelope {
                 // synchronized.
                 .unwrap_or_else(|| envelope.date.to_rfc3339());
         } else {
-            warn!("cannot parse message header, skipping it");
+            debug!("cannot parse message header, skipping it");
         };
 
         envelope
@@ -126,7 +126,7 @@ impl Envelope {
             let tz = match FixedOffset::east_opt(tz_sign * tz_secs) {
                 Some(tz) => tz,
                 None => {
-                    warn!("invalid timezone seconds {tz_secs}, falling back to 0");
+                    debug!("invalid timezone seconds {tz_secs}, falling back to 0");
                     FixedOffset::east_opt(0).unwrap()
                 }
             };
@@ -141,7 +141,7 @@ impl Envelope {
             )
             .earliest()
             .unwrap_or_else(|| {
-                warn!("cannot parse envelope date {date}, skipping it");
+                debug!("cannot parse envelope date {date}, skipping it");
                 DateTime::default()
             })
         }
