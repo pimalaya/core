@@ -14,7 +14,7 @@ async fn test_maildir_features() {
             add::maildir::AddFolderMaildir, delete::maildir::DeleteFolderMaildir,
             expunge::maildir::ExpungeFolderMaildir, list::maildir::ListFoldersMaildir,
         },
-        maildir::{MaildirConfig, MaildirSessionBuilder},
+        maildir::{config::MaildirConfig, MaildirSessionBuilder},
         message::{
             add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
             copy::maildir::CopyMessagesMaildir, move_::maildir::MoveMessagesMaildir,

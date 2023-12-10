@@ -12,8 +12,11 @@ use email::{
         expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
         purge::imap::PurgeFolderImap,
     },
-    imap::{ImapAuthConfig, ImapConfig, ImapSessionBuilder},
-    maildir::MaildirConfig,
+    imap::{
+        config::{ImapAuthConfig, ImapConfig},
+        ImapSessionBuilder,
+    },
+    maildir::config::MaildirConfig,
     message::{
         add_raw_with_flags::imap::AddRawMessageWithFlagsImap, get::imap::GetMessagesImap,
         move_::imap::MoveMessagesImap, peek::imap::PeekMessagesImap,

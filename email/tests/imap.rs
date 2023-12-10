@@ -12,7 +12,10 @@ async fn test_imap_features() {
             expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
             purge::imap::PurgeFolderImap,
         },
-        imap::{ImapAuthConfig, ImapConfig, ImapSessionBuilder},
+        imap::{
+            config::{ImapAuthConfig, ImapConfig},
+            ImapSessionBuilder,
+        },
         message::{
             add_raw_with_flags::imap::AddRawMessageWithFlagsImap, copy::imap::CopyMessagesImap,
             get::imap::GetMessagesImap, move_::imap::MoveMessagesImap,

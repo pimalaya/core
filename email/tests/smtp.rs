@@ -7,9 +7,15 @@ async fn test_smtp_features() {
         backend::BackendBuilder,
         envelope::list::imap::ListEnvelopesImap,
         folder::purge::imap::PurgeFolderImap,
-        imap::{ImapAuthConfig, ImapConfig, ImapSessionBuilder},
+        imap::{
+            config::{ImapAuthConfig, ImapConfig},
+            ImapSessionBuilder,
+        },
         message::send_raw::smtp::SendRawMessageSmtp,
-        smtp::{SmtpAuthConfig, SmtpClientBuilder, SmtpConfig},
+        smtp::{
+            config::{SmtpAuthConfig, SmtpConfig},
+            SmtpClientBuilder,
+        },
     };
     use mail_builder::MessageBuilder;
     use secret::Secret;

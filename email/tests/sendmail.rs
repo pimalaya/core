@@ -6,9 +6,12 @@ async fn test_sendmail_features() {
         backend::BackendBuilder,
         envelope::list::imap::ListEnvelopesImap,
         folder::purge::imap::PurgeFolderImap,
-        imap::{ImapAuthConfig, ImapConfig, ImapSessionBuilder},
+        imap::{
+            config::{ImapAuthConfig, ImapConfig},
+            ImapSessionBuilder,
+        },
         message::send_raw::sendmail::SendRawMessageSendmail,
-        sendmail::{SendmailConfig, SendmailContext},
+        sendmail::{config::SendmailConfig, SendmailContext},
     };
     use mail_builder::MessageBuilder;
     use secret::Secret;

@@ -1,42 +1,30 @@
 [package]
 name = "oauth-lib"
 version = "0.1.0"
-description = "Rust library to deal with OAuth flows."
+description = "Rust library to deal with OAuth flows"
 homepage = "https://pimalaya.org/"
-repository = "https://git.sr.ht/~soywod/pimalaya/"
+documentation = "https://docs.rs/oauth-lib/latest/oauth/"
+repository = "https://git.sr.ht/~soywod/pimalaya/tree/master/item/oauth/README.md"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["network-programming", "authentication"]
 keywords = ["oauth", "oauth2", "authorization", "xoauth2", "oauthbearer"]
-metadata.docs.rs.all-features = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [lib]
 name = "oauth"
 
-[dev-dependencies.tokio]
-version = "1.23"
-default-features = false
-features = ["macros", "rt"]
+[dev-dependencies]
+tokio = { version = "1.23", default-features = false, features = ["macros", "rt"] }
 
-[dependencies.log]
-version = "0.4"
-
-[dependencies.oauth2]
-version = "4.3"
-
-[dependencies.reqwest]
-version = "0.11"
-default-features = false
-features = ["rustls-tls"]
-
-[dependencies.thiserror]
-version = "1.0"
-
-[dependencies.tokio]
-version = "1.23"
-default-features = false
-features = ["io-util", "net"]
-
-[dependencies.url]
-version = "2.3"
+[dependencies]
+log = "0.4"
+oauth2 = "4.3"
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
+thiserror = "1"
+tokio = { version = "1.23", default-features = false, features = ["io-util", "net"] }
+url = "2.3"
