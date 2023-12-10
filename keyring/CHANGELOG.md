@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `set_global_service_name` function to globally change the service name.
+- Added `secret-service` as a dependency, to prevent [build issues](https://github.com/hwchen/keyring-rs/issues/148).
+
+### Changed
+
+- Replaced native `keyring` cargo feature by `linux-no-secret-service` by `linux-secret-service-rt-tokio-crypto-rust`. `linux-no-secret-service` was using `keyutils` under the hood, which stores secrets in memory and was loosing them after reboots. A better version in the future would be to use `keyutils` as a cache.
+
 ## [0.1.0] - 2023-08-27
 
 - Renamed project `keyring-lib` in order to make it generic.

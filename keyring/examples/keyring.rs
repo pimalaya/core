@@ -6,6 +6,9 @@ const VAL: &str = "val";
 fn main() {
     env_logger::builder().is_test(true).init();
 
+    // set global keyring service name
+    keyring::set_global_service_name("keyring-example");
+
     // set entry secret
     let entry = Entry::from(KEY);
     entry.set_secret(VAL).unwrap();
