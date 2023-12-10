@@ -1,5 +1,5 @@
 use keyring::Entry;
-use log::warn;
+use log::debug;
 use mml::pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
 use secret::Secret;
 use shellexpand_utils::shellexpand_path;

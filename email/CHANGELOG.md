@@ -7,13 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2023-12-10
+
+### Added
+
+- Added `Config` structure that represents the global settings of the user, including all his accounts in a `HashMap<String, AccountConfig>` [#110].
+
 ### Changed
 
-- Bumped `mml@1.0.2`.
+- Replaced `Backend` and `Sender` traits by small backend feature traits [#103].
+- Bumped all inner crates.
 
 ### Fixed
 
 - Fixed prefixes not set properly in reply and forward templates. Now prefixes are identified using `Regex` and removed, which should avoid multiple nested prefixes like `Re: RE:Hello, world!`.
+- Fixed a bug when an attachment could be downloaded outside of the downloads directory [#158].
+- Fixed `AccountConfig::sync_dir` not expanded properly [#152].
 
 ## [0.15.3] - 2023-09-25
 
@@ -412,3 +421,7 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#94]: https://todo.sr.ht/~soywod/pimalaya/94
 [#95]: https://todo.sr.ht/~soywod/pimalaya/95
 [#97]: https://todo.sr.ht/~soywod/pimalaya/97
+[#103]: https://todo.sr.ht/~soywod/pimalaya/103
+[#110]: https://todo.sr.ht/~soywod/pimalaya/110
+[#152]: https://todo.sr.ht/~soywod/pimalaya/152
+[#158]: https://todo.sr.ht/~soywod/pimalaya/158
