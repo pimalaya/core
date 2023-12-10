@@ -17,7 +17,7 @@ This is a plain text part.
 <h1>This is a HTML part.</h1>
 <#/part>
 
-<#part filename=./examples/attachment.png description="This is an attachment."><#/part>
+<#part description="This is an attachment." filename=./examples/attachment.png><#/part>
 ```
 
 compiles to:

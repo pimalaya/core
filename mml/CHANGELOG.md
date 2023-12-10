@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2023-12-10
+
+### Added
+
+- Added `set_pgp`, `set_some_pgp` and `with_some_pgp` utils for compiler and interpreter.
+
+### Changed
+
+- Replaced `warn!` with `debug!`.
+- Internal `Pgp` for compiler and interpreter are now optional `Option<Ppg>`, it should not have any impact on the API.
+
 ## [1.0.1] - 2023-10-09
 
 ### Changed
