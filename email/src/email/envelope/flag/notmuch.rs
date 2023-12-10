@@ -6,7 +6,7 @@
 use log::debug;
 use notmuch::Message;
 
-use crate::email::Flags;
+use crate::flag::Flags;
 
 impl Flags {
     pub fn from_notmuch_msg(msg: &Message) -> Self {
@@ -14,7 +14,7 @@ impl Flags {
             .filter_map(|ref tag| match tag.parse() {
                 Ok(flag) => Some(flag),
                 Err(err) => {
-                    debug!("cannot parse notmuch tag {tag}, skipping it: {err}");
+                    debug!("cannot parse notmuch tag {tag}: {err}");
                     debug!("{err:?}");
                     None
                 }

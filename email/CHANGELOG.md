@@ -12,10 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `Config` structure that represents the global settings of the user, including all his accounts in a `HashMap<String, AccountConfig>` [#110].
+- Added new cargo features related to backend features: `maildir` and `sendmail`.
 
 ### Changed
 
 - Replaced `Backend` and `Sender` traits by small backend feature traits [#103].
+- Renamed backend and sender cargo features:
+  - `imap-backend` => `imap`
+  - `notmuch-backend` => `notmuch`
+  - `smtp-sender` => `smtp`
 - Bumped all inner crates.
 
 ### Fixed

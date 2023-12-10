@@ -3,9 +3,13 @@
 //! This module contains envelope-related mapping functions from the
 //! [notmuch] crate types.
 
-use log::{debug, warn};
+use log::debug;
 
-use crate::email::{Envelope, Envelopes, Flags, Message};
+use crate::{
+    envelope::{Envelope, Envelopes},
+    flag::Flags,
+    message::Message,
+};
 
 impl Envelopes {
     pub fn from_notmuch_msgs(msgs: notmuch::Messages) -> Self {
