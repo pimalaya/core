@@ -71,13 +71,13 @@ pgp-lib = "=0.1.0"
 process-lib = "=0.2.0"
 rayon = "1.6"
 regex = "1.5"
-rustls = { version = "0.21", features = ["dangerous_configuration"] }
+rustls = "0.22"
 rustls-native-certs = "0.6"
 secret-lib = "=0.2.0"
 shellexpand-utils = "=0.2.0"
 thiserror = "1"
 tokio = { version = "1.23", default-features = false, features = ["fs", "net"] }
-tokio-rustls = "0.24"
+tokio-rustls = "0.25"
 tree_magic_mini = "3"
 urlencoding = "2.1"
 utf7-imap = { version = "=0.3.2", optional = true }

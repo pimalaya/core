@@ -4,15 +4,11 @@ use async_trait::async_trait;
 use imap::{extensions::idle::SetReadTimeout, Authenticator, Client, Session};
 use log::{debug, info, log_enabled, Level};
 use once_cell::sync::Lazy;
-use rustls::{
-    client::{ServerCertVerified, ServerCertVerifier},
-    Certificate, ClientConfig, ClientConnection, RootCertStore, StreamOwned,
-};
+use rustls::{pki_types::ServerName, ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use std::{
     io::{self, Read, Write},
     net::TcpStream,
     ops::Deref,
-    result,
     sync::Arc,
     time::Duration,
 };
@@ -46,9 +42,11 @@ pub enum Error {
 /// `Backend::tls_handshake()`.
 const ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
     let mut store = RootCertStore::empty();
+
     for cert in rustls_native_certs::load_native_certs().unwrap() {
-        store.add(&Certificate(cert.0)).unwrap();
+        store.add(cert.0.into()).unwrap();
     }
+
     store
 });
 
@@ -406,12 +404,13 @@ fn build_client(imap_config: &ImapConfig) -> Result<Client<ImapSessionStream>> {
         client_builder.starttls();
     }
 
-    let client = if imap_config.ssl() {
-        client_builder.connect(tls_handshake(imap_config)?)
-    } else {
-        client_builder.connect(tcp_handshake()?)
-    }
-    .map_err(Error::ConnectError)?;
+    let client = client_builder
+        .connect(if imap_config.ssl() {
+            tls_handshake()
+        } else {
+            tcp_handshake()
+        }?)
+        .map_err(Error::ConnectError)?;
 
     Ok(client)
 }
@@ -422,52 +421,26 @@ fn tcp_handshake() -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<Ima
 }
 
 /// TLS/SSL handshake.
-fn tls_handshake(
-    imap_config: &ImapConfig,
-) -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
-    use rustls::client::WebPkiVerifier;
-
-    struct DummyCertVerifier;
-    impl ServerCertVerifier for DummyCertVerifier {
-        fn verify_server_cert(
-            &self,
-            _end_entity: &Certificate,
-            _intermediates: &[Certificate],
-            _server_name: &rustls::ServerName,
-            _scts: &mut dyn Iterator<Item = &[u8]>,
-            _ocsp_response: &[u8],
-            _now: std::time::SystemTime,
-        ) -> result::Result<rustls::client::ServerCertVerified, rustls::Error> {
-            Ok(ServerCertVerified::assertion())
-        }
-
-        fn request_scts(&self) -> bool {
-            false
-        }
-    }
-
-    let tlsconfig = ClientConfig::builder().with_safe_defaults();
-
-    let tlsconfig = if imap_config.insecure() {
-        tlsconfig.with_custom_certificate_verifier(Arc::new(DummyCertVerifier))
-    } else {
-        let verifier = WebPkiVerifier::new(ROOT_CERT_STORE.clone(), None);
-        tlsconfig.with_custom_certificate_verifier(Arc::new(verifier))
-    }
-    .with_no_client_auth();
-
-    let tlsconfig = Arc::new(tlsconfig);
+fn tls_handshake() -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
+    let tlsconfig = Arc::new(
+        ClientConfig::builder()
+            .with_root_certificates(ROOT_CERT_STORE.clone())
+            .with_no_client_auth(),
+    );
 
     Ok(Box::new(|domain, tcp| {
-        let name = rustls::ServerName::try_from(domain).map_err(|err| {
+        let name = ServerName::try_from(domain.to_string()).map_err(|err| {
             imap::Error::Io(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("Invalid domain name ({:?}): {}", err, domain),
             ))
         })?;
+
         let connection = ClientConnection::new(tlsconfig, name)
             .map_err(|err| io::Error::new(io::ErrorKind::ConnectionAborted, err))?;
+
         let stream = StreamOwned::new(connection, tcp);
+
         Ok(ImapSessionStream::Tls(stream))
     }))
 }
