@@ -1,5 +1,4 @@
-//! Rust library to run cross-platform, asynchronous processes in
-//! pipelines.
+//! Cross-platform, asynchronous library to run commands in pipelines.
 //!
 //! The core concept of this library is to simplify the execution of
 //! commands, following these rules:
@@ -86,7 +85,7 @@ pub enum Cmd {
 }
 
 impl Cmd {
-    /// Wrapper around `alloc::str::replace`.
+    /// Wrapper around [`alloc::str::replace`].
     ///
     /// This function is particularly useful when you need to replace
     /// placeholders on all inner commands.
@@ -104,12 +103,12 @@ impl Cmd {
         self
     }
 
-    /// Runs the command without initial input.
+    /// Runs the command without piped input.
     pub async fn run(&self) -> Result<CmdOutput> {
         self.run_with([]).await
     }
 
-    /// Runs the command with the given input.
+    /// Runs the command with the given piped input.
     pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CmdOutput> {
         debug!("running command: {}", self.to_string());
 
@@ -134,13 +133,13 @@ impl From<String> for Cmd {
 
 impl From<&String> for Cmd {
     fn from(cmd: &String) -> Self {
-        Self::SingleCmd(cmd.into())
+        cmd.clone().into()
     }
 }
 
 impl From<&str> for Cmd {
     fn from(cmd: &str) -> Self {
-        Self::SingleCmd(cmd.into())
+        cmd.to_owned().into()
     }
 }
 
@@ -436,7 +435,7 @@ impl Into<Vec<u8>> for CmdOutput {
 impl TryInto<String> for CmdOutput {
     type Error = Error;
 
-    fn try_into(self) -> result::Result<String, Self::Error> {
+    fn try_into(self) -> Result<String> {
         String::from_utf8(self.0).map_err(Error::ParseOutputAsUtf8StringError)
     }
 }

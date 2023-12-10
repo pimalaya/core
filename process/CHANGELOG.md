@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2023-12-10
+
 ## Added
 
 - Added `SingleCmd::with_output_piped` to control whenever stdout and stderr should be piped or not.
