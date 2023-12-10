@@ -1,21 +1,19 @@
 [package]
 name = "shellexpand-utils"
-version = "0.1.0"
-description = "Rust utils for the shellexpand crate."
+version = "0.2.0"
+description = "Rust utils for the shellexpand crate"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [lib]
 name = "shellexpand_utils"
 
-[dependencies.log]
-version = "0.4"
-
-[dependencies.thiserror]
-version = "1.0"
-
-[dependencies.shellexpand]
-version = "3.1"
-default-features = false
-features = ["full"]
+[dependencies]
+log = "0.4"
+shellexpand = { version = "3.1", default-features = false, features = ["full"] }
+thiserror = "1"

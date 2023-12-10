@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    result,
+};
 use thiserror::Error;
 
 pub mod canonicalize;
@@ -14,7 +17,7 @@ pub enum Error {
 }
 
 /// The global `Result` alias of the library.
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = result::Result<T, Error>;
 
 pub fn try_shellexpand_path(path: impl AsRef<Path>) -> Result<PathBuf> {
     let path = expand::try_path(path)?;
