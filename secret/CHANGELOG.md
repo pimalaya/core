@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2023-12-10
+
+### Added
+
+- Exposed publicly `keyring` and `process` at the crate root level, to prevent types version mismatches.
+
+### Changed
+
+- Bumped `keyring-lib@=0.2.0`.
+- Bumped `process-lib@=0.2.0`.
+
 ## [0.1.0] - 2023-08-27
 
 - Renamed project `secret-lib` in order to make it generic.
