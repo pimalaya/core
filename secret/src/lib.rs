@@ -11,6 +11,7 @@ use keyring::Entry;
 #[doc(inline)]
 pub use process;
 use process::Cmd;
+use serde::{Deserialize, Serialize};
 use std::result;
 use thiserror::Error;
 
@@ -33,7 +34,8 @@ pub type Result<T> = result::Result<T, Error>;
 ///
 /// A secret can be retrieved either from a raw string, from a command
 /// or from a keyring entry.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Secret {
     /// The secret is contained in a raw string, usually not safe to
     /// use and so not recommended.
@@ -44,6 +46,7 @@ pub enum Secret {
 
     /// The secret is contained in the given user's global keyring at
     /// the given entry.
+    #[serde(rename = "keyring")]
     KeyringEntry(Entry),
 
     /// The secret is not defined.
@@ -86,7 +89,7 @@ impl Secret {
                 .next()
                 .ok_or(Error::GetSecretFromCmdEmptyOutputError)?
                 .to_owned()),
-            Self::KeyringEntry(entry) => Ok(entry.get_secret()?),
+            Self::KeyringEntry(entry) => Ok(entry.get_secret().await?),
             Self::Undefined => Err(Error::GetSecretFromUndefinedError),
         }
     }
@@ -106,15 +109,15 @@ impl Secret {
                 .take(1)
                 .next()
                 .map(ToOwned::to_owned)),
-            Self::KeyringEntry(entry) => Ok(entry.find_secret()?),
+            Self::KeyringEntry(entry) => Ok(entry.find_secret().await?),
             Self::Undefined => Err(Error::GetSecretFromUndefinedError),
         }
     }
 
     /// Change the secret value if the source is a keyring entry.
-    pub fn set_keyring_entry_secret(&self, secret: impl AsRef<str>) -> Result<String> {
+    pub async fn set_keyring_entry_secret(&self, secret: impl AsRef<str>) -> Result<String> {
         if let Self::KeyringEntry(entry) = self {
-            entry.set_secret(secret.as_ref())?;
+            entry.set_secret(secret.as_ref()).await?;
         }
 
         Ok(secret.as_ref().to_string())
@@ -128,9 +131,9 @@ impl Secret {
     }
 
     /// Delete the keyring entry secret.
-    pub fn delete_keyring_entry_secret(&self) -> Result<()> {
+    pub async fn delete_keyring_entry_secret(&self) -> Result<()> {
         if let Self::KeyringEntry(entry) = self {
-            entry.delete_secret()?;
+            entry.delete_secret().await?;
         }
 
         Ok(())

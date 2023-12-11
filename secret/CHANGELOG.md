@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2023-12-11
+
+### Changed
+
+- Made `Secret` serializable and deserializable using `serde`.
+- Made `set_keyring_entry_secret` async.
+- Made `delete_keyring_entry_secret` async.
+
 ## [0.2.0] - 2023-12-10
 
 ### Added
