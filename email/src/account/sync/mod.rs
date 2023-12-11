@@ -4,6 +4,8 @@
 //! which allows you to synchronize folders and emails for a given
 //! account using a Maildir backend.
 
+pub mod config;
+
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, error, info};
@@ -201,7 +203,11 @@ pub struct AccountSyncBuilder<B: BackendContextBuilder> {
 impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
     /// Creates a new account synchronization builder.
     pub async fn new(remote_builder: BackendBuilder<B>) -> Result<AccountSyncBuilder<B>> {
-        let folders_strategy = remote_builder.account_config.sync_folders_strategy.clone();
+        let folders_strategy = remote_builder
+            .account_config
+            .get_folder_sync_strategy()
+            .clone();
+
         Ok(Self {
             remote_builder,
             on_progress: Default::default(),
@@ -251,7 +257,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
         let account = &self.remote_builder.account_config.name;
         info!("starting synchronization of account {account}");
 
-        if !self.remote_builder.account_config.sync {
+        if !self.remote_builder.account_config.is_sync_enabled() {
             debug!("sync feature not enabled for account {account}, aborting");
             return Err(Error::SyncAccountNotEnabledError(account.clone()).into());
         }
@@ -269,10 +275,10 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             .try_lock(FileLockMode::Exclusive)
             .map_err(|err| Error::SyncAccountLockFileError(err, account.clone()))?;
 
-        let sync_dir = self.remote_builder.account_config.sync_dir()?;
+        let sync_dir = self.remote_builder.account_config.get_sync_dir()?;
 
         debug!("initializing folder and envelope cache");
-        let conn = &mut self.remote_builder.account_config.sync_db_builder()?;
+        let conn = &mut self.remote_builder.account_config.get_sync_db_conn()?;
         FolderSyncCache::init(conn)?;
         EmailSyncCache::init(conn)?;
 

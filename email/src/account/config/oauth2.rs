@@ -6,6 +6,7 @@
 use log::debug;
 use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use secret::Secret;
+use serde::{Deserialize, Serialize};
 use std::{io, net::TcpListener, vec};
 use thiserror::Error;
 
@@ -51,7 +52,7 @@ pub enum Error {
 }
 
 /// The OAuth 2.0 configuration.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct OAuth2Config {
     /// Method for presenting an OAuth 2.0 bearer token to a service
     /// for authentication.
@@ -135,15 +136,18 @@ impl OAuth2Config {
     }
 
     /// Resets the three secrets of the OAuth 2.0 configuration.
-    pub fn reset(&self) -> Result<()> {
+    pub async fn reset(&self) -> Result<()> {
         self.client_secret
             .delete_keyring_entry_secret()
+            .await
             .map_err(Error::DeleteClientSecretError)?;
         self.access_token
             .delete_keyring_entry_secret()
+            .await
             .map_err(Error::DeleteAccessTokenError)?;
         self.refresh_token
             .delete_keyring_entry_secret()
+            .await
             .map_err(Error::DeleteRefreshTokenError)?;
         Ok(())
     }
@@ -159,18 +163,15 @@ impl OAuth2Config {
             return Ok(());
         }
 
-        let set_client_secret = || {
-            self.client_secret
-                .set_keyring_entry_secret(
-                    get_client_secret().map_err(Error::GetClientSecretFromUserError)?,
-                )
-                .map_err(Error::SetClientSecretIntoKeyringError)
-        };
-
         let client_secret = match self.client_secret.find().await {
             Ok(None) => {
                 debug!("cannot find oauth2 client secret from keyring, setting it");
-                set_client_secret()
+                self.client_secret
+                    .set_keyring_entry_secret(
+                        get_client_secret().map_err(Error::GetClientSecretFromUserError)?,
+                    )
+                    .await
+                    .map_err(Error::SetClientSecretIntoKeyringError)
             }
             Ok(Some(client_secret)) => Ok(client_secret),
             Err(err) => Err(Error::GetClientSecretFromKeyringError(err)),
@@ -213,11 +214,13 @@ impl OAuth2Config {
 
         self.access_token
             .set_keyring_entry_secret(access_token)
+            .await
             .map_err(Error::SetAccessTokenError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
                 .set_keyring_entry_secret(refresh_token)
+                .await
                 .map_err(Error::SetRefreshTokenError)?;
         }
 
@@ -258,11 +261,13 @@ impl OAuth2Config {
 
         self.access_token
             .set_keyring_entry_secret(&access_token)
+            .await
             .map_err(Error::SetAccessTokenError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
                 .set_keyring_entry_secret(refresh_token)
+                .await
                 .map_err(Error::SetRefreshTokenError)?;
         }
 
@@ -283,7 +288,7 @@ impl OAuth2Config {
 
 /// Method for presenting an OAuth 2.0 bearer token to a service for
 /// authentication.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum OAuth2Method {
     #[default]
     XOAuth2,
@@ -291,7 +296,7 @@ pub enum OAuth2Method {
 }
 
 /// Access token scope(s), as defined by the authorization server.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum OAuth2Scopes {
     Scope(String),
     Scopes(Vec<String>),

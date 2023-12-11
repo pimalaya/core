@@ -70,7 +70,7 @@ impl<'a, B: BackendContextBuilder + 'static> EmailSyncPatchManager<'a, B> {
 
         let folder = folder.to_string();
         let account = &self.account_config.name;
-        let conn = &mut self.account_config.sync_db_builder()?;
+        let conn = &mut self.account_config.get_sync_db_conn()?;
 
         self.on_progress
             .emit(AccountSyncProgressEvent::GetLocalCachedEnvelopes);

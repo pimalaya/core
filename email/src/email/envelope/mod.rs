@@ -5,6 +5,7 @@
 //! [message](crate::Message).
 
 pub mod address;
+pub mod config;
 pub mod flag;
 pub mod get;
 pub mod id;
@@ -150,9 +151,9 @@ impl Envelope {
     /// Format the envelope date according to the datetime format and
     /// timezone from the [account configuration](crate::AccountConfig).
     pub fn format_date(&self, config: &AccountConfig) -> String {
-        let fmt = config.email_listing_datetime_fmt();
+        let fmt = config.get_envelope_list_datetime_fmt();
 
-        let date = if config.email_listing_datetime_local_tz() {
+        let date = if config.has_envelope_list_datetime_local_tz() {
             self.date.with_timezone(&Local).format(&fmt)
         } else {
             self.date.format(&fmt)

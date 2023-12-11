@@ -2,6 +2,7 @@ use keyring::Entry;
 use log::debug;
 use mml::pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
 use secret::Secret;
+use serde::{Deserialize, Serialize};
 use shellexpand_utils::shellexpand_path;
 use std::{io, path::PathBuf};
 use thiserror::Error;
@@ -38,7 +39,7 @@ pub enum Error {
 ///
 /// This configuration is based on the [`pgp`] crate, which provides a
 /// native Rust implementation of the PGP standard.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NativePgpConfig {
     pub secret_key: NativePgpSecretKey,
     pub secret_key_passphrase: Secret,
@@ -75,6 +76,7 @@ impl NativePgpConfig {
             }
             NativePgpSecretKey::Keyring(entry) => entry
                 .delete_secret()
+                .await
                 .map_err(Error::DeletePgpKeyFromKeyringError)?,
         };
 
@@ -119,9 +121,11 @@ impl NativePgpConfig {
 
                 skey_entry
                     .set_secret(skey)
+                    .await
                     .map_err(Error::SetSecretKeyToKeyringError)?;
                 pkey_entry
                     .set_secret(pkey)
+                    .await
                     .map_err(Error::SetPublicKeyToKeyringError)?;
             }
         }

@@ -4,6 +4,7 @@
 
 use log::debug;
 use secret::Secret;
+use serde::{Deserialize, Serialize};
 use std::{
     io,
     ops::{Deref, DerefMut},
@@ -26,9 +27,11 @@ pub enum Error {
 }
 
 /// The password configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct PasswdConfig {
     /// The password secret.
+    #[serde(default)]
     pub passwd: Secret,
 }
 
@@ -48,8 +51,9 @@ impl DerefMut for PasswdConfig {
 
 impl PasswdConfig {
     /// If the current password secret is a keyring entry, delete it.
-    pub fn reset(&self) -> Result<()> {
+    pub async fn reset(&self) -> Result<()> {
         self.delete_keyring_entry_secret()
+            .await
             .map_err(Error::DeleteError)?;
         Ok(())
     }
@@ -61,6 +65,7 @@ impl PasswdConfig {
                 debug!("cannot find imap password from keyring, setting it");
                 let passwd = get_passwd().map_err(Error::GetFromUserError)?;
                 self.set_keyring_entry_secret(passwd)
+                    .await
                     .map_err(Error::SetIntoKeyringError)?;
                 Ok(())
             }

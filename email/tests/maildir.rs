@@ -11,8 +11,9 @@ async fn test_maildir_features() {
             set::maildir::SetFlagsMaildir, Flag,
         },
         folder::{
-            add::maildir::AddFolderMaildir, delete::maildir::DeleteFolderMaildir,
-            expunge::maildir::ExpungeFolderMaildir, list::maildir::ListFoldersMaildir,
+            add::maildir::AddFolderMaildir, config::FolderConfig,
+            delete::maildir::DeleteFolderMaildir, expunge::maildir::ExpungeFolderMaildir,
+            list::maildir::ListFoldersMaildir,
         },
         maildir::{config::MaildirConfig, MaildirSessionBuilder},
         message::{
@@ -44,13 +45,16 @@ async fn test_maildir_features() {
 
     let account_config = AccountConfig {
         name: "account".into(),
-        folder_aliases: HashMap::from_iter([
-            ("subdir".into(), "Subdir".into()),
-            (
-                "abs-subdir".into(),
-                mdir.path().join(".Subdir").to_string_lossy().into(),
-            ),
-        ]),
+        folder: Some(FolderConfig {
+            aliases: Some(HashMap::from_iter([
+                ("subdir".into(), "Subdir".into()),
+                (
+                    "abs-subdir".into(),
+                    mdir.path().join(".Subdir").to_string_lossy().into(),
+                ),
+            ])),
+            ..Default::default()
+        }),
         ..Default::default()
     };
 

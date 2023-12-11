@@ -36,7 +36,7 @@ impl ListFolders for ListFoldersMaildir {
         let mut folders = Folders::default();
 
         folders.push(Folder {
-            name: self.session.account_config.inbox_folder_alias()?,
+            name: self.session.account_config.get_inbox_folder_alias()?,
             desc: DEFAULT_INBOX_FOLDER.into(),
         });
 

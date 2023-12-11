@@ -68,7 +68,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
     /// Builds the folder synchronization patches.
     pub async fn build_patches(&self) -> Result<FolderSyncPatches> {
         let account = &self.account_config.name;
-        let conn = &mut self.account_config.sync_db_builder()?;
+        let conn = &mut self.account_config.get_sync_db_conn()?;
         info!("starting folders synchronization of account {account}");
 
         self.on_progress
@@ -241,7 +241,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
     /// Returns a folder synchronization report.
     pub async fn apply_patches(&self, patches: FolderSyncPatches) -> Result<FolderSyncReport> {
         let account = &self.account_config.name;
-        let conn = &mut self.account_config.sync_db_builder()?;
+        let conn = &mut self.account_config.get_sync_db_conn()?;
         let mut report = FolderSyncReport::default();
 
         let folders = patches

@@ -36,7 +36,7 @@ impl SendRawMessage for SendRawMessageSendmail {
             Default::default()
         });
 
-        if let Some(cmd) = self.ctx.account_config.email_hooks.pre_send.as_ref() {
+        if let Some(cmd) = self.ctx.account_config.find_message_pre_send_hook() {
             match cmd.run_with(msg.raw_message()).await {
                 Ok(res) => {
                     buffer = res.into();

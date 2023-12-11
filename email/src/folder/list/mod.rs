@@ -4,6 +4,7 @@ use crate::Result;
 
 use super::{Folder, Folders};
 
+pub mod config;
 #[cfg(feature = "imap")]
 pub mod imap;
 pub mod maildir;

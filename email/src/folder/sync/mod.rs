@@ -8,6 +8,7 @@ mod hunk;
 mod patch;
 mod report;
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 #[doc(inline)]
@@ -19,7 +20,7 @@ pub use self::{
 };
 
 /// The folder synchronization strategy.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FolderSyncStrategy {
     /// Synchronizes all folders.
     #[default]

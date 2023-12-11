@@ -1,11 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error;
 
-use crate::{
-    account::config::AccountConfig,
-    email::config::{EmailHooks, EmailTextPlainFormat},
-    Result,
-};
+use crate::{account::config::AccountConfig, Result};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -13,25 +10,36 @@ pub enum Error {
     GetAccountConfigNotFoundError(String),
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Config {
+    /// The default display name of the user.
+    ///
+    /// It usually corresponds to the full name of the user. This
+    /// display name is used by default for all accounts.
     pub display_name: Option<String>,
-    pub signature_delim: Option<String>,
+
+    /// The default email signature of the user.
+    ///
+    /// It can be either a path to a file (usually `~/.signature`) or
+    /// a raw string. This signature is used by default for all
+    /// accounts.
     pub signature: Option<String>,
+
+    /// The default email signature delimiter of the user signature.
+    ///
+    /// Defaults to `-- \n`. This signature delimiter is used by
+    /// default for all accounts.
+    pub signature_delim: Option<String>,
+
+    /// The default downloads directory.
+    ///
+    /// It is mostly used for downloading messages
+    /// attachments. Defaults to the system temporary directory
+    /// (usually `/tmp`). This downloads directory is used by default
+    /// for all accounts.
     pub downloads_dir: Option<PathBuf>,
 
-    pub folder_listing_page_size: Option<usize>,
-    pub folder_aliases: Option<HashMap<String, String>>,
-
-    pub email_listing_page_size: Option<usize>,
-    pub email_listing_datetime_fmt: Option<String>,
-    pub email_listing_datetime_local_tz: Option<bool>,
-    pub email_reading_headers: Option<Vec<String>>,
-    pub email_reading_format: Option<EmailTextPlainFormat>,
-    pub email_writing_headers: Option<Vec<String>>,
-    pub email_sending_save_copy: Option<bool>,
-    pub email_hooks: Option<EmailHooks>,
-
+    /// The map of account-specific configurations.
     pub accounts: HashMap<String, AccountConfig>,
 }
 
@@ -43,15 +51,6 @@ impl Config {
             .accounts
             .get(name)
             .ok_or_else(|| Error::GetAccountConfigNotFoundError(name.to_owned()))?;
-
-        let mut folder_aliases = account_config.folder_aliases.clone();
-
-        folder_aliases.extend(
-            self.folder_aliases
-                .as_ref()
-                .map(ToOwned::to_owned)
-                .unwrap_or_default(),
-        );
 
         Ok(AccountConfig {
             name: name.to_owned(),
@@ -76,46 +75,10 @@ impl Config {
                 .as_ref()
                 .map(ToOwned::to_owned)
                 .or_else(|| self.downloads_dir.as_ref().map(ToOwned::to_owned)),
-            folder_listing_page_size: account_config
-                .folder_listing_page_size
-                .or_else(|| self.folder_listing_page_size),
-            folder_aliases,
-            email_listing_page_size: account_config
-                .email_listing_page_size
-                .or_else(|| self.email_listing_page_size),
-            email_listing_datetime_fmt: account_config
-                .email_listing_datetime_fmt
-                .as_ref()
-                .map(ToOwned::to_owned)
-                .or_else(|| {
-                    self.email_listing_datetime_fmt
-                        .as_ref()
-                        .map(ToOwned::to_owned)
-                }),
-            email_listing_datetime_local_tz: account_config
-                .email_listing_datetime_local_tz
-                .or_else(|| self.email_listing_datetime_local_tz),
-            email_reading_headers: account_config
-                .email_reading_headers
-                .as_ref()
-                .map(ToOwned::to_owned)
-                .or_else(|| self.email_reading_headers.as_ref().map(ToOwned::to_owned)),
-            email_reading_format: account_config.email_reading_format.clone(),
-            email_writing_headers: account_config
-                .email_writing_headers
-                .as_ref()
-                .map(ToOwned::to_owned)
-                .or_else(|| self.email_writing_headers.as_ref().map(ToOwned::to_owned)),
-            email_sending_save_copy: account_config
-                .email_sending_save_copy
-                .or(self.email_sending_save_copy),
-            email_hooks: EmailHooks {
-                pre_send: account_config.email_hooks.pre_send.clone(),
-            },
-            sync: account_config.sync,
-            sync_dir: account_config.sync_dir.clone(),
-            sync_folders_strategy: account_config.sync_folders_strategy.clone(),
-
+            sync: account_config.sync.clone(),
+            folder: account_config.folder.clone(),
+            envelope: account_config.envelope.clone(),
+            message: account_config.message.clone(),
             #[cfg(feature = "pgp")]
             pgp: account_config.pgp.clone(),
         })

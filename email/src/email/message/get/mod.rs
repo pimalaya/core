@@ -1,11 +1,12 @@
+pub mod config;
+#[cfg(feature = "imap")]
+pub mod imap;
+
 use async_trait::async_trait;
 
 use crate::{envelope::Id, flag::add::AddFlags, flag::Flag, Result};
 
 use super::{peek::PeekMessages, Messages};
-
-#[cfg(feature = "imap")]
-pub mod imap;
 
 #[async_trait]
 pub trait GetMessages: Send + Sync {

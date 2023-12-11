@@ -4,6 +4,7 @@
 //! all associated structures related to it.
 
 use process::Cmd;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
@@ -23,7 +24,8 @@ pub enum Error {
 }
 
 /// The IMAP backend configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct ImapConfig {
     /// The IMAP server host name.
     pub host: String,
@@ -56,6 +58,7 @@ pub struct ImapConfig {
     ///
     /// Authentication can be done using password or OAuth 2.0.
     /// See [ImapAuthConfig].
+    #[serde(flatten)]
     pub auth: ImapAuthConfig,
 
     /// The IMAP notify command.
@@ -144,7 +147,8 @@ impl ImapConfig {
 /// The IMAP authentication configuration.
 ///
 /// Authentication can be done using password or OAuth 2.0.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", tag = "auth")]
 pub enum ImapAuthConfig {
     /// The password configuration.
     Passwd(PasswdConfig),
@@ -154,7 +158,7 @@ pub enum ImapAuthConfig {
 
 impl Default for ImapAuthConfig {
     fn default() -> Self {
-        Self::Passwd(PasswdConfig::default())
+        Self::Passwd(Default::default())
     }
 }
 

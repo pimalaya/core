@@ -1,10 +1,11 @@
-use async_trait::async_trait;
-
-use crate::Result;
-
+pub mod config;
 pub mod sendmail;
 #[cfg(feature = "smtp")]
 pub mod smtp;
+
+use async_trait::async_trait;
+
+use crate::Result;
 
 #[async_trait]
 pub trait SendRawMessage: Send + Sync {

@@ -1,7 +1,7 @@
 use email::{
     account::{
         config::{passwd::PasswdConfig, AccountConfig},
-        sync::{AccountSyncBuilder, LocalBackendBuilder},
+        sync::{config::SyncConfig, AccountSyncBuilder, LocalBackendBuilder},
     },
     backend::BackendBuilder,
     email::sync::EmailSyncCache,
@@ -49,8 +49,11 @@ async fn sync() {
     };
     let account_config = AccountConfig {
         name: "account".into(),
-        sync: true,
-        sync_dir: Some(sync_dir.clone()),
+        sync: Some(SyncConfig {
+            enable: Some(true),
+            dir: Some(sync_dir.clone()),
+            ..Default::default()
+        }),
         ..Default::default()
     };
 

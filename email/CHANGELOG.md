@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2023-12-11
+
+### Changed
+
+- Refactored `Config` and `AccountConfig`: instead of having flat levels like `email_listing_page_size`, there is now folded levels `envelope.list.page_size`. Added root levels `folder`, `envelope`, `message`. See the structs for details.
+- Made all structures and enums related to config serializable and deserializable using `serde`.
+
 ## [0.16.0] - 2023-12-10
 
 ### Added

@@ -1,7 +1,8 @@
 use mml::pgp::{CmdsPgp, Pgp};
 use process::Cmd;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CmdsPgpConfig {
     pub encrypt_cmd: Option<Cmd>,
     pub encrypt_recipient_fmt: Option<String>,

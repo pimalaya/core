@@ -4,12 +4,13 @@
 //! are mostly used by [crate::AccountConfig].
 
 use process::Cmd;
+use serde::{Deserialize, Serialize};
 
 /// The email text/plain format configuration.
 ///
 /// Represents the email text/plain format as defined in the
 /// [RFC2646](https://www.ietf.org/rfc/rfc2646.txt).
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum EmailTextPlainFormat {
     #[default]
     /// The content should fit its container.

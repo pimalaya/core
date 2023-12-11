@@ -9,6 +9,7 @@ pub mod gpg;
 pub mod native;
 
 use mml::pgp::Pgp;
+use serde::{Deserialize, Serialize};
 use std::io;
 
 use crate::Result;
@@ -24,7 +25,7 @@ pub use self::gpg::GpgConfig;
 pub use self::native::NativePgpConfig;
 
 /// The PGP configuration.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PgpConfig {
     #[cfg(feature = "pgp-commands")]
     /// Commands configuration.

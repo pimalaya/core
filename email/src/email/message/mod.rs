@@ -9,6 +9,7 @@
 pub mod add_raw;
 pub mod add_raw_with_flags;
 pub mod attachment;
+pub mod config;
 pub mod copy;
 pub mod delete;
 pub mod get;
@@ -151,7 +152,7 @@ impl Message<'_> {
     ) -> Result<String> {
         let interpreter = config
             .generate_tpl_interpreter()
-            .with_show_only_headers(config.email_reading_headers());
+            .with_show_only_headers(config.get_message_read_headers());
         let tpl = with_interpreter(interpreter)
             .build()
             .from_msg(self.parsed()?)
@@ -316,7 +317,10 @@ impl TryFrom<Vec<MailEntry>> for Messages {
 mod tests {
     use concat_with::concat_line;
 
-    use crate::{account::config::AccountConfig, message::Message};
+    use crate::{
+        account::config::AccountConfig,
+        message::{config::MessageConfig, get::config::MessageReadConfig, Message},
+    };
 
     #[tokio::test]
     async fn new_tpl_builder() {
@@ -478,7 +482,13 @@ mod tests {
     #[tokio::test]
     async fn to_read_tpl_with_email_reading_headers() {
         let config = AccountConfig {
-            email_reading_headers: Some(vec!["X-Custom".into()]),
+            message: Some(MessageConfig {
+                read: Some(MessageReadConfig {
+                    headers: Some(vec!["X-Custom".into()]),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
             ..AccountConfig::default()
         };
 

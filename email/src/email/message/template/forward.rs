@@ -73,7 +73,7 @@ impl<'a> ForwardTplBuilder<'a> {
             body: String::new(),
             interpreter: config
                 .generate_tpl_interpreter()
-                .with_show_only_headers(config.email_writing_headers()),
+                .with_show_only_headers(config.get_message_write_headers()),
             thread_interpreter: config
                 .generate_tpl_interpreter()
                 .with_show_only_headers(["Date", "From", "To", "Cc", "Subject"])
@@ -141,7 +141,7 @@ impl<'a> ForwardTplBuilder<'a> {
 
         // From
 
-        builder = builder.from(self.config.from());
+        builder = builder.from(self.config.clone());
 
         // To
 
@@ -172,7 +172,7 @@ impl<'a> ForwardTplBuilder<'a> {
                 lines.push('\n');
             }
 
-            if let Some(ref signature) = self.config.signature()? {
+            if let Some(ref signature) = self.config.find_full_signature()? {
                 lines.push('\n');
                 lines.push_str(signature);
                 lines.push('\n');

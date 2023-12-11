@@ -40,7 +40,7 @@ impl<'a> NewTplBuilder<'a> {
             body: String::new(),
             interpreter: config
                 .generate_tpl_interpreter()
-                .with_show_only_headers(config.email_writing_headers()),
+                .with_show_only_headers(config.get_message_write_headers()),
         }
     }
 
@@ -93,7 +93,7 @@ impl<'a> NewTplBuilder<'a> {
     /// Builds the final new message template.
     pub async fn build(self) -> Result<String> {
         let mut builder = MessageBuilder::new()
-            .from(self.config.from())
+            .from(self.config.clone())
             .to(Vec::<Address>::new())
             .subject("")
             .text_body({
@@ -104,7 +104,7 @@ impl<'a> NewTplBuilder<'a> {
                     lines.push('\n');
                 }
 
-                if let Some(ref signature) = self.config.signature()? {
+                if let Some(ref signature) = self.config.find_full_signature()? {
                     lines.push_str("\n\n");
                     lines.push_str(signature);
                 }

@@ -6,6 +6,7 @@
 //! with a local one.
 
 pub mod add;
+pub mod config;
 pub mod delete;
 pub mod expunge;
 pub mod list;

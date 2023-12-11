@@ -37,7 +37,7 @@ pub async fn default_delete_messages(
     folder: &str,
     id: &Id,
 ) -> Result<()> {
-    let trash_folder = account_config.trash_folder_alias()?;
+    let trash_folder = account_config.get_trash_folder_alias()?;
 
     if account_config.get_folder_alias(folder)? == trash_folder {
         b.add_flag(folder, id, Flag::Deleted).await

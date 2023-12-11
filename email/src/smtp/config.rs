@@ -5,6 +5,7 @@
 
 use log::debug;
 use mail_send::Credentials;
+use serde::{Deserialize, Serialize};
 use std::io;
 use thiserror::Error;
 
@@ -25,7 +26,8 @@ pub enum Error {
 }
 
 /// The SMTP sender configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct SmtpConfig {
     /// The SMTP server host name.
     pub host: String,
@@ -58,6 +60,7 @@ pub struct SmtpConfig {
     ///
     /// Authentication can be done using password or OAuth 2.0.
     /// See [SmtpAuthConfig].
+    #[serde(flatten)]
     pub auth: SmtpAuthConfig,
 }
 
@@ -100,7 +103,8 @@ impl SmtpConfig {
 }
 
 /// The SMTP authentication configuration.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", tag = "auth")]
 pub enum SmtpAuthConfig {
     /// The password authentication mechanism.
     Passwd(PasswdConfig),
@@ -117,11 +121,11 @@ impl Default for SmtpAuthConfig {
 
 impl SmtpAuthConfig {
     /// Resets the OAuth 2.0 authentication tokens.
-    pub fn reset(&self) -> Result<()> {
+    pub async fn reset(&self) -> Result<()> {
         debug!("resetting smtp backend configuration");
 
         if let Self::OAuth2(oauth2) = self {
-            oauth2.reset()?;
+            oauth2.reset().await?;
         }
 
         Ok(())
