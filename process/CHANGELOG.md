@@ -7,25 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2023-12-11
+
+### Changed
+
+- Made `Cmd`, `SingleCmd` and `Pipeline` serializable and deserializable using `serde`.
+
 ## [0.2.0] - 2023-12-10
 
-## Added
+### Added
 
 - Added `SingleCmd::with_output_piped` to control whenever stdout and stderr should be piped or not.
 
 ## [0.1.0] - 2023-08-27
 
-## Changed
+### Changed
 
 - Renamed project `process-lib` in order to make it generic.
 
 ## [0.0.5] - 2023-07-02
 
-## Added
+### Added
 
 - Implemented `Into<Vec<u8>>` for `CmdOutput`.
 
-## Changed
+### Changed
 
 - Moved `CmdOuput::try_into_string` to `TryFrom<String>`.
 

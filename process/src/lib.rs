@@ -14,6 +14,7 @@
 
 use log::{debug, error};
 use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 use std::{
     env, io,
     ops::{Deref, DerefMut},
@@ -40,8 +41,6 @@ const TOKIO_CMD: Lazy<tokio::process::Command> = Lazy::new(|| {
 /// The global `Error` enum of the library.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot run command: {1}")]
-    SpawnProcessError(#[source] io::Error, String),
     #[error("cannot get standard input")]
     GetStdinError,
     #[error("cannot wait for exit status code of command: {1}")]
@@ -75,7 +74,8 @@ pub type Result<T> = result::Result<T, Error>;
 /// The main command structure.
 ///
 /// A command can be either a single command or a pipeline.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum Cmd {
     /// The single command variant.
     SingleCmd(SingleCmd),
@@ -94,7 +94,7 @@ impl Cmd {
             Self::SingleCmd(SingleCmd { cmd, .. }) => {
                 *cmd = cmd.replace(from.as_ref(), to.as_ref())
             }
-            Self::Pipeline(Pipeline(cmds)) => {
+            Self::Pipeline(Pipeline { cmds }) => {
                 for SingleCmd { cmd, .. } in cmds {
                     *cmd = cmd.replace(from.as_ref(), to.as_ref());
                 }
@@ -110,8 +110,6 @@ impl Cmd {
 
     /// Runs the command with the given piped input.
     pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CmdOutput> {
-        debug!("running command: {}", self.to_string());
-
         match self {
             Self::SingleCmd(cmd) => cmd.run_with(input).await,
             Self::Pipeline(cmds) => cmds.run_with(input).await,
@@ -191,7 +189,8 @@ impl ToString for Cmd {
 /// The single command structure.
 ///
 /// Represents commands that are only composed of one single command.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(from = "String")]
 pub struct SingleCmd {
     cmd: String,
     output_piped: bool,
@@ -214,6 +213,8 @@ impl SingleCmd {
     /// standard input channel then waits for the output on the
     /// standard output channel.
     pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CmdOutput> {
+        debug!("running single command: {}", self.to_string());
+
         let input = input.as_ref();
 
         let stdin = if input.is_empty() {
@@ -314,15 +315,21 @@ impl ToString for SingleCmd {
 /// commands. Commands are run in a pipeline, which means the output
 /// of the previous command is piped to the input of the next one, and
 /// so on.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Pipeline(Vec<SingleCmd>);
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(from = "Vec<String>")]
+pub struct Pipeline {
+    #[serde(flatten)]
+    cmds: Vec<SingleCmd>,
+}
 
 impl Pipeline {
     /// Runs the command pipeline with the given input.
     pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CmdOutput> {
+        debug!("running pipeline: {}", self.to_string());
+
         let mut output = input.as_ref().to_owned();
 
-        for cmd in &self.0 {
+        for cmd in &self.cmds {
             output = cmd.run_with(&output).await?.0;
         }
 
@@ -334,59 +341,71 @@ impl Deref for Pipeline {
     type Target = Vec<SingleCmd>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.cmds
     }
 }
 
 impl DerefMut for Pipeline {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.cmds
     }
 }
 
 impl From<Vec<String>> for Pipeline {
     fn from(cmd: Vec<String>) -> Self {
-        Self(cmd.into_iter().map(Into::into).collect())
+        Self {
+            cmds: cmd.into_iter().map(Into::into).collect(),
+        }
     }
 }
 
 impl From<Vec<&String>> for Pipeline {
     fn from(cmd: Vec<&String>) -> Self {
-        Self(cmd.into_iter().map(Into::into).collect())
+        Self {
+            cmds: cmd.into_iter().map(Into::into).collect(),
+        }
     }
 }
 
 impl From<Vec<&str>> for Pipeline {
     fn from(cmd: Vec<&str>) -> Self {
-        Self(cmd.into_iter().map(Into::into).collect())
+        Self {
+            cmds: cmd.into_iter().map(Into::into).collect(),
+        }
     }
 }
 
 impl From<&[String]> for Pipeline {
     fn from(cmd: &[String]) -> Self {
-        Self(cmd.iter().map(Into::into).collect())
+        Self {
+            cmds: cmd.iter().map(Into::into).collect(),
+        }
     }
 }
 
 impl From<&[&String]> for Pipeline {
     fn from(cmd: &[&String]) -> Self {
-        Self(cmd.iter().map(|cmd| (*cmd).into()).collect())
+        Self {
+            cmds: cmd.iter().map(|cmd| (*cmd).into()).collect(),
+        }
     }
 }
 
 impl From<&[&str]> for Pipeline {
     fn from(cmd: &[&str]) -> Self {
-        Self(cmd.iter().map(|cmd| (*cmd).into()).collect())
+        Self {
+            cmds: cmd.iter().map(|cmd| (*cmd).into()).collect(),
+        }
     }
 }
 
 impl ToString for Pipeline {
     fn to_string(&self) -> String {
-        self.0.iter().fold(String::new(), |s, cmd| {
+        self.iter().fold(String::new(), |s, cmd| {
             if s.is_empty() {
                 cmd.to_string()
             } else {
-                s + "|" + &cmd.to_string()
+                s + " | " + &cmd.to_string()
             }
         })
     }
