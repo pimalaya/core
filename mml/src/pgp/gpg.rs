@@ -3,7 +3,8 @@
 //! This module contains the PGP backend based on GPG.
 
 use gpgme::{Context, Protocol};
-use log::{debug, trace, warn};
+use log::{debug, trace};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -29,7 +30,7 @@ pub enum Error {
 }
 
 /// The GPG PGP backend.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Gpg {
     /// The GPG home directory.
     ///

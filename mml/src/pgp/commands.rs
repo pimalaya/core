@@ -3,6 +3,7 @@
 //! This module contains the PGP backend based on shell commands.
 
 use process::Cmd;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::Result;
@@ -21,7 +22,7 @@ pub enum Error {
 }
 
 /// The shell commands PGP backend.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CmdsPgp {
     /// The PGP encrypt command.
     ///
