@@ -2,8 +2,10 @@
 pub use keyring_native as native;
 use log::debug;
 use once_cell::sync::OnceCell;
+use serde::{Deserialize, Serialize};
 use std::{ops::Deref, result};
 use thiserror::Error;
+use tokio::task::{self, JoinError};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -17,6 +19,9 @@ pub enum Error {
     SetSecretError(#[source] native::Error, String),
     #[error("cannot delete keyring entry secret for key {1}")]
     DeleteSecretError(#[source] native::Error, String),
+
+    #[error(transparent)]
+    JoinError(#[from] JoinError),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -42,7 +47,8 @@ pub type Key = String;
 ///
 /// This struct is a simple wrapper around [`native::Entry`] that
 /// holds a keyring entry key.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Entry(Key);
 
 impl Entry {
@@ -50,8 +56,9 @@ impl Entry {
     fn new_native_entry(&self) -> Result<native::Entry> {
         // a service name is always present, so unwrap() is safe here
         let service_name = SERVICE_NAME.get().unwrap();
+
         native::Entry::new(service_name, &self)
-            .map_err(|err| Error::GetEntryError(err, self.0.clone()))
+            .map_err(|err| Error::GetEntryError(err, self.to_string()))
     }
 
     /// Create a new keyring entry with a keyring entry key.
@@ -61,43 +68,57 @@ impl Entry {
 
     /// Get the inner key of the keyring entry.
     pub fn get_key(&self) -> &str {
-        debug!("getting keyring entry key: {}", self.0);
+        debug!("getting keyring entry key: {}", self.deref());
         self.as_str()
     }
 
     /// Get the secret of the keyring entry.
-    pub fn get_secret(&self) -> Result<String> {
-        debug!("getting keyring entry secret for key {:?}", self.0);
-        self.new_native_entry()?
-            .get_password()
-            .map_err(|err| Error::GetSecretError(err, self.0.clone()))
+    pub async fn get_secret(&self) -> Result<String> {
+        debug!("getting keyring entry secret for key {}", self.deref());
+
+        let entry = self.new_native_entry()?;
+
+        task::spawn_blocking(move || entry.get_password())
+            .await?
+            .map_err(|err| Error::GetSecretError(err, self.to_string()))
     }
 
     /// Find the secret of the keyring entry. Return None in case the
     /// secret is not found.
-    pub fn find_secret(&self) -> Result<Option<String>> {
-        debug!("finding keyring entry secret for key {:?}", self.0);
-        match self.new_native_entry()?.get_password() {
+    pub async fn find_secret(&self) -> Result<Option<String>> {
+        debug!("finding keyring entry secret for key {}", self.deref());
+
+        let entry = self.new_native_entry()?;
+        let secret = task::spawn_blocking(move || entry.get_password()).await?;
+
+        match secret {
             Err(native::Error::NoEntry) => Ok(None),
-            Err(err) => Err(Error::FindSecretError(err, self.0.clone())),
+            Err(err) => Err(Error::FindSecretError(err, self.to_string())),
             Ok(secret) => Ok(Some(secret)),
         }
     }
 
     /// (Re)set the secret of the keyring entry.
-    pub fn set_secret(&self, secret: impl AsRef<str>) -> Result<()> {
-        debug!("setting keyring entry secret for key {:?}", self.0);
-        self.new_native_entry()?
-            .set_password(secret.as_ref())
-            .map_err(|err| Error::SetSecretError(err, self.0.clone()))
+    pub async fn set_secret(&self, secret: impl ToString) -> Result<()> {
+        debug!("setting keyring entry secret for key {}", self.deref());
+
+        let entry = self.new_native_entry()?;
+        let secret = secret.to_string();
+
+        task::spawn_blocking(move || entry.set_password(&secret))
+            .await?
+            .map_err(|err| Error::SetSecretError(err, self.to_string()))
     }
 
     /// Delete the secret of the keyring entry.
-    pub fn delete_secret(&self) -> Result<()> {
-        debug!("deleting keyring entry secret for key {:?}", self.0);
-        self.new_native_entry()?
-            .delete_password()
-            .map_err(|err| Error::DeleteSecretError(err, self.0.clone()))
+    pub async fn delete_secret(&self) -> Result<()> {
+        debug!("deleting keyring entry secret for key {}", self.deref());
+
+        let entry = self.new_native_entry()?;
+
+        task::spawn_blocking(move || entry.delete_password())
+            .await?
+            .map_err(|err| Error::DeleteSecretError(err, self.to_string()))
     }
 }
 
@@ -135,6 +156,6 @@ impl Into<String> for Entry {
 
 impl ToString for Entry {
     fn to_string(&self) -> String {
-        self.0.clone()
+        self.deref().clone()
     }
 }
