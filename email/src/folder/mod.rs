@@ -12,6 +12,7 @@ pub mod expunge;
 pub mod list;
 pub mod purge;
 pub mod sync;
+pub mod watch;
 
 use std::{
     fmt,

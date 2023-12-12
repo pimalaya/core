@@ -18,7 +18,7 @@ use crate::{
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag, Flags},
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
-        purge::PurgeFolder, Folders,
+        purge::PurgeFolder, watch::WatchFolder, Folders,
     },
     message::{
         add_raw::AddRawMessage, add_raw_with_flags::AddRawMessageWithFlags, copy::CopyMessages,
@@ -36,6 +36,8 @@ pub enum Error {
     AddFolderNotAvailableError,
     #[error("cannot list folders: feature not available")]
     ListFoldersNotAvailableError,
+    #[error("cannot watch folder: feature not available")]
+    WatchFolderNotAvailableError,
     #[error("cannot expunge folder: feature not available")]
     ExpungeFolderNotAvailableError,
     #[error("cannot purge folder: feature not available")]
@@ -120,6 +122,7 @@ pub struct BackendBuilder<B: BackendContextBuilder> {
 
     add_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn AddFolder>> + Send + Sync>>,
     list_folders: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn ListFolders>> + Send + Sync>>,
+    watch_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn WatchFolder>> + Send + Sync>>,
     expunge_folder:
         Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn ExpungeFolder>> + Send + Sync>>,
     purge_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn PurgeFolder>> + Send + Sync>>,
@@ -156,6 +159,7 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
 
             add_folder: Default::default(),
             list_folders: Default::default(),
+            watch_folder: Default::default(),
             expunge_folder: Default::default(),
             purge_folder: Default::default(),
             delete_folder: Default::default(),
@@ -203,6 +207,20 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         feature: impl Fn(&C) -> Option<Box<dyn ListFolders>> + Send + Sync + 'static,
     ) -> Self {
         self.set_list_folders(feature);
+        self
+    }
+
+    pub fn set_watch_folder(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn WatchFolder>> + Send + Sync + 'static,
+    ) {
+        self.watch_folder = Some(Arc::new(feature));
+    }
+    pub fn with_watch_folder(
+        mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn WatchFolder>> + Send + Sync + 'static,
+    ) -> Self {
+        self.set_watch_folder(feature);
         self
     }
 
@@ -439,6 +457,9 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         if let Some(feature) = &self.list_folders {
             backend.set_list_folders(feature(&backend.context));
         }
+        if let Some(feature) = &self.watch_folder {
+            backend.set_watch_folder(feature(&backend.context));
+        }
         if let Some(feature) = &self.expunge_folder {
             backend.set_expunge_folder(feature(&backend.context));
         }
@@ -501,6 +522,7 @@ impl<B: BackendContextBuilder> Clone for BackendBuilder<B> {
 
             add_folder: self.add_folder.clone(),
             list_folders: self.list_folders.clone(),
+            watch_folder: self.watch_folder.clone(),
             expunge_folder: self.expunge_folder.clone(),
             purge_folder: self.purge_folder.clone(),
             delete_folder: self.delete_folder.clone(),
@@ -533,6 +555,7 @@ impl Default for BackendBuilder<()> {
 
             add_folder: Default::default(),
             list_folders: Default::default(),
+            watch_folder: Default::default(),
             expunge_folder: Default::default(),
             purge_folder: Default::default(),
             delete_folder: Default::default(),
@@ -563,6 +586,7 @@ pub struct Backend<C> {
 
     pub add_folder: Option<Box<dyn AddFolder>>,
     pub list_folders: Option<Box<dyn ListFolders>>,
+    pub watch_folder: Option<Box<dyn WatchFolder>>,
     pub expunge_folder: Option<Box<dyn ExpungeFolder>>,
     pub purge_folder: Option<Box<dyn PurgeFolder>>,
     pub delete_folder: Option<Box<dyn DeleteFolder>>,
@@ -593,6 +617,7 @@ impl<C> Backend<C> {
 
             add_folder: None,
             list_folders: None,
+            watch_folder: None,
             expunge_folder: None,
             purge_folder: None,
             delete_folder: None,
@@ -620,6 +645,9 @@ impl<C> Backend<C> {
     }
     pub fn set_list_folders(&mut self, feature: Option<Box<dyn ListFolders>>) {
         self.list_folders = feature;
+    }
+    pub fn set_watch_folder(&mut self, feature: Option<Box<dyn WatchFolder>>) {
+        self.watch_folder = feature;
     }
     pub fn set_expunge_folder(&mut self, feature: Option<Box<dyn ExpungeFolder>>) {
         self.expunge_folder = feature;
@@ -686,6 +714,14 @@ impl<C> Backend<C> {
             .as_ref()
             .ok_or(Error::ListFoldersNotAvailableError)?
             .list_folders()
+            .await
+    }
+
+    pub async fn watch_folder(&self, folder: &str) -> Result<()> {
+        self.watch_folder
+            .as_ref()
+            .ok_or(Error::WatchFolderNotAvailableError)?
+            .watch_folder(folder)
             .await
     }
 

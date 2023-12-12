@@ -2,14 +2,14 @@
 name = "email-lib"
 version = "0.17.1"
 description = "Rust library to manage emails"
-homepage = "https://pimalaya.org/"
+homepage = "https://pimalaya.org"
 documentation = "https://docs.rs/email-lib/latest/email/"
 repository = "https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/README.md"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["email", "network-programming"]
-keywords = ["pim", "email", "imap", "smtp", "sendmail"]
+keywords = ["email", "maildir", "imap", "smtp", "sendmail"]
 
 [package.metadata.docs.rs]
 all-features = true
@@ -29,7 +29,7 @@ default = [
   # "pgp-gpg",
   # "pgp-native",
 ]
-maildir = []
+maildir = ["inotify"]
 imap = ["dep:imap", "imap-proto", "utf7-imap"]
 notmuch = ["dep:notmuch"]
 smtp = ["mail-send"]
@@ -55,6 +55,7 @@ dirs = "4.0"
 futures = "0.3"
 imap = { version = "=3.0.0-alpha.10", optional = true, default-features = false, features = ["rustls-tls"] }
 imap-proto = { version = "=0.16.2", optional = true }
+inotify = { version = "0.10", optional = true }
 keyring-lib = "=0.3.0"
 log = "0.4"
 mail-builder = "0.3"

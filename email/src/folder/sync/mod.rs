@@ -21,6 +21,7 @@ pub use self::{
 
 /// The folder synchronization strategy.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum FolderSyncStrategy {
     /// Synchronizes all folders.
     #[default]
