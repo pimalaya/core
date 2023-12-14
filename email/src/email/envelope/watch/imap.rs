@@ -11,7 +11,7 @@ use crate::{
     Result,
 };
 
-use super::WatchEmails;
+use super::WatchEnvelopes;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -31,15 +31,15 @@ pub struct WatchImapEmails {
 }
 
 impl WatchImapEmails {
-    pub fn new(ctx: &ImapSessionSync) -> Option<Box<dyn WatchEmails>> {
+    pub fn new(ctx: &ImapSessionSync) -> Option<Box<dyn WatchEnvelopes>> {
         let ctx = ctx.clone();
         Some(Box::new(Self { ctx }))
     }
 }
 
 #[async_trait]
-impl WatchEmails for WatchImapEmails {
-    async fn watch_emails(&self, folder: &str) -> Result<()> {
+impl WatchEnvelopes for WatchImapEmails {
+    async fn watch_envelopes(&self, folder: &str) -> Result<()> {
         info!("imap: watching folder {folder} for email changes");
 
         let mut ctx = self.ctx.lock().await;
@@ -87,7 +87,7 @@ impl WatchEmails for WatchImapEmails {
             let next_envelopes: HashMap<String, Envelope> =
                 HashMap::from_iter(next_envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
-            self.execute_message_changes_hooks(&ctx.account_config, &envelopes, &next_envelopes)
+            self.exec_hooks(&ctx.account_config, &envelopes, &next_envelopes)
                 .await;
 
             envelopes = next_envelopes;

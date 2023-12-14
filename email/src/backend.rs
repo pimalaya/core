@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::{
     account::config::AccountConfig,
-    email::watch::WatchEmails,
+    envelope::watch::WatchEnvelopes,
     envelope::{get::GetEnvelope, list::ListEnvelopes, Envelope, Envelopes, Id, SingleId},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag, Flags},
     folder::{
@@ -44,11 +44,10 @@ pub enum Error {
     #[error("cannot delete folder: feature not available")]
     DeleteFolderNotAvailableError,
 
-    #[error("cannot watch folder for email changes: feature not available")]
-    WatchEmailsNotAvailableError,
-
     #[error("cannot list envelopes: feature not available")]
     ListEnvelopesNotAvailableError,
+    #[error("cannot watch for envelopes changes: feature not available")]
+    WatchEnvelopesNotAvailableError,
     #[error("cannot get envelope: feature not available")]
     GetEnvelopeNotAvailableError,
 
@@ -129,10 +128,10 @@ pub struct BackendBuilder<B: BackendContextBuilder> {
     purge_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn PurgeFolder>> + Send + Sync>>,
     delete_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn DeleteFolder>> + Send + Sync>>,
 
-    watch_emails: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn WatchEmails>> + Send + Sync>>,
-
     list_envelopes:
         Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn ListEnvelopes>> + Send + Sync>>,
+    watch_envelopes:
+        Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn WatchEnvelopes>> + Send + Sync>>,
     get_envelope: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn GetEnvelope>> + Send + Sync>>,
 
     add_flags: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn AddFlags>> + Send + Sync>>,
@@ -166,10 +165,9 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
             purge_folder: Default::default(),
             delete_folder: Default::default(),
 
-            watch_emails: Default::default(),
-
-            get_envelope: Default::default(),
             list_envelopes: Default::default(),
+            watch_envelopes: Default::default(),
+            get_envelope: Default::default(),
 
             add_flags: Default::default(),
             set_flags: Default::default(),
@@ -256,20 +254,6 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         self
     }
 
-    pub fn set_watch_emails(
-        &mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn WatchEmails>> + Send + Sync + 'static,
-    ) {
-        self.watch_emails = Some(Arc::new(feature));
-    }
-    pub fn with_watch_emails(
-        mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn WatchEmails>> + Send + Sync + 'static,
-    ) -> Self {
-        self.set_watch_emails(feature);
-        self
-    }
-
     pub fn set_list_envelopes(
         &mut self,
         feature: impl Fn(&C) -> Option<Box<dyn ListEnvelopes>> + Send + Sync + 'static,
@@ -281,6 +265,20 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         feature: impl Fn(&C) -> Option<Box<dyn ListEnvelopes>> + Send + Sync + 'static,
     ) -> Self {
         self.set_list_envelopes(feature);
+        self
+    }
+
+    pub fn set_watch_envelopes(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn WatchEnvelopes>> + Send + Sync + 'static,
+    ) {
+        self.watch_envelopes = Some(Arc::new(feature));
+    }
+    pub fn with_watch_envelopes(
+        mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn WatchEnvelopes>> + Send + Sync + 'static,
+    ) -> Self {
+        self.set_watch_envelopes(feature);
         self
     }
 
@@ -471,12 +469,11 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
             backend.set_delete_folder(feature(&backend.context));
         }
 
-        if let Some(feature) = &self.watch_emails {
-            backend.set_watch_emails(feature(&backend.context));
-        }
-
         if let Some(feature) = &self.list_envelopes {
             backend.set_list_envelopes(feature(&backend.context));
+        }
+        if let Some(feature) = &self.watch_envelopes {
+            backend.set_watch_envelopes(feature(&backend.context));
         }
         if let Some(feature) = &self.get_envelope {
             backend.set_get_envelope(feature(&backend.context));
@@ -531,9 +528,8 @@ impl<B: BackendContextBuilder> Clone for BackendBuilder<B> {
             purge_folder: self.purge_folder.clone(),
             delete_folder: self.delete_folder.clone(),
 
-            watch_emails: self.watch_emails.clone(),
-
             list_envelopes: self.list_envelopes.clone(),
+            watch_envelopes: self.watch_envelopes.clone(),
             get_envelope: self.get_envelope.clone(),
 
             add_flags: self.add_flags.clone(),
@@ -565,14 +561,13 @@ impl Default for BackendBuilder<()> {
             purge_folder: Default::default(),
             delete_folder: Default::default(),
 
-            watch_emails: Default::default(),
+            list_envelopes: Default::default(),
+            watch_envelopes: Default::default(),
+            get_envelope: Default::default(),
 
             add_flags: Default::default(),
             set_flags: Default::default(),
             remove_flags: Default::default(),
-
-            list_envelopes: Default::default(),
-            get_envelope: Default::default(),
 
             add_raw_message: Default::default(),
             add_raw_message_with_flags: Default::default(),
@@ -597,9 +592,8 @@ pub struct Backend<C> {
     pub purge_folder: Option<Box<dyn PurgeFolder>>,
     pub delete_folder: Option<Box<dyn DeleteFolder>>,
 
-    pub watch_emails: Option<Box<dyn WatchEmails>>,
-
     pub list_envelopes: Option<Box<dyn ListEnvelopes>>,
+    pub watch_envelopes: Option<Box<dyn WatchEnvelopes>>,
     pub get_envelope: Option<Box<dyn GetEnvelope>>,
 
     pub add_flags: Option<Box<dyn AddFlags>>,
@@ -629,10 +623,9 @@ impl<C> Backend<C> {
             purge_folder: None,
             delete_folder: None,
 
-            watch_emails: None,
-
-            get_envelope: None,
             list_envelopes: None,
+            watch_envelopes: None,
+            get_envelope: None,
 
             add_flags: None,
             set_flags: None,
@@ -665,12 +658,11 @@ impl<C> Backend<C> {
         self.delete_folder = feature;
     }
 
-    pub fn set_watch_emails(&mut self, feature: Option<Box<dyn WatchEmails>>) {
-        self.watch_emails = feature;
-    }
-
     pub fn set_list_envelopes(&mut self, feature: Option<Box<dyn ListEnvelopes>>) {
         self.list_envelopes = feature;
+    }
+    pub fn set_watch_envelopes(&mut self, feature: Option<Box<dyn WatchEnvelopes>>) {
+        self.watch_envelopes = feature;
     }
     pub fn set_get_envelope(&mut self, feature: Option<Box<dyn GetEnvelope>>) {
         self.get_envelope = feature;
@@ -751,14 +743,6 @@ impl<C> Backend<C> {
             .await
     }
 
-    pub async fn watch_emails(&self, folder: &str) -> Result<()> {
-        self.watch_emails
-            .as_ref()
-            .ok_or(Error::WatchEmailsNotAvailableError)?
-            .watch_emails(folder)
-            .await
-    }
-
     pub async fn list_envelopes(
         &self,
         folder: &str,
@@ -769,6 +753,14 @@ impl<C> Backend<C> {
             .as_ref()
             .ok_or(Error::ListEnvelopesNotAvailableError)?
             .list_envelopes(folder, page_size, page)
+            .await
+    }
+
+    pub async fn watch_envelopes(&self, folder: &str) -> Result<()> {
+        self.watch_envelopes
+            .as_ref()
+            .ok_or(Error::WatchEnvelopesNotAvailableError)?
+            .watch_envelopes(folder)
             .await
     }
 

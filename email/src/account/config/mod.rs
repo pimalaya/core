@@ -230,17 +230,17 @@ impl AccountConfig {
         Ok(conn)
     }
 
-    /// Find the message received hook configuration.
-    pub fn find_received_message_hook(&self) -> Option<&WatchHook> {
-        self.message
+    /// Find the envelope received hook configuration.
+    pub fn find_received_envelope_hook(&self) -> Option<&WatchHook> {
+        self.envelope
             .as_ref()
             .and_then(|c| c.watch.as_ref())
             .and_then(|c| c.received.as_ref())
     }
 
-    /// Find the message any hook configuration.
-    pub fn find_any_message_hook(&self) -> Option<&WatchHook> {
-        self.message
+    /// Find the envelope any hook configuration.
+    pub fn find_any_envelope_hook(&self) -> Option<&WatchHook> {
+        self.envelope
             .as_ref()
             .and_then(|c| c.watch.as_ref())
             .and_then(|c| c.any.as_ref())

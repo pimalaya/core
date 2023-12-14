@@ -14,7 +14,8 @@ pub enum WatchHook {
     /// input. This may change in the future.
     Cmd(Cmd),
 
-    /// Send a system notification
+    /// Send a system notification using the given
+    /// [`notify_rust::Notification`]-like configuration.
     Notify(WatchNotifyConfig),
 }
 
@@ -30,8 +31,12 @@ pub struct WatchNotifyConfig {
     /// Accepted placeholders:
     ///  - "{id}": the id of the envelope
     ///  - "{subject}": the subject of the envelope
-    ///  - "{sender}" either the sender name or its address
-    ///  - "{recipient}" either the recipient name or its address
+    ///  - "{sender}" either the sender name or the address
+    ///  - "{sender.name}" the sender name or "unknown"
+    ///  - "{sender.address}" the sender address
+    ///  - "{recipient}" either the recipient name or the address
+    ///  - "{recipient.name}" the recipient name or "unknown"
+    ///  - "{recipient.address}" the recipient address
     pub summary: String,
 
     /// The body of the notification.
@@ -39,7 +44,11 @@ pub struct WatchNotifyConfig {
     /// Accepted placeholders:
     ///  - "{id}": the id of the envelope
     ///  - "{subject}": the subject of the envelope
-    ///  - "{sender}" either the sender name or its address
-    ///  - "{recipient}" either the recipient name or its address
+    ///  - "{sender}" either the sender name or the address
+    ///  - "{sender.name}" the sender name or "unknown"
+    ///  - "{sender.address}" the sender address
+    ///  - "{recipient}" either the recipient name or the address
+    ///  - "{recipient.name}" the recipient name or "unknown"
+    ///  - "{recipient.address}" the recipient address
     pub body: String,
 }

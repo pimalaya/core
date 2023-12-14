@@ -1,3 +1,4 @@
+pub mod config;
 #[cfg(feature = "imap")]
 pub mod imap;
 #[cfg(feature = "maildir")]
@@ -11,11 +12,11 @@ use std::collections::HashMap;
 use crate::{account::config::AccountConfig, envelope::Envelope, watch::config::WatchHook, Result};
 
 #[async_trait]
-pub trait WatchEmails: Send + Sync {
-    /// Watch the given folder for email changes.
-    async fn watch_emails(&self, folder: &str) -> Result<()>;
+pub trait WatchEnvelopes: Send + Sync {
+    /// Watch the given folder for envelopes changes.
+    async fn watch_envelopes(&self, folder: &str) -> Result<()>;
 
-    async fn execute_message_changes_hooks(
+    async fn exec_hooks(
         &self,
         config: &AccountConfig,
         prev_envelopes: &HashMap<String, Envelope>,
@@ -25,7 +26,7 @@ pub trait WatchEmails: Send + Sync {
             // a new envelope has been added
             if !prev_envelopes.contains_key(id) {
                 debug!("processing received message event…");
-                match config.find_received_message_hook() {
+                match config.find_received_envelope_hook() {
                     None => (),
                     Some(WatchHook::Cmd(cmd)) => {
                         debug!("running received message hook…");

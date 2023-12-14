@@ -15,6 +15,7 @@ pub mod list;
 pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;
+pub mod watch;
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::debug;

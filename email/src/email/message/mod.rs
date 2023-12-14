@@ -17,7 +17,6 @@ pub mod move_;
 pub mod peek;
 pub mod send_raw;
 pub mod template;
-pub mod watch;
 
 #[cfg(feature = "imap")]
 use imap::types::{Fetch, Fetches};
