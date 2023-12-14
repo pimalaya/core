@@ -2,17 +2,20 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     add_raw::config::MessageWriteConfig, get::config::MessageReadConfig,
-    send_raw::config::MessageSendConfig,
+    send_raw::config::MessageSendConfig, watch::config::WatchMessageConfig,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MessageConfig {
-    /// The message config related to reading.
+    /// Configuration dedicated to message reading.
     pub read: Option<MessageReadConfig>,
 
-    /// The message config related to writing.
+    /// Configuration dedicated to message writing.
     pub write: Option<MessageWriteConfig>,
 
-    /// The message config related to sending.
+    /// Configuration dedicated to message sending.
     pub send: Option<MessageSendConfig>,
+
+    /// Configuration dedicated to message changes.
+    pub watch: Option<WatchMessageConfig>,
 }

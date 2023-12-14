@@ -11,7 +11,7 @@ use super::{Envelopes, ListEnvelopes};
 /// The IMAP query needed to retrieve everything we need to build an
 /// [envelope]: UID, flags and headers (Message-ID, From, To, Subject,
 /// Date).
-const LIST_ENVELOPES_QUERY: &str =
+pub const LIST_ENVELOPES_QUERY: &str =
     "(UID FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM TO SUBJECT DATE)])";
 
 #[derive(Error, Debug)]

@@ -29,6 +29,7 @@ use crate::{
     envelope::config::EnvelopeConfig,
     folder::{config::FolderConfig, sync::FolderSyncStrategy},
     message::config::MessageConfig,
+    watch::config::WatchHook,
     Result,
 };
 
@@ -229,36 +230,20 @@ impl AccountConfig {
         Ok(conn)
     }
 
-    /// Get folder watch change hooks.
-    pub fn get_folder_watch_change_hooks(&self) -> Vec<Cmd> {
-        self.folder
+    /// Find the message received hook configuration.
+    pub fn find_received_message_hook(&self) -> Option<&WatchHook> {
+        self.message
             .as_ref()
             .and_then(|c| c.watch.as_ref())
-            .and_then(|c| c.change_hooks.as_ref())
-            .cloned()
-            .unwrap_or_default()
+            .and_then(|c| c.received.as_ref())
     }
 
-    /// Run folder watch changes hooks in serie.
-    pub async fn run_folder_watch_change_hooks(&self) {
-        let cmds = self.get_folder_watch_change_hooks();
-        let cmds_len = cmds.len();
-
-        for (n, cmd) in cmds.iter().enumerate() {
-            let n = n + 1;
-
-            debug!("running watch change hook n°{n}/{cmds_len}");
-
-            match cmd.run().await {
-                Ok(_) => {
-                    debug!("watch change hook n°{n}/{cmds_len} successfully executed!");
-                }
-                Err(err) => {
-                    debug!("error while running watch change hook n°{n}/{cmds_len}: {err}");
-                    debug!("{err:?}")
-                }
-            }
-        }
+    /// Find the message any hook configuration.
+    pub fn find_any_message_hook(&self) -> Option<&WatchHook> {
+        self.message
+            .as_ref()
+            .and_then(|c| c.watch.as_ref())
+            .and_then(|c| c.any.as_ref())
     }
 
     /// Find the alias of the given folder.

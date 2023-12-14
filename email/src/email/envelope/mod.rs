@@ -18,7 +18,10 @@ pub mod notmuch;
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::debug;
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    vec,
+};
 
 use crate::{account::config::AccountConfig, message::Message};
 
@@ -174,6 +177,21 @@ impl PartialEq for Envelope {
 /// The list of email envelopes.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Envelopes(Vec<Envelope>);
+
+impl IntoIterator for Envelopes {
+    type Item = Envelope;
+    type IntoIter = vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl Into<Vec<Envelope>> for Envelopes {
+    fn into(self) -> Vec<Envelope> {
+        self.0
+    }
+}
 
 impl Deref for Envelopes {
     type Target = Vec<Envelope>;

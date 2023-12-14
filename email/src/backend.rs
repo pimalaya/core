@@ -14,11 +14,12 @@ use thiserror::Error;
 
 use crate::{
     account::config::AccountConfig,
+    email::watch::WatchEmails,
     envelope::{get::GetEnvelope, list::ListEnvelopes, Envelope, Envelopes, Id, SingleId},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag, Flags},
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
-        purge::PurgeFolder, watch::WatchFolder, Folders,
+        purge::PurgeFolder, Folders,
     },
     message::{
         add_raw::AddRawMessage, add_raw_with_flags::AddRawMessageWithFlags, copy::CopyMessages,
@@ -36,14 +37,15 @@ pub enum Error {
     AddFolderNotAvailableError,
     #[error("cannot list folders: feature not available")]
     ListFoldersNotAvailableError,
-    #[error("cannot watch folder: feature not available")]
-    WatchFolderNotAvailableError,
     #[error("cannot expunge folder: feature not available")]
     ExpungeFolderNotAvailableError,
     #[error("cannot purge folder: feature not available")]
     PurgeFolderNotAvailableError,
     #[error("cannot delete folder: feature not available")]
     DeleteFolderNotAvailableError,
+
+    #[error("cannot watch folder for email changes: feature not available")]
+    WatchEmailsNotAvailableError,
 
     #[error("cannot list envelopes: feature not available")]
     ListEnvelopesNotAvailableError,
@@ -122,11 +124,12 @@ pub struct BackendBuilder<B: BackendContextBuilder> {
 
     add_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn AddFolder>> + Send + Sync>>,
     list_folders: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn ListFolders>> + Send + Sync>>,
-    watch_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn WatchFolder>> + Send + Sync>>,
     expunge_folder:
         Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn ExpungeFolder>> + Send + Sync>>,
     purge_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn PurgeFolder>> + Send + Sync>>,
     delete_folder: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn DeleteFolder>> + Send + Sync>>,
+
+    watch_emails: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn WatchEmails>> + Send + Sync>>,
 
     list_envelopes:
         Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn ListEnvelopes>> + Send + Sync>>,
@@ -159,10 +162,11 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
 
             add_folder: Default::default(),
             list_folders: Default::default(),
-            watch_folder: Default::default(),
             expunge_folder: Default::default(),
             purge_folder: Default::default(),
             delete_folder: Default::default(),
+
+            watch_emails: Default::default(),
 
             get_envelope: Default::default(),
             list_envelopes: Default::default(),
@@ -210,20 +214,6 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         self
     }
 
-    pub fn set_watch_folder(
-        &mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn WatchFolder>> + Send + Sync + 'static,
-    ) {
-        self.watch_folder = Some(Arc::new(feature));
-    }
-    pub fn with_watch_folder(
-        mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn WatchFolder>> + Send + Sync + 'static,
-    ) -> Self {
-        self.set_watch_folder(feature);
-        self
-    }
-
     pub fn set_expunge_folder(
         &mut self,
         feature: impl Fn(&C) -> Option<Box<dyn ExpungeFolder>> + Send + Sync + 'static,
@@ -263,6 +253,20 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         feature: impl Fn(&C) -> Option<Box<dyn DeleteFolder>> + Send + Sync + 'static,
     ) -> Self {
         self.set_delete_folder(feature);
+        self
+    }
+
+    pub fn set_watch_emails(
+        &mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn WatchEmails>> + Send + Sync + 'static,
+    ) {
+        self.watch_emails = Some(Arc::new(feature));
+    }
+    pub fn with_watch_emails(
+        mut self,
+        feature: impl Fn(&C) -> Option<Box<dyn WatchEmails>> + Send + Sync + 'static,
+    ) -> Self {
+        self.set_watch_emails(feature);
         self
     }
 
@@ -457,9 +461,6 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         if let Some(feature) = &self.list_folders {
             backend.set_list_folders(feature(&backend.context));
         }
-        if let Some(feature) = &self.watch_folder {
-            backend.set_watch_folder(feature(&backend.context));
-        }
         if let Some(feature) = &self.expunge_folder {
             backend.set_expunge_folder(feature(&backend.context));
         }
@@ -468,6 +469,10 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         }
         if let Some(feature) = &self.delete_folder {
             backend.set_delete_folder(feature(&backend.context));
+        }
+
+        if let Some(feature) = &self.watch_emails {
+            backend.set_watch_emails(feature(&backend.context));
         }
 
         if let Some(feature) = &self.list_envelopes {
@@ -522,10 +527,11 @@ impl<B: BackendContextBuilder> Clone for BackendBuilder<B> {
 
             add_folder: self.add_folder.clone(),
             list_folders: self.list_folders.clone(),
-            watch_folder: self.watch_folder.clone(),
             expunge_folder: self.expunge_folder.clone(),
             purge_folder: self.purge_folder.clone(),
             delete_folder: self.delete_folder.clone(),
+
+            watch_emails: self.watch_emails.clone(),
 
             list_envelopes: self.list_envelopes.clone(),
             get_envelope: self.get_envelope.clone(),
@@ -555,10 +561,11 @@ impl Default for BackendBuilder<()> {
 
             add_folder: Default::default(),
             list_folders: Default::default(),
-            watch_folder: Default::default(),
             expunge_folder: Default::default(),
             purge_folder: Default::default(),
             delete_folder: Default::default(),
+
+            watch_emails: Default::default(),
 
             add_flags: Default::default(),
             set_flags: Default::default(),
@@ -586,10 +593,11 @@ pub struct Backend<C> {
 
     pub add_folder: Option<Box<dyn AddFolder>>,
     pub list_folders: Option<Box<dyn ListFolders>>,
-    pub watch_folder: Option<Box<dyn WatchFolder>>,
     pub expunge_folder: Option<Box<dyn ExpungeFolder>>,
     pub purge_folder: Option<Box<dyn PurgeFolder>>,
     pub delete_folder: Option<Box<dyn DeleteFolder>>,
+
+    pub watch_emails: Option<Box<dyn WatchEmails>>,
 
     pub list_envelopes: Option<Box<dyn ListEnvelopes>>,
     pub get_envelope: Option<Box<dyn GetEnvelope>>,
@@ -617,10 +625,11 @@ impl<C> Backend<C> {
 
             add_folder: None,
             list_folders: None,
-            watch_folder: None,
             expunge_folder: None,
             purge_folder: None,
             delete_folder: None,
+
+            watch_emails: None,
 
             get_envelope: None,
             list_envelopes: None,
@@ -646,9 +655,6 @@ impl<C> Backend<C> {
     pub fn set_list_folders(&mut self, feature: Option<Box<dyn ListFolders>>) {
         self.list_folders = feature;
     }
-    pub fn set_watch_folder(&mut self, feature: Option<Box<dyn WatchFolder>>) {
-        self.watch_folder = feature;
-    }
     pub fn set_expunge_folder(&mut self, feature: Option<Box<dyn ExpungeFolder>>) {
         self.expunge_folder = feature;
     }
@@ -657,6 +663,10 @@ impl<C> Backend<C> {
     }
     pub fn set_delete_folder(&mut self, feature: Option<Box<dyn DeleteFolder>>) {
         self.delete_folder = feature;
+    }
+
+    pub fn set_watch_emails(&mut self, feature: Option<Box<dyn WatchEmails>>) {
+        self.watch_emails = feature;
     }
 
     pub fn set_list_envelopes(&mut self, feature: Option<Box<dyn ListEnvelopes>>) {
@@ -717,14 +727,6 @@ impl<C> Backend<C> {
             .await
     }
 
-    pub async fn watch_folder(&self, folder: &str) -> Result<()> {
-        self.watch_folder
-            .as_ref()
-            .ok_or(Error::WatchFolderNotAvailableError)?
-            .watch_folder(folder)
-            .await
-    }
-
     pub async fn expunge_folder(&self, folder: &str) -> Result<()> {
         self.expunge_folder
             .as_ref()
@@ -746,6 +748,14 @@ impl<C> Backend<C> {
             .as_ref()
             .ok_or(Error::DeleteFolderNotAvailableError)?
             .delete_folder(folder)
+            .await
+    }
+
+    pub async fn watch_emails(&self, folder: &str) -> Result<()> {
+        self.watch_emails
+            .as_ref()
+            .ok_or(Error::WatchEmailsNotAvailableError)?
+            .watch_emails(folder)
             .await
     }
 

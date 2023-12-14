@@ -16,6 +16,7 @@ pub mod envelope;
 pub mod message;
 pub mod sync;
 pub mod utils;
+pub mod watch;
 
 #[doc(inline)]
 pub use self::utils::*;

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::{list::config::FolderListConfig, watch::config::FolderWatchConfig};
+use super::list::config::FolderListConfig;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FolderConfig {
@@ -19,7 +19,4 @@ pub struct FolderConfig {
 
     /// The folder config related to listing.
     pub list: Option<FolderListConfig>,
-
-    /// The folder config related to watching.
-    pub watch: Option<FolderWatchConfig>,
 }

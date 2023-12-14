@@ -61,6 +61,7 @@ pub mod notmuch;
 pub mod sendmail;
 #[cfg(feature = "smtp")]
 pub mod smtp;
+pub mod watch;
 
 #[doc(inline)]
 pub use email::{
