@@ -25,20 +25,20 @@ pub trait WatchEnvelopes: Send + Sync {
         for (id, envelope) in next_envelopes {
             // a new envelope has been added
             if !prev_envelopes.contains_key(id) {
-                debug!("processing received message event…");
+                debug!("processing received envelope event…");
                 match config.find_received_envelope_hook() {
                     None => (),
                     Some(WatchHook::Cmd(cmd)) => {
-                        debug!("running received message hook…");
+                        debug!("running received envelope hook…");
                         debug!("{}", cmd.to_string());
 
                         if let Err(err) = cmd.run().await {
-                            debug!("error while running received message hook: {err}");
+                            debug!("error while running received envelope hook: {err}");
                             debug!("{err:?}");
                         }
                     }
                     Some(WatchHook::Notify(config)) => {
-                        debug!("sending received message notification…");
+                        debug!("sending received envelope notification…");
                         debug!("{config:?}");
 
                         let notify = Notification::new()
@@ -48,7 +48,35 @@ pub trait WatchEnvelopes: Send + Sync {
                             .await;
 
                         if let Err(err) = notify {
-                            debug!("error while sending received message notification: {err}");
+                            debug!("error while sending received envelope notification: {err}");
+                            debug!("{err:?}");
+                        }
+                    }
+                }
+            } else {
+                match config.find_any_envelope_hook() {
+                    None => (),
+                    Some(WatchHook::Cmd(cmd)) => {
+                        debug!("running any envelope hook…");
+                        debug!("{}", cmd.to_string());
+
+                        if let Err(err) = cmd.run().await {
+                            debug!("error while running any envelope hook: {err}");
+                            debug!("{err:?}");
+                        }
+                    }
+                    Some(WatchHook::Notify(config)) => {
+                        debug!("sending any envelope notification…");
+                        debug!("{config:?}");
+
+                        let notify = Notification::new()
+                            .summary(&resolve_placeholders(&config.summary, envelope))
+                            .body(&resolve_placeholders(&config.body, envelope))
+                            .show_async()
+                            .await;
+
+                        if let Err(err) = notify {
+                            debug!("error while sending any envelope notification: {err}");
                             debug!("{err:?}");
                         }
                     }
