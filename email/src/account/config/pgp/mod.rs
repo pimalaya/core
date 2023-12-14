@@ -26,10 +26,10 @@ pub use self::native::NativePgpConfig;
 
 /// The PGP configuration.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase", tag = "backend")]
+#[serde(rename_all = "kebab-case", tag = "backend")]
 pub enum PgpConfig {
     #[cfg(feature = "pgp-commands")]
-    #[serde(aliases = ["cmd", "command", "commands"])]
+    #[serde(alias = "cmd", alias = "command", alias = "commands")]
     /// Commands configuration.
     Cmds(CmdsPgpConfig),
 
