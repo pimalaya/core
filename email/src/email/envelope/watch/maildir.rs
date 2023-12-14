@@ -23,11 +23,11 @@ pub enum Error {
     InitFolderError(#[source] maildirpp::Error, PathBuf),
 }
 
-pub struct WatchMaildirEmails {
+pub struct WatchMaildirEnvelopes {
     session: MaildirSessionSync,
 }
 
-impl WatchMaildirEmails {
+impl WatchMaildirEnvelopes {
     pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn WatchEnvelopes>> {
         let session = session.clone();
         Some(Box::new(Self { session }))
@@ -35,7 +35,7 @@ impl WatchMaildirEmails {
 }
 
 #[async_trait]
-impl WatchEnvelopes for WatchMaildirEmails {
+impl WatchEnvelopes for WatchMaildirEnvelopes {
     async fn watch_envelopes(&self, folder: &str) -> Result<()> {
         info!("maildir: watching folder {folder} for email changes");
 

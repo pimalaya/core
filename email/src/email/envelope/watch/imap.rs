@@ -26,11 +26,11 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct WatchImapEmails {
+pub struct WatchImapEnvelopes {
     ctx: ImapSessionSync,
 }
 
-impl WatchImapEmails {
+impl WatchImapEnvelopes {
     pub fn new(ctx: &ImapSessionSync) -> Option<Box<dyn WatchEnvelopes>> {
         let ctx = ctx.clone();
         Some(Box::new(Self { ctx }))
@@ -38,7 +38,7 @@ impl WatchImapEmails {
 }
 
 #[async_trait]
-impl WatchEnvelopes for WatchImapEmails {
+impl WatchEnvelopes for WatchImapEnvelopes {
     async fn watch_envelopes(&self, folder: &str) -> Result<()> {
         info!("imap: watching folder {folder} for email changes");
 
