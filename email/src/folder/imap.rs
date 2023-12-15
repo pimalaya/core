@@ -1,0 +1,84 @@
+use imap::types::{Name, Names};
+use imap_proto::NameAttribute;
+use log::{debug, trace};
+use thiserror::Error;
+use utf7_imap::decode_utf7_imap as decode_utf7;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("cannot get uid of imap folder {0}: uid is missing")]
+    GetUidMissingError(u32),
+}
+
+use crate::{
+    account::config::AccountConfig,
+    folder::{Folder, Folders},
+};
+
+use super::FolderKind;
+
+impl Folder {
+    /// Parse a folder from an IMAP name.
+    ///
+    /// Returns [`None`] if the folder cannot be selected.
+    pub fn from_imap_name(config: &AccountConfig, name: &Name) -> Option<Self> {
+        let attrs = name.attributes();
+
+        // exit straight if the folder cannot be selected
+        // TODO: make this behaviour customizable?
+        if attrs.contains(&NameAttribute::NoSelect) {
+            debug!("skipping not selectable imap folder: {}", name.name());
+            return None;
+        }
+
+        let name = decode_utf7(name.name().into());
+
+        let kind = config.find_folder_kind_from_alias(&name).or_else(|| {
+            if attrs.contains(&NameAttribute::Sent) {
+                Some(FolderKind::Sent)
+            } else if attrs.contains(&NameAttribute::Drafts) {
+                Some(FolderKind::Drafts)
+            } else if attrs.contains(&NameAttribute::Trash) {
+                Some(FolderKind::Trash)
+            } else {
+                None
+            }
+        });
+
+        let desc = attrs.iter().fold(String::default(), |mut desc, attr| {
+            let attr = match attr {
+                NameAttribute::All => Some("all"),
+                NameAttribute::Archive => Some("archive"),
+                NameAttribute::Flagged => Some("flagged"),
+                NameAttribute::Junk => Some("junk"),
+                NameAttribute::Marked => Some("marked"),
+                NameAttribute::Unmarked => Some("unmarked"),
+                NameAttribute::Extension(ext) => Some(ext.as_ref()),
+                _ => None,
+            };
+
+            if let Some(attr) = attr {
+                if !desc.is_empty() {
+                    desc.push_str(", ")
+                }
+                desc.push_str(attr);
+            }
+
+            desc
+        });
+
+        let folder = Folder { kind, name, desc };
+        trace!("parsed imap folder: {folder:#?}");
+        Some(folder)
+    }
+}
+
+impl Folders {
+    /// Parse folders from IMAP names.
+    pub fn from_imap_names(config: &AccountConfig, names: Names) -> Self {
+        names
+            .iter()
+            .filter_map(|name| Folder::from_imap_name(config, name))
+            .collect()
+    }
+}

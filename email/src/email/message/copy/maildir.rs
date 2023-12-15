@@ -30,8 +30,8 @@ impl CopyMessages for CopyMessagesMaildir {
         info!("maildir: copying messages {id} from folder {from_folder} to folder {to_folder}");
 
         let session = self.session.lock().await;
-        let from_mdir = session.get_mdir_from_dir(from_folder)?;
-        let to_mdir = session.get_mdir_from_dir(to_folder)?;
+        let from_mdir = session.get_maildir_from_folder_name(from_folder)?;
+        let to_mdir = session.get_maildir_from_folder_name(to_folder)?;
 
         id.iter().try_for_each(|id| {
             from_mdir.copy_to(id, &to_mdir).map_err(|err| {

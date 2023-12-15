@@ -1,10 +1,14 @@
 use async_trait::async_trait;
-use log::{debug, info};
+use log::info;
 use maildirpp::Maildir;
 use std::path::PathBuf;
 use thiserror::Error;
 
-use crate::{account::config::DEFAULT_INBOX_FOLDER, maildir::MaildirSessionSync, Result};
+use crate::{
+    folder::FolderKind,
+    maildir::{self, MaildirSessionSync},
+    Result,
+};
 
 use super::AddFolder;
 
@@ -36,16 +40,12 @@ impl AddFolder for AddFolderMaildir {
 
         let session = self.session.lock().await;
 
-        // FIXME: better check if given folder IS the inbox
-        let path = match session.account_config.get_folder_alias(folder)?.as_str() {
-            DEFAULT_INBOX_FOLDER => session.path().join("cur"),
-            folder => {
-                let folder = session.encode_folder(folder);
-                session.path().join(format!(".{}", folder))
-            }
+        let path = if FolderKind::matches_inbox(folder) {
+            session.path().join("cur")
+        } else {
+            let folder = maildir::encode_folder(folder);
+            session.path().join(format!(".{}", folder))
         };
-
-        debug!("folder path: {path:?}");
 
         Maildir::from(path.clone())
             .create_dirs()

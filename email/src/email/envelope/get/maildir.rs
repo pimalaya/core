@@ -31,7 +31,7 @@ impl GetEnvelope for GetEnvelopeMaildir {
         info!("getting envelope {id} from folder {folder}");
 
         let session = self.session.lock().await;
-        let mdir = session.get_mdir_from_dir(folder)?;
+        let mdir = session.get_maildir_from_folder_name(folder)?;
 
         let envelope: Envelope = Envelope::from_mdir_entry(
             mdir.find(&id.to_string())

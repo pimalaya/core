@@ -23,7 +23,7 @@ impl PeekMessages for PeekMessagesMaildir {
         info!("peeking messages {id} from folder {folder}");
 
         let session = self.session.lock().await;
-        let mdir = session.get_mdir_from_dir(folder)?;
+        let mdir = session.get_maildir_from_folder_name(folder)?;
 
         let mut msgs: Vec<(usize, maildirpp::MailEntry)> = mdir
             .list_cur()

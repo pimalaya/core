@@ -3,7 +3,11 @@ use log::info;
 use std::{fs, io, path::PathBuf};
 use thiserror::Error;
 
-use crate::{account::config::DEFAULT_INBOX_FOLDER, maildir::MaildirSessionSync, Result};
+use crate::{
+    folder::FolderKind,
+    maildir::{self, MaildirSessionSync},
+    Result,
+};
 
 use super::DeleteFolder;
 
@@ -31,12 +35,11 @@ impl DeleteFolder for DeleteFolderMaildir {
 
         let session = self.session.lock().await;
 
-        let path = match session.account_config.get_folder_alias(folder)?.as_str() {
-            DEFAULT_INBOX_FOLDER => session.path().join("cur"),
-            folder => {
-                let folder = session.encode_folder(folder);
-                session.path().join(format!(".{}", folder))
-            }
+        let path = if FolderKind::matches_inbox(folder) {
+            session.path().join("cur")
+        } else {
+            let folder = maildir::encode_folder(folder);
+            session.path().join(format!(".{}", folder))
         };
 
         fs::remove_dir_all(&path).map_err(|err| Error::DeleteFolderError(err, path))?;

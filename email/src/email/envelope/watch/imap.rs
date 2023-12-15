@@ -44,7 +44,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
 
         let mut ctx = self.ctx.lock().await;
 
-        let folder = ctx.account_config.get_folder_alias(folder)?;
+        let folder = ctx.account_config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 

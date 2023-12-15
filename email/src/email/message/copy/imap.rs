@@ -34,11 +34,11 @@ impl CopyMessages for CopyMessagesImap {
 
         let mut session = self.session.lock().await;
 
-        let from_folder = session.account_config.get_folder_alias(from_folder)?;
+        let from_folder = session.account_config.get_folder_alias(from_folder);
         let from_folder_encoded = encode_utf7(from_folder.clone());
         debug!("utf7 encoded from folder: {from_folder_encoded}");
 
-        let to_folder = session.account_config.get_folder_alias(to_folder)?;
+        let to_folder = session.account_config.get_folder_alias(to_folder);
         let to_folder_encoded = encode_utf7(to_folder.clone());
         debug!("utf7 encoded to folder: {to_folder_encoded}");
 

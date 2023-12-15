@@ -32,7 +32,7 @@ impl SetFlags for SetFlagsMaildir {
         info!("maildir: setting flag(s) {flags} to envelope {id} from folder {folder}");
 
         let session = self.session.lock().await;
-        let mdir = session.get_mdir_from_dir(folder)?;
+        let mdir = session.get_maildir_from_folder_name(folder)?;
 
         id.iter().try_for_each(|ref id| {
             mdir.set_flags(id, &flags.to_mdir_string()).map_err(|err| {

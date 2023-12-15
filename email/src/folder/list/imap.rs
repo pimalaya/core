@@ -1,12 +1,10 @@
 use async_trait::async_trait;
-use imap_proto::NameAttribute;
-use log::{debug, info};
+use log::info;
 use thiserror::Error;
-use utf7_imap::decode_utf7_imap as decode_utf7;
 
 use crate::{imap::ImapSessionSync, Result};
 
-use super::{Folder, Folders, ListFolders};
+use super::{Folders, ListFolders};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -33,29 +31,14 @@ impl ListFolders for ListFoldersImap {
 
         let mut session = self.session.lock().await;
 
-        let folders = session
+        let names = session
             .execute(
                 |session| session.list(Some(""), Some("*")),
                 |err| Error::ListFoldersError(err).into(),
             )
             .await?;
-        let folders = Folders::from_iter(folders.iter().filter_map(|folder| {
-            if folder.attributes().contains(&NameAttribute::NoSelect) {
-                None
-            } else {
-                Some(Folder {
-                    name: decode_utf7(folder.name().into()),
-                    desc: folder
-                        .attributes()
-                        .iter()
-                        .map(|attr| format!("{attr:?}"))
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                })
-            }
-        }));
 
-        debug!("imap folders: {folders:#?}");
+        let folders = Folders::from_imap_names(&session.account_config, names);
 
         Ok(folders)
     }

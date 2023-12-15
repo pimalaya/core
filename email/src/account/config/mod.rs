@@ -27,7 +27,9 @@ use thiserror::Error;
 use crate::{
     email::config::EmailTextPlainFormat,
     envelope::config::EnvelopeConfig,
-    folder::{config::FolderConfig, sync::FolderSyncStrategy},
+    folder::{
+        config::FolderConfig, sync::FolderSyncStrategy, FolderKind, DRAFTS, INBOX, SENT, TRASH,
+    },
     message::config::MessageConfig,
     watch::config::WatchHook,
     Result,
@@ -40,11 +42,6 @@ use super::sync::config::SyncConfig;
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
 pub const DEFAULT_SIGNATURE_DELIM: &str = "-- \n";
-
-pub const DEFAULT_INBOX_FOLDER: &str = "INBOX";
-pub const DEFAULT_SENT_FOLDER: &str = "Sent";
-pub const DEFAULT_DRAFTS_FOLDER: &str = "Drafts";
-pub const DEFAULT_TRASH_FOLDER: &str = "Trash";
 
 /// Errors related to account configuration.
 #[derive(Debug, Error)]
@@ -246,55 +243,66 @@ impl AccountConfig {
             .and_then(|c| c.any.as_ref())
     }
 
-    /// Find the alias of the given folder.
+    /// Find the alias of the given folder name.
     ///
     /// The alias is also shell expanded.
-    pub fn find_folder_alias(&self, folder: &str) -> Result<Option<String>> {
-        let lowercase_folder = folder.trim().to_lowercase();
-
-        let alias = self
-            .folder
+    pub fn find_folder_alias(&self, name: &str) -> Option<String> {
+        self.folder
             .as_ref()
             .and_then(|c| c.aliases.as_ref())
-            .and_then(|aliases| aliases.get(&lowercase_folder).map(shellexpand_str));
-
-        Ok(alias)
+            .and_then(|aliases| {
+                aliases
+                    .get(&name.trim().to_lowercase())
+                    .map(shellexpand_str)
+            })
     }
 
     /// Find the alias of the given folder, otherwise return the given
     /// folder itself.
-    pub fn get_folder_alias(&self, folder: &str) -> Result<String> {
-        let alias = self.find_folder_alias(folder)?.unwrap_or_else(|| {
-            match folder.trim().to_lowercase().as_str() {
-                "inbox" => DEFAULT_INBOX_FOLDER.to_owned(),
-                "draft" | "drafts" => DEFAULT_DRAFTS_FOLDER.to_owned(),
-                "sent" => DEFAULT_SENT_FOLDER.to_owned(),
-                "trash" => DEFAULT_TRASH_FOLDER.to_owned(),
-                _ => shellexpand_str(folder),
-            }
-        });
-
-        Ok(alias)
+    pub fn get_folder_alias(&self, folder: &str) -> String {
+        self.find_folder_alias(folder)
+            .unwrap_or_else(|| shellexpand_str(folder))
     }
 
     /// Get the inbox folder alias.
-    pub fn get_inbox_folder_alias(&self) -> Result<String> {
-        self.get_folder_alias(DEFAULT_INBOX_FOLDER)
-    }
-
-    /// Get the drafts folder alias.
-    pub fn get_drafts_folder_alias(&self) -> Result<String> {
-        self.get_folder_alias(DEFAULT_DRAFTS_FOLDER)
+    pub fn get_inbox_folder_alias(&self) -> String {
+        self.get_folder_alias(INBOX)
     }
 
     /// Get the sent folder alias.
-    pub fn get_sent_folder_alias(&self) -> Result<String> {
-        self.get_folder_alias(DEFAULT_SENT_FOLDER)
+    pub fn get_sent_folder_alias(&self) -> String {
+        self.get_folder_alias(SENT)
+    }
+
+    /// Get the drafts folder alias.
+    pub fn get_drafts_folder_alias(&self) -> String {
+        self.get_folder_alias(DRAFTS)
     }
 
     /// Get the trash folder alias.
-    pub fn get_trash_folder_alias(&self) -> Result<String> {
-        self.get_folder_alias(DEFAULT_TRASH_FOLDER)
+    pub fn get_trash_folder_alias(&self) -> String {
+        self.get_folder_alias(TRASH)
+    }
+
+    /// Find the folder kind associated to the given folder alias.
+    ///
+    /// This function is the reverse of [`get_folder_alias`], as it
+    /// tries to find a key (folder kind) matching the given value
+    /// (folder alial).
+    pub fn find_folder_kind_from_alias(&self, alias: &str) -> Option<FolderKind> {
+        self.folder
+            .as_ref()
+            .and_then(|c| c.aliases.as_ref())
+            .and_then(|aliases| {
+                let from_alias = shellexpand_str(alias);
+                aliases.iter().find_map(|(kind_or_name, alias)| {
+                    if shellexpand_str(alias).eq_ignore_ascii_case(&from_alias) {
+                        kind_or_name.parse().ok()
+                    } else {
+                        None
+                    }
+                })
+            })
     }
 
     /// Get the folder sync strategy.

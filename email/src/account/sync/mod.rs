@@ -295,23 +295,13 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             FolderSyncStrategy::Include(folders) => FolderSyncStrategy::Include(
                 folders
                     .iter()
-                    .map(|folder| {
-                        Ok(self
-                            .remote_builder
-                            .account_config
-                            .get_folder_alias(folder)?)
-                    })
+                    .map(|folder| Ok(self.remote_builder.account_config.get_folder_alias(folder)))
                     .collect::<Result<_>>()?,
             ),
             FolderSyncStrategy::Exclude(folders) => FolderSyncStrategy::Exclude(
                 folders
                     .iter()
-                    .map(|folder| {
-                        Ok(self
-                            .remote_builder
-                            .account_config
-                            .get_folder_alias(folder)?)
-                    })
+                    .map(|folder| Ok(self.remote_builder.account_config.get_folder_alias(folder)))
                     .collect::<Result<_>>()?,
             ),
         };

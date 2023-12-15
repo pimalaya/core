@@ -35,7 +35,7 @@ impl AddRawMessageWithFlags for AddRawMessageWithFlagsMaildir {
         info!("adding raw email message to folder {folder} with flags {flags}");
 
         let session = self.session.lock().await;
-        let mdir = session.get_mdir_from_dir(folder)?;
+        let mdir = session.get_maildir_from_folder_name(folder)?;
 
         let id = mdir
             .store_cur_with_flags(raw_msg, &flags.to_mdir_string())

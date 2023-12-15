@@ -1,9 +1,9 @@
 use async_trait::async_trait;
-use log::{debug, info};
-use std::{ffi::OsStr, path::PathBuf};
+use log::info;
+use std::path::PathBuf;
 use thiserror::Error;
 
-use crate::{account::config::DEFAULT_INBOX_FOLDER, maildir::MaildirSessionSync, Result};
+use crate::{folder::FolderKind, maildir::MaildirSessionSync, Result};
 
 use super::{Folder, Folders, ListFolders};
 
@@ -32,37 +32,19 @@ impl ListFolders for ListFoldersMaildir {
         info!("listing maildir folders");
 
         let session = self.session.lock().await;
+        let config = &session.account_config;
 
         let mut folders = Folders::default();
 
         folders.push(Folder {
-            name: self.session.account_config.get_inbox_folder_alias()?,
-            desc: DEFAULT_INBOX_FOLDER.into(),
+            kind: Some(FolderKind::Inbox),
+            name: self.session.account_config.get_inbox_folder_alias(),
+            desc: session.path().to_string_lossy().to_string(),
         });
 
-        for entry in session.list_subdirs() {
-            let dir =
-                entry.map_err(|err| Error::GetSubfolderError(err, session.path().to_owned()))?;
-            let dirname = dir.path().file_name();
-            let name = dirname
-                .and_then(OsStr::to_str)
-                .and_then(|s| if s.len() < 2 { None } else { Some(&s[1..]) })
-                .ok_or_else(|| {
-                    Error::ParseSubfolderError(session.path().to_owned(), dir.path().to_owned())
-                })?
-                .to_string();
-
-            if name == "notmuch" {
-                continue;
-            }
-
-            folders.push(Folder {
-                name: session.decode_folder(&name),
-                desc: name,
-            });
-        }
-
-        debug!("maildir folders: {:#?}", folders);
+        let subfolders: Vec<Folder> =
+            Folders::from_submaildirs(&config, session.list_subdirs()).into();
+        folders.extend(subfolders);
 
         Ok(folders)
     }

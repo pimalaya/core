@@ -1,32 +1,30 @@
-#[cfg(feature = "maildir")]
+use concat_with::concat_line;
+use email::{
+    account::config::AccountConfig,
+    backend::BackendBuilder,
+    envelope::{list::maildir::ListEnvelopesMaildir, Id},
+    flag::{
+        add::maildir::AddFlagsMaildir, remove::maildir::RemoveFlagsMaildir,
+        set::maildir::SetFlagsMaildir, Flag,
+    },
+    folder::{
+        add::maildir::AddFolderMaildir, config::FolderConfig, delete::maildir::DeleteFolderMaildir,
+        expunge::maildir::ExpungeFolderMaildir, list::maildir::ListFoldersMaildir,
+    },
+    maildir::{config::MaildirConfig, MaildirSessionBuilder},
+    message::{
+        add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
+        copy::maildir::CopyMessagesMaildir, move_::maildir::MoveMessagesMaildir,
+        peek::maildir::PeekMessagesMaildir,
+    },
+};
+use mail_builder::MessageBuilder;
+use maildirpp::Maildir;
+use std::{collections::HashMap, fs, iter::FromIterator};
+use tempfile::tempdir;
+
 #[tokio::test]
 async fn test_maildir_features() {
-    use concat_with::concat_line;
-    use email::{
-        account::config::AccountConfig,
-        backend::BackendBuilder,
-        envelope::{list::maildir::ListEnvelopesMaildir, Id},
-        flag::{
-            add::maildir::AddFlagsMaildir, remove::maildir::RemoveFlagsMaildir,
-            set::maildir::SetFlagsMaildir, Flag,
-        },
-        folder::{
-            add::maildir::AddFolderMaildir, config::FolderConfig,
-            delete::maildir::DeleteFolderMaildir, expunge::maildir::ExpungeFolderMaildir,
-            list::maildir::ListFoldersMaildir,
-        },
-        maildir::{config::MaildirConfig, MaildirSessionBuilder},
-        message::{
-            add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
-            copy::maildir::CopyMessagesMaildir, move_::maildir::MoveMessagesMaildir,
-            peek::maildir::PeekMessagesMaildir,
-        },
-    };
-    use mail_builder::MessageBuilder;
-    use maildirpp::Maildir;
-    use std::{collections::HashMap, fs, iter::FromIterator};
-    use tempfile::tempdir;
-
     env_logger::builder().is_test(true).init();
 
     // set up maildir folders
@@ -43,7 +41,7 @@ async fn test_maildir_features() {
     if let Err(_) = fs::remove_dir_all(mdir_trash.path()) {}
     mdir_trash.create_dirs().unwrap();
 
-    let account_config = AccountConfig {
+    let config = AccountConfig {
         name: "account".into(),
         folder: Some(FolderConfig {
             aliases: Some(HashMap::from_iter([
@@ -64,8 +62,8 @@ async fn test_maildir_features() {
     let mdir_config = MaildirConfig {
         root_dir: mdir_path.clone(),
     };
-    let mdir_ctx = MaildirSessionBuilder::new(account_config.clone(), mdir_config);
-    let backend_builder = BackendBuilder::new(account_config.clone(), mdir_ctx)
+    let backend_ctx = MaildirSessionBuilder::new(config.clone(), mdir_config);
+    let backend_builder = BackendBuilder::new(config.clone(), backend_ctx)
         .with_add_folder(AddFolderMaildir::new)
         .with_list_folders(ListFoldersMaildir::new)
         .with_expunge_folder(ExpungeFolderMaildir::new)
@@ -85,8 +83,8 @@ async fn test_maildir_features() {
     let mdir_config = MaildirConfig {
         root_dir: mdir_path.clone(),
     };
-    let mdir_ctx = MaildirSessionBuilder::new(account_config.clone(), mdir_config);
-    let backend_builder = BackendBuilder::new(account_config.clone(), mdir_ctx)
+    let backend_ctx = MaildirSessionBuilder::new(config.clone(), mdir_config);
+    let backend_builder = BackendBuilder::new(config.clone(), backend_ctx)
         .with_add_folder(AddFolderMaildir::new)
         .with_list_folders(ListFoldersMaildir::new)
         .with_expunge_folder(ExpungeFolderMaildir::new)
@@ -120,9 +118,7 @@ async fn test_maildir_features() {
         .to_vec()
         .first()
         .unwrap()
-        .to_read_tpl(&account_config, |i| {
-            i.with_show_only_headers(["From", "To"])
-        })
+        .to_read_tpl(&config, |i| i.with_show_only_headers(["From", "To"]))
         .await
         .unwrap();
     let expected_tpl = concat_line!(

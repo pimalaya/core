@@ -35,7 +35,7 @@ impl ListEnvelopes for ListEnvelopesMaildir {
         info!("listing envelopes from maildir folder {folder}");
 
         let session = self.session.lock().await;
-        let mdir = session.get_mdir_from_dir(folder)?;
+        let mdir = session.get_maildir_from_folder_name(folder)?;
 
         let mut envelopes = Envelopes::from_mdir_entries(mdir.list_cur());
         debug!("maildir envelopes: {envelopes:#?}");

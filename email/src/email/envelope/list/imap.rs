@@ -48,7 +48,7 @@ impl ListEnvelopes for ListEnvelopesImap {
 
         let mut session = self.session.lock().await;
 
-        let folder = session.account_config.get_folder_alias(folder)?;
+        let folder = session.account_config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 

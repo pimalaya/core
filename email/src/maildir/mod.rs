@@ -3,9 +3,9 @@ pub mod config;
 use async_trait::async_trait;
 use log::info;
 use maildirpp::Maildir;
-use shellexpand_utils::shellexpand_path;
+use shellexpand_utils::{shellexpand_path, try_shellexpand_path};
 use std::{
-    env, io,
+    io,
     ops::Deref,
     path::{self, PathBuf},
     sync::Arc,
@@ -14,8 +14,7 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::{
-    account::config::{AccountConfig, DEFAULT_INBOX_FOLDER},
-    backend::BackendContextBuilder,
+    account::config::AccountConfig, backend::BackendContextBuilder, folder::FolderKind, maildir,
     Result,
 };
 
@@ -110,64 +109,44 @@ impl MaildirSession {
         Ok(())
     }
 
-    /// Checks if the Maildir root directory is a valid path,
-    /// otherwise returns an error.
-    fn validate_mdir_path(&self, mdir_path: PathBuf) -> Result<PathBuf> {
-        if mdir_path.is_dir() {
-            Ok(mdir_path)
-        } else {
-            Err(Error::ReadFolderInvalidError(mdir_path.to_owned()).into())
-        }
-    }
-
-    /// Creates a maildir instance from a path.
-    pub fn get_mdir_from_dir(&self, folder: &str) -> Result<Maildir> {
-        let folder = self.account_config.get_folder_alias(folder)?;
-
-        // If the dir points to the inbox folder, creates a maildir
-        // instance from the root folder.
-        if folder == DEFAULT_INBOX_FOLDER {
-            return self
-                .validate_mdir_path(self.session.path().to_owned())
-                .map(Maildir::from);
+    /// Creates a maildir instance from a folder name.
+    pub fn get_maildir_from_folder_name(&self, folder: &str) -> Result<Maildir> {
+        // If the folder matches to the inbox folder kind, create a
+        // maildir instance from the root folder.
+        if FolderKind::matches_inbox(folder) {
+            return try_shellexpand_path(self.session.path().to_owned())
+                .map(Maildir::from)
+                .map_err(Into::into);
         }
 
-        // If the dir is a valid maildir path, creates a maildir
-        // instance from it. First checks for absolute path,
-        self.validate_mdir_path((&folder).into())
-            // then for relative path to `maildir-dir`,
-            .or_else(|_| self.validate_mdir_path(self.session.path().join(&folder)))
-            // and finally for relative path to the current directory.
-            .or_else(|_| {
-                self.validate_mdir_path(
-                    env::current_dir()
-                        .map_err(Error::GetCurrentFolderError)?
-                        .join(&folder),
-                )
-            })
+        let folder = self.account_config.get_folder_alias(folder);
+
+        // If the folder is a valid maildir path, creates a maildir
+        // instance from it. First check for absolute path…
+        try_shellexpand_path(&folder)
+            // then check for relative path to `maildir-dir`…
+            .or_else(|_| try_shellexpand_path(self.session.path().join(&folder)))
+            // TODO: should move to CLI
+            // // and finally check for relative path to the current
+            // // directory
+            // .or_else(|_| {
+            //     try_shellexpand_path(
+            //         env::current_dir()
+            //             .map_err(Error::GetCurrentFolderError)?
+            //             .join(&folder),
+            //     )
+            // })
             .or_else(|_| {
                 // Otherwise creates a maildir instance from a maildir
                 // subdirectory by adding a "." in front of the name
                 // as described in the [spec].
                 //
                 // [spec]: http://www.courier-mta.org/imap/README.maildirquota.html
-                let folder = self.encode_folder(&folder);
-                self.validate_mdir_path(self.session.path().join(format!(".{}", folder)))
+                let folder = maildir::encode_folder(&folder);
+                try_shellexpand_path(self.session.path().join(format!(".{}", folder)))
             })
             .map(Maildir::from)
-    }
-
-    /// URL-encodes the given folder. The aim is to avoid naming
-    /// issues due to special characters.
-    pub fn encode_folder(&self, folder: impl AsRef<str> + ToString) -> String {
-        urlencoding::encode(folder.as_ref()).to_string()
-    }
-
-    /// URL-decodes the given folder.
-    pub fn decode_folder(&self, folder: impl AsRef<str> + ToString) -> String {
-        urlencoding::decode(folder.as_ref())
-            .map(|folder| folder.to_string())
-            .unwrap_or_else(|_| folder.to_string())
+            .map_err(Into::into)
     }
 }
 
@@ -208,4 +187,17 @@ impl Deref for MaildirSessionSync {
     fn deref(&self) -> &Self::Target {
         &self.session
     }
+}
+
+/// URL-encodes the given folder. The aim is to avoid naming
+/// issues due to special characters.
+pub fn encode_folder(folder: impl AsRef<str> + ToString) -> String {
+    urlencoding::encode(folder.as_ref()).to_string()
+}
+
+/// URL-decodes the given folder.
+pub fn decode_folder(folder: impl AsRef<str> + ToString) -> String {
+    urlencoding::decode(folder.as_ref())
+        .map(|folder| folder.to_string())
+        .unwrap_or_else(|_| folder.to_string())
 }

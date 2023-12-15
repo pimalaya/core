@@ -30,7 +30,7 @@ impl RemoveFlags for RemoveFlagsMaildir {
         info!("maildir: removing flag(s) {flags} to envelope {id} from folder {folder}");
 
         let session = self.session.lock().await;
-        let mdir = session.get_mdir_from_dir(folder)?;
+        let mdir = session.get_maildir_from_folder_name(folder)?;
 
         id.iter().try_for_each(|ref id| {
             mdir.remove_flags(id, &flags.to_mdir_string())

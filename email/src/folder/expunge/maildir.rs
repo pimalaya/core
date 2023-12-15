@@ -33,7 +33,7 @@ impl ExpungeFolder for ExpungeFolderMaildir {
 
         let session = self.session.lock().await;
 
-        let mdir = session.get_mdir_from_dir(folder)?;
+        let mdir = session.get_maildir_from_folder_name(folder)?;
         let entries = mdir
             .list_cur()
             .collect::<maildirpp::Result<Vec<_>>>()

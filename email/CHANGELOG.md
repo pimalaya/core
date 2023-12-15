@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added backend feature `WatchEnvelopes` that triggers hooks defined in the new account configuration entry `EnvelopeConfig::watch` at path `envelope.watch.{event}.{hook}`.
+- Added 2 envelope watch events `WatchEnvelopeConfig::received` (when a new envelope is detected) and `WatchEnvelopeConfig::any` (for all other cases, the fallback).
+- Added 2 watch hooks `WatchHook::Cmd` (execute a shell command) and `WatchHook::Notify(WatchNotifyConfig)` (send a system notification). The last one takes a summary and a body to customize the final notification.
+- Added `FolderKind` enum to categorize a folder (inbox, sent, drafts, trash).
+- Added `AccountConfig::find_folder_kind_from_alias` function to find the folder kind associated to a given folder alias.
+
+### Changed
+
+- Added `Folder::kind` of type `Option<FolderKind>`.
+- Changed `AccountConfig::{get,find}_folder_alias` return type: they do not return a `Result` anymore.
+
 ## [0.17.1] - 2023-12-11
 
 ### Fixed
