@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2023-12-16
+
 ### Added
 
 - Added backend feature `WatchEnvelopes` that triggers hooks defined in the new account configuration entry `EnvelopeConfig::watch` at path `envelope.watch.{event}.{hook}`.

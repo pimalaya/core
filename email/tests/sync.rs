@@ -53,7 +53,7 @@ async fn sync() {
     let account_config = AccountConfig {
         name: "account".into(),
         folder: Some(FolderConfig {
-            aliases: Some(HashMap::from_iter([("sent".into(), "[Gmail]/Sent".into())])),
+            aliases: Some(HashMap::from_iter([(SENT.into(), "[Gmail]/Sent".into())])),
             ..Default::default()
         }),
         sync: Some(SyncConfig {
@@ -98,9 +98,10 @@ async fn sync() {
     // set up folders
 
     for folder in imap.list_folders().await.unwrap().iter() {
-        match folder.name.as_str() {
-            INBOX => imap.purge_folder(INBOX).await.unwrap(),
-            folder => imap.delete_folder(folder).await.unwrap(),
+        if folder.is_inbox() {
+            imap.purge_folder(INBOX).await.unwrap()
+        } else {
+            imap.delete_folder(&folder.name).await.unwrap()
         }
     }
 
@@ -164,7 +165,7 @@ async fn sync() {
     // add two more emails to folder [Gmail]/Sent
 
     imap.add_raw_message_with_flags(
-        SENT,
+        "sent",
         &MessageBuilder::new()
             .message_id("<d@localhost>")
             .from("alice@localhost")
@@ -181,7 +182,7 @@ async fn sync() {
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     imap.add_raw_message_with_flags(
-        SENT,
+        "SenT",
         &MessageBuilder::new()
             .message_id("<e@localhost>")
             .from("alice@localhost")

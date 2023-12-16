@@ -246,14 +246,18 @@ impl AccountConfig {
     /// Find the alias of the given folder name.
     ///
     /// The alias is also shell expanded.
-    pub fn find_folder_alias(&self, name: &str) -> Option<String> {
+    pub fn find_folder_alias(&self, from_name: &str) -> Option<String> {
         self.folder
             .as_ref()
             .and_then(|c| c.aliases.as_ref())
             .and_then(|aliases| {
-                aliases
-                    .get(&name.trim().to_lowercase())
-                    .map(shellexpand_str)
+                aliases.iter().find_map(|(name, alias)| {
+                    if name.eq_ignore_ascii_case(from_name.trim()) {
+                        Some(shellexpand_str(alias))
+                    } else {
+                        None
+                    }
+                })
             })
     }
 

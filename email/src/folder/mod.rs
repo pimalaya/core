@@ -112,6 +112,12 @@ impl FolderKind {
         matches!(self, FolderKind::Trash)
     }
 
+    /// Return `true` if the current folder kind matches the
+    /// UserDefined variant.
+    pub fn is_user_defined(&self) -> bool {
+        matches!(self, FolderKind::UserDefined(_))
+    }
+
     /// Return `true` if the give string matches the Inbox variant.
     pub fn matches_inbox(folder: impl AsRef<str>) -> bool {
         folder
@@ -211,6 +217,38 @@ pub struct Folder {
 }
 
 impl Folder {
+    /// Return `true` if the folder kind matches the Inbox variant.
+    pub fn is_inbox(&self) -> bool {
+        self.kind
+            .as_ref()
+            .map(|kind| kind.is_inbox())
+            .unwrap_or_default()
+    }
+
+    /// Return `true` if the folder kind matches the Sent variant.
+    pub fn is_sent(&self) -> bool {
+        self.kind
+            .as_ref()
+            .map(|kind| kind.is_sent())
+            .unwrap_or_default()
+    }
+
+    /// Return `true` if the folder kind matches the Drafts variant.
+    pub fn is_drafts(&self) -> bool {
+        self.kind
+            .as_ref()
+            .map(|kind| kind.is_drafts())
+            .unwrap_or_default()
+    }
+
+    /// Return `true` if the folder kind matches the Trash variant.
+    pub fn is_trash(&self) -> bool {
+        self.kind
+            .as_ref()
+            .map(|kind| kind.is_trash())
+            .unwrap_or_default()
+    }
+
     /// Return the folder kind as string slice if existing, otherwise
     /// return the folder name as string slice.
     pub fn get_kind_or_name(&self) -> &str {

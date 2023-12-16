@@ -1,32 +1,39 @@
-#[cfg(feature = "imap")]
+use std::collections::HashMap;
+
+use concat_with::concat_line;
+use email::{
+    account::config::{passwd::PasswdConfig, AccountConfig},
+    backend::BackendBuilder,
+    envelope::{flag::add::imap::AddFlagsImap, list::imap::ListEnvelopesImap, Id},
+    flag::Flag,
+    folder::{
+        add::imap::AddFolderImap, config::FolderConfig, delete::imap::DeleteFolderImap,
+        expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
+        purge::imap::PurgeFolderImap, INBOX, SENT,
+    },
+    imap::{
+        config::{ImapAuthConfig, ImapConfig},
+        ImapSessionBuilder,
+    },
+    message::{
+        add_raw_with_flags::imap::AddRawMessageWithFlagsImap, copy::imap::CopyMessagesImap,
+        get::imap::GetMessagesImap, move_::imap::MoveMessagesImap,
+    },
+};
+use mml::MmlCompilerBuilder;
+use secret::Secret;
+
 #[tokio::test]
 async fn test_imap_features() {
-    use concat_with::concat_line;
-    use email::{
-        account::config::{passwd::PasswdConfig, AccountConfig},
-        backend::BackendBuilder,
-        envelope::{flag::add::imap::AddFlagsImap, list::imap::ListEnvelopesImap, Id},
-        flag::Flag,
-        folder::{
-            add::imap::AddFolderImap, delete::imap::DeleteFolderImap,
-            expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
-            purge::imap::PurgeFolderImap,
-        },
-        imap::{
-            config::{ImapAuthConfig, ImapConfig},
-            ImapSessionBuilder,
-        },
-        message::{
-            add_raw_with_flags::imap::AddRawMessageWithFlagsImap, copy::imap::CopyMessagesImap,
-            get::imap::GetMessagesImap, move_::imap::MoveMessagesImap,
-        },
-    };
-    use mml::MmlCompilerBuilder;
-    use secret::Secret;
-
     env_logger::builder().is_test(true).init();
 
-    let account_config = AccountConfig::default();
+    let account_config = AccountConfig {
+        folder: Some(FolderConfig {
+            aliases: Some(HashMap::from_iter([(SENT.into(), "[Gmail]/Sent".into())])),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
     let imap_config = ImapConfig {
         host: "localhost".into(),
         port: 3143,
@@ -61,13 +68,14 @@ async fn test_imap_features() {
     // setting up folders
 
     for folder in backend.list_folders().await.unwrap().iter() {
-        match folder.name.as_str() {
-            "INBOX" => backend.purge_folder("INBOX").await.unwrap(),
-            folder => backend.delete_folder(folder).await.unwrap(),
+        if folder.is_inbox() {
+            backend.purge_folder(INBOX).await.unwrap()
+        } else {
+            backend.delete_folder(&folder.name).await.unwrap()
         }
     }
 
-    backend.add_folder("Sent").await.unwrap();
+    backend.add_folder("[Gmail]/Sent").await.unwrap();
     backend.add_folder("Trash").await.unwrap();
     backend.add_folder("Отправленные").await.unwrap();
 
@@ -85,12 +93,12 @@ async fn test_imap_features() {
     let email = compiler.compile().await.unwrap().into_vec().unwrap();
 
     let id = backend
-        .add_raw_message_with_flag("Sent", &email, Flag::Seen)
+        .add_raw_message_with_flag(SENT, &email, Flag::Seen)
         .await
         .unwrap();
 
     // checking that the added email exists
-    let msgs = backend.get_messages("Sent", &id.into()).await.unwrap();
+    let msgs = backend.get_messages(SENT, &id.into()).await.unwrap();
 
     let tpl = msgs
         .to_vec()
@@ -112,17 +120,17 @@ async fn test_imap_features() {
     assert_eq!(tpl, expected_tpl);
 
     // checking that the envelope of the added email exists
-    let sent = backend.list_envelopes("Sent", 0, 0).await.unwrap();
+    let sent = backend.list_envelopes(SENT, 0, 0).await.unwrap();
     assert_eq!(1, sent.len());
     assert_eq!("alice@localhost", sent[0].from.addr);
     assert_eq!("subject", sent[0].subject);
 
     // checking that the email can be copied
     backend
-        .copy_messages("Sent", "Отправленные", &Id::single(&sent[0].id))
+        .copy_messages(SENT, "Отправленные", &Id::single(&sent[0].id))
         .await
         .unwrap();
-    let sent = backend.list_envelopes("Sent", 0, 0).await.unwrap();
+    let sent = backend.list_envelopes(SENT, 0, 0).await.unwrap();
     let sent_ru = backend.list_envelopes("Отправленные", 0, 0).await.unwrap();
     let trash = backend.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(1, sent.len());
@@ -134,7 +142,7 @@ async fn test_imap_features() {
         .add_flag("Отправленные", &Id::single(&sent_ru[0].id), Flag::Deleted)
         .await
         .unwrap();
-    let sent = backend.list_envelopes("Sent", 0, 0).await.unwrap();
+    let sent = backend.list_envelopes(SENT, 0, 0).await.unwrap();
     let sent_ru = backend.list_envelopes("Отправленные", 0, 0).await.unwrap();
     let trash = backend.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(1, sent.len());
@@ -148,10 +156,10 @@ async fn test_imap_features() {
 
     // checking that the email can be moved
     backend
-        .move_messages("Sent", "Отправленные", &Id::single(&sent[0].id))
+        .move_messages(SENT, "Отправленные", &Id::single(&sent[0].id))
         .await
         .unwrap();
-    let sent = backend.list_envelopes("Sent", 0, 0).await.unwrap();
+    let sent = backend.list_envelopes(SENT, 0, 0).await.unwrap();
     let sent_ru = backend.list_envelopes("Отправленные", 0, 0).await.unwrap();
     let trash = backend.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(0, sent.len());
@@ -163,7 +171,7 @@ async fn test_imap_features() {
         .delete_messages("Отправленные", &Id::single(&sent_ru[0].id))
         .await
         .unwrap();
-    let sent = backend.list_envelopes("Sent", 0, 0).await.unwrap();
+    let sent = backend.list_envelopes(SENT, 0, 0).await.unwrap();
     let sent_ru = backend.list_envelopes("Отправленные", 0, 0).await.unwrap();
     let trash = backend.list_envelopes("Trash", 0, 0).await.unwrap();
     assert_eq!(0, sent.len());
