@@ -8,9 +8,9 @@ use email::{
     envelope::{get::imap::GetEnvelopeImap, list::imap::ListEnvelopesImap, Id},
     flag::{add::imap::AddFlagsImap, set::imap::SetFlagsImap, Flag, Flags},
     folder::{
-        self, add::imap::AddFolderImap, delete::imap::DeleteFolderImap,
+        self, add::imap::AddFolderImap, config::FolderConfig, delete::imap::DeleteFolderImap,
         expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
-        purge::imap::PurgeFolderImap,
+        purge::imap::PurgeFolderImap, FolderKind, INBOX, SENT, TRASH,
     },
     imap::{
         config::{ImapAuthConfig, ImapConfig},
@@ -25,7 +25,10 @@ use email::{
 use env_logger;
 use mail_builder::MessageBuilder;
 use secret::Secret;
-use std::{collections::HashSet, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
 use tempfile::tempdir;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -49,6 +52,10 @@ async fn sync() {
     };
     let account_config = AccountConfig {
         name: "account".into(),
+        folder: Some(FolderConfig {
+            aliases: Some(HashMap::from_iter([("sent".into(), "[Gmail]/Sent".into())])),
+            ..Default::default()
+        }),
         sync: Some(SyncConfig {
             enable: Some(true),
             dir: Some(sync_dir.clone()),
@@ -92,19 +99,19 @@ async fn sync() {
 
     for folder in imap.list_folders().await.unwrap().iter() {
         match folder.name.as_str() {
-            "INBOX" => imap.purge_folder("INBOX").await.unwrap(),
+            INBOX => imap.purge_folder(INBOX).await.unwrap(),
             folder => imap.delete_folder(folder).await.unwrap(),
         }
     }
 
     imap.add_folder("[Gmail]/Sent").await.unwrap();
-    imap.add_folder("Trash").await.unwrap();
+    imap.add_folder(TRASH).await.unwrap();
 
     // add three emails to folder INBOX with delay (in order to have
     // different dates)
 
     imap.add_raw_message_with_flag(
-        "INBOX",
+        INBOX,
         &MessageBuilder::new()
             .message_id("<a@localhost>")
             .from("alice@localhost")
@@ -121,7 +128,7 @@ async fn sync() {
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     imap.add_raw_message_with_flags(
-        "INBOX",
+        INBOX,
         &MessageBuilder::new()
             .message_id("<b@localhost>")
             .from("alice@localhost")
@@ -138,7 +145,7 @@ async fn sync() {
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     imap.add_raw_message_with_flags(
-        "INBOX",
+        INBOX,
         &MessageBuilder::new()
             .message_id("<c@localhost>")
             .from("alice@localhost")
@@ -152,12 +159,12 @@ async fn sync() {
     .await
     .unwrap();
 
-    let imap_inbox_envelopes = imap.list_envelopes("INBOX", 0, 0).await.unwrap();
+    let imap_inbox_envelopes = imap.list_envelopes(INBOX, 0, 0).await.unwrap();
 
     // add two more emails to folder [Gmail]/Sent
 
     imap.add_raw_message_with_flags(
-        "[Gmail]/Sent",
+        SENT,
         &MessageBuilder::new()
             .message_id("<d@localhost>")
             .from("alice@localhost")
@@ -174,7 +181,7 @@ async fn sync() {
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     imap.add_raw_message_with_flags(
-        "[Gmail]/Sent",
+        SENT,
         &MessageBuilder::new()
             .message_id("<e@localhost>")
             .from("alice@localhost")
@@ -188,7 +195,7 @@ async fn sync() {
     .await
     .unwrap();
 
-    let imap_sent_envelopes = imap.list_envelopes("[Gmail]/Sent", 0, 0).await.unwrap();
+    let imap_sent_envelopes = imap.list_envelopes(SENT, 0, 0).await.unwrap();
 
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
@@ -199,45 +206,34 @@ async fn sync() {
 
     // check folders integrity
 
-    let imap_folders = imap
-        .list_folders()
-        .await
-        .unwrap()
-        .iter()
-        .map(|f| f.name.clone())
-        .collect::<HashSet<_>>();
+    let mut imap_folders = imap.list_folders().await.unwrap();
+    imap_folders.sort_by(|a, b| a.name.cmp(&b.name));
 
-    assert_eq!(
-        imap_folders,
-        HashSet::from_iter([
-            "INBOX".to_owned(),
-            "Trash".to_owned(),
-            "[Gmail]/Sent".to_owned()
-        ])
-    );
+    assert_eq!(imap_folders.len(), 3);
+    assert_eq!(imap_folders[0].name, "INBOX");
+    assert_eq!(imap_folders[0].kind, Some(FolderKind::Inbox));
+    assert_eq!(imap_folders[1].name, "Trash");
+    assert_eq!(imap_folders[1].kind, Some(FolderKind::Trash));
+    assert_eq!(imap_folders[2].name, "[Gmail]/Sent");
+    assert_eq!(imap_folders[2].kind, Some(FolderKind::Sent));
 
-    let mdir_folders = mdir
-        .list_folders()
-        .await
-        .unwrap()
-        .iter()
-        .map(|f| f.name.clone())
-        .collect::<HashSet<_>>();
+    let mut mdir_folders = mdir.list_folders().await.unwrap();
+    mdir_folders.sort_by(|a, b| a.name.cmp(&b.name));
 
     assert_eq!(imap_folders, mdir_folders);
 
     // check maildir envelopes integrity
 
-    let mdir_inbox_envelopes = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
+    let mdir_inbox_envelopes = mdir.list_envelopes(INBOX, 0, 0).await.unwrap();
     assert_eq!(imap_inbox_envelopes, mdir_inbox_envelopes);
 
-    let mdir_sent_envelopes = mdir.list_envelopes("[Gmail]/Sent", 0, 0).await.unwrap();
+    let mdir_sent_envelopes = mdir.list_envelopes(SENT, 0, 0).await.unwrap();
     assert_eq!(imap_sent_envelopes, mdir_sent_envelopes);
 
     // check maildir emails content integrity
 
     let ids = Id::multiple(mdir_inbox_envelopes.iter().map(|e| &e.id));
-    let msgs = mdir.get_messages("INBOX", &ids).await.unwrap();
+    let msgs = mdir.get_messages(INBOX, &ids).await.unwrap();
     let msgs = msgs.to_vec();
     assert_eq!(3, msgs.len());
     assert_eq!("C", msgs[0].parsed().unwrap().body_text(0).unwrap());
@@ -245,7 +241,7 @@ async fn sync() {
     assert_eq!("A", msgs[2].parsed().unwrap().body_text(0).unwrap());
 
     let ids = Id::multiple(mdir_sent_envelopes.iter().map(|e| &e.id));
-    let msgs = mdir.get_messages("[Gmail]/Sent", &ids).await.unwrap();
+    let msgs = mdir.get_messages(SENT, &ids).await.unwrap();
     let msgs = msgs.to_vec();
     assert_eq!(2, msgs.len());
     assert_eq!("E", msgs[0].parsed().unwrap().body_text(0).unwrap());
@@ -258,20 +254,20 @@ async fn sync() {
     let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
         &mut conn,
         &account_config.name,
-        &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
+        &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter([SENT.into()])),
     )
     .unwrap();
-    assert!(!local_folders_cached.contains("INBOX"));
-    assert!(local_folders_cached.contains("[Gmail]/Sent"));
+    assert!(!local_folders_cached.contains(INBOX));
+    assert!(local_folders_cached.contains(SENT));
 
     let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
         &mut conn,
         &account_config.name,
-        &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
+        &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter([SENT.into()])),
     )
     .unwrap();
-    assert!(local_folders_cached.contains("INBOX"));
-    assert!(!local_folders_cached.contains("[Gmail]/Sent"));
+    assert!(local_folders_cached.contains(INBOX));
+    assert!(!local_folders_cached.contains(SENT));
 
     let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
         &mut conn,
@@ -279,26 +275,26 @@ async fn sync() {
         &folder::sync::FolderSyncStrategy::All,
     )
     .unwrap();
-    assert!(local_folders_cached.contains("INBOX"));
-    assert!(local_folders_cached.contains("[Gmail]/Sent"));
+    assert!(local_folders_cached.contains(INBOX));
+    assert!(local_folders_cached.contains(SENT));
 
     let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
         &mut conn,
         &account_config.name,
-        &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter(["[Gmail]/Sent".into()])),
+        &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter([SENT.into()])),
     )
     .unwrap();
-    assert!(!remote_folders_cached.contains("INBOX"));
-    assert!(remote_folders_cached.contains("[Gmail]/Sent"));
+    assert!(!remote_folders_cached.contains(INBOX));
+    assert!(remote_folders_cached.contains(SENT));
 
     let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
         &mut conn,
         &account_config.name,
-        &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter(["[Gmail]/Sent".into()])),
+        &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter([SENT.into()])),
     )
     .unwrap();
-    assert!(remote_folders_cached.contains("INBOX"));
-    assert!(!remote_folders_cached.contains("[Gmail]/Sent"));
+    assert!(remote_folders_cached.contains(INBOX));
+    assert!(!remote_folders_cached.contains(SENT));
 
     let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
         &mut conn,
@@ -306,25 +302,23 @@ async fn sync() {
         &folder::sync::FolderSyncStrategy::All,
     )
     .unwrap();
-    assert!(remote_folders_cached.contains("INBOX"));
-    assert!(remote_folders_cached.contains("[Gmail]/Sent"));
+    assert!(remote_folders_cached.contains(INBOX));
+    assert!(remote_folders_cached.contains(SENT));
 
-    // check envelopes cache integrity
+    // CHECK envelopes cache integrity
 
     let mdir_inbox_envelopes_cached =
-        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, "INBOX").unwrap();
+        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, INBOX).unwrap();
     let imap_inbox_envelopes_cached =
-        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, "INBOX").unwrap();
+        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, INBOX).unwrap();
 
     assert_eq!(mdir_inbox_envelopes, mdir_inbox_envelopes_cached);
     assert_eq!(imap_inbox_envelopes, imap_inbox_envelopes_cached);
 
     let mdir_sent_envelopes_cached =
-        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, "[Gmail]/Sent")
-            .unwrap();
+        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, SENT).unwrap();
     let imap_sent_envelopes_cached =
-        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, "[Gmail]/Sent")
-            .unwrap();
+        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, SENT).unwrap();
 
     assert_eq!(mdir_sent_envelopes, mdir_sent_envelopes_cached);
     assert_eq!(imap_sent_envelopes, imap_sent_envelopes_cached);
@@ -332,44 +326,44 @@ async fn sync() {
     // remove emails and update flags from both side, sync again and
     // check integrity
 
-    imap.delete_messages("INBOX", &Id::single(&imap_inbox_envelopes[0].id))
+    imap.delete_messages(INBOX, &Id::single(&imap_inbox_envelopes[0].id))
         .await
         .unwrap();
     imap.add_flags(
-        "INBOX",
+        INBOX,
         &Id::single(&imap_inbox_envelopes[1].id),
         &Flags::from_iter([Flag::Draft]),
     )
     .await
     .unwrap();
-    imap.expunge_folder("INBOX").await.unwrap();
-    mdir.delete_messages("INBOX", &Id::single(&mdir_inbox_envelopes[2].id))
+    imap.expunge_folder(INBOX).await.unwrap();
+    mdir.delete_messages(INBOX, &Id::single(&mdir_inbox_envelopes[2].id))
         .await
         .unwrap();
     mdir.add_flags(
-        "INBOX",
+        INBOX,
         &Id::single(&mdir_inbox_envelopes[1].id),
         &Flags::from_iter([Flag::Flagged, Flag::Answered]),
     )
     .await
     .unwrap();
-    mdir.expunge_folder("INBOX").await.unwrap();
+    mdir.expunge_folder(INBOX).await.unwrap();
 
     let report = sync_builder.sync().await.unwrap();
     assert_eq!(
         report.folders,
-        HashSet::from_iter(["INBOX".into(), "[Gmail]/Sent".into(), "Trash".into()])
+        HashSet::from_iter([INBOX.into(), SENT.into(), TRASH.into()])
     );
 
-    let imap_envelopes = imap.list_envelopes("INBOX", 0, 0).await.unwrap();
-    let mdir_envelopes = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
+    let imap_envelopes = imap.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let mdir_envelopes = mdir.list_envelopes(INBOX, 0, 0).await.unwrap();
     assert_eq!(imap_envelopes, mdir_envelopes);
 
     let cached_mdir_envelopes =
-        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, "INBOX").unwrap();
+        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, INBOX).unwrap();
     assert_eq!(cached_mdir_envelopes, mdir_envelopes);
 
     let cached_imap_envelopes =
-        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, "INBOX").unwrap();
+        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, INBOX).unwrap();
     assert_eq!(cached_imap_envelopes, imap_envelopes);
 }

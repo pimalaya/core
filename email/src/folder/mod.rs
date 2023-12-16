@@ -79,6 +79,12 @@ pub enum FolderKind {
     /// This kind of folder is used as a trash bin. Emails contained
     /// in this folder are supposed to be deleted.
     Trash,
+
+    /// The user-defined kind of folder.
+    ///
+    /// This kind of folder represents the alias as defined by the
+    /// user in [`config::FolderConfig`]::aliases.
+    UserDefined(String),
 }
 
 impl FolderKind {
@@ -141,6 +147,17 @@ impl FolderKind {
             .map(|kind| kind.is_trash())
             .unwrap_or_default()
     }
+
+    /// Return the folder kind as string slice.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Inbox => INBOX,
+            Self::Sent => SENT,
+            Self::Drafts => DRAFTS,
+            Self::Trash => TRASH,
+            Self::UserDefined(alias) => alias.as_str(),
+        }
+    }
 }
 
 impl FromStr for FolderKind {
@@ -158,14 +175,18 @@ impl FromStr for FolderKind {
     }
 }
 
+impl<T: AsRef<str>> From<T> for FolderKind {
+    fn from(kind: T) -> Self {
+        kind.as_ref()
+            .parse()
+            .ok()
+            .unwrap_or_else(|| Self::UserDefined(kind.as_ref().to_owned()))
+    }
+}
+
 impl fmt::Display for FolderKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Inbox => write!(f, "{INBOX}"),
-            Self::Sent => write!(f, "{SENT}"),
-            Self::Drafts => write!(f, "{DRAFTS}"),
-            Self::Trash => write!(f, "{TRASH}"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
 
@@ -183,7 +204,21 @@ pub struct Folder {
     pub name: String,
 
     /// The folder description.
+    ///
+    /// The description depends on the backend used: it can be IMAP
+    /// attributes or Maildir path.
     pub desc: String,
+}
+
+impl Folder {
+    /// Return the folder kind as string slice if existing, otherwise
+    /// return the folder name as string slice.
+    pub fn get_kind_or_name(&self) -> &str {
+        self.kind
+            .as_ref()
+            .map(FolderKind::as_str)
+            .unwrap_or(self.name.as_str())
+    }
 }
 
 impl PartialEq for Folder {

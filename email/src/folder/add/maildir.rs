@@ -39,10 +39,12 @@ impl AddFolder for AddFolderMaildir {
         info!("adding folder {folder}");
 
         let session = self.session.lock().await;
+        let config = &session.account_config;
 
         let path = if FolderKind::matches_inbox(folder) {
             session.path().join("cur")
         } else {
+            let folder = config.get_folder_alias(folder);
             let folder = maildir::encode_folder(folder);
             session.path().join(format!(".{}", folder))
         };

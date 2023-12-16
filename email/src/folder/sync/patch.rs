@@ -16,7 +16,8 @@ use crate::{
         sync::{AccountSyncProgress, AccountSyncProgressEvent, Destination, LocalBackendBuilder},
     },
     backend::{BackendBuilder, BackendContextBuilder},
-    Result,
+    folder::Folder,
+    maildir, Result,
 };
 
 use super::*;
@@ -39,7 +40,7 @@ pub type FolderSyncCachePatch = Vec<FolderSyncCacheHunk>;
 pub struct FolderSyncPatchManager<'a, B: BackendContextBuilder> {
     account_config: &'a AccountConfig,
     local_builder: LocalBackendBuilder,
-    remote_builder_v2: BackendBuilder<B>,
+    remote_builder: BackendBuilder<B>,
     strategy: &'a FolderSyncStrategy,
     on_progress: AccountSyncProgress,
     dry_run: bool,
@@ -50,7 +51,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
     pub fn new(
         account_config: &'a AccountConfig,
         local_builder: LocalBackendBuilder,
-        remote_builder_v2: BackendBuilder<B>,
+        remote_builder: BackendBuilder<B>,
         strategy: &'a FolderSyncStrategy,
         on_progress: AccountSyncProgress,
         dry_run: bool,
@@ -58,7 +59,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
         Self {
             account_config,
             local_builder,
-            remote_builder_v2,
+            remote_builder,
             strategy,
             on_progress,
             dry_run,
@@ -93,25 +94,26 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
                 .list_folders()
                 .await?
                 .iter()
+                .map(Folder::get_kind_or_name)
                 // TODO: instead of fetching all the folders then
                 // filtering them here, it could be better to filter
                 // them at the source directly, which implies to add a
                 // new backend fn called `search_folders` and to set
                 // up a common search API across backends.
                 .filter_map(|folder| match &self.strategy {
-                    FolderSyncStrategy::All => Some(folder.name.clone()),
+                    FolderSyncStrategy::All => Some(folder.to_owned()),
                     FolderSyncStrategy::Include(folders) => {
-                        if folders.contains(&folder.name) {
-                            Some(folder.name.clone())
+                        if folders.contains(folder) {
+                            Some(folder.to_owned())
                         } else {
                             None
                         }
                     }
                     FolderSyncStrategy::Exclude(folders) => {
-                        if folders.contains(&folder.name) {
+                        if folders.contains(folder) {
                             None
                         } else {
-                            Some(folder.name.clone())
+                            Some(folder.to_owned())
                         }
                     }
                 }),
@@ -134,32 +136,33 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
             .emit(AccountSyncProgressEvent::GetRemoteFolders);
 
         let remote_folders: FoldersName = HashSet::from_iter(
-            self.remote_builder_v2
+            self.remote_builder
                 .clone()
                 .build()
                 .await?
                 .list_folders()
                 .await?
                 .iter()
+                .map(Folder::get_kind_or_name)
                 // TODO: instead of fetching all the folders then
                 // filtering them here, it could be better to filter
                 // them at the source directly, which implies to add a
                 // new backend fn called `search_folders` and to set
                 // up a common search API across backends.
                 .filter_map(|folder| match &self.strategy {
-                    FolderSyncStrategy::All => Some(folder.name.clone()),
+                    FolderSyncStrategy::All => Some(folder.to_owned()),
                     FolderSyncStrategy::Include(folders) => {
-                        if folders.contains(&folder.name) {
-                            Some(folder.name.clone())
+                        if folders.contains(folder) {
+                            Some(folder.to_owned())
                         } else {
                             None
                         }
                     }
                     FolderSyncStrategy::Exclude(folders) => {
-                        if folders.contains(&folder.name) {
+                        if folders.contains(folder) {
                             None
                         } else {
-                            Some(folder.name.clone())
+                            Some(folder.to_owned())
                         }
                     }
                 }),
@@ -246,11 +249,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
 
         let folders = patches
             .iter()
-            .map(|(folder, _patch)| {
-                urlencoding::decode(folder)
-                    .map(|folder| folder.to_string())
-                    .unwrap_or_else(|_| folder.clone())
-            })
+            .map(|(folder, _patch)| maildir::decode_folder(folder))
             .collect();
 
         if self.dry_run {
@@ -265,7 +264,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
                 .map(|hunk| {
                     let on_progress = self.on_progress.clone();
                     let local_builder = self.local_builder.clone();
-                    let remote_builder_v2 = self.remote_builder_v2.clone();
+                    let remote_builder = self.remote_builder.clone();
 
                     tokio::spawn(async move {
                         debug!("processing folder hunk: {hunk:?}");
@@ -274,7 +273,7 @@ impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
 
                         on_progress.emit(AccountSyncProgressEvent::ApplyFolderHunk(hunk.clone()));
 
-                        match Self::process_hunk(local_builder, remote_builder_v2, &hunk).await {
+                        match Self::process_hunk(local_builder, remote_builder, &hunk).await {
                             Ok(cache_hunks) => {
                                 report.patch.push((hunk.clone(), None));
                                 report.cache_patch.0.extend(cache_hunks);

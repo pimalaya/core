@@ -33,26 +33,19 @@ impl Folder {
 
         let name = decode_utf7(name.name().into());
 
-        let kind = config.find_folder_kind_from_alias(&name).or_else(|| {
-            if attrs.contains(&NameAttribute::Sent) {
-                Some(FolderKind::Sent)
-            } else if attrs.contains(&NameAttribute::Drafts) {
-                Some(FolderKind::Drafts)
-            } else if attrs.contains(&NameAttribute::Trash) {
-                Some(FolderKind::Trash)
-            } else {
-                None
-            }
-        });
+        let kind = config
+            .find_folder_kind_from_alias(&name)
+            .or_else(|| find_folder_kind_from_imap_attrs(attrs))
+            .or_else(|| name.parse().ok());
 
         let desc = attrs.iter().fold(String::default(), |mut desc, attr| {
             let attr = match attr {
-                NameAttribute::All => Some("all"),
-                NameAttribute::Archive => Some("archive"),
-                NameAttribute::Flagged => Some("flagged"),
-                NameAttribute::Junk => Some("junk"),
-                NameAttribute::Marked => Some("marked"),
-                NameAttribute::Unmarked => Some("unmarked"),
+                NameAttribute::All => Some("All"),
+                NameAttribute::Archive => Some("Archive"),
+                NameAttribute::Flagged => Some("Flagged"),
+                NameAttribute::Junk => Some("Junk"),
+                NameAttribute::Marked => Some("Marked"),
+                NameAttribute::Unmarked => Some("Unmarked"),
                 NameAttribute::Extension(ext) => Some(ext.as_ref()),
                 _ => None,
             };
@@ -80,5 +73,17 @@ impl Folders {
             .iter()
             .filter_map(|name| Folder::from_imap_name(config, name))
             .collect()
+    }
+}
+
+pub fn find_folder_kind_from_imap_attrs(attrs: &[NameAttribute]) -> Option<FolderKind> {
+    if attrs.contains(&NameAttribute::Sent) {
+        Some(FolderKind::Sent)
+    } else if attrs.contains(&NameAttribute::Drafts) {
+        Some(FolderKind::Drafts)
+    } else if attrs.contains(&NameAttribute::Trash) {
+        Some(FolderKind::Trash)
+    } else {
+        None
     }
 }

@@ -297,7 +297,7 @@ impl AccountConfig {
                 let from_alias = shellexpand_str(alias);
                 aliases.iter().find_map(|(kind_or_name, alias)| {
                     if shellexpand_str(alias).eq_ignore_ascii_case(&from_alias) {
-                        kind_or_name.parse().ok()
+                        Some(kind_or_name.into())
                     } else {
                         None
                     }

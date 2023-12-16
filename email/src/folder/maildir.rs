@@ -39,7 +39,9 @@ impl Folder {
             }
             Some(name) => {
                 let name = maildir::decode_folder(name);
-                let kind = config.find_folder_kind_from_alias(&name);
+                let kind = config
+                    .find_folder_kind_from_alias(&name)
+                    .or_else(|| name.parse().ok());
                 let desc = mdir.path().to_owned().to_string_lossy().to_string();
 
                 let folder = Folder { kind, name, desc };

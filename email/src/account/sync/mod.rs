@@ -290,19 +290,34 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
         );
 
         debug!("applying folder aliases to the folder sync strategy");
+        // TODO: move to FolderSyncPatchManager?
         let folders_strategy = match &self.folders_strategy {
             FolderSyncStrategy::All => FolderSyncStrategy::All,
             FolderSyncStrategy::Include(folders) => FolderSyncStrategy::Include(
                 folders
                     .iter()
-                    .map(|folder| Ok(self.remote_builder.account_config.get_folder_alias(folder)))
-                    .collect::<Result<_>>()?,
+                    .map(|f| {
+                        self.remote_builder
+                            .account_config
+                            .find_folder_kind_from_alias(f)
+                            .map(|kind| kind.to_string())
+                            .unwrap_or_else(|| f.clone())
+                            .to_owned()
+                    })
+                    .collect(),
             ),
             FolderSyncStrategy::Exclude(folders) => FolderSyncStrategy::Exclude(
                 folders
                     .iter()
-                    .map(|folder| Ok(self.remote_builder.account_config.get_folder_alias(folder)))
-                    .collect::<Result<_>>()?,
+                    .map(|f| {
+                        self.remote_builder
+                            .account_config
+                            .find_folder_kind_from_alias(f)
+                            .map(|kind| kind.to_string())
+                            .unwrap_or_else(|| f.clone())
+                            .to_owned()
+                    })
+                    .collect(),
             ),
         };
 

@@ -38,12 +38,12 @@ impl ListFolders for ListFoldersMaildir {
 
         folders.push(Folder {
             kind: Some(FolderKind::Inbox),
-            name: self.session.account_config.get_inbox_folder_alias(),
+            name: config.get_inbox_folder_alias(),
             desc: session.path().to_string_lossy().to_string(),
         });
 
         let subfolders: Vec<Folder> =
-            Folders::from_submaildirs(&config, session.list_subdirs()).into();
+            Folders::from_submaildirs(config, session.list_subdirs()).into();
         folders.extend(subfolders);
 
         Ok(folders)

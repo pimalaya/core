@@ -17,8 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Added `Folder::kind` of type `Option<FolderKind>`.
 - Changed `AccountConfig::{get,find}_folder_alias` return type: they do not return a `Result` anymore.
+- Added `Folder::kind` of type `Option<FolderKind>`.
+- Changed the synchronization algorithm related to folders: it uses now the folder kind instead of the folder name to compare and store cache lines.
 
 ## [0.17.1] - 2023-12-11
 
