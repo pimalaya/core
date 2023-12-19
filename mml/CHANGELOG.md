@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2023-12-19
+
+### Changed
+
+- Bumped `chumsky@v1.0.0-alpha.6` due to release error.
+
 ## [1.0.3] - 2023-12-11
 
 ### Changed
