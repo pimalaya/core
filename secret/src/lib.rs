@@ -35,7 +35,7 @@ pub type Result<T> = result::Result<T, Error>;
 /// A secret can be retrieved either from a raw string, from a command
 /// or from a keyring entry.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum Secret {
     /// The secret is contained in a raw string, usually not safe to
     /// use and so not recommended.

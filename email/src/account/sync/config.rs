@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use crate::folder::sync::FolderSyncStrategy;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct SyncConfig {
     /// Enable the synchronization of the current account with local
     /// Maildir backend features.

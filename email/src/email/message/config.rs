@@ -6,6 +6,7 @@ use super::{
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct MessageConfig {
     /// Configuration dedicated to message reading.
     pub read: Option<MessageReadConfig>,

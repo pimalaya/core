@@ -65,6 +65,7 @@ pub enum Error {
 /// modules. Usually, it serves as a reference for building config
 /// file structure.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct AccountConfig {
     /// The name of the user account.
     ///

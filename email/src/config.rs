@@ -11,6 +11,7 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Config {
     /// The default display name of the user.
     ///

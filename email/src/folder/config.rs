@@ -5,6 +5,7 @@ use super::list::config::FolderListConfig;
 
 /// The folder configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct FolderConfig {
     /// Define custom folder aliases.
     ///
