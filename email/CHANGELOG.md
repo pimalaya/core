@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.3] - 2023-12-20
+
+### Fixed
+
+- Added missing serde `rename_all`.
+
 ## [0.18.2] - 2023-12-20
 
 ### Fixed
