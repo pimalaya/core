@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.2] - 2023-12-20
+
+### Fixed
+
+- Fixed `Backend::send_raw_message` that was not saving copy of sent message to the Sent folder.
+
 ## [0.18.1] - 2023-12-19
 
 ### Changed

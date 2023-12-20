@@ -8,7 +8,7 @@
 //! [AccountConfiguration](crate::account::config::AccountConfig).
 
 use async_trait::async_trait;
-use log::error;
+use log::{debug, error, warn};
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -906,6 +906,20 @@ impl<C> Backend<C> {
             .as_ref()
             .ok_or(Error::SendRawMessageNotAvailableError)?
             .send_raw_message(raw_msg)
-            .await
+            .await?;
+
+        if self.account_config.should_save_copy_sent_message() {
+            let folder = self.account_config.get_sent_folder_alias();
+            debug!("saving copy of sent message to {folder}");
+
+            if self.add_raw_message_with_flags.is_some() {
+                self.add_raw_message_with_flag(&folder, raw_msg, Flag::Seen)
+                    .await?;
+            } else {
+                warn!("cannot save copy of sent message to {folder}: add raw message with flag feature not available");
+            }
+        }
+
+        Ok(())
     }
 }
