@@ -922,4 +922,24 @@ impl<C> Backend<C> {
 
         Ok(())
     }
+
+    pub async fn send_reply_raw_message(
+        &self,
+        folder: &str,
+        id: &SingleId,
+        raw_msg: &[u8],
+    ) -> Result<()> {
+        self.send_raw_message(raw_msg).await?;
+
+        let id = Id::from(id);
+        let flag = Flag::Answered;
+
+        if self.add_flags.is_some() {
+            self.add_flag(folder, &id, flag).await?;
+        } else {
+            warn!("cannot add flag {flag} to envelope {id}: add flags feature not available");
+        }
+
+        Ok(())
+    }
 }

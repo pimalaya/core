@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `Backend::send_reply_raw_message` that sends a raw message and apply the Answered flag if the `add_flags` feature is available.
+
 ## [0.18.3] - 2023-12-20
 
 ### Fixed
