@@ -53,8 +53,8 @@ chrono = "0.4"
 convert_case = "0.5"
 dirs = "4.0"
 futures = "0.3"
-imap = { version = "=3.0.0-alpha.10", optional = true, default-features = false, features = ["rustls-tls"] }
-imap-proto = { version = "=0.16.2", optional = true }
+imap = { version = "=3.0.0-alpha.12", optional = true, default-features = false, features = ["rustls-tls"] }
+imap-proto = { version = "=0.16.3", optional = true }
 keyring-lib = "=0.3.0"
 log = "0.4"
 mail-builder = "0.3"

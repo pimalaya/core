@@ -1,17 +1,9 @@
 pub mod config;
 
 use async_trait::async_trait;
-use imap::{extensions::idle::SetReadTimeout, Authenticator, Client, Session};
+use imap::{Authenticator, Client, ConnectionMode, ImapConnection, Session, TlsKind};
 use log::{debug, info, log_enabled, Level};
-use once_cell::sync::Lazy;
-use rustls::{pki_types::ServerName, ClientConfig, ClientConnection, RootCertStore, StreamOwned};
-use std::{
-    io::{self, Read, Write},
-    net::TcpStream,
-    ops::Deref,
-    sync::Arc,
-    time::Duration,
-};
+use std::{ops::Deref, sync::Arc};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
@@ -38,64 +30,6 @@ pub enum Error {
     ConnectError(#[source] imap::Error),
 }
 
-/// Native certificates store, mostly used by
-/// `Backend::tls_handshake()`.
-const ROOT_CERT_STORE: Lazy<RootCertStore> = Lazy::new(|| {
-    let mut store = RootCertStore::empty();
-
-    for cert in rustls_native_certs::load_native_certs().unwrap() {
-        store.add(cert.0.into()).unwrap();
-    }
-
-    store
-});
-
-/// Alias for the TLS/SSL stream, which is basically a
-/// [std::net::TcpStream] wrapped by a [rustls::StreamOwned].
-pub type TlsStream = StreamOwned<ClientConnection, TcpStream>;
-
-/// Wrapper around TLS/SSL and TCP streams.
-///
-/// Since [imap::Session] needs a generic stream type, this wrapper is needed to create the session alias [ImapSession].
-#[derive(Debug)]
-pub enum ImapSessionStream {
-    Tls(TlsStream),
-    Tcp(TcpStream),
-}
-
-impl SetReadTimeout for ImapSessionStream {
-    fn set_read_timeout(&mut self, timeout: Option<Duration>) -> imap::Result<()> {
-        match self {
-            Self::Tls(stream) => Ok(stream.get_mut().set_read_timeout(timeout)?),
-            Self::Tcp(stream) => stream.set_read_timeout(timeout),
-        }
-    }
-}
-
-impl Read for ImapSessionStream {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self {
-            Self::Tls(stream) => stream.read(buf),
-            Self::Tcp(stream) => stream.read(buf),
-        }
-    }
-}
-
-impl Write for ImapSessionStream {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self {
-            Self::Tls(stream) => stream.write(buf),
-            Self::Tcp(stream) => stream.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        match self {
-            Self::Tls(stream) => stream.flush(),
-            Self::Tcp(stream) => stream.flush(),
-        }
-    }
-}
 /// XOAUTH2 IMAP authenticator.
 ///
 /// This struct is needed to implement the [imap::Authenticator]
@@ -248,7 +182,7 @@ pub struct ImapSession {
     pub imap_config: ImapConfig,
 
     /// The current IMAP session.
-    session: Session<ImapSessionStream>,
+    session: Session<Box<dyn ImapConnection>>,
 }
 
 impl ImapSession {
@@ -258,7 +192,7 @@ impl ImapSession {
     /// is refreshed and the action is executed once again.
     pub async fn execute<T>(
         &mut self,
-        action: impl Fn(&mut Session<ImapSessionStream>) -> imap::Result<T>,
+        action: impl Fn(&mut Session<Box<dyn ImapConnection>>) -> imap::Result<T>,
         map_err: impl Fn(imap::Error) -> anyhow::Error,
     ) -> Result<T> {
         match &self.imap_config.auth {
@@ -343,7 +277,7 @@ impl Deref for ImapSessionSync {
 pub async fn build_session(
     imap_config: &ImapConfig,
     credentials: Option<&String>,
-) -> Result<Session<ImapSessionStream>> {
+) -> Result<Session<Box<dyn ImapConnection>>> {
     let mut session = match &imap_config.auth {
         ImapAuthConfig::Passwd(passwd) => {
             debug!("creating session using login and password");
@@ -397,50 +331,22 @@ pub async fn build_session(
 }
 
 /// Creates a client from an IMAP configuration.
-fn build_client(imap_config: &ImapConfig) -> Result<Client<ImapSessionStream>> {
-    let mut client_builder = imap::ClientBuilder::new(&imap_config.host, imap_config.port);
+fn build_client(imap_config: &ImapConfig) -> Result<Client<Box<dyn ImapConnection>>> {
+    let mut client_builder = imap::ClientBuilder::new(&imap_config.host, imap_config.port)
+        .tls_kind(TlsKind::Rust)
+        .mode(ConnectionMode::AutoTls);
 
     if imap_config.starttls() {
-        client_builder.starttls();
+        client_builder = client_builder.mode(ConnectionMode::StartTls);
+    } else if imap_config.ssl() {
+        client_builder = client_builder.mode(ConnectionMode::Tls);
+    } else if imap_config.insecure() {
+        client_builder = client_builder
+            .mode(ConnectionMode::Plaintext)
+            .danger_skip_tls_verify(true);
     }
 
-    let client = client_builder
-        .connect(if imap_config.ssl() {
-            tls_handshake()
-        } else {
-            tcp_handshake()
-        }?)
-        .map_err(Error::ConnectError)?;
+    let client = client_builder.connect().map_err(Error::ConnectError)?;
 
     Ok(client)
-}
-
-/// TCP handshake.
-fn tcp_handshake() -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
-    Ok(Box::new(|_domain, tcp| Ok(ImapSessionStream::Tcp(tcp))))
-}
-
-/// TLS/SSL handshake.
-fn tls_handshake() -> Result<Box<dyn FnOnce(&str, TcpStream) -> imap::Result<ImapSessionStream>>> {
-    let tlsconfig = Arc::new(
-        ClientConfig::builder()
-            .with_root_certificates(ROOT_CERT_STORE.clone())
-            .with_no_client_auth(),
-    );
-
-    Ok(Box::new(|domain, tcp| {
-        let name = ServerName::try_from(domain.to_string()).map_err(|err| {
-            imap::Error::Io(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Invalid domain name ({:?}): {}", err, domain),
-            ))
-        })?;
-
-        let connection = ClientConnection::new(tlsconfig, name)
-            .map_err(|err| io::Error::new(io::ErrorKind::ConnectionAborted, err))?;
-
-        let stream = StreamOwned::new(connection, tcp);
-
-        Ok(ImapSessionStream::Tls(stream))
-    }))
 }

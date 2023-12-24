@@ -24,6 +24,8 @@ async fn test_sendmail_features() {
         host: "localhost".into(),
         port: 3143,
         ssl: Some(false),
+        starttls: Some(false),
+        insecure: Some(true),
         login: "bob@localhost".into(),
         auth: ImapAuthConfig::Passwd(PasswdConfig {
             passwd: Secret::new_raw("password"),
