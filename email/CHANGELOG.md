@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.5] - 2023-12-24
+
 ### Changed
 
 - Bumped `imap` from `3.0.0-alpha.10` to `3.0.0-alpha.12`.
