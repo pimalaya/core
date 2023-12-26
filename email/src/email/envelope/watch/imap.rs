@@ -1,8 +1,9 @@
 use async_trait::async_trait;
-use imap::extensions::idle::stop_on_any;
+use futures::executor::block_on;
 use log::{debug, info};
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 use thiserror::Error;
+use tokio::sync::mpsc;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{
@@ -19,8 +20,8 @@ pub enum Error {
     ExamineFolderError(#[source] imap::Error, String),
     #[error("cannot create imap folder {1}")]
     CreateFolderError(#[source] imap::Error, String),
-    #[error("cannot start imap idle mode")]
-    StartIdleModeError(#[source] imap::Error),
+    #[error("cannot run idle mode")]
+    RunIdleModeError(#[source] imap::Error),
     #[error("cannot list all envelopes of folder {1}")]
     ListAllEnvelopesError(#[source] imap::Error, String),
 }
@@ -64,19 +65,27 @@ impl WatchEnvelopes for WatchImapEnvelopes {
         let mut envelopes: HashMap<String, Envelope> =
             HashMap::from_iter(envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
-        loop {
-            debug!("watching imap folder {folder:?}…");
-            ctx.execute(
-                |session| {
-                    session
-                        .idle()
-                        .timeout(Duration::new(60, 0))
-                        .wait_while(stop_on_any)
-                },
-                |err| Error::StartIdleModeError(err).into(),
-            )
-            .await?;
+        let (tx, mut rx) = mpsc::channel(1);
 
+        debug!("watching imap folder {folder:?}…");
+        ctx.execute(
+            |session| {
+                session.idle().wait_while(|res| {
+                    debug!("received unsolicited response while idling: {res:?}");
+
+                    if let Err(err) = block_on(tx.send(())) {
+                        debug!("error while idling: {err}");
+                        debug!("{err:?}");
+                    }
+
+                    true
+                })
+            },
+            |err| Error::RunIdleModeError(err).into(),
+        )
+        .await?;
+
+        while let Some(()) = rx.recv().await {
             let fetches = ctx
                 .execute(
                     |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
@@ -92,5 +101,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
 
             envelopes = next_envelopes;
         }
+
+        Ok(())
     }
 }
