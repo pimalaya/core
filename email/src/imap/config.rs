@@ -3,7 +3,6 @@
 //! This module contains the implementation of the IMAP backend and
 //! all associated structures related to it.
 
-use process::Cmd;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -65,19 +64,7 @@ pub struct ImapConfig {
     ///
     /// Defines the command used to notify the user when a new email is available.
     /// Defaults to `notify-send "📫 <sender>" "<subject>"`.
-    pub notify_cmd: Option<String>,
-
-    /// The IMAP notify query.
-    ///
-    /// Defines the IMAP query used to determine the new emails list.
-    /// Defaults to `NEW`.
-    pub notify_query: Option<String>,
-
-    /// The watch commands.
-    ///
-    /// Defines the commands to run whenever a change occurs on the
-    /// IMAP server.
-    pub watch_cmds: Option<Vec<String>>,
+    pub watch: Option<ImapWatchConfig>,
 }
 
 impl ImapConfig {
@@ -96,51 +83,17 @@ impl ImapConfig {
         self.insecure.unwrap_or_default()
     }
 
-    /// Notify query option getter.
-    pub fn notify_query(&self) -> String {
-        self.notify_query
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| String::from("NEW"))
-    }
-
-    /// Watch commands option getter.
-    pub fn watch_cmds(&self) -> Vec<String> {
-        self.watch_cmds
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| Vec::new())
-    }
-
-    /// Runs the IMAP notify command.
-    pub async fn run_notify_cmd(
-        &self,
-        id: u32,
-        subject: impl AsRef<str>,
-        sender: impl AsRef<str>,
-    ) -> Result<()> {
-        let cmd = self
-            .notify_cmd
-            .clone()
-            .unwrap_or_else(|| String::from("notify-send \"📫 <sender>\" \"<subject>\""));
-
-        let cmd: Cmd = cmd
-            .replace("<id>", &id.to_string())
-            .replace("<subject>", subject.as_ref())
-            .replace("<sender>", sender.as_ref())
-            .into();
-
-        cmd.run().await.map_err(Error::StartNotifyModeError)?;
-
-        Ok(())
-    }
-
     /// Builds authentication credentials.
     ///
     /// Authentication credentials can be either a password or an
     /// OAuth 2.0 access token.
     pub async fn build_credentials(&self) -> Result<String> {
         self.auth.build_credentials().await
+    }
+
+    /// Find the IMAP watch timeout.
+    pub fn find_watch_timeout(&self) -> Option<u64> {
+        self.watch.as_ref().and_then(|c| c.find_timeout())
     }
 }
 
@@ -152,6 +105,7 @@ impl ImapConfig {
 pub enum ImapAuthConfig {
     /// The password configuration.
     Passwd(PasswdConfig),
+
     /// The OAuth 2.0 configuration.
     OAuth2(OAuth2Config),
 }
@@ -197,5 +151,26 @@ impl ImapAuthConfig {
                     .set_keyring_entry_if_undefined(format!("{name}-imap-oauth2-refresh-token"));
             }
         }
+    }
+}
+
+/// The IMAP watch options (IDLE).
+///
+/// Options dedicated to the IMAP IDLE mode, which is used to watch
+/// changes.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct ImapWatchConfig {
+    /// The IMAP watch timeout.
+    ///
+    /// Timeout used to refresh the IDLE command in
+    /// background. Defaults to 29 min as defined in the RFC.
+    timeout: Option<u64>,
+}
+
+impl ImapWatchConfig {
+    /// Find the IMAP watch timeout.
+    pub fn find_timeout(&self) -> Option<u64> {
+        self.timeout
     }
 }

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use futures::executor::block_on;
 use log::{debug, info};
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 use thiserror::Error;
 use tokio::sync::mpsc;
 use utf7_imap::encode_utf7_imap as encode_utf7;
@@ -66,18 +66,27 @@ impl WatchEnvelopes for WatchImapEnvelopes {
             HashMap::from_iter(envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
         let (tx, mut rx) = mpsc::channel(1);
+        let timeout = ctx.imap_config.find_watch_timeout();
 
         debug!("watching imap folder {folder:?}…");
         ctx.execute(
             |session| {
-                session.idle().wait_while(|res| {
-                    debug!("received unsolicited response while idling: {res:?}");
+                let mut idle = session.idle();
 
+                if let Some(secs) = timeout {
+                    debug!("setting imap idle timeout option at {secs}secs");
+                    idle.timeout(Duration::new(secs, 0));
+                }
+
+                idle.wait_while(|res| {
                     if let Err(err) = block_on(tx.send(())) {
-                        debug!("error while idling: {err}");
+                        debug!("received imap error while idling: {res:?}");
                         debug!("{err:?}");
+                    } else {
+                        debug!("received unsolicited imap response while idling: {res:?}");
                     }
 
+                    debug!("starting a new imap idle loop");
                     true
                 })
             },

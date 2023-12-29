@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added option `ImapConfig::watch` of type `ImapWatchConfig`.
+- Added option `ImapWatchConfig::timeout` to customize the default IMAP IDLE timeout of 29 mins as defined in the RFC.
+
+### Removed
+
+- Removed unused `ImapConfig::notify_cmd`.
+- Removed unused `ImapConfig::notify_query`.
+- Removed unused `ImapConfig::watch_cmds`.
+
 ## [0.18.5] - 2023-12-24
 
 ### Changed
