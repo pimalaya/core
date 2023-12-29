@@ -107,9 +107,11 @@ impl SmtpConfig {
 #[serde(rename_all = "kebab-case", tag = "auth")]
 pub enum SmtpAuthConfig {
     /// The password authentication mechanism.
+    #[serde(alias = "password")]
     Passwd(PasswdConfig),
 
     /// The OAuth 2.0 authentication mechanism.
+    #[serde(alias = "oauth2")]
     OAuth2(OAuth2Config),
 }
 

@@ -53,6 +53,7 @@ pub enum Error {
 
 /// The OAuth 2.0 configuration.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct OAuth2Config {
     /// Method for presenting an OAuth 2.0 bearer token to a service
     /// for authentication.
@@ -86,6 +87,7 @@ pub struct OAuth2Config {
     pub pkce: bool,
 
     /// Access token scope(s), as defined by the authorization server.
+    #[serde(flatten)]
     pub scopes: OAuth2Scopes,
 
     /// Host name of the client's redirection endpoint.
@@ -289,14 +291,18 @@ impl OAuth2Config {
 /// Method for presenting an OAuth 2.0 bearer token to a service for
 /// authentication.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
 pub enum OAuth2Method {
     #[default]
+    #[serde(alias = "xoauth2")]
     XOAuth2,
+    #[serde(alias = "oauthbearer")]
     OAuthBearer,
 }
 
 /// Access token scope(s), as defined by the authorization server.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum OAuth2Scopes {
     Scope(String),
     Scopes(Vec<String>),

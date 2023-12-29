@@ -104,9 +104,11 @@ impl ImapConfig {
 #[serde(rename_all = "kebab-case", tag = "auth")]
 pub enum ImapAuthConfig {
     /// The password configuration.
+    #[serde(alias = "password")]
     Passwd(PasswdConfig),
 
     /// The OAuth 2.0 configuration.
+    #[serde(alias = "oauth2")]
     OAuth2(OAuth2Config),
 }
 
