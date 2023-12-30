@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use concat_with::concat_line;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
@@ -12,7 +10,7 @@ use email::{
         purge::imap::PurgeFolderImap, INBOX, SENT,
     },
     imap::{
-        config::{ImapAuthConfig, ImapConfig},
+        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapSessionBuilder,
     },
     message::{
@@ -22,6 +20,7 @@ use email::{
 };
 use mml::MmlCompilerBuilder;
 use secret::Secret;
+use std::collections::HashMap;
 
 #[tokio::test]
 async fn test_imap_features() {
@@ -37,9 +36,7 @@ async fn test_imap_features() {
     let imap_config = ImapConfig {
         host: "localhost".into(),
         port: 3143,
-        ssl: Some(false),
-        starttls: Some(false),
-        insecure: Some(true),
+        encryption: Some(ImapEncryptionKind::None),
         login: "bob@localhost".into(),
         auth: ImapAuthConfig::Passwd(PasswdConfig {
             passwd: Secret::new_raw("password"),

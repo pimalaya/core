@@ -13,7 +13,7 @@ use email::{
         purge::imap::PurgeFolderImap, FolderKind, INBOX, SENT, TRASH,
     },
     imap::{
-        config::{ImapAuthConfig, ImapConfig},
+        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapSessionBuilder,
     },
     maildir::config::MaildirConfig,
@@ -41,9 +41,7 @@ async fn sync() {
     let imap_config = ImapConfig {
         host: "localhost".into(),
         port: 3143,
-        ssl: Some(false),
-        starttls: Some(false),
-        insecure: Some(true),
+        encryption: Some(ImapEncryptionKind::None),
         login: "bob@localhost".into(),
         auth: ImapAuthConfig::Passwd(PasswdConfig {
             passwd: Secret::new_raw("password"),

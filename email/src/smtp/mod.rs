@@ -58,9 +58,9 @@ impl BackendContextBuilder for SmtpClientBuilder {
         let mut client_builder =
             mail_send::SmtpClientBuilder::new(self.smtp_config.host.clone(), self.smtp_config.port)
                 .credentials(self.smtp_config.credentials().await?)
-                .implicit_tls(!self.smtp_config.starttls());
+                .implicit_tls(!self.smtp_config.is_start_tls_encryption_enabled());
 
-        if self.smtp_config.insecure() {
+        if self.smtp_config.is_encryption_disabled() {
             client_builder = client_builder.allow_invalid_certs();
         }
 
@@ -132,7 +132,7 @@ impl SmtpClient {
                             .client_builder
                             .clone()
                             .credentials(self.smtp_config.credentials().await?);
-                        self.client = if self.smtp_config.ssl() {
+                        self.client = if self.smtp_config.is_encryption_enabled() {
                             build_tls_client(&self.client_builder).await
                         } else {
                             build_tcp_client(&self.client_builder).await
@@ -191,7 +191,7 @@ pub async fn build_client(
     smtp_config: &SmtpConfig,
     mut client_builder: mail_send::SmtpClientBuilder<String>,
 ) -> Result<(mail_send::SmtpClientBuilder<String>, SmtpClientStream)> {
-    match (&smtp_config.auth, smtp_config.ssl()) {
+    match (&smtp_config.auth, smtp_config.is_encryption_enabled()) {
         (SmtpAuthConfig::Passwd(_), false) => {
             let client = build_tcp_client(&client_builder).await?;
             Ok((client_builder, client))

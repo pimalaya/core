@@ -1,7 +1,7 @@
 pub mod config;
 
 use async_trait::async_trait;
-use imap::{Authenticator, Client, ConnectionMode, ImapConnection, Session, TlsKind};
+use imap::{Authenticator, Client, ImapConnection, Session, TlsKind};
 use log::{debug, info, log_enabled, Level};
 use std::{ops::Deref, sync::Arc};
 use thiserror::Error;
@@ -334,16 +334,10 @@ pub async fn build_session(
 fn build_client(imap_config: &ImapConfig) -> Result<Client<Box<dyn ImapConnection>>> {
     let mut client_builder = imap::ClientBuilder::new(&imap_config.host, imap_config.port)
         .tls_kind(TlsKind::Rust)
-        .mode(ConnectionMode::AutoTls);
+        .mode(imap_config.encryption.clone().unwrap_or_default().into());
 
-    if imap_config.starttls() {
-        client_builder = client_builder.mode(ConnectionMode::StartTls);
-    } else if imap_config.ssl() {
-        client_builder = client_builder.mode(ConnectionMode::Tls);
-    } else if imap_config.insecure() {
-        client_builder = client_builder
-            .mode(ConnectionMode::Plaintext)
-            .danger_skip_tls_verify(true);
+    if imap_config.is_encryption_disabled() {
+        client_builder = client_builder.danger_skip_tls_verify(true);
     }
 
     let client = client_builder.connect().map_err(Error::ConnectError)?;

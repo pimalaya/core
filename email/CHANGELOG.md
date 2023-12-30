@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added option `ImapConfig::watch` of type `ImapWatchConfig`.
 - Added option `ImapWatchConfig::timeout` to customize the default IMAP IDLE timeout of 29 mins as defined in the RFC.
 
+### Changed
+
+- Replaced options `ImapConfig::ssl`, `ImapConfig::starttls` and `ImapConfig::insecure` by `ImapConfig::encryption`:
+  - `ImapEncryptionConfig::Tls`: use required encryption (SSL/TLS)
+  - `ImapEncryptionConfig::StartTls`: use opportunistic encryption (StartTLS)
+  - `ImapEncryptionConfig::None`: do not use any encryption
+- Replaced options `SmtpConfig::ssl`, `SmtpConfig::starttls` and `SmtpConfig::insecure` by `SmtpConfig::encryption`:
+  - `SmtpEncryptionConfig::Tls`: use required encryption (SSL/TLS)
+  - `SmtpEncryptionConfig::StartTls`: use opportunistic encryption (StartTLS)
+  - `SmtpEncryptionConfig::None`: do not use any encryption
+
 ### Removed
 
 - Removed unused `ImapConfig::notify_cmd`.

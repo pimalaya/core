@@ -4,12 +4,12 @@ use email::{
     envelope::list::imap::ListEnvelopesImap,
     folder::{purge::imap::PurgeFolderImap, INBOX},
     imap::{
-        config::{ImapAuthConfig, ImapConfig},
+        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapSessionBuilder,
     },
     message::send_raw::smtp::SendRawMessageSmtp,
     smtp::{
-        config::{SmtpAuthConfig, SmtpConfig},
+        config::{SmtpAuthConfig, SmtpConfig, SmtpEncryptionKind},
         SmtpClientBuilder,
     },
 };
@@ -25,9 +25,7 @@ async fn test_smtp_features() {
     let imap_config = ImapConfig {
         host: "localhost".into(),
         port: 3143,
-        ssl: Some(false),
-        starttls: Some(false),
-        insecure: Some(true),
+        encryption: Some(ImapEncryptionKind::None),
         login: "bob@localhost".into(),
         auth: ImapAuthConfig::Passwd(PasswdConfig {
             passwd: Secret::new_raw("echo 'password'"),
@@ -37,9 +35,7 @@ async fn test_smtp_features() {
     let smtp_config = SmtpConfig {
         host: "localhost".into(),
         port: 3025,
-        ssl: Some(false),
-        starttls: Some(false),
-        insecure: Some(true),
+        encryption: Some(SmtpEncryptionKind::None),
         login: "alice@localhost".into(),
         auth: SmtpAuthConfig::Passwd(PasswdConfig {
             passwd: Secret::new_raw("password"),
