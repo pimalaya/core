@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.3] - 2023-12-31
+
+### Fixed
+
+- Fixed watch notifications on Windows and MacOS.
+
 ## [0.19.2] - 2023-12-31
 
 ### Changed

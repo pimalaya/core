@@ -37,17 +37,44 @@ pub trait WatchEnvelopes: Send + Sync {
                             debug!("{err:?}");
                         }
                     }
+                    #[cfg(unix)]
                     Some(WatchHook::Notify(config)) => {
                         debug!("sending received envelope notification…");
                         debug!("{config:?}");
 
-                        let notify = Notification::new()
+                        let notif = Notification::new()
                             .summary(&resolve_placeholders(&config.summary, envelope))
                             .body(&resolve_placeholders(&config.body, envelope))
                             .show_async()
                             .await;
 
-                        if let Err(err) = notify {
+                        if let Err(err) = notif {
+                            debug!("error while sending received envelope notification: {err}");
+                            debug!("{err:?}");
+                        }
+                    }
+                    #[cfg(not(unix))]
+                    Some(WatchHook::Notify(config)) => {
+                        debug!("sending received envelope notification…");
+                        debug!("{config:?}");
+
+                        let notif = tokio::task::spawn_blocking(|| {
+                            Notification::new()
+                                .summary(&resolve_placeholders(&config.summary, envelope))
+                                .body(&resolve_placeholders(&config.body, envelope))
+                                .show()
+                        })
+                        .await;
+
+                        if let Err(err) = notif {
+                            debug!("error while sending received envelope notification: {err}");
+                            debug!("{err:?}");
+                            continue;
+                        }
+
+                        let notif = notif.unwrap();
+
+                        if let Err(err) = notif {
                             debug!("error while sending received envelope notification: {err}");
                             debug!("{err:?}");
                         }
@@ -65,17 +92,44 @@ pub trait WatchEnvelopes: Send + Sync {
                             debug!("{err:?}");
                         }
                     }
+                    #[cfg(unix)]
                     Some(WatchHook::Notify(config)) => {
                         debug!("sending any envelope notification…");
                         debug!("{config:?}");
 
-                        let notify = Notification::new()
+                        let notif = Notification::new()
                             .summary(&resolve_placeholders(&config.summary, envelope))
                             .body(&resolve_placeholders(&config.body, envelope))
                             .show_async()
                             .await;
 
-                        if let Err(err) = notify {
+                        if let Err(err) = notif {
+                            debug!("error while sending any envelope notification: {err}");
+                            debug!("{err:?}");
+                        }
+                    }
+                    #[cfg(not(unix))]
+                    Some(WatchHook::Notify(config)) => {
+                        debug!("sending any envelope notification…");
+                        debug!("{config:?}");
+
+                        let notif = tokio::task::spawn_blocking(|| {
+                            Notification::new()
+                                .summary(&resolve_placeholders(&config.summary, envelope))
+                                .body(&resolve_placeholders(&config.body, envelope))
+                                .show()
+                        })
+                        .await;
+
+                        if let Err(err) = notif {
+                            debug!("error while sending any envelope notification: {err}");
+                            debug!("{err:?}");
+                            continue;
+                        }
+
+                        let notif = notif.unwrap();
+
+                        if let Err(err) = notif {
                             debug!("error while sending any envelope notification: {err}");
                             debug!("{err:?}");
                         }
