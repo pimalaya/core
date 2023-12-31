@@ -37,7 +37,7 @@ pub trait WatchEnvelopes: Send + Sync {
                             debug!("{err:?}");
                         }
                     }
-                    #[cfg(unix)]
+                    #[cfg(target_os = "linux")]
                     Some(WatchHook::Notify(config)) => {
                         debug!("sending received envelope notification…");
                         debug!("{config:?}");
@@ -53,7 +53,7 @@ pub trait WatchEnvelopes: Send + Sync {
                             debug!("{err:?}");
                         }
                     }
-                    #[cfg(not(unix))]
+                    #[cfg(not(target_os = "linux"))]
                     Some(WatchHook::Notify(config)) => {
                         debug!("sending received envelope notification…");
                         debug!("{config:?}");
@@ -96,7 +96,7 @@ pub trait WatchEnvelopes: Send + Sync {
                             debug!("{err:?}");
                         }
                     }
-                    #[cfg(unix)]
+                    #[cfg(target_os = "linux")]
                     Some(WatchHook::Notify(config)) => {
                         debug!("sending any envelope notification…");
                         debug!("{config:?}");
@@ -112,7 +112,7 @@ pub trait WatchEnvelopes: Send + Sync {
                             debug!("{err:?}");
                         }
                     }
-                    #[cfg(not(unix))]
+                    #[cfg(not(target_os = "linux"))]
                     Some(WatchHook::Notify(config)) => {
                         debug!("sending any envelope notification…");
                         debug!("{config:?}");
