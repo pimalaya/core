@@ -58,10 +58,14 @@ pub trait WatchEnvelopes: Send + Sync {
                         debug!("sending received envelope notification…");
                         debug!("{config:?}");
 
-                        let notif = tokio::task::spawn_blocking(|| {
+                        let summary = config.summary.clone();
+                        let body = config.body.clone();
+                        let envelope = envelope.clone();
+
+                        let notif = tokio::task::spawn_blocking(move || {
                             Notification::new()
-                                .summary(&resolve_placeholders(&config.summary, envelope))
-                                .body(&resolve_placeholders(&config.body, envelope))
+                                .summary(&resolve_placeholders(&summary, &envelope))
+                                .body(&resolve_placeholders(&body, &envelope))
                                 .show()
                         })
                         .await;
@@ -113,10 +117,14 @@ pub trait WatchEnvelopes: Send + Sync {
                         debug!("sending any envelope notification…");
                         debug!("{config:?}");
 
-                        let notif = tokio::task::spawn_blocking(|| {
+                        let summary = config.summary.clone();
+                        let body = config.body.clone();
+                        let envelope = envelope.clone();
+
+                        let notif = tokio::task::spawn_blocking(move || {
                             Notification::new()
-                                .summary(&resolve_placeholders(&config.summary, envelope))
-                                .body(&resolve_placeholders(&config.body, envelope))
+                                .summary(&resolve_placeholders(&summary, &envelope))
+                                .body(&resolve_placeholders(&body, &envelope))
                                 .show()
                         })
                         .await;
