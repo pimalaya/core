@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.6] - 2024-01-06
+
 ### Added
 
 - Added cargo feature `sync` to enable (default) or disable account synchronization.
