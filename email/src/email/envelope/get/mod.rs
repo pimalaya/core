@@ -1,12 +1,13 @@
+#[cfg(feature = "imap")]
+pub mod imap;
+#[cfg(feature = "maildir")]
+pub mod maildir;
+
 use async_trait::async_trait;
 
 use crate::Result;
 
 use super::{Envelope, Id};
-
-#[cfg(feature = "imap")]
-pub mod imap;
-pub mod maildir;
 
 #[async_trait]
 pub trait GetEnvelope: Send + Sync {

@@ -76,10 +76,11 @@ impl Config {
                 .as_ref()
                 .map(ToOwned::to_owned)
                 .or_else(|| self.downloads_dir.as_ref().map(ToOwned::to_owned)),
-            sync: account_config.sync.clone(),
             folder: account_config.folder.clone(),
             envelope: account_config.envelope.clone(),
             message: account_config.message.clone(),
+            #[cfg(feature = "sync")]
+            sync: account_config.sync.clone(),
             #[cfg(feature = "pgp")]
             pgp: account_config.pgp.clone(),
         })

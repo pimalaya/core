@@ -1,4 +1,5 @@
 pub mod config;
+#[cfg(feature = "sendmail")]
 pub mod sendmail;
 #[cfg(feature = "smtp")]
 pub mod smtp;

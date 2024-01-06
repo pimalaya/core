@@ -1,13 +1,14 @@
+pub mod config;
+#[cfg(feature = "imap")]
+pub mod imap;
+#[cfg(feature = "maildir")]
+pub mod maildir;
+
 use async_trait::async_trait;
 
 use crate::Result;
 
-use super::{Folder, Folders};
-
-pub mod config;
-#[cfg(feature = "imap")]
-pub mod imap;
-pub mod maildir;
+use super::Folders;
 
 #[async_trait]
 pub trait ListFolders: Send + Sync {

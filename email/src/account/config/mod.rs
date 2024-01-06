@@ -8,6 +8,7 @@ pub mod passwd;
 #[cfg(feature = "pgp")]
 pub mod pgp;
 
+#[cfg(feature = "sync")]
 use dirs::data_dir;
 use log::debug;
 use mail_builder::headers::address::{Address, EmailAddress};
@@ -24,12 +25,12 @@ use std::{
 };
 use thiserror::Error;
 
+#[cfg(feature = "sync")]
+use crate::{account::sync::config::SyncConfig, folder::sync::FolderSyncStrategy};
 use crate::{
     email::config::EmailTextPlainFormat,
     envelope::config::EnvelopeConfig,
-    folder::{
-        config::FolderConfig, sync::FolderSyncStrategy, FolderKind, DRAFTS, INBOX, SENT, TRASH,
-    },
+    folder::{config::FolderConfig, FolderKind, DRAFTS, INBOX, SENT, TRASH},
     message::config::MessageConfig,
     watch::config::WatchHook,
     Result,
@@ -38,14 +39,13 @@ use crate::{
 #[cfg(feature = "pgp")]
 use self::pgp::PgpConfig;
 
-use super::sync::config::SyncConfig;
-
 pub const DEFAULT_PAGE_SIZE: usize = 10;
 pub const DEFAULT_SIGNATURE_DELIM: &str = "-- \n";
 
 /// Errors related to account configuration.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[cfg(feature = "sync")]
     #[error("cannot open the synchronization database")]
     BuildSyncDatabaseError(#[source] rusqlite::Error),
     #[error("cannot parse download file name from {0}")]
@@ -99,9 +99,6 @@ pub struct AccountConfig {
     /// (usually `/tmp`).
     pub downloads_dir: Option<PathBuf>,
 
-    /// The account synchronization configuration.
-    pub sync: Option<SyncConfig>,
-
     /// The folder configuration.
     pub folder: Option<FolderConfig>,
 
@@ -110,6 +107,10 @@ pub struct AccountConfig {
 
     /// The message configuration.
     pub message: Option<MessageConfig>,
+
+    /// The account synchronization configuration.
+    #[cfg(feature = "sync")]
+    pub sync: Option<SyncConfig>,
 
     /// The PGP configuration.
     #[cfg(feature = "pgp")]
@@ -174,6 +175,7 @@ impl AccountConfig {
         rename_file_if_duplicate(&final_path, |path, _count| path.is_file())
     }
 
+    #[cfg(feature = "sync")]
     /// Return `true` if the synchronization is enabled.
     pub fn is_sync_enabled(&self) -> bool {
         self.sync
@@ -182,6 +184,7 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
+    #[cfg(feature = "sync")]
     /// Return `true` if the synchronization directory already exists.
     pub fn does_sync_dir_exist(&self) -> bool {
         match self.sync.as_ref().and_then(|c| c.dir.as_ref()) {
@@ -192,12 +195,14 @@ impl AccountConfig {
         }
     }
 
+    #[cfg(feature = "sync")]
     /// Return `true` if the synchronization is enabled AND if the
     /// sync directory exists.
     pub fn is_sync_usable(&self) -> bool {
         self.is_sync_enabled() && self.does_sync_dir_exist()
     }
 
+    #[cfg(feature = "sync")]
     /// Get the synchronization directory if exist, otherwise create
     /// it.
     pub fn get_sync_dir(&self) -> Result<PathBuf> {
@@ -221,11 +226,22 @@ impl AccountConfig {
         }
     }
 
+    #[cfg(feature = "sync")]
     /// Open a SQLite connection to the synchronization database.
     pub fn get_sync_db_conn(&self) -> Result<rusqlite::Connection> {
         let conn = rusqlite::Connection::open(self.get_sync_dir()?.join(".sync.sqlite"))
             .map_err(Error::BuildSyncDatabaseError)?;
         Ok(conn)
+    }
+
+    #[cfg(feature = "sync")]
+    /// Get the folder sync strategy.
+    pub fn get_folder_sync_strategy(&self) -> FolderSyncStrategy {
+        self.sync
+            .as_ref()
+            .and_then(|c| c.strategy.as_ref())
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Find the envelope received hook configuration.
@@ -308,15 +324,6 @@ impl AccountConfig {
                     }
                 })
             })
-    }
-
-    /// Get the folder sync strategy.
-    pub fn get_folder_sync_strategy(&self) -> FolderSyncStrategy {
-        self.sync
-            .as_ref()
-            .and_then(|c| c.strategy.as_ref())
-            .cloned()
-            .unwrap_or_default()
     }
 
     /// Get the envelope listing page size if defined, otherwise

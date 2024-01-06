@@ -23,6 +23,7 @@ pub mod list;
 #[cfg(feature = "maildir")]
 pub mod maildir;
 pub mod purge;
+#[cfg(feature = "sync")]
 pub mod sync;
 
 use std::{

@@ -6,4 +6,5 @@
 //! PGP.
 
 pub mod config;
+#[cfg(feature = "sync")]
 pub mod sync;

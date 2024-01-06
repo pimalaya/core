@@ -12,6 +12,7 @@ pub mod id;
 #[cfg(feature = "imap")]
 pub mod imap;
 pub mod list;
+#[cfg(feature = "maildir")]
 pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;

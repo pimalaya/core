@@ -1,9 +1,9 @@
+#[cfg(feature = "imap")]
+pub mod imap;
+
 use async_trait::async_trait;
 
 use crate::Result;
-
-#[cfg(feature = "imap")]
-pub mod imap;
 
 #[async_trait]
 pub trait PurgeFolder: Send + Sync {

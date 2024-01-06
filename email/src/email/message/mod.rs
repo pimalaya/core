@@ -20,8 +20,10 @@ pub mod template;
 
 #[cfg(feature = "imap")]
 use imap::types::{Fetch, Fetches};
+#[cfg(feature = "imap")]
 use log::debug;
 use mail_parser::{MessageParser, MimeHeaders};
+#[cfg(feature = "maildir")]
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
@@ -42,9 +44,6 @@ pub use self::{
 /// Errors related to email messages.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot parse email")]
-    GetMailEntryError(#[source] maildirpp::Error),
-
     #[error("cannot parse email")]
     ParseEmailError,
     #[error("cannot parse email: raw email is empty")]
@@ -209,6 +208,7 @@ impl<'a> From<&'a Fetch<'a>> for Message<'a> {
     }
 }
 
+#[cfg(feature = "maildir")]
 impl<'a> From<&'a mut MailEntry> for Message<'a> {
     fn from(entry: &'a mut MailEntry) -> Self {
         MessageBuilder {
@@ -229,6 +229,7 @@ enum RawMessages {
     Vec(Vec<Vec<u8>>),
     #[cfg(feature = "imap")]
     Fetches(Fetches),
+    #[cfg(feature = "maildir")]
     MailEntries(Vec<MailEntry>),
 }
 
@@ -257,6 +258,7 @@ impl Messages {
                 })
                 .map(Message::from)
                 .collect(),
+            #[cfg(feature = "maildir")]
             RawMessages::MailEntries(entries) => entries.iter_mut().map(Message::from).collect(),
         }
     }
@@ -297,6 +299,7 @@ impl TryFrom<Fetches> for Messages {
     }
 }
 
+#[cfg(feature = "maildir")]
 impl TryFrom<Vec<MailEntry>> for Messages {
     type Error = crate::Error;
 

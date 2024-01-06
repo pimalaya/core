@@ -3,9 +3,13 @@ use log::info;
 use std::path::PathBuf;
 use thiserror::Error;
 
-use crate::{folder::FolderKind, maildir::MaildirSessionSync, Result};
+use crate::{
+    folder::{Folder, FolderKind, Folders},
+    maildir::MaildirSessionSync,
+    Result,
+};
 
-use super::{Folder, Folders, ListFolders};
+use super::ListFolders;
 
 #[derive(Error, Debug)]
 pub enum Error {

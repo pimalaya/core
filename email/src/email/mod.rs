@@ -14,6 +14,7 @@
 pub mod config;
 pub mod envelope;
 pub mod message;
+#[cfg(feature = "sync")]
 pub mod sync;
 pub mod utils;
 

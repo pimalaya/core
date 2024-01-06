@@ -1,6 +1,7 @@
 pub mod config;
 #[cfg(feature = "imap")]
 pub mod imap;
+#[cfg(feature = "maildir")]
 pub mod maildir;
 
 use async_trait::async_trait;

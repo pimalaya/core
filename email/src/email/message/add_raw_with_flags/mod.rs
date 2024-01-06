@@ -1,3 +1,8 @@
+#[cfg(feature = "imap")]
+pub mod imap;
+#[cfg(feature = "maildir")]
+pub mod maildir;
+
 use async_trait::async_trait;
 
 use crate::{
@@ -7,10 +12,6 @@ use crate::{
 };
 
 use super::add_raw::AddRawMessage;
-
-#[cfg(feature = "imap")]
-pub mod imap;
-pub mod maildir;
 
 #[async_trait]
 pub trait AddRawMessageWithFlags: Send + Sync {
