@@ -25,8 +25,6 @@ use std::{
 };
 use thiserror::Error;
 
-#[cfg(feature = "message-any")]
-use crate::message::config::MessageConfig;
 #[cfg(feature = "envelope-watch")]
 use crate::watch::config::WatchHook;
 #[cfg(feature = "sync")]
@@ -35,6 +33,7 @@ use crate::{
     email::config::EmailTextPlainFormat,
     envelope::config::EnvelopeConfig,
     folder::{config::FolderConfig, FolderKind, DRAFTS, INBOX, SENT, TRASH},
+    message::config::MessageConfig,
     Result,
 };
 
@@ -101,15 +100,12 @@ pub struct AccountConfig {
     /// (usually `/tmp`).
     pub downloads_dir: Option<PathBuf>,
 
-    #[cfg(feature = "folder-any")]
     /// The folder configuration.
     pub folder: Option<FolderConfig>,
 
-    #[cfg(feature = "envelope-any")]
     /// The envelope configuration.
     pub envelope: Option<EnvelopeConfig>,
 
-    #[cfg(feature = "message-any")]
     /// The message configuration.
     pub message: Option<MessageConfig>,
 
@@ -355,6 +351,7 @@ impl AccountConfig {
             .and_then(|c| c.format.as_ref())
             .cloned()
             .unwrap_or_default();
+
         #[cfg(not(feature = "message-get"))]
         return Default::default();
     }

@@ -8,6 +8,7 @@
 //! [AccountConfiguration](crate::account::config::AccountConfig).
 
 use async_trait::async_trait;
+#[allow(unused)]
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -23,6 +24,8 @@ use crate::flag::add::AddFlags;
 use crate::flag::remove::RemoveFlags;
 #[cfg(feature = "flag-set")]
 use crate::flag::set::SetFlags;
+#[cfg(any(feature = "flag-any", feature = "message-add"))]
+use crate::flag::{Flag, Flags};
 #[cfg(feature = "folder-add")]
 use crate::folder::add::AddFolder;
 #[cfg(feature = "folder-delete")]
@@ -55,12 +58,8 @@ use crate::message::peek::PeekMessages;
 use crate::message::send::SendMessage;
 #[cfg(any(feature = "message-peek", feature = "message-get"))]
 use crate::message::Messages;
-use crate::{
-    account::config::AccountConfig,
-    envelope::Id,
-    flag::{Flag, Flags},
-    Result,
-};
+#[allow(unused)]
+use crate::{account::config::AccountConfig, envelope::Id, Result};
 #[cfg(feature = "message-add")]
 use crate::{
     envelope::SingleId,
@@ -155,7 +154,6 @@ impl<T: BackendContextBuilder, U: BackendContextBuilder, V: BackendContextBuilde
 
 pub struct BackendBuilder<B: BackendContextBuilder> {
     pub account_config: AccountConfig,
-
     pub context_builder: B,
 
     #[cfg(feature = "folder-add")]
@@ -562,6 +560,7 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
 
     pub async fn build(self) -> Result<Backend<C>> {
         let context = self.context_builder.build().await?;
+        #[allow(unused_mut)]
         let mut backend = Backend::new(self.account_config.clone(), context);
 
         #[cfg(feature = "folder-add")]
@@ -753,6 +752,7 @@ impl Default for BackendBuilder<()> {
 }
 
 pub struct Backend<C> {
+    #[allow(dead_code)]
     context: C,
 
     pub account_config: AccountConfig,

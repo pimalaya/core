@@ -57,7 +57,7 @@ const SELECT_FOLDERS_NOT_IN: &str = "
 pub struct FolderSyncCache;
 
 impl FolderSyncCache {
-    const LOCAL_SUFFIX: &str = ":cache";
+    const LOCAL_SUFFIX: &'static str = ":cache";
 
     /// Creates the folder synchronization SQLite table.
     pub fn init(conn: &mut Connection) -> Result<()> {

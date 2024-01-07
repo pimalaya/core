@@ -55,7 +55,7 @@ const SELECT_ENVELOPES: &str = "
 pub struct EmailSyncCache;
 
 impl EmailSyncCache {
-    const LOCAL_SUFFIX: &str = ":cache";
+    const LOCAL_SUFFIX: &'static str = ":cache";
 
     pub fn init(conn: &mut Connection) -> Result<()> {
         conn.execute(CREATE_ENVELOPES_TABLE, ())?;
