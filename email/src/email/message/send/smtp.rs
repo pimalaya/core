@@ -3,24 +3,24 @@ use log::info;
 
 use crate::{smtp::SmtpClientSync, Result};
 
-use super::SendRawMessage;
+use super::SendMessage;
 
 #[derive(Clone)]
-pub struct SendRawMessageSmtp {
+pub struct SendMessageSmtp {
     client: SmtpClientSync,
 }
 
-impl SendRawMessageSmtp {
-    pub fn new(client: &SmtpClientSync) -> Option<Box<dyn SendRawMessage>> {
+impl SendMessageSmtp {
+    pub fn new(client: &SmtpClientSync) -> Option<Box<dyn SendMessage>> {
         let client = client.clone();
         Some(Box::new(Self { client }))
     }
 }
 
 #[async_trait]
-impl SendRawMessage for SendRawMessageSmtp {
-    async fn send_raw_message(&self, raw_msg: &[u8]) -> Result<()> {
-        info!("smtp: sending raw email message");
+impl SendMessage for SendMessageSmtp {
+    async fn send_message(&self, raw_msg: &[u8]) -> Result<()> {
+        info!("sending raw smtp message");
 
         let mut client = self.client.lock().await;
         client.send(raw_msg).await?;

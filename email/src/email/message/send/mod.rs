@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use crate::Result;
 
 #[async_trait]
-pub trait SendRawMessage: Send + Sync {
+pub trait SendMessage: Send + Sync {
     /// Send the given raw email message.
-    async fn send_raw_message(&self, raw_msg: &[u8]) -> Result<()>;
+    async fn send_message(&self, raw_msg: &[u8]) -> Result<()>;
 }

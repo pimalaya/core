@@ -7,7 +7,7 @@ use email::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapSessionBuilder,
     },
-    message::send_raw::smtp::SendRawMessageSmtp,
+    message::send::smtp::SendMessageSmtp,
     smtp::{
         config::{SmtpAuthConfig, SmtpConfig, SmtpEncryptionKind},
         SmtpClientBuilder,
@@ -48,7 +48,7 @@ async fn test_smtp_features() {
     let backend_builder = BackendBuilder::new(account_config.clone(), (imap_ctx, smtp_ctx))
         .with_purge_folder(|ctx| PurgeFolderImap::new(&ctx.0))
         .with_list_envelopes(|ctx| ListEnvelopesImap::new(&ctx.0))
-        .with_send_raw_message(|ctx| SendRawMessageSmtp::new(&ctx.1));
+        .with_send_message(|ctx| SendMessageSmtp::new(&ctx.1));
     let backend = backend_builder.build().await.unwrap();
 
     // setting up folders
@@ -64,7 +64,7 @@ async fn test_smtp_features() {
         .text_body("Plain message!")
         .write_to_vec()
         .unwrap();
-    backend.send_raw_message(&raw_msg).await.unwrap();
+    backend.send_message(&raw_msg).await.unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 

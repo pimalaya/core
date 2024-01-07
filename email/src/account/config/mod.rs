@@ -25,14 +25,16 @@ use std::{
 };
 use thiserror::Error;
 
+#[cfg(feature = "message-any")]
+use crate::message::config::MessageConfig;
+#[cfg(feature = "envelope-watch")]
+use crate::watch::config::WatchHook;
 #[cfg(feature = "sync")]
 use crate::{account::sync::config::SyncConfig, folder::sync::FolderSyncStrategy};
 use crate::{
     email::config::EmailTextPlainFormat,
     envelope::config::EnvelopeConfig,
     folder::{config::FolderConfig, FolderKind, DRAFTS, INBOX, SENT, TRASH},
-    message::config::MessageConfig,
-    watch::config::WatchHook,
     Result,
 };
 
@@ -99,12 +101,15 @@ pub struct AccountConfig {
     /// (usually `/tmp`).
     pub downloads_dir: Option<PathBuf>,
 
+    #[cfg(feature = "folder-any")]
     /// The folder configuration.
     pub folder: Option<FolderConfig>,
 
+    #[cfg(feature = "envelope-any")]
     /// The envelope configuration.
     pub envelope: Option<EnvelopeConfig>,
 
+    #[cfg(feature = "message-any")]
     /// The message configuration.
     pub message: Option<MessageConfig>,
 
@@ -244,6 +249,7 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
+    #[cfg(feature = "envelope-watch")]
     /// Find the envelope received hook configuration.
     pub fn find_received_envelope_hook(&self) -> Option<&WatchHook> {
         self.envelope
@@ -252,6 +258,7 @@ impl AccountConfig {
             .and_then(|c| c.received.as_ref())
     }
 
+    #[cfg(feature = "envelope-watch")]
     /// Find the envelope any hook configuration.
     pub fn find_any_envelope_hook(&self) -> Option<&WatchHook> {
         self.envelope
@@ -326,6 +333,7 @@ impl AccountConfig {
             })
     }
 
+    #[cfg(feature = "envelope-list")]
     /// Get the envelope listing page size if defined, otherwise
     /// return the default one.
     pub fn get_envelope_list_page_size(&self) -> usize {
@@ -339,60 +347,86 @@ impl AccountConfig {
     /// Get the message reading format if defined, otherwise return
     /// the default one.
     pub fn get_message_read_format(&self) -> EmailTextPlainFormat {
-        self.message
+        #[cfg(feature = "message-get")]
+        return self
+            .message
             .as_ref()
             .and_then(|c| c.read.as_ref())
             .and_then(|c| c.format.as_ref())
             .cloned()
-            .unwrap_or_default()
+            .unwrap_or_default();
+        #[cfg(not(feature = "message-get"))]
+        return Default::default();
     }
 
     /// Get the message reading headers if defined, otherwise return
     /// the default ones.
     pub fn get_message_read_headers(&self) -> Vec<String> {
-        self.message
+        let default_headers = vec!["From".into(), "To".into(), "Cc".into(), "Subject".into()];
+
+        #[cfg(feature = "message-get")]
+        return self
+            .message
             .as_ref()
             .and_then(|c| c.read.as_ref())
             .and_then(|c| c.headers.as_ref())
             .cloned()
-            .unwrap_or_else(|| vec!["From".into(), "To".into(), "Cc".into(), "Subject".into()])
+            .unwrap_or(default_headers);
+
+        #[cfg(not(feature = "message-get"))]
+        return default_headers;
     }
 
     /// Get the message writing headers if defined, otherwise return
     /// the default ones.
     pub fn get_message_write_headers(&self) -> Vec<String> {
-        self.message
+        let default_headers = vec![
+            "From".into(),
+            "To".into(),
+            "In-Reply-To".into(),
+            "Cc".into(),
+            "Subject".into(),
+        ];
+
+        #[cfg(feature = "message-add")]
+        return self
+            .message
             .as_ref()
             .and_then(|c| c.write.as_ref())
             .and_then(|c| c.headers.as_ref())
             .cloned()
-            .unwrap_or_else(|| {
-                vec![
-                    "From".into(),
-                    "To".into(),
-                    "In-Reply-To".into(),
-                    "Cc".into(),
-                    "Subject".into(),
-                ]
-            })
+            .unwrap_or(default_headers);
+
+        #[cfg(not(feature = "message-add"))]
+        return default_headers;
     }
 
     /// Find the message pre-send hook.
     pub fn find_message_pre_send_hook(&self) -> Option<&Cmd> {
-        self.message
+        #[cfg(feature = "message-send")]
+        return self
+            .message
             .as_ref()
             .and_then(|c| c.send.as_ref())
-            .and_then(|c| c.pre_hook.as_ref())
+            .and_then(|c| c.pre_hook.as_ref());
+
+        #[cfg(not(feature = "message-send"))]
+        return None;
     }
 
     /// Return `true` if a copy of sent messages should be saved in
     /// the sent folder.
     pub fn should_save_copy_sent_message(&self) -> bool {
-        self.message
+        #[cfg(feature = "message-send")]
+        return self
+            .message
             .as_ref()
             .and_then(|c| c.send.as_ref())
             .and_then(|c| c.save_copy)
-            .unwrap_or_default()
+            .unwrap_or_default();
+
+        #[cfg(not(feature = "message-send"))]
+        return false;
     }
 
     /// Generate a template interpreter with prefilled options from
@@ -409,6 +443,7 @@ impl AccountConfig {
         builder
     }
 
+    #[cfg(feature = "envelope-list")]
     /// Get the envelope listing datetime format, otherwise return the
     /// default one.
     pub fn get_envelope_list_datetime_fmt(&self) -> String {
@@ -419,6 +454,7 @@ impl AccountConfig {
             .unwrap_or_else(|| String::from("%F %R%:z"))
     }
 
+    #[cfg(feature = "envelope-list")]
     /// Return `true` if the envelope listing datetime local timezone
     /// option is enabled.
     pub fn has_envelope_list_datetime_local_tz(&self) -> bool {

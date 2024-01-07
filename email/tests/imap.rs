@@ -14,7 +14,7 @@ use email::{
         ImapSessionBuilder,
     },
     message::{
-        add_raw_with_flags::imap::AddRawMessageWithFlagsImap, copy::imap::CopyMessagesImap,
+        add_with_flags::imap::AddMessageWithFlagsImap, copy::imap::CopyMessagesImap,
         get::imap::GetMessagesImap, move_::imap::MoveMessagesImap,
     },
 };
@@ -57,7 +57,7 @@ async fn test_imap_features() {
         .with_list_envelopes(ListEnvelopesImap::new)
         .with_add_flags(AddFlagsImap::new)
         .with_get_messages(GetMessagesImap::new)
-        .with_add_raw_message_with_flags(AddRawMessageWithFlagsImap::new)
+        .with_add_message_with_flags(AddMessageWithFlagsImap::new)
         .with_copy_messages(CopyMessagesImap::new)
         .with_move_messages(MoveMessagesImap::new);
     let backend = backend_builder.build().await.unwrap();
@@ -90,7 +90,7 @@ async fn test_imap_features() {
     let email = compiler.compile().await.unwrap().into_vec().unwrap();
 
     let id = backend
-        .add_raw_message_with_flag(SENT, &email, Flag::Seen)
+        .add_message_with_flag(SENT, &email, Flag::Seen)
         .await
         .unwrap();
 

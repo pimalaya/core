@@ -6,11 +6,11 @@ use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{envelope::SingleId, imap::ImapSessionSync, Result};
 
-use super::{AddRawMessageWithFlags, Flags};
+use super::{AddMessageWithFlags, Flags};
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("cannot add raw imap message to folder {1} with flags {2}")]
+    #[error("cannot add imap message to folder {1} with flags {2}")]
     AppendRawMessageWithFlagsError(#[source] imap::Error, String, Flags),
     #[error("cannot get added imap message uid from range {0}")]
     GetAddedMessageUidFromRangeError(String),
@@ -19,20 +19,20 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct AddRawMessageWithFlagsImap {
+pub struct AddMessageWithFlagsImap {
     session: ImapSessionSync,
 }
 
-impl AddRawMessageWithFlagsImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn AddRawMessageWithFlags>> {
+impl AddMessageWithFlagsImap {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn AddMessageWithFlags>> {
         let session = session.clone();
         Some(Box::new(Self { session }))
     }
 }
 
 #[async_trait]
-impl AddRawMessageWithFlags for AddRawMessageWithFlagsImap {
-    async fn add_raw_message_with_flags(
+impl AddMessageWithFlags for AddMessageWithFlagsImap {
+    async fn add_message_with_flags(
         &self,
         folder: &str,
         raw_msg: &[u8],

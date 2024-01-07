@@ -18,7 +18,7 @@ use email::{
     },
     maildir::config::MaildirConfig,
     message::{
-        add_raw_with_flags::imap::AddRawMessageWithFlagsImap, get::imap::GetMessagesImap,
+        add_with_flags::imap::AddMessageWithFlagsImap, get::imap::GetMessagesImap,
         move_::imap::MoveMessagesImap, peek::imap::PeekMessagesImap,
     },
 };
@@ -78,7 +78,7 @@ async fn sync() {
         .with_peek_messages(PeekMessagesImap::new)
         .with_get_messages(GetMessagesImap::new)
         .with_move_messages(MoveMessagesImap::new)
-        .with_add_raw_message_with_flags(AddRawMessageWithFlagsImap::new);
+        .with_add_message_with_flags(AddMessageWithFlagsImap::new);
     let imap = imap_builder.clone().build().await.unwrap();
 
     // set up maildir reader
@@ -109,7 +109,7 @@ async fn sync() {
     // add three emails to folder INBOX with delay (in order to have
     // different dates)
 
-    imap.add_raw_message_with_flag(
+    imap.add_message_with_flag(
         INBOX,
         &MessageBuilder::new()
             .message_id("<a@localhost>")
@@ -126,7 +126,7 @@ async fn sync() {
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    imap.add_raw_message_with_flags(
+    imap.add_message_with_flags(
         INBOX,
         &MessageBuilder::new()
             .message_id("<b@localhost>")
@@ -143,7 +143,7 @@ async fn sync() {
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    imap.add_raw_message_with_flags(
+    imap.add_message_with_flags(
         INBOX,
         &MessageBuilder::new()
             .message_id("<c@localhost>")
@@ -162,7 +162,7 @@ async fn sync() {
 
     // add two more emails to folder [Gmail]/Sent
 
-    imap.add_raw_message_with_flags(
+    imap.add_message_with_flags(
         "sent",
         &MessageBuilder::new()
             .message_id("<d@localhost>")
@@ -179,7 +179,7 @@ async fn sync() {
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    imap.add_raw_message_with_flags(
+    imap.add_message_with_flags(
         "SenT",
         &MessageBuilder::new()
             .message_id("<e@localhost>")

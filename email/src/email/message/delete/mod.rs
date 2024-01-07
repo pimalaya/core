@@ -1,12 +1,13 @@
 use async_trait::async_trait;
 
+#[cfg(feature = "flag-add")]
 use crate::{
     account::config::AccountConfig,
-    envelope::Id,
     flag::{add::AddFlags, Flag},
-    Result,
 };
+use crate::{envelope::Id, Result};
 
+#[cfg(feature = "flag-add")]
 use super::move_::MoveMessages;
 
 #[async_trait]
@@ -23,6 +24,7 @@ pub trait DeleteMessages: Send + Sync {
     async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()>;
 }
 
+#[cfg(feature = "flag-add")]
 #[async_trait]
 impl<T: MoveMessages + AddFlags> DeleteMessages for (AccountConfig, T) {
     async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
@@ -30,6 +32,7 @@ impl<T: MoveMessages + AddFlags> DeleteMessages for (AccountConfig, T) {
     }
 }
 
+#[cfg(feature = "flag-add")]
 pub async fn default_delete_messages(
     account_config: &AccountConfig,
     a: &dyn MoveMessages,

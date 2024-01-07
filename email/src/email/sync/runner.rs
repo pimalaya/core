@@ -103,7 +103,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
                 match target {
                     Destination::Local => {
                         let id = local
-                            .add_raw_message_with_flags(&folder, email.raw()?, &envelope.flags)
+                            .add_message_with_flags(&folder, email.raw()?, &envelope.flags)
                             .await?;
                         let envelope = local.get_envelope(&folder, &Id::single(id)).await?;
                         cache_hunks.push(EmailSyncCacheHunk::Insert(
@@ -114,7 +114,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
                     }
                     Destination::Remote => {
                         let id = remote
-                            .add_raw_message_with_flags(&folder, email.raw()?, &envelope.flags)
+                            .add_message_with_flags(&folder, email.raw()?, &envelope.flags)
                             .await?;
                         let envelope = remote.get_envelope(&folder, &Id::single(id)).await?;
                         cache_hunks.push(EmailSyncCacheHunk::Insert(

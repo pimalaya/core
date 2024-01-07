@@ -13,9 +13,8 @@ use email::{
     },
     maildir::{config::MaildirConfig, MaildirSessionBuilder},
     message::{
-        add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
-        copy::maildir::CopyMessagesMaildir, move_::maildir::MoveMessagesMaildir,
-        peek::maildir::PeekMessagesMaildir,
+        add_with_flags::maildir::AddMessageWithFlagsMaildir, copy::maildir::CopyMessagesMaildir,
+        move_::maildir::MoveMessagesMaildir, peek::maildir::PeekMessagesMaildir,
     },
 };
 use mail_builder::MessageBuilder;
@@ -73,7 +72,7 @@ async fn test_maildir_features() {
         .with_set_flags(SetFlagsMaildir::new)
         .with_remove_flags(RemoveFlagsMaildir::new)
         .with_peek_messages(PeekMessagesMaildir::new)
-        .with_add_raw_message_with_flags(AddRawMessageWithFlagsMaildir::new)
+        .with_add_message_with_flags(AddMessageWithFlagsMaildir::new)
         .with_copy_messages(CopyMessagesMaildir::new)
         .with_move_messages(MoveMessagesMaildir::new);
     let mdir = backend_builder.build().await.unwrap();
@@ -94,7 +93,7 @@ async fn test_maildir_features() {
         .with_set_flags(SetFlagsMaildir::new)
         .with_remove_flags(RemoveFlagsMaildir::new)
         .with_peek_messages(PeekMessagesMaildir::new)
-        .with_add_raw_message_with_flags(AddRawMessageWithFlagsMaildir::new)
+        .with_add_message_with_flags(AddMessageWithFlagsMaildir::new)
         .with_copy_messages(CopyMessagesMaildir::new)
         .with_move_messages(MoveMessagesMaildir::new);
     let submdir = backend_builder.build().await.unwrap();
@@ -108,7 +107,7 @@ async fn test_maildir_features() {
         .write_to_vec()
         .unwrap();
     let id = mdir
-        .add_raw_message_with_flag("INBOX", &email, Flag::Seen)
+        .add_message_with_flag("INBOX", &email, Flag::Seen)
         .await
         .unwrap();
 

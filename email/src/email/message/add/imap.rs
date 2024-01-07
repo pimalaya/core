@@ -6,12 +6,12 @@ use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{envelope::SingleId, imap::ImapSessionSync, Result};
 
-use super::AddRawMessage;
+use super::AddMessage;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("cannot add raw imap message to folder {1}")]
-    AppendRawMessage(#[source] imap::Error, String),
+    #[error("cannot add  imap message to folder {1}")]
+    AppendMessage(#[source] imap::Error, String),
     #[error("cannot get added imap message uid from range {0}")]
     GetAddedMessageUidFromRangeError(String),
     #[error("cannot get added imap message uid: extension UIDPLUS may be missing on the server")]
@@ -19,20 +19,20 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct AddRawMessageImap {
+pub struct AddMessageImap {
     session: ImapSessionSync,
 }
 
-impl AddRawMessageImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn AddRawMessage>> {
+impl AddMessageImap {
+    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn AddMessage>> {
         let session = session.clone();
         Some(Box::new(Self { session }))
     }
 }
 
 #[async_trait]
-impl AddRawMessage for AddRawMessageImap {
-    async fn add_raw_message(&self, folder: &str, raw_msg: &[u8]) -> Result<SingleId> {
+impl AddMessage for AddMessageImap {
+    async fn add_message(&self, folder: &str, raw_msg: &[u8]) -> Result<SingleId> {
         info!("adding imap message to folder {folder}");
 
         let mut session = self.session.lock().await;
@@ -44,7 +44,7 @@ impl AddRawMessage for AddRawMessageImap {
         let appended = session
             .execute(
                 |session| session.append(&folder, raw_msg).finish(),
-                |err| Error::AppendRawMessage(err, folder.clone()).into(),
+                |err| Error::AppendMessage(err, folder.clone()).into(),
             )
             .await?;
 

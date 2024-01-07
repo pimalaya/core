@@ -6,16 +6,24 @@
 //! The core concept of this module is the [Message] structure, which
 //! is just wrapper around the [mail_parser::Message] struct.
 
-pub mod add_raw;
-pub mod add_raw_with_flags;
+#[cfg(feature = "message-add")]
+pub mod add;
+#[cfg(feature = "message-add")]
+pub mod add_with_flags;
 pub mod attachment;
 pub mod config;
+#[cfg(feature = "message-copy")]
 pub mod copy;
+#[cfg(feature = "message-delete")]
 pub mod delete;
+#[cfg(feature = "message-get")]
 pub mod get;
+#[cfg(feature = "message-move")]
 pub mod move_;
+#[cfg(feature = "message-peek")]
 pub mod peek;
-pub mod send_raw;
+#[cfg(feature = "message-send")]
+pub mod send;
 pub mod template;
 
 #[cfg(feature = "imap")]

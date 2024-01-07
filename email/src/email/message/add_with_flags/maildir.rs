@@ -4,29 +4,29 @@ use thiserror::Error;
 
 use crate::{envelope::SingleId, maildir::MaildirSessionSync, Result};
 
-use super::{AddRawMessageWithFlags, Flags};
+use super::{AddMessageWithFlags, Flags};
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("maildir: cannot add raw email message to folder {1} with flags {2}")]
+    #[error("cannot add maildir message to folder {1} with flags {2}")]
     StoreWithFlagsError(#[source] maildirpp::Error, String, Flags),
 }
 
 #[derive(Clone)]
-pub struct AddRawMessageWithFlagsMaildir {
+pub struct AddMessageWithFlagsMaildir {
     session: MaildirSessionSync,
 }
 
-impl AddRawMessageWithFlagsMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn AddRawMessageWithFlags>> {
+impl AddMessageWithFlagsMaildir {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn AddMessageWithFlags>> {
         let session = session.clone();
         Some(Box::new(Self { session }))
     }
 }
 
 #[async_trait]
-impl AddRawMessageWithFlags for AddRawMessageWithFlagsMaildir {
-    async fn add_raw_message_with_flags(
+impl AddMessageWithFlags for AddMessageWithFlagsMaildir {
+    async fn add_message_with_flags(
         &self,
         folder: &str,
         raw_msg: &[u8],

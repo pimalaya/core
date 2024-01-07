@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::{sendmail::SendmailContext, Result};
 
-use super::SendRawMessage;
+use super::SendMessage;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -14,21 +14,21 @@ pub enum Error {
 }
 
 #[derive(Clone)]
-pub struct SendRawMessageSendmail {
+pub struct SendMessageSendmail {
     ctx: SendmailContext,
 }
 
-impl SendRawMessageSendmail {
-    pub fn new(ctx: &SendmailContext) -> Option<Box<dyn SendRawMessage>> {
+impl SendMessageSendmail {
+    pub fn new(ctx: &SendmailContext) -> Option<Box<dyn SendMessage>> {
         let ctx = ctx.clone();
         Some(Box::new(Self { ctx }))
     }
 }
 
 #[async_trait]
-impl SendRawMessage for SendRawMessageSendmail {
-    async fn send_raw_message(&self, raw_msg: &[u8]) -> Result<()> {
-        info!("sendmail: sending raw email message");
+impl SendMessage for SendMessageSendmail {
+    async fn send_message(&self, raw_msg: &[u8]) -> Result<()> {
+        info!("sending raw sendmail message");
 
         let buffer: Vec<u8>;
         let mut msg = MessageParser::new().parse(raw_msg).unwrap_or_else(|| {

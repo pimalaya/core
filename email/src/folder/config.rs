@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[cfg(feature = "folder-list")]
 use super::list::config::FolderListConfig;
 
 /// The folder configuration.
@@ -16,6 +17,7 @@ pub struct FolderConfig {
     /// Note: folder aliases are case-insensitive.
     pub aliases: Option<HashMap<String, String>>,
 
+    #[cfg(feature = "folder-list")]
     /// The configuration dedicated to folder listing.
     pub list: Option<FolderListConfig>,
 }

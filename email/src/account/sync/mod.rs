@@ -39,8 +39,8 @@ use crate::{
     },
     maildir::{config::MaildirConfig, MaildirSessionBuilder, MaildirSessionSync},
     message::{
-        add_raw_with_flags::maildir::AddRawMessageWithFlagsMaildir,
-        move_::maildir::MoveMessagesMaildir, peek::maildir::PeekMessagesMaildir,
+        add_with_flags::maildir::AddMessageWithFlagsMaildir, move_::maildir::MoveMessagesMaildir,
+        peek::maildir::PeekMessagesMaildir,
     },
     Result,
 };
@@ -451,7 +451,7 @@ impl LocalBackendBuilder {
             .with_set_flags(SetFlagsMaildir::new)
             .with_peek_messages(PeekMessagesMaildir::new)
             .with_move_messages(MoveMessagesMaildir::new)
-            .with_add_raw_message_with_flags(AddRawMessageWithFlagsMaildir::new);
+            .with_add_message_with_flags(AddMessageWithFlagsMaildir::new);
 
         Self(backend_builder)
     }

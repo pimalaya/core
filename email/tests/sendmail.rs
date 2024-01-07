@@ -10,7 +10,7 @@ async fn test_sendmail_features() {
             config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
             ImapSessionBuilder,
         },
-        message::send_raw::sendmail::SendRawMessageSendmail,
+        message::send::sendmail::SendMessageSendmail,
         sendmail::{config::SendmailConfig, SendmailContext},
     };
     use mail_builder::MessageBuilder;
@@ -52,7 +52,7 @@ async fn test_sendmail_features() {
 
     let sendmail_ctx = SendmailContext::new(account_config.clone(), sendmail_config);
     let sendmail_builder = BackendBuilder::new(account_config.clone(), sendmail_ctx)
-        .with_send_raw_message(SendRawMessageSendmail::new);
+        .with_send_message(SendMessageSendmail::new);
     let sendmail = sendmail_builder.build().await.unwrap();
 
     // setting up folders
@@ -68,7 +68,7 @@ async fn test_sendmail_features() {
         .text_body("Plain message!")
         .write_to_vec()
         .unwrap();
-    sendmail.send_raw_message(&email).await.unwrap();
+    sendmail.send_message(&email).await.unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 

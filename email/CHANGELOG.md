@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added cargo feature `sync`.
+- Added one cargo feature per backend feature:
+  - `folder` including `folder-add`, `folder-list`, `folder-expunge`, `folder-purge`, `folder-delete`
+  - `envelope` including `envelope-list`, `envelope-watch`, `envelope-get`
+  - `flag` including `flag-add`, `flag-set`, `flag-remove`
+  - `message` including `message-add`, `message-peek`, `message-get`, `message-copy`, `message-move`, `message-delete`, `message-send`.
+
 ## [0.19.6] - 2024-01-06
 
 ### Added
