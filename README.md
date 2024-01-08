@@ -1,113 +1,49 @@
-# 💼 Pimalaya [![Matrix](https://img.shields.io/matrix/pimalaya.general:matrix.org?color=success&label=chat)](https://matrix.to/#/#pimalaya.general:matrix.org)
+# 💼 Pimalaya [![Matrix](https://img.shields.io/matrix/pimalaya:matrix.org?color=success&label=chat)](https://matrix.to/#/#pimalaya:matrix.org)
 
-<https://pimalaya.org/>
+[Pimalaya](https://pimalaya.org/) is an ambitious project that aims to improve open-source tools related to Personal Information Management ([PIM](https://en.wikipedia.org/wiki/Personal_information_manager)) which includes emails, contacts, calendars, tasks and more.
 
-**Pimalaya** is an ambitious project that aims to improve open-source tools related to Personal Information Management ([PIM]) which includes emails, contacts, calendars, tasks and more.
+This repository tries to accomplish the first mission of Pimalaya, which is providing Rust libraries dedicated to the PIM domain.
 
-**The first objective** of the project is to provide [Rust libraries](https://git.sr.ht/~soywod/pimalaya) containing all this [PIM] logic. They serve as basement for all sort of top-level applications: CLI, TUI, GUI, plugins, servers etc.
+## Table of contents
 
-<table border="1">
-  <thead>
-    <tr>
-      <th>Library</th>
-      <th>
-        Description
-      </th>
-      <th>Links</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>email-lib</td>
-      <td>Email management</td>
-      <td>
-        <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/README.md">git</a>,
-        <a href="https://docs.rs/email-lib/latest/email/">api</a>,
-        <a href="https://crates.io/crates/email-lib">crate</a>
-      </td>
-    </tr>
-    <tr>
-      <td>mml-lib</td>
-      <td>MIME Meta Language</td>
-      <td>
-        <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/mml/README.md">git</a>,
-        <a href="https://docs.rs/mml-lib/latest/mml/">api</a>,
-        <a href="https://crates.io/crates/mml-lib">crate</a>
-      </td>
-    </tr>
-    <tr>
-      <td>time-lib</td>
-      <td>Time management</td>
-      <td>
-        <a href="https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/README.md">git</a>,
-        <a href="https://docs.rs/time-lib/latest/time/">api</a>,
-        <a href="https://crates.io/crates/time-lib">crate</a>
-      </td>
-    </tr>
-  </tbody>
-</table>
+| Library     | Description                                         | Examples                                                    |
+|-------------|-----------------------------------------------------|-------------------------------------------------------------|
+| [email-lib] | Rust library to manage emails                       | List mailboxes, search envelopes, read/write/send messages… |
+| [mml-lib]   | Rust implementation of the Emacs MIME Meta Language | Read/write messages using the MIME Meta Language            |
+| [time-lib]  | Rust library to manage time.                        | Manage time using customizable client/server timers         |
 
-**The second objective** is to provide quality house-made applications built at the top of those libraries.
-
-<table border="1">
-  <thead>
-    <tr>
-      <th>Project</th>
-      <th>Libraries used</th>
-      <th>Links</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Himalaya</td>
-      <td>email-lib, mml-lib</td>
-      <td>
-        CLI (<a href="https://github.com/soywod/himalaya">git</a>, <a href="https://pimalaya.org/himalaya/">doc</a>),
-        <a href="https://git.sr.ht/~soywod/himalaya-vim">Vim</a>,
-        <a href="https://github.com/dantecatalfamo/himalaya-emacs">Emacs</a>,
-        <a href="https://www.raycast.com/jns/himalaya">Raycast</a>
-      </td>
-    </tr>
-    <tr>
-      <td>MML</td>
-      <td>mml-lib</td>
-      <td>
-        CLI (<a href="https://github.com/soywod/mml">git</a>, <a href="https://pimalaya.org/mml/">doc</a>),
-        <a href="https://git.sr.ht/~soywod/mml-vim">Vim</a>
-      </td>
-    </tr>
-    <tr>
-      <td>Comodoro</td>
-      <td>time-lib</td>
-      <td>
-        CLI (<a href="https://github.com/soywod/comodoro">git</a>, <a href="https://pimalaya.org/comodoro/">doc</a>),
-        <a href="https://www.raycast.com/jns/comodoro">Raycast</a>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-*Disclaimer: the project is under active development, do not use in production before the v1.0.0.*
+[email-lib]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/README.md 
+[mml-lib]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/mml/README.md 
+[time-lib]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/README.md 
 
 ## Development
 
 The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`…
 
 ```sh
-# Start a Nix shell
+# start a nix shell
 $ nix-shell
 
-# then build the lib
-$ cargo build -p mml-lib
+# build all libs
+$ cargo build
 ```
 
 ## Contributing
 
-If you want to **report a bug** that [does not exist yet](https://todo.sr.ht/~soywod/pimalaya), please send an email at [~soywod/pimalaya@todo.sr.ht](mailto:~soywod/pimalaya@todo.sr.ht).
+### Report a bug
 
-If you want to **propose a feature** or **fix a bug**, please send a patch at [~soywod/pimalaya@lists.sr.ht](mailto:~soywod/pimalaya@lists.sr.ht) using [git send-email](https://git-scm.com/docs/git-send-email). Follow [this guide](https://git-send-email.io/) to configure git properly.
+[Send an email](mailto:~soywod/pimalaya@todo.sr.ht) to the [bug tracker](https://todo.sr.ht/~soywod/pimalaya).
 
-If you just want to **discuss** about the project, feel free to join the [Matrix](https://matrix.org/) workspace [#pimalaya.general](https://matrix.to/#/#pimalaya.general:matrix.org) or contact me directly [@soywod](https://matrix.to/#/@soywod:matrix.org). You can also use the mailing list [[send an email](mailto:~soywod/pimalaya@lists.sr.ht)|[subscribe](mailto:~soywod/pimalaya+subscribe@lists.sr.ht)|[unsubscribe](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht)].
+### Propose a feature or fix a bug
+
+[Send a patch](mailto:~soywod/pimalaya@lists.sr.ht) to the [mailing list](https://lists.sr.ht/~soywod/pimalaya).
+
+*The simplest way is to use [git send-email](https://git-scm.com/docs/git-send-email), see [this guide](https://git-send-email.io/) to configure git properly.*
+
+### Discuss
+
+- [Send an email](mailto:~soywod/pimalaya@lists.sr.ht), [subscribe](mailto:~soywod/pimalaya+subscribe@lists.sr.ht) or [unsubscribe](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht) to the [mailing list](https://lists.sr.ht/~soywod/pimalaya).
+- Join the [Matrix](https://matrix.org/) workspace [#pimalaya](https://matrix.to/#/#pimalaya:matrix.org) or contact me directly [@soywod](https://matrix.to/#/@soywod:matrix.org).
 
 ## Sponsoring
 
@@ -125,5 +61,3 @@ If you appreciate the project, feel free to donate using one of the following pr
 [![Ko-fi](https://img.shields.io/badge/-Ko--fi-ff5e5a?logo=Ko-fi&logoColor=ffffff)](https://ko-fi.com/soywod)
 [![Buy Me a Coffee](https://img.shields.io/badge/-Buy%20Me%20a%20Coffee-ffdd00?logo=Buy%20Me%20A%20Coffee&logoColor=000000)](https://www.buymeacoffee.com/soywod)
 [![Liberapay](https://img.shields.io/badge/-Liberapay-f6c915?logo=Liberapay&logoColor=222222)](https://liberapay.com/soywod)
-
-[PIM]: https://en.wikipedia.org/wiki/Personal_information_manager
