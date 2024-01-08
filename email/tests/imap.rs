@@ -14,8 +14,8 @@ use email::{
         ImapSessionBuilder,
     },
     message::{
-        add_with_flags::imap::AddMessageWithFlagsImap, copy::imap::CopyMessagesImap,
-        get::imap::GetMessagesImap, move_::imap::MoveMessagesImap,
+        add::imap::AddImapMessage, copy::imap::CopyMessagesImap, get::imap::GetMessagesImap,
+        move_::imap::MoveMessagesImap,
     },
 };
 use mml::MmlCompilerBuilder;
@@ -56,8 +56,8 @@ async fn test_imap_features() {
         .with_delete_folder(DeleteFolderImap::new)
         .with_list_envelopes(ListEnvelopesImap::new)
         .with_add_flags(AddFlagsImap::new)
+        .with_add_message(AddImapMessage::new)
         .with_get_messages(GetMessagesImap::new)
-        .with_add_message_with_flags(AddMessageWithFlagsImap::new)
         .with_copy_messages(CopyMessagesImap::new)
         .with_move_messages(MoveMessagesImap::new);
     let backend = backend_builder.build().await.unwrap();

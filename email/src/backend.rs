@@ -12,34 +12,30 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use thiserror::Error;
 
+#[cfg(feature = "envelope-get")]
+use crate::envelope::get::GetEnvelope;
+#[cfg(feature = "envelope-list")]
+use crate::envelope::list::ListEnvelopes;
 #[cfg(feature = "envelope-watch")]
 use crate::envelope::watch::WatchEnvelopes;
-#[cfg(feature = "envelope-get")]
-use crate::envelope::{get::GetEnvelope, Envelope};
-#[cfg(feature = "envelope-list")]
-use crate::envelope::{list::ListEnvelopes, Envelopes};
 #[cfg(feature = "flag-add")]
 use crate::flag::add::AddFlags;
 #[cfg(feature = "flag-remove")]
 use crate::flag::remove::RemoveFlags;
 #[cfg(feature = "flag-set")]
 use crate::flag::set::SetFlags;
-#[cfg(any(feature = "flag-any", feature = "message-add"))]
-use crate::flag::{Flag, Flags};
 #[cfg(feature = "folder-add")]
 use crate::folder::add::AddFolder;
 #[cfg(feature = "folder-delete")]
 use crate::folder::delete::DeleteFolder;
 #[cfg(feature = "folder-expunge")]
 use crate::folder::expunge::ExpungeFolder;
+#[cfg(feature = "folder-list")]
+use crate::folder::list::ListFolders;
 #[cfg(feature = "folder-purge")]
 use crate::folder::purge::PurgeFolder;
-#[cfg(feature = "folder-list")]
-use crate::folder::{list::ListFolders, Folders};
-#[cfg(all(feature = "message-add", feature = "flag-add"))]
-use crate::message::add_with_flags::{
-    default_add_message_with_flag, default_add_message_with_flags,
-};
+#[cfg(feature = "message-add")]
+use crate::message::add::AddMessage;
 #[cfg(feature = "message-copy")]
 use crate::message::copy::CopyMessages;
 #[cfg(all(feature = "message-delete", feature = "flag-add"))]
@@ -56,58 +52,78 @@ use crate::message::move_::MoveMessages;
 use crate::message::peek::PeekMessages;
 #[cfg(feature = "message-send")]
 use crate::message::send::SendMessage;
-#[cfg(any(feature = "message-peek", feature = "message-get"))]
-use crate::message::Messages;
 #[allow(unused)]
-use crate::{account::config::AccountConfig, envelope::Id, Result};
-#[cfg(feature = "message-add")]
 use crate::{
-    envelope::SingleId,
-    message::{add::AddMessage, add_with_flags::AddMessageWithFlags},
+    account::config::AccountConfig,
+    envelope::{Envelope, Envelopes},
+    envelope::{Id, SingleId},
+    flag::{Flag, Flags},
+    folder::Folders,
+    message::Messages,
+    Result,
 };
 
 /// Errors related to backend.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[cfg(feature = "folder-add")]
     #[error("cannot add folder: feature not available")]
     AddFolderNotAvailableError,
+    #[cfg(feature = "folder-list")]
     #[error("cannot list folders: feature not available")]
     ListFoldersNotAvailableError,
+    #[cfg(feature = "folder-expunge")]
     #[error("cannot expunge folder: feature not available")]
     ExpungeFolderNotAvailableError,
+    #[cfg(feature = "folder-purge")]
     #[error("cannot purge folder: feature not available")]
     PurgeFolderNotAvailableError,
+    #[cfg(feature = "folder-delete")]
     #[error("cannot delete folder: feature not available")]
     DeleteFolderNotAvailableError,
 
+    #[cfg(feature = "envelope-list")]
     #[error("cannot list envelopes: feature not available")]
     ListEnvelopesNotAvailableError,
+    #[cfg(feature = "envelope-watch")]
     #[error("cannot watch for envelopes changes: feature not available")]
     WatchEnvelopesNotAvailableError,
+    #[cfg(feature = "envelope-get")]
     #[error("cannot get envelope: feature not available")]
     GetEnvelopeNotAvailableError,
 
+    #[cfg(feature = "flag-add")]
     #[error("cannot add flag(s): feature not available")]
     AddFlagsNotAvailableError,
+    #[cfg(feature = "flag-set")]
     #[error("cannot set flag(s): feature not available")]
     SetFlagsNotAvailableError,
+    #[cfg(feature = "flag-remove")]
     #[error("cannot remove flag(s): feature not available")]
     RemoveFlagsNotAvailableError,
 
+    #[cfg(feature = "message-add")]
     #[error("cannot add message: feature not available")]
     AddMessageNotAvailableError,
+    #[cfg(feature = "message-add")]
     #[error("cannot add message with flags: feature not available")]
     AddMessageWithFlagsNotAvailableError,
+    #[cfg(feature = "message-get")]
     #[error("cannot get messages: feature not available")]
     GetMessagesNotAvailableError,
+    #[cfg(feature = "message-peek")]
     #[error("cannot peek messages: feature not available")]
     PeekMessagesNotAvailableError,
+    #[cfg(feature = "message-copy")]
     #[error("cannot copy messages: feature not available")]
     CopyMessagesNotAvailableError,
+    #[cfg(feature = "message-move")]
     #[error("cannot move messages: feature not available")]
     MoveMessagesNotAvailableError,
+    #[cfg(feature = "message-delete")]
     #[error("cannot delete messages: feature not available")]
     DeleteMessagesNotAvailableError,
+    #[cfg(feature = "message-send")]
     #[error("cannot send message: feature not available")]
     SendMessageNotAvailableError,
 }
@@ -186,9 +202,6 @@ pub struct BackendBuilder<B: BackendContextBuilder> {
 
     #[cfg(feature = "message-add")]
     add_message: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn AddMessage>> + Send + Sync>>,
-    #[cfg(feature = "message-add")]
-    add_message_with_flags:
-        Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn AddMessageWithFlags>> + Send + Sync>>,
     #[cfg(feature = "message-peek")]
     peek_messages: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn PeekMessages>> + Send + Sync>>,
     #[cfg(feature = "message-get")]
@@ -237,8 +250,6 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
 
             #[cfg(feature = "message-add")]
             add_message: Default::default(),
-            #[cfg(feature = "message-add")]
-            add_message_with_flags: Default::default(),
             #[cfg(feature = "message-peek")]
             peek_messages: Default::default(),
             #[cfg(feature = "message-get")]
@@ -446,22 +457,6 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         self
     }
 
-    #[cfg(feature = "message-add")]
-    pub fn set_add_message_with_flags(
-        &mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn AddMessageWithFlags>> + Send + Sync + 'static,
-    ) {
-        self.add_message_with_flags = Some(Arc::new(feature));
-    }
-    #[cfg(feature = "message-add")]
-    pub fn with_add_message_with_flags(
-        mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn AddMessageWithFlags>> + Send + Sync + 'static,
-    ) -> Self {
-        self.set_add_message_with_flags(feature);
-        self
-    }
-
     #[cfg(feature = "message-peek")]
     pub fn set_peek_messages(
         &mut self,
@@ -614,10 +609,6 @@ impl<C, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         if let Some(feature) = &self.add_message {
             backend.set_add_message(feature(&backend.context));
         }
-        #[cfg(feature = "message-add")]
-        if let Some(feature) = &self.add_message_with_flags {
-            backend.set_add_message_with_flags(feature(&backend.context));
-        }
         #[cfg(feature = "message-get")]
         if let Some(feature) = &self.get_messages {
             backend.set_get_messages(feature(&backend.context));
@@ -681,8 +672,6 @@ impl<B: BackendContextBuilder> Clone for BackendBuilder<B> {
 
             #[cfg(feature = "message-add")]
             add_message: self.add_message.clone(),
-            #[cfg(feature = "message-add")]
-            add_message_with_flags: self.add_message_with_flags.clone(),
             #[cfg(feature = "message-peek")]
             peek_messages: self.peek_messages.clone(),
             #[cfg(feature = "message-get")]
@@ -733,8 +722,6 @@ impl Default for BackendBuilder<()> {
 
             #[cfg(feature = "message-add")]
             add_message: Default::default(),
-            #[cfg(feature = "message-add")]
-            add_message_with_flags: Default::default(),
             #[cfg(feature = "message-peek")]
             peek_messages: Default::default(),
             #[cfg(feature = "message-get")]
@@ -784,8 +771,6 @@ pub struct Backend<C> {
 
     #[cfg(feature = "message-add")]
     pub add_message: Option<Box<dyn AddMessage>>,
-    #[cfg(feature = "message-add")]
-    pub add_message_with_flags: Option<Box<dyn AddMessageWithFlags>>,
     #[cfg(feature = "message-peek")]
     pub peek_messages: Option<Box<dyn PeekMessages>>,
     #[cfg(feature = "message-get")]
@@ -834,8 +819,6 @@ impl<C> Backend<C> {
 
             #[cfg(feature = "message-add")]
             add_message: None,
-            #[cfg(feature = "message-add")]
-            add_message_with_flags: None,
             #[cfg(feature = "message-peek")]
             peek_messages: None,
             #[cfg(feature = "message-get")]
@@ -901,10 +884,6 @@ impl<C> Backend<C> {
     #[cfg(feature = "message-add")]
     pub fn set_add_message(&mut self, feature: Option<Box<dyn AddMessage>>) {
         self.add_message = feature;
-    }
-    #[cfg(feature = "message-add")]
-    pub fn set_add_message_with_flags(&mut self, feature: Option<Box<dyn AddMessageWithFlags>>) {
-        self.add_message_with_flags = feature;
     }
     #[cfg(feature = "message-peek")]
     pub fn set_peek_messages(&mut self, feature: Option<Box<dyn PeekMessages>>) {
@@ -1063,39 +1042,17 @@ impl<C> Backend<C> {
     }
 
     #[cfg(feature = "message-add")]
-    pub async fn add_message(&self, folder: &str, raw_msg: &[u8]) -> Result<SingleId> {
-        if let Some(f) = self.add_message.as_ref() {
-            return f.add_message(folder, raw_msg).await;
-        }
-
-        #[cfg(feature = "flag-add")]
-        if let Some(f) = self.add_message_with_flags.as_ref() {
-            return f
-                .add_message_with_flags(folder, raw_msg, &Default::default())
-                .await;
-        }
-
-        Err(Error::AddMessageNotAvailableError.into())
-    }
-
-    #[cfg(feature = "message-add")]
     pub async fn add_message_with_flags(
         &self,
         folder: &str,
         raw_msg: &[u8],
         flags: &Flags,
     ) -> Result<SingleId> {
-        if let Some(f) = self.add_message_with_flags.as_ref() {
-            return f.add_message_with_flags(folder, raw_msg, flags).await;
-        }
-
-        #[cfg(feature = "flag-add")]
-        if let (Some(a), Some(b)) = (self.add_message.as_ref(), self.add_flags.as_ref()) {
-            return default_add_message_with_flags(a.as_ref(), b.as_ref(), folder, raw_msg, flags)
-                .await;
-        }
-
-        Err(Error::AddMessageWithFlagsNotAvailableError.into())
+        self.add_message
+            .as_ref()
+            .ok_or(Error::AddMessageWithFlagsNotAvailableError)?
+            .add_message_with_flags(folder, raw_msg, flags)
+            .await
     }
 
     #[cfg(feature = "message-add")]
@@ -1105,17 +1062,20 @@ impl<C> Backend<C> {
         raw_msg: &[u8],
         flag: Flag,
     ) -> Result<SingleId> {
-        if let Some(f) = self.add_message_with_flags.as_ref() {
-            return f.add_message_with_flag(folder, raw_msg, flag).await;
-        }
+        self.add_message
+            .as_ref()
+            .ok_or(Error::AddMessageWithFlagsNotAvailableError)?
+            .add_message_with_flag(folder, raw_msg, flag)
+            .await
+    }
 
-        #[cfg(feature = "flag-add")]
-        if let (Some(a), Some(b)) = (self.add_message.as_ref(), self.add_flags.as_ref()) {
-            return default_add_message_with_flag(a.as_ref(), b.as_ref(), folder, raw_msg, flag)
-                .await;
-        }
-
-        Err(Error::AddMessageWithFlagsNotAvailableError.into())
+    #[cfg(feature = "message-add")]
+    pub async fn add_message(&self, folder: &str, raw_msg: &[u8]) -> Result<SingleId> {
+        self.add_message
+            .as_ref()
+            .ok_or(Error::AddMessageWithFlagsNotAvailableError)?
+            .add_message(folder, raw_msg)
+            .await
     }
 
     #[cfg(feature = "message-peek")]

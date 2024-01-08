@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::{envelope::SingleId, maildir::MaildirSessionSync, Result};
 
-use super::{AddMessageWithFlags, Flags};
+use super::{AddMessage, Flags};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -13,19 +13,19 @@ pub enum Error {
 }
 
 #[derive(Clone)]
-pub struct AddMessageWithFlagsMaildir {
+pub struct AddMaildirMessage {
     session: MaildirSessionSync,
 }
 
-impl AddMessageWithFlagsMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn AddMessageWithFlags>> {
+impl AddMaildirMessage {
+    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn AddMessage>> {
         let session = session.clone();
         Some(Box::new(Self { session }))
     }
 }
 
 #[async_trait]
-impl AddMessageWithFlags for AddMessageWithFlagsMaildir {
+impl AddMessage for AddMaildirMessage {
     async fn add_message_with_flags(
         &self,
         folder: &str,

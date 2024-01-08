@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `flag` including `flag-add`, `flag-set`, `flag-remove`
   - `message` including `message-add`, `message-peek`, `message-get`, `message-copy`, `message-move`, `message-delete`, `message-send`.
 
+### Changed
+
+- Merged `AddRawMessage` and `AddRawMessageWithFlags` into one single trait `AddMessage` that exposes 3 functions: `add_message_with_flags` (implem required), `add_message_with_flag` and `add_message`.
+
 ## [0.19.6] - 2024-01-06
 
 ### Added

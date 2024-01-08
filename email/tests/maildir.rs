@@ -13,7 +13,7 @@ use email::{
     },
     maildir::{config::MaildirConfig, MaildirSessionBuilder},
     message::{
-        add_with_flags::maildir::AddMessageWithFlagsMaildir, copy::maildir::CopyMessagesMaildir,
+        add::maildir::AddMaildirMessage, copy::maildir::CopyMessagesMaildir,
         move_::maildir::MoveMessagesMaildir, peek::maildir::PeekMessagesMaildir,
     },
 };
@@ -71,8 +71,8 @@ async fn test_maildir_features() {
         .with_add_flags(AddFlagsMaildir::new)
         .with_set_flags(SetFlagsMaildir::new)
         .with_remove_flags(RemoveFlagsMaildir::new)
+        .with_add_message(AddMaildirMessage::new)
         .with_peek_messages(PeekMessagesMaildir::new)
-        .with_add_message_with_flags(AddMessageWithFlagsMaildir::new)
         .with_copy_messages(CopyMessagesMaildir::new)
         .with_move_messages(MoveMessagesMaildir::new);
     let mdir = backend_builder.build().await.unwrap();
@@ -92,8 +92,8 @@ async fn test_maildir_features() {
         .with_add_flags(AddFlagsMaildir::new)
         .with_set_flags(SetFlagsMaildir::new)
         .with_remove_flags(RemoveFlagsMaildir::new)
+        .with_add_message(AddMaildirMessage::new)
         .with_peek_messages(PeekMessagesMaildir::new)
-        .with_add_message_with_flags(AddMessageWithFlagsMaildir::new)
         .with_copy_messages(CopyMessagesMaildir::new)
         .with_move_messages(MoveMessagesMaildir::new);
     let submdir = backend_builder.build().await.unwrap();

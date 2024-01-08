@@ -18,8 +18,8 @@ use email::{
     },
     maildir::config::MaildirConfig,
     message::{
-        add_with_flags::imap::AddMessageWithFlagsImap, get::imap::GetMessagesImap,
-        move_::imap::MoveMessagesImap, peek::imap::PeekMessagesImap,
+        add::imap::AddImapMessage, get::imap::GetMessagesImap, move_::imap::MoveMessagesImap,
+        peek::imap::PeekMessagesImap,
     },
 };
 use env_logger;
@@ -75,10 +75,10 @@ async fn sync() {
         .with_list_envelopes(ListEnvelopesImap::new)
         .with_add_flags(AddFlagsImap::new)
         .with_set_flags(SetFlagsImap::new)
+        .with_add_message(AddImapMessage::new)
         .with_peek_messages(PeekMessagesImap::new)
         .with_get_messages(GetMessagesImap::new)
-        .with_move_messages(MoveMessagesImap::new)
-        .with_add_message_with_flags(AddMessageWithFlagsImap::new);
+        .with_move_messages(MoveMessagesImap::new);
     let imap = imap_builder.clone().build().await.unwrap();
 
     // set up maildir reader

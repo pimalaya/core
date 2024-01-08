@@ -40,36 +40,42 @@ notmuch = ["dep:notmuch"]
 smtp = ["mail-send"]
 sendmail = []
 folder = ["folder-add", "folder-list", "folder-expunge", "folder-purge", "folder-delete"]
-folder-any = []
-folder-add = ["folder-any"]
-folder-list = ["folder-any"]
-folder-expunge = ["folder-any"]
-folder-purge = ["folder-any"]
-folder-delete = ["folder-any"]
+folder-add = []
+folder-list = []
+folder-expunge = []
+folder-purge = []
+folder-delete = []
 envelope = ["envelope-list", "envelope-watch", "envelope-get"]
-envelope-any = []
-envelope-list = ["envelope-any"]
-envelope-watch = ["envelope-any"]
-envelope-get = ["envelope-any"]
+envelope-list = []
+envelope-watch = ["notify-rust"]
+envelope-get = []
 flag = ["flag-add", "flag-set", "flag-remove"]
-flag-any = []
-flag-add = ["flag-any"]
-flag-set = ["flag-any"]
-flag-remove = ["flag-any"]
+flag-add = []
+flag-set = []
+flag-remove = []
 message = ["message-add", "message-peek", "message-get", "message-copy", "message-move", "message-delete", "message-send"]
-message-any = []
-message-add = ["message-any"]
-message-peek = ["message-any"]
-message-get = ["message-any"]
-message-copy = ["message-any"]
-message-move = ["message-any"]
-message-delete = ["message-any"]
-message-send = ["message-any"]
-sync = ["advisory-lock", "dirs", "folder-add", "folder-list", "folder-expunge", "folder-delete", "envelope-get", "envelope-list", "flag-add", "flag-set", "message-add", "message-move", "futures", "maildir", "rusqlite"]
+message-add = []
+message-peek = []
+message-get = []
+message-copy = []
+message-move = []
+message-delete = []
+message-send = []
+sync = [
+  "folder-add", "folder-list", "folder-expunge", "folder-delete",
+  "envelope-get", "envelope-list",
+  "flag-add", "flag-set",
+  "message-add", "message-peek", "message-get", "message-move",
+  "advisory-lock",
+  "dirs",
+  "futures",
+  "maildir",
+  "rusqlite",
+]
 pgp = []
-pgp-commands = ["mml-lib/pgp-commands", "pgp"]
-pgp-gpg = ["mml-lib/pgp-gpg", "pgp"]
-pgp-native = ["keyring-lib", "mml-lib/pgp-native", "pgp", "pgp-lib"]
+pgp-commands = ["pgp", "mml-lib/pgp-commands"]
+pgp-gpg = ["pgp", "mml-lib/pgp-gpg"]
+pgp-native = ["pgp", "keyring-lib", "mml-lib/pgp-native", "pgp-lib"]
 
 [dev-dependencies]
 concat-with = "0.2"
@@ -95,7 +101,7 @@ mail-send = { version = "0.4", optional = true }
 maildirpp = { version = "=0.0.2", optional = true }
 mml-lib = { version = "=1.0.6", default-features = false, features = ["compiler", "interpreter"] }
 notify = { version = "6", optional = true, default-features = false, features = ["macos_kqueue"] }
-notify-rust = "4"
+notify-rust = { version = "4", optional = true }
 notmuch = { version = "=0.8.0", optional = true }
 oauth-lib = "=0.1.0"
 once_cell = "1"

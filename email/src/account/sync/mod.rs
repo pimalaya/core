@@ -39,7 +39,7 @@ use crate::{
     },
     maildir::{config::MaildirConfig, MaildirSessionBuilder, MaildirSessionSync},
     message::{
-        add_with_flags::maildir::AddMessageWithFlagsMaildir, move_::maildir::MoveMessagesMaildir,
+        add::maildir::AddMaildirMessage, move_::maildir::MoveMessagesMaildir,
         peek::maildir::PeekMessagesMaildir,
     },
     Result,
@@ -445,12 +445,12 @@ impl LocalBackendBuilder {
             .with_list_folders(ListFoldersMaildir::new)
             .with_expunge_folder(ExpungeFolderMaildir::new)
             .with_delete_folder(DeleteFolderMaildir::new)
-            .with_add_message_with_flags(AddMessageWithFlagsMaildir::new)
-            .with_peek_messages(PeekMessagesMaildir::new)
             .with_get_envelope(GetEnvelopeMaildir::new)
             .with_list_envelopes(ListEnvelopesMaildir::new)
             .with_add_flags(AddFlagsMaildir::new)
             .with_set_flags(SetFlagsMaildir::new)
+            .with_add_message(AddMaildirMessage::new)
+            .with_peek_messages(PeekMessagesMaildir::new)
             .with_move_messages(MoveMessagesMaildir::new);
 
         Self(backend_builder)

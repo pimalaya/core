@@ -6,12 +6,12 @@ use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{envelope::SingleId, imap::ImapSessionSync, Result};
 
-use super::AddMessage;
+use super::{AddMessage, Flags};
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("cannot add  imap message to folder {1}")]
-    AppendMessage(#[source] imap::Error, String),
+    #[error("cannot add imap message to folder {1} with flags {2}")]
+    AppendRawMessageWithFlagsError(#[source] imap::Error, String, Flags),
     #[error("cannot get added imap message uid from range {0}")]
     GetAddedMessageUidFromRangeError(String),
     #[error("cannot get added imap message uid: extension UIDPLUS may be missing on the server")]
@@ -19,11 +19,11 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct AddMessageImap {
+pub struct AddImapMessage {
     session: ImapSessionSync,
 }
 
-impl AddMessageImap {
+impl AddImapMessage {
     pub fn new(session: &ImapSessionSync) -> Option<Box<dyn AddMessage>> {
         let session = session.clone();
         Some(Box::new(Self { session }))
@@ -31,9 +31,14 @@ impl AddMessageImap {
 }
 
 #[async_trait]
-impl AddMessage for AddMessageImap {
-    async fn add_message(&self, folder: &str, raw_msg: &[u8]) -> Result<SingleId> {
-        info!("adding imap message to folder {folder}");
+impl AddMessage for AddImapMessage {
+    async fn add_message_with_flags(
+        &self,
+        folder: &str,
+        raw_msg: &[u8],
+        flags: &Flags,
+    ) -> Result<SingleId> {
+        info!("adding imap message to folder {folder} with flags {flags}");
 
         let mut session = self.session.lock().await;
 
@@ -43,8 +48,15 @@ impl AddMessage for AddMessageImap {
 
         let appended = session
             .execute(
-                |session| session.append(&folder, raw_msg).finish(),
-                |err| Error::AppendMessage(err, folder.clone()).into(),
+                |session| {
+                    session
+                        .append(&folder, raw_msg)
+                        .flags(flags.to_imap_flags_vec())
+                        .finish()
+                },
+                |err| {
+                    Error::AppendRawMessageWithFlagsError(err, folder.clone(), flags.clone()).into()
+                },
             )
             .await?;
 

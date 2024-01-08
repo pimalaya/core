@@ -8,8 +8,6 @@
 
 #[cfg(feature = "message-add")]
 pub mod add;
-#[cfg(feature = "message-add")]
-pub mod add_with_flags;
 pub mod attachment;
 pub mod config;
 #[cfg(feature = "message-copy")]
