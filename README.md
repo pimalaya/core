@@ -4,17 +4,15 @@
 
 This repository tries to accomplish the first mission of Pimalaya, which is providing Rust libraries dedicated to the PIM domain.
 
-## Table of contents
+| Library   | Path        | Description                                                 |
+|-----------|-------------|-------------------------------------------------------------|
+| email-lib | [`./email`] | List mailboxes, search envelopes, read/write/send messages… |
+| mml-lib   | [`./mml`]   | Read/write messages using the MIME Meta Language            |
+| time-lib  | [`./time`]  | Manage time using customizable client/server timers         |
 
-| Library     | Description                                         | Examples                                                    |
-|-------------|-----------------------------------------------------|-------------------------------------------------------------|
-| [email-lib] | Rust library to manage emails                       | List mailboxes, search envelopes, read/write/send messages… |
-| [mml-lib]   | Rust implementation of the Emacs MIME Meta Language | Read/write messages using the MIME Meta Language            |
-| [time-lib]  | Rust library to manage time.                        | Manage time using customizable client/server timers         |
-
-[email-lib]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/README.md 
-[mml-lib]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/mml/README.md 
-[time-lib]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/README.md 
+[`./email`]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/email/README.md 
+[`./mml`]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/mml/README.md 
+[`./time`]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/README.md 
 
 ## Development
 
@@ -30,11 +28,11 @@ $ cargo build
 
 ## Contributing
 
-If you want to **report a bug**, please send an email to the [bug tracker](https://todo.sr.ht/~soywod/pimalaya) at `~soywod/pimalaya@todo.sr.ht`.
+If you want to **report a bug**, please send an email to the [bug tracker](https://todo.sr.ht/~soywod/pimalaya) `<~soywod/pimalaya@todo.sr.ht>`.
 
-If you want to **propose a feature** or **fix a bug**, please send a patch to the [mailing list](https://lists.sr.ht/~soywod/pimalaya) at `~soywod/pimalaya@lists.sr.ht`. The simplest way to send a patch is to use [git send-email](https://git-scm.com/docs/git-send-email), follow [this guide](https://git-send-email.io/) to configure git properly.
+If you want to **propose a feature** or **fix a bug**, please send a patch to the [mailing list](https://lists.sr.ht/~soywod/pimalaya) `<~soywod/pimalaya@lists.sr.ht>`. The simplest way to send a patch is to use [git send-email](https://git-scm.com/docs/git-send-email), follow [this guide](https://git-send-email.io/) to configure git properly.
 
-If you just want to **discuss** about the project, feel free to join the [Matrix](https://matrix.org/) workspace [#pimalaya](https://matrix.to/#/#pimalaya:matrix.org) or contact me directly [@soywod](https://matrix.to/#/@soywod:matrix.org). You can also send an email to the [mailing list](https://lists.sr.ht/~soywod/pimalaya) at `~soywod/pimalaya@lists.sr.ht` [[subscribe](mailto:~soywod/pimalaya+subscribe@lists.sr.ht)|[unsubscribe](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht)].
+If you just want to **discuss** about the project, feel free to join the [Matrix](https://matrix.org/) workspace [#pimalaya](https://matrix.to/#/#pimalaya:matrix.org) or contact me directly [@soywod](https://matrix.to/#/@soywod:matrix.org). You can also use the mailing list [[send an email](mailto:~soywod/pimalaya@lists.sr.ht)|[subscribe](mailto:~soywod/pimalaya+subscribe@lists.sr.ht)|[unsubscribe](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht)].
 
 ## Sponsoring
 
