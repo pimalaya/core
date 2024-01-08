@@ -30,20 +30,13 @@ $ cargo build
 
 ## Contributing
 
-### Report a bug
+A bug tracker is available on [sourcehut.org](https://todo.sr.ht/~soywod/pimalaya). With the bug tracker you can **report a bug** by sending an email at `~soywod/pimalaya@todo.sr.ht` [[mailto](mailto:~soywod/pimalaya@todo.sr.ht)].
 
-[Send an email](mailto:~soywod/pimalaya@todo.sr.ht) to the [bug tracker](https://todo.sr.ht/~soywod/pimalaya).
+A mailing list is available on [sourcehut.org](https://lists.sr.ht/~soywod/pimalaya). With the mailing list you can **propose a patch** or just **discuss** by sending an email at `~soywod/pimalaya@lists.sr.ht` [[mailto](mailto:~soywod/pimalaya@lists.sr.ht)] [[subscribe](mailto:~soywod/pimalaya+subscribe@lists.sr.ht)] [[unsubscribe](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht)].
 
-### Propose a feature or fix a bug
+*The simplest way to send a patch is to use [git send-email](https://git-scm.com/docs/git-send-email), follow [this guide](https://git-send-email.io/) to configure git properly.*
 
-[Send a patch](mailto:~soywod/pimalaya@lists.sr.ht) to the [mailing list](https://lists.sr.ht/~soywod/pimalaya).
-
-*The simplest way is to use [git send-email](https://git-scm.com/docs/git-send-email), see [this guide](https://git-send-email.io/) to configure git properly.*
-
-### Discuss
-
-- [Send an email](mailto:~soywod/pimalaya@lists.sr.ht), [subscribe](mailto:~soywod/pimalaya+subscribe@lists.sr.ht) or [unsubscribe](mailto:~soywod/pimalaya+unsubscribe@lists.sr.ht) to the [mailing list](https://lists.sr.ht/~soywod/pimalaya).
-- Join the [Matrix](https://matrix.org/) workspace [#pimalaya](https://matrix.to/#/#pimalaya:matrix.org) or contact me directly [@soywod](https://matrix.to/#/@soywod:matrix.org).
+A [Matrix](https://matrix.org/) workspace is also available at [#pimalaya](https://matrix.to/#/#pimalaya:matrix.org), feel free to join.
 
 ## Sponsoring
 
