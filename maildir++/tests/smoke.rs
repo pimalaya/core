@@ -209,12 +209,9 @@ fn check_copy_and_move() {
 #[test]
 fn mark_read() {
     with_maildir(MAILDIR_NAME, |maildir| {
-        assert_eq!(
-            maildir
-                .move_new_to_cur("1463941010.5f7fa6dd4922c183dc457d033deee9d7")
-                .unwrap(),
-            ()
-        );
+        maildir
+            .move_new_to_cur("1463941010.5f7fa6dd4922c183dc457d033deee9d7")
+            .unwrap()
     });
 }
 

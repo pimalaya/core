@@ -42,6 +42,6 @@ mod tests {
         let raw_sig = sign(skey, "", msg.clone()).await.unwrap();
         let sig = read_sig_from_bytes(raw_sig).await.unwrap();
 
-        assert_eq!(verify(pkey, sig, msg).await.unwrap(), ());
+        verify(pkey, sig, msg).await.unwrap();
     }
 }
