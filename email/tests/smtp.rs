@@ -27,9 +27,7 @@ async fn test_smtp_features() {
         port: 3143,
         encryption: Some(ImapEncryptionKind::None),
         login: "bob@localhost".into(),
-        auth: ImapAuthConfig::Passwd(PasswdConfig {
-            passwd: Secret::new_raw("echo 'password'"),
-        }),
+        auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("echo 'password'"))),
         ..Default::default()
     };
     let smtp_config = SmtpConfig {
@@ -37,9 +35,7 @@ async fn test_smtp_features() {
         port: 3025,
         encryption: Some(SmtpEncryptionKind::None),
         login: "alice@localhost".into(),
-        auth: SmtpAuthConfig::Passwd(PasswdConfig {
-            passwd: Secret::new_raw("password"),
-        }),
+        auth: SmtpAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
         ..Default::default()
     };
 

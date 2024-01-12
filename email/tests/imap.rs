@@ -38,9 +38,7 @@ async fn test_imap_features() {
         port: 3143,
         encryption: Some(ImapEncryptionKind::None),
         login: "bob@localhost".into(),
-        auth: ImapAuthConfig::Passwd(PasswdConfig {
-            passwd: Secret::new_raw("password"),
-        }),
+        auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
         ..Default::default()
     };
 
