@@ -52,7 +52,7 @@ pub enum Error {
 }
 
 /// The OAuth 2.0 configuration.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct OAuth2Config {
     /// Method for presenting an OAuth 2.0 bearer token to a service
@@ -65,6 +65,7 @@ pub struct OAuth2Config {
 
     /// Client password issued to the client during the registration process described by
     /// [Section 2.2](https://datatracker.ietf.org/doc/html/rfc6749#section-2.2).
+    #[serde(default, skip_serializing_if = "Secret::is_undefined")]
     pub client_secret: Secret,
 
     /// URL of the authorization server's authorization endpoint.
@@ -75,10 +76,12 @@ pub struct OAuth2Config {
 
     /// Access token returned by the token endpoint and used to access
     /// protected resources.
+    #[serde(default, skip_serializing_if = "Secret::is_undefined")]
     pub access_token: Secret,
 
     /// Refresh token used to obtain a new access token (if supported
     /// by the authorization server).
+    #[serde(default, skip_serializing_if = "Secret::is_undefined")]
     pub refresh_token: Secret,
 
     /// Enable the [PKCE](https://datatracker.ietf.org/doc/html/rfc7636) protection.
@@ -89,52 +92,16 @@ pub struct OAuth2Config {
     /// Access token scope(s), as defined by the authorization server.
     #[serde(flatten)]
     pub scopes: OAuth2Scopes,
-
-    /// Host name of the client's redirection endpoint.
-    pub redirect_host: String,
-
-    /// Host port of the client's redirection endpoint.
-    pub redirect_port: u16,
-}
-
-impl Default for OAuth2Config {
-    fn default() -> Self {
-        Self {
-            method: Default::default(),
-            client_id: Default::default(),
-            client_secret: Default::default(),
-            auth_url: Default::default(),
-            token_url: Default::default(),
-            access_token: Default::default(),
-            refresh_token: Default::default(),
-            pkce: Default::default(),
-            scopes: Default::default(),
-            redirect_host: Self::default_redirect_host(),
-            redirect_port: Self::default_redirect_port(),
-        }
-    }
 }
 
 impl OAuth2Config {
-    pub fn new() -> Result<Self> {
-        Ok(Self {
-            redirect_port: (49_152..65_535)
-                .find(|port| TcpListener::bind((Self::default_redirect_host(), *port)).is_ok())
-                .ok_or(Error::GetAvailablePortError)?,
-            ..Default::default()
-        })
-    }
+    pub const LOCALHOST: &'static str = "localhost";
 
-    /// Returns the default redirect host name. Combines well with
-    /// serde's `default` and `skip_serializing_if` macros.
-    pub fn default_redirect_host() -> String {
-        String::from("localhost")
-    }
-
-    /// Returns the default redirect host port. Combines well with
-    /// serde's `default` and `skip_serializing_if` macros.
-    pub fn default_redirect_port() -> u16 {
-        9999
+    /// Return the first available port on [`LOCALHOST`].
+    pub fn get_first_available_port() -> Result<u16> {
+        (49_152..65_535)
+            .find(|port| TcpListener::bind((OAuth2Config::LOCALHOST, *port)).is_ok())
+            .ok_or(Error::GetAvailablePortError.into())
     }
 
     /// Resets the three secrets of the OAuth 2.0 configuration.
@@ -165,6 +132,8 @@ impl OAuth2Config {
             return Ok(());
         }
 
+        let redirect_port = OAuth2Config::get_first_available_port()?;
+
         let client_secret = match self.client_secret.find().await {
             Ok(None) => {
                 debug!("cannot find oauth2 client secret from keyring, setting it");
@@ -186,14 +155,14 @@ impl OAuth2Config {
             self.token_url.clone(),
         )
         .map_err(Error::InitClientError)?
-        .with_redirect_host(self.redirect_host.clone())
-        .with_redirect_port(self.redirect_port)
+        .with_redirect_host(OAuth2Config::LOCALHOST.to_owned())
+        .with_redirect_port(redirect_port)
         .build()
         .map_err(Error::BuildClientError)?;
 
         let mut auth_code_grant = AuthorizationCodeGrant::new()
-            .with_redirect_host(self.redirect_host.clone())
-            .with_redirect_port(self.redirect_port);
+            .with_redirect_host(OAuth2Config::LOCALHOST.to_owned())
+            .with_redirect_port(redirect_port);
 
         if self.pkce {
             auth_code_grant = auth_code_grant.with_pkce();
@@ -232,6 +201,8 @@ impl OAuth2Config {
     /// Runs the refresh access token OAuth 2.0 flow by exchanging a
     /// refresh token with a new pair of access/refresh token.
     pub async fn refresh_access_token(&self) -> Result<String> {
+        let redirect_port = OAuth2Config::get_first_available_port()?;
+
         let client_secret = self
             .client_secret
             .get()
@@ -245,8 +216,8 @@ impl OAuth2Config {
             self.token_url.clone(),
         )
         .map_err(Error::InitClientError)?
-        .with_redirect_host(self.redirect_host.clone())
-        .with_redirect_port(self.redirect_port)
+        .with_redirect_host(OAuth2Config::LOCALHOST.to_owned())
+        .with_redirect_port(redirect_port)
         .build()
         .map_err(Error::BuildClientError)?;
 
@@ -279,24 +250,22 @@ impl OAuth2Config {
     /// Returns the access token if existing, otherwise returns an
     /// error.
     pub async fn access_token(&self) -> Result<String> {
-        let access_token = self
-            .access_token
+        self.access_token
             .get()
             .await
-            .map_err(Error::GetAccessTokenError)?;
-        Ok(access_token)
+            .map_err(|err| Error::GetAccessTokenError(err).into())
     }
 }
 
 /// Method for presenting an OAuth 2.0 bearer token to a service for
 /// authentication.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
+#[serde(rename_all = "lowercase")]
 pub enum OAuth2Method {
     #[default]
-    #[serde(alias = "xoauth2")]
+    #[serde(alias = "XOAUTH2")]
     XOAuth2,
-    #[serde(alias = "oauthbearer")]
+    #[serde(alias = "OAUTHBEARER")]
     OAuthBearer,
 }
 

@@ -28,24 +28,20 @@ pub enum Error {
 
 /// The password configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub struct PasswdConfig {
-    /// The password secret.
-    #[serde(default)]
-    pub passwd: Secret,
-}
+#[serde(transparent)]
+pub struct PasswdConfig(#[serde(skip_serializing_if = "Secret::is_undefined")] pub Secret);
 
 impl Deref for PasswdConfig {
     type Target = Secret;
 
     fn deref(&self) -> &Self::Target {
-        &self.passwd
+        &self.0
     }
 }
 
 impl DerefMut for PasswdConfig {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.passwd
+        &mut self.0
     }
 }
 
