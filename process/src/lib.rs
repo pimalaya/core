@@ -190,9 +190,10 @@ impl ToString for Cmd {
 ///
 /// Represents commands that are only composed of one single command.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(from = "String")]
+#[serde(from = "String", into = "String")]
 pub struct SingleCmd {
     cmd: String,
+    #[serde(skip_deserializing)]
     output_piped: bool,
 }
 
@@ -303,9 +304,15 @@ impl From<&str> for SingleCmd {
     }
 }
 
+impl Into<String> for SingleCmd {
+    fn into(self) -> String {
+        self.cmd
+    }
+}
+
 impl ToString for SingleCmd {
     fn to_string(&self) -> String {
-        self.cmd.clone()
+        self.clone().into()
     }
 }
 
@@ -316,7 +323,7 @@ impl ToString for SingleCmd {
 /// of the previous command is piped to the input of the next one, and
 /// so on.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(from = "Vec<String>")]
+#[serde(from = "Vec<String>", into = "Vec<String>")]
 pub struct Pipeline {
     #[serde(flatten)]
     cmds: Vec<SingleCmd>,
@@ -396,6 +403,12 @@ impl From<&[&str]> for Pipeline {
         Self {
             cmds: cmd.iter().map(|cmd| (*cmd).into()).collect(),
         }
+    }
+}
+
+impl Into<Vec<String>> for Pipeline {
+    fn into(self) -> Vec<String> {
+        self.iter().map(ToString::to_string).collect()
     }
 }
 
