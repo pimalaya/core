@@ -124,8 +124,7 @@ impl AccountConfig {
     pub fn find_full_signature(&self) -> Result<Option<String>> {
         let delim = self
             .signature_delim
-            .as_ref()
-            .map(String::as_str)
+            .as_deref()
             .unwrap_or(DEFAULT_SIGNATURE_DELIM);
 
         let signature = self.signature.as_ref();
