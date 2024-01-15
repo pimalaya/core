@@ -148,9 +148,9 @@ impl From<&str> for Entry {
     }
 }
 
-impl Into<String> for Entry {
-    fn into(self) -> String {
-        self.0
+impl From<Entry> for String {
+    fn from(val: Entry) -> Self {
+        val.0
     }
 }
 

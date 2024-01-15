@@ -309,8 +309,8 @@ impl FromIterator<Folder> for Folders {
     }
 }
 
-impl Into<Vec<Folder>> for Folders {
-    fn into(self) -> Vec<Folder> {
-        self.0
+impl From<Folders> for Vec<Folder> {
+    fn from(val: Folders) -> Self {
+        val.0
     }
 }

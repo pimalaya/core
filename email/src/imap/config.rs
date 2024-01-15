@@ -130,12 +130,12 @@ impl From<bool> for ImapEncryptionKind {
     }
 }
 
-impl Into<ConnectionMode> for ImapEncryptionKind {
-    fn into(self) -> ConnectionMode {
-        match self {
-            Self::Tls => ConnectionMode::Tls,
-            Self::StartTls => ConnectionMode::StartTls,
-            Self::None => ConnectionMode::Plaintext,
+impl From<ImapEncryptionKind> for ConnectionMode {
+    fn from(val: ImapEncryptionKind) -> Self {
+        match val {
+            ImapEncryptionKind::Tls => ConnectionMode::Tls,
+            ImapEncryptionKind::StartTls => ConnectionMode::StartTls,
+            ImapEncryptionKind::None => ConnectionMode::Plaintext,
         }
     }
 }

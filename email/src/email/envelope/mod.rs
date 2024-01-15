@@ -197,9 +197,9 @@ impl IntoIterator for Envelopes {
     }
 }
 
-impl Into<Vec<Envelope>> for Envelopes {
-    fn into(self) -> Vec<Envelope> {
-        self.0
+impl From<Envelopes> for Vec<Envelope> {
+    fn from(val: Envelopes) -> Self {
+        val.0
     }
 }
 

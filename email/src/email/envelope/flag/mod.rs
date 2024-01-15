@@ -219,8 +219,8 @@ impl FromIterator<Flag> for Flags {
     }
 }
 
-impl Into<Vec<String>> for Flags {
-    fn into(self) -> Vec<String> {
-        self.iter().map(|flag| flag.to_string()).collect()
+impl From<Flags> for Vec<String> {
+    fn from(val: Flags) -> Self {
+        val.iter().map(|flag| flag.to_string()).collect()
     }
 }
