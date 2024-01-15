@@ -304,9 +304,9 @@ impl From<&str> for SingleCmd {
     }
 }
 
-impl Into<String> for SingleCmd {
-    fn into(self) -> String {
-        self.cmd
+impl From<SingleCmd> for String {
+    fn from(val: SingleCmd) -> Self {
+        val.cmd
     }
 }
 
@@ -406,9 +406,9 @@ impl From<&[&str]> for Pipeline {
     }
 }
 
-impl Into<Vec<String>> for Pipeline {
-    fn into(self) -> Vec<String> {
-        self.iter().map(ToString::to_string).collect()
+impl From<Pipeline> for Vec<String> {
+    fn from(val: Pipeline) -> Self {
+        val.iter().map(ToString::to_string).collect()
     }
 }
 
@@ -458,9 +458,9 @@ impl From<Vec<u8>> for CmdOutput {
     }
 }
 
-impl Into<Vec<u8>> for CmdOutput {
-    fn into(self) -> Vec<u8> {
-        self.0
+impl From<CmdOutput> for Vec<u8> {
+    fn from(val: CmdOutput) -> Self {
+        val.0
     }
 }
 

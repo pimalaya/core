@@ -468,11 +468,11 @@ impl AccountConfig {
     }
 }
 
-impl<'a> Into<Address<'a>> for AccountConfig {
-    fn into(self) -> Address<'a> {
+impl<'a> From<AccountConfig> for Address<'a> {
+    fn from(val: AccountConfig) -> Self {
         Address::Address(EmailAddress {
-            name: self.display_name.map(Into::into),
-            email: self.email.into(),
+            name: val.display_name.map(Into::into),
+            email: val.email.into(),
         })
     }
 }
