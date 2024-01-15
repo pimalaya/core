@@ -163,30 +163,10 @@ pub trait WatchEnvelopes: Send + Sync {
 }
 
 fn resolve_placeholders(fmt: &str, envelope: &Envelope) -> String {
-    let sender = envelope
-        .from
-        .name
-        .as_ref()
-        .map(String::as_str)
-        .unwrap_or(&envelope.from.addr);
-    let sender_name = envelope
-        .from
-        .name
-        .as_ref()
-        .map(String::as_str)
-        .unwrap_or("unknown");
-    let recipient = envelope
-        .to
-        .name
-        .as_ref()
-        .map(String::as_str)
-        .unwrap_or(&envelope.to.addr);
-    let recipient_name = envelope
-        .to
-        .name
-        .as_ref()
-        .map(String::as_str)
-        .unwrap_or("unknown");
+    let sender = envelope.from.name.as_deref().unwrap_or(&envelope.from.addr);
+    let sender_name = envelope.from.name.as_deref().unwrap_or("unknown");
+    let recipient = envelope.to.name.as_deref().unwrap_or(&envelope.to.addr);
+    let recipient_name = envelope.to.name.as_deref().unwrap_or("unknown");
 
     fmt.replace("{id}", &envelope.id)
         .replace("{subject}", &envelope.subject)
