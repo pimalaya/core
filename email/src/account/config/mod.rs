@@ -131,7 +131,7 @@ impl AccountConfig {
         let signature = signature.map(|path_or_raw| {
             let signature = try_shellexpand_path(path_or_raw)
                 .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))
-                .and_then(|path| fs::read_to_string(path))
+                .and_then(fs::read_to_string)
                 .unwrap_or_else(|err| {
                     debug!("cannot read signature from path: {err}");
                     debug!("{err:?}");

@@ -90,14 +90,12 @@ pub async fn gen_key_pair(
         let skey = key_params
             .generate()
             .map_err(Error::GenerateSecretKeyError)?;
-        let skey = skey
-            .sign(|| String::new())
-            .map_err(Error::SignSecretKeyError)?;
+        let skey = skey.sign(String::new).map_err(Error::SignSecretKeyError)?;
         skey.verify().map_err(Error::VerifySecretKeyError)?;
 
         let pkey = skey.public_key();
         let pkey = pkey
-            .sign(&skey, || String::new())
+            .sign(&skey, String::new)
             .map_err(Error::SignPublicKeyError)?;
         pkey.verify().map_err(Error::VerifyPublicKeyError)?;
 
