@@ -6,5 +6,7 @@
 //! PGP.
 
 pub mod config;
+#[cfg(feature = "account-discovery")]
+pub mod discover;
 #[cfg(feature = "sync")]
 pub mod sync;

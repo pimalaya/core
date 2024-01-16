@@ -25,6 +25,7 @@ default = [
   # "notmuch",
   "smtp",
   "sendmail",
+  # "account-discovery",
   "folder",
   "envelope",
   "flag",
@@ -34,11 +35,12 @@ default = [
   # "pgp-gpg",
   # "pgp-native",
 ]
-imap = ["futures", "dep:imap", "imap-proto", "utf7-imap"]
+imap = ["dep:futures", "dep:imap", "imap-proto", "utf7-imap"]
 maildir = ["maildirpp", "notify", "rayon"]
 notmuch = ["dep:notmuch"]
 smtp = ["mail-send"]
 sendmail = []
+account-discovery = ["dep:email_address", "dep:futures", "dep:bytes", "dep:hickory-resolver", "dep:hyper", "dep:hyper-rustls", "dep:quick-xml"]
 folder = ["folder-add", "folder-list", "folder-expunge", "folder-purge", "folder-delete"]
 folder-add = []
 folder-list = []
@@ -68,7 +70,7 @@ sync = [
   "message-add", "message-peek", "message-get", "message-move",
   "advisory-lock",
   "dirs",
-  "futures",
+  "dep:futures",
   "maildir",
   "rusqlite",
 ]
@@ -87,10 +89,15 @@ tokio = { version = "1.23", default-features = false, features = ["macros", "rt"
 advisory-lock = { version = "0.3", optional = true }
 anyhow = "1.0"
 async-trait = "0.1"
+bytes = { version = "1", optional = true }
 chrono = "0.4"
 convert_case = "0.5"
 dirs = { version = "4.0", optional = true }
 futures = { version = "0.3", optional = true }
+hickory-resolver = { version = "0.24", optional = true, features = ["dns-over-rustls"] }
+hyper = { version = "0.14", optional = true, default-features = false, features = [ "http1", "http2" ] }
+hyper-rustls = { version = "0.24", optional = true }
+email_address = { version = "0.2.4", optional = true, default-features = false }
 imap = { version = "=3.0.0-alpha.12", optional = true, default-features = false, features = ["rustls-tls"] }
 imap-proto = { version = "=0.16.3", optional = true }
 keyring-lib = { version = "=0.3.2", optional = true }
@@ -111,6 +118,7 @@ process-lib = "=0.3.1"
 rayon = { version = "1.6", optional = true }
 regex = "1.5"
 secret-lib = "=0.3.3"
+quick-xml = { version = "0.31", optional = true, features = ["serialize"] }
 serde = { version = "1.0", features = ["derive"] }
 shellexpand-utils = "=0.2.0"
 thiserror = "1"
