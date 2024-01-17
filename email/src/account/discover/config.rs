@@ -5,10 +5,10 @@ use std::time::Duration;
 #[serde(rename_all = "camelCase")]
 /// A config that follows Mozilla's specification: https://wiki.mozilla.org/Thunderbird:Autoconfiguration:ConfigFileFormat
 pub struct AutoConfig {
-    version: String,
-    email_provider: EmailProvider,
+    pub version: String,
+    pub email_provider: EmailProvider,
     #[serde(rename = "oAuth2")]
-    oauth2: Option<OAuth2Config>,
+    pub oauth2: Option<OAuth2Config>,
 }
 
 impl AutoConfig {
@@ -63,9 +63,9 @@ impl OAuth2Config {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct EmailProvider {
-    id: String,
+    pub id: String,
     #[serde(rename = "$value")]
-    properties: Vec<EmailProviderProperty>,
+    pub properties: Vec<EmailProviderProperty>,
 }
 
 impl EmailProvider {
@@ -186,9 +186,9 @@ pub enum EmailProviderProperty {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Server {
-    r#type: ServerType,
+    pub r#type: ServerType,
     #[serde(rename = "$value")]
-    properties: Vec<ServerProperty>,
+    pub properties: Vec<ServerProperty>,
 }
 
 impl Server {

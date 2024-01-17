@@ -2,13 +2,18 @@ pub mod config;
 pub mod dns;
 pub mod http;
 
-use anyhow::bail;
 use email_address::EmailAddress;
 use futures::{future::select_ok, FutureExt};
 use log::debug;
 use std::str::FromStr;
 
-use crate::Result;
+use crate::{
+    account::discover::config::{
+        AuthenticationType, EmailProvider, EmailProviderProperty, SecurityType, Server,
+        ServerProperty, ServerType,
+    },
+    Result,
+};
 
 use self::{config::AutoConfig, dns::Dns, http::Http};
 
@@ -36,7 +41,7 @@ pub async fn from_domain<D: AsRef<str>>(domain: D) -> Result<AutoConfig> {
         ),
     ];
 
-    match dns.get_first_mailconf_mx_uri(domain.as_ref()).await {
+    match dns.get_mailconf_mx_uri(domain.as_ref()).await {
         Ok(uri) => urls.push(uri.to_string()),
         Err(err) => {
             debug!("skipping MX record config discovery: {err}");
@@ -58,7 +63,65 @@ pub async fn from_domain<D: AsRef<str>>(domain: D) -> Result<AutoConfig> {
         Err(error) => errors.push(error),
     }
 
-    bail!("auto config not found")
+    let mut config = AutoConfig {
+        version: "1.1".into(),
+        email_provider: EmailProvider {
+            id: domain.as_ref().to_owned(),
+            properties: Vec::new(),
+        },
+        oauth2: None,
+    };
+
+    if let Ok(record) = dns.get_imap_srv_record(domain.as_ref()).await {
+        config
+            .email_provider
+            .properties
+            .push(EmailProviderProperty::IncomingServer(Server {
+                r#type: ServerType::Imap,
+                properties: vec![
+                    ServerProperty::Hostname(record.target().to_string()),
+                    ServerProperty::Port(record.port()),
+                    ServerProperty::SocketType(SecurityType::Starttls),
+                    ServerProperty::Authentication(AuthenticationType::PasswordCleartext),
+                ],
+            }))
+    }
+
+    if let Ok(record) = dns.get_imaps_srv_record(domain.as_ref()).await {
+        config
+            .email_provider
+            .properties
+            .push(EmailProviderProperty::IncomingServer(Server {
+                r#type: ServerType::Imap,
+                properties: vec![
+                    ServerProperty::Hostname(record.target().to_string()),
+                    ServerProperty::Port(record.port()),
+                    ServerProperty::SocketType(SecurityType::Tls),
+                    ServerProperty::Authentication(AuthenticationType::PasswordCleartext),
+                ],
+            }))
+    }
+
+    if let Ok(record) = dns.get_submission_srv_record(domain.as_ref()).await {
+        config
+            .email_provider
+            .properties
+            .push(EmailProviderProperty::OutgoingServer(Server {
+                r#type: ServerType::Smtp,
+                properties: vec![
+                    ServerProperty::Hostname(record.target().to_string()),
+                    ServerProperty::Port(record.port()),
+                    ServerProperty::SocketType(match record.port() {
+                        25 => SecurityType::Plain,
+                        587 => SecurityType::Starttls,
+                        465 | _ => SecurityType::Tls,
+                    }),
+                    ServerProperty::Authentication(AuthenticationType::PasswordCleartext),
+                ],
+            }))
+    }
+
+    Ok(config)
 }
 
 /// Given an email address, try to connect to the email providers autoconfig servers and return the config that was found, if one was found.

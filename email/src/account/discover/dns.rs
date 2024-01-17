@@ -9,13 +9,12 @@
 //!
 //! [Autoconfiguration]: https://udn.realityripple.com/docs/Mozilla/Thunderbird/Autoconfiguration#Mechanisms
 
-use bytes::Bytes;
 use hickory_resolver::{
     proto::rr::rdata::{MX, SRV},
     TokioAsyncResolver,
 };
 use hyper::Uri;
-use log::debug;
+use log::{debug, trace};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{cmp::Ordering, ops::Deref};
@@ -29,10 +28,12 @@ static TXT_RECORD_REGEX: Lazy<Regex> =
 /// Errors related to PGP encryption.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot find MX record for domain {0}")]
+    #[error("cannot find any MX record at {0}")]
     GetMxRecordNotFoundError(String),
-    #[error("cannot find mailconf TXT record for domain {0}")]
+    #[error("cannot find any mailconf TXT record at {0}")]
     GetMailconfTxtRecordNotFoundError(String),
+    #[error("cannot find any SRV record at {0}")]
+    GetSrvRecordNotFoundError(String),
 }
 
 pub struct Dns {
@@ -40,9 +41,9 @@ pub struct Dns {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct SortableMX(MX);
+pub struct MxRecord(MX);
 
-impl Deref for SortableMX {
+impl Deref for MxRecord {
     type Target = MX;
 
     fn deref(&self) -> &Self::Target {
@@ -50,69 +51,64 @@ impl Deref for SortableMX {
     }
 }
 
-impl Ord for SortableMX {
+impl Ord for MxRecord {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.preference().cmp(&self.preference())
+        self.preference().cmp(&other.preference())
     }
 }
 
-impl PartialOrd for SortableMX {
+impl PartialOrd for MxRecord {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(&other))
     }
 }
 
-impl SortableMX {
-    pub fn new(mx: MX) -> Self {
-        Self(mx)
+impl MxRecord {
+    pub fn new(record: MX) -> Self {
+        Self(record)
     }
 }
 
-struct WeightedSrvRecord {
-    record: SRV,
-    weight: u16,
-    priority: u16,
-}
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct SrvRecord(SRV);
 
-impl WeightedSrvRecord {
-    fn new(record: SRV) -> Self {
-        Self {
-            weight: record.weight(),
-            priority: record.priority(),
-            record,
-        }
+impl SrvRecord {
+    pub fn new(record: SRV) -> Self {
+        Self(record)
     }
 }
 
-// Compare WeightedSrvRecord by priority and weight
-impl Ord for WeightedSrvRecord {
+impl Deref for SrvRecord {
+    type Target = SRV;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Into<SRV> for SrvRecord {
+    fn into(self) -> SRV {
+        self.0
+    }
+}
+
+impl Ord for SrvRecord {
     fn cmp(&self, other: &Self) -> Ordering {
-        // Sort by priority in ascending order
-        let priority_cmp = self.priority.cmp(&other.priority);
+        // sort by priority in ascending order
+        let priority_cmp = self.priority().cmp(&other.priority());
 
         if priority_cmp == Ordering::Equal {
-            // Sort by weight in descending order
-            other.weight.cmp(&self.weight)
+            // sort by weight in descending order
+            other.weight().cmp(&self.weight())
         } else {
             priority_cmp
         }
     }
 }
 
-// Implement PartialOrd for WeightedSrvRecord
-impl PartialOrd for WeightedSrvRecord {
+impl PartialOrd for SrvRecord {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
-    }
-}
-
-// Implement Eq for WeightedSrvRecord
-impl Eq for WeightedSrvRecord {}
-
-// Implement PartialEq for WeightedSrvRecord
-impl PartialEq for WeightedSrvRecord {
-    fn eq(&self, other: &Self) -> bool {
-        self.priority == other.priority && self.weight == other.weight
     }
 }
 
@@ -123,43 +119,46 @@ impl Dns {
         Ok(dns)
     }
 
-    async fn get_lowest_mx_exchange(&self, domain: &str) -> Result<String> {
-        let mut records: Vec<SortableMX> = self
+    async fn get_mx_exchange(&self, domain: &str) -> Result<String> {
+        let mut records: Vec<MxRecord> = self
             .resolver
             .mx_lookup(domain)
             .await?
             .into_iter()
-            .map(|record| {
-                debug!("{domain}: discovering MX record: {record}");
-                SortableMX::new(record)
-            })
+            .map(MxRecord::new)
             .collect();
 
         records.sort();
 
+        debug!("{domain}: discovered {} MX record(s)", records.len());
+        trace!("{records:#?}");
+
         let record = records
-            .pop()
+            .into_iter()
+            .next()
             .ok_or_else(|| Error::GetMxRecordNotFoundError(domain.to_owned()))?;
 
         let exchange = record.exchange().trim_to(2).to_string();
 
-        debug!("{domain}: use MX domain {exchange}");
+        debug!("{domain}: best MX exchange found: {exchange}");
 
         Ok(exchange)
     }
 
-    async fn get_first_mailconf_txt_uri(&self, domain: &str) -> Result<Uri> {
-        let mut records = self
+    async fn get_mailconf_txt_uri(&self, domain: &str) -> Result<Uri> {
+        let records: Vec<String> = self
             .resolver
             .txt_lookup(domain)
             .await?
             .into_iter()
-            .map(|record| {
-                debug!("{domain}: discovering TXT record: {record}");
-                record.to_string()
-            });
+            .map(|record| record.to_string())
+            .collect();
+
+        debug!("{domain}: discovered {} TXT record(s)", records.len());
+        trace!("{records:#?}");
 
         let uri = records
+            .into_iter()
             .find_map(|record| {
                 TXT_RECORD_REGEX
                     .captures(&record)
@@ -168,112 +167,53 @@ impl Dns {
             })
             .ok_or_else(|| Error::GetMailconfTxtRecordNotFoundError(domain.to_owned()))?;
 
-        debug!("{domain}: use mailconf URI {uri}");
+        debug!("{domain}: best TXT mailconf URI found: {uri}");
 
         Ok(uri)
     }
 
-    pub async fn get_first_mailconf_mx_uri(&self, domain: &str) -> Result<Uri> {
-        let domain = self.get_lowest_mx_exchange(domain).await?;
-        self.get_first_mailconf_txt_uri(&domain).await
+    pub async fn get_mailconf_mx_uri(&self, domain: &str) -> Result<Uri> {
+        let domain = self.get_mx_exchange(domain).await?;
+        self.get_mailconf_txt_uri(&domain).await
     }
 
-    // async fn _srv_lookup(&self, query: impl ToString) -> Result<(String, u16)> {
-    //     let records = self.resolver.srv_lookup(query.to_string()).await?;
+    async fn get_srv_record(&self, domain: &str, subdomain: &str) -> Result<SRV> {
+        let domain = format!("_{subdomain}._tcp.{domain}");
 
-    //     let mut weighted_records: Vec<_> =
-    //         records.into_iter().map(WeightedSrvRecord::new).collect();
+        let mut records: Vec<SrvRecord> = self
+            .resolver
+            .srv_lookup(&domain)
+            .await?
+            .into_iter()
+            .filter(|record| !record.target().is_root())
+            .map(SrvRecord::new)
+            .collect();
 
-    //     weighted_records.sort();
+        records.sort();
 
-    //     if let Some(record) = weighted_records.first() {
-    //         return Ok((record.record.target().to_string(), record.record.port()));
-    //     }
+        debug!("{domain}: discovered {} SRV record(s)", records.len());
+        trace!("{records:#?}");
 
-    //     bail!("cannot not find domains from the SRV query")
-    // }
+        let record: SRV = records
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::GetSrvRecordNotFoundError(domain.clone()))?
+            .into();
 
-    // /// Lookup basic dns settings to find mail servers according to https://datatracker.ietf.org/doc/html/rfc6186
-    // pub async fn srv_lookup<D: AsRef<str>>(&self, domain: D) -> Vec<Server> {
-    //     let server_types = vec![Pop, Imap];
+        debug!("{domain}: best SRV record found: {record}");
 
-    //     let mut queries = Vec::new();
-
-    //     for server_type in server_types {
-    //         let plain = DnsQuery::new(domain.as_ref(), false, server_type);
-    //         let secure = DnsQuery::new(domain.as_ref(), true, server_type);
-
-    //         queries.push(plain);
-    //         queries.push(secure);
-    //     }
-
-    //     queries.push(DnsQuery::new(domain.as_ref(), true, Smtp));
-
-    //     let mut servers = Vec::new();
-
-    //     for query in queries {
-    //         let result = self._srv_lookup(&query).await;
-
-    //         match result {
-    //             Ok((domain, port)) => {
-    //                 if &domain != "." {
-    //                     let server = Server::new(port, domain, query.into());
-    //                     servers.push(server);
-    //                 }
-    //             }
-    //             Err(error) => {
-    //                 warn!("SRV lookup failed for {}: {}", query, error)
-    //             }
-    //         }
-    //     }
-
-    //     servers
-    // }
-
-    async fn get_txt(&self, name: impl AsRef<str>) -> Result<Vec<Bytes>> {
-        let lookup_results = self.resolver.txt_lookup(name.as_ref()).await?;
-        let mut records = Vec::new();
-
-        for txt in lookup_results {
-            println!("txt: {:?}", txt.to_string());
-            let mut bytes: Vec<Bytes> = txt
-                .txt_data()
-                .iter()
-                .map(|data| data.to_vec().into())
-                .collect();
-
-            if bytes.first().is_some() {
-                let record = bytes.remove(0);
-                records.push(record);
-            }
-        }
-
-        Ok(records)
+        Ok(record)
     }
 
-    pub async fn get_url_from_txt(&self, name: impl AsRef<str>) -> Result<Vec<String>> {
-        let records = self.get_txt(name).await?;
+    pub async fn get_imap_srv_record(&self, domain: &str) -> Result<SRV> {
+        self.get_srv_record(domain, "imap").await
+    }
 
-        let mut urls = Vec::new();
+    pub async fn get_imaps_srv_record(&self, domain: &str) -> Result<SRV> {
+        self.get_srv_record(domain, "imaps").await
+    }
 
-        for record in records {
-            if let Some(record_str) = std::str::from_utf8(&record).ok() {
-                if let Some(captured) = TXT_RECORD_REGEX.captures(record_str) {
-                    if let Some(r#match) = captured.get(1) {
-                        let url = r#match.as_str();
-
-                        println!("url: {:?}", url);
-
-                        if let Some(url_parsed) = url.parse::<Uri>().ok() {
-                            if let Some("https") = url_parsed.scheme_str() {
-                                urls.push(url.to_string())
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(urls)
+    pub async fn get_submission_srv_record(&self, domain: &str) -> Result<SRV> {
+        self.get_srv_record(domain, "submission").await
     }
 }
