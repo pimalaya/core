@@ -40,7 +40,7 @@ maildir = ["maildirpp", "notify", "rayon"]
 notmuch = ["dep:notmuch"]
 smtp = ["mail-send"]
 sendmail = []
-account-discovery = ["dep:email_address", "dep:futures", "dep:bytes", "dep:hickory-resolver", "dep:hyper", "dep:hyper-rustls", "dep:quick-xml"]
+account-discovery = ["dep:email_address", "dep:futures", "dep:bytes", "dep:hickory-resolver", "dep:hyper", "dep:hyper-rustls", "dep:serde-xml-rs"]
 folder = ["folder-add", "folder-list", "folder-expunge", "folder-purge", "folder-delete"]
 folder-add = []
 folder-list = []
@@ -118,7 +118,7 @@ process-lib = "=0.3.1"
 rayon = { version = "1.6", optional = true }
 regex = "1.5"
 secret-lib = "=0.3.3"
-quick-xml = { version = "0.31", optional = true, features = ["serialize"] }
+serde-xml-rs = { version = "0.6", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 shellexpand-utils = "=0.2.0"
 thiserror = "1"

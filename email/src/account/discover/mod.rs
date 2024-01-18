@@ -3,8 +3,8 @@ pub mod dns;
 pub mod http;
 
 use email_address::EmailAddress;
-use futures::{future::select_ok, FutureExt};
-use log::debug;
+use hyper::Uri;
+use log::{debug, trace};
 use std::str::FromStr;
 
 use crate::{
@@ -17,62 +17,120 @@ use crate::{
 
 use self::{config::AutoConfig, dns::Dns, http::Http};
 
-/// Given an email providers domain, try to connect to autoconfig servers for that provider and return the config.
-pub async fn from_domain<D: AsRef<str>>(domain: D) -> Result<AutoConfig> {
-    let mut errors: Vec<_> = Vec::new();
-
+pub async fn from_addr(addr: impl AsRef<str>) -> Result<AutoConfig> {
+    let addr = EmailAddress::from_str(addr.as_ref())?;
     let http = Http::new();
+
+    match from_isps(&http, &addr).await {
+        Ok(config) => Ok(config),
+        Err(err) => {
+            debug!("{err}, falling back to DNS");
+            from_dns(&http, &addr).await
+        }
+    }
+}
+
+async fn from_isps(http: &Http, addr: &EmailAddress) -> Result<AutoConfig> {
+    match from_isp_main(&http, &addr).await {
+        Ok(config) => Ok(config),
+        Err(err) => {
+            debug!("{err}, falling back to alternative ISP");
+            match from_isp_alt(&http, addr.domain()).await {
+                Ok(config) => Ok(config),
+                Err(err) => {
+                    debug!("{err}, falling back to ISPDB");
+                    from_ispdb(&http, addr.domain()).await
+                }
+            }
+        }
+    }
+}
+
+async fn from_isp_main(http: &Http, addr: &EmailAddress) -> Result<AutoConfig> {
+    let domain = addr.domain();
+
+    let uri_str = format!("http://autoconfig.{domain}/mail/config-v1.1.xml?emailaddress={addr}");
+    let uri = Uri::from_str(&uri_str).unwrap();
+
+    let config = http.get_config(uri).await?;
+    debug!("successfully discovered config from ISP at {uri_str}");
+    trace!("{config:#?}");
+
+    Ok(config)
+}
+
+async fn from_isp_alt(http: &Http, domain: &str) -> Result<AutoConfig> {
+    let uri_str = format!("http://{domain}/.well-known/autoconfig/mail/config-v1.1.xml");
+    let uri = Uri::from_str(&uri_str).unwrap();
+
+    let config = http.get_config(uri).await?;
+    debug!("successfully discovered config from ISP at {uri_str}");
+    trace!("{config:#?}");
+
+    Ok(config)
+}
+
+async fn from_ispdb(http: &Http, domain: &str) -> Result<AutoConfig> {
+    let uri_str = format!("https://autoconfig.thunderbird.net/v1.1/{domain}");
+    let uri = Uri::from_str(&uri_str).unwrap();
+
+    let config = http.get_config(uri).await?;
+    debug!("successfully discovered config from ISPDB at {uri_str}");
+    trace!("{config:#?}");
+
+    Ok(config)
+}
+
+async fn from_dns(http: &Http, addr: &EmailAddress) -> Result<AutoConfig> {
+    let domain = addr.domain();
     let dns = Dns::new().await?;
 
-    let mut futures = Vec::new();
-
-    let mut urls = vec![
-        // Try connect to connect with the users mail server directly
-        format!("http://autoconfig.{}/mail/config-v1.1.xml", domain.as_ref()),
-        // The fallback url
-        format!(
-            "http://{}/.well-known/autoconfig/mail/config-v1.1.xml",
-            domain.as_ref()
-        ),
-        // If the previous two methods did not work then the email server provider has not setup Thunderbird autoconfig, so we ask Mozilla for their config.
-        format!(
-            "https://autoconfig.thunderbird.net/v1.1/{}",
-            domain.as_ref()
-        ),
-    ];
-
-    match dns.get_mailconf_mx_uri(domain.as_ref()).await {
-        Ok(uri) => urls.push(uri.to_string()),
+    match from_dns_mx(http, &dns, domain).await {
+        Ok(config) => Ok(config),
         Err(err) => {
-            debug!("skipping MX record config discovery: {err}");
+            debug!("{err}, falling back to {domain} TXT records");
+            match from_dns_txt(http, &dns, domain).await {
+                Ok(config) => Ok(config),
+                Err(err) => {
+                    debug!("{err}, falling back to {domain} SRV records");
+                    from_dns_srv(&dns, domain).await
+                }
+            }
         }
-    };
-
-    urls.sort();
-    urls.dedup();
-
-    for url in urls {
-        let future = http.get_config(url);
-        futures.push(future.boxed());
     }
+}
 
-    let result = select_ok(futures).await;
+async fn from_dns_mx(http: &Http, dns: &Dns, domain: &str) -> Result<AutoConfig> {
+    let uri = dns.get_mailconf_mx_uri(domain).await?;
 
-    match result {
-        Ok((config, _remaining)) => return Ok(config),
-        Err(error) => errors.push(error),
-    }
+    let config = http.get_config(uri).await?;
+    debug!("successfully discovered config from MX record");
+    trace!("{config:#?}");
 
+    Ok(config)
+}
+
+async fn from_dns_txt(http: &Http, dns: &Dns, domain: &str) -> Result<AutoConfig> {
+    let uri = dns.get_mailconf_txt_uri(domain).await?;
+
+    let config = http.get_config(uri).await?;
+    debug!("successfully discovered config from TXT record");
+    trace!("{config:#?}");
+
+    Ok(config)
+}
+
+async fn from_dns_srv(dns: &Dns, domain: &str) -> Result<AutoConfig> {
     let mut config = AutoConfig {
-        version: "1.1".into(),
+        version: String::from("1.1"),
         email_provider: EmailProvider {
-            id: domain.as_ref().to_owned(),
+            id: domain.to_owned(),
             properties: Vec::new(),
         },
         oauth2: None,
     };
 
-    if let Ok(record) = dns.get_imap_srv_record(domain.as_ref()).await {
+    if let Ok(record) = dns.get_imap_srv(domain).await {
         config
             .email_provider
             .properties
@@ -87,7 +145,7 @@ pub async fn from_domain<D: AsRef<str>>(domain: D) -> Result<AutoConfig> {
             }))
     }
 
-    if let Ok(record) = dns.get_imaps_srv_record(domain.as_ref()).await {
+    if let Ok(record) = dns.get_imaps_srv(domain).await {
         config
             .email_provider
             .properties
@@ -102,7 +160,7 @@ pub async fn from_domain<D: AsRef<str>>(domain: D) -> Result<AutoConfig> {
             }))
     }
 
-    if let Ok(record) = dns.get_submission_srv_record(domain.as_ref()).await {
+    if let Ok(record) = dns.get_submission_srv(domain).await {
         config
             .email_provider
             .properties
@@ -121,11 +179,8 @@ pub async fn from_domain<D: AsRef<str>>(domain: D) -> Result<AutoConfig> {
             }))
     }
 
-    Ok(config)
-}
+    debug!("successfully discovered config from SRV record");
+    trace!("{config:#?}");
 
-/// Given an email address, try to connect to the email providers autoconfig servers and return the config that was found, if one was found.
-pub async fn from_addr(email: impl AsRef<str>) -> Result<AutoConfig> {
-    let email = EmailAddress::from_str(email.as_ref())?;
-    from_domain(email.domain()).await
+    Ok(config)
 }

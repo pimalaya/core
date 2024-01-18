@@ -284,7 +284,6 @@ impl Server {
 pub enum ServerProperty {
     Hostname(String),
     Port(u16),
-    #[serde(rename = "socketType")]
     SocketType(SecurityType),
     Authentication(AuthenticationType),
     OwaURL(String),

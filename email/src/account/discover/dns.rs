@@ -114,38 +114,17 @@ impl PartialOrd for SrvRecord {
 
 impl Dns {
     pub async fn new() -> Result<Self> {
-        let resolver = TokioAsyncResolver::tokio_from_system_conf()?;
+        let resolver = TokioAsyncResolver::tokio(Default::default(), Default::default());
         let dns = Self { resolver };
         Ok(dns)
     }
 
-    async fn get_mx_exchange(&self, domain: &str) -> Result<String> {
-        let mut records: Vec<MxRecord> = self
-            .resolver
-            .mx_lookup(domain)
-            .await?
-            .into_iter()
-            .map(MxRecord::new)
-            .collect();
-
-        records.sort();
-
-        debug!("{domain}: discovered {} MX record(s)", records.len());
-        trace!("{records:#?}");
-
-        let record = records
-            .into_iter()
-            .next()
-            .ok_or_else(|| Error::GetMxRecordNotFoundError(domain.to_owned()))?;
-
-        let exchange = record.exchange().trim_to(2).to_string();
-
-        debug!("{domain}: best MX exchange found: {exchange}");
-
-        Ok(exchange)
+    pub async fn get_mailconf_mx_uri(&self, domain: &str) -> Result<Uri> {
+        let domain = self.get_mx_domain(domain).await?;
+        self.get_mailconf_txt_uri(&domain).await
     }
 
-    async fn get_mailconf_txt_uri(&self, domain: &str) -> Result<Uri> {
+    pub async fn get_mailconf_txt_uri(&self, domain: &str) -> Result<Uri> {
         let records: Vec<String> = self
             .resolver
             .txt_lookup(domain)
@@ -172,12 +151,33 @@ impl Dns {
         Ok(uri)
     }
 
-    pub async fn get_mailconf_mx_uri(&self, domain: &str) -> Result<Uri> {
-        let domain = self.get_mx_exchange(domain).await?;
-        self.get_mailconf_txt_uri(&domain).await
+    async fn get_mx_domain(&self, domain: &str) -> Result<String> {
+        let mut records: Vec<MxRecord> = self
+            .resolver
+            .mx_lookup(domain)
+            .await?
+            .into_iter()
+            .map(MxRecord::new)
+            .collect();
+
+        records.sort();
+
+        debug!("{domain}: discovered {} MX record(s)", records.len());
+        trace!("{records:#?}");
+
+        let record = records
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::GetMxRecordNotFoundError(domain.to_owned()))?;
+
+        let exchange = record.exchange().trim_to(2).to_string();
+
+        debug!("{domain}: best MX domain found: {exchange}");
+
+        Ok(exchange)
     }
 
-    async fn get_srv_record(&self, domain: &str, subdomain: &str) -> Result<SRV> {
+    async fn get_srv(&self, domain: &str, subdomain: &str) -> Result<SRV> {
         let domain = format!("_{subdomain}._tcp.{domain}");
 
         let mut records: Vec<SrvRecord> = self
@@ -205,15 +205,15 @@ impl Dns {
         Ok(record)
     }
 
-    pub async fn get_imap_srv_record(&self, domain: &str) -> Result<SRV> {
-        self.get_srv_record(domain, "imap").await
+    pub async fn get_imap_srv(&self, domain: &str) -> Result<SRV> {
+        self.get_srv(domain, "imap").await
     }
 
-    pub async fn get_imaps_srv_record(&self, domain: &str) -> Result<SRV> {
-        self.get_srv_record(domain, "imaps").await
+    pub async fn get_imaps_srv(&self, domain: &str) -> Result<SRV> {
+        self.get_srv(domain, "imaps").await
     }
 
-    pub async fn get_submission_srv_record(&self, domain: &str) -> Result<SRV> {
-        self.get_srv_record(domain, "submission").await
+    pub async fn get_submission_srv(&self, domain: &str) -> Result<SRV> {
+        self.get_srv(domain, "submission").await
     }
 }

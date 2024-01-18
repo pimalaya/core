@@ -51,10 +51,9 @@ impl Http {
         }
     }
 
-    pub async fn get_config(&self, uri: impl AsRef<str>) -> Result<AutoConfig> {
-        let uri: Uri = uri.as_ref().parse()?;
+    pub async fn get_config(&self, uri: Uri) -> Result<AutoConfig> {
         let bytes = self.get(uri).await?;
-        let config = quick_xml::de::from_reader(bytes.reader())?;
+        let config = serde_xml_rs::from_reader(bytes.reader())?;
         Ok(config)
     }
 }
