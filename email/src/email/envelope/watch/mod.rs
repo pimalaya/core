@@ -83,6 +83,12 @@ pub trait WatchEnvelopes: Send + Sync {
                             debug!("{err:?}");
                         }
                     }
+                    Some(WatchHook::Fn(f)) => {
+                        if let Err(err) = f(envelope) {
+                            debug!("error while executing received envelope fn: {err}");
+                            debug!("{err:?}");
+                        }
+                    }
                 }
             } else {
                 match config.find_any_envelope_hook() {
@@ -139,6 +145,12 @@ pub trait WatchEnvelopes: Send + Sync {
 
                         if let Err(err) = notif {
                             debug!("error while sending any envelope notification: {err}");
+                            debug!("{err:?}");
+                        }
+                    }
+                    Some(WatchHook::Fn(f)) => {
+                        if let Err(err) = f(envelope) {
+                            debug!("error while executing any envelope fn: {err}");
                             debug!("{err:?}");
                         }
                     }

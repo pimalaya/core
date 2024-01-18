@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `account::discover` module to help lib consumers to detect automatically IMAP and SMTP settings.
 
+### Changed
+
+- Added variant `WatchHook::Fn` that takes a `WatchFn` as argument. A `WatchFn` is just a wrapper around a `Fn(&Envelope) -> Result<()>`.
+
 ## [0.20.1] - 2024-01-12
 
 ### Fixed
