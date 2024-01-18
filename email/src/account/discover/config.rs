@@ -1,9 +1,16 @@
+//! # Account configuration discovery
+//!
+//! This module contains the [`serde`] representation of the Mozilla
+//! [Autoconfiguration].
+//!
+//! [Autoconfiguration]: https://wiki.mozilla.org/Thunderbird:Autoconfiguration:ConfigFileFormat
+
 use serde::Deserialize;
 use std::time::Duration;
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-/// A config that follows Mozilla's specification: https://wiki.mozilla.org/Thunderbird:Autoconfiguration:ConfigFileFormat
+/// The root level of the Mozilla Autoconfiguration.
 pub struct AutoConfig {
     pub version: String,
     pub email_provider: EmailProvider,
@@ -17,18 +24,20 @@ impl AutoConfig {
         &self.version
     }
 
-    /// Information about the email provider for the given email address, e.g. Google or Microsoft
+    /// Information about the email provider for the given email
+    /// address, e.g. Google or Microsoft
     pub fn email_provider(&self) -> &EmailProvider {
         &self.email_provider
     }
 
-    /// If the provider supports oAuth2, it SHOULD be specified here, but some providers don't.
+    /// If the provider supports oAuth2, it SHOULD be specified here,
+    /// but some providers don't.
     pub fn oauth2(&self) -> Option<&OAuth2Config> {
         self.oauth2.as_ref()
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OAuth2Config {
     issuer: String,
@@ -40,12 +49,14 @@ pub struct OAuth2Config {
 }
 
 impl OAuth2Config {
-    /// The implementer of the oAuth2 protocol for this email provider, which is usually the email provider itself.
+    /// The implementer of the oAuth2 protocol for this email
+    /// provider, which is usually the email provider itself.
     pub fn issuer(&self) -> &str {
         &self.issuer
     }
 
-    /// The scopes needed from the oAuth2 API to be able to login using an oAuth2 generated token.
+    /// The scopes needed from the oAuth2 API to be able to login
+    /// using an oAuth2 generated token.
     pub fn scope(&self) -> Vec<&str> {
         self.scope.split(' ').collect()
     }
@@ -61,7 +72,7 @@ impl OAuth2Config {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 pub struct EmailProvider {
     pub id: String,
     #[serde(rename = "$value")]
@@ -69,7 +80,9 @@ pub struct EmailProvider {
 }
 
 impl EmailProvider {
-    /// Just an array containing all of the email providers properties, usefull if you want to get multiple properties in 1 for loop.
+    /// Just an array containing all of the email providers
+    /// properties, usefull if you want to get multiple properties in
+    /// 1 for loop.
     pub fn properties(&self) -> &Vec<EmailProviderProperty> {
         &self.properties
     }
@@ -79,7 +92,8 @@ impl EmailProvider {
         &self.id
     }
 
-    /// The domain name that the email provider uses in their email addresses.
+    /// The domain name that the email provider uses in their email
+    /// addresses.
     pub fn domain(&self) -> Vec<&str> {
         let mut domains: Vec<&str> = Vec::new();
 
@@ -117,7 +131,8 @@ impl EmailProvider {
         None
     }
 
-    /// An array containing info about all of an email providers incoming mail servers
+    /// An array containing info about all of an email providers
+    /// incoming mail servers
     pub fn incoming_servers(&self) -> Vec<&Server> {
         let mut servers: Vec<&Server> = Vec::new();
 
@@ -131,7 +146,8 @@ impl EmailProvider {
         servers
     }
 
-    /// An array containing info about all of an email providers outgoing mail servers
+    /// An array containing info about all of an email providers
+    /// outgoing mail servers
     pub fn outgoing_servers(&self) -> Vec<&Server> {
         let mut servers: Vec<&Server> = Vec::new();
 
@@ -145,7 +161,8 @@ impl EmailProvider {
         servers
     }
 
-    /// An array containing info about all of an email providers mail servers
+    /// An array containing info about all of an email providers mail
+    /// servers
     pub fn servers(&self) -> Vec<&Server> {
         let mut servers: Vec<&Server> = Vec::new();
 
@@ -160,7 +177,8 @@ impl EmailProvider {
         servers
     }
 
-    /// Documentation on how to setup the email client, provided by the email provider.
+    /// Documentation on how to setup the email client, provided by
+    /// the email provider.
     pub fn documentation(&self) -> Option<&Documentation> {
         for property in &self.properties {
             match property {
@@ -173,7 +191,7 @@ impl EmailProvider {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum EmailProviderProperty {
     Domain(String),
@@ -184,7 +202,7 @@ pub enum EmailProviderProperty {
     Documentation(Documentation),
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 pub struct Server {
     pub r#type: ServerType,
     #[serde(rename = "$value")]
@@ -192,7 +210,8 @@ pub struct Server {
 }
 
 impl Server {
-    /// Just an array containing all of a mail servers properties, usefull if you want to get multiple properties in 1 for loop.
+    /// Just an array containing all of a mail servers properties,
+    /// usefull if you want to get multiple properties in 1 for loop.
     pub fn properties(&self) -> &Vec<ServerProperty> {
         &self.properties
     }
@@ -238,7 +257,8 @@ impl Server {
         None
     }
 
-    /// The kind of authentication is needed to login to this mail server
+    /// The kind of authentication is needed to login to this mail
+    /// server
     pub fn authentication_type(&self) -> Vec<&AuthenticationType> {
         let mut types: Vec<&AuthenticationType> = Vec::new();
 
@@ -279,7 +299,7 @@ impl Server {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ServerProperty {
     Hostname(String),
@@ -294,7 +314,7 @@ pub enum ServerProperty {
     Password(String),
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 pub enum SecurityType {
     #[serde(rename = "plain")]
     Plain,
@@ -304,7 +324,7 @@ pub enum SecurityType {
     Tls,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ServerType {
     Exchange,
@@ -313,7 +333,7 @@ pub enum ServerType {
     Smtp,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 pub enum AuthenticationType {
     #[serde(rename = "password-cleartext")]
     PasswordCleartext,
@@ -332,7 +352,7 @@ pub enum AuthenticationType {
     None,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Pop3Config {
     leave_messages_on_server: bool,
@@ -342,7 +362,8 @@ pub struct Pop3Config {
 }
 
 impl Pop3Config {
-    /// If the server should leave all of the read messages on the server after the client quits the connection.
+    /// If the server should leave all of the read messages on the
+    /// server after the client quits the connection.
     pub fn leave_messages_on_server(&self) -> &bool {
         &self.leave_messages_on_server
     }
@@ -359,7 +380,8 @@ impl Pop3Config {
         }
     }
 
-    /// The interval in which the server will allow a check for new messages. Not supported on all servers.
+    /// The interval in which the server will allow a check for new
+    /// messages. Not supported on all servers.
     pub fn check_interval(&self) -> Option<Duration> {
         match self.check_interval.as_ref() {
             Some(interval) => {
@@ -374,12 +396,12 @@ impl Pop3Config {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 struct CheckInterval {
     minutes: Option<u64>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 pub struct Documentation {
     url: String,
     #[serde(rename = "$value")]
@@ -398,7 +420,7 @@ impl Documentation {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 pub struct DocumentationDescription {
     lang: Option<String>,
     #[serde(rename = "$value")]

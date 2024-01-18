@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `account::discover` module to help lib consumers to detect automatically IMAP and SMTP settings.
+
 ## [0.20.1] - 2024-01-12
 
 ### Fixed

@@ -1,13 +1,7 @@
-//! # Account config discovery
+//! # Account DNS discovery
 //!
-//! This module contains everything needed to discover account
-//! configuration from a simple email address, based on the
-//! Thunderbird [Autoconfiguration] standard.
-//!
-//! *NOTE: only IMAP and SMTP configurations can be discovered by this
-//! module.*
-//!
-//! [Autoconfiguration]: https://udn.realityripple.com/docs/Mozilla/Thunderbird/Autoconfiguration#Mechanisms
+//! This module contains everything needed to discover account using
+//! DNS records.
 
 use hickory_resolver::{
     proto::rr::rdata::{MX, SRV},
@@ -22,10 +16,11 @@ use thiserror::Error;
 
 use crate::Result;
 
-static TXT_RECORD_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^mailconf=(https://\S+)$").unwrap());
+/// Regular expression used to extract the URI of a mailconf TXT
+/// record.
+static MAILCONF_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^mailconf=(https://\S+)$").unwrap());
 
-/// Errors related to PGP encryption.
+/// Errors related to account DNS discovery.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot find any MX record at {0}")]
@@ -36,12 +31,17 @@ pub enum Error {
     GetSrvRecordNotFoundError(String),
 }
 
-pub struct Dns {
-    resolver: TokioAsyncResolver,
-}
-
+/// Sortable wrapper around a MX record.
+///
+/// This wrapper allows MX records to be sorted by preference.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct MxRecord(MX);
+
+impl MxRecord {
+    pub fn new(record: MX) -> Self {
+        Self(record)
+    }
+}
 
 impl Deref for MxRecord {
     type Target = MX;
@@ -63,12 +63,10 @@ impl PartialOrd for MxRecord {
     }
 }
 
-impl MxRecord {
-    pub fn new(record: MX) -> Self {
-        Self(record)
-    }
-}
-
+/// Sortable wrapper around a SRV record.
+///
+/// This wrapper allows MX records to be sorted by priority then
+/// weight.
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct SrvRecord(SRV);
 
@@ -112,18 +110,31 @@ impl PartialOrd for SrvRecord {
     }
 }
 
-impl Dns {
-    pub async fn new() -> Result<Self> {
+/// Simple DNS client using the tokio async resolver.
+pub struct DnsClient {
+    resolver: TokioAsyncResolver,
+}
+
+impl DnsClient {
+    /// Create a new DNS client using defaults.
+    pub fn new() -> Self {
         let resolver = TokioAsyncResolver::tokio(Default::default(), Default::default());
-        let dns = Self { resolver };
-        Ok(dns)
+        Self { resolver }
     }
 
+    /// Get the first mailconf URI of MX records from the given
+    /// domain.
+    ///
+    /// First, find the MX exchange domain associated to the given
+    /// domain, then find the TXT mailconf URI associated to this MX
+    /// exchange domain.
     pub async fn get_mailconf_mx_uri(&self, domain: &str) -> Result<Uri> {
         let domain = self.get_mx_domain(domain).await?;
         self.get_mailconf_txt_uri(&domain).await
     }
 
+    /// Get the first mailconf URI of TXT records from the given
+    /// domain.
     pub async fn get_mailconf_txt_uri(&self, domain: &str) -> Result<Uri> {
         let records: Vec<String> = self
             .resolver
@@ -139,7 +150,7 @@ impl Dns {
         let uri = records
             .into_iter()
             .find_map(|record| {
-                TXT_RECORD_REGEX
+                MAILCONF_REGEX
                     .captures(&record)
                     .and_then(|captures| captures.get(1))
                     .and_then(|capture| capture.as_str().parse::<Uri>().ok())
@@ -151,6 +162,7 @@ impl Dns {
         Ok(uri)
     }
 
+    /// Get the first MX exchange domain from a given domain.
     async fn get_mx_domain(&self, domain: &str) -> Result<String> {
         let mut records: Vec<MxRecord> = self
             .resolver
@@ -177,6 +189,7 @@ impl Dns {
         Ok(exchange)
     }
 
+    /// Get the first SRV record from a given domain and subdomain.
     async fn get_srv(&self, domain: &str, subdomain: &str) -> Result<SRV> {
         let domain = format!("_{subdomain}._tcp.{domain}");
 
@@ -205,14 +218,17 @@ impl Dns {
         Ok(record)
     }
 
+    /// Get the first IMAP SRV record from a given domain.
     pub async fn get_imap_srv(&self, domain: &str) -> Result<SRV> {
         self.get_srv(domain, "imap").await
     }
 
+    /// Get the first IMAPS SRV record from a given domain.
     pub async fn get_imaps_srv(&self, domain: &str) -> Result<SRV> {
         self.get_srv(domain, "imaps").await
     }
 
+    /// Get the first SMTP(S) SRV record from a given domain.
     pub async fn get_submission_srv(&self, domain: &str) -> Result<SRV> {
         self.get_srv(domain, "submission").await
     }
