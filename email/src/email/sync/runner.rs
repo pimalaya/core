@@ -45,7 +45,10 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
         local: &Backend<MaildirSessionSync>,
         remote: &Backend<B::Context>,
         hunk: &EmailSyncHunk,
-    ) -> Result<EmailSyncCachePatch> {
+    ) -> Result<EmailSyncCachePatch>
+    where
+        B::Context: Send,
+    {
         let cache_hunks = match hunk {
             EmailSyncHunk::GetThenCache(folder, id, Destination::Local) => {
                 let envelope = local.get_envelope(&folder, &Id::single(id)).await?;

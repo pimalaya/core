@@ -124,7 +124,7 @@ impl ImapSessionBuilder {
 
 #[async_trait]
 impl BackendContextBuilder for ImapSessionBuilder {
-    type Context = ImapSessionSync;
+    type Context = ImapSession;
 
     /// Build an IMAP sync session.
     ///
@@ -157,14 +157,10 @@ impl BackendContextBuilder for ImapSessionBuilder {
             }
         }?;
 
-        Ok(ImapSessionSync {
-            account_config: self.account_config.clone(),
-            imap_config: self.imap_config.clone(),
-            session: Arc::new(Mutex::new(ImapSession {
-                account_config: self.account_config,
-                imap_config: self.imap_config,
-                session,
-            })),
+        Ok(ImapSession {
+            account_config: self.account_config,
+            imap_config: self.imap_config,
+            session,
         })
     }
 }

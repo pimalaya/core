@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirSessionSync, Result};
+use crate::{envelope::Id, maildir::MaildirSession, Result};
 
 use super::{Flags, RemoveFlags};
 
@@ -14,11 +14,11 @@ pub enum Error {
 
 #[derive(Clone)]
 pub struct RemoveFlagsMaildir {
-    session: MaildirSessionSync,
+    session: MaildirSession,
 }
 
 impl RemoveFlagsMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn RemoveFlags>> {
+    pub fn new(session: &MaildirSession) -> Option<Box<dyn RemoveFlags>> {
         let session = session.clone();
         Some(Box::new(Self { session }))
     }

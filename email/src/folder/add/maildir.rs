@@ -14,29 +14,28 @@ use super::AddFolder;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("maildir: cannot get subfolder from {1}")]
-    GetSubfolderError(#[source] maildirpp::Error, PathBuf),
-    #[error("maildir: cannot parse subfolder {1} from {0}")]
-    ParseSubfolderError(PathBuf, PathBuf),
-    #[error("cannot create maildir {1} folder structure")]
-    InitFolderError(#[source] maildirpp::Error, PathBuf),
+    #[error("cannot create maildir folder structure at {1}")]
+    CreateFolderStructureError(#[source] maildirpp::Error, PathBuf),
 }
 
-pub struct AddFolderMaildir {
+pub struct AddMaildirFolder {
     session: MaildirSessionSync,
 }
 
-impl AddFolderMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn AddFolder>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl AddMaildirFolder {
+    pub fn new(session: MaildirSessionSync) -> Self {
+        Self { session }
+    }
+
+    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn AddFolder> {
+        Box::new(Self::new(session))
     }
 }
 
 #[async_trait]
-impl AddFolder for AddFolderMaildir {
+impl AddFolder for AddMaildirFolder {
     async fn add_folder(&self, folder: &str) -> Result<()> {
-        info!("adding folder {folder}");
+        info!("adding maildir folder {folder}");
 
         let session = self.session.lock().await;
         let config = &session.account_config;
@@ -51,7 +50,7 @@ impl AddFolder for AddFolderMaildir {
 
         Maildir::from(path.clone())
             .create_dirs()
-            .map_err(|err| Error::InitFolderError(err, path))?;
+            .map_err(|err| Error::CreateFolderStructureError(err, path))?;
 
         Ok(())
     }

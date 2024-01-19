@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::{
     envelope::{Envelope, Envelopes},
-    maildir::MaildirSessionSync,
+    maildir::MaildirSession,
     Result,
 };
 
@@ -23,11 +23,11 @@ pub enum Error {
 }
 
 pub struct WatchMaildirEnvelopes {
-    session: MaildirSessionSync,
+    session: MaildirSession,
 }
 
 impl WatchMaildirEnvelopes {
-    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn WatchEnvelopes>> {
+    pub fn new(session: &MaildirSession) -> Option<Box<dyn WatchEnvelopes>> {
         let session = session.clone();
         Some(Box::new(Self { session }))
     }

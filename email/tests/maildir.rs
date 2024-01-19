@@ -8,7 +8,7 @@ use email::{
         set::maildir::SetFlagsMaildir, Flag,
     },
     folder::{
-        add::maildir::AddFolderMaildir, config::FolderConfig, delete::maildir::DeleteFolderMaildir,
+        add::maildir::AddMaildirFolder, config::FolderConfig, delete::maildir::DeleteFolderMaildir,
         expunge::maildir::ExpungeFolderMaildir, list::maildir::ListFoldersMaildir,
     },
     maildir::{config::MaildirConfig, MaildirSessionBuilder},
@@ -63,7 +63,7 @@ async fn test_maildir_features() {
     };
     let backend_ctx = MaildirSessionBuilder::new(config.clone(), mdir_config);
     let backend_builder = BackendBuilder::new(config.clone(), backend_ctx)
-        .with_add_folder(AddFolderMaildir::new)
+        .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx)))
         .with_list_folders(ListFoldersMaildir::new)
         .with_expunge_folder(ExpungeFolderMaildir::new)
         .with_delete_folder(DeleteFolderMaildir::new)
@@ -84,7 +84,7 @@ async fn test_maildir_features() {
     };
     let backend_ctx = MaildirSessionBuilder::new(config.clone(), mdir_config);
     let backend_builder = BackendBuilder::new(config.clone(), backend_ctx)
-        .with_add_folder(AddFolderMaildir::new)
+        .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx)))
         .with_list_folders(ListFoldersMaildir::new)
         .with_expunge_folder(ExpungeFolderMaildir::new)
         .with_delete_folder(DeleteFolderMaildir::new)

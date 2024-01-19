@@ -20,9 +20,12 @@ pub struct ExpungeFolderMaildir {
 }
 
 impl ExpungeFolderMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn ExpungeFolder>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+    pub fn new(session: MaildirSessionSync) -> Self {
+        Self { session }
+    }
+
+    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn ExpungeFolder> {
+        Box::new(Self::new(session))
     }
 }
 

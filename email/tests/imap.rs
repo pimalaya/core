@@ -47,7 +47,7 @@ async fn test_imap_features() {
         .await
         .unwrap();
     let backend_builder = BackendBuilder::new(account_config.clone(), imap_ctx)
-        .with_add_folder(AddFolderImap::new)
+        .with_add_folder(|ctx| Some(AddFolderImap::new(ctx)))
         .with_list_folders(ListFoldersImap::new)
         .with_expunge_folder(ExpungeFolderImap::new)
         .with_purge_folder(PurgeFolderImap::new)

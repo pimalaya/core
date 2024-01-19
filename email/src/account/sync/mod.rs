@@ -17,6 +17,7 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
+use tokio::sync::Mutex;
 
 use crate::{
     account::config::AccountConfig,
@@ -28,7 +29,7 @@ use crate::{
     envelope::{get::maildir::GetEnvelopeMaildir, list::maildir::ListEnvelopesMaildir},
     flag::{add::maildir::AddFlagsMaildir, set::maildir::SetFlagsMaildir},
     folder::{
-        add::maildir::AddFolderMaildir,
+        add::maildir::AddMaildirFolder,
         delete::maildir::DeleteFolderMaildir,
         expunge::maildir::ExpungeFolderMaildir,
         list::maildir::ListFoldersMaildir,
@@ -37,7 +38,7 @@ use crate::{
             FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy, FoldersName,
         },
     },
-    maildir::{config::MaildirConfig, MaildirSessionBuilder, MaildirSessionSync},
+    maildir::{config::MaildirConfig, MaildirSession, MaildirSessionBuilder},
     message::{
         add::maildir::AddMaildirMessage, move_::maildir::MoveMessagesMaildir,
         peek::maildir::PeekMessagesMaildir,
@@ -441,22 +442,22 @@ impl LocalBackendBuilder {
     pub fn new(account_config: AccountConfig, maildir_config: MaildirConfig) -> Self {
         let session_builder = MaildirSessionBuilder::new(account_config.clone(), maildir_config);
         let backend_builder = BackendBuilder::new(account_config, session_builder)
-            .with_add_folder(AddFolderMaildir::new)
-            .with_list_folders(ListFoldersMaildir::new)
-            .with_expunge_folder(ExpungeFolderMaildir::new)
-            .with_delete_folder(DeleteFolderMaildir::new)
-            .with_get_envelope(GetEnvelopeMaildir::new)
-            .with_list_envelopes(ListEnvelopesMaildir::new)
-            .with_add_flags(AddFlagsMaildir::new)
-            .with_set_flags(SetFlagsMaildir::new)
-            .with_add_message(AddMaildirMessage::new)
-            .with_peek_messages(PeekMessagesMaildir::new)
-            .with_move_messages(MoveMessagesMaildir::new);
+            .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx.clone())))
+            .with_list_folders(|ctx| Some(ListFoldersMaildir::new_boxed(ctx.clone())))
+            .with_expunge_folder(|ctx| Some(ExpungeFolderMaildir::new_boxed(ctx.clone())))
+            .with_delete_folder(|ctx| Some(DeleteFolderMaildir::new_boxed(ctx.clone())))
+            .with_get_envelope(|ctx| Some(GetEnvelopeMaildir::new_boxed(ctx.clone())))
+            .with_list_envelopes(|ctx| Some(ListEnvelopesMaildir::new_boxed(ctx.clone())))
+            .with_add_flags(|ctx| Some(AddFlagsMaildir::new_boxed(ctx.clone())))
+            .with_set_flags(|ctx| Some(SetFlagsMaildir::new_boxed(ctx.clone())))
+            .with_add_message(|ctx| Some(AddMaildirMessage::new_boxed(ctx.clone())))
+            .with_peek_messages(|ctx| Some(PeekMessagesMaildir::new_boxed(ctx.clone())))
+            .with_move_messages(|ctx| Some(MoveMessagesMaildir::new_boxed(ctx.clone())));
 
         Self(backend_builder)
     }
 
-    pub async fn build(self) -> Result<Backend<MaildirSessionSync>> {
+    pub async fn build(self) -> Result<Backend<Arc<Mutex<MaildirSession>>>> {
         self.0.build().await
     }
 }

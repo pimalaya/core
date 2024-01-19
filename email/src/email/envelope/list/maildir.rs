@@ -1,8 +1,13 @@
 use async_trait::async_trait;
 use log::{debug, info};
+use std::sync::Arc;
 use thiserror::Error;
+use tokio::sync::Mutex;
 
-use crate::{maildir::MaildirSessionSync, Result};
+use crate::{
+    maildir::{MaildirSession, MaildirSessionSync},
+    Result,
+};
 
 use super::{Envelopes, ListEnvelopes};
 
@@ -14,13 +19,16 @@ pub enum Error {
 
 #[derive(Clone)]
 pub struct ListEnvelopesMaildir {
-    session: MaildirSessionSync,
+    session: Arc<Mutex<MaildirSession>>,
 }
 
 impl ListEnvelopesMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn ListEnvelopes>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+    pub fn new(session: MaildirSessionSync) -> Self {
+        Self { session }
+    }
+
+    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn ListEnvelopes> {
+        Box::new(Self::new(session))
     }
 }
 

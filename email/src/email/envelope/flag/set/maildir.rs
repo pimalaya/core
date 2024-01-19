@@ -4,9 +4,7 @@ use thiserror::Error;
 
 use crate::{envelope::Id, maildir::MaildirSessionSync, Result};
 
-use super::Flags;
-
-use super::SetFlags;
+use super::{Flags, SetFlags};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -20,9 +18,12 @@ pub struct SetFlagsMaildir {
 }
 
 impl SetFlagsMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn SetFlags>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+    pub fn new(session: MaildirSessionSync) -> Self {
+        Self { session }
+    }
+
+    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn SetFlags> {
+        Box::new(Self::new(session))
     }
 }
 

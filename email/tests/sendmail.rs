@@ -1,22 +1,21 @@
-#[cfg(feature = "sendmail")]
+use email::{
+    account::config::{passwd::PasswdConfig, AccountConfig},
+    backend::BackendBuilder,
+    envelope::list::imap::ListEnvelopesImap,
+    folder::purge::imap::PurgeFolderImap,
+    imap::{
+        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
+        ImapSessionBuilder,
+    },
+    message::send::sendmail::SendMessageSendmail,
+    sendmail::{config::SendmailConfig, SendmailContext},
+};
+use mail_builder::MessageBuilder;
+use secret::Secret;
+use std::time::Duration;
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_sendmail_features() {
-    use email::{
-        account::config::{passwd::PasswdConfig, AccountConfig},
-        backend::BackendBuilder,
-        envelope::list::imap::ListEnvelopesImap,
-        folder::purge::imap::PurgeFolderImap,
-        imap::{
-            config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-            ImapSessionBuilder,
-        },
-        message::send::sendmail::SendMessageSendmail,
-        sendmail::{config::SendmailConfig, SendmailContext},
-    };
-    use mail_builder::MessageBuilder;
-    use secret::Secret;
-    use std::time::Duration;
-
     env_logger::builder().is_test(true).init();
 
     let account_config = AccountConfig::default();

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirSessionSync, Result};
+use crate::{envelope::Id, maildir::MaildirSession, Result};
 
 use super::CopyMessages;
 
@@ -14,11 +14,11 @@ pub enum Error {
 
 #[derive(Clone)]
 pub struct CopyMessagesMaildir {
-    session: MaildirSessionSync,
+    session: MaildirSession,
 }
 
 impl CopyMessagesMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn CopyMessages>> {
+    pub fn new(session: &MaildirSession) -> Option<Box<dyn CopyMessages>> {
         let session = session.clone();
         Some(Box::new(Self { session }))
     }

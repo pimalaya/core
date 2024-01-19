@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 use log::{debug, info};
+use std::sync::Arc;
 use thiserror::Error;
+use tokio::sync::Mutex;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapSessionSync, Result};
+use crate::{imap::ImapSession, Result};
 
 use super::AddFolder;
 
@@ -15,20 +17,23 @@ pub enum Error {
 
 #[derive(Clone, Debug)]
 pub struct AddFolderImap {
-    session: ImapSessionSync,
+    session: Arc<Mutex<ImapSession>>,
 }
 
 impl AddFolderImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn AddFolder>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+    pub fn new(session: Arc<Mutex<ImapSession>>) -> Self {
+        Self { session }
+    }
+
+    pub fn new_boxed(session: Arc<Mutex<ImapSession>>) -> Box<dyn AddFolder> {
+        Box::new(Self::new(session))
     }
 }
 
 #[async_trait]
 impl AddFolder for AddFolderImap {
     async fn add_folder(&self, folder: &str) -> Result<()> {
-        info!("imap: creating folder {folder}");
+        info!("creating imap folder {folder}");
 
         let mut session = self.session.lock().await;
         let config = &session.account_config;

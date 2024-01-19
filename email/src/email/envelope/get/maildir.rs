@@ -19,9 +19,12 @@ pub struct GetEnvelopeMaildir {
 }
 
 impl GetEnvelopeMaildir {
-    pub fn new(session: &MaildirSessionSync) -> Option<Box<dyn GetEnvelope>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+    pub fn new(session: MaildirSessionSync) -> Self {
+        Self { session }
+    }
+
+    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn GetEnvelope> {
+        Box::new(Self::new(session))
     }
 }
 

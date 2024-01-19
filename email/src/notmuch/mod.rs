@@ -1,7 +1,137 @@
-mod config;
+pub mod config;
 
-#[doc(inline)]
-pub use self::config::NotmuchConfig;
+use async_trait::async_trait;
+use log::info;
+use notmuch::{Database, DatabaseMode};
+use shellexpand_utils::shellexpand_path;
+use std::{ops::Deref, path::PathBuf, sync::Arc};
+use thiserror::Error;
+use tokio::sync::Mutex;
+
+use crate::{account::config::AccountConfig, backend::BackendContextBuilder, Result};
+
+use self::config::NotmuchConfig;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("cannot open notmuch database at {1}")]
+    OpenNotmuchDatabaseError(#[source] notmuch::Error, PathBuf),
+}
+
+/// The Notmuch session builder.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct NotmuchContextBuilder {
+    /// The account configuration.
+    pub account_config: AccountConfig,
+
+    /// The Notmuch configuration.
+    pub notmuch_config: NotmuchConfig,
+}
+
+impl NotmuchContextBuilder {
+    pub fn new(account_config: AccountConfig, notmuch_config: NotmuchConfig) -> Self {
+        Self {
+            account_config,
+            notmuch_config,
+        }
+    }
+}
+
+#[async_trait]
+impl BackendContextBuilder for NotmuchContextBuilder {
+    type Context = NotmuchDatabase;
+
+    /// Build a Notmuch context.
+    ///
+    /// The Notmuch database is opened at this moment.
+    async fn build(self) -> Result<Self::Context> {
+        info!("building new notmuch database");
+
+        let path = shellexpand_path(&self.notmuch_config.db_path);
+
+        let db = NotmuchDatabase {
+            account_config: self.account_config.clone(),
+            notmuch_config: self.notmuch_config.clone(),
+            db: Database::open_with_config(
+                Some(&path),
+                DatabaseMode::ReadWrite,
+                None::<PathBuf>,
+                None,
+            )
+            .map_err(|err| Error::OpenNotmuchDatabaseError(err, path.clone()))?,
+        };
+
+        Ok(NotmuchDatabaseSync {
+            account_config: self.account_config,
+            notmuch_config: self.notmuch_config,
+            db: Arc::new(Mutex::new(db)),
+        })
+    }
+}
+
+/// The Notmuch database.
+///
+/// This database is unsync, which means it cannot be shared between
+/// threads. For the sync version, see [`NotmuchDatabaseSync`].
+pub struct NotmuchDatabase {
+    /// The account configuration.
+    pub account_config: AccountConfig,
+
+    /// The Notmuch configuration.
+    pub notmuch_config: NotmuchConfig,
+
+    /// The current Notmuch database.
+    db: Database,
+}
+
+impl Deref for NotmuchDatabase {
+    type Target = Database;
+
+    fn deref(&self) -> &Self::Target {
+        &self.db
+    }
+}
+
+/// The sync version of the Notmuch database.
+///
+/// This is just a Notmuch database wrapped into a mutex, so the same
+/// Notmuch database can be shared and updated across multiple
+/// threads.
+#[derive(Clone)]
+pub struct NotmuchDatabaseSync {
+    /// The account configuration.
+    pub account_config: AccountConfig,
+
+    /// The Notmuch configuration.
+    pub notmuch_config: NotmuchConfig,
+
+    /// The Notmuch database wrapped into a mutex.
+    db: Arc<Mutex<NotmuchDatabase>>,
+}
+
+impl NotmuchDatabaseSync {
+    /// Create a new synchronized Notmuch database from an Notmuch
+    /// database.
+    pub fn new(
+        account_config: AccountConfig,
+        notmuch_config: NotmuchConfig,
+        db: NotmuchDatabase,
+    ) -> Self {
+        Self {
+            account_config,
+            notmuch_config,
+            db: Arc::new(Mutex::new(db)),
+        }
+    }
+}
+
+impl Deref for NotmuchDatabaseSync {
+    type Target = Mutex<NotmuchDatabase>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.db
+    }
+}
 
 // const EXTRACT_FOLDER_FROM_QUERY: Lazy<Regex> =
 //     Lazy::new(|| Regex::new("folder:\"?([^\"]*)\"?").unwrap());

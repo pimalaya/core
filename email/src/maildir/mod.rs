@@ -62,6 +62,7 @@ impl BackendContextBuilder for MaildirSessionBuilder {
         info!("building new maildir session");
 
         let path = shellexpand_path(&self.maildir_config.root_dir);
+
         let session = MaildirSession {
             account_config: self.account_config.clone(),
             maildir_config: self.maildir_config.clone(),
@@ -70,11 +71,7 @@ impl BackendContextBuilder for MaildirSessionBuilder {
 
         session.create_dirs()?;
 
-        Ok(MaildirSessionSync {
-            account_config: self.account_config,
-            maildir_config: self.maildir_config,
-            session: Arc::new(Mutex::new(session)),
-        })
+        Ok(Arc::new(Mutex::new(session)))
     }
 }
 
@@ -154,40 +151,7 @@ impl MaildirSession {
 ///
 /// This is just a Maildir session wrapped into a mutex, so the same
 /// Maildir session can be shared and updated across multiple threads.
-#[derive(Clone)]
-pub struct MaildirSessionSync {
-    /// The account configuration.
-    pub account_config: AccountConfig,
-
-    /// The MAILDIR configuration.
-    pub maildir_config: MaildirConfig,
-
-    /// The MAILDIR session wrapped into a mutex.
-    session: Arc<Mutex<MaildirSession>>,
-}
-
-impl MaildirSessionSync {
-    /// Create a new MAILDIR sync session from an MAILDIR session.
-    pub fn new(
-        account_config: AccountConfig,
-        maildir_config: MaildirConfig,
-        session: MaildirSession,
-    ) -> Self {
-        Self {
-            account_config,
-            maildir_config,
-            session: Arc::new(Mutex::new(session)),
-        }
-    }
-}
-
-impl Deref for MaildirSessionSync {
-    type Target = Mutex<MaildirSession>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.session
-    }
-}
+pub type MaildirSessionSync = Arc<Mutex<MaildirSession>>;
 
 /// URL-encodes the given folder. The aim is to avoid naming
 /// issues due to special characters.
