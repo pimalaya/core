@@ -1,16 +1,16 @@
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::BackendBuilder,
-    envelope::list::imap::ListEnvelopesImap,
-    folder::{purge::imap::PurgeFolderImap, INBOX},
+    envelope::list::imap::ListImapEnvelopes,
+    folder::{purge::imap::PurgeImapFolder, INBOX},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapSessionBuilder,
+        ImapContextBuilder,
     },
-    message::send::smtp::SendMessageSmtp,
+    message::send::smtp::SendSmtpMessage,
     smtp::{
         config::{SmtpAuthConfig, SmtpConfig, SmtpEncryptionKind},
-        SmtpClientBuilder,
+        SmtpContextBuilder,
     },
 };
 use mail_builder::MessageBuilder;
@@ -39,12 +39,12 @@ async fn test_smtp_features() {
         ..Default::default()
     };
 
-    let imap_ctx = ImapSessionBuilder::new(account_config.clone(), imap_config);
-    let smtp_ctx = SmtpClientBuilder::new(account_config.clone(), smtp_config);
+    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
+    let smtp_ctx = SmtpContextBuilder::new(account_config.clone(), smtp_config);
     let backend_builder = BackendBuilder::new(account_config.clone(), (imap_ctx, smtp_ctx))
-        .with_purge_folder(|ctx| PurgeFolderImap::new(&ctx.0))
-        .with_list_envelopes(|ctx| ListEnvelopesImap::new(&ctx.0))
-        .with_send_message(|ctx| SendMessageSmtp::new(&ctx.1));
+        .with_purge_folder(|ctx| Some(PurgeImapFolder::new_boxed(ctx.0.clone())))
+        .with_list_envelopes(|ctx| Some(ListImapEnvelopes::new_boxed(ctx.0.clone())))
+        .with_send_message(|ctx| Some(SendSmtpMessage::new_boxed(ctx.1.clone())));
     let backend = backend_builder.build().await.unwrap();
 
     // setting up folders

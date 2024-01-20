@@ -8,7 +8,7 @@ use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{
     envelope::{list::imap::LIST_ENVELOPES_QUERY, Envelope, Envelopes},
-    imap::ImapSessionSync,
+    imap::ImapContextSync,
     Result,
 };
 
@@ -18,45 +18,48 @@ use super::WatchEnvelopes;
 pub enum Error {
     #[error("cannot examine imap folder {1}")]
     ExamineFolderError(#[source] imap::Error, String),
-    #[error("cannot create imap folder {1}")]
-    CreateFolderError(#[source] imap::Error, String),
-    #[error("cannot run idle mode")]
+    #[error("cannot run imap idle mode")]
     RunIdleModeError(#[source] imap::Error),
-    #[error("cannot list all envelopes of folder {1}")]
+    #[error("cannot list all imap envelopes of folder {1}")]
     ListAllEnvelopesError(#[source] imap::Error, String),
 }
 
 #[derive(Clone, Debug)]
 pub struct WatchImapEnvelopes {
-    ctx: ImapSessionSync,
+    ctx: ImapContextSync,
 }
 
 impl WatchImapEnvelopes {
-    pub fn new(ctx: &ImapSessionSync) -> Option<Box<dyn WatchEnvelopes>> {
-        let ctx = ctx.clone();
-        Some(Box::new(Self { ctx }))
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn WatchEnvelopes> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
 impl WatchEnvelopes for WatchImapEnvelopes {
     async fn watch_envelopes(&self, folder: &str) -> Result<()> {
-        info!("imap: watching folder {folder} for email changes");
+        info!("watching imap folder {folder} for envelope changes");
 
+        let config = &self.ctx.account_config;
+        let timeout = &self.ctx.imap_config.find_watch_timeout();
         let mut ctx = self.ctx.lock().await;
 
-        let folder = ctx.account_config.get_folder_alias(folder);
+        let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        ctx.execute(
+        ctx.exec(
             |session| session.examine(&folder_encoded),
             |err| Error::ExamineFolderError(err, folder.clone()).into(),
         )
         .await?;
 
         let fetches = ctx
-            .execute(
+            .exec(
                 |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
                 |err| Error::ListAllEnvelopesError(err, folder.clone()).into(),
             )
@@ -66,16 +69,15 @@ impl WatchEnvelopes for WatchImapEnvelopes {
             HashMap::from_iter(envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
         let (tx, mut rx) = mpsc::channel(1);
-        let timeout = ctx.imap_config.find_watch_timeout();
 
         debug!("watching imap folder {folder:?}…");
-        ctx.execute(
+        ctx.exec(
             |session| {
                 let mut idle = session.idle();
 
                 if let Some(secs) = timeout {
                     debug!("setting imap idle timeout option at {secs}secs");
-                    idle.timeout(Duration::new(secs, 0));
+                    idle.timeout(Duration::new(*secs, 0));
                 }
 
                 idle.wait_while(|res| {
@@ -96,7 +98,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
 
         while let Some(()) = rx.recv().await {
             let fetches = ctx
-                .execute(
+                .exec(
                     |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
                     |err| Error::ListAllEnvelopesError(err, folder.clone()).into(),
                 )
@@ -105,8 +107,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
             let next_envelopes: HashMap<String, Envelope> =
                 HashMap::from_iter(next_envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
-            self.exec_hooks(&ctx.account_config, &envelopes, &next_envelopes)
-                .await;
+            self.exec_hooks(config, &envelopes, &next_envelopes).await;
 
             envelopes = next_envelopes;
         }

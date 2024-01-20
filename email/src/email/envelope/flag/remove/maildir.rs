@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirSession, Result};
+use crate::{envelope::Id, maildir::MaildirContextSync, Result};
 
 use super::{Flags, RemoveFlags};
 
@@ -13,24 +13,27 @@ pub enum Error {
 }
 
 #[derive(Clone)]
-pub struct RemoveFlagsMaildir {
-    session: MaildirSession,
+pub struct RemoveMaildirFlags {
+    ctx: MaildirContextSync,
 }
 
-impl RemoveFlagsMaildir {
-    pub fn new(session: &MaildirSession) -> Option<Box<dyn RemoveFlags>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl RemoveMaildirFlags {
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn RemoveFlags> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl RemoveFlags for RemoveFlagsMaildir {
+impl RemoveFlags for RemoveMaildirFlags {
     async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
-        info!("maildir: removing flag(s) {flags} to envelope {id} from folder {folder}");
+        info!("removing maildir flag(s) {flags} to envelope {id} from folder {folder}");
 
-        let session = self.session.lock().await;
-        let mdir = session.get_maildir_from_folder_name(folder)?;
+        let ctx = self.ctx.lock().await;
+        let mdir = ctx.get_maildir_from_folder_name(folder)?;
 
         id.iter().try_for_each(|ref id| {
             mdir.remove_flags(id, &flags.to_mdir_string())

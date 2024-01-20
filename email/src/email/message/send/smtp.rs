@@ -1,29 +1,32 @@
 use async_trait::async_trait;
 use log::info;
 
-use crate::{smtp::SmtpClientSync, Result};
+use crate::{smtp::SmtpContextSync, Result};
 
 use super::SendMessage;
 
 #[derive(Clone)]
-pub struct SendMessageSmtp {
-    client: SmtpClientSync,
+pub struct SendSmtpMessage {
+    ctx: SmtpContextSync,
 }
 
-impl SendMessageSmtp {
-    pub fn new(client: &SmtpClientSync) -> Option<Box<dyn SendMessage>> {
-        let client = client.clone();
-        Some(Box::new(Self { client }))
+impl SendSmtpMessage {
+    pub fn new(ctx: impl Into<SmtpContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<SmtpContextSync>) -> Box<dyn SendMessage> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl SendMessage for SendMessageSmtp {
-    async fn send_message(&self, raw_msg: &[u8]) -> Result<()> {
-        info!("sending raw smtp message");
+impl SendMessage for SendSmtpMessage {
+    async fn send_message(&self, msg: &[u8]) -> Result<()> {
+        info!("sending smtp message");
 
-        let mut client = self.client.lock().await;
-        client.send(raw_msg).await?;
+        let mut ctx = self.ctx.lock().await;
+        ctx.send(msg).await?;
 
         Ok(())
     }

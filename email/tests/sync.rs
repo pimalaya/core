@@ -5,21 +5,21 @@ use email::{
     },
     backend::BackendBuilder,
     email::sync::EmailSyncCache,
-    envelope::{get::imap::GetEnvelopeImap, list::imap::ListEnvelopesImap, Id},
-    flag::{add::imap::AddFlagsImap, set::imap::SetFlagsImap, Flag, Flags},
+    envelope::{get::imap::GetImapEnvelope, list::imap::ListImapEnvelopes, Id},
+    flag::{add::imap::AddImapFlags, set::imap::SetImapFlags, Flag, Flags},
     folder::{
-        self, add::imap::AddFolderImap, config::FolderConfig, delete::imap::DeleteFolderImap,
-        expunge::imap::ExpungeFolderImap, list::imap::ListFoldersImap,
-        purge::imap::PurgeFolderImap, FolderKind, INBOX, SENT, TRASH,
+        self, add::imap::AddImapFolder, config::FolderConfig, delete::imap::DeleteImapFolder,
+        expunge::imap::ExpungeImapFolder, list::imap::ListImapFolders,
+        purge::imap::PurgeImapFolder, FolderKind, INBOX, SENT, TRASH,
     },
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapSessionBuilder,
+        ImapContextBuilder,
     },
     maildir::config::MaildirConfig,
     message::{
-        add::imap::AddImapMessage, get::imap::GetMessagesImap, move_::imap::MoveMessagesImap,
-        peek::imap::PeekMessagesImap,
+        add::imap::AddImapMessage, get::imap::GetImapMessages, move_::imap::MoveImapMessages,
+        peek::imap::PeekImapMessages,
     },
 };
 use env_logger;
@@ -62,21 +62,21 @@ async fn sync() {
 
     // set up imap
 
-    let imap_ctx = ImapSessionBuilder::new(account_config.clone(), imap_config);
+    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
     let imap_builder = BackendBuilder::new(account_config.clone(), imap_ctx)
-        .with_add_folder(AddFolderImap::new)
-        .with_list_folders(ListFoldersImap::new)
-        .with_expunge_folder(ExpungeFolderImap::new)
-        .with_purge_folder(PurgeFolderImap::new)
-        .with_delete_folder(DeleteFolderImap::new)
-        .with_get_envelope(GetEnvelopeImap::new)
-        .with_list_envelopes(ListEnvelopesImap::new)
-        .with_add_flags(AddFlagsImap::new)
-        .with_set_flags(SetFlagsImap::new)
-        .with_add_message(AddImapMessage::new)
-        .with_peek_messages(PeekMessagesImap::new)
-        .with_get_messages(GetMessagesImap::new)
-        .with_move_messages(MoveMessagesImap::new);
+        .with_add_folder(|ctx| Some(AddImapFolder::new_boxed(ctx.clone())))
+        .with_list_folders(|ctx| Some(ListImapFolders::new_boxed(ctx.clone())))
+        .with_expunge_folder(|ctx| Some(ExpungeImapFolder::new_boxed(ctx.clone())))
+        .with_purge_folder(|ctx| Some(PurgeImapFolder::new_boxed(ctx.clone())))
+        .with_delete_folder(|ctx| Some(DeleteImapFolder::new_boxed(ctx.clone())))
+        .with_get_envelope(|ctx| Some(GetImapEnvelope::new_boxed(ctx.clone())))
+        .with_list_envelopes(|ctx| Some(ListImapEnvelopes::new_boxed(ctx.clone())))
+        .with_add_flags(|ctx| Some(AddImapFlags::new_boxed(ctx.clone())))
+        .with_set_flags(|ctx| Some(SetImapFlags::new_boxed(ctx.clone())))
+        .with_add_message(|ctx| Some(AddImapMessage::new_boxed(ctx.clone())))
+        .with_peek_messages(|ctx| Some(PeekImapMessages::new_boxed(ctx.clone())))
+        .with_get_messages(|ctx| Some(GetImapMessages::new_boxed(ctx.clone())))
+        .with_move_messages(|ctx| Some(MoveImapMessages::new_boxed(ctx.clone())));
     let imap = imap_builder.clone().build().await.unwrap();
 
     // set up maildir reader

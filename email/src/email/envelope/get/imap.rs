@@ -3,7 +3,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::Id, imap::ImapSessionSync, Result};
+use crate::{envelope::Id, imap::ImapContextSync, Result};
 
 use super::{Envelope, GetEnvelope};
 
@@ -19,42 +19,45 @@ pub enum Error {
     SelectFolderError(#[source] imap::Error, String),
     #[error("cannot fetch imap envelopes {2} from folder {1}")]
     FetchEnvolpesError(#[source] imap::Error, String, Id),
-    #[error("cannot find envelope {1} from folder {0}")]
+    #[error("cannot find imap envelope {1} from folder {0}")]
     GetFirstEnvelopeError(String, Id),
 }
 
 #[derive(Clone, Debug)]
-pub struct GetEnvelopeImap {
-    session: ImapSessionSync,
+pub struct GetImapEnvelope {
+    ctx: ImapContextSync,
 }
 
-impl GetEnvelopeImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn GetEnvelope>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl GetImapEnvelope {
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn GetEnvelope> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl GetEnvelope for GetEnvelopeImap {
+impl GetEnvelope for GetImapEnvelope {
     async fn get_envelope(&self, folder: &str, id: &Id) -> Result<Envelope> {
         info!("getting imap envelope {id} from folder {folder}");
 
-        let mut session = self.session.lock().await;
+        let mut ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
-        let folder = session.account_config.get_folder_alias(folder);
+        let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        session
-            .execute(
-                |session| session.select(&folder_encoded),
-                |err| Error::SelectFolderError(err, folder.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| session.select(&folder_encoded),
+            |err| Error::SelectFolderError(err, folder.clone()).into(),
+        )
+        .await?;
 
-        let fetches = session
-            .execute(
+        let fetches = ctx
+            .exec(
                 |session| session.uid_fetch(id.to_string(), ENVELOPE_QUERY),
                 |err| Error::FetchEnvolpesError(err, folder.clone(), id.clone()).into(),
             )

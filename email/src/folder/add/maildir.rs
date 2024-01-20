@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::{
     folder::FolderKind,
-    maildir::{self, MaildirSessionSync},
+    maildir::{self, MaildirContextSync},
     Result,
 };
 
@@ -19,33 +19,33 @@ pub enum Error {
 }
 
 pub struct AddMaildirFolder {
-    session: MaildirSessionSync,
+    ctx: MaildirContextSync,
 }
 
 impl AddMaildirFolder {
-    pub fn new(session: MaildirSessionSync) -> Self {
-        Self { session }
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
     }
 
-    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn AddFolder> {
-        Box::new(Self::new(session))
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn AddFolder> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
 impl AddFolder for AddMaildirFolder {
     async fn add_folder(&self, folder: &str) -> Result<()> {
-        info!("adding maildir folder {folder}");
+        info!("creating maildir folder {folder}");
 
-        let session = self.session.lock().await;
-        let config = &session.account_config;
+        let ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
         let path = if FolderKind::matches_inbox(folder) {
-            session.path().join("cur")
+            ctx.session.path().join("cur")
         } else {
             let folder = config.get_folder_alias(folder);
             let folder = maildir::encode_folder(folder);
-            session.path().join(format!(".{}", folder))
+            ctx.session.path().join(format!(".{}", folder))
         };
 
         Maildir::from(path.clone())

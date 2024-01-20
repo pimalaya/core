@@ -30,6 +30,179 @@ pub enum Error {
     ConnectError(#[source] imap::Error),
 }
 
+/// The IMAP backend context.
+///
+/// This context is unsync, which means it cannot be shared between
+/// threads. For the sync version, see [`ImapContextSync`].
+#[derive(Debug)]
+pub struct ImapContext {
+    /// The account configuration.
+    pub account_config: AccountConfig,
+
+    /// The IMAP configuration.
+    pub imap_config: ImapConfig,
+
+    /// The current IMAP session.
+    session: Session<Box<dyn ImapConnection>>,
+}
+
+impl ImapContext {
+    /// Execute the given action on the current IMAP session.
+    ///
+    /// If an OAuth 2.0 authentication error occurs, the access token
+    /// is refreshed and the action is executed once again.
+    pub async fn exec<T>(
+        &mut self,
+        action: impl Fn(&mut Session<Box<dyn ImapConnection>>) -> imap::Result<T>,
+        map_err: impl Fn(imap::Error) -> anyhow::Error,
+    ) -> Result<T> {
+        match &self.imap_config.auth {
+            ImapAuthConfig::Passwd(_) => Ok(action(&mut self.session).map_err(map_err)?),
+            ImapAuthConfig::OAuth2(oauth2_config) => match action(&mut self.session) {
+                Ok(res) => Ok(res),
+                Err(err) => match err {
+                    imap::Error::Parse(imap::error::ParseError::Authentication(_, _)) => {
+                        debug!("error while authenticating user, refreshing access token");
+                        oauth2_config.refresh_access_token().await?;
+                        self.session = build_session(&self.imap_config, None).await?;
+                        Ok(action(&mut self.session)?)
+                    }
+                    err => Ok(Err(err)?),
+                },
+            },
+        }
+    }
+}
+
+impl Drop for ImapContext {
+    fn drop(&mut self) {
+        // TODO: check if a mailbox is selected before
+        if let Err(err) = self.session.close() {
+            debug!("cannot close imap session: {err}");
+            debug!("{err:?}");
+        }
+
+        if let Err(err) = self.session.logout() {
+            debug!("cannot logout from imap session: {err}");
+            debug!("{err:?}");
+        }
+    }
+}
+
+/// The sync version of the IMAP backend context.
+///
+/// This is just an IMAP session wrapped into a mutex, so the same
+/// IMAP session can be shared and updated across multiple threads.
+#[derive(Debug, Clone)]
+pub struct ImapContextSync {
+    /// The account configuration.
+    pub account_config: AccountConfig,
+
+    /// The IMAP configuration.
+    pub imap_config: ImapConfig,
+
+    /// The current IMAP session.
+    inner: Arc<Mutex<ImapContext>>,
+}
+
+impl Deref for ImapContextSync {
+    type Target = Arc<Mutex<ImapContext>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl From<ImapContext> for ImapContextSync {
+    fn from(ctx: ImapContext) -> Self {
+        Self {
+            account_config: ctx.account_config.clone(),
+            imap_config: ctx.imap_config.clone(),
+            inner: Arc::new(Mutex::new(ctx)),
+        }
+    }
+}
+
+/// The IMAP backend context builder.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct ImapContextBuilder {
+    /// The account configuration.
+    pub account_config: AccountConfig,
+
+    /// The IMAP configuration.
+    pub imap_config: ImapConfig,
+
+    /// The prebuilt IMAP credentials.
+    imap_prebuilt_credentials: Option<String>,
+}
+
+impl ImapContextBuilder {
+    pub fn new(account_config: AccountConfig, imap_config: ImapConfig) -> Self {
+        Self {
+            account_config,
+            imap_config,
+            imap_prebuilt_credentials: None,
+        }
+    }
+
+    pub async fn prebuild_credentials(&mut self) -> Result<()> {
+        self.imap_prebuilt_credentials = Some(self.imap_config.build_credentials().await?);
+        Ok(())
+    }
+
+    pub async fn with_prebuilt_credentials(mut self) -> Result<Self> {
+        self.prebuild_credentials().await?;
+        Ok(self)
+    }
+}
+
+#[async_trait]
+impl BackendContextBuilder for ImapContextBuilder {
+    type Context = ImapContextSync;
+
+    /// Build an IMAP backend context.
+    ///
+    /// The IMAP session is created at this moment. If the session
+    /// cannot be created using the OAuth 2.0 authentication, the
+    /// access token is refreshed first then a new session is created.
+    async fn build(self) -> Result<Self::Context> {
+        info!("building new imap context");
+
+        let creds = self.imap_prebuilt_credentials.as_ref();
+
+        let session = match &self.imap_config.auth {
+            ImapAuthConfig::Passwd(_) => build_session(&self.imap_config, creds).await,
+            ImapAuthConfig::OAuth2(oauth2_config) => {
+                match build_session(&self.imap_config, creds).await {
+                    Ok(sess) => Ok(sess),
+                    Err(err) => {
+                        let downcast_err = err.downcast_ref::<Error>();
+
+                        if let Some(Error::AuthenticateError(imap::Error::Parse(
+                            imap::error::ParseError::Authentication(_, _),
+                        ))) = downcast_err
+                        {
+                            debug!("error while authenticating user, refreshing access token");
+                            let access_token = oauth2_config.refresh_access_token().await?;
+                            build_session(&self.imap_config, Some(&access_token)).await
+                        } else {
+                            Err(err)
+                        }
+                    }
+                }
+            }
+        }?;
+
+        let context = ImapContext {
+            account_config: self.account_config,
+            imap_config: self.imap_config,
+            session,
+        };
+
+        Ok(context.into())
+    }
+}
+
 /// XOAUTH2 IMAP authenticator.
 ///
 /// This struct is needed to implement the [imap::Authenticator]
@@ -86,180 +259,6 @@ impl Authenticator for OAuthBearer {
             "n,a={},\x01host={}\x01port={}\x01auth=Bearer {}\x01\x01",
             self.user, self.host, self.port, self.access_token
         )
-    }
-}
-
-/// The IMAP session builder.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ImapSessionBuilder {
-    /// The account configuration.
-    pub account_config: AccountConfig,
-
-    /// The IMAP configuration.
-    pub imap_config: ImapConfig,
-
-    /// The prebuilt IMAP credentials.
-    imap_prebuilt_credentials: Option<String>,
-}
-
-impl ImapSessionBuilder {
-    pub fn new(account_config: AccountConfig, imap_config: ImapConfig) -> Self {
-        Self {
-            account_config,
-            imap_config,
-            ..Default::default()
-        }
-    }
-
-    pub async fn prebuild_credentials(&mut self) -> Result<()> {
-        self.imap_prebuilt_credentials = Some(self.imap_config.build_credentials().await?);
-        Ok(())
-    }
-
-    pub async fn with_prebuilt_credentials(mut self) -> Result<Self> {
-        self.prebuild_credentials().await?;
-        Ok(self)
-    }
-}
-
-#[async_trait]
-impl BackendContextBuilder for ImapSessionBuilder {
-    type Context = ImapSession;
-
-    /// Build an IMAP sync session.
-    ///
-    /// The IMAP session is created at this moment. If the session
-    /// cannot be created using the OAuth 2.0 authentication, the
-    /// access token is refreshed first then a new session is created.
-    async fn build(self) -> Result<Self::Context> {
-        info!("building new imap session");
-        let creds = self.imap_prebuilt_credentials.as_ref();
-        let session = match &self.imap_config.auth {
-            ImapAuthConfig::Passwd(_) => build_session(&self.imap_config, creds).await,
-            ImapAuthConfig::OAuth2(oauth2_config) => {
-                match build_session(&self.imap_config, creds).await {
-                    Ok(sess) => Ok(sess),
-                    Err(err) => {
-                        let downcast_err = err.downcast_ref::<Error>();
-
-                        if let Some(Error::AuthenticateError(imap::Error::Parse(
-                            imap::error::ParseError::Authentication(_, _),
-                        ))) = downcast_err
-                        {
-                            debug!("error while authenticating user, refreshing access token");
-                            let access_token = oauth2_config.refresh_access_token().await?;
-                            build_session(&self.imap_config, Some(&access_token)).await
-                        } else {
-                            Err(err)
-                        }
-                    }
-                }
-            }
-        }?;
-
-        Ok(ImapSession {
-            account_config: self.account_config,
-            imap_config: self.imap_config,
-            session,
-        })
-    }
-}
-
-/// The IMAP session.
-///
-/// This session is unsync, which means it cannot be shared between
-/// threads. For the sync version, see [`ImapSessionSync`].
-#[derive(Debug)]
-pub struct ImapSession {
-    /// The account configuration.
-    pub account_config: AccountConfig,
-
-    /// The IMAP configuration.
-    pub imap_config: ImapConfig,
-
-    /// The current IMAP session.
-    session: Session<Box<dyn ImapConnection>>,
-}
-
-impl ImapSession {
-    /// Execute the given action on the current IMAP session.
-    ///
-    /// If an OAuth 2.0 authentication error occurs, the access token
-    /// is refreshed and the action is executed once again.
-    pub async fn execute<T>(
-        &mut self,
-        action: impl Fn(&mut Session<Box<dyn ImapConnection>>) -> imap::Result<T>,
-        map_err: impl Fn(imap::Error) -> anyhow::Error,
-    ) -> Result<T> {
-        match &self.imap_config.auth {
-            ImapAuthConfig::Passwd(_) => Ok(action(&mut self.session).map_err(map_err)?),
-            ImapAuthConfig::OAuth2(oauth2_config) => match action(&mut self.session) {
-                Ok(res) => Ok(res),
-                Err(err) => match err {
-                    imap::Error::Parse(imap::error::ParseError::Authentication(_, _)) => {
-                        debug!("error while authenticating user, refreshing access token");
-                        oauth2_config.refresh_access_token().await?;
-                        self.session = build_session(&self.imap_config, None).await?;
-                        Ok(action(&mut self.session)?)
-                    }
-                    err => Ok(Err(err)?),
-                },
-            },
-        }
-    }
-}
-
-impl Drop for ImapSession {
-    fn drop(&mut self) {
-        // TODO: check if a mailbox is selected before
-        if let Err(err) = self.session.close() {
-            debug!("cannot close imap session: {err}");
-            debug!("{err:?}");
-        }
-
-        if let Err(err) = self.session.logout() {
-            debug!("cannot logout from imap session: {err}");
-            debug!("{err:?}");
-        }
-    }
-}
-
-/// The sync version of the IMAP session.
-///
-/// This is just an IMAP session wrapped into a mutex, so the same
-/// IMAP session can be shared and updated across multiple threads.
-#[derive(Clone, Debug)]
-pub struct ImapSessionSync {
-    /// The account configuration.
-    pub account_config: AccountConfig,
-
-    /// The IMAP configuration.
-    pub imap_config: ImapConfig,
-
-    /// The IMAP session wrapped into a mutex.
-    session: Arc<Mutex<ImapSession>>,
-}
-
-impl ImapSessionSync {
-    /// Create a new IMAP sync session from an IMAP session.
-    pub fn new(
-        account_config: AccountConfig,
-        imap_config: ImapConfig,
-        session: ImapSession,
-    ) -> Self {
-        Self {
-            account_config,
-            imap_config,
-            session: Arc::new(Mutex::new(session)),
-        }
-    }
-}
-
-impl Deref for ImapSessionSync {
-    type Target = Mutex<ImapSession>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.session
     }
 }
 

@@ -10,10 +10,152 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `account::discover` module to help lib consumers to detect automatically IMAP and SMTP settings.
+- Added Notmuch contexts and context builder.
+- Added Notmuch backend features `ListNotmuchFolders`, `GetNotmuchEnvelope`, `ListNotmuchEnvelopes`, `AddNotmuchFlags`, `SetNotmuchFlags`, `RemoveNotmuchFlags`, `AddNotmuchMessage`, `PeekNotmuchMessages`, `DeleteNotmuchMessages`.
 
 ### Changed
 
 - Added variant `WatchHook::Fn` that takes a `WatchFn` as argument. A `WatchFn` is just a wrapper around a `Fn(&Envelope) -> Result<()>`.
+- Renamed `MaildirSessionSync::session` by `MaildirContextSync::inner`.
+- Renamed `MaildirSession` and `MaildirSessionSync` by `MaildirContext` and `MaildirContextSync`.
+- Renamed `ImapSessionSync::session` by `ImapContextSync::inner`.
+- Renamed `ImapSession` and `ImapSessionSync` by `ImapContext` and `ImapContextSync`.
+- Renamed `AddFolderMaildir` by `AddMaildirFolder`.
+- Replaced `AddMaildirFolder::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn AddFolder>`
+- Renamed `AddFolderImap` by `AddImapFolder`.
+- Replaced `AddImapFolder::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn AddFolder>`
+- Renamed `ListFoldersMaildir` by `ListMaildirFolders`.
+- Replaced `ListMaildirFolders::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn ListFolders>`
+- Renamed `ListFoldersImap` by `ListImapFolders`.
+- Replaced `ListImapFolders::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn ListFolders>`
+- Renamed `ExpungeFolderMaildir` by `ExpungeMaildirFolder`.
+- Replaced `ExpungeMaildirFolder::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn ExpungeFolder>`
+- Renamed `ExpungeFolderImap` by `ExpungeImapFolder`.
+- Replaced `ExpungeImapFolder::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn ExpungeFolder>`
+- Renamed `PurgeFolderImap` by `PurgeImapFolder`.
+- Replaced `PurgeImapFolder::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn PurgeFolder>`
+- Renamed `DeleteFolderMaildir` by `DeleteMaildirFolder`.
+- Replaced `DeleteMaildirFolder::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn DeleteFolder>`
+- Renamed `DeleteFolderImap` by `DeleteImapFolder`.
+- Replaced `DeleteImapFolder::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn DeleteFolder>`
+- Renamed `GetEnvelopeMaildir` by `GetMaildirEnvelope`.
+- Replaced `GetMaildirEnvelope::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn GetEnvelope>`
+- Renamed `GetEnvelopeImap` by `GetImapEnvelope`.
+- Replaced `GetImapEnvelope::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn GetEnvelope>`
+- Renamed `ListEnvelopesMaildir` by `ListMaildirEnvelopes`.
+- Replaced `ListMaildirEnvelopes::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn ListEnvelopes>`
+- Renamed `ListEnvelopesImap` by `ListImapEnvelopes`.
+- Replaced `ListImapEnvelopes::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn ListEnvelopes>`
+- Replaced `WatchMaildirEnvelopes::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn WatchEnvelopes>`
+- Replaced `WatchImapEnvelopes::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn WatchEnvelopes>`
+- Renamed `AddFlagsMaildir` by `AddMaildirFlags`.
+- Replaced `AddMaildirFlags::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn AddFlags>`
+- Renamed `AddFlagsImap` by `AddImapFlags`.
+- Replaced `AddImapFlags::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn AddFlags>`
+- Renamed `SetFlagsMaildir` by `SetMaildirFlags`.
+- Replaced `SetMaildirFlags::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn SetFlags>`
+- Renamed `SetFlagsImap` by `SetImapFlags`.
+- Replaced `SetImapFlags::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn SetFlags>`
+- Renamed `RemoveFlagsMaildir` by `RemoveMaildirFlags`.
+- Replaced `RemoveMaildirFlags::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn RemoveFlags>`
+- Renamed `RemoveFlagsImap` by `RemoveImapFlags`.
+- Replaced `RemoveImapFlags::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn RemoveFlags>`
+- Replaced `AddMaildirMessage::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn AddMessage>`
+- Replaced `AddImapMessage::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn AddMessage>`
+- Renamed `PeekMessagesMaildir` by `PeekMaildirMessages`.
+- Replaced `PeekMaildirMessages::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn PeekMessages>`
+- Renamed `PeekMessagesImap` by `PeekImapMessages`.
+- Replaced `PeekImapMessages::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn PeekMessages>`
+- Renamed `GetMessagesMaildir` by `GetMaildirMessages`.
+- Replaced `GetMaildirMessages::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn GetMessages>`
+- Renamed `GetMessagesImap` by `GetImapMessages`.
+- Replaced `GetImapMessages::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn GetMessages>`
+- Renamed `CopyMessagesMaildir` by `CopyMaildirMessages`.
+- Replaced `CopyMaildirMessages::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn CopyMessages>`
+- Renamed `CopyMessagesImap` by `CopyImapMessages`.
+- Replaced `CopyImapMessages::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn CopyMessages>`
+- Renamed `MoveMessagesMaildir` by `MoveMaildirMessages`.
+- Replaced `MoveMaildirMessages::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn MoveMessages>`
+- Renamed `MoveMessagesImap` by `MoveImapMessages`.
+- Replaced `MoveImapMessages::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn MoveMessages>`
+- Renamed `DeleteMessagesMaildir` by `DeleteMaildirMessages`.
+- Replaced `DeleteMaildirMessages::new` by:
+  - `new(ctx: impl Into<MaildirContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn DeleteMessages>`
+- Renamed `DeleteMessagesImap` by `DeleteImapMessages`.
+- Replaced `DeleteImapMessages::new` by:
+  - `new(ctx: impl Into<ImapContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn DeleteMessages>`
+- Renamed `SendMessageSendmail` by `SendSendmailMessage`.
+- Replaced `SendSendmailMessage::new` by:
+  - `new(ctx: impl Into<SendmailContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<SendmailContextSync>) -> Box<dyn SendMessage>`
+- Renamed `SendMessageSmtp` by `SendSmtpMessage`.
+- Replaced `SendSmtpMessage::new` by:
+  - `new(ctx: impl Into<SmtpContextSync>) -> Self`
+  - `new_boxed(ctx: impl Into<SmtpContextSync>) -> Box<dyn SendMessage>`
 
 ## [0.20.1] - 2024-01-12
 

@@ -2,19 +2,19 @@ use concat_with::concat_line;
 use email::{
     account::config::AccountConfig,
     backend::BackendBuilder,
-    envelope::{list::maildir::ListEnvelopesMaildir, Id},
+    envelope::{list::maildir::ListMaildirEnvelopes, Id},
     flag::{
-        add::maildir::AddFlagsMaildir, remove::maildir::RemoveFlagsMaildir,
-        set::maildir::SetFlagsMaildir, Flag,
+        add::maildir::AddMaildirFlags, remove::maildir::RemoveMaildirFlags,
+        set::maildir::SetMaildirFlags, Flag,
     },
     folder::{
         add::maildir::AddMaildirFolder, config::FolderConfig, delete::maildir::DeleteFolderMaildir,
-        expunge::maildir::ExpungeFolderMaildir, list::maildir::ListFoldersMaildir,
+        expunge::maildir::ExpungeMaildirFolder, list::maildir::ListMaildirFolders,
     },
-    maildir::{config::MaildirConfig, MaildirSessionBuilder},
+    maildir::{config::MaildirConfig, MaildirContextBuilder},
     message::{
-        add::maildir::AddMaildirMessage, copy::maildir::CopyMessagesMaildir,
-        move_::maildir::MoveMessagesMaildir, peek::maildir::PeekMessagesMaildir,
+        add::maildir::AddMaildirMessage, copy::maildir::CopyMaildirMessages,
+        move_::maildir::MoveMaildirMessages, peek::maildir::PeekMaildirMessages,
     },
 };
 use mail_builder::MessageBuilder;
@@ -61,20 +61,20 @@ async fn test_maildir_features() {
     let mdir_config = MaildirConfig {
         root_dir: mdir_path.clone(),
     };
-    let backend_ctx = MaildirSessionBuilder::new(config.clone(), mdir_config);
+    let backend_ctx = MaildirContextBuilder::new(config.clone(), mdir_config);
     let backend_builder = BackendBuilder::new(config.clone(), backend_ctx)
-        .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx)))
-        .with_list_folders(ListFoldersMaildir::new)
-        .with_expunge_folder(ExpungeFolderMaildir::new)
-        .with_delete_folder(DeleteFolderMaildir::new)
-        .with_list_envelopes(ListEnvelopesMaildir::new)
-        .with_add_flags(AddFlagsMaildir::new)
-        .with_set_flags(SetFlagsMaildir::new)
-        .with_remove_flags(RemoveFlagsMaildir::new)
-        .with_add_message(AddMaildirMessage::new)
-        .with_peek_messages(PeekMessagesMaildir::new)
-        .with_copy_messages(CopyMessagesMaildir::new)
-        .with_move_messages(MoveMessagesMaildir::new);
+        .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx.clone())))
+        .with_list_folders(|ctx| Some(ListMaildirFolders::new_boxed(ctx.clone())))
+        .with_expunge_folder(|ctx| Some(ExpungeMaildirFolder::new_boxed(ctx.clone())))
+        .with_delete_folder(|ctx| Some(DeleteFolderMaildir::new_boxed(ctx.clone())))
+        .with_list_envelopes(|ctx| Some(ListMaildirEnvelopes::new_boxed(ctx.clone())))
+        .with_add_flags(|ctx| Some(AddMaildirFlags::new_boxed(ctx.clone())))
+        .with_set_flags(|ctx| Some(SetMaildirFlags::new_boxed(ctx.clone())))
+        .with_remove_flags(|ctx| Some(RemoveMaildirFlags::new_boxed(ctx.clone())))
+        .with_add_message(|ctx| Some(AddMaildirMessage::new_boxed(ctx.clone())))
+        .with_peek_messages(|ctx| Some(PeekMaildirMessages::new_boxed(ctx.clone())))
+        .with_copy_messages(|ctx| Some(CopyMaildirMessages::new_boxed(ctx.clone())))
+        .with_move_messages(|ctx| Some(MoveMaildirMessages::new_boxed(ctx.clone())));
     let mdir = backend_builder.build().await.unwrap();
 
     // Sub maildir backend
@@ -82,20 +82,20 @@ async fn test_maildir_features() {
     let mdir_config = MaildirConfig {
         root_dir: mdir_path.clone(),
     };
-    let backend_ctx = MaildirSessionBuilder::new(config.clone(), mdir_config);
+    let backend_ctx = MaildirContextBuilder::new(config.clone(), mdir_config);
     let backend_builder = BackendBuilder::new(config.clone(), backend_ctx)
-        .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx)))
-        .with_list_folders(ListFoldersMaildir::new)
-        .with_expunge_folder(ExpungeFolderMaildir::new)
-        .with_delete_folder(DeleteFolderMaildir::new)
-        .with_list_envelopes(ListEnvelopesMaildir::new)
-        .with_add_flags(AddFlagsMaildir::new)
-        .with_set_flags(SetFlagsMaildir::new)
-        .with_remove_flags(RemoveFlagsMaildir::new)
-        .with_add_message(AddMaildirMessage::new)
-        .with_peek_messages(PeekMessagesMaildir::new)
-        .with_copy_messages(CopyMessagesMaildir::new)
-        .with_move_messages(MoveMessagesMaildir::new);
+        .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx.clone())))
+        .with_list_folders(|ctx| Some(ListMaildirFolders::new_boxed(ctx.clone())))
+        .with_expunge_folder(|ctx| Some(ExpungeMaildirFolder::new_boxed(ctx.clone())))
+        .with_delete_folder(|ctx| Some(DeleteFolderMaildir::new_boxed(ctx.clone())))
+        .with_list_envelopes(|ctx| Some(ListMaildirEnvelopes::new_boxed(ctx.clone())))
+        .with_add_flags(|ctx| Some(AddMaildirFlags::new_boxed(ctx.clone())))
+        .with_set_flags(|ctx| Some(SetMaildirFlags::new_boxed(ctx.clone())))
+        .with_remove_flags(|ctx| Some(RemoveMaildirFlags::new_boxed(ctx.clone())))
+        .with_add_message(|ctx| Some(AddMaildirMessage::new_boxed(ctx.clone())))
+        .with_peek_messages(|ctx| Some(PeekMaildirMessages::new_boxed(ctx.clone())))
+        .with_copy_messages(|ctx| Some(CopyMaildirMessages::new_boxed(ctx.clone())))
+        .with_move_messages(|ctx| Some(MoveMaildirMessages::new_boxed(ctx.clone())));
     let submdir = backend_builder.build().await.unwrap();
 
     // check that a message can be built and added

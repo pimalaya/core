@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirSessionSync, Result};
+use crate::{envelope::Id, maildir::MaildirContextSync, Result};
 
 use super::{Flags, SetFlags};
 
@@ -13,31 +13,31 @@ pub enum Error {
 }
 
 #[derive(Clone)]
-pub struct SetFlagsMaildir {
-    session: MaildirSessionSync,
+pub struct SetMaildirFlags {
+    ctx: MaildirContextSync,
 }
 
-impl SetFlagsMaildir {
-    pub fn new(session: MaildirSessionSync) -> Self {
-        Self { session }
+impl SetMaildirFlags {
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
     }
 
-    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn SetFlags> {
-        Box::new(Self::new(session))
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn SetFlags> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl SetFlags for SetFlagsMaildir {
+impl SetFlags for SetMaildirFlags {
     async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
-        info!("maildir: setting flag(s) {flags} to envelope {id} from folder {folder}");
+        info!("setting maildir flag(s) {flags} to envelope {id} from folder {folder}");
 
-        let session = self.session.lock().await;
-        let mdir = session.get_maildir_from_folder_name(folder)?;
+        let ctx = self.ctx.lock().await;
+        let mdir = ctx.get_maildir_from_folder_name(folder)?;
 
         id.iter().try_for_each(|ref id| {
             mdir.set_flags(id, &flags.to_mdir_string()).map_err(|err| {
-                Error::SetFlagsError(err, folder.to_owned(), id.to_string(), flags.to_owned())
+                Error::SetFlagsError(err, folder.to_owned(), id.to_string(), flags.clone())
             })
         })?;
 

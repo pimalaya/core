@@ -2,36 +2,39 @@ use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirSession, Result};
+use crate::{envelope::Id, maildir::MaildirContextSync, Result};
 
 use super::CopyMessages;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("maildir: cannot copy messages {3} from folder {1} to folder {2}")]
+    #[error("cannot copy maildir messages {3} from folder {1} to folder {2}")]
     CopyMessagesError(#[source] maildirpp::Error, String, String, String),
 }
 
 #[derive(Clone)]
-pub struct CopyMessagesMaildir {
-    session: MaildirSession,
+pub struct CopyMaildirMessages {
+    ctx: MaildirContextSync,
 }
 
-impl CopyMessagesMaildir {
-    pub fn new(session: &MaildirSession) -> Option<Box<dyn CopyMessages>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl CopyMaildirMessages {
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn CopyMessages> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl CopyMessages for CopyMessagesMaildir {
+impl CopyMessages for CopyMaildirMessages {
     async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
-        info!("maildir: copying messages {id} from folder {from_folder} to folder {to_folder}");
+        info!("copying maildir messages {id} from folder {from_folder} to folder {to_folder}");
 
-        let session = self.session.lock().await;
-        let from_mdir = session.get_maildir_from_folder_name(from_folder)?;
-        let to_mdir = session.get_maildir_from_folder_name(to_folder)?;
+        let ctx = self.ctx.lock().await;
+        let from_mdir = ctx.get_maildir_from_folder_name(from_folder)?;
+        let to_mdir = ctx.get_maildir_from_folder_name(to_folder)?;
 
         id.iter().try_for_each(|id| {
             from_mdir.copy_to(id, &to_mdir).map_err(|err| {

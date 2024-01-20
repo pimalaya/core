@@ -3,7 +3,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapSessionSync, Result};
+use crate::{imap::ImapContextSync, Result};
 
 use super::DeleteFolder;
 
@@ -14,34 +14,37 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub struct DeleteFolderImap {
-    session: ImapSessionSync,
+pub struct DeleteImapFolder {
+    ctx: ImapContextSync,
 }
 
-impl DeleteFolderImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn DeleteFolder>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl DeleteImapFolder {
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn DeleteFolder> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl DeleteFolder for DeleteFolderImap {
+impl DeleteFolder for DeleteImapFolder {
     async fn delete_folder(&self, folder: &str) -> Result<()> {
         info!("deleting imap folder {folder}");
 
-        let mut session = self.session.lock().await;
+        let mut ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
-        let folder = session.account_config.get_folder_alias(folder);
+        let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        session
-            .execute(
-                |session| session.delete(&folder_encoded),
-                |err| Error::DeleteFolderError(err, folder.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| session.delete(&folder_encoded),
+            |err| Error::DeleteFolderError(err, folder.clone()).into(),
+        )
+        .await?;
 
         Ok(())
     }

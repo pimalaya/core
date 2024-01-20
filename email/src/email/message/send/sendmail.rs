@@ -3,7 +3,7 @@ use log::{debug, info};
 use mail_parser::MessageParser;
 use thiserror::Error;
 
-use crate::{sendmail::SendmailContext, Result};
+use crate::{sendmail::SendmailContextSync, Result};
 
 use super::SendMessage;
 
@@ -14,24 +14,27 @@ pub enum Error {
 }
 
 #[derive(Clone)]
-pub struct SendMessageSendmail {
-    ctx: SendmailContext,
+pub struct SendSendmailMessage {
+    ctx: SendmailContextSync,
 }
 
-impl SendMessageSendmail {
-    pub fn new(ctx: &SendmailContext) -> Option<Box<dyn SendMessage>> {
-        let ctx = ctx.clone();
-        Some(Box::new(Self { ctx }))
+impl SendSendmailMessage {
+    pub fn new(ctx: impl Into<SendmailContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<SendmailContextSync>) -> Box<dyn SendMessage> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl SendMessage for SendMessageSendmail {
-    async fn send_message(&self, raw_msg: &[u8]) -> Result<()> {
-        info!("sending raw sendmail message");
+impl SendMessage for SendSendmailMessage {
+    async fn send_message(&self, msg: &[u8]) -> Result<()> {
+        info!("sending sendmail message");
 
         let buffer: Vec<u8>;
-        let mut msg = MessageParser::new().parse(raw_msg).unwrap_or_else(|| {
+        let mut msg = MessageParser::new().parse(msg).unwrap_or_else(|| {
             debug!("cannot parse raw message");
             Default::default()
         });

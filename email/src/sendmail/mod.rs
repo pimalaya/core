@@ -22,9 +22,11 @@ impl SendmailContext {
     }
 }
 
+pub type SendmailContextSync = SendmailContext;
+
 #[async_trait]
 impl BackendContextBuilder for SendmailContext {
-    type Context = Self;
+    type Context = SendmailContextSync;
 
     /// Build an SENDMAIL sync session.
     ///

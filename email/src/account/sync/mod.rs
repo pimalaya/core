@@ -17,7 +17,6 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
-use tokio::sync::Mutex;
 
 use crate::{
     account::config::AccountConfig,
@@ -26,22 +25,22 @@ use crate::{
         EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
         EmailSyncPatchManager,
     },
-    envelope::{get::maildir::GetEnvelopeMaildir, list::maildir::ListEnvelopesMaildir},
-    flag::{add::maildir::AddFlagsMaildir, set::maildir::SetFlagsMaildir},
+    envelope::{get::maildir::GetMaildirEnvelope, list::maildir::ListMaildirEnvelopes},
+    flag::{add::maildir::AddMaildirFlags, set::maildir::SetMaildirFlags},
     folder::{
         add::maildir::AddMaildirFolder,
         delete::maildir::DeleteFolderMaildir,
-        expunge::maildir::ExpungeFolderMaildir,
-        list::maildir::ListFoldersMaildir,
+        expunge::maildir::ExpungeMaildirFolder,
+        list::maildir::ListMaildirFolders,
         sync::{
             FolderName, FolderSyncCache, FolderSyncCacheHunk, FolderSyncHunk,
             FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy, FoldersName,
         },
     },
-    maildir::{config::MaildirConfig, MaildirSession, MaildirSessionBuilder},
+    maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
     message::{
-        add::maildir::AddMaildirMessage, move_::maildir::MoveMessagesMaildir,
-        peek::maildir::PeekMessagesMaildir,
+        add::maildir::AddMaildirMessage, move_::maildir::MoveMaildirMessages,
+        peek::maildir::PeekMaildirMessages,
     },
     Result,
 };
@@ -436,28 +435,28 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
 }
 
 #[derive(Clone)]
-pub struct LocalBackendBuilder(BackendBuilder<MaildirSessionBuilder>);
+pub struct LocalBackendBuilder(BackendBuilder<MaildirContextBuilder>);
 
 impl LocalBackendBuilder {
     pub fn new(account_config: AccountConfig, maildir_config: MaildirConfig) -> Self {
-        let session_builder = MaildirSessionBuilder::new(account_config.clone(), maildir_config);
+        let session_builder = MaildirContextBuilder::new(account_config.clone(), maildir_config);
         let backend_builder = BackendBuilder::new(account_config, session_builder)
             .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx.clone())))
-            .with_list_folders(|ctx| Some(ListFoldersMaildir::new_boxed(ctx.clone())))
-            .with_expunge_folder(|ctx| Some(ExpungeFolderMaildir::new_boxed(ctx.clone())))
+            .with_list_folders(|ctx| Some(ListMaildirFolders::new_boxed(ctx.clone())))
+            .with_expunge_folder(|ctx| Some(ExpungeMaildirFolder::new_boxed(ctx.clone())))
             .with_delete_folder(|ctx| Some(DeleteFolderMaildir::new_boxed(ctx.clone())))
-            .with_get_envelope(|ctx| Some(GetEnvelopeMaildir::new_boxed(ctx.clone())))
-            .with_list_envelopes(|ctx| Some(ListEnvelopesMaildir::new_boxed(ctx.clone())))
-            .with_add_flags(|ctx| Some(AddFlagsMaildir::new_boxed(ctx.clone())))
-            .with_set_flags(|ctx| Some(SetFlagsMaildir::new_boxed(ctx.clone())))
+            .with_get_envelope(|ctx| Some(GetMaildirEnvelope::new_boxed(ctx.clone())))
+            .with_list_envelopes(|ctx| Some(ListMaildirEnvelopes::new_boxed(ctx.clone())))
+            .with_add_flags(|ctx| Some(AddMaildirFlags::new_boxed(ctx.clone())))
+            .with_set_flags(|ctx| Some(SetMaildirFlags::new_boxed(ctx.clone())))
             .with_add_message(|ctx| Some(AddMaildirMessage::new_boxed(ctx.clone())))
-            .with_peek_messages(|ctx| Some(PeekMessagesMaildir::new_boxed(ctx.clone())))
-            .with_move_messages(|ctx| Some(MoveMessagesMaildir::new_boxed(ctx.clone())));
+            .with_peek_messages(|ctx| Some(PeekMaildirMessages::new_boxed(ctx.clone())))
+            .with_move_messages(|ctx| Some(MoveMaildirMessages::new_boxed(ctx.clone())));
 
         Self(backend_builder)
     }
 
-    pub async fn build(self) -> Result<Backend<Arc<Mutex<MaildirSession>>>> {
+    pub async fn build(self) -> Result<Backend<MaildirContextSync>> {
         self.0.build().await
     }
 }

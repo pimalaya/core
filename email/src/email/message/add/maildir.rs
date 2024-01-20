@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{envelope::SingleId, maildir::MaildirSessionSync, Result};
+use crate::{envelope::SingleId, maildir::MaildirContextSync, Result};
 
 use super::{AddMessage, Flags};
 
@@ -14,16 +14,16 @@ pub enum Error {
 
 #[derive(Clone)]
 pub struct AddMaildirMessage {
-    session: MaildirSessionSync,
+    ctx: MaildirContextSync,
 }
 
 impl AddMaildirMessage {
-    pub fn new(session: MaildirSessionSync) -> Self {
-        Self { session }
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
     }
 
-    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn AddMessage> {
-        Box::new(Self::new(session))
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn AddMessage> {
+        Box::new(Self::new(ctx))
     }
 }
 
@@ -35,10 +35,10 @@ impl AddMessage for AddMaildirMessage {
         raw_msg: &[u8],
         flags: &Flags,
     ) -> Result<SingleId> {
-        info!("adding raw email message to folder {folder} with flags {flags}");
+        info!("adding maildir message to folder {folder} with flags {flags}");
 
-        let session = self.session.lock().await;
-        let mdir = session.get_maildir_from_folder_name(folder)?;
+        let ctx = self.ctx.lock().await;
+        let mdir = ctx.get_maildir_from_folder_name(folder)?;
 
         let id = mdir
             .store_cur_with_flags(raw_msg, &flags.to_mdir_string())

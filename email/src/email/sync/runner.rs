@@ -11,7 +11,7 @@ use crate::{
     backend::{Backend, BackendBuilder, BackendContextBuilder},
     envelope::Id,
     flag::Flag,
-    maildir::MaildirSessionSync,
+    maildir::MaildirContextSync,
     Result,
 };
 
@@ -42,7 +42,7 @@ pub struct EmailSyncRunner<B: BackendContextBuilder> {
 
 impl<B: BackendContextBuilder> EmailSyncRunner<B> {
     async fn process_hunk(
-        local: &Backend<MaildirSessionSync>,
+        local: &Backend<MaildirContextSync>,
         remote: &Backend<B::Context>,
         hunk: &EmailSyncHunk,
     ) -> Result<EmailSyncCachePatch>

@@ -1,13 +1,8 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::Mutex;
 
-use crate::{
-    maildir::{MaildirSession, MaildirSessionSync},
-    Result,
-};
+use crate::{maildir::MaildirContextSync, Result};
 
 use super::{Envelopes, ListEnvelopes};
 
@@ -18,32 +13,32 @@ pub enum Error {
 }
 
 #[derive(Clone)]
-pub struct ListEnvelopesMaildir {
-    session: Arc<Mutex<MaildirSession>>,
+pub struct ListMaildirEnvelopes {
+    ctx: MaildirContextSync,
 }
 
-impl ListEnvelopesMaildir {
-    pub fn new(session: MaildirSessionSync) -> Self {
-        Self { session }
+impl ListMaildirEnvelopes {
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
     }
 
-    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn ListEnvelopes> {
-        Box::new(Self::new(session))
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn ListEnvelopes> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl ListEnvelopes for ListEnvelopesMaildir {
+impl ListEnvelopes for ListMaildirEnvelopes {
     async fn list_envelopes(
         &self,
         folder: &str,
         page_size: usize,
         page: usize,
     ) -> Result<Envelopes> {
-        info!("listing envelopes from maildir folder {folder}");
+        info!("listing maildir envelopes from folder {folder}");
 
-        let session = self.session.lock().await;
-        let mdir = session.get_maildir_from_folder_name(folder)?;
+        let ctx = self.ctx.lock().await;
+        let mdir = ctx.get_maildir_from_folder_name(folder)?;
 
         let mut envelopes = Envelopes::from_mdir_entries(mdir.list_cur());
         debug!("maildir envelopes: {envelopes:#?}");

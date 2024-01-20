@@ -5,7 +5,7 @@ use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{
     flag::{Flag, Flags},
-    imap::ImapSessionSync,
+    imap::ImapContextSync,
     Result,
 };
 
@@ -22,53 +22,54 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub struct PurgeFolderImap {
-    session: ImapSessionSync,
+pub struct PurgeImapFolder {
+    ctx: ImapContextSync,
 }
 
-impl PurgeFolderImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn PurgeFolder>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl PurgeImapFolder {
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn PurgeFolder> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl PurgeFolder for PurgeFolderImap {
+impl PurgeFolder for PurgeImapFolder {
     async fn purge_folder(&self, folder: &str) -> Result<()> {
         info!("purging imap folder {folder}");
 
-        let mut session = self.session.lock().await;
+        let mut ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
-        let folder = session.account_config.get_folder_alias(folder);
+        let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
         let flags = Flags::from_iter([Flag::Deleted]);
         let uids = String::from("1:*");
 
-        session
-            .execute(
-                |session| session.select(&folder_encoded),
-                |err| Error::SelectFolderError(err, folder.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| session.select(&folder_encoded),
+            |err| Error::SelectFolderError(err, folder.clone()).into(),
+        )
+        .await?;
 
-        session
-            .execute(
-                |session| {
-                    session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query_string()))
-                },
-                |err| Error::AddDeletedFlagError(err, folder.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| {
+                session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query_string()))
+            },
+            |err| Error::AddDeletedFlagError(err, folder.clone()).into(),
+        )
+        .await?;
 
-        session
-            .execute(
-                |session| session.expunge(),
-                |err| Error::ExpungeFolderError(err, folder.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| session.expunge(),
+            |err| Error::ExpungeFolderError(err, folder.clone()).into(),
+        )
+        .await?;
 
         Ok(())
     }

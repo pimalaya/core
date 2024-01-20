@@ -145,14 +145,14 @@ impl BackendContextBuilder for () {
     }
 }
 
-// #[async_trait]
-// impl<T: BackendContextBuilder, U: BackendContextBuilder> BackendContextBuilder for (T, U) {
-//     type Context = (T::Context, U::Context);
+#[async_trait]
+impl<T: BackendContextBuilder, U: BackendContextBuilder> BackendContextBuilder for (T, U) {
+    type Context = (T::Context, U::Context);
 
-//     async fn build(self) -> Result<Self::Context> {
-//         Ok((self.0.build().await?, self.1.build().await?))
-//     }
-// }
+    async fn build(self) -> Result<Self::Context> {
+        Ok((self.0.build().await?, self.1.build().await?))
+    }
+}
 
 // #[async_trait]
 // impl<T: BackendContextBuilder, U: BackendContextBuilder, V: BackendContextBuilder>
@@ -192,8 +192,7 @@ pub struct BackendBuilder<B: BackendContextBuilder> {
     list_envelopes: Arc<dyn Fn(&B::Context) -> Option<Box<dyn ListEnvelopes>> + Send + Sync>,
 
     #[cfg(feature = "envelope-watch")]
-    watch_envelopes:
-        Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn WatchEnvelopes>> + Send + Sync>>,
+    watch_envelopes: Arc<dyn Fn(&B::Context) -> Option<Box<dyn WatchEnvelopes>> + Send + Sync>,
 
     #[cfg(feature = "envelope-get")]
     get_envelope: Arc<dyn Fn(&B::Context) -> Option<Box<dyn GetEnvelope>> + Send + Sync>,
@@ -205,7 +204,7 @@ pub struct BackendBuilder<B: BackendContextBuilder> {
     set_flags: Arc<dyn Fn(&B::Context) -> Option<Box<dyn SetFlags>> + Send + Sync>,
 
     #[cfg(feature = "flag-remove")]
-    remove_flags: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn RemoveFlags>> + Send + Sync>>,
+    remove_flags: Arc<dyn Fn(&B::Context) -> Option<Box<dyn RemoveFlags>> + Send + Sync>,
 
     #[cfg(feature = "message-add")]
     add_message: Arc<dyn Fn(&B::Context) -> Option<Box<dyn AddMessage>> + Send + Sync>,
@@ -223,11 +222,10 @@ pub struct BackendBuilder<B: BackendContextBuilder> {
     move_messages: Arc<dyn Fn(&B::Context) -> Option<Box<dyn MoveMessages>> + Send + Sync>,
 
     #[cfg(feature = "message-delete")]
-    delete_messages:
-        Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn DeleteMessages>> + Send + Sync>>,
+    delete_messages: Arc<dyn Fn(&B::Context) -> Option<Box<dyn DeleteMessages>> + Send + Sync>,
 
     #[cfg(feature = "message-send")]
-    send_message: Option<Arc<dyn Fn(&B::Context) -> Option<Box<dyn SendMessage>> + Send + Sync>>,
+    send_message: Arc<dyn Fn(&B::Context) -> Option<Box<dyn SendMessage>> + Send + Sync>,
 }
 
 impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
@@ -333,15 +331,15 @@ impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
     #[cfg(feature = "folder-purge")]
     pub fn set_purge_folder(
         &mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn PurgeFolder>> + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn PurgeFolder>> + Send + Sync + 'static,
     ) {
-        self.purge_folder = Some(Arc::new(feature));
+        self.purge_folder = Arc::new(feature);
     }
 
     #[cfg(feature = "folder-purge")]
     pub fn with_purge_folder(
         mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn PurgeFolder>> + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn PurgeFolder>> + Send + Sync + 'static,
     ) -> Self {
         self.set_purge_folder(feature);
         self
@@ -384,14 +382,14 @@ impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
     #[cfg(feature = "envelope-watch")]
     pub fn set_watch_envelopes(
         &mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn WatchEnvelopes>> + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn WatchEnvelopes>> + Send + Sync + 'static,
     ) {
-        self.watch_envelopes = Some(Arc::new(feature));
+        self.watch_envelopes = Arc::new(feature);
     }
     #[cfg(feature = "envelope-watch")]
     pub fn with_watch_envelopes(
         mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn WatchEnvelopes>> + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn WatchEnvelopes>> + Send + Sync + 'static,
     ) -> Self {
         self.set_watch_envelopes(feature);
         self
@@ -451,14 +449,15 @@ impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
     #[cfg(feature = "flag-remove")]
     pub fn set_remove_flags(
         &mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn RemoveFlags>> + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn RemoveFlags>> + Send + Sync + 'static,
     ) {
-        self.remove_flags = Some(Arc::new(feature));
+        self.remove_flags = Arc::new(feature);
     }
+
     #[cfg(feature = "flag-remove")]
     pub fn with_remove_flags(
         mut self,
-        feature: impl Fn(&C) -> Option<Box<dyn RemoveFlags>> + 'static,
+        feature: impl Fn(&C) -> Option<Box<dyn RemoveFlags>> + Send + Sync + 'static,
     ) -> Self {
         self.set_remove_flags(feature);
         self
@@ -520,7 +519,7 @@ impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         &mut self,
         feature: impl Fn(&C) -> Option<Box<dyn CopyMessages>> + Send + Sync + 'static,
     ) {
-        self.copy_messages = Some(Arc::new(feature));
+        self.copy_messages = Arc::new(feature);
     }
 
     #[cfg(feature = "message-copy")]
@@ -554,8 +553,9 @@ impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         &mut self,
         feature: impl Fn(&C) -> Option<Box<dyn DeleteMessages>> + Send + Sync + 'static,
     ) {
-        self.delete_messages = Some(Arc::new(feature));
+        self.delete_messages = Arc::new(feature);
     }
+
     #[cfg(feature = "message-delete")]
     pub fn with_delete_messages(
         mut self,
@@ -570,8 +570,9 @@ impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         &mut self,
         feature: impl Fn(&C) -> Option<Box<dyn SendMessage>> + Send + Sync + 'static,
     ) {
-        self.send_message = Some(Arc::new(feature));
+        self.send_message = Arc::new(feature);
     }
+
     #[cfg(feature = "message-send")]
     pub fn with_send_message(
         mut self,
@@ -618,7 +619,7 @@ impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         backend.set_set_flags((self.set_flags)(&context));
 
         #[cfg(feature = "flag-remove")]
-        backend.remove_remove_flags((self.remove_flags)(&context));
+        backend.set_remove_flags((self.remove_flags)(&context));
 
         #[cfg(feature = "message-add")]
         backend.set_add_message((self.add_message)(&context));
@@ -639,7 +640,7 @@ impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
         backend.set_delete_messages((self.delete_messages)(&context));
 
         #[cfg(feature = "message-send")]
-        backend.set_send_messages((self.send_messages)(&context));
+        backend.set_send_message((self.send_message)(&context));
 
         backend.set_context(context);
 
@@ -650,9 +651,8 @@ impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
 impl<B: BackendContextBuilder> Clone for BackendBuilder<B> {
     fn clone(&self) -> Self {
         Self {
-            context_builder: self.context_builder.clone(),
-
             account_config: self.account_config.clone(),
+            context_builder: self.context_builder.clone(),
 
             #[cfg(feature = "folder-add")]
             add_folder: self.add_folder.clone(),

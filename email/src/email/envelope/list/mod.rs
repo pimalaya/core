@@ -3,6 +3,8 @@ pub mod config;
 pub mod imap;
 #[cfg(feature = "maildir")]
 pub mod maildir;
+#[cfg(feature = "notmuch")]
+pub mod notmuch;
 
 use async_trait::async_trait;
 

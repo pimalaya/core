@@ -17,6 +17,7 @@ use process::Cmd;
 use serde::{Deserialize, Serialize};
 use shellexpand_utils::{shellexpand_path, shellexpand_str, try_shellexpand_path};
 use std::{
+    collections::HashMap,
     env,
     ffi::OsStr,
     fs, io,
@@ -306,6 +307,11 @@ impl AccountConfig {
     /// Get the trash folder alias.
     pub fn get_trash_folder_alias(&self) -> String {
         self.get_folder_alias(TRASH)
+    }
+
+    /// Get all folder aliases.
+    pub fn get_folder_aliases(&self) -> Option<&HashMap<String, String>> {
+        self.folder.as_ref().and_then(|c| c.aliases.as_ref())
     }
 
     /// Find the folder kind associated to the given folder alias.

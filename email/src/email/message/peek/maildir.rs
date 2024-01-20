@@ -1,32 +1,32 @@
 use async_trait::async_trait;
 use log::{debug, info};
 
-use crate::{envelope::Id, maildir::MaildirSessionSync, Result};
+use crate::{envelope::Id, maildir::MaildirContextSync, Result};
 
 use super::{Messages, PeekMessages};
 
 #[derive(Clone)]
-pub struct PeekMessagesMaildir {
-    session: MaildirSessionSync,
+pub struct PeekMaildirMessages {
+    ctx: MaildirContextSync,
 }
 
-impl PeekMessagesMaildir {
-    pub fn new(session: MaildirSessionSync) -> Self {
-        Self { session }
+impl PeekMaildirMessages {
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
     }
 
-    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn PeekMessages> {
-        Box::new(Self::new(session))
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn PeekMessages> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl PeekMessages for PeekMessagesMaildir {
+impl PeekMessages for PeekMaildirMessages {
     async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
-        info!("peeking messages {id} from folder {folder}");
+        info!("peeking maildir messages {id} from folder {folder}");
 
-        let session = self.session.lock().await;
-        let mdir = session.get_maildir_from_folder_name(folder)?;
+        let ctx = self.ctx.lock().await;
+        let mdir = ctx.get_maildir_from_folder_name(folder)?;
 
         let mut msgs: Vec<(usize, maildirpp::MailEntry)> = mdir
             .list_cur()

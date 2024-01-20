@@ -3,7 +3,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::Id, imap::ImapSessionSync, Result};
+use crate::{envelope::Id, imap::ImapContextSync, Result};
 
 use super::{Flags, RemoveFlags};
 
@@ -16,44 +16,46 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct RemoveFlagsImap {
-    session: ImapSessionSync,
+pub struct RemoveImapFlags {
+    ctx: ImapContextSync,
 }
 
-impl RemoveFlagsImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn RemoveFlags>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl RemoveImapFlags {
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn RemoveFlags> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl RemoveFlags for RemoveFlagsImap {
+impl RemoveFlags for RemoveImapFlags {
     async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         info!("removing imap flag(s) {flags} to envelope {id} from folder {folder}");
 
-        let mut session = self.session.lock().await;
+        let mut ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
-        let folder = session.account_config.get_folder_alias(folder);
+        let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        session
-            .execute(
-                |session| session.select(&folder_encoded),
-                |err| Error::SelectFolderError(err, folder.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| session.select(&folder_encoded),
+            |err| Error::SelectFolderError(err, folder.clone()).into(),
+        )
+        .await?;
 
-        session
-            .execute(
-                |session| {
-                    let query = format!("-FLAGS ({})", flags.to_imap_query_string());
-                    session.uid_store(id.join(","), query)
-                },
-                |err| Error::RemoveFlagError(err, folder.clone(), id.clone(), flags.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| {
+                let query = format!("-FLAGS ({})", flags.to_imap_query_string());
+                session.uid_store(id.join(","), query)
+            },
+            |err| Error::RemoveFlagError(err, folder.clone(), id.clone(), flags.clone()).into(),
+        )
+        .await?;
 
         Ok(())
     }

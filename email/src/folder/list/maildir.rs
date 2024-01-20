@@ -1,56 +1,47 @@
 use async_trait::async_trait;
 use log::info;
-use std::path::PathBuf;
-use thiserror::Error;
 
 use crate::{
     folder::{Folder, FolderKind, Folders},
-    maildir::MaildirSessionSync,
+    maildir::MaildirContextSync,
     Result,
 };
 
 use super::ListFolders;
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("maildir: cannot get subfolder from {1}")]
-    GetSubfolderError(#[source] maildirpp::Error, PathBuf),
-    #[error("maildir: cannot parse subfolder {1} from {0}")]
-    ParseSubfolderError(PathBuf, PathBuf),
+pub struct ListMaildirFolders {
+    ctx: MaildirContextSync,
 }
 
-pub struct ListFoldersMaildir {
-    session: MaildirSessionSync,
-}
-
-impl ListFoldersMaildir {
-    pub fn new(session: MaildirSessionSync) -> Self {
-        Self { session }
+impl ListMaildirFolders {
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
     }
 
-    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn ListFolders> {
-        Box::new(Self::new(session))
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn ListFolders> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl ListFolders for ListFoldersMaildir {
+impl ListFolders for ListMaildirFolders {
     async fn list_folders(&self) -> Result<Folders> {
         info!("listing maildir folders");
 
-        let session = self.session.lock().await;
-        let config = &session.account_config;
+        let ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
         let mut folders = Folders::default();
 
         folders.push(Folder {
             kind: Some(FolderKind::Inbox),
             name: config.get_inbox_folder_alias(),
-            desc: session.path().to_string_lossy().to_string(),
+            desc: ctx.session.path().to_string_lossy().to_string(),
         });
 
         let subfolders: Vec<Folder> =
-            Folders::from_submaildirs(config, session.list_subdirs()).into();
+            Folders::from_submaildirs(config, ctx.session.list_subdirs()).into();
+
         folders.extend(subfolders);
 
         Ok(folders)

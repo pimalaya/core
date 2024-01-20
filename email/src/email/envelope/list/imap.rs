@@ -4,7 +4,7 @@ use std::result;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapSessionSync, Result};
+use crate::{imap::ImapContextSync, Result};
 
 use super::{Envelopes, ListEnvelopes};
 
@@ -25,19 +25,22 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct ListEnvelopesImap {
-    session: ImapSessionSync,
+pub struct ListImapEnvelopes {
+    ctx: ImapContextSync,
 }
 
-impl ListEnvelopesImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn ListEnvelopes>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl ListImapEnvelopes {
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn ListEnvelopes> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl ListEnvelopes for ListEnvelopesImap {
+impl ListEnvelopes for ListImapEnvelopes {
     async fn list_envelopes(
         &self,
         folder: &str,
@@ -46,14 +49,15 @@ impl ListEnvelopes for ListEnvelopesImap {
     ) -> Result<Envelopes> {
         info!("listing imap envelopes from folder {folder}");
 
-        let mut session = self.session.lock().await;
+        let mut ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
-        let folder = session.account_config.get_folder_alias(folder);
+        let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        let folder_size = session
-            .execute(
+        let folder_size = ctx
+            .exec(
                 |session| session.select(&folder_encoded),
                 |err| Error::SelectFolderError(err, folder.clone()).into(),
             )
@@ -68,8 +72,8 @@ impl ListEnvelopes for ListEnvelopesImap {
         let range = build_page_range(page, page_size, folder_size)?;
         debug!("page range: {range}");
 
-        let fetches = session
-            .execute(
+        let fetches = ctx
+            .exec(
                 |session| session.fetch(&range, LIST_ENVELOPES_QUERY),
                 |err| Error::ListEnvelopesError(err, folder.clone(), range.clone()).into(),
             )

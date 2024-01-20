@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{imap::ImapSessionSync, Result};
+use crate::{imap::ImapContextSync, Result};
 
 use super::{Folders, ListFolders};
 
@@ -13,32 +13,36 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub struct ListFoldersImap {
-    session: ImapSessionSync,
+pub struct ListImapFolders {
+    ctx: ImapContextSync,
 }
 
-impl ListFoldersImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn ListFolders>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl ListImapFolders {
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn ListFolders> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl ListFolders for ListFoldersImap {
+impl ListFolders for ListImapFolders {
     async fn list_folders(&self) -> Result<Folders> {
         info!("listing imap folders");
 
-        let mut session = self.session.lock().await;
+        let config = &self.ctx.account_config;
+        let mut ctx = self.ctx.lock().await;
 
-        let names = session
-            .execute(
+        let names = ctx
+            .exec(
                 |session| session.list(Some(""), Some("*")),
                 |err| Error::ListFoldersError(err).into(),
             )
             .await?;
 
-        let folders = Folders::from_imap_names(&session.account_config, names);
+        let folders = Folders::from_imap_names(config, names);
 
         Ok(folders)
     }

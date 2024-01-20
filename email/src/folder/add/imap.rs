@@ -1,11 +1,9 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::Mutex;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapSession, Result};
+use crate::{imap::ImapContextSync, Result};
 
 use super::AddFolder;
 
@@ -16,38 +14,37 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct AddFolderImap {
-    session: Arc<Mutex<ImapSession>>,
+pub struct AddImapFolder {
+    ctx: ImapContextSync,
 }
 
-impl AddFolderImap {
-    pub fn new(session: Arc<Mutex<ImapSession>>) -> Self {
-        Self { session }
+impl AddImapFolder {
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
     }
 
-    pub fn new_boxed(session: Arc<Mutex<ImapSession>>) -> Box<dyn AddFolder> {
-        Box::new(Self::new(session))
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn AddFolder> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl AddFolder for AddFolderImap {
+impl AddFolder for AddImapFolder {
     async fn add_folder(&self, folder: &str) -> Result<()> {
         info!("creating imap folder {folder}");
 
-        let mut session = self.session.lock().await;
-        let config = &session.account_config;
+        let mut ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        session
-            .execute(
-                |session| session.create(&folder_encoded),
-                |err| Error::CreateFolderError(err, folder.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| session.create(&folder_encoded),
+            |err| Error::CreateFolderError(err, folder.clone()).into(),
+        )
+        .await?;
 
         Ok(())
     }

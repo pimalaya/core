@@ -3,7 +3,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::Id, imap::ImapSessionSync, Result};
+use crate::{envelope::Id, imap::ImapContextSync, Result};
 
 use super::CopyMessages;
 
@@ -16,53 +16,50 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct CopyMessagesImap {
-    session: ImapSessionSync,
+pub struct CopyImapMessages {
+    ctx: ImapContextSync,
 }
 
-impl CopyMessagesImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn CopyMessages>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl CopyImapMessages {
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn CopyMessages> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl CopyMessages for CopyMessagesImap {
+impl CopyMessages for CopyImapMessages {
     async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         info!("copying imap messages {id} from folder {from_folder} to folder {to_folder}");
 
-        let mut session = self.session.lock().await;
+        let mut ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
-        let from_folder = session.account_config.get_folder_alias(from_folder);
+        let from_folder = config.get_folder_alias(from_folder);
         let from_folder_encoded = encode_utf7(from_folder.clone());
         debug!("utf7 encoded from folder: {from_folder_encoded}");
 
-        let to_folder = session.account_config.get_folder_alias(to_folder);
+        let to_folder = config.get_folder_alias(to_folder);
         let to_folder_encoded = encode_utf7(to_folder.clone());
         debug!("utf7 encoded to folder: {to_folder_encoded}");
 
-        session
-            .execute(
-                |session| session.select(&from_folder_encoded),
-                |err| Error::SelectFolderError(err, from_folder.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| session.select(&from_folder_encoded),
+            |err| Error::SelectFolderError(err, from_folder.clone()).into(),
+        )
+        .await?;
 
-        session
-            .execute(
-                |session| session.uid_copy(id.join(","), &to_folder_encoded),
-                |err| {
-                    Error::CopyMessagesError(
-                        err,
-                        from_folder.clone(),
-                        to_folder.clone(),
-                        id.clone(),
-                    )
+        ctx.exec(
+            |session| session.uid_copy(id.join(","), &to_folder_encoded),
+            |err| {
+                Error::CopyMessagesError(err, from_folder.clone(), to_folder.clone(), id.clone())
                     .into()
-                },
-            )
-            .await?;
+            },
+        )
+        .await?;
 
         Ok(())
     }

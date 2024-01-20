@@ -1,13 +1,13 @@
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::BackendBuilder,
-    envelope::list::imap::ListEnvelopesImap,
-    folder::purge::imap::PurgeFolderImap,
+    envelope::list::imap::ListImapEnvelopes,
+    folder::purge::imap::PurgeImapFolder,
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapSessionBuilder,
+        ImapContextBuilder,
     },
-    message::send::sendmail::SendMessageSendmail,
+    message::send::sendmail::SendSendmailMessage,
     sendmail::{config::SendmailConfig, SendmailContext},
 };
 use mail_builder::MessageBuilder;
@@ -41,20 +41,17 @@ async fn test_sendmail_features() {
         .into(),
     };
 
-    let imap_ctx = ImapSessionBuilder::new(account_config.clone(), imap_config);
-    let imap_builder = BackendBuilder::new(account_config.clone(), imap_ctx)
-        .with_purge_folder(PurgeFolderImap::new)
-        .with_list_envelopes(ListEnvelopesImap::new);
-    let imap = imap_builder.build().await.unwrap();
-
+    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
     let sendmail_ctx = SendmailContext::new(account_config.clone(), sendmail_config);
-    let sendmail_builder = BackendBuilder::new(account_config.clone(), sendmail_ctx)
-        .with_send_message(SendMessageSendmail::new);
-    let sendmail = sendmail_builder.build().await.unwrap();
+    let backend_builder = BackendBuilder::new(account_config.clone(), (imap_ctx, sendmail_ctx))
+        .with_purge_folder(|ctx| Some(PurgeImapFolder::new_boxed(ctx.0.clone())))
+        .with_list_envelopes(|ctx| Some(ListImapEnvelopes::new_boxed(ctx.0.clone())))
+        .with_send_message(|ctx| Some(SendSendmailMessage::new_boxed(ctx.1.clone())));
+    let backend = backend_builder.build().await.unwrap();
 
     // setting up folders
 
-    imap.purge_folder("INBOX").await.unwrap();
+    backend.purge_folder("INBOX").await.unwrap();
 
     // checking that an email can be sent
 
@@ -65,13 +62,13 @@ async fn test_sendmail_features() {
         .text_body("Plain message!")
         .write_to_vec()
         .unwrap();
-    sendmail.send_message(&email).await.unwrap();
+    backend.send_message(&email).await.unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     // checking that the envelope of the sent email exists
 
-    let envelopes = imap.list_envelopes("INBOX", 10, 0).await.unwrap();
+    let envelopes = backend.list_envelopes("INBOX", 10, 0).await.unwrap();
     assert_eq!(1, envelopes.len());
     let envelope = envelopes.first().unwrap();
     assert_eq!("alice@localhost", envelope.from.addr);

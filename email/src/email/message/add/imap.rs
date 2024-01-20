@@ -4,7 +4,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::SingleId, imap::ImapSessionSync, Result};
+use crate::{envelope::SingleId, imap::ImapContextSync, Result};
 
 use super::{AddMessage, Flags};
 
@@ -20,13 +20,16 @@ pub enum Error {
 
 #[derive(Clone, Debug)]
 pub struct AddImapMessage {
-    session: ImapSessionSync,
+    ctx: ImapContextSync,
 }
 
 impl AddImapMessage {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn AddMessage>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn AddMessage> {
+        Box::new(Self::new(ctx))
     }
 }
 
@@ -40,14 +43,15 @@ impl AddMessage for AddImapMessage {
     ) -> Result<SingleId> {
         info!("adding imap message to folder {folder} with flags {flags}");
 
-        let mut session = self.session.lock().await;
+        let mut ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
-        let folder = session.account_config.get_folder_alias(folder);
+        let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        let appended = session
-            .execute(
+        let appended = ctx
+            .exec(
                 |session| {
                     session
                         .append(&folder, raw_msg)

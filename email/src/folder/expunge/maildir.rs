@@ -3,7 +3,7 @@ use log::info;
 use std::path::PathBuf;
 use thiserror::Error;
 
-use crate::{maildir::MaildirSessionSync, Result};
+use crate::{maildir::MaildirContextSync, Result};
 
 use super::ExpungeFolder;
 
@@ -15,28 +15,28 @@ pub enum Error {
     DeleteMessageError(#[source] maildirpp::Error, PathBuf, String),
 }
 
-pub struct ExpungeFolderMaildir {
-    session: MaildirSessionSync,
+pub struct ExpungeMaildirFolder {
+    ctx: MaildirContextSync,
 }
 
-impl ExpungeFolderMaildir {
-    pub fn new(session: MaildirSessionSync) -> Self {
-        Self { session }
+impl ExpungeMaildirFolder {
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
     }
 
-    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn ExpungeFolder> {
-        Box::new(Self::new(session))
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn ExpungeFolder> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl ExpungeFolder for ExpungeFolderMaildir {
+impl ExpungeFolder for ExpungeMaildirFolder {
     async fn expunge_folder(&self, folder: &str) -> Result<()> {
-        info!("expunging folder {folder}");
+        info!("expunging maildir folder {folder}");
 
-        let session = self.session.lock().await;
+        let ctx = self.ctx.lock().await;
 
-        let mdir = session.get_maildir_from_folder_name(folder)?;
+        let mdir = ctx.get_maildir_from_folder_name(folder)?;
         let entries = mdir
             .list_cur()
             .collect::<maildirpp::Result<Vec<_>>>()

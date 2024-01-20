@@ -3,7 +3,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapSessionSync, Result};
+use crate::{imap::ImapContextSync, Result};
 
 use super::ExpungeFolder;
 
@@ -16,41 +16,43 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub struct ExpungeFolderImap {
-    session: ImapSessionSync,
+pub struct ExpungeImapFolder {
+    ctx: ImapContextSync,
 }
 
-impl ExpungeFolderImap {
-    pub fn new(session: &ImapSessionSync) -> Option<Box<dyn ExpungeFolder>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+impl ExpungeImapFolder {
+    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn ExpungeFolder> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl ExpungeFolder for ExpungeFolderImap {
+impl ExpungeFolder for ExpungeImapFolder {
     async fn expunge_folder(&self, folder: &str) -> Result<()> {
         info!("expunging imap folder {folder}");
 
-        let mut session = self.session.lock().await;
+        let mut ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
-        let folder = session.account_config.get_folder_alias(folder);
+        let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        session
-            .execute(
-                |session| session.select(&folder_encoded),
-                |err| Error::SelectFolderError(err, folder.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| session.select(&folder_encoded),
+            |err| Error::SelectFolderError(err, folder.clone()).into(),
+        )
+        .await?;
 
-        session
-            .execute(
-                |session| session.expunge(),
-                |err| Error::ExpungeFolderError(err, folder.clone()).into(),
-            )
-            .await?;
+        ctx.exec(
+            |session| session.expunge(),
+            |err| Error::ExpungeFolderError(err, folder.clone()).into(),
+        )
+        .await?;
 
         Ok(())
     }

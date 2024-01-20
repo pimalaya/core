@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::{
     envelope::{Envelope, Envelopes},
-    maildir::MaildirSession,
+    maildir::MaildirContextSync,
     Result,
 };
 
@@ -23,13 +23,16 @@ pub enum Error {
 }
 
 pub struct WatchMaildirEnvelopes {
-    session: MaildirSession,
+    ctx: MaildirContextSync,
 }
 
 impl WatchMaildirEnvelopes {
-    pub fn new(session: &MaildirSession) -> Option<Box<dyn WatchEnvelopes>> {
-        let session = session.clone();
-        Some(Box::new(Self { session }))
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
+    }
+
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn WatchEnvelopes> {
+        Box::new(Self::new(ctx))
     }
 }
 
@@ -38,7 +41,7 @@ impl WatchEnvelopes for WatchMaildirEnvelopes {
     async fn watch_envelopes(&self, folder: &str) -> Result<()> {
         info!("maildir: watching folder {folder} for email changes");
 
-        let session = self.session.lock().await;
+        let session = self.ctx.lock().await;
         let config = &session.account_config;
 
         let mdir = session.get_maildir_from_folder_name(folder)?;

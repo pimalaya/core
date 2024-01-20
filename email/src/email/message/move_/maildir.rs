@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirSessionSync, Result};
+use crate::{envelope::Id, maildir::MaildirContextSync, Result};
 
 use super::MoveMessages;
 
@@ -13,28 +13,28 @@ pub enum Error {
 }
 
 #[derive(Clone)]
-pub struct MoveMessagesMaildir {
-    session: MaildirSessionSync,
+pub struct MoveMaildirMessages {
+    ctx: MaildirContextSync,
 }
 
-impl MoveMessagesMaildir {
-    pub fn new(session: MaildirSessionSync) -> Self {
-        Self { session }
+impl MoveMaildirMessages {
+    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
+        Self { ctx: ctx.into() }
     }
 
-    pub fn new_boxed(session: MaildirSessionSync) -> Box<dyn MoveMessages> {
-        Box::new(Self::new(session))
+    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn MoveMessages> {
+        Box::new(Self::new(ctx))
     }
 }
 
 #[async_trait]
-impl MoveMessages for MoveMessagesMaildir {
+impl MoveMessages for MoveMaildirMessages {
     async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         info!("moving maildir messages {id} from folder {from_folder} to folder {to_folder}");
 
-        let session = self.session.lock().await;
-        let from_mdir = session.get_maildir_from_folder_name(from_folder)?;
-        let to_mdir = session.get_maildir_from_folder_name(to_folder)?;
+        let ctx = self.ctx.lock().await;
+        let from_mdir = ctx.get_maildir_from_folder_name(from_folder)?;
+        let to_mdir = ctx.get_maildir_from_folder_name(to_folder)?;
 
         id.iter().try_for_each(|id| {
             from_mdir.move_to(id, &to_mdir).map_err(|err| {
