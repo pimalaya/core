@@ -41,11 +41,11 @@ impl AddFolder for AddMaildirFolder {
         let config = &ctx.account_config;
 
         let path = if FolderKind::matches_inbox(folder) {
-            ctx.session.path().join("cur")
+            ctx.root.path().join("cur")
         } else {
             let folder = config.get_folder_alias(folder);
             let folder = maildir::encode_folder(folder);
-            ctx.session.path().join(format!(".{}", folder))
+            ctx.root.path().join(format!(".{}", folder))
         };
 
         Maildir::from(path.clone())

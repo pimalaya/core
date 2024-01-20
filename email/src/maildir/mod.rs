@@ -26,7 +26,7 @@ pub struct MaildirContext {
     pub maildir_config: MaildirConfig,
 
     /// The maildir instance.
-    pub session: Maildir,
+    pub root: Maildir,
 }
 
 impl MaildirContext {
@@ -35,7 +35,7 @@ impl MaildirContext {
         // If the folder matches to the inbox folder kind, create a
         // maildir instance from the root folder.
         if FolderKind::matches_inbox(folder) {
-            return try_shellexpand_path(self.session.path().to_owned())
+            return try_shellexpand_path(self.root.path().to_owned())
                 .map(Maildir::from)
                 .map_err(Into::into);
         }
@@ -46,7 +46,7 @@ impl MaildirContext {
         // instance from it. First check for absolute path…
         try_shellexpand_path(&folder)
             // then check for relative path to `maildir-dir`…
-            .or_else(|_| try_shellexpand_path(self.session.path().join(&folder)))
+            .or_else(|_| try_shellexpand_path(self.root.path().join(&folder)))
             // TODO: should move to CLI
             // // and finally check for relative path to the current
             // // directory
@@ -64,7 +64,7 @@ impl MaildirContext {
                 //
                 // [spec]: http://www.courier-mta.org/imap/README.maildirquota.html
                 let folder = maildir::encode_folder(&folder);
-                try_shellexpand_path(self.session.path().join(format!(".{}", folder)))
+                try_shellexpand_path(self.root.path().join(format!(".{}", folder)))
             })
             .map(Maildir::from)
             .map_err(Into::into)
@@ -131,14 +131,14 @@ impl BackendContextBuilder for MaildirContextBuilder {
         info!("building new maildir context");
 
         let path = shellexpand_path(&self.maildir_config.root_dir);
+        let root = Maildir::from(path);
 
-        let session = Maildir::from(path);
-        session.create_dirs()?;
+        root.create_dirs()?;
 
         let context = MaildirContext {
             account_config: self.account_config,
             maildir_config: self.maildir_config,
-            session,
+            root,
         };
 
         Ok(context.into())

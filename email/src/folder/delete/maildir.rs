@@ -39,10 +39,10 @@ impl DeleteFolder for DeleteFolderMaildir {
         let ctx = self.ctx.lock().await;
 
         let path = if FolderKind::matches_inbox(folder) {
-            ctx.session.path().join("cur")
+            ctx.root.path().join("cur")
         } else {
             let folder = maildir::encode_folder(folder);
-            ctx.session.path().join(format!(".{}", folder))
+            ctx.root.path().join(format!(".{}", folder))
         };
 
         fs::remove_dir_all(&path).map_err(|err| Error::DeleteFolderError(err, path))?;

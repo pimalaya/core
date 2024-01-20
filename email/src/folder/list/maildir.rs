@@ -36,11 +36,11 @@ impl ListFolders for ListMaildirFolders {
         folders.push(Folder {
             kind: Some(FolderKind::Inbox),
             name: config.get_inbox_folder_alias(),
-            desc: ctx.session.path().to_string_lossy().to_string(),
+            desc: ctx.root.path().to_string_lossy().to_string(),
         });
 
         let subfolders: Vec<Folder> =
-            Folders::from_submaildirs(config, ctx.session.list_subdirs()).into();
+            Folders::from_submaildirs(config, ctx.root.list_subdirs()).into();
 
         folders.extend(subfolders);
 

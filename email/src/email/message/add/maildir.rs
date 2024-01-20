@@ -14,7 +14,7 @@ pub enum Error {
 
 #[derive(Clone)]
 pub struct AddMaildirMessage {
-    ctx: MaildirContextSync,
+    pub ctx: MaildirContextSync,
 }
 
 impl AddMaildirMessage {

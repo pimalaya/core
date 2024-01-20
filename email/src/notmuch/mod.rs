@@ -2,6 +2,7 @@ pub mod config;
 
 use async_trait::async_trait;
 use log::info;
+use maildirpp::Maildir;
 use notmuch::{Database, DatabaseMode};
 use shellexpand_utils::shellexpand_path;
 use std::{ops::Deref, path::PathBuf, sync::Arc};
@@ -31,15 +32,20 @@ pub struct NotmuchContext {
 
     /// The Notmuch configuration.
     pub notmuch_config: NotmuchConfig,
+
+    /// The Maildir instance the Notmuch database relies on.
+    pub mdir: Maildir,
 }
 
 impl NotmuchContext {
     pub fn open_db(&self) -> Result<Database> {
-        let path = shellexpand_path(&self.notmuch_config.db_path);
+        let db_path = shellexpand_path(&self.notmuch_config.database_path);
+        let db_mode = DatabaseMode::ReadWrite;
+        let config_path = self.notmuch_config.find_config_path();
+        let profile = self.notmuch_config.find_profile();
 
-        let db =
-            Database::open_with_config(Some(&path), DatabaseMode::ReadWrite, None::<PathBuf>, None)
-                .map_err(|err| Error::OpenDatabaseError(err, path))?;
+        let db = Database::open_with_config(Some(&db_path), db_mode, config_path, profile)
+            .map_err(|err| Error::OpenDatabaseError(err, db_path))?;
 
         Ok(db)
     }
@@ -105,17 +111,17 @@ impl BackendContextBuilder for NotmuchContextBuilder {
     async fn build(self) -> Result<Self::Context> {
         info!("building new notmuch context");
 
+        let mdir = Maildir::from(self.notmuch_config.get_maildir_path().to_owned());
+
         let context = NotmuchContext {
             account_config: self.account_config,
             notmuch_config: self.notmuch_config,
+            mdir,
         };
 
         Ok(context.into())
     }
 }
-
-// const EXTRACT_FOLDER_FROM_QUERY: Lazy<Regex> =
-//     Lazy::new(|| Regex::new("folder:\"?([^\"]*)\"?").unwrap());
 
 // #[async_trait]
 // impl Backend for NotmuchBackend {
@@ -143,47 +149,6 @@ impl BackendContextBuilder for NotmuchContextBuilder {
 //         let envelopes = self._search_envelopes(&query, page_size, page)?;
 
 //         Ok(envelopes)
-//     }
-
-//     async fn add_email(&mut self, folder: &str, email: &[u8], flags: &Flags) -> Result<String> {
-//         info!(
-//             "adding notmuch email with flags {flags}",
-//             flags = flags.to_string()
-//         );
-
-//         let db = self.open_db()?;
-
-//         let folder_alias = self.account_config.find_folder_alias(folder)?;
-//         let folder = match folder_alias {
-//             Some(ref alias) => EXTRACT_FOLDER_FROM_QUERY
-//                 .captures(alias)
-//                 .map(|m| m[1].to_owned())
-//                 .unwrap_or_else(|| folder.to_owned()),
-//             None => folder.to_owned(),
-//         };
-//         let path = self.path().join(folder);
-//         let mdir = Maildir::from(
-//             path.canonicalize()
-//                 .map_err(|err| Error::CanonicalizePathError(err, path.clone()))?,
-//         );
-//         let mdir_internal_id = mdir
-//             .store_cur_with_flags(email, &flags.to_mdir_string())
-//             .map_err(|err| Error::StoreWithFlagsError(err, mdir.path().to_owned()))?;
-//         trace!("added email internal maildir id: {mdir_internal_id}");
-
-//         let entry = mdir
-//             .find(&mdir_internal_id)
-//             .ok_or(Error::FindMaildirEmailById)?;
-//         let path = entry
-//             .path()
-//             .canonicalize()
-//             .map_err(|err| Error::CanonicalizePathError(err, entry.path().clone()))?;
-//         trace!("path: {path:?}");
-
-//         let email = db.index_file(&path, None).map_err(Error::IndexFileError)?;
-
-//         Self::close_db(db)?;
-//         Ok(email.id().to_string())
 //     }
 
 //     async fn delete_emails(&mut self, _folder: &str, internal_ids: Vec<&str>) -> Result<()> {
