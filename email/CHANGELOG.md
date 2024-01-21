@@ -192,6 +192,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `new_boxed(ctx: &SmtpContextSync) -> Box<dyn SendMessage>`
   - `some_new_boxed(ctx: &SmtpContextSync) -> Option<Box<dyn SendMessage>>`
 - Changed `NotmuchConfig::db_path: PathBuf` by `database_path: Option<PathBuf>`. A serde alias is available.
+- Moved `AccountConfig` parameter from `{any}ContextBuilder::new` to `BackendContextBuilder::build`
 
 ## [0.20.1] - 2024-01-12
 

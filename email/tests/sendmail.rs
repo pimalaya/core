@@ -8,7 +8,7 @@ use email::{
         ImapContextBuilder,
     },
     message::send::sendmail::SendSendmailMessage,
-    sendmail::{config::SendmailConfig, SendmailContext},
+    sendmail::{config::SendmailConfig, SendmailContextBuilder},
 };
 use mail_builder::MessageBuilder;
 use secret::Secret;
@@ -41,8 +41,8 @@ async fn test_sendmail_features() {
         .into(),
     };
 
-    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
-    let sendmail_ctx = SendmailContext::new(account_config.clone(), sendmail_config);
+    let imap_ctx = ImapContextBuilder::new(imap_config);
+    let sendmail_ctx = SendmailContextBuilder::new(sendmail_config);
     let backend_builder = BackendBuilder::new(account_config.clone(), (imap_ctx, sendmail_ctx))
         .with_purge_folder(|ctx| PurgeImapFolder::some_new_boxed(&ctx.0))
         .with_list_envelopes(|ctx| ListImapEnvelopes::some_new_boxed(&ctx.0))

@@ -133,14 +133,14 @@ pub enum Error {
 pub trait BackendContextBuilder: Clone + Send + Sync {
     type Context: Send;
 
-    async fn build(self) -> Result<Self::Context>;
+    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context>;
 }
 
 #[async_trait]
 impl BackendContextBuilder for () {
     type Context = ();
 
-    async fn build(self) -> Result<Self::Context> {
+    async fn build(self, _account_config: &AccountConfig) -> Result<Self::Context> {
         Ok(())
     }
 }
@@ -149,25 +149,13 @@ impl BackendContextBuilder for () {
 impl<T: BackendContextBuilder, U: BackendContextBuilder> BackendContextBuilder for (T, U) {
     type Context = (T::Context, U::Context);
 
-    async fn build(self) -> Result<Self::Context> {
-        Ok((self.0.build().await?, self.1.build().await?))
+    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
+        Ok((
+            self.0.build(account_config).await?,
+            self.1.build(account_config).await?,
+        ))
     }
 }
-
-// #[async_trait]
-// impl<T: BackendContextBuilder, U: BackendContextBuilder, V: BackendContextBuilder>
-//     BackendContextBuilder for (T, U, V)
-// {
-//     type Context = (T::Context, U::Context, V::Context);
-
-//     async fn build(self) -> Result<Self::Context> {
-//         Ok((
-//             self.0.build().await?,
-//             self.1.build().await?,
-//             self.2.build().await?,
-//         ))
-//     }
-// }
 
 pub struct BackendBuilder<B: BackendContextBuilder> {
     pub account_config: AccountConfig,
@@ -583,7 +571,7 @@ impl<C: Send, B: BackendContextBuilder<Context = C>> BackendBuilder<B> {
     }
 
     pub async fn build(self) -> Result<Backend<C>> {
-        let context = self.context_builder.build().await?;
+        let context = self.context_builder.build(&self.account_config).await?;
 
         #[allow(unused_mut)]
         let mut backend = Backend::new(self.account_config);

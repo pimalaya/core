@@ -116,27 +116,23 @@ impl Deref for ImapContextSync {
 /// The IMAP backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ImapContextBuilder {
-    /// The account configuration.
-    pub account_config: AccountConfig,
-
     /// The IMAP configuration.
-    pub imap_config: ImapConfig,
+    pub config: ImapConfig,
 
     /// The prebuilt IMAP credentials.
-    imap_prebuilt_credentials: Option<String>,
+    prebuilt_credentials: Option<String>,
 }
 
 impl ImapContextBuilder {
-    pub fn new(account_config: AccountConfig, imap_config: ImapConfig) -> Self {
+    pub fn new(config: ImapConfig) -> Self {
         Self {
-            account_config,
-            imap_config,
-            imap_prebuilt_credentials: None,
+            config,
+            prebuilt_credentials: None,
         }
     }
 
     pub async fn prebuild_credentials(&mut self) -> Result<()> {
-        self.imap_prebuilt_credentials = Some(self.imap_config.build_credentials().await?);
+        self.prebuilt_credentials = Some(self.config.build_credentials().await?);
         Ok(())
     }
 
@@ -155,15 +151,15 @@ impl BackendContextBuilder for ImapContextBuilder {
     /// The IMAP session is created at this moment. If the session
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new session is created.
-    async fn build(self) -> Result<Self::Context> {
+    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
         info!("building new imap context");
 
-        let creds = self.imap_prebuilt_credentials.as_ref();
+        let creds = self.prebuilt_credentials.as_ref();
 
-        let session = match &self.imap_config.auth {
-            ImapAuthConfig::Passwd(_) => build_session(&self.imap_config, creds).await,
+        let session = match &self.config.auth {
+            ImapAuthConfig::Passwd(_) => build_session(&self.config, creds).await,
             ImapAuthConfig::OAuth2(oauth2_config) => {
-                match build_session(&self.imap_config, creds).await {
+                match build_session(&self.config, creds).await {
                     Ok(sess) => Ok(sess),
                     Err(err) => {
                         let downcast_err = err.downcast_ref::<Error>();
@@ -174,7 +170,7 @@ impl BackendContextBuilder for ImapContextBuilder {
                         {
                             debug!("error while authenticating user, refreshing access token");
                             let access_token = oauth2_config.refresh_access_token().await?;
-                            build_session(&self.imap_config, Some(&access_token)).await
+                            build_session(&self.config, Some(&access_token)).await
                         } else {
                             Err(err)
                         }
@@ -184,14 +180,14 @@ impl BackendContextBuilder for ImapContextBuilder {
         }?;
 
         let ctx = ImapContext {
-            account_config: self.account_config.clone(),
-            imap_config: self.imap_config.clone(),
+            account_config: account_config.clone(),
+            imap_config: self.config.clone(),
             session,
         };
 
         Ok(ImapContextSync {
-            account_config: self.account_config,
-            imap_config: self.imap_config,
+            account_config: account_config.clone(),
+            imap_config: self.config,
             inner: Arc::new(Mutex::new(ctx)),
         })
     }

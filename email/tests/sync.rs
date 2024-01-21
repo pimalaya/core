@@ -62,7 +62,7 @@ async fn sync() {
 
     // set up imap
 
-    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
+    let imap_ctx = ImapContextBuilder::new(imap_config);
     let imap_builder = BackendBuilder::new(account_config.clone(), imap_ctx)
         .with_add_folder(AddImapFolder::some_new_boxed)
         .with_list_folders(ListImapFolders::some_new_boxed)

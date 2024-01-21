@@ -24,8 +24,20 @@ impl SendmailContext {
 
 pub type SendmailContextSync = SendmailContext;
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SendmailContextBuilder {
+    /// The sendmail configuration
+    pub config: SendmailConfig,
+}
+
+impl SendmailContextBuilder {
+    pub fn new(config: SendmailConfig) -> Self {
+        Self { config }
+    }
+}
+
 #[async_trait]
-impl BackendContextBuilder for SendmailContext {
+impl BackendContextBuilder for SendmailContextBuilder {
     type Context = SendmailContextSync;
 
     /// Build an SENDMAIL sync session.
@@ -33,8 +45,12 @@ impl BackendContextBuilder for SendmailContext {
     /// The SENDMAIL session is created at this moment. If the session
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new session is created.
-    async fn build(self) -> Result<Self::Context> {
+    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
         info!("building new sendmail context");
-        Ok(self)
+
+        Ok(SendmailContextSync {
+            account_config: account_config.clone(),
+            sendmail_config: self.config,
+        })
     }
 }

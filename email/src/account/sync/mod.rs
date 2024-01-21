@@ -439,7 +439,7 @@ pub struct LocalBackendBuilder(BackendBuilder<MaildirContextBuilder>);
 
 impl LocalBackendBuilder {
     pub fn new(account_config: AccountConfig, maildir_config: MaildirConfig) -> Self {
-        let session_builder = MaildirContextBuilder::new(account_config.clone(), maildir_config);
+        let session_builder = MaildirContextBuilder::new(maildir_config);
         let backend_builder = BackendBuilder::new(account_config, session_builder)
             .with_add_folder(AddMaildirFolder::some_new_boxed)
             .with_list_folders(ListMaildirFolders::some_new_boxed)

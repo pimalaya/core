@@ -42,7 +42,7 @@ async fn test_imap_features() {
         ..Default::default()
     };
 
-    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config)
+    let imap_ctx = ImapContextBuilder::new(imap_config)
         .with_prebuilt_credentials()
         .await
         .unwrap();

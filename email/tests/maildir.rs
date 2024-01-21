@@ -40,7 +40,7 @@ async fn test_maildir_features() {
     if let Err(_) = fs::remove_dir_all(mdir_trash.path()) {}
     mdir_trash.create_dirs().unwrap();
 
-    let config = AccountConfig {
+    let account_config = AccountConfig {
         name: "account".into(),
         folder: Some(FolderConfig {
             aliases: Some(HashMap::from_iter([
@@ -61,8 +61,8 @@ async fn test_maildir_features() {
     let mdir_config = MaildirConfig {
         root_dir: mdir_path.clone(),
     };
-    let backend_ctx = MaildirContextBuilder::new(config.clone(), mdir_config);
-    let backend_builder = BackendBuilder::new(config.clone(), backend_ctx)
+    let backend_ctx = MaildirContextBuilder::new(mdir_config);
+    let backend_builder = BackendBuilder::new(account_config.clone(), backend_ctx)
         .with_add_folder(AddMaildirFolder::some_new_boxed)
         .with_list_folders(ListMaildirFolders::some_new_boxed)
         .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
@@ -82,8 +82,8 @@ async fn test_maildir_features() {
     let mdir_config = MaildirConfig {
         root_dir: mdir_path.clone(),
     };
-    let backend_ctx = MaildirContextBuilder::new(config.clone(), mdir_config);
-    let backend_builder = BackendBuilder::new(config.clone(), backend_ctx)
+    let backend_ctx = MaildirContextBuilder::new(mdir_config);
+    let backend_builder = BackendBuilder::new(account_config.clone(), backend_ctx)
         .with_add_folder(AddMaildirFolder::some_new_boxed)
         .with_list_folders(ListMaildirFolders::some_new_boxed)
         .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
@@ -117,7 +117,9 @@ async fn test_maildir_features() {
         .to_vec()
         .first()
         .unwrap()
-        .to_read_tpl(&config, |i| i.with_show_only_headers(["From", "To"]))
+        .to_read_tpl(&account_config, |i| {
+            i.with_show_only_headers(["From", "To"])
+        })
         .await
         .unwrap();
     let expected_tpl = concat_line!(

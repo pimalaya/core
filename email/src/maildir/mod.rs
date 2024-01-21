@@ -97,19 +97,13 @@ impl Deref for MaildirContextSync {
 /// The Maildir backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MaildirContextBuilder {
-    /// The account configuration.
-    pub account_config: AccountConfig,
-
     /// The Maildir configuration.
-    pub maildir_config: MaildirConfig,
+    pub config: MaildirConfig,
 }
 
 impl MaildirContextBuilder {
-    pub fn new(account_config: AccountConfig, maildir_config: MaildirConfig) -> Self {
-        Self {
-            account_config,
-            maildir_config,
-        }
+    pub fn new(config: MaildirConfig) -> Self {
+        Self { config }
     }
 }
 
@@ -117,23 +111,23 @@ impl MaildirContextBuilder {
 impl BackendContextBuilder for MaildirContextBuilder {
     type Context = MaildirContextSync;
 
-    async fn build(self) -> Result<Self::Context> {
+    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
         info!("building new maildir context");
 
-        let path = shellexpand_path(&self.maildir_config.root_dir);
+        let path = shellexpand_path(&self.config.root_dir);
 
         let root = Maildir::from(path);
         root.create_dirs()?;
 
         let ctx = MaildirContext {
-            account_config: self.account_config.clone(),
-            maildir_config: self.maildir_config.clone(),
+            account_config: account_config.clone(),
+            maildir_config: self.config.clone(),
             root,
         };
 
         Ok(MaildirContextSync {
-            account_config: self.account_config,
-            maildir_config: self.maildir_config,
+            account_config: account_config.clone(),
+            maildir_config: self.config,
             inner: Arc::new(Mutex::new(ctx)),
         })
     }

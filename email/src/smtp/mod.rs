@@ -132,19 +132,13 @@ impl From<SmtpContext> for SmtpContextSync {
 /// The SMTP client builder.
 #[derive(Clone)]
 pub struct SmtpContextBuilder {
-    /// The account configuration.
-    account_config: AccountConfig,
-
     /// The SMTP configuration.
-    smtp_config: SmtpConfig,
+    config: SmtpConfig,
 }
 
 impl SmtpContextBuilder {
-    pub fn new(account_config: AccountConfig, smtp_config: SmtpConfig) -> Self {
-        Self {
-            account_config,
-            smtp_config,
-        }
+    pub fn new(config: SmtpConfig) -> Self {
+        Self { config }
     }
 }
 
@@ -157,23 +151,22 @@ impl BackendContextBuilder for SmtpContextBuilder {
     /// The SMTP client is created at this moment. If the client
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new client is created.
-    async fn build(self) -> Result<Self::Context> {
+    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
         info!("building new smtp context");
 
-        let mut client_builder =
-            SmtpClientBuilder::new(self.smtp_config.host.clone(), self.smtp_config.port)
-                .credentials(self.smtp_config.credentials().await?)
-                .implicit_tls(!self.smtp_config.is_start_tls_encryption_enabled());
+        let mut client_builder = SmtpClientBuilder::new(self.config.host.clone(), self.config.port)
+            .credentials(self.config.credentials().await?)
+            .implicit_tls(!self.config.is_start_tls_encryption_enabled());
 
-        if self.smtp_config.is_encryption_disabled() {
+        if self.config.is_encryption_disabled() {
             client_builder = client_builder.allow_invalid_certs();
         }
 
-        let (client_builder, client) = build_client(&self.smtp_config, client_builder).await?;
+        let (client_builder, client) = build_client(&self.config, client_builder).await?;
 
         let context = SmtpContext {
-            account_config: self.account_config,
-            smtp_config: self.smtp_config,
+            account_config: account_config.clone(),
+            smtp_config: self.config,
             client_builder,
             client,
         };

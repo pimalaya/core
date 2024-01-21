@@ -49,11 +49,11 @@ async fn test_notmuch_features() {
     };
 
     let notmuch_config = NotmuchConfig {
-        database_path: mdir.path().to_owned(),
+        database_path: Some(mdir.path().to_owned()),
         ..Default::default()
     };
 
-    let notmuch_ctx = NotmuchContextBuilder::new(account_config.clone(), notmuch_config);
+    let notmuch_ctx = NotmuchContextBuilder::new(notmuch_config);
     let notmuch = BackendBuilder::new(account_config.clone(), notmuch_ctx)
         .with_list_envelopes(ListNotmuchEnvelopes::some_new_boxed)
         .with_add_flags(AddNotmuchFlags::some_new_boxed)
