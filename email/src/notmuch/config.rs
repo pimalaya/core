@@ -3,8 +3,11 @@
 //! This module contains the configuration specific to the Notmuch
 //! backend.
 
+use notmuch::{Database, DatabaseMode};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+
+use crate::Result;
 
 /// The Notmuch backend config.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -17,7 +20,7 @@ pub struct NotmuchConfig {
     /// shell-expanded, which means environment variables and tilde
     /// `~` are replaced by their values.
     #[serde(alias = "db-path")]
-    pub database_path: PathBuf,
+    pub database_path: Option<PathBuf>,
 
     /// Override the default path to the Maildir folder.
     ///
@@ -37,20 +40,35 @@ pub struct NotmuchConfig {
 }
 
 impl NotmuchConfig {
+    /// Get the default Notmuch database path.
+    pub fn get_default_database_path() -> Result<PathBuf> {
+        Ok(Database::open_with_config(
+            None::<PathBuf>,
+            DatabaseMode::ReadOnly,
+            None::<PathBuf>,
+            None,
+        )?
+        .path()
+        .to_owned())
+    }
+
     /// Get the reference to the Notmuch database path.
-    pub fn get_database_path(&self) -> &Path {
-        self.database_path.as_ref()
+    pub fn get_database_path(&self) -> Result<PathBuf> {
+        match self.database_path.as_ref() {
+            Some(path) => Ok(path.to_owned()),
+            None => Self::get_default_database_path(),
+        }
     }
 
     /// Get the reference to the Maildir path.
     ///
     /// Try the `maildir_path` first, otherwise falls back to
     /// `database_path`.
-    pub fn get_maildir_path(&self) -> &Path {
-        self.maildir_path
-            .as_ref()
-            .unwrap_or(&self.database_path)
-            .as_ref()
+    pub fn get_maildir_path(&self) -> Result<PathBuf> {
+        match self.maildir_path.as_ref() {
+            Some(path) => Ok(path.to_owned()),
+            None => self.get_database_path(),
+        }
     }
 
     /// Find the Notmuch configuration path reference.

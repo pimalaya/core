@@ -8,7 +8,7 @@ use email::{
         set::maildir::SetMaildirFlags, Flag,
     },
     folder::{
-        add::maildir::AddMaildirFolder, config::FolderConfig, delete::maildir::DeleteFolderMaildir,
+        add::maildir::AddMaildirFolder, config::FolderConfig, delete::maildir::DeleteMaildirFolder,
         expunge::maildir::ExpungeMaildirFolder, list::maildir::ListMaildirFolders,
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder},
@@ -66,7 +66,7 @@ async fn test_maildir_features() {
         .with_add_folder(AddMaildirFolder::some_new_boxed)
         .with_list_folders(ListMaildirFolders::some_new_boxed)
         .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
-        .with_delete_folder(DeleteFolderMaildir::some_new_boxed)
+        .with_delete_folder(DeleteMaildirFolder::some_new_boxed)
         .with_list_envelopes(ListMaildirEnvelopes::some_new_boxed)
         .with_add_flags(AddMaildirFlags::some_new_boxed)
         .with_set_flags(SetMaildirFlags::some_new_boxed)
@@ -87,7 +87,7 @@ async fn test_maildir_features() {
         .with_add_folder(AddMaildirFolder::some_new_boxed)
         .with_list_folders(ListMaildirFolders::some_new_boxed)
         .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
-        .with_delete_folder(DeleteFolderMaildir::some_new_boxed)
+        .with_delete_folder(DeleteMaildirFolder::some_new_boxed)
         .with_list_envelopes(ListMaildirEnvelopes::some_new_boxed)
         .with_add_flags(AddMaildirFlags::some_new_boxed)
         .with_set_flags(SetMaildirFlags::some_new_boxed)

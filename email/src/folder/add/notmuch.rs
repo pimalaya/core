@@ -4,52 +4,49 @@ use maildirpp::Maildir;
 use std::path::PathBuf;
 use thiserror::Error;
 
-use crate::{
-    folder::FolderKind,
-    maildir::{self, MaildirContextSync},
-    Result,
-};
+use crate::{folder::FolderKind, maildir, notmuch::NotmuchContextSync, Result};
 
 use super::AddFolder;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("cannot create maildir folder structure at {1}")]
+    #[error("cannot create notmuch folder structure at {1}")]
     CreateFolderStructureError(#[source] maildirpp::Error, PathBuf),
 }
 
-pub struct AddMaildirFolder {
-    ctx: MaildirContextSync,
+pub struct AddNotmuchFolder {
+    ctx: NotmuchContextSync,
 }
 
-impl AddMaildirFolder {
-    pub fn new(ctx: &MaildirContextSync) -> Self {
+impl AddNotmuchFolder {
+    pub fn new(ctx: &NotmuchContextSync) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &MaildirContextSync) -> Box<dyn AddFolder> {
+    pub fn new_boxed(ctx: &NotmuchContextSync) -> Box<dyn AddFolder> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &MaildirContextSync) -> Option<Box<dyn AddFolder>> {
+    pub fn some_new_boxed(ctx: &NotmuchContextSync) -> Option<Box<dyn AddFolder>> {
         Some(Self::new_boxed(ctx))
     }
 }
 
 #[async_trait]
-impl AddFolder for AddMaildirFolder {
+impl AddFolder for AddNotmuchFolder {
     async fn add_folder(&self, folder: &str) -> Result<()> {
-        info!("creating maildir folder {folder}");
+        info!("creating notmuch folder {folder}");
 
+        let config = &self.ctx.account_config;
         let ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mdir_ctx = &ctx.mdir_ctx;
 
         let path = if FolderKind::matches_inbox(folder) {
-            ctx.root.path().to_owned()
+            mdir_ctx.root.path().to_owned()
         } else {
             let folder = config.get_folder_alias(folder);
             let folder = maildir::encode_folder(folder);
-            ctx.root.path().join(format!(".{}", folder))
+            mdir_ctx.root.path().join(format!(".{}", folder))
         };
 
         Maildir::from(path.clone())

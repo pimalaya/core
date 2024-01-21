@@ -29,7 +29,7 @@ use crate::{
     flag::{add::maildir::AddMaildirFlags, set::maildir::SetMaildirFlags},
     folder::{
         add::maildir::AddMaildirFolder,
-        delete::maildir::DeleteFolderMaildir,
+        delete::maildir::DeleteMaildirFolder,
         expunge::maildir::ExpungeMaildirFolder,
         list::maildir::ListMaildirFolders,
         sync::{
@@ -444,7 +444,7 @@ impl LocalBackendBuilder {
             .with_add_folder(AddMaildirFolder::some_new_boxed)
             .with_list_folders(ListMaildirFolders::some_new_boxed)
             .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
-            .with_delete_folder(DeleteFolderMaildir::some_new_boxed)
+            .with_delete_folder(DeleteMaildirFolder::some_new_boxed)
             .with_get_envelope(GetMaildirEnvelope::some_new_boxed)
             .with_list_envelopes(ListMaildirEnvelopes::some_new_boxed)
             .with_add_flags(AddMaildirFlags::some_new_boxed)

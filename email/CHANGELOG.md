@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `account::discover` module to help lib consumers to detect automatically IMAP and SMTP settings.
 - Added Notmuch contexts and context builder.
-- Added Notmuch backend features `ListNotmuchFolders`, `GetNotmuchEnvelope`, `ListNotmuchEnvelopes`, `AddNotmuchFlags`, `SetNotmuchFlags`, `RemoveNotmuchFlags`, `AddNotmuchMessage`, `PeekNotmuchMessages`, `CopyNotmuchMessages` and `MoveNotmuchMessages`.
+- Added Notmuch backend features `AddNotmuchFolder`, `ListNotmuchFolders`, `GetNotmuchEnvelope`, `ListNotmuchEnvelopes`, `AddNotmuchFlags`, `SetNotmuchFlags`, `RemoveNotmuchFlags`, `AddNotmuchMessage`, `PeekNotmuchMessages`, `CopyNotmuchMessages` and `MoveNotmuchMessages`.
 
 ### Changed
 
@@ -191,7 +191,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `new(ctx: &SmtpContextSync) -> Self`
   - `new_boxed(ctx: &SmtpContextSync) -> Box<dyn SendMessage>`
   - `some_new_boxed(ctx: &SmtpContextSync) -> Option<Box<dyn SendMessage>>`
-- Renamed `NotmuchConfig::db_path` by `database_path`. A serde alias is available.
+- Changed `NotmuchConfig::db_path: PathBuf` by `database_path: Option<PathBuf>`. A serde alias is available.
 
 ## [0.20.1] - 2024-01-12
 

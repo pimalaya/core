@@ -17,11 +17,11 @@ pub enum Error {
     DeleteFolderError(#[source] io::Error, PathBuf),
 }
 
-pub struct DeleteFolderMaildir {
+pub struct DeleteMaildirFolder {
     ctx: MaildirContextSync,
 }
 
-impl DeleteFolderMaildir {
+impl DeleteMaildirFolder {
     pub fn new(ctx: &MaildirContextSync) -> Self {
         Self { ctx: ctx.clone() }
     }
@@ -36,7 +36,7 @@ impl DeleteFolderMaildir {
 }
 
 #[async_trait]
-impl DeleteFolder for DeleteFolderMaildir {
+impl DeleteFolder for DeleteMaildirFolder {
     async fn delete_folder(&self, folder: &str) -> Result<()> {
         info!("deleting maildir folder {folder}");
 

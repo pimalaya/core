@@ -5,7 +5,7 @@ use log::info;
 use maildirpp::Maildir;
 use notmuch::{Database, DatabaseMode};
 use shellexpand_utils::shellexpand_path;
-use std::{ops::Deref, path::PathBuf, sync::Arc};
+use std::{ops::Deref, sync::Arc};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
@@ -20,8 +20,8 @@ use self::config::NotmuchConfig;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot open notmuch database at {1}")]
-    OpenDatabaseError(#[source] notmuch::Error, PathBuf),
+    #[error("cannot open notmuch database")]
+    OpenDatabaseError(#[source] notmuch::Error),
 }
 
 /// The Notmuch backend context.
@@ -44,13 +44,17 @@ pub struct NotmuchContext {
 
 impl NotmuchContext {
     pub fn open_db(&self) -> Result<Database> {
-        let db_path = shellexpand_path(&self.notmuch_config.database_path);
+        let db_path = self
+            .notmuch_config
+            .database_path
+            .as_ref()
+            .map(shellexpand_path);
         let db_mode = DatabaseMode::ReadWrite;
         let config_path = self.notmuch_config.find_config_path();
         let profile = self.notmuch_config.find_profile();
 
-        let db = Database::open_with_config(Some(&db_path), db_mode, config_path, profile)
-            .map_err(|err| Error::OpenDatabaseError(err, db_path))?;
+        let db = Database::open_with_config(db_path, db_mode, config_path, profile)
+            .map_err(Error::OpenDatabaseError)?;
 
         Ok(db)
     }
@@ -106,7 +110,7 @@ impl BackendContextBuilder for NotmuchContextBuilder {
     async fn build(self) -> Result<Self::Context> {
         info!("building new notmuch context");
 
-        let root = Maildir::from(self.notmuch_config.get_maildir_path().to_owned());
+        let root = Maildir::from(self.notmuch_config.get_maildir_path()?);
 
         let maildir_config = MaildirConfig {
             root_dir: root.path().to_owned(),
