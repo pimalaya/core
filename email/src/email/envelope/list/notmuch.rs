@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{debug, info, trace};
 use thiserror::Error;
 
-use crate::{notmuch::NotmuchContextSync, Result};
+use crate::{folder::FolderKind, notmuch::NotmuchContextSync, Result};
 
 use super::{Envelopes, ListEnvelopes};
 
@@ -41,9 +41,13 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
         let config = &ctx.account_config;
         let db = ctx.open_db()?;
 
-        let query = config
-            .find_folder_alias(folder.as_ref())
-            .unwrap_or_else(|| format!("folder:{folder:?}"));
+        let query = if FolderKind::matches_inbox(folder) {
+            String::from("folder:\"\"")
+        } else {
+            let folder = config.get_folder_alias(folder.as_ref());
+            format!("folder:{folder:?}")
+        };
+
         let query_builder = db.create_query(&query)?;
 
         let mut envelopes = Envelopes::from_notmuch_msgs(query_builder.search_messages()?);

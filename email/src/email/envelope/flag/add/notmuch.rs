@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::{debug, info};
 
-use crate::{envelope::Id, notmuch::NotmuchContextSync, Result};
+use crate::{envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync, Result};
 
 use super::{AddFlags, Flags};
 
@@ -25,10 +25,18 @@ impl AddFlags for AddNotmuchFlags {
     async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         info!("adding notmuch flag(s) {flags} to envelope {id} from folder {folder}");
 
+        let config = &self.ctx.account_config;
         let ctx = self.ctx.lock().await;
         let db = ctx.open_db()?;
 
-        let query = format!("mid:\"/^({})$/\"", id.join("|"));
+        let folder_query = if FolderKind::matches_inbox(folder) {
+            format!("folder:\"\"")
+        } else {
+            let folder = config.get_folder_alias(folder);
+            format!("folder:{folder:?}")
+        };
+        let mid_query = format!("mid:\"/^({})$/\"", id.join("|"));
+        let query = [folder_query, mid_query].join(" and ");
         debug!("notmuch query: {query:?}");
 
         let query_builder = db.create_query(&query)?;
