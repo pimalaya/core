@@ -18,12 +18,16 @@ pub struct CopyMaildirMessages {
 }
 
 impl CopyMaildirMessages {
-    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &MaildirContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn CopyMessages> {
+    pub fn new_boxed(ctx: &MaildirContextSync) -> Box<dyn CopyMessages> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &MaildirContextSync) -> Option<Box<dyn CopyMessages>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

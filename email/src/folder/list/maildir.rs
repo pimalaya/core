@@ -14,12 +14,16 @@ pub struct ListMaildirFolders {
 }
 
 impl ListMaildirFolders {
-    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &MaildirContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn ListFolders> {
+    pub fn new_boxed(ctx: &MaildirContextSync) -> Box<dyn ListFolders> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &MaildirContextSync) -> Option<Box<dyn ListFolders>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

@@ -23,12 +23,16 @@ pub struct AddMaildirFolder {
 }
 
 impl AddMaildirFolder {
-    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &MaildirContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn AddFolder> {
+    pub fn new_boxed(ctx: &MaildirContextSync) -> Box<dyn AddFolder> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &MaildirContextSync) -> Option<Box<dyn AddFolder>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

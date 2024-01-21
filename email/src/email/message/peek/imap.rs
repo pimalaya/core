@@ -24,12 +24,16 @@ pub struct PeekImapMessages {
 }
 
 impl PeekImapMessages {
-    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &ImapContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn PeekMessages> {
+    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn PeekMessages> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn PeekMessages>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

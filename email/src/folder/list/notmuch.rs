@@ -15,12 +15,16 @@ pub struct ListNotmuchFolders {
 }
 
 impl ListNotmuchFolders {
-    pub fn new(ctx: impl Into<NotmuchContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &NotmuchContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<NotmuchContextSync>) -> Box<dyn ListFolders> {
+    pub fn new_boxed(ctx: &NotmuchContextSync) -> Box<dyn ListFolders> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &NotmuchContextSync) -> Option<Box<dyn ListFolders>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

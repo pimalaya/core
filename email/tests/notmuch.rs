@@ -55,14 +55,14 @@ async fn test_notmuch_features() {
 
     let notmuch_ctx = NotmuchContextBuilder::new(account_config.clone(), notmuch_config);
     let notmuch = BackendBuilder::new(account_config.clone(), notmuch_ctx)
-        .with_list_envelopes(|ctx| Some(ListNotmuchEnvelopes::new_boxed(ctx.clone())))
-        .with_add_flags(|ctx| Some(AddNotmuchFlags::new_boxed(ctx.clone())))
-        .with_set_flags(|ctx| Some(SetNotmuchFlags::new_boxed(ctx.clone())))
-        .with_remove_flags(|ctx| Some(RemoveNotmuchFlags::new_boxed(ctx.clone())))
-        .with_add_message(|ctx| Some(AddNotmuchMessage::new_boxed(ctx.clone())))
-        .with_peek_messages(|ctx| Some(PeekNotmuchMessages::new_boxed(ctx.clone())))
-        .with_copy_messages(|ctx| Some(CopyNotmuchMessages::new_boxed(ctx.clone())))
-        .with_move_messages(|ctx| Some(MoveNotmuchMessages::new_boxed(ctx.clone())))
+        .with_list_envelopes(ListNotmuchEnvelopes::some_new_boxed)
+        .with_add_flags(AddNotmuchFlags::some_new_boxed)
+        .with_set_flags(SetNotmuchFlags::some_new_boxed)
+        .with_remove_flags(RemoveNotmuchFlags::some_new_boxed)
+        .with_add_message(AddNotmuchMessage::some_new_boxed)
+        .with_peek_messages(PeekNotmuchMessages::some_new_boxed)
+        .with_copy_messages(CopyNotmuchMessages::some_new_boxed)
+        .with_move_messages(MoveNotmuchMessages::some_new_boxed)
         .build()
         .await
         .unwrap();

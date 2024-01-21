@@ -19,12 +19,16 @@ pub struct GetMaildirEnvelope {
 }
 
 impl GetMaildirEnvelope {
-    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &MaildirContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn GetEnvelope> {
+    pub fn new_boxed(ctx: &MaildirContextSync) -> Box<dyn GetEnvelope> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &MaildirContextSync) -> Option<Box<dyn GetEnvelope>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

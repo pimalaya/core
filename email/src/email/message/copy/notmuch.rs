@@ -29,12 +29,16 @@ pub struct CopyNotmuchMessages {
 }
 
 impl CopyNotmuchMessages {
-    pub fn new(ctx: impl Into<NotmuchContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &NotmuchContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<NotmuchContextSync>) -> Box<dyn CopyMessages> {
+    pub fn new_boxed(ctx: &NotmuchContextSync) -> Box<dyn CopyMessages> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &NotmuchContextSync) -> Option<Box<dyn CopyMessages>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

@@ -11,12 +11,16 @@ pub struct SendSmtpMessage {
 }
 
 impl SendSmtpMessage {
-    pub fn new(ctx: impl Into<SmtpContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &SmtpContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<SmtpContextSync>) -> Box<dyn SendMessage> {
+    pub fn new_boxed(ctx: &SmtpContextSync) -> Box<dyn SendMessage> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &SmtpContextSync) -> Option<Box<dyn SendMessage>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

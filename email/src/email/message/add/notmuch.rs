@@ -16,12 +16,16 @@ pub struct AddNotmuchMessage {
 }
 
 impl AddNotmuchMessage {
-    pub fn new(ctx: impl Into<NotmuchContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &NotmuchContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<NotmuchContextSync>) -> Box<dyn AddMessage> {
+    pub fn new_boxed(ctx: &NotmuchContextSync) -> Box<dyn AddMessage> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &NotmuchContextSync) -> Option<Box<dyn AddMessage>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

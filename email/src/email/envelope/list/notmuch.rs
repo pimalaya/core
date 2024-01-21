@@ -18,12 +18,16 @@ pub struct ListNotmuchEnvelopes {
 }
 
 impl ListNotmuchEnvelopes {
-    pub fn new(ctx: impl Into<NotmuchContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &NotmuchContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<NotmuchContextSync>) -> Box<dyn ListEnvelopes> {
+    pub fn new_boxed(ctx: &NotmuchContextSync) -> Box<dyn ListEnvelopes> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &NotmuchContextSync) -> Option<Box<dyn ListEnvelopes>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

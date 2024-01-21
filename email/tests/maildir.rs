@@ -63,18 +63,18 @@ async fn test_maildir_features() {
     };
     let backend_ctx = MaildirContextBuilder::new(config.clone(), mdir_config);
     let backend_builder = BackendBuilder::new(config.clone(), backend_ctx)
-        .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx.clone())))
-        .with_list_folders(|ctx| Some(ListMaildirFolders::new_boxed(ctx.clone())))
-        .with_expunge_folder(|ctx| Some(ExpungeMaildirFolder::new_boxed(ctx.clone())))
-        .with_delete_folder(|ctx| Some(DeleteFolderMaildir::new_boxed(ctx.clone())))
-        .with_list_envelopes(|ctx| Some(ListMaildirEnvelopes::new_boxed(ctx.clone())))
-        .with_add_flags(|ctx| Some(AddMaildirFlags::new_boxed(ctx.clone())))
-        .with_set_flags(|ctx| Some(SetMaildirFlags::new_boxed(ctx.clone())))
-        .with_remove_flags(|ctx| Some(RemoveMaildirFlags::new_boxed(ctx.clone())))
-        .with_add_message(|ctx| Some(AddMaildirMessage::new_boxed(ctx.clone())))
-        .with_peek_messages(|ctx| Some(PeekMaildirMessages::new_boxed(ctx.clone())))
-        .with_copy_messages(|ctx| Some(CopyMaildirMessages::new_boxed(ctx.clone())))
-        .with_move_messages(|ctx| Some(MoveMaildirMessages::new_boxed(ctx.clone())));
+        .with_add_folder(AddMaildirFolder::some_new_boxed)
+        .with_list_folders(ListMaildirFolders::some_new_boxed)
+        .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
+        .with_delete_folder(DeleteFolderMaildir::some_new_boxed)
+        .with_list_envelopes(ListMaildirEnvelopes::some_new_boxed)
+        .with_add_flags(AddMaildirFlags::some_new_boxed)
+        .with_set_flags(SetMaildirFlags::some_new_boxed)
+        .with_remove_flags(RemoveMaildirFlags::some_new_boxed)
+        .with_add_message(AddMaildirMessage::some_new_boxed)
+        .with_peek_messages(PeekMaildirMessages::some_new_boxed)
+        .with_copy_messages(CopyMaildirMessages::some_new_boxed)
+        .with_move_messages(MoveMaildirMessages::some_new_boxed);
     let mdir = backend_builder.build().await.unwrap();
 
     // Sub maildir backend
@@ -84,18 +84,18 @@ async fn test_maildir_features() {
     };
     let backend_ctx = MaildirContextBuilder::new(config.clone(), mdir_config);
     let backend_builder = BackendBuilder::new(config.clone(), backend_ctx)
-        .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx.clone())))
-        .with_list_folders(|ctx| Some(ListMaildirFolders::new_boxed(ctx.clone())))
-        .with_expunge_folder(|ctx| Some(ExpungeMaildirFolder::new_boxed(ctx.clone())))
-        .with_delete_folder(|ctx| Some(DeleteFolderMaildir::new_boxed(ctx.clone())))
-        .with_list_envelopes(|ctx| Some(ListMaildirEnvelopes::new_boxed(ctx.clone())))
-        .with_add_flags(|ctx| Some(AddMaildirFlags::new_boxed(ctx.clone())))
-        .with_set_flags(|ctx| Some(SetMaildirFlags::new_boxed(ctx.clone())))
-        .with_remove_flags(|ctx| Some(RemoveMaildirFlags::new_boxed(ctx.clone())))
-        .with_add_message(|ctx| Some(AddMaildirMessage::new_boxed(ctx.clone())))
-        .with_peek_messages(|ctx| Some(PeekMaildirMessages::new_boxed(ctx.clone())))
-        .with_copy_messages(|ctx| Some(CopyMaildirMessages::new_boxed(ctx.clone())))
-        .with_move_messages(|ctx| Some(MoveMaildirMessages::new_boxed(ctx.clone())));
+        .with_add_folder(AddMaildirFolder::some_new_boxed)
+        .with_list_folders(ListMaildirFolders::some_new_boxed)
+        .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
+        .with_delete_folder(DeleteFolderMaildir::some_new_boxed)
+        .with_list_envelopes(ListMaildirEnvelopes::some_new_boxed)
+        .with_add_flags(AddMaildirFlags::some_new_boxed)
+        .with_set_flags(SetMaildirFlags::some_new_boxed)
+        .with_remove_flags(RemoveMaildirFlags::some_new_boxed)
+        .with_add_message(AddMaildirMessage::some_new_boxed)
+        .with_peek_messages(PeekMaildirMessages::some_new_boxed)
+        .with_copy_messages(CopyMaildirMessages::some_new_boxed)
+        .with_move_messages(MoveMaildirMessages::some_new_boxed);
     let submdir = backend_builder.build().await.unwrap();
 
     // check that a message can be built and added

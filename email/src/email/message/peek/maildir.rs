@@ -11,12 +11,16 @@ pub struct PeekMaildirMessages {
 }
 
 impl PeekMaildirMessages {
-    pub fn new(ctx: impl Into<MaildirContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &MaildirContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<MaildirContextSync>) -> Box<dyn PeekMessages> {
+    pub fn new_boxed(ctx: &MaildirContextSync) -> Box<dyn PeekMessages> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &MaildirContextSync) -> Option<Box<dyn PeekMessages>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

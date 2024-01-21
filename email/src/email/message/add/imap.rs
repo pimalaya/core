@@ -24,12 +24,16 @@ pub struct AddImapMessage {
 }
 
 impl AddImapMessage {
-    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &ImapContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn AddMessage> {
+    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn AddMessage> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn AddMessage>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

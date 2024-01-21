@@ -113,16 +113,6 @@ impl Deref for ImapContextSync {
     }
 }
 
-impl From<ImapContext> for ImapContextSync {
-    fn from(ctx: ImapContext) -> Self {
-        Self {
-            account_config: ctx.account_config.clone(),
-            imap_config: ctx.imap_config.clone(),
-            inner: Arc::new(Mutex::new(ctx)),
-        }
-    }
-}
-
 /// The IMAP backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ImapContextBuilder {
@@ -193,13 +183,17 @@ impl BackendContextBuilder for ImapContextBuilder {
             }
         }?;
 
-        let context = ImapContext {
-            account_config: self.account_config,
-            imap_config: self.imap_config,
+        let ctx = ImapContext {
+            account_config: self.account_config.clone(),
+            imap_config: self.imap_config.clone(),
             session,
         };
 
-        Ok(context.into())
+        Ok(ImapContextSync {
+            account_config: self.account_config,
+            imap_config: self.imap_config,
+            inner: Arc::new(Mutex::new(ctx)),
+        })
     }
 }
 

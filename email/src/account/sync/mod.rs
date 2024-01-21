@@ -441,17 +441,17 @@ impl LocalBackendBuilder {
     pub fn new(account_config: AccountConfig, maildir_config: MaildirConfig) -> Self {
         let session_builder = MaildirContextBuilder::new(account_config.clone(), maildir_config);
         let backend_builder = BackendBuilder::new(account_config, session_builder)
-            .with_add_folder(|ctx| Some(AddMaildirFolder::new_boxed(ctx.clone())))
-            .with_list_folders(|ctx| Some(ListMaildirFolders::new_boxed(ctx.clone())))
-            .with_expunge_folder(|ctx| Some(ExpungeMaildirFolder::new_boxed(ctx.clone())))
-            .with_delete_folder(|ctx| Some(DeleteFolderMaildir::new_boxed(ctx.clone())))
-            .with_get_envelope(|ctx| Some(GetMaildirEnvelope::new_boxed(ctx.clone())))
-            .with_list_envelopes(|ctx| Some(ListMaildirEnvelopes::new_boxed(ctx.clone())))
-            .with_add_flags(|ctx| Some(AddMaildirFlags::new_boxed(ctx.clone())))
-            .with_set_flags(|ctx| Some(SetMaildirFlags::new_boxed(ctx.clone())))
-            .with_add_message(|ctx| Some(AddMaildirMessage::new_boxed(ctx.clone())))
-            .with_peek_messages(|ctx| Some(PeekMaildirMessages::new_boxed(ctx.clone())))
-            .with_move_messages(|ctx| Some(MoveMaildirMessages::new_boxed(ctx.clone())));
+            .with_add_folder(AddMaildirFolder::some_new_boxed)
+            .with_list_folders(ListMaildirFolders::some_new_boxed)
+            .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
+            .with_delete_folder(DeleteFolderMaildir::some_new_boxed)
+            .with_get_envelope(GetMaildirEnvelope::some_new_boxed)
+            .with_list_envelopes(ListMaildirEnvelopes::some_new_boxed)
+            .with_add_flags(AddMaildirFlags::some_new_boxed)
+            .with_set_flags(SetMaildirFlags::some_new_boxed)
+            .with_add_message(AddMaildirMessage::some_new_boxed)
+            .with_peek_messages(PeekMaildirMessages::some_new_boxed)
+            .with_move_messages(MoveMaildirMessages::some_new_boxed);
 
         Self(backend_builder)
     }

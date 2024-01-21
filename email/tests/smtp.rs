@@ -42,9 +42,9 @@ async fn test_smtp_features() {
     let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
     let smtp_ctx = SmtpContextBuilder::new(account_config.clone(), smtp_config);
     let backend_builder = BackendBuilder::new(account_config.clone(), (imap_ctx, smtp_ctx))
-        .with_purge_folder(|ctx| Some(PurgeImapFolder::new_boxed(ctx.0.clone())))
-        .with_list_envelopes(|ctx| Some(ListImapEnvelopes::new_boxed(ctx.0.clone())))
-        .with_send_message(|ctx| Some(SendSmtpMessage::new_boxed(ctx.1.clone())));
+        .with_purge_folder(|ctx| PurgeImapFolder::some_new_boxed(&ctx.0))
+        .with_list_envelopes(|ctx| ListImapEnvelopes::some_new_boxed(&ctx.0))
+        .with_send_message(|ctx| SendSmtpMessage::some_new_boxed(&ctx.1));
     let backend = backend_builder.build().await.unwrap();
 
     // setting up folders

@@ -11,12 +11,16 @@ pub struct RemoveNotmuchFlags {
 }
 
 impl RemoveNotmuchFlags {
-    pub fn new(ctx: impl Into<NotmuchContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &NotmuchContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<NotmuchContextSync>) -> Box<dyn RemoveFlags> {
+    pub fn new_boxed(ctx: &NotmuchContextSync) -> Box<dyn RemoveFlags> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &NotmuchContextSync) -> Option<Box<dyn RemoveFlags>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

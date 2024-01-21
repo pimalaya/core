@@ -19,12 +19,16 @@ pub struct AddImapFolder {
 }
 
 impl AddImapFolder {
-    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &ImapContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn AddFolder> {
+    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn AddFolder> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn AddFolder>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

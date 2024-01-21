@@ -80,16 +80,6 @@ impl Deref for NotmuchContextSync {
     }
 }
 
-impl From<NotmuchContext> for NotmuchContextSync {
-    fn from(ctx: NotmuchContext) -> Self {
-        Self {
-            account_config: ctx.account_config.clone(),
-            notmuch_config: ctx.notmuch_config.clone(),
-            inner: Arc::new(Mutex::new(ctx)),
-        }
-    }
-}
-
 /// The Notmuch context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct NotmuchContextBuilder {
@@ -128,13 +118,17 @@ impl BackendContextBuilder for NotmuchContextBuilder {
             root,
         };
 
-        let context = NotmuchContext {
-            account_config: self.account_config,
-            notmuch_config: self.notmuch_config,
+        let ctx = NotmuchContext {
+            account_config: self.account_config.clone(),
+            notmuch_config: self.notmuch_config.clone(),
             mdir_ctx,
         };
 
-        Ok(context.into())
+        Ok(NotmuchContextSync {
+            account_config: self.account_config,
+            notmuch_config: self.notmuch_config,
+            inner: Arc::new(Mutex::new(ctx)),
+        })
     }
 }
 

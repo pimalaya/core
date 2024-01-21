@@ -23,12 +23,16 @@ pub struct MoveNotmuchMessages {
 }
 
 impl MoveNotmuchMessages {
-    pub fn new(ctx: impl Into<NotmuchContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &NotmuchContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<NotmuchContextSync>) -> Box<dyn MoveMessages> {
+    pub fn new_boxed(ctx: &NotmuchContextSync) -> Box<dyn MoveMessages> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &NotmuchContextSync) -> Option<Box<dyn MoveMessages>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 

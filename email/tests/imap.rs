@@ -47,17 +47,17 @@ async fn test_imap_features() {
         .await
         .unwrap();
     let backend_builder = BackendBuilder::new(account_config.clone(), imap_ctx)
-        .with_add_folder(|ctx| Some(AddImapFolder::new_boxed(ctx.clone())))
-        .with_list_folders(|ctx| Some(ListImapFolders::new_boxed(ctx.clone())))
-        .with_expunge_folder(|ctx| Some(ExpungeImapFolder::new_boxed(ctx.clone())))
-        .with_purge_folder(|ctx| Some(PurgeImapFolder::new_boxed(ctx.clone())))
-        .with_delete_folder(|ctx| Some(DeleteImapFolder::new_boxed(ctx.clone())))
-        .with_list_envelopes(|ctx| Some(ListImapEnvelopes::new_boxed(ctx.clone())))
-        .with_add_flags(|ctx| Some(AddImapFlags::new_boxed(ctx.clone())))
-        .with_add_message(|ctx| Some(AddImapMessage::new_boxed(ctx.clone())))
-        .with_get_messages(|ctx| Some(GetImapMessages::new_boxed(ctx.clone())))
-        .with_copy_messages(|ctx| Some(CopyImapMessages::new_boxed(ctx.clone())))
-        .with_move_messages(|ctx| Some(MoveImapMessages::new_boxed(ctx.clone())));
+        .with_add_folder(AddImapFolder::some_new_boxed)
+        .with_list_folders(ListImapFolders::some_new_boxed)
+        .with_expunge_folder(ExpungeImapFolder::some_new_boxed)
+        .with_purge_folder(PurgeImapFolder::some_new_boxed)
+        .with_delete_folder(DeleteImapFolder::some_new_boxed)
+        .with_list_envelopes(ListImapEnvelopes::some_new_boxed)
+        .with_add_flags(AddImapFlags::some_new_boxed)
+        .with_add_message(AddImapMessage::some_new_boxed)
+        .with_get_messages(GetImapMessages::some_new_boxed)
+        .with_copy_messages(CopyImapMessages::some_new_boxed)
+        .with_move_messages(MoveImapMessages::some_new_boxed);
     let backend = backend_builder.build().await.unwrap();
 
     // setting up folders

@@ -27,12 +27,16 @@ pub struct PurgeImapFolder {
 }
 
 impl PurgeImapFolder {
-    pub fn new(ctx: impl Into<ImapContextSync>) -> Self {
-        Self { ctx: ctx.into() }
+    pub fn new(ctx: &ImapContextSync) -> Self {
+        Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: impl Into<ImapContextSync>) -> Box<dyn PurgeFolder> {
+    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn PurgeFolder> {
         Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn PurgeFolder>> {
+        Some(Self::new_boxed(ctx))
     }
 }
 
