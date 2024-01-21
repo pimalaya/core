@@ -9,7 +9,12 @@ use std::{ops::Deref, path::PathBuf, sync::Arc};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-use crate::{account::config::AccountConfig, backend::BackendContextBuilder, Result};
+use crate::{
+    account::config::AccountConfig,
+    backend::BackendContextBuilder,
+    maildir::{config::MaildirConfig, MaildirContext},
+    Result,
+};
 
 use self::config::NotmuchConfig;
 
@@ -33,8 +38,8 @@ pub struct NotmuchContext {
     /// The Notmuch configuration.
     pub notmuch_config: NotmuchConfig,
 
-    /// The Maildir instance the Notmuch database relies on.
-    pub mdir: Maildir,
+    /// The Maildir context associated to the Notmuch database.
+    pub mdir_ctx: MaildirContext,
 }
 
 impl NotmuchContext {
@@ -111,12 +116,22 @@ impl BackendContextBuilder for NotmuchContextBuilder {
     async fn build(self) -> Result<Self::Context> {
         info!("building new notmuch context");
 
-        let mdir = Maildir::from(self.notmuch_config.get_maildir_path().to_owned());
+        let root = Maildir::from(self.notmuch_config.get_maildir_path().to_owned());
+
+        let maildir_config = MaildirConfig {
+            root_dir: root.path().to_owned(),
+        };
+
+        let mdir_ctx = MaildirContext {
+            account_config: self.account_config.clone(),
+            maildir_config,
+            root,
+        };
 
         let context = NotmuchContext {
             account_config: self.account_config,
             notmuch_config: self.notmuch_config,
-            mdir,
+            mdir_ctx,
         };
 
         Ok(context.into())
@@ -171,31 +186,5 @@ impl BackendContextBuilder for NotmuchContextBuilder {
 
 //         Self::close_db(db)?;
 //         Ok(())
-//     }
-// }
-
-// /// The Notmuch backend builder.
-// ///
-// /// Simple builder that helps to build a Notmuch backend.
-// pub struct NotmuchBackendBuilder {
-//     account_config: AccountConfig,
-//     notmuch_config: NotmuchConfig,
-// }
-
-// impl NotmuchBackendBuilder {
-//     /// Creates a new builder from configurations.
-//     pub fn new(account_config: AccountConfig, notmuch_config: NotmuchConfig) -> Self {
-//         Self {
-//             account_config,
-//             notmuch_config,
-//         }
-//     }
-
-//     /// Builds the Notmuch backend.
-//     pub fn build(&self) -> Result<NotmuchBackend> {
-//         Ok(NotmuchBackend::new(
-//             self.account_config.clone(),
-//             self.notmuch_config.clone(),
-//         )?)
 //     }
 // }
