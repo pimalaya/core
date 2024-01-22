@@ -7,9 +7,11 @@ use std::{ops::Deref, sync::Arc};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
+#[cfg(feature = "folder-list")]
+use crate::folder::list::{imap::ListImapFolders, ListFolders};
 use crate::{
     account::config::{oauth2::OAuth2Method, AccountConfig},
-    backend::BackendContextBuilder,
+    backend::{BackendContextBuilder, BackendContextBuilderV2},
     Result,
 };
 
@@ -151,6 +153,59 @@ impl BackendContextBuilder for ImapContextBuilder {
     /// The IMAP session is created at this moment. If the session
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new session is created.
+    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
+        info!("building new imap context");
+
+        let creds = self.prebuilt_credentials.as_ref();
+
+        let session = match &self.config.auth {
+            ImapAuthConfig::Passwd(_) => build_session(&self.config, creds).await,
+            ImapAuthConfig::OAuth2(oauth2_config) => {
+                match build_session(&self.config, creds).await {
+                    Ok(sess) => Ok(sess),
+                    Err(err) => {
+                        let downcast_err = err.downcast_ref::<Error>();
+
+                        if let Some(Error::AuthenticateError(imap::Error::Parse(
+                            imap::error::ParseError::Authentication(_, _),
+                        ))) = downcast_err
+                        {
+                            debug!("error while authenticating user, refreshing access token");
+                            let access_token = oauth2_config.refresh_access_token().await?;
+                            build_session(&self.config, Some(&access_token)).await
+                        } else {
+                            Err(err)
+                        }
+                    }
+                }
+            }
+        }?;
+
+        let ctx = ImapContext {
+            account_config: account_config.clone(),
+            imap_config: self.config.clone(),
+            session,
+        };
+
+        Ok(ImapContextSync {
+            account_config: account_config.clone(),
+            imap_config: self.config,
+            inner: Arc::new(Mutex::new(ctx)),
+        })
+    }
+}
+
+#[async_trait]
+impl BackendContextBuilderV2 for ImapContextBuilder {
+    type Context = ImapContextSync;
+
+    #[cfg(feature = "folder-list")]
+    fn list_folders_builder(
+        &self,
+    ) -> Option<Arc<dyn Fn(&Self::Context) -> Option<Box<dyn ListFolders>> + Send + Sync>> {
+        Some(Arc::new(ListImapFolders::some_new_boxed))
+    }
+
     async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
         info!("building new imap context");
 

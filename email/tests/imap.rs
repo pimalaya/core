@@ -1,7 +1,7 @@
 use concat_with::concat_line;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
-    backend::BackendBuilder,
+    backend::{BackendBuilder, BackendBuilderV2},
     envelope::{flag::add::imap::AddImapFlags, list::imap::ListImapEnvelopes, Id},
     flag::Flag,
     folder::{
@@ -42,11 +42,11 @@ async fn test_imap_features() {
         ..Default::default()
     };
 
-    let imap_ctx = ImapContextBuilder::new(imap_config)
+    let ctx_builder = ImapContextBuilder::new(imap_config.clone())
         .with_prebuilt_credentials()
         .await
         .unwrap();
-    let backend_builder = BackendBuilder::new(account_config.clone(), imap_ctx)
+    let backend = BackendBuilder::new(account_config.clone(), ctx_builder.clone())
         .with_add_folder(AddImapFolder::some_new_boxed)
         .with_list_folders(ListImapFolders::some_new_boxed)
         .with_expunge_folder(ExpungeImapFolder::some_new_boxed)
@@ -57,12 +57,18 @@ async fn test_imap_features() {
         .with_add_message(AddImapMessage::some_new_boxed)
         .with_get_messages(GetImapMessages::some_new_boxed)
         .with_copy_messages(CopyImapMessages::some_new_boxed)
-        .with_move_messages(MoveImapMessages::some_new_boxed);
-    let backend = backend_builder.build().await.unwrap();
+        .with_move_messages(MoveImapMessages::some_new_boxed)
+        .build()
+        .await
+        .unwrap();
+    let backend_v2 = BackendBuilderV2::new(ctx_builder)
+        .build(account_config.clone())
+        .await
+        .unwrap();
 
     // setting up folders
 
-    for folder in backend.list_folders().await.unwrap().iter() {
+    for folder in backend_v2.list_folders().await.unwrap().iter() {
         if folder.is_inbox() {
             backend.purge_folder(INBOX).await.unwrap()
         } else {

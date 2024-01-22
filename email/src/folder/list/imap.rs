@@ -12,7 +12,7 @@ pub enum Error {
     ListFoldersError(#[source] imap::Error),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ListImapFolders {
     ctx: ImapContextSync,
 }
