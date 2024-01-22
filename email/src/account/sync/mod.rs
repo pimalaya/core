@@ -203,10 +203,7 @@ pub struct AccountSyncBuilder<B: BackendContextBuilder> {
 impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
     /// Creates a new account synchronization builder.
     pub async fn new(remote_builder: BackendBuilder<B>) -> Result<AccountSyncBuilder<B>> {
-        let folders_strategy = remote_builder
-            .account_config
-            .get_folder_sync_strategy()
-            .clone();
+        let folders_strategy = remote_builder.account_config.get_folder_sync_strategy();
 
         Ok(Self {
             remote_builder,
@@ -284,9 +281,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
 
         let local_builder = LocalBackendBuilder::new(
             self.remote_builder.account_config.clone(),
-            MaildirConfig {
-                root_dir: sync_dir.clone(),
-            },
+            MaildirConfig { root_dir: sync_dir },
         );
 
         debug!("applying folder aliases to the folder sync strategy");
@@ -376,8 +371,8 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
 
         let envelope_sync_patch = envelope_sync_patches
             .values()
-            .cloned()
             .flatten()
+            .cloned()
             .collect::<HashSet<_>>();
 
         self.on_progress
