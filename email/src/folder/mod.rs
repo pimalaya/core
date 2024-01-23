@@ -31,6 +31,7 @@ pub mod purge;
 #[cfg(feature = "sync")]
 pub mod sync;
 
+use std::hash::Hash;
 use std::{
     fmt,
     ops::{Deref, DerefMut},
@@ -207,7 +208,7 @@ impl fmt::Display for FolderKind {
 /// The folder is just a container for emails. Depending on the
 /// backend used, the folder can be seen as a mailbox (IMAP/JMAP) or
 /// as a system directory (Maildir).
-#[derive(Clone, Debug, Default, Eq, Hash)]
+#[derive(Clone, Debug, Default, Eq)]
 pub struct Folder {
     /// The optional folder kind.
     pub kind: Option<FolderKind>,
@@ -268,6 +269,14 @@ impl Folder {
 impl PartialEq for Folder {
     fn eq(&self, other: &Self) -> bool {
         self.kind == other.kind || self.name == other.name
+    }
+}
+impl Hash for Folder {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match &self.kind {
+            Some(kind) => kind.hash(state),
+            None => self.name.hash(state),
+        }
     }
 }
 
