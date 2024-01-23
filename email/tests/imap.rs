@@ -1,26 +1,39 @@
+use async_trait::async_trait;
 use concat_with::concat_line;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
-    backend::{BackendBuilder, BackendBuilderV2},
+    backend::{
+        BackendBuilder, BackendBuilderV2, BackendContextBuilder, BackendContextBuilderV2,
+        BackendContextMapper, BackendConvertFeature,
+    },
     envelope::{flag::add::imap::AddImapFlags, list::imap::ListImapEnvelopes, Id},
     flag::Flag,
     folder::{
-        add::imap::AddImapFolder, config::FolderConfig, delete::imap::DeleteImapFolder,
-        expunge::imap::ExpungeImapFolder, list::imap::ListImapFolders,
-        purge::imap::PurgeImapFolder, INBOX, SENT,
+        add::imap::AddImapFolder,
+        config::FolderConfig,
+        delete::imap::DeleteImapFolder,
+        expunge::imap::ExpungeImapFolder,
+        list::{imap::ListImapFolders, ListFolders},
+        purge::imap::PurgeImapFolder,
+        INBOX, SENT,
     },
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder,
+        ImapContextBuilder, ImapContextSync,
     },
     message::{
         add::imap::AddImapMessage, copy::imap::CopyImapMessages, get::imap::GetImapMessages,
         move_::imap::MoveImapMessages,
     },
+    smtp::{
+        config::{SmtpAuthConfig, SmtpConfig, SmtpEncryptionKind},
+        SmtpContextBuilder, SmtpContextSync,
+    },
+    Result,
 };
 use mml::MmlCompilerBuilder;
 use secret::Secret;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 #[tokio::test]
 async fn test_imap_features() {
@@ -41,6 +54,62 @@ async fn test_imap_features() {
         auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
         ..Default::default()
     };
+    let smtp_config = SmtpConfig {
+        host: "localhost".into(),
+        port: 3025,
+        encryption: Some(SmtpEncryptionKind::None),
+        login: "alice@localhost".into(),
+        auth: SmtpAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
+        ..Default::default()
+    };
+
+    struct MyContext {
+        imap: ImapContextSync,
+        smtp: SmtpContextSync,
+    }
+
+    impl BackendContextMapper<ImapContextSync> for MyContext {
+        fn map_context(&self) -> &ImapContextSync {
+            &self.imap
+        }
+    }
+
+    impl BackendContextMapper<SmtpContextSync> for MyContext {
+        fn map_context(&self) -> &SmtpContextSync {
+            &self.smtp
+        }
+    }
+
+    #[derive(Clone)]
+    struct MyContextBuilder {
+        imap: ImapContextBuilder,
+        smtp: SmtpContextBuilder,
+    }
+
+    impl<C1: BackendContextMapper<C2>, C2: Send + 'static> BackendConvertFeature<C1, C2>
+        for MyContextBuilder
+    {
+    }
+
+    #[async_trait]
+    impl BackendContextBuilderV2 for MyContextBuilder {
+        type Context = MyContext;
+
+        #[cfg(feature = "folder-list")]
+        fn list_folders_builder(
+            &self,
+        ) -> Option<Arc<dyn Fn(&Self::Context) -> Option<Box<dyn ListFolders>> + Send + Sync>>
+        {
+            self.convert_feature(self.imap.list_folders_builder())
+        }
+
+        async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
+            Ok(MyContext {
+                imap: BackendContextBuilderV2::build(self.imap, account_config).await?,
+                smtp: self.smtp.build(account_config).await?,
+            })
+        }
+    }
 
     let ctx_builder = ImapContextBuilder::new(imap_config.clone())
         .with_prebuilt_credentials()
@@ -61,10 +130,13 @@ async fn test_imap_features() {
         .build()
         .await
         .unwrap();
-    let backend_v2 = BackendBuilderV2::new(ctx_builder)
-        .build(account_config.clone())
-        .await
-        .unwrap();
+    let backend_v2 = BackendBuilderV2::new(MyContextBuilder {
+        imap: ImapContextBuilder::new(imap_config.clone()),
+        smtp: SmtpContextBuilder::new(smtp_config.clone()),
+    })
+    .build(account_config.clone())
+    .await
+    .unwrap();
 
     // setting up folders
 

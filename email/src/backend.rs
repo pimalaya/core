@@ -1310,3 +1310,17 @@ impl<C: Send> BackendV2<C> {
             .await
     }
 }
+
+pub trait BackendContextMapper<C: Send>: Send {
+    fn map_context(&self) -> &C;
+}
+
+pub trait BackendConvertFeature<C1: BackendContextMapper<C2>, C2: Send + 'static> {
+    fn convert_feature<T: ?Sized + 'static>(
+        &self,
+        f: Option<Arc<dyn Fn(&C2) -> Option<Box<T>> + Send + Sync>>,
+    ) -> Option<Arc<dyn Fn(&C1) -> Option<Box<T>> + Send + Sync>> {
+        let f = f?;
+        Some(Arc::new(move |ctx| f(ctx.map_context())))
+    }
+}
