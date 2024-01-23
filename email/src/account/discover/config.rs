@@ -98,9 +98,8 @@ impl EmailProvider {
         let mut domains: Vec<&str> = Vec::new();
 
         for property in &self.properties {
-            match property {
-                EmailProviderProperty::Domain(domain) => domains.push(domain),
-                _ => {}
+            if let EmailProviderProperty::Domain(domain) = property {
+                domains.push(domain)
             }
         }
 
@@ -110,9 +109,8 @@ impl EmailProvider {
     /// The email providers display name. e.g. Google Mail
     pub fn display_name(&self) -> Option<&str> {
         for property in &self.properties {
-            match property {
-                EmailProviderProperty::DisplayName(display_name) => return Some(display_name),
-                _ => {}
+            if let EmailProviderProperty::DisplayName(display_name) = property {
+                return Some(display_name);
             }
         }
 
@@ -122,9 +120,8 @@ impl EmailProvider {
     /// The email providers short display name. e.g. GMail
     pub fn display_short_name(&self) -> Option<&str> {
         for property in &self.properties {
-            match property {
-                EmailProviderProperty::DisplayShortName(short_name) => return Some(short_name),
-                _ => {}
+            if let EmailProviderProperty::DisplayShortName(short_name) = property {
+                return Some(short_name);
             }
         }
 
@@ -137,9 +134,8 @@ impl EmailProvider {
         let mut servers: Vec<&Server> = Vec::new();
 
         for property in &self.properties {
-            match property {
-                EmailProviderProperty::IncomingServer(server) => servers.push(server),
-                _ => {}
+            if let EmailProviderProperty::IncomingServer(server) = property {
+                servers.push(server)
             }
         }
 
@@ -152,9 +148,8 @@ impl EmailProvider {
         let mut servers: Vec<&Server> = Vec::new();
 
         for property in &self.properties {
-            match property {
-                EmailProviderProperty::OutgoingServer(server) => servers.push(server),
-                _ => {}
+            if let EmailProviderProperty::OutgoingServer(server) = property {
+                servers.push(server)
             }
         }
 
@@ -181,9 +176,8 @@ impl EmailProvider {
     /// the email provider.
     pub fn documentation(&self) -> Option<&Documentation> {
         for property in &self.properties {
-            match property {
-                EmailProviderProperty::Documentation(documentation) => return Some(documentation),
-                _ => {}
+            if let EmailProviderProperty::Documentation(documentation) = property {
+                return Some(documentation);
             }
         }
 
@@ -224,9 +218,8 @@ impl Server {
     /// The mail servers domain/ip
     pub fn hostname(&self) -> Option<&str> {
         for property in &self.properties {
-            match property {
-                ServerProperty::Hostname(hostname) => return Some(hostname),
-                _ => {}
+            if let ServerProperty::Hostname(hostname) = property {
+                return Some(hostname);
             }
         }
 
@@ -236,9 +229,8 @@ impl Server {
     /// The mail servers port
     pub fn port(&self) -> Option<&u16> {
         for property in &self.properties {
-            match property {
-                ServerProperty::Port(port) => return Some(port),
-                _ => {}
+            if let ServerProperty::Port(port) = property {
+                return Some(port);
             }
         }
 
@@ -248,9 +240,8 @@ impl Server {
     /// The kind of security the mail server prefers
     pub fn security_type(&self) -> Option<&SecurityType> {
         for property in &self.properties {
-            match property {
-                ServerProperty::SocketType(socket_type) => return Some(socket_type),
-                _ => {}
+            if let ServerProperty::SocketType(socket_type) = property {
+                return Some(socket_type);
             }
         }
 
@@ -263,11 +254,8 @@ impl Server {
         let mut types: Vec<&AuthenticationType> = Vec::new();
 
         for property in &self.properties {
-            match property {
-                ServerProperty::Authentication(authentication_type) => {
-                    types.push(authentication_type)
-                }
-                _ => {}
+            if let ServerProperty::Authentication(authentication_type) = property {
+                types.push(authentication_type)
             }
         }
 
@@ -277,9 +265,8 @@ impl Server {
     /// The users username
     pub fn username(&self) -> Option<&str> {
         for property in &self.properties {
-            match property {
-                ServerProperty::Username(username) => return Some(&username),
-                _ => {}
+            if let ServerProperty::Username(username) = property {
+                return Some(&username);
             }
         }
 
@@ -289,9 +276,8 @@ impl Server {
     /// The users password
     pub fn password(&self) -> Option<&str> {
         for property in &self.properties {
-            match property {
-                ServerProperty::Password(password) => return Some(&password),
-                _ => {}
+            if let ServerProperty::Password(password) = property {
+                return Some(&password);
             }
         }
 
@@ -374,10 +360,9 @@ impl Pop3Config {
 
     /// How long the Pop messages will be stored on the server.
     pub fn time_to_leave_messages_on_server(&self) -> Option<Duration> {
-        match self.days_to_leave_messages_on_server.as_ref() {
-            Some(days) => Some(Duration::from_secs(days * 24 * 60 * 60)),
-            None => None,
-        }
+        self.days_to_leave_messages_on_server
+            .as_ref()
+            .map(|days| Duration::from_secs(days * 24 * 60 * 60))
     }
 
     /// The interval in which the server will allow a check for new
@@ -430,10 +415,7 @@ pub struct DocumentationDescription {
 impl DocumentationDescription {
     /// What language the documentation is in.
     pub fn language(&self) -> Option<&str> {
-        match &self.lang {
-            Some(lang) => Some(lang),
-            None => None,
-        }
+        self.lang.as_deref()
     }
 
     /// The documentation.
