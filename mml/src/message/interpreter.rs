@@ -266,7 +266,7 @@ impl MimeInterpreter {
         };
 
         if !mml.is_empty() {
-            mml.push_str("\n");
+            mml.push('\n');
         }
 
         let mime_body_interpreter = self.mime_body_interpreter;

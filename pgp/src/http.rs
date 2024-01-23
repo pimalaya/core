@@ -121,7 +121,7 @@ pub async fn get_all(
             match res {
                 Ok(res) => Some(res),
                 Err(err) => {
-                    let msg = format!("cannot get pgp public keys as async stream");
+                    let msg = "cannot get pgp public keys as async stream".to_owned();
                     warn!("{msg}: {err}");
                     debug!("{msg}: {err:?}");
                     None

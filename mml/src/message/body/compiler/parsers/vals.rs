@@ -80,21 +80,18 @@ mod tests {
 
     #[test]
     fn quoted_val() {
-        assert_eq!(
-            super::quoted_val().parse("\"\"").into_result(),
-            Ok("".into())
-        );
+        assert_eq!(super::quoted_val().parse("\"\"").into_result(), Ok(""));
 
         assert_eq!(
             super::quoted_val().parse("\"quoted val\"").into_result(),
-            Ok("quoted val".into()),
+            Ok("quoted val"),
         );
 
         assert_eq!(
             super::quoted_val()
                 .parse("\"\\\\quoted \\\"val\\\"\"")
                 .into_result(),
-            Ok("\\\\quoted \\\"val\\\"".into()),
+            Ok("\\\\quoted \\\"val\\\""),
         );
     }
 
@@ -104,14 +101,14 @@ mod tests {
             super::maybe_quoted_const_val("key")
                 .parse("key")
                 .into_result(),
-            Ok("key".into())
+            Ok("key")
         );
 
         assert_eq!(
             super::maybe_quoted_const_val("key")
                 .parse("\"key\"")
                 .into_result(),
-            Ok("key".into())
+            Ok("key")
         );
     }
 }

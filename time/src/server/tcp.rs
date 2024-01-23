@@ -43,7 +43,7 @@ impl ServerStream<TcpStream> for TcpBind {
 
         trace!("receiving request: {req:?}");
 
-        let mut tokens = req.trim().split_whitespace();
+        let mut tokens = req.split_whitespace();
         match tokens.next() {
             Some("start") => Ok(Request::Start),
             Some("get") => Ok(Request::Get),
@@ -55,7 +55,7 @@ impl ServerStream<TcpStream> for TcpBind {
                 )),
                 None => Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    format!("missing duration"),
+                    "missing duration".to_owned(),
                 )),
             },
             Some("pause") => Ok(Request::Pause),
@@ -67,7 +67,7 @@ impl ServerStream<TcpStream> for TcpBind {
             )),
             None => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("missing request"),
+                "missing request".to_owned(),
             )),
         }
     }

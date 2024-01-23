@@ -340,7 +340,7 @@ impl MimeBodyInterpreter {
         let mut tpl = String::new();
 
         if self.filter_parts.contains(ctype) {
-            let text = text.replace("\r", "");
+            let text = text.replace('\r', "");
             let text = Self::escape_mml_markup(text);
 
             if self.filter_parts.only(&ctype) {
@@ -359,7 +359,7 @@ impl MimeBodyInterpreter {
         let mut tpl = String::new();
 
         if self.filter_parts.contains("text/plain") {
-            let plain = plain.replace("\r", "");
+            let plain = plain.replace('\r', "");
             let mut plain = Self::escape_mml_markup(plain);
 
             if !self.show_plain_texts_signature {
@@ -380,7 +380,7 @@ impl MimeBodyInterpreter {
 
         if self.filter_parts.contains("text/html") {
             if self.filter_parts.only("text/html") {
-                let html = html.replace("\r", "");
+                let html = html.replace('\r', "");
                 let html = Self::escape_mml_markup(html);
                 tpl.push_str(&html);
             } else {

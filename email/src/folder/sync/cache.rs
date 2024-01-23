@@ -86,7 +86,7 @@ impl FolderSyncCache {
             .collect::<Vec<_>>()
             .join(", ");
 
-        let mut stmt = conn.prepare(&query.replace("!", &folders))?;
+        let mut stmt = conn.prepare(&query.replace('!', &folders))?;
 
         let folders: Vec<String> = stmt
             .query_map([account.as_ref()], |row| row.get(0))?

@@ -175,8 +175,8 @@ impl OAuth2Config {
         let (redirect_url, csrf_token) = auth_code_grant.get_redirect_url(&client);
 
         println!("To complete your OAuth 2.0 setup, click on the following link:");
-        println!("");
-        println!("{}", redirect_url.to_string());
+        println!();
+        println!("{}", redirect_url);
 
         let (access_token, refresh_token) = auth_code_grant
             .wait_for_redirection(&client, csrf_token)

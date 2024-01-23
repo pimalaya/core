@@ -43,7 +43,7 @@ impl ClientStream<TcpStream> for TcpClient {
 
         trace!("receiving response: {res:?}");
 
-        let mut tokens = res.trim().split_whitespace();
+        let mut tokens = res.split_whitespace();
         match tokens.next() {
             Some("ok") => Ok(Response::Ok),
             Some("timer") => match tokens.next().map(serde_json::from_str::<Timer>) {
@@ -54,7 +54,7 @@ impl ClientStream<TcpStream> for TcpClient {
                 )),
                 None => Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    format!("missing timer"),
+                    "missing timer".to_owned(),
                 )),
             },
             Some(res) => Err(io::Error::new(
@@ -63,7 +63,7 @@ impl ClientStream<TcpStream> for TcpClient {
             )),
             None => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("missing response"),
+                "missing response".to_owned(),
             )),
         }
     }

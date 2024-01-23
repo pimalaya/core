@@ -34,7 +34,7 @@ pub async fn main() {
 
     let (redirect_url, csrf_token) = auth_code_grant.get_redirect_url(&client);
 
-    println!("Go to: {}", redirect_url.to_string());
+    println!("Go to: {}", redirect_url);
 
     let (access_token, refresh_token) = auth_code_grant
         .wait_for_redirection(&client, csrf_token)
