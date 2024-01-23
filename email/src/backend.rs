@@ -1213,14 +1213,27 @@ impl<C: Send> Backend<C> {
     }
 }
 
+// BACKEND V2 STARTS HERE
+
+pub type BackendFeature<C, F> = Option<Arc<dyn Fn(&C) -> Option<Box<F>> + Send + Sync>>;
+
+pub trait BackendContextMapper<C: Send>: Send {
+    fn map_context(&self) -> &C;
+}
+
+pub trait BackendFeatureMapper<C1: BackendContextMapper<C2>, C2: Send + 'static> {
+    fn map_feature<T: ?Sized + 'static>(&self, f: BackendFeature<C2, T>) -> BackendFeature<C1, T> {
+        let f = f?;
+        Some(Arc::new(move |ctx| f(ctx.map_context())))
+    }
+}
+
 #[async_trait]
 pub trait BackendContextBuilderV2: Clone + Send + Sync {
     type Context: Send;
 
     #[cfg(feature = "folder-list")]
-    fn list_folders_builder(
-        &self,
-    ) -> Option<Arc<dyn Fn(&Self::Context) -> Option<Box<dyn ListFolders>> + Send + Sync>> {
+    fn list_folders(&self) -> BackendFeature<Self::Context, dyn ListFolders> {
         None
     }
 
@@ -1231,15 +1244,14 @@ pub struct BackendBuilderV2<CB: BackendContextBuilderV2> {
     context_builder: CB,
 
     #[cfg(feature = "folder-list")]
-    list_folders_builder:
-        Option<Arc<dyn Fn(&CB::Context) -> Option<Box<dyn ListFolders>> + Send + Sync>>,
+    list_folders: BackendFeature<CB::Context, dyn ListFolders>,
 }
 
 impl<C: Send, CB: BackendContextBuilderV2<Context = C>> BackendBuilderV2<CB> {
     pub fn new(context_builder: CB) -> Self {
         Self {
             context_builder,
-            list_folders_builder: None,
+            list_folders: None,
         }
     }
 
@@ -1248,7 +1260,7 @@ impl<C: Send, CB: BackendContextBuilderV2<Context = C>> BackendBuilderV2<CB> {
         &mut self,
         f: impl Fn(&C) -> Option<Box<dyn ListFolders>> + Send + Sync + 'static,
     ) {
-        self.list_folders_builder = Some(Arc::new(f));
+        self.list_folders = Some(Arc::new(f));
     }
 
     #[cfg(feature = "folder-list")]
@@ -1262,10 +1274,7 @@ impl<C: Send, CB: BackendContextBuilderV2<Context = C>> BackendBuilderV2<CB> {
 
     pub async fn build(self, account_config: AccountConfig) -> Result<BackendV2<C>> {
         #[cfg(feature = "folder-list")]
-        let list_folders = self
-            .context_builder
-            .list_folders_builder()
-            .or(self.list_folders_builder);
+        let list_folders = self.context_builder.list_folders().or(self.list_folders);
 
         let context = self.context_builder.build(&account_config).await?;
         let mut backend = BackendV2::new(account_config, context);
@@ -1308,19 +1317,5 @@ impl<C: Send> BackendV2<C> {
             .ok_or(Error::ListFoldersNotAvailableError)?
             .list_folders()
             .await
-    }
-}
-
-pub trait BackendContextMapper<C: Send>: Send {
-    fn map_context(&self) -> &C;
-}
-
-pub trait BackendConvertFeature<C1: BackendContextMapper<C2>, C2: Send + 'static> {
-    fn convert_feature<T: ?Sized + 'static>(
-        &self,
-        f: Option<Arc<dyn Fn(&C2) -> Option<Box<T>> + Send + Sync>>,
-    ) -> Option<Arc<dyn Fn(&C1) -> Option<Box<T>> + Send + Sync>> {
-        let f = f?;
-        Some(Arc::new(move |ctx| f(ctx.map_context())))
     }
 }

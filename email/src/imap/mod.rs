@@ -200,7 +200,7 @@ impl BackendContextBuilderV2 for ImapContextBuilder {
     type Context = ImapContextSync;
 
     #[cfg(feature = "folder-list")]
-    fn list_folders_builder(
+    fn list_folders(
         &self,
     ) -> Option<Arc<dyn Fn(&Self::Context) -> Option<Box<dyn ListFolders>> + Send + Sync>> {
         Some(Arc::new(ListImapFolders::some_new_boxed))
