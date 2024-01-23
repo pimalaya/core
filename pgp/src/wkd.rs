@@ -133,7 +133,7 @@ impl Url {
     /// Returns a [`Url`] from an email address string.
     pub fn from(email_address: impl AsRef<str>) -> Result<Self> {
         let email = EmailAddress::from(email_address)?;
-        let local_encoded = encode_local_part(&email.local_part.to_lowercase());
+        let local_encoded = encode_local_part(email.local_part.to_lowercase());
         let url = Url {
             domain: email.domain,
             local_encoded,
@@ -260,9 +260,9 @@ async fn get(
     const REDIRECT_LIMIT: i32 = 10;
 
     // First, try the Advanced Method.
-    let res = match get_following_redirects(&client, advanced_uri, REDIRECT_LIMIT).await {
+    let res = match get_following_redirects(client, advanced_uri, REDIRECT_LIMIT).await {
         Ok(res) => Ok(res),
-        Err(_) => get_following_redirects(&client, direct_uri, REDIRECT_LIMIT).await,
+        Err(_) => get_following_redirects(client, direct_uri, REDIRECT_LIMIT).await,
     }?;
 
     let body = hyper::body::to_bytes(res.into_body())

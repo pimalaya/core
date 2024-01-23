@@ -184,7 +184,7 @@ impl<'a> ForwardTplBuilder<'a> {
                 &self
                     .thread_interpreter
                     .build()
-                    .from_msg(&parsed)
+                    .from_msg(parsed)
                     .await
                     .map_err(Error::InterpretMessageAsThreadTemplateError)?,
             );

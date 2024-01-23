@@ -266,7 +266,7 @@ impl Server {
     pub fn username(&self) -> Option<&str> {
         for property in &self.properties {
             if let ServerProperty::Username(username) = property {
-                return Some(&username);
+                return Some(username);
             }
         }
 
@@ -277,7 +277,7 @@ impl Server {
     pub fn password(&self) -> Option<&str> {
         for property in &self.properties {
             if let ServerProperty::Password(password) = property {
-                return Some(&password);
+                return Some(password);
             }
         }
 

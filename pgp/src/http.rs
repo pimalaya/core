@@ -74,7 +74,7 @@ async fn get(
     key_servers: &[String],
 ) -> Result<SignedPublicKey> {
     for key_server in key_servers {
-        match fetch(&client, &email, &key_server).await {
+        match fetch(client, email, key_server).await {
             Ok(pkey) => {
                 debug!("found pgp public key for {email} at {key_server}");
                 return Ok(pkey);

@@ -5,7 +5,7 @@ async fn main() {
     env_logger::builder().is_test(true).init();
 
     let mml = include_str!("./html.eml");
-    let mml_compiler = MmlCompilerBuilder::new().build(&mml).unwrap();
+    let mml_compiler = MmlCompilerBuilder::new().build(mml).unwrap();
     let mime = mml_compiler.compile().await.unwrap().into_string().unwrap();
 
     println!("================================");

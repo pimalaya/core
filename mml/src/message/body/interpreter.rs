@@ -291,7 +291,7 @@ impl MimeBodyInterpreter {
     fn interpret_attachment(&self, ctype: &str, part: &MessagePart, data: &[u8]) -> Result<String> {
         let mut tpl = String::new();
 
-        if self.show_attachments && self.filter_parts.contains(&ctype) {
+        if self.show_attachments && self.filter_parts.contains(ctype) {
             let fname = self
                 .save_attachments_dir
                 .join(part.attachment_name().unwrap_or("noname"));
@@ -316,7 +316,7 @@ impl MimeBodyInterpreter {
     ) -> Result<String> {
         let mut tpl = String::new();
 
-        if self.show_inline_attachments && self.filter_parts.contains(&ctype) {
+        if self.show_inline_attachments && self.filter_parts.contains(ctype) {
             let ctype = get_ctype(part);
             let fname = self.save_attachments_dir.join(
                 part.attachment_name()
@@ -343,7 +343,7 @@ impl MimeBodyInterpreter {
             let text = text.replace('\r', "");
             let text = Self::escape_mml_markup(text);
 
-            if self.filter_parts.only(&ctype) {
+            if self.filter_parts.only(ctype) {
                 tpl.push_str(&text);
             } else {
                 tpl.push_str(&format!("<#part type={ctype}>\n"));

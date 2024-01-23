@@ -57,7 +57,7 @@ impl Entry {
         // a service name is always present, so unwrap() is safe here
         let service_name = SERVICE_NAME.get().unwrap();
 
-        native::Entry::new(service_name, &self)
+        native::Entry::new(service_name, self)
             .map_err(|err| Error::GetEntryError(err, self.to_string()))
     }
 

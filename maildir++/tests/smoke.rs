@@ -56,7 +56,7 @@ where
         let decoded = OsString::from_wide(decoded_bytes.as_slice());
 
         if entry.path().is_dir() {
-            fs::create_dir(tmp_path.join(&decoded)).expect("could not create directory");
+            fs::create_dir(tmp_path.join(decoded)).expect("could not create directory");
         } else {
             fs::copy(entry.path(), tmp_path.join(decoded)).expect("could not copy test data");
         }
