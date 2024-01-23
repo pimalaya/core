@@ -26,6 +26,7 @@ use chrono::Local;
 use chrono::{DateTime, FixedOffset, TimeZone};
 use log::debug;
 use std::{
+    hash::Hash,
     ops::{Deref, DerefMut},
     vec,
 };
@@ -46,7 +47,7 @@ pub use self::{
 /// The email envelope is composed of an identifier, some
 /// [flags](self::Flags), and few headers taken from the email
 /// [message](crate::Message).
-#[derive(Clone, Debug, Default, Eq, Hash)]
+#[derive(Clone, Debug, Default, Eq)]
 pub struct Envelope {
     /// The shape of the envelope identifier may vary depending on the backend.
     /// For IMAP backend, it is an stringified auto-incremented integer.
@@ -181,6 +182,12 @@ impl Envelope {
 impl PartialEq for Envelope {
     fn eq(&self, other: &Self) -> bool {
         self.message_id == other.message_id
+    }
+}
+
+impl Hash for Envelope {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.message_id.hash(state);
     }
 }
 
