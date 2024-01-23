@@ -3,14 +3,22 @@
 //! This core concept of this module is the [Address] structure, which
 //! represents an email envelope address.
 
+use std::hash::Hash;
+
 /// The email envelope address.
 ///
 /// An address is composed of an optional name and
 /// an email address.
-#[derive(Clone, Debug, Default, Eq, Hash)]
+#[derive(Clone, Debug, Default, Eq)]
 pub struct Address {
     pub name: Option<String>,
     pub addr: String,
+}
+
+impl Hash for Address {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.addr.hash(state);
+    }
 }
 
 /// Two addresses are considered equal when their email addresses are
