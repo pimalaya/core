@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 use crate::folder::list::{imap::ListImapFolders, ListFolders};
 use crate::{
     account::config::{oauth2::OAuth2Method, AccountConfig},
-    backend::{BackendContextBuilder, BackendContextBuilderV2},
+    backend::{BackendContextBuilder, BackendContextBuilderV2, SomeBackendFeatureBuilder},
     Result,
 };
 
@@ -200,9 +200,7 @@ impl BackendContextBuilderV2 for ImapContextBuilder {
     type Context = ImapContextSync;
 
     #[cfg(feature = "folder-list")]
-    fn list_folders(
-        &self,
-    ) -> Option<Arc<dyn Fn(&Self::Context) -> Option<Box<dyn ListFolders>> + Send + Sync>> {
+    fn list_folders(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn ListFolders> {
         Some(Arc::new(ListImapFolders::some_new_boxed))
     }
 

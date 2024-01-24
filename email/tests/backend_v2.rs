@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::{
-        BackendBuilderV2, BackendContextBuilder, BackendContextBuilderV2, BackendContextMapper,
-        BackendFeature, BackendFeatureMapper,
+        BackendBuilderV2, BackendContextBuilderV2, BackendFeaturesMapper, BackendSubcontext,
+        SomeBackendFeatureBuilder,
     },
     folder::{
         config::FolderConfig,
@@ -51,74 +51,124 @@ async fn test_backend_v2() {
         ..Default::default()
     };
 
-    #[derive(Clone)]
-    struct MyContextBuilder {
-        imap: ImapContextBuilder,
-        smtp: SmtpContextBuilder,
-    }
-
-    struct MyContext {
-        imap: ImapContextSync,
-        smtp: SmtpContextSync,
-    }
-
     // TEST DYNAMIC BACKEND
 
-    // 1. implement context mappers (can be easily auto-implemented by macros)
+    // 1. define custom context
 
-    impl BackendContextMapper<ImapContextSync> for MyContext {
-        fn map_context(&self) -> &ImapContextSync {
-            &self.imap
+    struct MyContext {
+        imap: Option<ImapContextSync>,
+        smtp: Option<SmtpContextSync>,
+    }
+
+    // 2. implement subcontexts (could be auto-implemented by macros)
+
+    impl BackendSubcontext<ImapContextSync> for MyContext {
+        fn subcontext(&self) -> Option<&ImapContextSync> {
+            self.imap.as_ref()
         }
     }
 
-    impl BackendContextMapper<SmtpContextSync> for MyContext {
-        fn map_context(&self) -> &SmtpContextSync {
-            &self.smtp
+    impl BackendSubcontext<SmtpContextSync> for MyContext {
+        fn subcontext(&self) -> Option<&SmtpContextSync> {
+            self.smtp.as_ref()
         }
     }
 
-    // 2. implement feature mapper (can be easily auto-implemented by macros)
+    // 3. define custom context builder
 
-    impl<C1: BackendContextMapper<C2>, C2: Send + 'static> BackendFeatureMapper<C1, C2>
-        for MyContextBuilder
-    {
+    #[derive(Clone)]
+    struct MyContextBuilder {
+        imap: Option<ImapContextBuilder>,
+        smtp: Option<SmtpContextBuilder>,
     }
 
-    // 3. implement backend context builder
+    // 4. implement backend context builder
 
     #[async_trait]
     impl BackendContextBuilderV2 for MyContextBuilder {
         type Context = MyContext;
 
         #[cfg(feature = "folder-list")]
-        fn list_folders(&self) -> BackendFeature<Self::Context, dyn ListFolders> {
-            self.map_feature(self.imap.list_folders())
+        fn list_folders(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn ListFolders> {
+            self.list_folders_from(self.imap.as_ref())
         }
 
         async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
-            Ok(MyContext {
+            let imap = match self.imap {
+                Some(imap) => Some(BackendContextBuilderV2::build(imap, account_config).await?),
+                None => None,
+            };
+
+            Ok(MyContext { imap, smtp: None })
+        }
+    }
+
+    // 5. plug all together
+
+    let ctx_builder = MyContextBuilder {
+        imap: Some(ImapContextBuilder::new(imap_config.clone())),
+        smtp: None,
+    };
+    let backend_builder = BackendBuilderV2::new(ctx_builder);
+    let backend = backend_builder.build(account_config.clone()).await.unwrap();
+
+    assert!(backend.list_folders().await.is_ok());
+
+    // TEST STATIC BACKEND
+
+    // 1. define custom context
+
+    struct MyStaticContext {
+        imap: ImapContextSync,
+        smtp: SmtpContextSync,
+    }
+
+    // 2. implement context mappers (can be easily auto-implemented by macros)
+
+    impl BackendSubcontext<ImapContextSync> for MyStaticContext {
+        fn subcontext(&self) -> Option<&ImapContextSync> {
+            Some(&self.imap)
+        }
+    }
+
+    impl BackendSubcontext<SmtpContextSync> for MyStaticContext {
+        fn subcontext(&self) -> Option<&SmtpContextSync> {
+            Some(&self.smtp)
+        }
+    }
+
+    // 3. define custom context builder
+
+    #[derive(Clone)]
+    struct MyStaticContextBuilder {
+        imap: ImapContextBuilder,
+        smtp: SmtpContextBuilder,
+    }
+
+    // 4. implement backend context builder
+
+    #[async_trait]
+    impl BackendContextBuilderV2 for MyStaticContextBuilder {
+        type Context = MyStaticContext;
+
+        #[cfg(feature = "folder-list")]
+        fn list_folders(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn ListFolders> {
+            self.list_folders_from(Some(&self.imap))
+        }
+
+        async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
+            Ok(MyStaticContext {
                 imap: BackendContextBuilderV2::build(self.imap, account_config).await?,
-                smtp: self.smtp.build(account_config).await?,
+                smtp: SmtpContextBuilder::build(self.smtp, account_config).await?,
             })
         }
     }
 
-    let ctx_builder = MyContextBuilder {
-        imap: ImapContextBuilder::new(imap_config.clone()),
-        smtp: SmtpContextBuilder::new(smtp_config.clone()),
-    };
+    // 5. define custom backend
 
-    let backend_v2 = BackendBuilderV2::new(ctx_builder)
-        .build(account_config.clone())
-        .await
-        .unwrap();
+    struct MyBackend(MyStaticContext);
 
-    assert!(backend_v2.list_folders().await.is_ok());
-
-    // TEST STATIC BACKEND
-
-    pub struct MyBackend(MyContext);
+    // 6. implement backend features
 
     #[async_trait]
     impl ListFolders for MyBackend {
@@ -127,9 +177,11 @@ async fn test_backend_v2() {
         }
     }
 
-    let ctx_builder = MyContextBuilder {
+    // 7. plug all together
+
+    let ctx_builder = MyStaticContextBuilder {
         imap: ImapContextBuilder::new(imap_config.clone()),
-        smtp: SmtpContextBuilder::new(smtp_config.clone()),
+        smtp: SmtpContextBuilder::new(smtp_config),
     };
 
     let backend = MyBackend(ctx_builder.build(&account_config).await.unwrap());

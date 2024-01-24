@@ -1215,17 +1215,56 @@ impl<C: Send> Backend<C> {
 
 // BACKEND V2 STARTS HERE
 
-pub type BackendFeature<C, F> = Option<Arc<dyn Fn(&C) -> Option<Box<F>> + Send + Sync>>;
+pub type SomeBackendFeature<F> = Option<Box<F>>;
 
-pub trait BackendContextMapper<C: Send>: Send {
-    fn map_context(&self) -> &C;
+pub type BackendFeatureBuilder<C, F> = dyn Fn(&C) -> SomeBackendFeature<F> + Send + Sync;
+pub type SomeBackendFeatureBuilder<C, F> = Option<Arc<BackendFeatureBuilder<C, F>>>;
+
+/// Select a context of a context.
+pub trait BackendSubcontext<C: Send> {
+    fn subcontext(&self) -> Option<&C>;
 }
 
-pub trait BackendFeatureMapper<C1: BackendContextMapper<C2>, C2: Send + 'static> {
-    fn map_feature<T: ?Sized + 'static>(&self, f: BackendFeature<C2, T>) -> BackendFeature<C1, T> {
-        let f = f?;
-        Some(Arc::new(move |ctx| f(ctx.map_context())))
+/// Auto implem when context = subcontext.
+impl<C: Send> BackendSubcontext<C> for C {
+    fn subcontext(&self) -> Option<&C> {
+        Some(self)
     }
+}
+
+/// Map a feature from a subcontext to a context.
+pub trait BackendFeaturesMapper<B>
+where
+    Self: BackendContextBuilderV2,
+    Self::Context: BackendSubcontext<B::Context> + 'static,
+    B: BackendContextBuilderV2,
+    B::Context: 'static,
+{
+    fn map_feature<T: ?Sized + 'static>(
+        &self,
+        f: SomeBackendFeatureBuilder<B::Context, T>,
+    ) -> SomeBackendFeatureBuilder<Self::Context, T> {
+        let f = f?;
+        Some(Arc::new(move |ctx| f(ctx.subcontext()?)))
+    }
+
+    #[cfg(feature = "folder-list")]
+    fn list_folders_from(
+        &self,
+        cb: Option<&B>,
+    ) -> SomeBackendFeatureBuilder<Self::Context, dyn ListFolders> {
+        self.map_feature(cb.and_then(|cb| cb.list_folders()))
+    }
+}
+
+/// Auto implem
+impl<T, B> BackendFeaturesMapper<B> for T
+where
+    T: BackendContextBuilderV2,
+    T::Context: BackendSubcontext<B::Context> + 'static,
+    B: BackendContextBuilderV2,
+    B::Context: 'static,
+{
 }
 
 #[async_trait]
@@ -1233,56 +1272,84 @@ pub trait BackendContextBuilderV2: Clone + Send + Sync {
     type Context: Send;
 
     #[cfg(feature = "folder-list")]
-    fn list_folders(&self) -> BackendFeature<Self::Context, dyn ListFolders> {
+    fn list_folders(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn ListFolders> {
+        None
+    }
+
+    #[cfg(feature = "message-send")]
+    fn send_message(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn SendMessage> {
         None
     }
 
     async fn build(self, account_config: &AccountConfig) -> Result<Self::Context>;
 }
 
-pub struct BackendBuilderV2<CB: BackendContextBuilderV2> {
-    context_builder: CB,
+pub struct BackendBuilderV2<B: BackendContextBuilderV2> {
+    context_builder: B,
 
     #[cfg(feature = "folder-list")]
-    list_folders: BackendFeature<CB::Context, dyn ListFolders>,
+    list_folders: SomeBackendFeatureBuilder<B::Context, dyn ListFolders>,
+
+    #[cfg(feature = "message-send")]
+    send_message: SomeBackendFeatureBuilder<B::Context, dyn SendMessage>,
 }
 
-impl<C: Send, CB: BackendContextBuilderV2<Context = C>> BackendBuilderV2<CB> {
-    pub fn new(context_builder: CB) -> Self {
+impl<B: BackendContextBuilderV2> BackendBuilderV2<B> {
+    pub fn new(context_builder: B) -> Self {
         Self {
             context_builder,
             list_folders: None,
+            send_message: None,
         }
     }
 
     #[cfg(feature = "folder-list")]
-    pub fn set_list_folders_builder(
+    pub fn set_list_folders(
         &mut self,
-        f: impl Fn(&C) -> Option<Box<dyn ListFolders>> + Send + Sync + 'static,
+        f: &'static BackendFeatureBuilder<B::Context, dyn ListFolders>,
     ) {
         self.list_folders = Some(Arc::new(f));
     }
 
     #[cfg(feature = "folder-list")]
-    pub fn with_list_folders_builder(
+    pub fn with_list_folders(
         mut self,
-        f: impl Fn(&C) -> Option<Box<dyn ListFolders>> + Send + Sync + 'static,
+        f: &'static BackendFeatureBuilder<B::Context, dyn ListFolders>,
     ) -> Self {
-        self.set_list_folders_builder(f);
+        self.set_list_folders(f);
         self
     }
 
-    pub async fn build(self, account_config: AccountConfig) -> Result<BackendV2<C>> {
+    #[cfg(feature = "folder-list")]
+    pub fn set_send_message(
+        &mut self,
+        f: &'static BackendFeatureBuilder<B::Context, dyn SendMessage>,
+    ) {
+        self.send_message = Some(Arc::new(f));
+    }
+
+    #[cfg(feature = "message-send")]
+    pub fn with_send_message(
+        mut self,
+        f: &'static BackendFeatureBuilder<B::Context, dyn SendMessage>,
+    ) -> Self {
+        self.set_send_message(f);
+        self
+    }
+
+    pub async fn build(self, account_config: AccountConfig) -> Result<BackendV2<B::Context>> {
         #[cfg(feature = "folder-list")]
         let list_folders = self.context_builder.list_folders().or(self.list_folders);
+        #[cfg(feature = "message-send")]
+        let send_message = self.context_builder.send_message().or(self.send_message);
 
         let context = self.context_builder.build(&account_config).await?;
         let mut backend = BackendV2::new(account_config, context);
 
         #[cfg(feature = "folder-list")]
-        if let Some(f) = list_folders {
-            backend.set_list_folders(f(&backend.context));
-        }
+        backend.set_list_folders(list_folders.and_then(|f| f(&backend.context)));
+        #[cfg(feature = "message-send")]
+        backend.set_send_message(send_message.and_then(|f| f(&backend.context)));
 
         Ok(backend)
     }
@@ -1293,7 +1360,10 @@ pub struct BackendV2<C: Send> {
     pub context: C,
 
     #[cfg(feature = "folder-list")]
-    pub list_folders: Option<Box<dyn ListFolders>>,
+    pub list_folders: SomeBackendFeature<dyn ListFolders>,
+
+    #[cfg(feature = "message-send")]
+    pub send_message: SomeBackendFeature<dyn SendMessage>,
 }
 
 impl<C: Send> BackendV2<C> {
@@ -1302,12 +1372,18 @@ impl<C: Send> BackendV2<C> {
             account_config,
             context,
             list_folders: None,
+            send_message: None,
         }
     }
 
     #[cfg(feature = "folder-list")]
-    pub fn set_list_folders(&mut self, f: Option<Box<dyn ListFolders>>) {
+    pub fn set_list_folders(&mut self, f: SomeBackendFeature<dyn ListFolders>) {
         self.list_folders = f;
+    }
+
+    #[cfg(feature = "message-send")]
+    pub fn set_send_message(&mut self, f: SomeBackendFeature<dyn SendMessage>) {
+        self.send_message = f;
     }
 
     #[cfg(feature = "folder-list")]
@@ -1316,6 +1392,15 @@ impl<C: Send> BackendV2<C> {
             .as_ref()
             .ok_or(Error::ListFoldersNotAvailableError)?
             .list_folders()
+            .await
+    }
+
+    #[cfg(feature = "message-send")]
+    pub async fn send_message(&self, msg: &[u8]) -> Result<()> {
+        self.send_message
+            .as_ref()
+            .ok_or(Error::SendMessageNotAvailableError)?
+            .send_message(msg)
             .await
     }
 }
