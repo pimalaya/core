@@ -1220,15 +1220,26 @@ pub type SomeBackendFeature<F> = Option<Box<F>>;
 pub type BackendFeatureBuilder<C, F> = dyn Fn(&C) -> SomeBackendFeature<F> + Send + Sync;
 pub type SomeBackendFeatureBuilder<C, F> = Option<Arc<BackendFeatureBuilder<C, F>>>;
 
-/// Select a context of a context.
-pub trait BackendSubcontext<C: Send> {
-    fn subcontext(&self) -> Option<&C>;
+/// Get a context in a context.
+pub trait GetBackendSubcontext<C: Send> {
+    fn get_subcontext(&self) -> &C;
 }
 
-/// Auto implem when context = subcontext.
-impl<C: Send> BackendSubcontext<C> for C {
-    fn subcontext(&self) -> Option<&C> {
-        Some(self)
+/// Auto implem when getting a context itself.
+impl<C: Send> GetBackendSubcontext<C> for C {
+    fn get_subcontext(&self) -> &C {
+        self
+    }
+}
+
+/// Find a context in a context.
+pub trait FindBackendSubcontext<C: Send> {
+    fn find_subcontext(&self) -> Option<&C>;
+}
+
+impl<C: Send, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for T {
+    fn find_subcontext(&self) -> Option<&C> {
+        Some(self.get_subcontext())
     }
 }
 
@@ -1236,7 +1247,7 @@ impl<C: Send> BackendSubcontext<C> for C {
 pub trait BackendFeaturesMapper<B>
 where
     Self: BackendContextBuilderV2,
-    Self::Context: BackendSubcontext<B::Context> + 'static,
+    Self::Context: FindBackendSubcontext<B::Context> + 'static,
     B: BackendContextBuilderV2,
     B::Context: 'static,
 {
@@ -1245,7 +1256,7 @@ where
         f: SomeBackendFeatureBuilder<B::Context, T>,
     ) -> SomeBackendFeatureBuilder<Self::Context, T> {
         let f = f?;
-        Some(Arc::new(move |ctx| f(ctx.subcontext()?)))
+        Some(Arc::new(move |ctx| f(ctx.find_subcontext()?)))
     }
 
     #[cfg(feature = "folder-list")]
@@ -1261,7 +1272,7 @@ where
 impl<T, B> BackendFeaturesMapper<B> for T
 where
     T: BackendContextBuilderV2,
-    T::Context: BackendSubcontext<B::Context> + 'static,
+    T::Context: FindBackendSubcontext<B::Context> + 'static,
     B: BackendContextBuilderV2,
     B::Context: 'static,
 {

@@ -2,14 +2,10 @@ use async_trait::async_trait;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::{
-        BackendBuilderV2, BackendContextBuilderV2, BackendFeaturesMapper, BackendSubcontext,
-        SomeBackendFeatureBuilder,
+        BackendBuilderV2, BackendContextBuilderV2, BackendFeaturesMapper, FindBackendSubcontext,
+        GetBackendSubcontext, SomeBackendFeatureBuilder,
     },
-    folder::{
-        config::FolderConfig,
-        list::{imap::ListImapFolders, ListFolders},
-        Folders, SENT,
-    },
+    folder::{config::FolderConfig, list::ListFolders, SENT},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapContextBuilder, ImapContextSync,
@@ -21,7 +17,7 @@ use email::{
     Result,
 };
 use secret::Secret;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 
 #[tokio::test]
 async fn test_backend_v2() {
@@ -62,14 +58,14 @@ async fn test_backend_v2() {
 
     // 2. implement subcontexts (could be auto-implemented by macros)
 
-    impl BackendSubcontext<ImapContextSync> for MyContext {
-        fn subcontext(&self) -> Option<&ImapContextSync> {
+    impl FindBackendSubcontext<ImapContextSync> for MyContext {
+        fn find_subcontext(&self) -> Option<&ImapContextSync> {
             self.imap.as_ref()
         }
     }
 
-    impl BackendSubcontext<SmtpContextSync> for MyContext {
-        fn subcontext(&self) -> Option<&SmtpContextSync> {
+    impl FindBackendSubcontext<SmtpContextSync> for MyContext {
+        fn find_subcontext(&self) -> Option<&SmtpContextSync> {
             self.smtp.as_ref()
         }
     }
@@ -116,28 +112,28 @@ async fn test_backend_v2() {
 
     // TEST STATIC BACKEND
 
-    // 1. define custom context
+    // 1. define custom context made of subcontexts
 
     struct MyStaticContext {
         imap: ImapContextSync,
         smtp: SmtpContextSync,
     }
 
-    // 2. implement context mappers (can be easily auto-implemented by macros)
+    // 2. implement context getters (proc-macro?)
 
-    impl BackendSubcontext<ImapContextSync> for MyStaticContext {
-        fn subcontext(&self) -> Option<&ImapContextSync> {
-            Some(&self.imap)
+    impl GetBackendSubcontext<ImapContextSync> for MyStaticContext {
+        fn get_subcontext(&self) -> &ImapContextSync {
+            &self.imap
         }
     }
 
-    impl BackendSubcontext<SmtpContextSync> for MyStaticContext {
-        fn subcontext(&self) -> Option<&SmtpContextSync> {
-            Some(&self.smtp)
+    impl GetBackendSubcontext<SmtpContextSync> for MyStaticContext {
+        fn get_subcontext(&self) -> &SmtpContextSync {
+            &self.smtp
         }
     }
 
-    // 3. define custom context builder
+    // 3. define custom context builder made of subcontext builders
 
     #[derive(Clone)]
     struct MyStaticContextBuilder {
@@ -168,16 +164,17 @@ async fn test_backend_v2() {
 
     struct MyBackend(MyStaticContext);
 
-    // 6. implement backend features
+    // 6. implement deref pointing to the context
 
-    #[async_trait]
-    impl ListFolders for MyBackend {
-        async fn list_folders(&self) -> Result<Folders> {
-            ListImapFolders::new(&self.0.imap).list_folders().await
+    impl Deref for MyBackend {
+        type Target = MyStaticContext;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
         }
     }
 
-    // 7. plug all together
+    // 8. plug all together
 
     let ctx_builder = MyStaticContextBuilder {
         imap: ImapContextBuilder::new(imap_config.clone()),
