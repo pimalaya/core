@@ -323,3 +323,74 @@ impl From<Folders> for Vec<Folder> {
         val.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::hash_map::DefaultHasher, hash::Hasher};
+
+    use super::*;
+    fn folder_inbox_foo() -> Folder {
+        Folder {
+            kind: Some(FolderKind::Inbox),
+            name: "foo".to_owned(),
+            desc: "1".to_owned(),
+        }
+    }
+    fn folder_none_foo() -> Folder {
+        Folder {
+            kind: None,
+            name: "foo".to_owned(),
+            desc: "2".to_owned(),
+        }
+    }
+    fn folder_none_bar() -> Folder {
+        Folder {
+            kind: None,
+            name: "bar".to_owned(),
+            desc: "3".to_owned(),
+        }
+    }
+    fn folder_inbox_bar() -> Folder {
+        Folder {
+            kind: Some(FolderKind::Inbox),
+            name: "bar".to_owned(),
+            desc: "4".to_owned(),
+        }
+    }
+
+    fn hash<H: Hash>(item: H) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        item.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn folder_inbox_bar_equals_inbox_foo_test() {
+        assert_eq!(folder_inbox_bar(), folder_inbox_foo());
+    }
+
+    #[test]
+    fn folder_inbox_bar_equals_inbox_foo_test_hash() {
+        assert_eq!(hash(folder_inbox_bar()), hash(folder_inbox_foo()));
+    }
+
+    #[test]
+    fn folder_none_foo_equals_inbox_foo_test() {
+        assert_eq!(folder_none_foo(), folder_inbox_foo());
+    }
+
+    #[test]
+    fn folder_none_foo_equals_inbox_foo_test_hash() {
+        assert_eq!(hash(folder_none_foo()), hash(folder_inbox_foo()));
+    }
+
+    #[test]
+    fn folder_none_foo_not_equals_none_bar_test() {
+        assert_eq!(folder_none_foo(), folder_none_bar());
+    }
+
+    #[test]
+    fn folder_none_foo_not_equals_none_bar_test_hash() {
+        assert_eq!(hash(folder_none_foo()), hash(folder_none_bar()));
+    }
+}
