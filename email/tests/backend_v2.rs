@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::{
-        BackendBuilderV2, BackendContextBuilderV2, BackendFeaturesMapper, FindBackendSubcontext,
-        GetBackendSubcontext, SomeBackendFeatureBuilder,
+        BackendBuilderV2, BackendContextBuilderV2, FindBackendSubcontext, GetBackendSubcontext,
+        MapBackendFeature, SomeBackendFeatureBuilder,
     },
     folder::{config::FolderConfig, list::ListFolders, SENT},
     imap::{
@@ -95,7 +95,12 @@ async fn test_backend_v2() {
                 None => None,
             };
 
-            Ok(MyContext { imap, smtp: None })
+            let smtp = match self.smtp {
+                Some(smtp) => Some(BackendContextBuilderV2::build(smtp, account_config).await?),
+                None => None,
+            };
+
+            Ok(MyContext { imap, smtp })
         }
     }
 

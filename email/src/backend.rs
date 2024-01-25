@@ -1215,17 +1215,39 @@ impl<C: Send> Backend<C> {
 
 // BACKEND V2 STARTS HERE
 
+/// Alias for the optional dynamic boxed backend feature.
 pub type SomeBackendFeature<F> = Option<Box<F>>;
 
+/// Alias for the thread-safe backend feature builder.
+///
+/// The backend feature builder is a function that takes a reference
+/// to a context in parameter and return an optional dynamic boxed
+/// backend feature.
 pub type BackendFeatureBuilder<C, F> = dyn Fn(&C) -> SomeBackendFeature<F> + Send + Sync;
+
+/// Alias for the optional and clonable backend feature builder.
 pub type SomeBackendFeatureBuilder<C, F> = Option<Arc<BackendFeatureBuilder<C, F>>>;
 
 /// Get a context in a context.
+///
+/// A good use case is when you have a custom backend context composed
+/// of multiple subcontexts:
+///
+/// ```rust
+/// struct MyContext {
+///     imap: email::imap::ImapContextSync,
+///     smtp: email::smtp::SmtpContextSync,
+/// }
+/// ```
+///
+/// If your context is composed of optional subcontexts, use
+/// [`FindBackendSubcontext`] instead.
 pub trait GetBackendSubcontext<C: Send> {
     fn get_subcontext(&self) -> &C;
 }
 
-/// Auto implem when getting a context itself.
+/// Generic implementation for contexts that match themselves as
+/// subcontext.
 impl<C: Send> GetBackendSubcontext<C> for C {
     fn get_subcontext(&self) -> &C {
         self
@@ -1233,10 +1255,28 @@ impl<C: Send> GetBackendSubcontext<C> for C {
 }
 
 /// Find a context in a context.
+///
+/// A good use case is when you have a custom backend context composed
+/// of multiple optional subcontexts:
+///
+/// ```rust
+/// struct MyContext {
+///     imap: Option<email::imap::ImapContextSync>,
+///     smtp: Option<email::smtp::SmtpContextSync>,
+/// }
+/// ```
+///
+/// If your context is composed of existing subcontexts, use
+/// [`GetBackendSubcontext`] instead.
 pub trait FindBackendSubcontext<C: Send> {
     fn find_subcontext(&self) -> Option<&C>;
 }
 
+/// Generic implementation for contexts that match themselves as
+/// subcontext.
+///
+/// If a context can get a subcontext, then it can also find a
+/// subcontext.
 impl<C: Send, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for T {
     fn find_subcontext(&self) -> Option<&C> {
         Some(self.get_subcontext())
@@ -1244,7 +1284,71 @@ impl<C: Send, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for T {
 }
 
 /// Map a feature from a subcontext to a context.
-pub trait BackendFeaturesMapper<B>
+///
+/// A good use case is when you have a custom backend context composed
+/// of multiple subcontexts. When implementing the
+/// [`BackendContextBuilder`] trait for your custom backend context,
+/// you will have to forward backend features using the right
+/// subcontext.
+///
+/// ```rust
+/// use async_trait::async_trait;
+///
+/// use email::imap::ImapContextSync;
+/// use email::smtp::SmtpContextSync;
+/// use email::backend::BackendContextBuilder;
+///
+/// struct MyContext {
+///     imap: Option<ImapContextSync>,
+///     smtp: Option<SmtpContextSync>,
+/// }
+///
+/// impl FindBackendSubcontext<ImapContextSync> for MyContext {
+///     fn find_subcontext(&self) -> Option<&ImapContextSync> {
+///         self.imap.as_ref()
+///     }
+/// }
+///
+/// impl FindBackendSubcontext<SmtpContextSync> for MyContext {
+///     fn find_subcontext(&self) -> Option<&SmtpContextSync> {
+///         self.smtp.as_ref()
+///     }
+/// }
+///
+/// #[derive(Clone)]
+/// struct MyContextBuilder {
+///     imap: Option<ImapContextBuilder>,
+///     smtp: Option<SmtpContextBuilder>,
+/// }
+///
+/// #[async_trait]
+/// impl BackendContextBuilder for MyContextBuilder {
+///     type Context = MyContext;
+///
+///     fn list_folders(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn ListFolders> {
+///         // This is how you can map a
+///         // `SomeBackendFeatureBuilder<ImapContextSync, dyn ListFolders>` to a
+///         // `SomeBackendFeatureBuilder<Self::Context, dyn ListFolders>`:
+///         self.list_folders_from(self.imap.as_ref())
+///     }
+///
+///     async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
+///         let imap = match self.imap {
+///             Some(imap) => Some(BackendContextBuilder::build(imap, account_config).await?),
+///             None => None,
+///         };
+///
+///         let smtp = match self.smtp {
+///             Some(smtp) => Some(BackendContextBuilder::build(smtp, account_config).await?),
+///             None => None,
+///         };
+///
+///         Ok(MyContext { imap, smtp })
+///     }
+/// }
+/// ```
+///
+pub trait MapBackendFeature<B>
 where
     Self: BackendContextBuilderV2,
     Self::Context: FindBackendSubcontext<B::Context> + 'static,
@@ -1268,8 +1372,9 @@ where
     }
 }
 
-/// Auto implem
-impl<T, B> BackendFeaturesMapper<B> for T
+/// Generic implementation for the backend context builder with a
+/// context implementing [`FindBackendSubcontext`].
+impl<T, B> MapBackendFeature<B> for T
 where
     T: BackendContextBuilderV2,
     T::Context: FindBackendSubcontext<B::Context> + 'static,
@@ -1278,34 +1383,61 @@ where
 {
 }
 
+/// The backend context builder trait.
+///
+/// This trait defines how a context should be built. It also defines
+/// default backend features implemented by the context.
 #[async_trait]
 pub trait BackendContextBuilderV2: Clone + Send + Sync {
+    /// The type of the context being built by the builder.
+    ///
+    /// The context needs to implement [`Send`], as it is sent accross
+    /// asynchronous tasks. Wrapping your context in a
+    /// [`std::sync::Arc`] should be enough. If your context needs to
+    /// be mutated, you can also wrap it in a
+    /// [`tokio::sync::Mutex`]. See existing implementations of
+    /// `email::imap::ImapContextSync` or
+    /// `email::smtp::SmtpContextSync`.
     type Context: Send;
 
+    /// Define the list folders backend feature builder.
     #[cfg(feature = "folder-list")]
     fn list_folders(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn ListFolders> {
         None
     }
 
+    /// Define the send message backend feature builder.
     #[cfg(feature = "message-send")]
     fn send_message(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn SendMessage> {
         None
     }
 
+    /// Build the final context.
     async fn build(self, account_config: &AccountConfig) -> Result<Self::Context>;
 }
 
+/// The runtime backend builder.
+///
+/// This backend helps you to build a backend with features set up at
+/// runtime rather than at compile time.
 pub struct BackendBuilderV2<B: BackendContextBuilderV2> {
+    /// The backend context builder.
     context_builder: B,
 
+    /// The list folders backend feature builder.
     #[cfg(feature = "folder-list")]
     list_folders: SomeBackendFeatureBuilder<B::Context, dyn ListFolders>,
 
+    /// The send message backend feature builder.
     #[cfg(feature = "message-send")]
     send_message: SomeBackendFeatureBuilder<B::Context, dyn SendMessage>,
 }
 
 impl<B: BackendContextBuilderV2> BackendBuilderV2<B> {
+    /// Build a new backend builder using the given backend context
+    /// builder.
+    ///
+    /// All features are disabled by default.
     pub fn new(context_builder: B) -> Self {
         Self {
             context_builder,
@@ -1314,6 +1446,8 @@ impl<B: BackendContextBuilderV2> BackendBuilderV2<B> {
         }
     }
 
+    /// Set the [list folders](crate::folder::list::ListFolders)
+    /// backend feature builder.
     #[cfg(feature = "folder-list")]
     pub fn set_list_folders(
         &mut self,
@@ -1322,6 +1456,8 @@ impl<B: BackendContextBuilderV2> BackendBuilderV2<B> {
         self.list_folders = Some(Arc::new(f));
     }
 
+    /// Set the [list folders](crate::folder::list::ListFolders)
+    /// backend feature builder using the builder pattern.
     #[cfg(feature = "folder-list")]
     pub fn with_list_folders(
         mut self,
@@ -1331,6 +1467,8 @@ impl<B: BackendContextBuilderV2> BackendBuilderV2<B> {
         self
     }
 
+    /// Set the [send message](crate::message::send::SendMessage)
+    /// backend feature builder.
     #[cfg(feature = "folder-list")]
     pub fn set_send_message(
         &mut self,
@@ -1339,6 +1477,8 @@ impl<B: BackendContextBuilderV2> BackendBuilderV2<B> {
         self.send_message = Some(Arc::new(f));
     }
 
+    /// Set the [send message](crate::message::send::SendMessage)
+    /// backend feature builder using the builder pattern.
     #[cfg(feature = "message-send")]
     pub fn with_send_message(
         mut self,
@@ -1348,6 +1488,7 @@ impl<B: BackendContextBuilderV2> BackendBuilderV2<B> {
         self
     }
 
+    /// Build the final backend.
     pub async fn build(self, account_config: AccountConfig) -> Result<BackendV2<B::Context>> {
         #[cfg(feature = "folder-list")]
         let list_folders = self.context_builder.list_folders().or(self.list_folders);
@@ -1366,18 +1507,29 @@ impl<B: BackendContextBuilderV2> BackendBuilderV2<B> {
     }
 }
 
+/// The email backend.
+///
+/// The backend owns a context, as well as multiple optional backend
+/// features.
 pub struct BackendV2<C: Send> {
+    /// The account configuration.
     pub account_config: AccountConfig,
+
+    /// The backend context.
     pub context: C,
 
+    /// The optional list folders feature.
     #[cfg(feature = "folder-list")]
     pub list_folders: SomeBackendFeature<dyn ListFolders>,
 
+    /// The optional send message feature.
     #[cfg(feature = "message-send")]
     pub send_message: SomeBackendFeature<dyn SendMessage>,
 }
 
 impl<C: Send> BackendV2<C> {
+    /// Build a new backend from an account configuration and a
+    /// context.
     pub fn new(account_config: AccountConfig, context: C) -> Self {
         Self {
             account_config,
@@ -1387,16 +1539,20 @@ impl<C: Send> BackendV2<C> {
         }
     }
 
+    /// Set the list folders backend feature.
     #[cfg(feature = "folder-list")]
     pub fn set_list_folders(&mut self, f: SomeBackendFeature<dyn ListFolders>) {
         self.list_folders = f;
     }
 
+    /// Set the send message backend feature.
     #[cfg(feature = "message-send")]
     pub fn set_send_message(&mut self, f: SomeBackendFeature<dyn SendMessage>) {
         self.send_message = f;
     }
 
+    /// Call the list folder feature, returning an error if the
+    /// feature is not defined.
     #[cfg(feature = "folder-list")]
     pub async fn list_folders(&self) -> Result<Folders> {
         self.list_folders
@@ -1406,6 +1562,8 @@ impl<C: Send> BackendV2<C> {
             .await
     }
 
+    /// Call the send message feature, returning an error if the
+    /// feature is not defined.
     #[cfg(feature = "message-send")]
     pub async fn send_message(&self, msg: &[u8]) -> Result<()> {
         self.send_message
