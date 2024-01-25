@@ -268,7 +268,12 @@ impl Folder {
 
 impl PartialEq for Folder {
     fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind || self.name == other.name
+        match (&self.kind, &other.kind) {
+            (Some(self_kind), Some(other_kind)) => self_kind == other_kind,
+            (None, None) => self.name == other.name,
+            _ => false,
+        }
+        // self.kind == other.kind || self.name == other.name
     }
 }
 impl Hash for Folder {
@@ -375,22 +380,22 @@ mod tests {
     }
 
     #[test]
-    fn folder_none_foo_equals_inbox_foo_test() {
-        assert_eq!(folder_none_foo(), folder_inbox_foo());
+    fn folder_none_foo_not_equals_inbox_foo_test() {
+        assert_ne!(folder_none_foo(), folder_inbox_foo());
     }
 
     #[test]
-    fn folder_none_foo_equals_inbox_foo_test_hash() {
-        assert_eq!(hash(folder_none_foo()), hash(folder_inbox_foo()));
+    fn folder_none_foo_not_equals_inbox_foo_test_hash() {
+        assert_ne!(hash(folder_none_foo()), hash(folder_inbox_foo()));
     }
 
     #[test]
     fn folder_none_foo_not_equals_none_bar_test() {
-        assert_eq!(folder_none_foo(), folder_none_bar());
+        assert_ne!(folder_none_foo(), folder_none_bar());
     }
 
     #[test]
     fn folder_none_foo_not_equals_none_bar_test_hash() {
-        assert_eq!(hash(folder_none_foo()), hash(folder_none_bar()));
+        assert_ne!(hash(folder_none_foo()), hash(folder_none_bar()));
     }
 }
