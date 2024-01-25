@@ -16,7 +16,7 @@ use tokio_rustls::client::TlsStream;
 use crate::message::send::{smtp::SendSmtpMessage, SendMessage};
 use crate::{
     account::config::AccountConfig,
-    backend::{BackendContextBuilder, BackendContextBuilderV2, SomeBackendFeatureBuilder},
+    backend::{BackendContextBuilder, BackendContextBuilderV2, BackendFeatureBuilder},
     Result,
 };
 
@@ -186,7 +186,7 @@ impl BackendContextBuilderV2 for SmtpContextBuilder {
     type Context = SmtpContextSync;
 
     #[cfg(feature = "message-send")]
-    fn send_message(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn SendMessage> {
+    fn send_message(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn SendMessage>>> {
         Some(Arc::new(SendSmtpMessage::some_new_boxed))
     }
 
