@@ -7,6 +7,10 @@
 //! backend-specific configuration, mostly used by the
 //! [AccountConfiguration](crate::account::config::AccountConfig).
 
+pub mod macros {
+    pub use email_macros::BackendContext;
+}
+
 use async_trait::async_trait;
 #[allow(unused)]
 use std::sync::Arc;
@@ -1225,6 +1229,13 @@ pub type SomeBackendFeature<F> = Option<Box<F>>;
 /// backend feature.
 pub type BackendFeatureBuilder<C, F> = dyn Fn(&C) -> SomeBackendFeature<F> + Send + Sync;
 
+/// The backend context trait.
+///
+/// This is just a marker for other traits. Every backend context
+/// needs to implement this trait manually or to derive
+/// [`BackendContext`].
+pub trait BackendContext: Send {}
+
 /// Get a context in a context.
 ///
 /// A good use case is when you have a custom backend context composed
@@ -1239,13 +1250,13 @@ pub type BackendFeatureBuilder<C, F> = dyn Fn(&C) -> SomeBackendFeature<F> + Sen
 ///
 /// If your context is composed of optional subcontexts, use
 /// [`FindBackendSubcontext`] instead.
-pub trait GetBackendSubcontext<C: Send> {
+pub trait GetBackendSubcontext<C: BackendContext> {
     fn get_subcontext(&self) -> &C;
 }
 
 /// Generic implementation for contexts that match themselves as
 /// subcontext.
-impl<C: Send> GetBackendSubcontext<C> for C {
+impl<C: BackendContext> GetBackendSubcontext<C> for C {
     fn get_subcontext(&self) -> &C {
         self
     }
@@ -1265,7 +1276,7 @@ impl<C: Send> GetBackendSubcontext<C> for C {
 ///
 /// If your context is composed of existing subcontexts, use
 /// [`GetBackendSubcontext`] instead.
-pub trait FindBackendSubcontext<C: Send> {
+pub trait FindBackendSubcontext<C: BackendContext> {
     fn find_subcontext(&self) -> Option<&C>;
 }
 
@@ -1274,7 +1285,7 @@ pub trait FindBackendSubcontext<C: Send> {
 ///
 /// If a context can get a subcontext, then it can also find a
 /// subcontext.
-impl<C: Send, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for T {
+impl<C: BackendContext, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for T {
     fn find_subcontext(&self) -> Option<&C> {
         Some(self.get_subcontext())
     }
@@ -1350,7 +1361,7 @@ where
     Self: BackendContextBuilderV2,
     Self::Context: FindBackendSubcontext<B::Context> + 'static,
     B: BackendContextBuilderV2,
-    B::Context: 'static,
+    B::Context: BackendContext + 'static,
 {
     fn map_feature<T: ?Sized + 'static>(
         &self,
@@ -1376,7 +1387,7 @@ where
     T: BackendContextBuilderV2,
     T::Context: FindBackendSubcontext<B::Context> + 'static,
     B: BackendContextBuilderV2,
-    B::Context: 'static,
+    B::Context: BackendContext + 'static,
 {
 }
 
@@ -1395,7 +1406,7 @@ pub trait BackendContextBuilderV2: Clone + Send + Sync {
     /// [`tokio::sync::Mutex`]. See existing implementations of
     /// `email::imap::ImapContextSync` or
     /// `email::smtp::SmtpContextSync`.
-    type Context: Send;
+    type Context: BackendContext;
 
     /// Define the add folder backend feature builder.
     #[cfg(feature = "folder-add")]
@@ -2135,7 +2146,7 @@ impl<B: BackendContextBuilderV2> BackendBuilderV2<B> {
 ///
 /// The backend owns a context, as well as multiple optional backend
 /// features.
-pub struct BackendV2<C: Send> {
+pub struct BackendV2<C: BackendContext> {
     /// The account configuration.
     pub account_config: AccountConfig,
 
@@ -2215,7 +2226,7 @@ pub struct BackendV2<C: Send> {
     pub delete_messages: SomeBackendFeature<dyn DeleteMessages>,
 }
 
-impl<C: Send> BackendV2<C> {
+impl<C: BackendContext> BackendV2<C> {
     /// Build a new backend from an account configuration and a
     /// context.
     pub fn new(account_config: AccountConfig, context: C) -> Self {

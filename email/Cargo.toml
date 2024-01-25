@@ -97,7 +97,7 @@ hickory-resolver = { version = "0.24", optional = true, features = ["dns-over-ru
 hyper = { version = "0.14", optional = true, default-features = false, features = [ "http1", "http2" ] }
 hyper-rustls = { version = "0.24", optional = true }
 email_address = { version = "0.2.4", optional = true, default-features = false }
-# email-macros = { path = "../email-macros" }
+email-macros = { path = "../email-macros" }
 imap = { version = "=3.0.0-alpha.12", optional = true, default-features = false, features = ["rustls-tls"] }
 imap-proto = { version = "=0.16.3", optional = true }
 keyring-lib = { version = "=0.3.2", optional = true }

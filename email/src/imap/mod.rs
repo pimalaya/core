@@ -11,7 +11,9 @@ use tokio::sync::Mutex;
 use crate::folder::list::{imap::ListImapFolders, ListFolders};
 use crate::{
     account::config::{oauth2::OAuth2Method, AccountConfig},
-    backend::{BackendContextBuilder, BackendContextBuilderV2, BackendFeatureBuilder},
+    backend::{
+        BackendContext, BackendContextBuilder, BackendContextBuilderV2, BackendFeatureBuilder,
+    },
     Result,
 };
 
@@ -114,6 +116,8 @@ impl Deref for ImapContextSync {
         &self.inner
     }
 }
+
+impl BackendContext for ImapContextSync {}
 
 /// The IMAP backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

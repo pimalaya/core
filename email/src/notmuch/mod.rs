@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     account::config::AccountConfig,
-    backend::BackendContextBuilder,
+    backend::{BackendContext, BackendContextBuilder},
     maildir::{config::MaildirConfig, MaildirContext},
     Result,
 };
@@ -83,6 +83,8 @@ impl Deref for NotmuchContextSync {
         &self.inner
     }
 }
+
+impl BackendContext for NotmuchContextSync {}
 
 /// The Notmuch context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

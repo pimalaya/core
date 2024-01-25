@@ -16,7 +16,9 @@ use tokio_rustls::client::TlsStream;
 use crate::message::send::{smtp::SendSmtpMessage, SendMessage};
 use crate::{
     account::config::AccountConfig,
-    backend::{BackendContextBuilder, BackendContextBuilderV2, BackendFeatureBuilder},
+    backend::{
+        BackendContext, BackendContextBuilder, BackendContextBuilderV2, BackendFeatureBuilder,
+    },
     Result,
 };
 
@@ -134,6 +136,8 @@ impl From<SmtpContext> for SmtpContextSync {
         Self(Arc::new(Mutex::new(ctx)))
     }
 }
+
+impl BackendContext for SmtpContextSync {}
 
 /// The SMTP client builder.
 #[derive(Clone)]

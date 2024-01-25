@@ -8,8 +8,10 @@ use std::{ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
 use crate::{
-    account::config::AccountConfig, backend::BackendContextBuilder, folder::FolderKind, maildir,
-    Result,
+    account::config::AccountConfig,
+    backend::{BackendContext, BackendContextBuilder},
+    folder::FolderKind,
+    maildir, Result,
 };
 
 use self::config::MaildirConfig;
@@ -93,6 +95,8 @@ impl Deref for MaildirContextSync {
         &self.inner
     }
 }
+
+impl BackendContext for MaildirContextSync {}
 
 /// The Maildir backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

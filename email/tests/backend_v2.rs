@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::{
-        BackendBuilderV2, BackendContextBuilderV2, FindBackendSubcontext, GetBackendSubcontext,
-        MapBackendFeature, SomeBackendFeatureBuilder,
+        macros::BackendContext, BackendBuilderV2, BackendContextBuilderV2, BackendFeatureBuilder,
+        FindBackendSubcontext, GetBackendSubcontext, MapBackendFeature,
     },
     folder::{config::FolderConfig, list::ListFolders, SENT},
     imap::{
@@ -17,7 +17,7 @@ use email::{
     Result,
 };
 use secret::Secret;
-use std::{collections::HashMap, ops::Deref};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 #[tokio::test]
 async fn test_backend_v2() {
@@ -51,6 +51,7 @@ async fn test_backend_v2() {
 
     // 1. define custom context
 
+    #[derive(BackendContext)]
     struct MyContext {
         imap: Option<ImapContextSync>,
         smtp: Option<SmtpContextSync>,
@@ -85,7 +86,9 @@ async fn test_backend_v2() {
         type Context = MyContext;
 
         #[cfg(feature = "folder-list")]
-        fn list_folders(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn ListFolders> {
+        fn list_folders(
+            &self,
+        ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ListFolders>>> {
             self.list_folders_from(self.imap.as_ref())
         }
 
@@ -119,6 +122,7 @@ async fn test_backend_v2() {
 
     // 1. define custom context made of subcontexts
 
+    #[derive(BackendContext)]
     struct MyStaticContext {
         imap: ImapContextSync,
         smtp: SmtpContextSync,
@@ -153,7 +157,9 @@ async fn test_backend_v2() {
         type Context = MyStaticContext;
 
         #[cfg(feature = "folder-list")]
-        fn list_folders(&self) -> SomeBackendFeatureBuilder<Self::Context, dyn ListFolders> {
+        fn list_folders(
+            &self,
+        ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ListFolders>>> {
             self.list_folders_from(Some(&self.imap))
         }
 
