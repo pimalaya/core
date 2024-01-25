@@ -7,13 +7,41 @@ use std::{ops::Deref, sync::Arc};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
+#[cfg(feature = "envelope-get")]
+use crate::envelope::get::{imap::GetImapEnvelope, GetEnvelope};
+#[cfg(feature = "envelope-list")]
+use crate::envelope::list::{imap::ListImapEnvelopes, ListEnvelopes};
+#[cfg(feature = "envelope-watch")]
+use crate::envelope::watch::{imap::WatchImapEnvelopes, WatchEnvelopes};
+#[cfg(feature = "flag-add")]
+use crate::flag::add::{imap::AddImapFlags, AddFlags};
+#[cfg(feature = "flag-remove")]
+use crate::flag::remove::{imap::RemoveImapFlags, RemoveFlags};
+#[cfg(feature = "flag-set")]
+use crate::flag::set::{imap::SetImapFlags, SetFlags};
+#[cfg(feature = "folder-add")]
+use crate::folder::add::{imap::AddImapFolder, AddFolder};
+#[cfg(feature = "folder-delete")]
+use crate::folder::delete::{imap::DeleteImapFolder, DeleteFolder};
+#[cfg(feature = "folder-expunge")]
+use crate::folder::expunge::{imap::ExpungeImapFolder, ExpungeFolder};
 #[cfg(feature = "folder-list")]
 use crate::folder::list::{imap::ListImapFolders, ListFolders};
+#[cfg(feature = "folder-purge")]
+use crate::folder::purge::{imap::PurgeImapFolder, PurgeFolder};
+#[cfg(feature = "message-add")]
+use crate::message::add::{imap::AddImapMessage, AddMessage};
+#[cfg(feature = "message-copy")]
+use crate::message::copy::{imap::CopyImapMessages, CopyMessages};
+#[cfg(feature = "message-get")]
+use crate::message::get::{imap::GetImapMessages, GetMessages};
+#[cfg(feature = "message-peek")]
+use crate::message::peek::{imap::PeekImapMessages, PeekMessages};
+#[cfg(feature = "message-move")]
+use crate::message::r#move::{imap::MoveImapMessages, MoveMessages};
 use crate::{
     account::config::{oauth2::OAuth2Method, AccountConfig},
-    backend::{
-        BackendContext, BackendContextBuilder, BackendContextBuilderV2, BackendFeatureBuilder,
-    },
+    backend::{BackendContext, BackendContextBuilder, BackendFeatureBuilder},
     Result,
 };
 
@@ -41,10 +69,10 @@ pub enum Error {
 #[derive(Debug)]
 pub struct ImapContext {
     /// The account configuration.
-    pub account_config: AccountConfig,
+    pub account_config: Arc<AccountConfig>,
 
     /// The IMAP configuration.
-    pub imap_config: ImapConfig,
+    pub imap_config: Arc<ImapConfig>,
 
     /// The current IMAP session.
     session: Session<Box<dyn ImapConnection>>,
@@ -100,10 +128,10 @@ impl Drop for ImapContext {
 #[derive(Debug, Clone)]
 pub struct ImapContextSync {
     /// The account configuration.
-    pub account_config: AccountConfig,
+    pub account_config: Arc<AccountConfig>,
 
     /// The IMAP configuration.
-    pub imap_config: ImapConfig,
+    pub imap_config: Arc<ImapConfig>,
 
     /// The current IMAP session.
     inner: Arc<Mutex<ImapContext>>,
@@ -123,22 +151,22 @@ impl BackendContext for ImapContextSync {}
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ImapContextBuilder {
     /// The IMAP configuration.
-    pub config: ImapConfig,
+    pub imap_config: Arc<ImapConfig>,
 
     /// The prebuilt IMAP credentials.
     prebuilt_credentials: Option<String>,
 }
 
 impl ImapContextBuilder {
-    pub fn new(config: ImapConfig) -> Self {
+    pub fn new(imap_config: Arc<ImapConfig>) -> Self {
         Self {
-            config,
+            imap_config,
             prebuilt_credentials: None,
         }
     }
 
     pub async fn prebuild_credentials(&mut self) -> Result<()> {
-        self.prebuilt_credentials = Some(self.config.build_credentials().await?);
+        self.prebuilt_credentials = Some(self.imap_config.build_credentials().await?);
         Ok(())
     }
 
@@ -152,71 +180,101 @@ impl ImapContextBuilder {
 impl BackendContextBuilder for ImapContextBuilder {
     type Context = ImapContextSync;
 
-    /// Build an IMAP backend context.
-    ///
-    /// The IMAP session is created at this moment. If the session
-    /// cannot be created using the OAuth 2.0 authentication, the
-    /// access token is refreshed first then a new session is created.
-    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
-        info!("building new imap context");
-
-        let creds = self.prebuilt_credentials.as_ref();
-
-        let session = match &self.config.auth {
-            ImapAuthConfig::Passwd(_) => build_session(&self.config, creds).await,
-            ImapAuthConfig::OAuth2(oauth2_config) => {
-                match build_session(&self.config, creds).await {
-                    Ok(sess) => Ok(sess),
-                    Err(err) => {
-                        let downcast_err = err.downcast_ref::<Error>();
-
-                        if let Some(Error::AuthenticateError(imap::Error::Parse(
-                            imap::error::ParseError::Authentication(_, _),
-                        ))) = downcast_err
-                        {
-                            debug!("error while authenticating user, refreshing access token");
-                            let access_token = oauth2_config.refresh_access_token().await?;
-                            build_session(&self.config, Some(&access_token)).await
-                        } else {
-                            Err(err)
-                        }
-                    }
-                }
-            }
-        }?;
-
-        let ctx = ImapContext {
-            account_config: account_config.clone(),
-            imap_config: self.config.clone(),
-            session,
-        };
-
-        Ok(ImapContextSync {
-            account_config: account_config.clone(),
-            imap_config: self.config,
-            inner: Arc::new(Mutex::new(ctx)),
-        })
+    #[cfg(feature = "folder-add")]
+    fn add_folder(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn AddFolder>>> {
+        Some(Arc::new(AddImapFolder::some_new_boxed))
     }
-}
-
-#[async_trait]
-impl BackendContextBuilderV2 for ImapContextBuilder {
-    type Context = ImapContextSync;
 
     #[cfg(feature = "folder-list")]
     fn list_folders(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ListFolders>>> {
         Some(Arc::new(ListImapFolders::some_new_boxed))
     }
 
-    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
+    #[cfg(feature = "folder-expunge")]
+    fn expunge_folder(
+        &self,
+    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ExpungeFolder>>> {
+        Some(Arc::new(ExpungeImapFolder::some_new_boxed))
+    }
+
+    #[cfg(feature = "folder-purge")]
+    fn purge_folder(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn PurgeFolder>>> {
+        Some(Arc::new(PurgeImapFolder::some_new_boxed))
+    }
+
+    #[cfg(feature = "folder-delete")]
+    fn delete_folder(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn DeleteFolder>>> {
+        Some(Arc::new(DeleteImapFolder::some_new_boxed))
+    }
+
+    #[cfg(feature = "envelope-list")]
+    fn list_envelopes(
+        &self,
+    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ListEnvelopes>>> {
+        Some(Arc::new(ListImapEnvelopes::some_new_boxed))
+    }
+
+    #[cfg(feature = "envelope-watch")]
+    fn watch_envelopes(
+        &self,
+    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes>>> {
+        Some(Arc::new(WatchImapEnvelopes::some_new_boxed))
+    }
+
+    #[cfg(feature = "envelope-get")]
+    fn get_envelope(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn GetEnvelope>>> {
+        Some(Arc::new(GetImapEnvelope::some_new_boxed))
+    }
+
+    #[cfg(feature = "flag-add")]
+    fn add_flags(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn AddFlags>>> {
+        Some(Arc::new(AddImapFlags::some_new_boxed))
+    }
+
+    #[cfg(feature = "flag-set")]
+    fn set_flags(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn SetFlags>>> {
+        Some(Arc::new(SetImapFlags::some_new_boxed))
+    }
+
+    #[cfg(feature = "flag-remove")]
+    fn remove_flags(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn RemoveFlags>>> {
+        Some(Arc::new(RemoveImapFlags::some_new_boxed))
+    }
+
+    #[cfg(feature = "message-add")]
+    fn add_message(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn AddMessage>>> {
+        Some(Arc::new(AddImapMessage::some_new_boxed))
+    }
+
+    #[cfg(feature = "message-peek")]
+    fn peek_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn PeekMessages>>> {
+        Some(Arc::new(PeekImapMessages::some_new_boxed))
+    }
+
+    #[cfg(feature = "message-get")]
+    fn get_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn GetMessages>>> {
+        Some(Arc::new(GetImapMessages::some_new_boxed))
+    }
+
+    #[cfg(feature = "message-copy")]
+    fn copy_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn CopyMessages>>> {
+        Some(Arc::new(CopyImapMessages::some_new_boxed))
+    }
+
+    #[cfg(feature = "message-move")]
+    fn move_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn MoveMessages>>> {
+        Some(Arc::new(MoveImapMessages::some_new_boxed))
+    }
+
+    async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
         info!("building new imap context");
 
         let creds = self.prebuilt_credentials.as_ref();
 
-        let session = match &self.config.auth {
-            ImapAuthConfig::Passwd(_) => build_session(&self.config, creds).await,
+        let session = match &self.imap_config.auth {
+            ImapAuthConfig::Passwd(_) => build_session(&self.imap_config, creds).await,
             ImapAuthConfig::OAuth2(oauth2_config) => {
-                match build_session(&self.config, creds).await {
+                match build_session(&self.imap_config, creds).await {
                     Ok(sess) => Ok(sess),
                     Err(err) => {
                         let downcast_err = err.downcast_ref::<Error>();
@@ -227,7 +285,7 @@ impl BackendContextBuilderV2 for ImapContextBuilder {
                         {
                             debug!("error while authenticating user, refreshing access token");
                             let access_token = oauth2_config.refresh_access_token().await?;
-                            build_session(&self.config, Some(&access_token)).await
+                            build_session(&self.imap_config, Some(&access_token)).await
                         } else {
                             Err(err)
                         }
@@ -238,13 +296,13 @@ impl BackendContextBuilderV2 for ImapContextBuilder {
 
         let ctx = ImapContext {
             account_config: account_config.clone(),
-            imap_config: self.config.clone(),
+            imap_config: self.imap_config.clone(),
             session,
         };
 
         Ok(ImapContextSync {
-            account_config: account_config.clone(),
-            imap_config: self.config,
+            account_config,
+            imap_config: self.imap_config,
             inner: Arc::new(Mutex::new(ctx)),
         })
     }

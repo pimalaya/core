@@ -38,18 +38,18 @@ pub type EmailSyncCachePatch = Vec<EmailSyncCacheHunk>;
 /// The email synchronization patch manager.
 ///
 /// This structure helps you to build a patch and to apply it.
-pub struct EmailSyncPatchManager<'a, B: BackendContextBuilder> {
-    account_config: &'a AccountConfig,
+pub struct EmailSyncPatchManager<B: BackendContextBuilder> {
+    account_config: Arc<AccountConfig>,
     local_builder: LocalBackendBuilder,
     remote_builder: BackendBuilder<B>,
     on_progress: AccountSyncProgress,
     dry_run: bool,
 }
 
-impl<'a, B: BackendContextBuilder + 'static> EmailSyncPatchManager<'a, B> {
+impl<B: BackendContextBuilder + 'static> EmailSyncPatchManager<B> {
     /// Creates a new email synchronization patch manager.
     pub fn new(
-        account_config: &'a AccountConfig,
+        account_config: Arc<AccountConfig>,
         local_builder: LocalBackendBuilder,
         remote_builder: BackendBuilder<B>,
         on_progress: AccountSyncProgress,

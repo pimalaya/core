@@ -2,24 +2,14 @@ use concat_with::concat_line;
 use email::{
     account::config::AccountConfig,
     backend::BackendBuilder,
-    envelope::{list::maildir::ListMaildirEnvelopes, Id},
-    flag::{
-        add::maildir::AddMaildirFlags, remove::maildir::RemoveMaildirFlags,
-        set::maildir::SetMaildirFlags, Flag,
-    },
-    folder::{
-        add::maildir::AddMaildirFolder, config::FolderConfig, delete::maildir::DeleteMaildirFolder,
-        expunge::maildir::ExpungeMaildirFolder, list::maildir::ListMaildirFolders,
-    },
+    envelope::Id,
+    flag::Flag,
+    folder::config::FolderConfig,
     maildir::{config::MaildirConfig, MaildirContextBuilder},
-    message::{
-        add::maildir::AddMaildirMessage, copy::maildir::CopyMaildirMessages,
-        move_::maildir::MoveMaildirMessages, peek::maildir::PeekMaildirMessages,
-    },
 };
 use mail_builder::MessageBuilder;
 use maildirpp::Maildir;
-use std::{collections::HashMap, fs, iter::FromIterator};
+use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
 use tempfile::tempdir;
 
 #[tokio::test]
@@ -40,7 +30,7 @@ async fn test_maildir_features() {
     if let Err(_) = fs::remove_dir_all(mdir_trash.path()) {}
     mdir_trash.create_dirs().unwrap();
 
-    let account_config = AccountConfig {
+    let account_config = Arc::new(AccountConfig {
         name: "account".into(),
         folder: Some(FolderConfig {
             aliases: Some(HashMap::from_iter([
@@ -53,50 +43,31 @@ async fn test_maildir_features() {
             ..Default::default()
         }),
         ..Default::default()
-    };
+    });
 
     // Main maildir backend
 
     let mdir_path = mdir.path().to_owned();
-    let mdir_config = MaildirConfig {
+    let mdir_config = Arc::new(MaildirConfig {
         root_dir: mdir_path.clone(),
-    };
-    let backend_ctx = MaildirContextBuilder::new(mdir_config);
-    let backend_builder = BackendBuilder::new(account_config.clone(), backend_ctx)
-        .with_add_folder(AddMaildirFolder::some_new_boxed)
-        .with_list_folders(ListMaildirFolders::some_new_boxed)
-        .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
-        .with_delete_folder(DeleteMaildirFolder::some_new_boxed)
-        .with_list_envelopes(ListMaildirEnvelopes::some_new_boxed)
-        .with_add_flags(AddMaildirFlags::some_new_boxed)
-        .with_set_flags(SetMaildirFlags::some_new_boxed)
-        .with_remove_flags(RemoveMaildirFlags::some_new_boxed)
-        .with_add_message(AddMaildirMessage::some_new_boxed)
-        .with_peek_messages(PeekMaildirMessages::some_new_boxed)
-        .with_copy_messages(CopyMaildirMessages::some_new_boxed)
-        .with_move_messages(MoveMaildirMessages::some_new_boxed);
-    let mdir = backend_builder.build().await.unwrap();
+    });
+
+    let mdir_ctx = MaildirContextBuilder::new(mdir_config.clone());
+    let mdir = BackendBuilder::new(account_config.clone(), mdir_ctx)
+        .build()
+        .await
+        .unwrap();
 
     // Sub maildir backend
 
-    let mdir_config = MaildirConfig {
+    let mdir_config = Arc::new(MaildirConfig {
         root_dir: mdir_path.clone(),
-    };
-    let backend_ctx = MaildirContextBuilder::new(mdir_config);
-    let backend_builder = BackendBuilder::new(account_config.clone(), backend_ctx)
-        .with_add_folder(AddMaildirFolder::some_new_boxed)
-        .with_list_folders(ListMaildirFolders::some_new_boxed)
-        .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
-        .with_delete_folder(DeleteMaildirFolder::some_new_boxed)
-        .with_list_envelopes(ListMaildirEnvelopes::some_new_boxed)
-        .with_add_flags(AddMaildirFlags::some_new_boxed)
-        .with_set_flags(SetMaildirFlags::some_new_boxed)
-        .with_remove_flags(RemoveMaildirFlags::some_new_boxed)
-        .with_add_message(AddMaildirMessage::some_new_boxed)
-        .with_peek_messages(PeekMaildirMessages::some_new_boxed)
-        .with_copy_messages(CopyMaildirMessages::some_new_boxed)
-        .with_move_messages(MoveMaildirMessages::some_new_boxed);
-    let submdir = backend_builder.build().await.unwrap();
+    });
+    let submdir_ctx = MaildirContextBuilder::new(mdir_config.clone());
+    let submdir = BackendBuilder::new(account_config.clone(), submdir_ctx)
+        .build()
+        .await
+        .unwrap();
 
     // check that a message can be built and added
     let email = MessageBuilder::new()
