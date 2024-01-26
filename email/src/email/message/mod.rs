@@ -17,7 +17,7 @@ pub mod delete;
 #[cfg(feature = "message-get")]
 pub mod get;
 #[cfg(feature = "message-move")]
-pub mod move_;
+pub mod r#move;
 #[cfg(feature = "message-peek")]
 pub mod peek;
 #[cfg(feature = "message-send")]

@@ -8,7 +8,7 @@ use crate::{
 use crate::{envelope::Id, Result};
 
 #[cfg(feature = "flag-add")]
-use super::move_::MoveMessages;
+use super::r#move::MoveMessages;
 
 #[async_trait]
 pub trait DeleteMessages: Send + Sync {

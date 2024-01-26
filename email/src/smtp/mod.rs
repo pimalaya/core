@@ -7,12 +7,18 @@ use mail_send::{
     smtp::message::{Address as SmtpAddress, IntoMessage, Message as SmtpMessage},
     SmtpClientBuilder,
 };
-use std::{collections::HashSet, ops::Deref, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 use thiserror::Error;
 use tokio::{net::TcpStream, sync::Mutex};
 use tokio_rustls::client::TlsStream;
 
-use crate::{account::config::AccountConfig, backend::BackendContextBuilder, Result};
+#[cfg(feature = "message-send")]
+use crate::message::send::{smtp::SendSmtpMessage, SendMessage};
+use crate::{
+    account::config::AccountConfig,
+    backend::{BackendContext, BackendContextBuilder, BackendFeatureBuilder},
+    Result,
+};
 
 use self::config::{SmtpAuthConfig, SmtpConfig};
 
@@ -35,10 +41,10 @@ pub enum Error {
 /// threads. For the sync version, see [`SmtpContextSync`].
 pub struct SmtpContext {
     /// The account configuration.
-    pub account_config: AccountConfig,
+    pub account_config: Arc<AccountConfig>,
 
     /// The SMTP configuration.
-    pub smtp_config: SmtpConfig,
+    pub smtp_config: Arc<SmtpConfig>,
 
     /// The SMTP client builder.
     client_builder: mail_send::SmtpClientBuilder<String>,
@@ -112,33 +118,20 @@ impl SmtpContext {
 ///
 /// This is just an SMTP client wrapped into a mutex, so the same SMTP
 /// client can be shared and updated across multiple threads.
-#[derive(Clone)]
-pub struct SmtpContextSync(Arc<Mutex<SmtpContext>>);
+pub type SmtpContextSync = Arc<Mutex<SmtpContext>>;
 
-impl Deref for SmtpContextSync {
-    type Target = Mutex<SmtpContext>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<SmtpContext> for SmtpContextSync {
-    fn from(ctx: SmtpContext) -> Self {
-        Self(Arc::new(Mutex::new(ctx)))
-    }
-}
+impl BackendContext for SmtpContextSync {}
 
 /// The SMTP client builder.
 #[derive(Clone)]
 pub struct SmtpContextBuilder {
     /// The SMTP configuration.
-    config: SmtpConfig,
+    smtp_config: Arc<SmtpConfig>,
 }
 
 impl SmtpContextBuilder {
-    pub fn new(config: SmtpConfig) -> Self {
-        Self { config }
+    pub fn new(smtp_config: Arc<SmtpConfig>) -> Self {
+        Self { smtp_config }
     }
 }
 
@@ -146,32 +139,38 @@ impl SmtpContextBuilder {
 impl BackendContextBuilder for SmtpContextBuilder {
     type Context = SmtpContextSync;
 
+    #[cfg(feature = "message-send")]
+    fn send_message(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn SendMessage>>> {
+        Some(Arc::new(SendSmtpMessage::some_new_boxed))
+    }
+
     /// Build an SMTP sync client.
     ///
     /// The SMTP client is created at this moment. If the client
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new client is created.
-    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
+    async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
         info!("building new smtp context");
 
-        let mut client_builder = SmtpClientBuilder::new(self.config.host.clone(), self.config.port)
-            .credentials(self.config.credentials().await?)
-            .implicit_tls(!self.config.is_start_tls_encryption_enabled());
+        let mut client_builder =
+            SmtpClientBuilder::new(self.smtp_config.host.clone(), self.smtp_config.port)
+                .credentials(self.smtp_config.credentials().await?)
+                .implicit_tls(!self.smtp_config.is_start_tls_encryption_enabled());
 
-        if self.config.is_encryption_disabled() {
+        if self.smtp_config.is_encryption_disabled() {
             client_builder = client_builder.allow_invalid_certs();
         }
 
-        let (client_builder, client) = build_client(&self.config, client_builder).await?;
+        let (client_builder, client) = build_client(&self.smtp_config, client_builder).await?;
 
-        let context = SmtpContext {
-            account_config: account_config.clone(),
-            smtp_config: self.config,
+        let ctx = SmtpContext {
+            account_config,
+            smtp_config: self.smtp_config,
             client_builder,
             client,
         };
 
-        Ok(context.into())
+        Ok(Arc::new(Mutex::new(ctx)))
     }
 }
 

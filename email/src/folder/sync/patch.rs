@@ -8,7 +8,10 @@
 
 use futures::{stream, StreamExt};
 use log::{debug, info, trace};
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use crate::{
     account::{
@@ -37,22 +40,22 @@ pub type FolderSyncCachePatch = Vec<FolderSyncCacheHunk>;
 /// The folder synchronization patch manager.
 ///
 /// This structure helps you to build a patch and to apply it.
-pub struct FolderSyncPatchManager<'a, B: BackendContextBuilder> {
-    account_config: &'a AccountConfig,
+pub struct FolderSyncPatchManager<B: BackendContextBuilder> {
+    account_config: Arc<AccountConfig>,
     local_builder: LocalBackendBuilder,
     remote_builder: BackendBuilder<B>,
-    strategy: &'a FolderSyncStrategy,
+    strategy: FolderSyncStrategy,
     on_progress: AccountSyncProgress,
     dry_run: bool,
 }
 
-impl<'a, B: BackendContextBuilder + 'static> FolderSyncPatchManager<'a, B> {
+impl<B: BackendContextBuilder + 'static> FolderSyncPatchManager<B> {
     /// Creates a new folder synchronization patch manager.
     pub fn new(
-        account_config: &'a AccountConfig,
+        account_config: Arc<AccountConfig>,
         local_builder: LocalBackendBuilder,
         remote_builder: BackendBuilder<B>,
-        strategy: &'a FolderSyncStrategy,
+        strategy: FolderSyncStrategy,
         on_progress: AccountSyncProgress,
         dry_run: bool,
     ) -> Self {

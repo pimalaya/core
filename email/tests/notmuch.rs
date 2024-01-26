@@ -2,22 +2,15 @@ use concat_with::concat_line;
 use email::{
     account::config::AccountConfig,
     backend::BackendBuilder,
-    envelope::{list::notmuch::ListNotmuchEnvelopes, Id},
-    flag::{
-        add::notmuch::AddNotmuchFlags, remove::notmuch::RemoveNotmuchFlags,
-        set::notmuch::SetNotmuchFlags, Flag, Flags,
-    },
+    envelope::Id,
+    flag::{Flag, Flags},
     folder::{config::FolderConfig, INBOX},
-    message::{
-        add::notmuch::AddNotmuchMessage, copy::notmuch::CopyNotmuchMessages,
-        move_::notmuch::MoveNotmuchMessages, peek::notmuch::PeekNotmuchMessages,
-    },
     notmuch::{config::NotmuchConfig, NotmuchContextBuilder},
 };
 use mail_builder::MessageBuilder;
 use maildirpp::Maildir;
 use notmuch::Database;
-use std::{collections::HashMap, fs, iter::FromIterator};
+use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
 use tempfile::tempdir;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -36,7 +29,7 @@ async fn test_notmuch_features() {
 
     Database::create(mdir.path()).unwrap();
 
-    let account_config = AccountConfig {
+    let account_config = Arc::new(AccountConfig {
         name: "account".into(),
         folder: Some(FolderConfig {
             aliases: Some(HashMap::from_iter([(
@@ -46,23 +39,15 @@ async fn test_notmuch_features() {
             ..Default::default()
         }),
         ..Default::default()
-    };
+    });
 
-    let notmuch_config = NotmuchConfig {
+    let notmuch_config = Arc::new(NotmuchConfig {
         database_path: Some(mdir.path().to_owned()),
         ..Default::default()
-    };
+    });
 
-    let notmuch_ctx = NotmuchContextBuilder::new(notmuch_config);
+    let notmuch_ctx = NotmuchContextBuilder::new(notmuch_config.clone());
     let notmuch = BackendBuilder::new(account_config.clone(), notmuch_ctx)
-        .with_list_envelopes(ListNotmuchEnvelopes::some_new_boxed)
-        .with_add_flags(AddNotmuchFlags::some_new_boxed)
-        .with_set_flags(SetNotmuchFlags::some_new_boxed)
-        .with_remove_flags(RemoveNotmuchFlags::some_new_boxed)
-        .with_add_message(AddNotmuchMessage::some_new_boxed)
-        .with_peek_messages(PeekNotmuchMessages::some_new_boxed)
-        .with_copy_messages(CopyNotmuchMessages::some_new_boxed)
-        .with_move_messages(MoveNotmuchMessages::some_new_boxed)
         .build()
         .await
         .unwrap();

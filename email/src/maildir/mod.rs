@@ -7,9 +7,42 @@ use shellexpand_utils::{shellexpand_path, try_shellexpand_path};
 use std::{ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
+#[cfg(feature = "envelope-get")]
+use crate::envelope::get::{maildir::GetMaildirEnvelope, GetEnvelope};
+#[cfg(feature = "envelope-list")]
+use crate::envelope::list::{maildir::ListMaildirEnvelopes, ListEnvelopes};
+#[cfg(feature = "envelope-watch")]
+use crate::envelope::watch::{maildir::WatchMaildirEnvelopes, WatchEnvelopes};
+#[cfg(feature = "flag-add")]
+use crate::flag::add::{maildir::AddMaildirFlags, AddFlags};
+#[cfg(feature = "flag-remove")]
+use crate::flag::remove::{maildir::RemoveMaildirFlags, RemoveFlags};
+#[cfg(feature = "flag-set")]
+use crate::flag::set::{maildir::SetMaildirFlags, SetFlags};
+#[cfg(feature = "folder-add")]
+use crate::folder::add::{maildir::AddMaildirFolder, AddFolder};
+#[cfg(feature = "folder-delete")]
+use crate::folder::delete::{maildir::DeleteMaildirFolder, DeleteFolder};
+#[cfg(feature = "folder-expunge")]
+use crate::folder::expunge::{maildir::ExpungeMaildirFolder, ExpungeFolder};
+// TODO
+// #[cfg(feature = "folder-purge")]
+// use crate::folder::purge::{maildir::PurgeMaildirFolder, PurgeFolder};
+#[cfg(feature = "folder-list")]
+use crate::folder::list::{maildir::ListMaildirFolders, ListFolders};
+#[cfg(feature = "message-add")]
+use crate::message::add::{maildir::AddMaildirMessage, AddMessage};
+#[cfg(feature = "message-copy")]
+use crate::message::copy::{maildir::CopyMaildirMessages, CopyMessages};
+#[cfg(feature = "message-peek")]
+use crate::message::peek::{maildir::PeekMaildirMessages, PeekMessages};
+#[cfg(feature = "message-move")]
+use crate::message::r#move::{maildir::MoveMaildirMessages, MoveMessages};
 use crate::{
-    account::config::AccountConfig, backend::BackendContextBuilder, folder::FolderKind, maildir,
-    Result,
+    account::config::AccountConfig,
+    backend::{BackendContext, BackendContextBuilder, BackendFeatureBuilder},
+    folder::FolderKind,
+    maildir, Result,
 };
 
 use self::config::MaildirConfig;
@@ -20,10 +53,10 @@ use self::config::MaildirConfig;
 /// threads. For the sync version, see [`MaildirContextSync`].
 pub struct MaildirContext {
     /// The account configuration.
-    pub account_config: AccountConfig,
+    pub account_config: Arc<AccountConfig>,
 
     /// The Maildir configuration.
-    pub maildir_config: MaildirConfig,
+    pub maildir_config: Arc<MaildirConfig>,
 
     /// The maildir instance.
     pub root: Maildir,
@@ -78,10 +111,10 @@ impl MaildirContext {
 #[derive(Clone)]
 pub struct MaildirContextSync {
     /// The account configuration.
-    pub account_config: AccountConfig,
+    pub account_config: Arc<AccountConfig>,
 
     /// The Maildir configuration.
-    pub maildir_config: MaildirConfig,
+    pub maildir_config: Arc<MaildirConfig>,
 
     inner: Arc<Mutex<MaildirContext>>,
 }
@@ -94,16 +127,18 @@ impl Deref for MaildirContextSync {
     }
 }
 
+impl BackendContext for MaildirContextSync {}
+
 /// The Maildir backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MaildirContextBuilder {
     /// The Maildir configuration.
-    pub config: MaildirConfig,
+    pub mdir_config: Arc<MaildirConfig>,
 }
 
 impl MaildirContextBuilder {
-    pub fn new(config: MaildirConfig) -> Self {
-        Self { config }
+    pub fn new(mdir_config: Arc<MaildirConfig>) -> Self {
+        Self { mdir_config }
     }
 }
 
@@ -111,23 +146,105 @@ impl MaildirContextBuilder {
 impl BackendContextBuilder for MaildirContextBuilder {
     type Context = MaildirContextSync;
 
-    async fn build(self, account_config: &AccountConfig) -> Result<Self::Context> {
+    #[cfg(feature = "folder-add")]
+    fn add_folder(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn AddFolder>>> {
+        Some(Arc::new(AddMaildirFolder::some_new_boxed))
+    }
+
+    #[cfg(feature = "folder-list")]
+    fn list_folders(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ListFolders>>> {
+        Some(Arc::new(ListMaildirFolders::some_new_boxed))
+    }
+
+    #[cfg(feature = "folder-expunge")]
+    fn expunge_folder(
+        &self,
+    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ExpungeFolder>>> {
+        Some(Arc::new(ExpungeMaildirFolder::some_new_boxed))
+    }
+
+    // TODO
+    // #[cfg(feature = "folder-purge")]
+    // fn purge_folder(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn PurgeFolder>>> {
+    //     Some(Arc::new(PurgeMaildirFolder::some_new_boxed))
+    // }
+
+    #[cfg(feature = "folder-delete")]
+    fn delete_folder(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn DeleteFolder>>> {
+        Some(Arc::new(DeleteMaildirFolder::some_new_boxed))
+    }
+
+    #[cfg(feature = "envelope-list")]
+    fn list_envelopes(
+        &self,
+    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ListEnvelopes>>> {
+        Some(Arc::new(ListMaildirEnvelopes::some_new_boxed))
+    }
+
+    #[cfg(feature = "envelope-watch")]
+    fn watch_envelopes(
+        &self,
+    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes>>> {
+        Some(Arc::new(WatchMaildirEnvelopes::some_new_boxed))
+    }
+
+    #[cfg(feature = "envelope-get")]
+    fn get_envelope(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn GetEnvelope>>> {
+        Some(Arc::new(GetMaildirEnvelope::some_new_boxed))
+    }
+
+    #[cfg(feature = "flag-add")]
+    fn add_flags(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn AddFlags>>> {
+        Some(Arc::new(AddMaildirFlags::some_new_boxed))
+    }
+
+    #[cfg(feature = "flag-set")]
+    fn set_flags(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn SetFlags>>> {
+        Some(Arc::new(SetMaildirFlags::some_new_boxed))
+    }
+
+    #[cfg(feature = "flag-remove")]
+    fn remove_flags(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn RemoveFlags>>> {
+        Some(Arc::new(RemoveMaildirFlags::some_new_boxed))
+    }
+
+    #[cfg(feature = "message-add")]
+    fn add_message(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn AddMessage>>> {
+        Some(Arc::new(AddMaildirMessage::some_new_boxed))
+    }
+
+    #[cfg(feature = "message-peek")]
+    fn peek_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn PeekMessages>>> {
+        Some(Arc::new(PeekMaildirMessages::some_new_boxed))
+    }
+
+    #[cfg(feature = "message-copy")]
+    fn copy_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn CopyMessages>>> {
+        Some(Arc::new(CopyMaildirMessages::some_new_boxed))
+    }
+
+    #[cfg(feature = "message-move")]
+    fn move_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn MoveMessages>>> {
+        Some(Arc::new(MoveMaildirMessages::some_new_boxed))
+    }
+
+    async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
         info!("building new maildir context");
 
-        let path = shellexpand_path(&self.config.root_dir);
+        let path = shellexpand_path(&self.mdir_config.root_dir);
 
         let root = Maildir::from(path);
         root.create_dirs()?;
 
         let ctx = MaildirContext {
             account_config: account_config.clone(),
-            maildir_config: self.config.clone(),
+            maildir_config: self.mdir_config.clone(),
             root,
         };
 
         Ok(MaildirContextSync {
-            account_config: account_config.clone(),
-            maildir_config: self.config,
+            account_config,
+            maildir_config: self.mdir_config,
             inner: Arc::new(Mutex::new(ctx)),
         })
     }

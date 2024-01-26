@@ -5,28 +5,21 @@ use email::{
     },
     backend::BackendBuilder,
     email::sync::EmailSyncCache,
-    envelope::{get::imap::GetImapEnvelope, list::imap::ListImapEnvelopes, Id},
-    flag::{add::imap::AddImapFlags, set::imap::SetImapFlags, Flag, Flags},
-    folder::{
-        self, add::imap::AddImapFolder, config::FolderConfig, delete::imap::DeleteImapFolder,
-        expunge::imap::ExpungeImapFolder, list::imap::ListImapFolders,
-        purge::imap::PurgeImapFolder, FolderKind, INBOX, SENT, TRASH,
-    },
+    envelope::Id,
+    flag::{Flag, Flags},
+    folder::{self, config::FolderConfig, FolderKind, INBOX, SENT, TRASH},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapContextBuilder,
     },
     maildir::config::MaildirConfig,
-    message::{
-        add::imap::AddImapMessage, get::imap::GetImapMessages, move_::imap::MoveImapMessages,
-        peek::imap::PeekImapMessages,
-    },
 };
 use env_logger;
 use mail_builder::MessageBuilder;
 use secret::Secret;
 use std::{
     collections::{HashMap, HashSet},
+    sync::Arc,
     time::Duration,
 };
 use tempfile::tempdir;
@@ -38,15 +31,17 @@ async fn sync() {
     // set up config
 
     let sync_dir = tempdir().unwrap().path().join("sync-dir");
-    let imap_config = ImapConfig {
+
+    let imap_config = Arc::new(ImapConfig {
         host: "localhost".into(),
         port: 3143,
         encryption: Some(ImapEncryptionKind::None),
         login: "bob@localhost".into(),
         auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
         ..ImapConfig::default()
-    };
-    let account_config = AccountConfig {
+    });
+
+    let account_config = Arc::new(AccountConfig {
         name: "account".into(),
         folder: Some(FolderConfig {
             aliases: Some(HashMap::from_iter([(SENT.into(), "[Gmail]/Sent".into())])),
@@ -58,34 +53,21 @@ async fn sync() {
             ..Default::default()
         }),
         ..Default::default()
-    };
+    });
 
     // set up imap
 
-    let imap_ctx = ImapContextBuilder::new(imap_config);
-    let imap_builder = BackendBuilder::new(account_config.clone(), imap_ctx)
-        .with_add_folder(AddImapFolder::some_new_boxed)
-        .with_list_folders(ListImapFolders::some_new_boxed)
-        .with_expunge_folder(ExpungeImapFolder::some_new_boxed)
-        .with_purge_folder(PurgeImapFolder::some_new_boxed)
-        .with_delete_folder(DeleteImapFolder::some_new_boxed)
-        .with_get_envelope(GetImapEnvelope::some_new_boxed)
-        .with_list_envelopes(ListImapEnvelopes::some_new_boxed)
-        .with_add_flags(AddImapFlags::some_new_boxed)
-        .with_set_flags(SetImapFlags::some_new_boxed)
-        .with_add_message(AddImapMessage::some_new_boxed)
-        .with_peek_messages(PeekImapMessages::some_new_boxed)
-        .with_get_messages(GetImapMessages::some_new_boxed)
-        .with_move_messages(MoveImapMessages::some_new_boxed);
+    let imap_ctx = ImapContextBuilder::new(imap_config.clone());
+    let imap_builder = BackendBuilder::new(account_config.clone(), imap_ctx);
     let imap = imap_builder.clone().build().await.unwrap();
 
     // set up maildir reader
 
     let mdir = LocalBackendBuilder::new(
         account_config.clone(),
-        MaildirConfig {
+        Arc::new(MaildirConfig {
             root_dir: sync_dir.clone(),
-        },
+        }),
     )
     .build()
     .await
@@ -197,7 +179,9 @@ async fn sync() {
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
 
-    let sync_builder = AccountSyncBuilder::new(imap_builder).await.unwrap();
+    let sync_builder = AccountSyncBuilder::new(account_config.clone(), imap_builder)
+        .await
+        .unwrap();
     sync_builder.sync().await.unwrap();
     sync_builder.sync().await.unwrap();
 

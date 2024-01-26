@@ -25,23 +25,11 @@ use crate::{
         EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
         EmailSyncPatchManager,
     },
-    envelope::{get::maildir::GetMaildirEnvelope, list::maildir::ListMaildirEnvelopes},
-    flag::{add::maildir::AddMaildirFlags, set::maildir::SetMaildirFlags},
-    folder::{
-        add::maildir::AddMaildirFolder,
-        delete::maildir::DeleteMaildirFolder,
-        expunge::maildir::ExpungeMaildirFolder,
-        list::maildir::ListMaildirFolders,
-        sync::{
-            FolderName, FolderSyncCache, FolderSyncCacheHunk, FolderSyncHunk,
-            FolderSyncPatchManager, FolderSyncPatches, FolderSyncStrategy, FoldersName,
-        },
+    folder::sync::{
+        FolderName, FolderSyncCache, FolderSyncCacheHunk, FolderSyncHunk, FolderSyncPatchManager,
+        FolderSyncPatches, FolderSyncStrategy, FoldersName,
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
-    message::{
-        add::maildir::AddMaildirMessage, move_::maildir::MoveMaildirMessages,
-        peek::maildir::PeekMaildirMessages,
-    },
     Result,
 };
 
@@ -194,6 +182,7 @@ impl AccountSyncProgress {
 /// up, `sync()` synchronizes the current account locally, using the
 /// given remote builder.
 pub struct AccountSyncBuilder<B: BackendContextBuilder> {
+    account_config: Arc<AccountConfig>,
     remote_builder: BackendBuilder<B>,
     on_progress: AccountSyncProgress,
     folders_strategy: FolderSyncStrategy,
@@ -202,10 +191,14 @@ pub struct AccountSyncBuilder<B: BackendContextBuilder> {
 
 impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
     /// Creates a new account synchronization builder.
-    pub async fn new(remote_builder: BackendBuilder<B>) -> Result<AccountSyncBuilder<B>> {
-        let folders_strategy = remote_builder.account_config.get_folder_sync_strategy();
+    pub async fn new(
+        account_config: Arc<AccountConfig>,
+        remote_builder: BackendBuilder<B>,
+    ) -> Result<AccountSyncBuilder<B>> {
+        let folders_strategy = account_config.get_folder_sync_strategy();
 
         Ok(Self {
+            account_config,
             remote_builder,
             on_progress: Default::default(),
             dry_run: Default::default(),
@@ -251,10 +244,10 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
     /// Acts like a `build()` function in a regular builder pattern,
     /// except that the synchronizer builder is not consumed.
     pub async fn sync(&self) -> Result<AccountSyncReport> {
-        let account = &self.remote_builder.account_config.name;
+        let account = &self.account_config.name;
         info!("starting synchronization of account {account}");
 
-        if !self.remote_builder.account_config.is_sync_enabled() {
+        if !self.account_config.is_sync_enabled() {
             debug!("sync feature not enabled for account {account}, aborting");
             return Err(Error::SyncAccountNotEnabledError(account.clone()).into());
         }
@@ -272,16 +265,16 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             .try_lock(FileLockMode::Exclusive)
             .map_err(|err| Error::SyncAccountLockFileError(err, account.clone()))?;
 
-        let sync_dir = self.remote_builder.account_config.get_sync_dir()?;
+        let sync_dir = self.account_config.get_sync_dir()?;
 
         debug!("initializing folder and envelope cache");
-        let conn = &mut self.remote_builder.account_config.get_sync_db_conn()?;
+        let conn = &mut self.account_config.get_sync_db_conn()?;
         FolderSyncCache::init(conn)?;
         EmailSyncCache::init(conn)?;
 
         let local_builder = LocalBackendBuilder::new(
-            self.remote_builder.account_config.clone(),
-            MaildirConfig { root_dir: sync_dir },
+            self.account_config.clone(),
+            Arc::new(MaildirConfig { root_dir: sync_dir }),
         );
 
         debug!("applying folder aliases to the folder sync strategy");
@@ -292,8 +285,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
                 folders
                     .iter()
                     .map(|f| {
-                        self.remote_builder
-                            .account_config
+                        self.account_config
                             .find_folder_kind_from_alias(f)
                             .map(|kind| kind.to_string())
                             .unwrap_or_else(|| f.clone())
@@ -305,8 +297,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
                 folders
                     .iter()
                     .map(|f| {
-                        self.remote_builder
-                            .account_config
+                        self.account_config
                             .find_folder_kind_from_alias(f)
                             .map(|kind| kind.to_string())
                             .unwrap_or_else(|| f.clone())
@@ -320,10 +311,10 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             .emit(AccountSyncProgressEvent::BuildFolderPatch);
 
         let folder_sync_patch_manager = FolderSyncPatchManager::new(
-            &self.remote_builder.account_config,
+            self.account_config.clone(),
             local_builder.clone(),
             self.remote_builder.clone(),
-            &folders_strategy,
+            folders_strategy,
             self.on_progress.clone(),
             self.dry_run,
         );
@@ -346,7 +337,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             ));
 
         let envelope_sync_patch_manager = EmailSyncPatchManager::new(
-            &self.remote_builder.account_config,
+            self.account_config.clone(),
             local_builder.clone(),
             self.remote_builder.clone(),
             self.on_progress.clone(),
@@ -433,21 +424,9 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
 pub struct LocalBackendBuilder(BackendBuilder<MaildirContextBuilder>);
 
 impl LocalBackendBuilder {
-    pub fn new(account_config: AccountConfig, maildir_config: MaildirConfig) -> Self {
-        let session_builder = MaildirContextBuilder::new(maildir_config);
-        let backend_builder = BackendBuilder::new(account_config, session_builder)
-            .with_add_folder(AddMaildirFolder::some_new_boxed)
-            .with_list_folders(ListMaildirFolders::some_new_boxed)
-            .with_expunge_folder(ExpungeMaildirFolder::some_new_boxed)
-            .with_delete_folder(DeleteMaildirFolder::some_new_boxed)
-            .with_get_envelope(GetMaildirEnvelope::some_new_boxed)
-            .with_list_envelopes(ListMaildirEnvelopes::some_new_boxed)
-            .with_add_flags(AddMaildirFlags::some_new_boxed)
-            .with_set_flags(SetMaildirFlags::some_new_boxed)
-            .with_add_message(AddMaildirMessage::some_new_boxed)
-            .with_peek_messages(PeekMaildirMessages::some_new_boxed)
-            .with_move_messages(MoveMaildirMessages::some_new_boxed);
-
+    pub fn new(account_config: Arc<AccountConfig>, mdir_config: Arc<MaildirConfig>) -> Self {
+        let ctx_builder = MaildirContextBuilder::new(mdir_config);
+        let backend_builder = BackendBuilder::new(account_config, ctx_builder);
         Self(backend_builder)
     }
 
