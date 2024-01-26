@@ -1,10 +1,8 @@
-use std::ops::Deref;
-
 use async_trait::async_trait;
 use log::info;
 use thiserror::Error;
 
-use crate::{backend::GetBackendSubcontext, imap::ImapContextSync, Result};
+use crate::{imap::ImapContextSync, Result};
 
 use super::{Folders, ListFolders};
 
@@ -51,18 +49,5 @@ impl ListFolders for ListImapFolders {
         let folders = Folders::from_imap_names(config, names);
 
         Ok(folders)
-    }
-}
-
-#[async_trait]
-impl<T> ListFolders for T
-where
-    T: Deref + Send + Sync,
-    T::Target: GetBackendSubcontext<ImapContextSync> + Sync,
-{
-    async fn list_folders(&self) -> Result<Folders> {
-        ListImapFolders::new(self.deref().get_subcontext())
-            .list_folders()
-            .await
     }
 }

@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `account::discover` module to help lib consumers to detect automatically IMAP and SMTP settings.
 - Added Notmuch contexts and context builder.
 - Added Notmuch backend features `AddNotmuchFolder`, `ListNotmuchFolders`, `GetNotmuchEnvelope`, `ListNotmuchEnvelopes`, `AddNotmuchFlags`, `SetNotmuchFlags`, `RemoveNotmuchFlags`, `AddNotmuchMessage`, `PeekNotmuchMessages`, `CopyNotmuchMessages` and `MoveNotmuchMessages`.
+- Added `NotmuchConfig::maildir_path` of type `Option<PathBuf>` to customize the path to the Maildir folder. Defaults to `NotmuchConfig::database_path`.
+- Added `NotmuchConfig::config_path` of type `Option<PathBuf>` to customize the path to the Notmuch configuration file.
+- Added `NotmuchConfig::profile` of type `Option<String>` to customize the Notmuch profile to use.
 
 ### Changed
 

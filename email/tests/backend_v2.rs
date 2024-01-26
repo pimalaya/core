@@ -5,7 +5,11 @@ use email::{
         macros::BackendContext, BackendBuilder, BackendContextBuilder, BackendFeatureBuilder,
         FindBackendSubcontext, GetBackendSubcontext, MapBackendFeature,
     },
-    folder::{config::FolderConfig, list::ListFolders, SENT},
+    folder::{
+        config::FolderConfig,
+        list::{imap::ListImapFolders, ListFolders},
+        Folders, SENT,
+    },
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapContextBuilder, ImapContextSync,
@@ -184,6 +188,15 @@ async fn test_backend_v2() {
 
         fn deref(&self) -> &Self::Target {
             &self.0
+        }
+    }
+
+    // 7. implement desired backend features
+
+    #[async_trait]
+    impl ListFolders for MyBackend {
+        async fn list_folders(&self) -> Result<Folders> {
+            ListImapFolders::new(&self.0.imap).list_folders().await
         }
     }
 

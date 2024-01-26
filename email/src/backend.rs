@@ -1375,7 +1375,6 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the list folders feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "folder-list")]
     pub async fn list_folders(&self) -> Result<Folders> {
         self.list_folders
             .as_ref()
@@ -1598,7 +1597,6 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the get messages feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "message-get")]
     pub async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
         if let Some(f) = self.get_messages.as_ref() {
             return f.get_messages(folder, id).await;
