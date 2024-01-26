@@ -445,8 +445,19 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
 
 /// The runtime backend builder.
 ///
-/// This backend helps you to build a backend with features set up at
-/// runtime rather than at compile time.
+/// The determination of backend's features occurs dynamically at
+/// runtime, making the utilization of traits and generics potentially
+/// less advantageous in this context. This consideration is
+/// particularly relevant if the client interface is an interactive
+/// shell (To Be Announced).
+///
+/// Furthermore, this design empowers the programmatic management of
+/// features during runtime.
+///
+/// Alternatively, users have the option to define their custom
+/// structs and implement the same traits as those implemented by
+/// `BackendBuilder`. This approach allows for the creation of bespoke
+/// functionality tailored to specific requirements.
 pub struct BackendBuilder<B: BackendContextBuilder> {
     /// The account configuration.
     account_config: Arc<AccountConfig>,
