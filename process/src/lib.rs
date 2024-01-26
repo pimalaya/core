@@ -13,7 +13,6 @@
 //! of the previous command is send as input of the next one.
 
 use log::{debug, error};
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::{
     env, io,
@@ -23,9 +22,9 @@ use std::{
     string::FromUtf8Error,
 };
 use thiserror::Error;
-use tokio::io::AsyncWriteExt;
+use tokio::{io::AsyncWriteExt, process::Command};
 
-const TOKIO_CMD: Lazy<tokio::process::Command> = Lazy::new(|| {
+fn new_command() -> Command {
     let windows = cfg!(target_os = "windows")
         && !(env::var("MSYSTEM")
             .map(|env| env.starts_with("MINGW"))
@@ -36,7 +35,7 @@ const TOKIO_CMD: Lazy<tokio::process::Command> = Lazy::new(|| {
     let mut cmd = tokio::process::Command::new(shell);
     cmd.arg(arg);
     cmd
-});
+}
 
 /// The global `Error` enum of the library.
 #[derive(Debug, Error)]
@@ -232,8 +231,7 @@ impl SingleCmd {
             }
         };
 
-        let mut cmd = TOKIO_CMD;
-        let mut cmd = cmd
+        let mut cmd = new_command()
             .arg(&self.cmd)
             .stdin(stdin)
             .stdout(stdout())

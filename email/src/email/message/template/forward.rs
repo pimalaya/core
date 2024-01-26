@@ -20,7 +20,7 @@ use super::Error;
 ///
 /// Everything starting by "Fwd:" (case and whitespace insensitive) is
 /// considered a prefix.
-const PREFIXLESS_SUBJECT_REGEX: Lazy<Regex> =
+static PREFIXLESS_SUBJECT_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new("(?i:\\s*fwd\\s*:\\s*)*(.*)").unwrap());
 
 /// Trim out prefix(es) from the given subject.
