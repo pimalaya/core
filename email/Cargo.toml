@@ -106,7 +106,7 @@ async-trait = "0.1"
 chrono = "0.4"
 convert_case = "0.5"
 dirs = { version = "4.0", optional = true }
-email-macros = { path = "../email-macros" }
+email-macros = "=0.0.1"
 email_address = { version = "0.2", optional = true, default-features = false }
 futures = { version = "0.3", optional = true }
 hickory-resolver = { version = "0.24", optional = true, features = ["dns-over-rustls"] }
