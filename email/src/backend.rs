@@ -42,12 +42,8 @@ use crate::folder::purge::PurgeFolder;
 use crate::message::add::AddMessage;
 #[cfg(feature = "message-copy")]
 use crate::message::copy::CopyMessages;
-#[cfg(all(feature = "message-delete", feature = "flag-add"))]
-use crate::message::delete::default_delete_messages;
 #[cfg(feature = "message-delete")]
 use crate::message::delete::DeleteMessages;
-#[cfg(all(feature = "message-get", feature = "flag-add"))]
-use crate::message::get::default_get_messages;
 #[cfg(feature = "message-get")]
 use crate::message::get::GetMessages;
 #[cfg(feature = "message-peek")]
@@ -130,14 +126,14 @@ pub enum Error {
 }
 
 /// Optional dynamic boxed backend feature.
-pub type SomeBackendFeature<F> = Option<Box<F>>;
+pub type BackendFeature<F> = Option<Box<F>>;
 
 /// Thread-safe backend feature builder.
 ///
 /// The backend feature builder is a function that takes a reference
 /// to a context in parameter and return an optional dynamic boxed
 /// backend feature.
-pub type BackendFeatureBuilder<C, F> = dyn Fn(&C) -> SomeBackendFeature<F> + Send + Sync;
+pub type BackendFeatureBuilder<C, F> = Option<Arc<dyn Fn(&C) -> BackendFeature<F> + Send + Sync>>;
 
 /// The backend context trait.
 ///
@@ -248,7 +244,7 @@ impl<C: BackendContext, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for
 /// impl BackendContextBuilder for MyContextBuilder {
 ///     type Context = MyContext;
 ///
-///     fn list_folders(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ListFolders>>> {
+///     fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
 ///         // This is how you can map a
 ///         // `BackendFeatureBuilder<ImapContextSync, dyn ListFolders>` to a
 ///         // `BackendFeatureBuilder<Self::Context, dyn ListFolders>`:
@@ -280,18 +276,148 @@ where
 {
     fn map_feature<T: ?Sized + 'static>(
         &self,
-        f: Option<Arc<BackendFeatureBuilder<B::Context, T>>>,
-    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, T>>> {
+        f: BackendFeatureBuilder<B::Context, T>,
+    ) -> BackendFeatureBuilder<Self::Context, T> {
         let f = f?;
         Some(Arc::new(move |ctx| f(ctx.find_subcontext()?)))
+    }
+
+    #[cfg(feature = "folder-add")]
+    fn add_folder_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn AddFolder> {
+        self.map_feature(cb.and_then(|cb| cb.add_folder()))
     }
 
     #[cfg(feature = "folder-list")]
     fn list_folders_from(
         &self,
         cb: Option<&B>,
-    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ListFolders>>> {
+    ) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
         self.map_feature(cb.and_then(|cb| cb.list_folders()))
+    }
+
+    #[cfg(feature = "folder-expunge")]
+    fn expunge_folder_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn ExpungeFolder> {
+        self.map_feature(cb.and_then(|cb| cb.expunge_folder()))
+    }
+
+    #[cfg(feature = "folder-purge")]
+    fn purge_folder_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn PurgeFolder> {
+        self.map_feature(cb.and_then(|cb| cb.purge_folder()))
+    }
+
+    #[cfg(feature = "folder-delete")]
+    fn delete_folder_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn DeleteFolder> {
+        self.map_feature(cb.and_then(|cb| cb.delete_folder()))
+    }
+
+    #[cfg(feature = "envelope-get")]
+    fn get_envelope_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn GetEnvelope> {
+        self.map_feature(cb.and_then(|cb| cb.get_envelope()))
+    }
+
+    #[cfg(feature = "envelope-list")]
+    fn list_envelopes_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn ListEnvelopes> {
+        self.map_feature(cb.and_then(|cb| cb.list_envelopes()))
+    }
+
+    #[cfg(feature = "envelope-watch")]
+    fn watch_envelopes_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes> {
+        self.map_feature(cb.and_then(|cb| cb.watch_envelopes()))
+    }
+
+    #[cfg(feature = "flag-add")]
+    fn add_flags_from(&self, cb: Option<&B>) -> BackendFeatureBuilder<Self::Context, dyn AddFlags> {
+        self.map_feature(cb.and_then(|cb| cb.add_flags()))
+    }
+
+    #[cfg(feature = "flag-set")]
+    fn set_flags_from(&self, cb: Option<&B>) -> BackendFeatureBuilder<Self::Context, dyn SetFlags> {
+        self.map_feature(cb.and_then(|cb| cb.set_flags()))
+    }
+
+    #[cfg(feature = "flag-remove")]
+    fn remove_flags_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn RemoveFlags> {
+        self.map_feature(cb.and_then(|cb| cb.remove_flags()))
+    }
+
+    #[cfg(feature = "message-add")]
+    fn add_message_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn AddMessage> {
+        self.map_feature(cb.and_then(|cb| cb.add_message()))
+    }
+
+    #[cfg(feature = "message-send")]
+    fn send_message_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn SendMessage> {
+        self.map_feature(cb.and_then(|cb| cb.send_message()))
+    }
+
+    #[cfg(feature = "message-get")]
+    fn get_messages_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn GetMessages> {
+        self.map_feature(cb.and_then(|cb| cb.get_messages()))
+    }
+
+    #[cfg(feature = "message-peek")]
+    fn peek_messages_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn PeekMessages> {
+        self.map_feature(cb.and_then(|cb| cb.peek_messages()))
+    }
+
+    #[cfg(feature = "message-copy")]
+    fn copy_messages_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn CopyMessages> {
+        self.map_feature(cb.and_then(|cb| cb.copy_messages()))
+    }
+
+    #[cfg(feature = "message-move")]
+    fn move_messages_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn MoveMessages> {
+        self.map_feature(cb.and_then(|cb| cb.move_messages()))
+    }
+
+    #[cfg(feature = "message-delete")]
+    fn delete_messages_from(
+        &self,
+        cb: Option<&B>,
+    ) -> BackendFeatureBuilder<Self::Context, dyn DeleteMessages> {
+        self.map_feature(cb.and_then(|cb| cb.delete_messages()))
     }
 }
 
@@ -325,117 +451,109 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
 
     /// Define the add folder backend feature builder.
     #[cfg(feature = "folder-add")]
-    fn add_folder(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn AddFolder>>> {
+    fn add_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFolder> {
         None
     }
 
     /// Define the list folders backend feature builder.
     #[cfg(feature = "folder-list")]
-    fn list_folders(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ListFolders>>> {
+    fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
         None
     }
 
     /// Define the expunge folder backend feature builder.
     #[cfg(feature = "folder-expunge")]
-    fn expunge_folder(
-        &self,
-    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ExpungeFolder>>> {
+    fn expunge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn ExpungeFolder> {
         None
     }
 
     /// Define the purge folder backend feature builder.
     #[cfg(feature = "folder-purge")]
-    fn purge_folder(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn PurgeFolder>>> {
+    fn purge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn PurgeFolder> {
         None
     }
 
     /// Define the delete folder backend feature builder.
     #[cfg(feature = "folder-delete")]
-    fn delete_folder(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn DeleteFolder>>> {
+    fn delete_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteFolder> {
         None
     }
 
     /// Define the list envelopes backend feature builder.
     #[cfg(feature = "envelope-list")]
-    fn list_envelopes(
-        &self,
-    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn ListEnvelopes>>> {
+    fn list_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn ListEnvelopes> {
         None
     }
 
     /// Define the watch envelopes backend feature builder.
     #[cfg(feature = "envelope-watch")]
-    fn watch_envelopes(
-        &self,
-    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes>>> {
+    fn watch_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes> {
         None
     }
 
     /// Define the get envelope backend feature builder.
     #[cfg(feature = "envelope-get")]
-    fn get_envelope(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn GetEnvelope>>> {
+    fn get_envelope(&self) -> BackendFeatureBuilder<Self::Context, dyn GetEnvelope> {
         None
     }
 
     /// Define the add flags backend feature builder.
     #[cfg(feature = "flag-add")]
-    fn add_flags(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn AddFlags>>> {
+    fn add_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFlags> {
         None
     }
 
     /// Define the set flags backend feature builder.
     #[cfg(feature = "flag-set")]
-    fn set_flags(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn SetFlags>>> {
+    fn set_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn SetFlags> {
         None
     }
 
     /// Define the remove flags backend feature builder.
     #[cfg(feature = "flag-remove")]
-    fn remove_flags(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn RemoveFlags>>> {
+    fn remove_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn RemoveFlags> {
         None
     }
 
     /// Define the add message backend feature builder.
     #[cfg(feature = "message-add")]
-    fn add_message(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn AddMessage>>> {
+    fn add_message(&self) -> BackendFeatureBuilder<Self::Context, dyn AddMessage> {
         None
     }
 
     /// Define the send message backend feature builder.
     #[cfg(feature = "message-send")]
-    fn send_message(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn SendMessage>>> {
+    fn send_message(&self) -> BackendFeatureBuilder<Self::Context, dyn SendMessage> {
         None
     }
 
     /// Define the peek messages backend feature builder.
     #[cfg(feature = "message-peek")]
-    fn peek_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn PeekMessages>>> {
+    fn peek_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn PeekMessages> {
         None
     }
 
     /// Define the get messages backend feature builder.
     #[cfg(feature = "message-get")]
-    fn get_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn GetMessages>>> {
+    fn get_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn GetMessages> {
         None
     }
 
     /// Define the copy messages backend feature builder.
     #[cfg(feature = "message-copy")]
-    fn copy_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn CopyMessages>>> {
+    fn copy_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn CopyMessages> {
         None
     }
 
     /// Define the move messages backend feature builder.
     #[cfg(feature = "message-move")]
-    fn move_messages(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn MoveMessages>>> {
+    fn move_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn MoveMessages> {
         None
     }
 
     /// Define the delete messages backend feature builder.
     #[cfg(feature = "message-delete")]
-    fn delete_messages(
-        &self,
-    ) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn DeleteMessages>>> {
+    fn delete_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteMessages> {
         None
     }
 
@@ -467,75 +585,75 @@ pub struct BackendBuilder<B: BackendContextBuilder> {
 
     /// The add folder backend feature builder.
     #[cfg(feature = "folder-add")]
-    add_folder: Option<Arc<BackendFeatureBuilder<B::Context, dyn AddFolder>>>,
+    add_folder: Option<BackendFeatureBuilder<B::Context, dyn AddFolder>>,
 
     /// The list folders backend feature builder.
     #[cfg(feature = "folder-list")]
-    list_folders: Option<Arc<BackendFeatureBuilder<B::Context, dyn ListFolders>>>,
+    list_folders: Option<BackendFeatureBuilder<B::Context, dyn ListFolders>>,
 
     /// The expunge folder backend feature builder.
     #[cfg(feature = "folder-expunge")]
-    expunge_folder: Option<Arc<BackendFeatureBuilder<B::Context, dyn ExpungeFolder>>>,
+    expunge_folder: Option<BackendFeatureBuilder<B::Context, dyn ExpungeFolder>>,
 
     /// The purge folder backend feature builder.
     #[cfg(feature = "folder-purge")]
-    purge_folder: Option<Arc<BackendFeatureBuilder<B::Context, dyn PurgeFolder>>>,
+    purge_folder: Option<BackendFeatureBuilder<B::Context, dyn PurgeFolder>>,
 
     /// The delete folder backend feature builder.
     #[cfg(feature = "folder-delete")]
-    delete_folder: Option<Arc<BackendFeatureBuilder<B::Context, dyn DeleteFolder>>>,
+    delete_folder: Option<BackendFeatureBuilder<B::Context, dyn DeleteFolder>>,
 
     /// The list envelopes backend feature builder.
     #[cfg(feature = "envelope-list")]
-    list_envelopes: Option<Arc<BackendFeatureBuilder<B::Context, dyn ListEnvelopes>>>,
+    list_envelopes: Option<BackendFeatureBuilder<B::Context, dyn ListEnvelopes>>,
 
     /// The watch envelopes backend feature builder.
     #[cfg(feature = "envelope-watch")]
-    watch_envelopes: Option<Arc<BackendFeatureBuilder<B::Context, dyn WatchEnvelopes>>>,
+    watch_envelopes: Option<BackendFeatureBuilder<B::Context, dyn WatchEnvelopes>>,
 
     /// The get envelope backend feature builder.
     #[cfg(feature = "envelope-get")]
-    get_envelope: Option<Arc<BackendFeatureBuilder<B::Context, dyn GetEnvelope>>>,
+    get_envelope: Option<BackendFeatureBuilder<B::Context, dyn GetEnvelope>>,
 
     /// The add flags backend feature builder.
     #[cfg(feature = "flag-add")]
-    add_flags: Option<Arc<BackendFeatureBuilder<B::Context, dyn AddFlags>>>,
+    add_flags: Option<BackendFeatureBuilder<B::Context, dyn AddFlags>>,
 
     /// The set flags backend feature builder.
     #[cfg(feature = "flag-set")]
-    set_flags: Option<Arc<BackendFeatureBuilder<B::Context, dyn SetFlags>>>,
+    set_flags: Option<BackendFeatureBuilder<B::Context, dyn SetFlags>>,
 
     /// The remove flags backend feature builder.
     #[cfg(feature = "flag-remove")]
-    remove_flags: Option<Arc<BackendFeatureBuilder<B::Context, dyn RemoveFlags>>>,
+    remove_flags: Option<BackendFeatureBuilder<B::Context, dyn RemoveFlags>>,
 
     /// The add message backend feature builder.
     #[cfg(feature = "message-add")]
-    add_message: Option<Arc<BackendFeatureBuilder<B::Context, dyn AddMessage>>>,
+    add_message: Option<BackendFeatureBuilder<B::Context, dyn AddMessage>>,
 
     /// The send message backend feature builder.
     #[cfg(feature = "message-send")]
-    send_message: Option<Arc<BackendFeatureBuilder<B::Context, dyn SendMessage>>>,
+    send_message: Option<BackendFeatureBuilder<B::Context, dyn SendMessage>>,
 
     /// The peek messages backend feature builder.
     #[cfg(feature = "message-peek")]
-    peek_messages: Option<Arc<BackendFeatureBuilder<B::Context, dyn PeekMessages>>>,
+    peek_messages: Option<BackendFeatureBuilder<B::Context, dyn PeekMessages>>,
 
     /// The get messages backend feature builder.
     #[cfg(feature = "message-get")]
-    get_messages: Option<Arc<BackendFeatureBuilder<B::Context, dyn GetMessages>>>,
+    get_messages: Option<BackendFeatureBuilder<B::Context, dyn GetMessages>>,
 
     /// The copy messages backend feature builder.
     #[cfg(feature = "message-copy")]
-    copy_messages: Option<Arc<BackendFeatureBuilder<B::Context, dyn CopyMessages>>>,
+    copy_messages: Option<BackendFeatureBuilder<B::Context, dyn CopyMessages>>,
 
     /// The move messages backend feature builder.
     #[cfg(feature = "message-move")]
-    move_messages: Option<Arc<BackendFeatureBuilder<B::Context, dyn MoveMessages>>>,
+    move_messages: Option<BackendFeatureBuilder<B::Context, dyn MoveMessages>>,
 
     /// The delete messages backend feature builder.
     #[cfg(feature = "message-delete")]
-    delete_messages: Option<Arc<BackendFeatureBuilder<B::Context, dyn DeleteMessages>>>,
+    delete_messages: Option<BackendFeatureBuilder<B::Context, dyn DeleteMessages>>,
 }
 
 impl<B: BackendContextBuilder> BackendBuilder<B> {
@@ -549,65 +667,159 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
             ctx_builder,
 
             #[cfg(feature = "folder-add")]
-            add_folder: None,
+            add_folder: Some(None),
 
             #[cfg(feature = "folder-list")]
-            list_folders: None,
+            list_folders: Some(None),
 
             #[cfg(feature = "folder-expunge")]
-            expunge_folder: None,
+            expunge_folder: Some(None),
 
             #[cfg(feature = "folder-purge")]
-            purge_folder: None,
+            purge_folder: Some(None),
 
             #[cfg(feature = "folder-delete")]
-            delete_folder: None,
+            delete_folder: Some(None),
 
             #[cfg(feature = "envelope-list")]
-            list_envelopes: None,
+            list_envelopes: Some(None),
 
             #[cfg(feature = "envelope-watch")]
-            watch_envelopes: None,
+            watch_envelopes: Some(None),
 
             #[cfg(feature = "envelope-get")]
-            get_envelope: None,
+            get_envelope: Some(None),
 
             #[cfg(feature = "flag-add")]
-            add_flags: None,
+            add_flags: Some(None),
 
             #[cfg(feature = "flag-set")]
-            set_flags: None,
+            set_flags: Some(None),
 
             #[cfg(feature = "flag-remove")]
-            remove_flags: None,
+            remove_flags: Some(None),
 
             #[cfg(feature = "message-add")]
-            add_message: None,
+            add_message: Some(None),
 
             #[cfg(feature = "message-send")]
-            send_message: None,
+            send_message: Some(None),
 
             #[cfg(feature = "message-peek")]
-            peek_messages: None,
+            peek_messages: Some(None),
 
             #[cfg(feature = "message-get")]
-            get_messages: None,
+            get_messages: Some(None),
 
             #[cfg(feature = "message-copy")]
-            copy_messages: None,
+            copy_messages: Some(None),
 
             #[cfg(feature = "message-move")]
-            move_messages: None,
+            move_messages: Some(None),
 
             #[cfg(feature = "message-delete")]
-            delete_messages: None,
+            delete_messages: Some(None),
         }
+    }
+
+    pub fn with_default_features_disabled(mut self) -> Self {
+        #[cfg(feature = "folder-add")]
+        {
+            self.add_folder = None;
+        }
+
+        #[cfg(feature = "folder-list")]
+        {
+            self.list_folders = None;
+        }
+
+        #[cfg(feature = "folder-expunge")]
+        {
+            self.expunge_folder = None;
+        }
+
+        #[cfg(feature = "folder-purge")]
+        {
+            self.purge_folder = None;
+        }
+
+        #[cfg(feature = "folder-delete")]
+        {
+            self.delete_folder = None;
+        }
+
+        #[cfg(feature = "envelope-list")]
+        {
+            self.list_envelopes = None;
+        }
+
+        #[cfg(feature = "envelope-watch")]
+        {
+            self.watch_envelopes = None;
+        }
+
+        #[cfg(feature = "envelope-get")]
+        {
+            self.get_envelope = None;
+        }
+
+        #[cfg(feature = "flag-add")]
+        {
+            self.add_flags = None;
+        }
+
+        #[cfg(feature = "flag-set")]
+        {
+            self.set_flags = None;
+        }
+
+        #[cfg(feature = "flag-remove")]
+        {
+            self.remove_flags = None;
+        }
+
+        #[cfg(feature = "message-add")]
+        {
+            self.add_message = None;
+        }
+
+        #[cfg(feature = "message-send")]
+        {
+            self.send_message = None;
+        }
+
+        #[cfg(feature = "message-peek")]
+        {
+            self.peek_messages = None;
+        }
+
+        #[cfg(feature = "message-get")]
+        {
+            self.get_messages = None;
+        }
+
+        #[cfg(feature = "message-copy")]
+        {
+            self.copy_messages = None;
+        }
+
+        #[cfg(feature = "message-move")]
+        {
+            self.move_messages = None;
+        }
+
+        #[cfg(feature = "message-delete")]
+        {
+            self.delete_messages = None;
+        }
+
+        self
     }
 
     /// Set the add folder backend feature builder.
     #[cfg(feature = "folder-add")]
-    pub fn set_add_folder(&mut self, f: &'static BackendFeatureBuilder<B::Context, dyn AddFolder>) {
-        self.add_folder = Some(Arc::new(f));
+    pub fn set_add_folder(&mut self, f: Option<BackendFeatureBuilder<B::Context, dyn AddFolder>>) {
+        self.add_folder = f;
     }
 
     /// Set the add folder backend feature builder using the builder
@@ -615,7 +827,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "folder-add")]
     pub fn with_add_folder(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn AddFolder>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn AddFolder>>,
     ) -> Self {
         self.set_add_folder(f);
         self
@@ -625,9 +837,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "folder-list")]
     pub fn set_list_folders(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn ListFolders>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn ListFolders>>,
     ) {
-        self.list_folders = Some(Arc::new(f));
+        self.list_folders = f;
     }
 
     /// Set the list folders backend feature builder using the builder
@@ -635,7 +847,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "folder-list")]
     pub fn with_list_folders(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn ListFolders>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn ListFolders>>,
     ) -> Self {
         self.set_list_folders(f);
         self
@@ -645,9 +857,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "folder-expunge")]
     pub fn set_expunge_folder(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn ExpungeFolder>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn ExpungeFolder>>,
     ) {
-        self.expunge_folder = Some(Arc::new(f));
+        self.expunge_folder = f;
     }
 
     /// Set the expunge folder backend feature builder using the
@@ -655,7 +867,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "folder-expunge")]
     pub fn with_expunge_folder(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn ExpungeFolder>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn ExpungeFolder>>,
     ) -> Self {
         self.set_expunge_folder(f);
         self
@@ -665,9 +877,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "folder-purge")]
     pub fn set_purge_folder(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn PurgeFolder>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn PurgeFolder>>,
     ) {
-        self.purge_folder = Some(Arc::new(f));
+        self.purge_folder = f;
     }
 
     /// Set the purge folder backend feature builder using the builder
@@ -675,7 +887,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "folder-purge")]
     pub fn with_purge_folder(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn PurgeFolder>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn PurgeFolder>>,
     ) -> Self {
         self.set_purge_folder(f);
         self
@@ -685,9 +897,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "folder-delete")]
     pub fn set_delete_folder(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn DeleteFolder>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn DeleteFolder>>,
     ) {
-        self.delete_folder = Some(Arc::new(f));
+        self.delete_folder = f;
     }
 
     /// Set the delete folder backend feature builder using the
@@ -695,7 +907,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "folder-delete")]
     pub fn with_delete_folder(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn DeleteFolder>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn DeleteFolder>>,
     ) -> Self {
         self.set_delete_folder(f);
         self
@@ -705,9 +917,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "envelope-list")]
     pub fn set_list_envelopes(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn ListEnvelopes>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn ListEnvelopes>>,
     ) {
-        self.list_envelopes = Some(Arc::new(f));
+        self.list_envelopes = f;
     }
 
     /// Set the list envelopes backend feature builder using the
@@ -715,7 +927,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "envelope-list")]
     pub fn with_list_envelopes(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn ListEnvelopes>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn ListEnvelopes>>,
     ) -> Self {
         self.set_list_envelopes(f);
         self
@@ -725,9 +937,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "envelope-watch")]
     pub fn set_watch_envelopes(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn WatchEnvelopes>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn WatchEnvelopes>>,
     ) {
-        self.watch_envelopes = Some(Arc::new(f));
+        self.watch_envelopes = f;
     }
 
     /// Set the watch envelopes backend feature builder using the builder
@@ -735,7 +947,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "envelope-watch")]
     pub fn with_watch_envelopes(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn WatchEnvelopes>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn WatchEnvelopes>>,
     ) -> Self {
         self.set_watch_envelopes(f);
         self
@@ -745,9 +957,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "envelope-get")]
     pub fn set_get_envelope(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn GetEnvelope>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn GetEnvelope>>,
     ) {
-        self.get_envelope = Some(Arc::new(f));
+        self.get_envelope = f;
     }
 
     /// Set the get envelope backend feature builder using the builder
@@ -755,7 +967,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "envelope-get")]
     pub fn with_get_envelope(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn GetEnvelope>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn GetEnvelope>>,
     ) -> Self {
         self.set_get_envelope(f);
         self
@@ -763,8 +975,8 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
 
     /// Set the add flags backend feature builder.
     #[cfg(feature = "flag-add")]
-    pub fn set_add_flags(&mut self, f: &'static BackendFeatureBuilder<B::Context, dyn AddFlags>) {
-        self.add_flags = Some(Arc::new(f));
+    pub fn set_add_flags(&mut self, f: Option<BackendFeatureBuilder<B::Context, dyn AddFlags>>) {
+        self.add_flags = f;
     }
 
     /// Set the add flags backend feature builder using the builder
@@ -772,7 +984,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "flag-add")]
     pub fn with_add_flags(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn AddFlags>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn AddFlags>>,
     ) -> Self {
         self.set_add_flags(f);
         self
@@ -780,8 +992,8 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
 
     /// Set the set flags backend feature builder.
     #[cfg(feature = "flag-set")]
-    pub fn set_set_flags(&mut self, f: &'static BackendFeatureBuilder<B::Context, dyn SetFlags>) {
-        self.set_flags = Some(Arc::new(f));
+    pub fn set_set_flags(&mut self, f: Option<BackendFeatureBuilder<B::Context, dyn SetFlags>>) {
+        self.set_flags = f;
     }
 
     /// Set the set flags backend feature builder using the builder
@@ -789,7 +1001,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "flag-set")]
     pub fn with_set_flags(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn SetFlags>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn SetFlags>>,
     ) -> Self {
         self.set_set_flags(f);
         self
@@ -799,9 +1011,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "flag-remove")]
     pub fn set_remove_flags(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn RemoveFlags>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn RemoveFlags>>,
     ) {
-        self.remove_flags = Some(Arc::new(f));
+        self.remove_flags = f;
     }
 
     /// Set the remove flags backend feature builder using the builder
@@ -809,7 +1021,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "flag-remove")]
     pub fn with_remove_flags(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn RemoveFlags>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn RemoveFlags>>,
     ) -> Self {
         self.set_remove_flags(f);
         self
@@ -819,9 +1031,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-add")]
     pub fn set_add_message(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn AddMessage>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn AddMessage>>,
     ) {
-        self.add_message = Some(Arc::new(f));
+        self.add_message = f;
     }
 
     /// Set the add message backend feature builder using the builder
@@ -829,7 +1041,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-add")]
     pub fn with_add_message(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn AddMessage>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn AddMessage>>,
     ) -> Self {
         self.set_add_message(f);
         self
@@ -839,9 +1051,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-send")]
     pub fn set_send_message(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn SendMessage>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn SendMessage>>,
     ) {
-        self.send_message = Some(Arc::new(f));
+        self.send_message = f;
     }
 
     /// Set the send message backend feature builder using the builder
@@ -849,7 +1061,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-send")]
     pub fn with_send_message(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn SendMessage>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn SendMessage>>,
     ) -> Self {
         self.set_send_message(f);
         self
@@ -859,9 +1071,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-peek")]
     pub fn set_peek_messages(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn PeekMessages>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn PeekMessages>>,
     ) {
-        self.peek_messages = Some(Arc::new(f));
+        self.peek_messages = f;
     }
 
     /// Set the peek messages backend feature builder using the
@@ -869,7 +1081,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-peek")]
     pub fn with_peek_messages(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn PeekMessages>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn PeekMessages>>,
     ) -> Self {
         self.set_peek_messages(f);
         self
@@ -879,9 +1091,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-get")]
     pub fn set_get_messages(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn GetMessages>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn GetMessages>>,
     ) {
-        self.get_messages = Some(Arc::new(f));
+        self.get_messages = f;
     }
 
     /// Set the get messages backend feature builder using the builder
@@ -889,7 +1101,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-get")]
     pub fn with_get_messages(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn GetMessages>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn GetMessages>>,
     ) -> Self {
         self.set_get_messages(f);
         self
@@ -899,9 +1111,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-copy")]
     pub fn set_copy_messages(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn CopyMessages>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn CopyMessages>>,
     ) {
-        self.copy_messages = Some(Arc::new(f));
+        self.copy_messages = f;
     }
 
     /// Set the copy messages backend feature builder using the
@@ -909,7 +1121,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-copy")]
     pub fn with_copy_messages(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn CopyMessages>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn CopyMessages>>,
     ) -> Self {
         self.set_copy_messages(f);
         self
@@ -919,9 +1131,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-move")]
     pub fn set_move_messages(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn MoveMessages>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn MoveMessages>>,
     ) {
-        self.move_messages = Some(Arc::new(f));
+        self.move_messages = f;
     }
 
     /// Set the move messages backend feature builder using the
@@ -929,7 +1141,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-move")]
     pub fn with_move_messages(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn MoveMessages>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn MoveMessages>>,
     ) -> Self {
         self.set_move_messages(f);
         self
@@ -939,9 +1151,9 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-delete")]
     pub fn set_delete_messages(
         &mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn DeleteMessages>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn DeleteMessages>>,
     ) {
-        self.delete_messages = Some(Arc::new(f));
+        self.delete_messages = f;
     }
 
     /// Set the delete messages backend feature builder using the
@@ -949,7 +1161,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     #[cfg(feature = "message-delete")]
     pub fn with_delete_messages(
         mut self,
-        f: &'static BackendFeatureBuilder<B::Context, dyn DeleteMessages>,
+        f: Option<BackendFeatureBuilder<B::Context, dyn DeleteMessages>>,
     ) -> Self {
         self.set_delete_messages(f);
         self
@@ -958,58 +1170,94 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
     /// Build the final backend.
     pub async fn build(self) -> Result<Backend<B::Context>> {
         #[cfg(feature = "folder-add")]
-        let add_folder = self.ctx_builder.add_folder().or(self.add_folder);
+        let add_folder = self
+            .add_folder
+            .and_then(|f| f.or(self.ctx_builder.add_folder()));
 
         #[cfg(feature = "folder-list")]
-        let list_folders = self.ctx_builder.list_folders().or(self.list_folders);
+        let list_folders = self
+            .list_folders
+            .and_then(|f| f.or(self.ctx_builder.list_folders()));
 
         #[cfg(feature = "folder-expunge")]
-        let expunge_folder = self.ctx_builder.expunge_folder().or(self.expunge_folder);
+        let expunge_folder = self
+            .expunge_folder
+            .and_then(|f| f.or(self.ctx_builder.expunge_folder()));
 
         #[cfg(feature = "folder-purge")]
-        let purge_folder = self.ctx_builder.purge_folder().or(self.purge_folder);
+        let purge_folder = self
+            .purge_folder
+            .and_then(|f| f.or(self.ctx_builder.purge_folder()));
 
         #[cfg(feature = "folder-delete")]
-        let delete_folder = self.ctx_builder.delete_folder().or(self.delete_folder);
+        let delete_folder = self
+            .delete_folder
+            .and_then(|f| f.or(self.ctx_builder.delete_folder()));
 
         #[cfg(feature = "envelope-list")]
-        let list_envelopes = self.ctx_builder.list_envelopes().or(self.list_envelopes);
+        let list_envelopes = self
+            .list_envelopes
+            .and_then(|f| f.or(self.ctx_builder.list_envelopes()));
 
         #[cfg(feature = "envelope-watch")]
-        let watch_envelopes = self.ctx_builder.watch_envelopes().or(self.watch_envelopes);
+        let watch_envelopes = self
+            .watch_envelopes
+            .and_then(|f| f.or(self.ctx_builder.watch_envelopes()));
 
         #[cfg(feature = "envelope-get")]
-        let get_envelope = self.ctx_builder.get_envelope().or(self.get_envelope);
+        let get_envelope = self
+            .get_envelope
+            .and_then(|f| f.or(self.ctx_builder.get_envelope()));
 
         #[cfg(feature = "flag-add")]
-        let add_flags = self.ctx_builder.add_flags().or(self.add_flags);
+        let add_flags = self
+            .add_flags
+            .and_then(|f| f.or(self.ctx_builder.add_flags()));
 
         #[cfg(feature = "flag-set")]
-        let set_flags = self.ctx_builder.set_flags().or(self.set_flags);
+        let set_flags = self
+            .set_flags
+            .and_then(|f| f.or(self.ctx_builder.set_flags()));
 
         #[cfg(feature = "flag-remove")]
-        let remove_flags = self.ctx_builder.remove_flags().or(self.remove_flags);
+        let remove_flags = self
+            .remove_flags
+            .and_then(|f| f.or(self.ctx_builder.remove_flags()));
 
         #[cfg(feature = "message-add")]
-        let add_message = self.ctx_builder.add_message().or(self.add_message);
+        let add_message = self
+            .add_message
+            .and_then(|f| f.or(self.ctx_builder.add_message()));
 
         #[cfg(feature = "message-send")]
-        let send_message = self.ctx_builder.send_message().or(self.send_message);
+        let send_message = self
+            .send_message
+            .and_then(|f| f.or(self.ctx_builder.send_message()));
 
         #[cfg(feature = "message-peek")]
-        let peek_messages = self.ctx_builder.peek_messages().or(self.peek_messages);
+        let peek_messages = self
+            .peek_messages
+            .and_then(|f| f.or(self.ctx_builder.peek_messages()));
 
         #[cfg(feature = "message-get")]
-        let get_messages = self.ctx_builder.get_messages().or(self.get_messages);
+        let get_messages = self
+            .get_messages
+            .and_then(|f| f.or(self.ctx_builder.get_messages()));
 
         #[cfg(feature = "message-copy")]
-        let copy_messages = self.ctx_builder.copy_messages().or(self.copy_messages);
+        let copy_messages = self
+            .copy_messages
+            .and_then(|f| f.or(self.ctx_builder.copy_messages()));
 
         #[cfg(feature = "message-move")]
-        let move_messages = self.ctx_builder.move_messages().or(self.move_messages);
+        let move_messages = self
+            .move_messages
+            .and_then(|f| f.or(self.ctx_builder.move_messages()));
 
         #[cfg(feature = "message-delete")]
-        let delete_messages = self.ctx_builder.delete_messages().or(self.delete_messages);
+        let delete_messages = self
+            .delete_messages
+            .and_then(|f| f.or(self.ctx_builder.delete_messages()));
 
         let context = self.ctx_builder.build(self.account_config.clone()).await?;
         let mut backend = Backend::new(self.account_config, context);
@@ -1131,75 +1379,75 @@ pub struct Backend<C: BackendContext> {
 
     /// The optional add folder feature.
     #[cfg(feature = "folder-add")]
-    pub add_folder: SomeBackendFeature<dyn AddFolder>,
+    pub add_folder: BackendFeature<dyn AddFolder>,
 
     /// The optional list folders feature.
     #[cfg(feature = "folder-list")]
-    pub list_folders: SomeBackendFeature<dyn ListFolders>,
+    pub list_folders: BackendFeature<dyn ListFolders>,
 
     /// The optional expunge folder feature.
     #[cfg(feature = "folder-expunge")]
-    pub expunge_folder: SomeBackendFeature<dyn ExpungeFolder>,
+    pub expunge_folder: BackendFeature<dyn ExpungeFolder>,
 
     /// The optional purge folder feature.
     #[cfg(feature = "folder-purge")]
-    pub purge_folder: SomeBackendFeature<dyn PurgeFolder>,
+    pub purge_folder: BackendFeature<dyn PurgeFolder>,
 
     /// The optional delete folder feature.
     #[cfg(feature = "folder-delete")]
-    pub delete_folder: SomeBackendFeature<dyn DeleteFolder>,
+    pub delete_folder: BackendFeature<dyn DeleteFolder>,
 
     /// The optional list envelopes feature.
     #[cfg(feature = "envelope-list")]
-    pub list_envelopes: SomeBackendFeature<dyn ListEnvelopes>,
+    pub list_envelopes: BackendFeature<dyn ListEnvelopes>,
 
     /// The optional watch envelopes feature.
     #[cfg(feature = "envelope-watch")]
-    pub watch_envelopes: SomeBackendFeature<dyn WatchEnvelopes>,
+    pub watch_envelopes: BackendFeature<dyn WatchEnvelopes>,
 
     /// The optional get envelope feature.
     #[cfg(feature = "envelope-get")]
-    pub get_envelope: SomeBackendFeature<dyn GetEnvelope>,
+    pub get_envelope: BackendFeature<dyn GetEnvelope>,
 
     /// The optional add flags feature.
     #[cfg(feature = "flag-add")]
-    pub add_flags: SomeBackendFeature<dyn AddFlags>,
+    pub add_flags: BackendFeature<dyn AddFlags>,
 
     /// The optional set flags feature.
     #[cfg(feature = "flag-set")]
-    pub set_flags: SomeBackendFeature<dyn SetFlags>,
+    pub set_flags: BackendFeature<dyn SetFlags>,
 
     /// The optional remove flags feature.
     #[cfg(feature = "flag-remove")]
-    pub remove_flags: SomeBackendFeature<dyn RemoveFlags>,
+    pub remove_flags: BackendFeature<dyn RemoveFlags>,
 
     /// The optional add message feature.
     #[cfg(feature = "message-add")]
-    pub add_message: SomeBackendFeature<dyn AddMessage>,
+    pub add_message: BackendFeature<dyn AddMessage>,
 
     /// The optional send message feature.
     #[cfg(feature = "message-send")]
-    pub send_message: SomeBackendFeature<dyn SendMessage>,
+    pub send_message: BackendFeature<dyn SendMessage>,
 
     /// The optional peek messages feature.
     #[cfg(feature = "message-peek")]
-    pub peek_messages: SomeBackendFeature<dyn PeekMessages>,
+    pub peek_messages: BackendFeature<dyn PeekMessages>,
 
     /// The optional get messages feature.
     #[cfg(feature = "message-get")]
-    pub get_messages: SomeBackendFeature<dyn GetMessages>,
+    pub get_messages: BackendFeature<dyn GetMessages>,
 
     /// The optional copy messages feature.
     #[cfg(feature = "message-copy")]
-    pub copy_messages: SomeBackendFeature<dyn CopyMessages>,
+    pub copy_messages: BackendFeature<dyn CopyMessages>,
 
     /// The optional move messages feature.
     #[cfg(feature = "message-move")]
-    pub move_messages: SomeBackendFeature<dyn MoveMessages>,
+    pub move_messages: BackendFeature<dyn MoveMessages>,
 
     /// The optional delete messages feature.
     #[cfg(feature = "message-delete")]
-    pub delete_messages: SomeBackendFeature<dyn DeleteMessages>,
+    pub delete_messages: BackendFeature<dyn DeleteMessages>,
 }
 
 impl<C: BackendContext> Backend<C> {
@@ -1268,108 +1516,108 @@ impl<C: BackendContext> Backend<C> {
 
     /// Set the add folder backend feature.
     #[cfg(feature = "folder-add")]
-    pub fn set_add_folder(&mut self, f: SomeBackendFeature<dyn AddFolder>) {
+    pub fn set_add_folder(&mut self, f: BackendFeature<dyn AddFolder>) {
         self.add_folder = f;
     }
 
     /// Set the list folders backend feature.
     #[cfg(feature = "folder-list")]
-    pub fn set_list_folders(&mut self, f: SomeBackendFeature<dyn ListFolders>) {
+    pub fn set_list_folders(&mut self, f: BackendFeature<dyn ListFolders>) {
         self.list_folders = f;
     }
     /// Set the expunge folder backend feature.
     #[cfg(feature = "folder-expunge")]
-    pub fn set_expunge_folder(&mut self, f: SomeBackendFeature<dyn ExpungeFolder>) {
+    pub fn set_expunge_folder(&mut self, f: BackendFeature<dyn ExpungeFolder>) {
         self.expunge_folder = f;
     }
 
     /// Set the purge folder backend feature.
     #[cfg(feature = "folder-purge")]
-    pub fn set_purge_folder(&mut self, f: SomeBackendFeature<dyn PurgeFolder>) {
+    pub fn set_purge_folder(&mut self, f: BackendFeature<dyn PurgeFolder>) {
         self.purge_folder = f;
     }
 
     /// Set the delete folder backend feature.
     #[cfg(feature = "folder-delete")]
-    pub fn set_delete_folder(&mut self, f: SomeBackendFeature<dyn DeleteFolder>) {
+    pub fn set_delete_folder(&mut self, f: BackendFeature<dyn DeleteFolder>) {
         self.delete_folder = f;
     }
 
     /// Set the list envelopes backend feature.
     #[cfg(feature = "envelope-list")]
-    pub fn set_list_envelopes(&mut self, f: SomeBackendFeature<dyn ListEnvelopes>) {
+    pub fn set_list_envelopes(&mut self, f: BackendFeature<dyn ListEnvelopes>) {
         self.list_envelopes = f;
     }
 
     /// Set the watch envelopes backend feature.
     #[cfg(feature = "envelope-watch")]
-    pub fn set_watch_envelopes(&mut self, f: SomeBackendFeature<dyn WatchEnvelopes>) {
+    pub fn set_watch_envelopes(&mut self, f: BackendFeature<dyn WatchEnvelopes>) {
         self.watch_envelopes = f;
     }
 
     /// Set the get envelope backend feature.
     #[cfg(feature = "envelope-get")]
-    pub fn set_get_envelope(&mut self, f: SomeBackendFeature<dyn GetEnvelope>) {
+    pub fn set_get_envelope(&mut self, f: BackendFeature<dyn GetEnvelope>) {
         self.get_envelope = f;
     }
 
     /// Set the add flags backend feature.
     #[cfg(feature = "flag-add")]
-    pub fn set_add_flags(&mut self, f: SomeBackendFeature<dyn AddFlags>) {
+    pub fn set_add_flags(&mut self, f: BackendFeature<dyn AddFlags>) {
         self.add_flags = f;
     }
 
     /// Set the set flags backend feature.
     #[cfg(feature = "flag-set")]
-    pub fn set_set_flags(&mut self, f: SomeBackendFeature<dyn SetFlags>) {
+    pub fn set_set_flags(&mut self, f: BackendFeature<dyn SetFlags>) {
         self.set_flags = f;
     }
 
     /// Set the remove flags backend feature.
     #[cfg(feature = "flag-remove")]
-    pub fn set_remove_flags(&mut self, f: SomeBackendFeature<dyn RemoveFlags>) {
+    pub fn set_remove_flags(&mut self, f: BackendFeature<dyn RemoveFlags>) {
         self.remove_flags = f;
     }
 
     /// Set the add message backend feature.
     #[cfg(feature = "message-add")]
-    pub fn set_add_message(&mut self, f: SomeBackendFeature<dyn AddMessage>) {
+    pub fn set_add_message(&mut self, f: BackendFeature<dyn AddMessage>) {
         self.add_message = f;
     }
 
     /// Set the send message backend feature.
     #[cfg(feature = "message-send")]
-    pub fn set_send_message(&mut self, f: SomeBackendFeature<dyn SendMessage>) {
+    pub fn set_send_message(&mut self, f: BackendFeature<dyn SendMessage>) {
         self.send_message = f;
     }
 
     /// Set the peek messages backend feature.
     #[cfg(feature = "message-peek")]
-    pub fn set_peek_messages(&mut self, f: SomeBackendFeature<dyn PeekMessages>) {
+    pub fn set_peek_messages(&mut self, f: BackendFeature<dyn PeekMessages>) {
         self.peek_messages = f;
     }
 
     /// Set the get messages backend feature.
     #[cfg(feature = "message-get")]
-    pub fn set_get_messages(&mut self, f: SomeBackendFeature<dyn GetMessages>) {
+    pub fn set_get_messages(&mut self, f: BackendFeature<dyn GetMessages>) {
         self.get_messages = f;
     }
 
     /// Set the copy messages backend feature.
     #[cfg(feature = "message-copy")]
-    pub fn set_copy_messages(&mut self, f: SomeBackendFeature<dyn CopyMessages>) {
+    pub fn set_copy_messages(&mut self, f: BackendFeature<dyn CopyMessages>) {
         self.copy_messages = f;
     }
 
     /// Set the move messages backend feature.
     #[cfg(feature = "message-move")]
-    pub fn set_move_messages(&mut self, f: SomeBackendFeature<dyn MoveMessages>) {
+    pub fn set_move_messages(&mut self, f: BackendFeature<dyn MoveMessages>) {
         self.move_messages = f;
     }
 
     /// Set the delete messages backend feature.
     #[cfg(feature = "message-delete")]
-    pub fn set_delete_messages(&mut self, f: SomeBackendFeature<dyn DeleteMessages>) {
+    pub fn set_delete_messages(&mut self, f: BackendFeature<dyn DeleteMessages>) {
         self.delete_messages = f;
     }
 
@@ -1386,6 +1634,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the list folders feature, returning an error if the
     /// feature is not defined.
+    #[cfg(feature = "folder-list")]
     pub async fn list_folders(&self) -> Result<Folders> {
         self.list_folders
             .as_ref()
@@ -1577,19 +1826,18 @@ impl<C: BackendContext> Backend<C> {
     /// Call the send message feature, returning an error if the
     /// feature is not defined.
     #[cfg(feature = "message-send")]
-    pub async fn send_message(&self, raw_msg: &[u8]) -> Result<()> {
+    pub async fn send_message(&self, msg: &[u8]) -> Result<()> {
         self.send_message
             .as_ref()
             .ok_or(Error::SendMessageNotAvailableError)?
-            .send_message(raw_msg)
+            .send_message(msg)
             .await?;
 
         #[cfg(feature = "message-add")]
         if self.account_config.should_save_copy_sent_message() {
             let folder = self.account_config.get_sent_folder_alias();
             log::debug!("saving copy of sent message to {folder}");
-            self.add_message_with_flag(&folder, raw_msg, Flag::Seen)
-                .await?;
+            self.add_message_with_flag(&folder, msg, Flag::Seen).await?;
         }
 
         Ok(())
@@ -1608,17 +1856,13 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the get messages feature, returning an error if the
     /// feature is not defined.
+    #[cfg(feature = "message-get")]
     pub async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
-        if let Some(f) = self.get_messages.as_ref() {
-            return f.get_messages(folder, id).await;
-        }
-
-        #[cfg(all(feature = "message-peek", feature = "flag-add"))]
-        if let (Some(a), Some(b)) = (self.peek_messages.as_ref(), self.add_flags.as_ref()) {
-            return default_get_messages(a.as_ref(), b.as_ref(), folder, id).await;
-        }
-
-        Err(Error::PeekMessagesNotAvailableError.into())
+        self.get_messages
+            .as_ref()
+            .ok_or(Error::GetMessagesNotAvailableError)?
+            .get_messages(folder, id)
+            .await
     }
 
     /// Call the copy messages feature, returning an error if the
@@ -1647,22 +1891,10 @@ impl<C: BackendContext> Backend<C> {
     /// feature is not defined.
     #[cfg(feature = "message-delete")]
     pub async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
-        if let Some(f) = self.delete_messages.as_ref() {
-            return f.delete_messages(folder, id).await;
-        }
-
-        #[cfg(all(feature = "message-move", feature = "flag-add"))]
-        if let (Some(a), Some(b)) = (self.move_messages.as_ref(), self.add_flags.as_ref()) {
-            return default_delete_messages(
-                &self.account_config,
-                a.as_ref(),
-                b.as_ref(),
-                folder,
-                id,
-            )
-            .await;
-        }
-
-        Err(Error::DeleteMessagesNotAvailableError.into())
+        self.delete_messages
+            .as_ref()
+            .ok_or(Error::DeleteMessagesNotAvailableError)?
+            .delete_messages(folder, id)
+            .await
     }
 }

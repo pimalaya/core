@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Renamed cargo feature `sync` to `account-sync`.
 - Added variant `WatchHook::Fn` that takes a `WatchFn` as argument. A `WatchFn` is just a wrapper around a `Fn(&Envelope) -> Result<()>`.
 - Renamed `MaildirSessionSync::session` by `MaildirContextSync::inner`.
 - Renamed `MaildirSession` and `MaildirSessionSync` by `MaildirContext` and `MaildirContextSync`.

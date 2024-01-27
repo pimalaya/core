@@ -26,58 +26,72 @@ default = [
   "smtp",
   "sendmail",
   "account-discovery",
+  "account-sync",
   "folder",
   "envelope",
   "flag",
   "message",
-  "sync",
   # "pgp-commands",
   # "pgp-gpg",
   # "pgp-native",
 ]
-imap = ["dep:futures", "dep:imap", "imap-proto", "utf7-imap"]
-maildir = ["maildirpp", "notify", "rayon"]
+
+imap = ["dep:futures", "dep:imap", "dep:imap-proto", "dep:utf7-imap"]
+maildir = ["dep:maildirpp", "dep:notify", "dep:rayon"]
 notmuch = ["dep:notmuch"]
-smtp = ["mail-send"]
+smtp = ["dep:mail-send"]
 sendmail = []
-account-discovery = ["dep:email_address", "dep:futures", "dep:hickory-resolver", "dep:hyper", "dep:hyper-rustls", "dep:serde-xml-rs"]
+
+account-discovery = [
+  "dep:email_address",
+  "dep:futures",
+  "dep:hickory-resolver",
+  "dep:hyper",
+  "dep:hyper-rustls",
+  "dep:serde-xml-rs",
+]
+account-sync = [
+  "maildir",
+  "folder-add", "folder-list", "folder-expunge", "folder-delete",
+  "envelope-get", "envelope-list",
+  "flag-add", "flag-set",
+  "message-add", "message-peek", "message-get", "message-move",
+  "dep:advisory-lock",
+  "dep:dirs",
+  "dep:futures",
+  "dep:rusqlite",
+]
+
 folder = ["folder-add", "folder-list", "folder-expunge", "folder-purge", "folder-delete"]
 folder-add = []
 folder-list = []
 folder-expunge = []
 folder-purge = []
 folder-delete = []
+
 envelope = ["envelope-list", "envelope-watch", "envelope-get"]
 envelope-list = []
-envelope-watch = ["notify-rust"]
+envelope-watch = ["dep:notify-rust"]
 envelope-get = []
+
 flag = ["flag-add", "flag-set", "flag-remove"]
 flag-add = []
 flag-set = []
 flag-remove = []
+
 message = ["message-add", "message-peek", "message-get", "message-copy", "message-move", "message-delete", "message-send"]
 message-add = []
 message-peek = []
-message-get = []
+message-get = ["message-peek", "flag-add"]
 message-copy = []
 message-move = []
-message-delete = []
+message-delete = ["message-move", "flag-add"]
 message-send = []
-sync = [
-  "folder-add", "folder-list", "folder-expunge", "folder-delete",
-  "envelope-get", "envelope-list",
-  "flag-add", "flag-set",
-  "message-add", "message-peek", "message-get", "message-move",
-  "advisory-lock",
-  "dirs",
-  "dep:futures",
-  "maildir",
-  "rusqlite",
-]
+
 pgp = []
 pgp-commands = ["pgp", "mml-lib/pgp-commands"]
 pgp-gpg = ["pgp", "mml-lib/pgp-gpg"]
-pgp-native = ["pgp", "keyring-lib", "mml-lib/pgp-native", "pgp-lib"]
+pgp-native = ["pgp", "keyring-lib", "mml-lib/pgp-native", "dep:pgp-lib"]
 
 [dev-dependencies]
 concat-with = "0.2"
@@ -92,12 +106,12 @@ async-trait = "0.1"
 chrono = "0.4"
 convert_case = "0.5"
 dirs = { version = "4.0", optional = true }
+email-macros = { path = "../email-macros" }
+email_address = { version = "0.2", optional = true, default-features = false }
 futures = { version = "0.3", optional = true }
 hickory-resolver = { version = "0.24", optional = true, features = ["dns-over-rustls"] }
 hyper = { version = "0.14", optional = true, default-features = false, features = [ "http1", "http2" ] }
 hyper-rustls = { version = "0.24", optional = true }
-email_address = { version = "0.2", optional = true, default-features = false }
-email-macros = { path = "../email-macros" }
 imap = { version = "=3.0.0-alpha.12", optional = true, default-features = false, features = ["rustls-tls"] }
 imap-proto = { version = "=0.16.3", optional = true }
 keyring-lib = { version = "=0.3.2", optional = true }
@@ -118,8 +132,8 @@ process-lib = "=0.3.1"
 rayon = { version = "1.6", optional = true }
 regex = "1.5"
 secret-lib = "=0.3.3"
-serde-xml-rs = { version = "0.6", optional = true }
 serde = { version = "1.0", features = ["derive"] }
+serde-xml-rs = { version = "0.6", optional = true }
 shellexpand-utils = "=0.2.0"
 thiserror = "1"
 tokio = { version = "1.23", default-features = false, features = ["fs", "net"] }

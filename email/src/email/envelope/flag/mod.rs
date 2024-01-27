@@ -15,7 +15,7 @@ pub mod notmuch;
 pub mod remove;
 #[cfg(feature = "flag-set")]
 pub mod set;
-#[cfg(feature = "sync")]
+#[cfg(feature = "account-sync")]
 mod sync;
 
 use log::debug;
@@ -30,7 +30,7 @@ use thiserror::Error;
 
 use crate::Result;
 
-#[cfg(feature = "sync")]
+#[cfg(feature = "account-sync")]
 #[doc(inline)]
 pub use self::sync::sync;
 

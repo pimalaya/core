@@ -14,7 +14,7 @@
 pub mod config;
 pub mod envelope;
 pub mod message;
-#[cfg(feature = "sync")]
+#[cfg(feature = "account-sync")]
 pub mod sync;
 pub mod utils;
 

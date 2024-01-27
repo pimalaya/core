@@ -14,7 +14,7 @@ pub enum Error {
 
 #[derive(Clone)]
 pub struct MoveMaildirMessages {
-    ctx: MaildirContextSync,
+    pub(crate) ctx: MaildirContextSync,
 }
 
 impl MoveMaildirMessages {

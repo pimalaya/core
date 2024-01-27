@@ -1,16 +1,20 @@
 pub mod config;
 #[cfg(feature = "imap")]
 pub mod imap;
+#[cfg(feature = "maildir")]
+pub mod maildir;
+#[cfg(feature = "notmuch")]
+pub mod notmuch;
 
 use async_trait::async_trait;
 
-#[cfg(feature = "flag-add")]
-use crate::flag::{add::AddFlags, Flag};
-use crate::{envelope::Id, Result};
+use crate::{
+    envelope::Id,
+    flag::{add::AddFlags, Flag},
+    Result,
+};
 
-#[cfg(feature = "flag-add")]
-use super::peek::PeekMessages;
-use super::Messages;
+use super::{peek::PeekMessages, Messages};
 
 #[async_trait]
 pub trait GetMessages: Send + Sync {
@@ -24,7 +28,6 @@ pub trait GetMessages: Send + Sync {
     async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages>;
 }
 
-#[cfg(feature = "flag-add")]
 #[async_trait]
 impl<T: PeekMessages + AddFlags> GetMessages for T {
     async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
@@ -32,7 +35,6 @@ impl<T: PeekMessages + AddFlags> GetMessages for T {
     }
 }
 
-#[cfg(feature = "flag-add")]
 pub async fn default_get_messages(
     a: &dyn PeekMessages,
     b: &dyn AddFlags,

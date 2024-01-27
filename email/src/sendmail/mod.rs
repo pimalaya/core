@@ -50,7 +50,7 @@ impl BackendContextBuilder for SendmailContextBuilder {
     type Context = SendmailContextSync;
 
     #[cfg(feature = "message-send")]
-    fn send_message(&self) -> Option<Arc<BackendFeatureBuilder<Self::Context, dyn SendMessage>>> {
+    fn send_message(&self) -> BackendFeatureBuilder<Self::Context, dyn SendMessage> {
         Some(Arc::new(SendSendmailMessage::some_new_boxed))
     }
 

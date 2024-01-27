@@ -8,5 +8,5 @@
 pub mod config;
 #[cfg(feature = "account-discovery")]
 pub mod discover;
-#[cfg(feature = "sync")]
+#[cfg(feature = "account-sync")]
 pub mod sync;

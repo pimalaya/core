@@ -28,7 +28,7 @@ pub mod list;
 pub mod maildir;
 #[cfg(feature = "folder-purge")]
 pub mod purge;
-#[cfg(feature = "sync")]
+#[cfg(feature = "account-sync")]
 pub mod sync;
 
 use std::hash::Hash;

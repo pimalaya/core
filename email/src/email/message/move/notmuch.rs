@@ -19,7 +19,7 @@ pub enum Error {
 
 #[derive(Clone)]
 pub struct MoveNotmuchMessages {
-    ctx: NotmuchContextSync,
+    pub(crate) ctx: NotmuchContextSync,
 }
 
 impl MoveNotmuchMessages {
