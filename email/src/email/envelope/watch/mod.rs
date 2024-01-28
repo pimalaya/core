@@ -22,6 +22,7 @@ pub trait WatchEnvelopes: Send + Sync {
         prev_envelopes: &HashMap<String, Envelope>,
         next_envelopes: &HashMap<String, Envelope>,
     ) {
+        debug!("executing watch hooks…");
         for (id, envelope) in next_envelopes {
             // a new envelope has been added
             if !prev_envelopes.contains_key(id) {

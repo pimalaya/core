@@ -58,7 +58,6 @@ impl Flags {
             match Flag::try_from_imap_flag(flag) {
                 Ok(flag) => Some(flag),
                 Err(err) => {
-                    debug!("cannot parse imap flag {flag}: {err}");
                     debug!("{err:?}");
                     None
                 }
