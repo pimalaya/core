@@ -19,15 +19,15 @@ async fn test_maildir_features() {
     // set up maildir folders
 
     let mdir: Maildir = tempdir().unwrap().path().to_owned().into();
-    if let Err(_) = fs::remove_dir_all(mdir.path()) {}
+    _ = fs::remove_dir_all(mdir.path());
     mdir.create_dirs().unwrap();
 
     let mdir_sub: Maildir = mdir.path().join(".Subdir").into();
-    if let Err(_) = fs::remove_dir_all(mdir_sub.path()) {}
+    _ = fs::remove_dir_all(mdir_sub.path());
     mdir_sub.create_dirs().unwrap();
 
     let mdir_trash = Maildir::from(mdir.path().join(".Trash"));
-    if let Err(_) = fs::remove_dir_all(mdir_trash.path()) {}
+    _ = fs::remove_dir_all(mdir_trash.path());
     mdir_trash.create_dirs().unwrap();
 
     let account_config = Arc::new(AccountConfig {

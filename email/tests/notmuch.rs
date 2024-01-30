@@ -20,11 +20,11 @@ async fn test_notmuch_features() {
     // set up maildir folders and notmuch database
 
     let mdir: Maildir = tempdir().unwrap().path().to_owned().into();
-    if let Err(_) = fs::remove_dir_all(mdir.path()) {}
+    _ = fs::remove_dir_all(mdir.path());
     mdir.create_dirs().unwrap();
 
     let custom_mdir: Maildir = mdir.path().join("CustomMaildirFolder").into();
-    if let Err(_) = fs::remove_dir_all(custom_mdir.path()) {}
+    _ = fs::remove_dir_all(custom_mdir.path());
     custom_mdir.create_dirs().unwrap();
 
     Database::create(mdir.path()).unwrap();
