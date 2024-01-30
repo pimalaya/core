@@ -56,8 +56,8 @@ pub async fn from_addr(addr: impl AsRef<str>) -> Result<AutoConfig> {
 /// [wiki]: https://wiki.mozilla.org/Thunderbird:Autoconfiguration#Implementation
 async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> {
     let from_main_isps = [
-        from_plain_main_isp(&http, addr).boxed(),
-        from_secure_main_isp(&http, addr).boxed(),
+        from_plain_main_isp(http, addr).boxed(),
+        from_secure_main_isp(http, addr).boxed(),
     ];
 
     match select_ok(from_main_isps).await {
@@ -67,8 +67,8 @@ async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig>
             debug!("main ISP discovery failed, falling back to alternative ISP");
 
             let from_alt_isps = [
-                from_plain_alt_isp(&http, addr).boxed(),
-                from_secure_alt_isp(&http, addr).boxed(),
+                from_plain_alt_isp(http, addr).boxed(),
+                from_secure_alt_isp(http, addr).boxed(),
             ];
 
             match select_ok(from_alt_isps).await {
@@ -76,7 +76,7 @@ async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig>
                 Err(err) => {
                     trace!("{err}");
                     debug!("alternative ISP discovery failed, falling back to ISPDB");
-                    from_ispdb(&http, addr).await
+                    from_ispdb(http, addr).await
                 }
             }
         }

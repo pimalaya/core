@@ -269,7 +269,7 @@ fn into_smtp_msg<'a>(msg: Message<'a>) -> Result<SmtpMessage<'a>> {
                 }
                 HeaderValue::Address(Address::Group(groups)) => {
                     if let Some(group) = groups.first() {
-                        if let Some(ref addr) = group.addresses.first() {
+                        if let Some(addr) = group.addresses.first() {
                             if let Some(ref email) = addr.address {
                                 mail_from = email.to_string().into();
                             }
@@ -288,7 +288,7 @@ fn into_smtp_msg<'a>(msg: Message<'a>) -> Result<SmtpMessage<'a>> {
                 }
                 HeaderValue::Address(Address::Group(groups)) => {
                     if let Some(group) = groups.first() {
-                        if let Some(ref addr) = group.addresses.first() {
+                        if let Some(addr) = group.addresses.first() {
                             if let Some(ref email) = addr.address {
                                 {
                                     rcpt_to.insert(email.to_string());

@@ -65,7 +65,7 @@ async fn test_imap_features() {
         "Hello, world!",
         "<#/part>",
     );
-    let compiler = MmlCompilerBuilder::new().build(&tpl).unwrap();
+    let compiler = MmlCompilerBuilder::new().build(tpl).unwrap();
     let email = compiler.compile().await.unwrap().into_vec().unwrap();
 
     let id = imap

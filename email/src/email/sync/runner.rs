@@ -51,7 +51,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
     {
         let cache_hunks = match hunk {
             EmailSyncHunk::GetThenCache(folder, id, Destination::Local) => {
-                let envelope = local.get_envelope(&folder, &Id::single(id)).await?;
+                let envelope = local.get_envelope(folder, &Id::single(id)).await?;
                 vec![EmailSyncCacheHunk::Insert(
                     folder.clone(),
                     envelope.clone(),
@@ -59,7 +59,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
                 )]
             }
             EmailSyncHunk::GetThenCache(folder, id, Destination::Remote) => {
-                let envelope = remote.get_envelope(&folder, &Id::single(id)).await?;
+                let envelope = remote.get_envelope(folder, &Id::single(id)).await?;
                 vec![EmailSyncCacheHunk::Insert(
                     folder.clone(),
                     envelope.clone(),
@@ -84,7 +84,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
                                 Destination::Local,
                             ))
                         };
-                        local.peek_messages(&folder, &id).await?
+                        local.peek_messages(folder, &id).await?
                     }
                     Destination::Remote => {
                         if *refresh_source_cache {
@@ -94,7 +94,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
                                 Destination::Remote,
                             ))
                         };
-                        remote.peek_messages(&folder, &id).await?
+                        remote.peek_messages(folder, &id).await?
                     }
                 };
 
@@ -106,9 +106,9 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
                 match target {
                     Destination::Local => {
                         let id = local
-                            .add_message_with_flags(&folder, email.raw()?, &envelope.flags)
+                            .add_message_with_flags(folder, email.raw()?, &envelope.flags)
                             .await?;
-                        let envelope = local.get_envelope(&folder, &Id::single(id)).await?;
+                        let envelope = local.get_envelope(folder, &Id::single(id)).await?;
                         cache_hunks.push(EmailSyncCacheHunk::Insert(
                             folder.clone(),
                             envelope.clone(),
@@ -117,9 +117,9 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
                     }
                     Destination::Remote => {
                         let id = remote
-                            .add_message_with_flags(&folder, email.raw()?, &envelope.flags)
+                            .add_message_with_flags(folder, email.raw()?, &envelope.flags)
                             .await?;
-                        let envelope = remote.get_envelope(&folder, &Id::single(id)).await?;
+                        let envelope = remote.get_envelope(folder, &Id::single(id)).await?;
                         cache_hunks.push(EmailSyncCacheHunk::Insert(
                             folder.clone(),
                             envelope.clone(),
@@ -138,7 +138,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
             }
             EmailSyncHunk::Delete(folder, id, Destination::Local) => {
                 local
-                    .add_flag(&folder, &Id::single(id), Flag::Deleted)
+                    .add_flag(folder, &Id::single(id), Flag::Deleted)
                     .await?;
                 vec![]
             }
@@ -151,7 +151,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
             }
             EmailSyncHunk::Delete(folder, id, Destination::Remote) => {
                 remote
-                    .add_flag(&folder, &Id::single(id), Flag::Deleted)
+                    .add_flag(folder, &Id::single(id), Flag::Deleted)
                     .await?;
                 vec![]
             }
@@ -171,7 +171,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
             }
             EmailSyncHunk::UpdateFlags(folder, envelope, Destination::Local) => {
                 local
-                    .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
+                    .set_flags(folder, &Id::single(&envelope.id), &envelope.flags)
                     .await?;
                 vec![]
             }
@@ -191,7 +191,7 @@ impl<B: BackendContextBuilder> EmailSyncRunner<B> {
             }
             EmailSyncHunk::UpdateFlags(folder, envelope, Destination::Remote) => {
                 remote
-                    .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
+                    .set_flags(folder, &Id::single(&envelope.id), &envelope.flags)
                     .await?;
                 vec![]
             }

@@ -213,7 +213,7 @@ impl<B: BackendContextBuilder + 'static> FolderSyncPatchManager<B> {
                 )]
             }
             FolderSyncHunk::Create(ref folder, Destination::Remote) => {
-                remote_builder.build().await?.add_folder(&folder).await?;
+                remote_builder.build().await?.add_folder(folder).await?;
                 vec![]
             }
             FolderSyncHunk::Uncache(ref folder, Destination::Local) => {
@@ -233,7 +233,7 @@ impl<B: BackendContextBuilder + 'static> FolderSyncPatchManager<B> {
                 )]
             }
             FolderSyncHunk::Delete(ref folder, Destination::Remote) => {
-                remote_builder.build().await?.delete_folder(&folder).await?;
+                remote_builder.build().await?.delete_folder(folder).await?;
                 vec![]
             }
         };

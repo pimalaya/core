@@ -13,7 +13,7 @@ pub fn local_draft_path() -> PathBuf {
 /// Removes the local draft.
 pub fn remove_local_draft() -> io::Result<()> {
     let path = local_draft_path();
-    fs::remove_file(&path)?;
+    fs::remove_file(path)?;
     Ok(())
 }
 

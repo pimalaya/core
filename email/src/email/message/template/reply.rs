@@ -176,20 +176,20 @@ impl<'a> ReplyTplBuilder<'a> {
 
         // To
 
-        let recipients = if address::equal(&sender, &to) {
+        let recipients = if address::equal(sender, to) {
             // when replying to an email received by a mailing list
-            if address::is_empty(&reply_to) {
+            if address::is_empty(reply_to) {
                 to.clone()
             } else {
                 reply_to.clone()
             }
         } else if address::equal(
-            &from,
+            from,
             &HeaderValue::Address(mail_parser::Address::List(vec![me.clone()])),
         ) {
             // when replying to one of your own email
             to.clone()
-        } else if address::is_empty(&reply_to) {
+        } else if address::is_empty(reply_to) {
             from.clone()
         } else {
             reply_to.clone()
@@ -208,7 +208,7 @@ impl<'a> ReplyTplBuilder<'a> {
                     HeaderValue::Address(mail_parser::Address::List(addrs)) => {
                         for a in addrs {
                             if a.address != me.address
-                                && !address::contains(&from, &a.address)
+                                && !address::contains(from, &a.address)
                                 && !address::contains(&recipients, &a.address)
                             {
                                 addresses.push(Address::new_address(
@@ -225,7 +225,7 @@ impl<'a> ReplyTplBuilder<'a> {
                     HeaderValue::Address(mail_parser::Address::List(addrs)) => {
                         for a in addrs {
                             if a.address != me.address
-                                && !address::contains(&from, &a.address)
+                                && !address::contains(from, &a.address)
                                 && !address::contains(&recipients, &a.address)
                             {
                                 addresses.push(Address::new_address(
@@ -269,7 +269,7 @@ impl<'a> ReplyTplBuilder<'a> {
             let body = self
                 .thread_interpreter
                 .build()
-                .from_msg(&parsed)
+                .from_msg(parsed)
                 .await
                 .map_err(Error::InterpretMessageAsThreadTemplateError)?;
 
@@ -278,7 +278,7 @@ impl<'a> ReplyTplBuilder<'a> {
                 if !line.starts_with('>') {
                     lines.push(' ')
                 }
-                lines.push_str(&line);
+                lines.push_str(line);
                 lines.push('\n');
             }
 

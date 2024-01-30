@@ -44,7 +44,7 @@ impl PeekMessages for PeekNotmuchMessages {
             .iter()
             .map(|id| {
                 let path = db
-                    .find_message(&id)?
+                    .find_message(id)?
                     .ok_or_else(|| {
                         Error::FindEnvelopeEmptyError(folder.to_owned(), id.to_string())
                     })?
