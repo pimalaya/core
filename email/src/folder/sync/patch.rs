@@ -531,13 +531,13 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), Destination::Local),
                     FolderSyncHunk::Create("folder".into(), Destination::Local),
                 ],
-            ))]),
+            )]),
         );
 
         // 0100
@@ -548,14 +548,14 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), Destination::Local),
                     FolderSyncHunk::Cache("folder".into(), Destination::Remote),
                     FolderSyncHunk::Create("folder".into(), Destination::Remote),
                 ],
-            ))]),
+            )]),
         );
 
         // 0101
@@ -566,13 +566,13 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), Destination::Local),
                     FolderSyncHunk::Cache("folder".into(), Destination::Remote),
                 ],
-            ))]),
+            )]),
         );
 
         // 0110
@@ -583,13 +583,13 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), Destination::Local),
                     FolderSyncHunk::Create("folder".into(), Destination::Remote),
                 ],
-            ))]),
+            )]),
         );
 
         // 0111
@@ -600,10 +600,10 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![FolderSyncHunk::Cache("folder".into(), Destination::Local)],
-            ))]),
+            )]),
         );
 
         // 1000
@@ -614,10 +614,10 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![FolderSyncHunk::Uncache("folder".into(), Destination::Local)],
-            ))]),
+            )]),
         );
 
         // 1001
@@ -628,13 +628,13 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Create("folder".into(), Destination::Local),
                     FolderSyncHunk::Cache("folder".into(), Destination::Remote),
                 ],
-            ))]),
+            )]),
         );
 
         // 1010
@@ -645,13 +645,13 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Uncache("folder".into(), Destination::Local),
                     FolderSyncHunk::Uncache("folder".into(), Destination::Remote),
                 ],
-            ))]),
+            )]),
         );
 
         // 1011
@@ -662,14 +662,14 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Uncache("folder".into(), Destination::Local),
                     FolderSyncHunk::Uncache("folder".into(), Destination::Remote),
                     FolderSyncHunk::Delete("folder".into(), Destination::Remote),
                 ],
-            ))]),
+            )]),
         );
 
         // 1100
@@ -680,13 +680,13 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), Destination::Remote),
                     FolderSyncHunk::Create("folder".into(), Destination::Remote),
                 ],
-            ))]),
+            )]),
         );
 
         // 1101
@@ -697,10 +697,10 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![FolderSyncHunk::Cache("folder".into(), Destination::Remote)],
-            ))]),
+            )]),
         );
 
         // 1110
@@ -711,14 +711,14 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([((
+            HashMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Uncache("folder".into(), Destination::Local),
                     FolderSyncHunk::Delete("folder".into(), Destination::Local),
                     FolderSyncHunk::Uncache("folder".into(), Destination::Remote),
                 ],
-            ))]),
+            )]),
         );
 
         // 1111
