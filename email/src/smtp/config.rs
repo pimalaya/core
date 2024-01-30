@@ -58,28 +58,20 @@ pub struct SmtpConfig {
 impl SmtpConfig {
     /// Return `true` if TLS or StartTLS is enabled.
     pub fn is_encryption_enabled(&self) -> bool {
-        match self.encryption.as_ref() {
-            None => true,
-            Some(SmtpEncryptionKind::Tls) => true,
-            Some(SmtpEncryptionKind::StartTls) => true,
-            _ => false,
-        }
+        matches!(
+            self.encryption.as_ref(),
+            None | Some(SmtpEncryptionKind::Tls) | Some(SmtpEncryptionKind::StartTls)
+        )
     }
 
     /// Return `true` if StartTLS is enabled.
     pub fn is_start_tls_encryption_enabled(&self) -> bool {
-        match self.encryption.as_ref() {
-            Some(SmtpEncryptionKind::StartTls) => true,
-            _ => false,
-        }
+        matches!(self.encryption.as_ref(), Some(SmtpEncryptionKind::StartTls))
     }
 
     /// Return `true` if encryption is disabled.
     pub fn is_encryption_disabled(&self) -> bool {
-        match self.encryption.as_ref() {
-            Some(SmtpEncryptionKind::None) => true,
-            _ => false,
-        }
+        matches!(self.encryption.as_ref(), Some(SmtpEncryptionKind::None))
     }
 
     /// Builds the SMTP credentials string.

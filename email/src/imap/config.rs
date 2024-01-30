@@ -61,28 +61,20 @@ pub struct ImapConfig {
 impl ImapConfig {
     /// Return `true` if TLS or StartTLS is enabled.
     pub fn is_encryption_enabled(&self) -> bool {
-        match self.encryption.as_ref() {
-            None => true,
-            Some(ImapEncryptionKind::Tls) => true,
-            Some(ImapEncryptionKind::StartTls) => true,
-            _ => false,
-        }
+        matches!(
+            self.encryption.as_ref(),
+            None | Some(ImapEncryptionKind::Tls) | Some(ImapEncryptionKind::StartTls)
+        )
     }
 
     /// Return `true` if StartTLS is enabled.
     pub fn is_start_tls_encryption_enabled(&self) -> bool {
-        match self.encryption.as_ref() {
-            Some(ImapEncryptionKind::StartTls) => true,
-            _ => false,
-        }
+        matches!(self.encryption.as_ref(), Some(ImapEncryptionKind::StartTls))
     }
 
     /// Return `true` if encryption is disabled.
     pub fn is_encryption_disabled(&self) -> bool {
-        match self.encryption.as_ref() {
-            Some(ImapEncryptionKind::None) => true,
-            _ => false,
-        }
+        matches!(self.encryption.as_ref(), Some(ImapEncryptionKind::None))
     }
 
     /// Builds authentication credentials.

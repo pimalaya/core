@@ -254,7 +254,7 @@ async fn from_dns_srv(dns: &DnsClient, domain: &str) -> Result<AutoConfig> {
                     ServerProperty::SocketType(match record.port() {
                         25 => SecurityType::Plain,
                         587 => SecurityType::Starttls,
-                        465 | _ => SecurityType::Tls,
+                        _ => SecurityType::Tls, // including 456
                     }),
                     ServerProperty::Authentication(AuthenticationType::PasswordCleartext),
                 ],

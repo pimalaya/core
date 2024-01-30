@@ -204,38 +204,32 @@ impl<'a> ReplyTplBuilder<'a> {
                 let cc = parsed.header("Cc").unwrap_or(&HeaderValue::Empty);
                 let mut addresses = Vec::new();
 
-                match to {
-                    HeaderValue::Address(mail_parser::Address::List(addrs)) => {
-                        for a in addrs {
-                            if a.address != me.address
-                                && !address::contains(from, &a.address)
-                                && !address::contains(&recipients, &a.address)
-                            {
-                                addresses.push(Address::new_address(
-                                    a.name.clone(),
-                                    a.address.clone().unwrap(),
-                                ));
-                            }
+                if let HeaderValue::Address(mail_parser::Address::List(addrs)) = to {
+                    for a in addrs {
+                        if a.address != me.address
+                            && !address::contains(from, &a.address)
+                            && !address::contains(&recipients, &a.address)
+                        {
+                            addresses.push(Address::new_address(
+                                a.name.clone(),
+                                a.address.clone().unwrap(),
+                            ));
                         }
                     }
-                    _ => (),
                 }
 
-                match cc {
-                    HeaderValue::Address(mail_parser::Address::List(addrs)) => {
-                        for a in addrs {
-                            if a.address != me.address
-                                && !address::contains(from, &a.address)
-                                && !address::contains(&recipients, &a.address)
-                            {
-                                addresses.push(Address::new_address(
-                                    a.name.clone(),
-                                    a.address.clone().unwrap(),
-                                ));
-                            }
+                if let HeaderValue::Address(mail_parser::Address::List(addrs)) = cc {
+                    for a in addrs {
+                        if a.address != me.address
+                            && !address::contains(from, &a.address)
+                            && !address::contains(&recipients, &a.address)
+                        {
+                            addresses.push(Address::new_address(
+                                a.name.clone(),
+                                a.address.clone().unwrap(),
+                            ));
                         }
                     }
-                    _ => (),
                 }
 
                 Address::new_list(addresses)
