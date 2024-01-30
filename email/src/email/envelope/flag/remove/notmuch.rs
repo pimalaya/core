@@ -34,7 +34,7 @@ impl RemoveFlags for RemoveNotmuchFlags {
         let db = ctx.open_db()?;
 
         let folder_query = if FolderKind::matches_inbox(folder) {
-            format!("folder:\"\"")
+            "folder:\"\"".to_owned()
         } else {
             let folder = config.get_folder_alias(folder.as_ref());
             format!("folder:{folder:?}")

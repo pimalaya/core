@@ -51,7 +51,7 @@ impl MoveMessages for MoveNotmuchMessages {
         let db = ctx.open_db()?;
 
         let folder_query = if FolderKind::matches_inbox(from_folder) {
-            format!("folder:\"\"")
+            "folder:\"\"".to_owned()
         } else {
             let folder = config.get_folder_alias(from_folder);
             format!("folder:{folder:?}")
