@@ -291,10 +291,10 @@ pub fn build_patch(
     let mut message_ids = HashSet::new();
 
     // gather all existing ids found in all envelopes
-    message_ids.extend(local_cache.iter().map(|(id, _)| id.as_str()));
-    message_ids.extend(local.iter().map(|(id, _)| id.as_str()));
-    message_ids.extend(remote_cache.iter().map(|(id, _)| id.as_str()));
-    message_ids.extend(remote.iter().map(|(id, _)| id.as_str()));
+    message_ids.extend(local_cache.keys().map(|id| id.as_str()));
+    message_ids.extend(local.keys().map(|id| id.as_str()));
+    message_ids.extend(remote_cache.keys().map(|id| id.as_str()));
+    message_ids.extend(remote.keys().map(|id| id.as_str()));
 
     // Given the matrice local_cache × local × remote_cache × remote,
     // check every 2⁴ = 16 possibilities:
