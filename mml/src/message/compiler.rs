@@ -69,7 +69,7 @@ impl MmlCompilerBuilder {
     }
 
     /// Build the final [MmlCompiler] based on the defined options.
-    pub fn build<'a>(self, mml_msg: &'a str) -> Result<MmlCompiler<'a>> {
+    pub fn build(self, mml_msg: &str) -> Result<MmlCompiler<'_>> {
         let mml_msg = MessageParser::new()
             .parse(mml_msg.as_bytes())
             .ok_or(Error::ParseMessageError)?;

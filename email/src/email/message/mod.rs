@@ -248,7 +248,7 @@ pub struct Messages {
 }
 
 impl Messages {
-    fn emails_builder<'a>(raw: &'a mut RawMessages) -> Vec<Message> {
+    fn emails_builder(raw: &mut RawMessages) -> Vec<Message> {
         match raw {
             RawMessages::Vec(vec) => vec.iter().map(Vec::as_slice).map(Message::from).collect(),
             #[cfg(feature = "imap")]

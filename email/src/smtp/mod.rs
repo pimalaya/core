@@ -250,7 +250,7 @@ pub async fn build_tls_client(
 ///
 /// This function returns an error if no sender or no recipient is
 /// found in the original message.
-fn into_smtp_msg<'a>(msg: Message<'a>) -> Result<SmtpMessage<'a>> {
+fn into_smtp_msg(msg: Message<'_>) -> Result<SmtpMessage<'_>> {
     let mut mail_from = None;
     let mut rcpt_to = HashSet::new();
 
