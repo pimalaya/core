@@ -316,7 +316,7 @@ fn into_smtp_msg(msg: Message<'_>) -> Result<SmtpMessage<'_>> {
                 ..Default::default()
             })
             .collect(),
-        body: msg.raw_message.into(),
+        body: msg.raw_message,
     };
 
     Ok(msg)

@@ -183,7 +183,7 @@ impl FromStr for FolderKind {
             kind if kind.eq_ignore_ascii_case(DRAFT) => Ok(Self::Drafts),
             kind if kind.eq_ignore_ascii_case(DRAFTS) => Ok(Self::Drafts),
             kind if kind.eq_ignore_ascii_case(TRASH) => Ok(Self::Trash),
-            kind => Err(Error::ParseFolderKindError(kind.to_owned()).into()),
+            kind => Err(Error::ParseFolderKindError(kind.to_owned())),
         }
     }
 }

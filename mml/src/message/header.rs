@@ -108,7 +108,7 @@ pub(crate) fn to_builder_val<'a>(header: &'a Header<'a>) -> HeaderType<'a> {
                     addr.address.as_ref().map(|email| {
                         let name = addr.name.as_ref().map(|name| name.as_ref());
                         let email = email.as_ref();
-                        AddressBuilder::new_address(name, email).into()
+                        AddressBuilder::new_address(name, email)
                     })
                 })
                 .collect(),

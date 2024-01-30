@@ -171,7 +171,7 @@ impl Iterator for MailEntries {
             });
             return match result {
                 None => None,
-                Some(Err(e)) => Some(Err(e.into())),
+                Some(Err(e)) => Some(Err(e)),
                 Some(Ok(None)) => continue,
                 Some(Ok(Some(v))) => Some(Ok(v)),
             };

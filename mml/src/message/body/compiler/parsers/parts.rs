@@ -177,7 +177,7 @@ mod parts {
                 ))
                 .into_result(),
             Ok(Part::Single(
-                HashMap::from_iter([(TYPE.into(), "text/html".into())]),
+                HashMap::from_iter([(TYPE, "text/html".into())]),
                 "<h1>This is a HTML text part.</h1>\n",
             )),
         );
