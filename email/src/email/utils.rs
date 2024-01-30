@@ -34,9 +34,7 @@ pub(crate) mod address {
 
     pub(crate) fn contains(header: &HeaderValue, a: &Option<Cow<str>>) -> bool {
         match header {
-            HeaderValue::Address(Address::List(addrs)) => {
-                addrs.iter().find(|b| a == &b.address).is_some()
-            }
+            HeaderValue::Address(Address::List(addrs)) => addrs.iter().any(|b| a == &b.address),
             HeaderValue::Address(Address::Group(groups)) => groups
                 .iter()
                 .find_map(|g| g.addresses.iter().find(|b| a == &b.address))

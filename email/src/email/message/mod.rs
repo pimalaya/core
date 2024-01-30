@@ -254,12 +254,12 @@ impl Messages {
             #[cfg(feature = "imap")]
             RawMessages::Fetches(fetches) => fetches
                 .iter()
-                .filter_map(|fetch| match fetch.body() {
-                    Some(_) => Some(fetch),
+                .filter(|fetch| match fetch.body() {
+                    Some(_) => true,
                     None => {
                         debug!("skipping imap fetch with an empty body");
                         debug!("skipping imap fetch with an empty body: {fetch:#?}");
-                        None
+                        false
                     }
                 })
                 .map(Message::from)

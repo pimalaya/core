@@ -103,7 +103,7 @@ pub(crate) fn to_builder_val<'a>(header: &'a Header<'a>) -> HeaderType<'a> {
     match &header.value {
         HeaderValue::Address(Address::List(addrs)) => AddressBuilder::new_list(
             addrs
-                .into_iter()
+                .iter()
                 .filter_map(|addr| {
                     addr.address.as_ref().map(|email| {
                         let name = addr.name.as_ref().map(|name| name.as_ref());
@@ -116,7 +116,7 @@ pub(crate) fn to_builder_val<'a>(header: &'a Header<'a>) -> HeaderType<'a> {
         .into(),
         HeaderValue::Address(Address::Group(groups)) => AddressBuilder::new_list(
             groups
-                .into_iter()
+                .iter()
                 .map(|group| {
                     AddressBuilder::new_group(
                         group.name.as_ref().map(|name| name.as_ref()),

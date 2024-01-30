@@ -250,10 +250,7 @@ impl<B: BackendContextBuilder + 'static> FolderSyncPatchManager<B> {
         let conn = &mut self.account_config.get_sync_db_conn()?;
         let mut report = FolderSyncReport::default();
 
-        let folders = patches
-            .iter()
-            .map(|(folder, _patch)| maildir::decode_folder(folder))
-            .collect();
+        let folders = patches.keys().map(maildir::decode_folder).collect();
 
         if self.dry_run {
             info!("dry run enabled, skipping folders patch");

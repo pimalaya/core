@@ -420,7 +420,7 @@ impl MimeBodyInterpreter {
                 tpl.push_str(&self.interpret_msg(msg).await?);
             }
             PartType::Multipart(ids) if ctype == "multipart/alternative" => {
-                let mut parts = ids.into_iter().filter_map(|id| msg.part(*id));
+                let mut parts = ids.iter().filter_map(|id| msg.part(*id));
 
                 let part = match &self.filter_parts {
                     FilterParts::All => {

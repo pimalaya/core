@@ -38,7 +38,7 @@ impl ListFolders for ListNotmuchFolders {
             .account_config
             .get_folder_aliases()
             .unwrap_or(&HashMap::default())
-            .into_iter()
+            .iter()
             .map(|(name, alias)| Folder {
                 kind: None,
                 name: name.into(),
