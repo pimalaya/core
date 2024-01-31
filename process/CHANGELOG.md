@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed `Cmd` to `Command`.
+- Renamed `Cmd::SingleCmd` to `SingleCommand`.
+- Renamed `SingleCmd` to `SingleCommand` and turned it into a unit struct.
+- Renamed `CmdOutput` to `CommandOutput` and turned it into a unit struct.
+- Renamed `Error::InvalidExitStatusCodeNonZeroError` to `GetExitStatusCodeNonZeroError`.
+
+### Removed
+
+- Removed unused `Error` variants `WaitForExitStatusCodeError`, `WriteStdinError`, `ReadStdoutError`, `ReadStderrError` and `GetOutputError`.
+
 ## [0.3.1] - 2024-01-12
 
 ### Fixed

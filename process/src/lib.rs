@@ -1,7 +1,9 @@
+//! # process-lib
+//!
 //! Cross-platform, asynchronous library to run commands in pipelines.
 //!
 //! The core concept of this library is to simplify the execution of
-//! commands, following these rules:
+//! shell commands, following these rules:
 //!
 //! 1. Commands are executed asynchronously, using the [tokio] async
 //! runtime.
@@ -22,9 +24,9 @@ use std::{
     string::FromUtf8Error,
 };
 use thiserror::Error;
-use tokio::{io::AsyncWriteExt, process::Command};
+use tokio::{io::AsyncWriteExt, process::Command as TokioCommand};
 
-fn new_command() -> Command {
+fn new_tokio_cmd() -> TokioCommand {
     let windows = cfg!(target_os = "windows")
         && !(env::var("MSYSTEM")
             .map(|env| env.starts_with("MINGW"))
@@ -32,7 +34,7 @@ fn new_command() -> Command {
 
     let (shell, arg) = if windows { ("cmd", "/C") } else { ("sh", "-c") };
 
-    let mut cmd = tokio::process::Command::new(shell);
+    let mut cmd = TokioCommand::new(shell);
     cmd.arg(arg);
     cmd
 }
@@ -42,24 +44,10 @@ fn new_command() -> Command {
 pub enum Error {
     #[error("cannot get standard input")]
     GetStdinError,
-    #[error("cannot wait for exit status code of command: {1}")]
-    WaitForExitStatusCodeError(#[source] io::Error, String),
     #[error("cannot get exit status code of command: {0}")]
     GetExitStatusCodeNotAvailableError(String),
     #[error("command {0} returned non-zero exit status code {1}: {2}")]
-    InvalidExitStatusCodeNonZeroError(String, i32, String),
-    #[error("cannot write data to standard input")]
-    WriteStdinError(#[source] io::Error),
-    #[error("cannot get standard output")]
-    GetStdoutError,
-    #[error("cannot read data from standard output")]
-    ReadStdoutError(#[source] io::Error),
-    #[error("cannot get standard error")]
-    GetStderrError,
-    #[error("cannot read data from standard error")]
-    ReadStderrError(#[source] io::Error),
-    #[error("cannot get command output")]
-    GetOutputError(#[source] io::Error),
+    GetExitStatusCodeNonZeroError(String, i32, String),
     #[error("cannot parse command output as string")]
     ParseOutputAsUtf8StringError(#[source] FromUtf8Error),
 
@@ -72,29 +60,30 @@ pub type Result<T> = result::Result<T, Error>;
 
 /// The main command structure.
 ///
-/// A command can be either a single command or a pipeline.
+/// A command can be either a single command or a pipeline of single
+/// commands.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum Cmd {
+pub enum Command {
     /// The single command variant.
-    SingleCmd(SingleCmd),
+    SingleCommand(SingleCommand),
 
     /// The pipeline variant.
     Pipeline(Pipeline),
 }
 
-impl Cmd {
+impl Command {
     /// Wrapper around [`alloc::str::replace`].
     ///
     /// This function is particularly useful when you need to replace
     /// placeholders on all inner commands.
     pub fn replace(mut self, from: impl AsRef<str>, to: impl AsRef<str>) -> Self {
         match &mut self {
-            Self::SingleCmd(SingleCmd { cmd, .. }) => {
+            Self::SingleCommand(SingleCommand(cmd, ..)) => {
                 *cmd = cmd.replace(from.as_ref(), to.as_ref())
             }
-            Self::Pipeline(Pipeline { cmds }) => {
-                for SingleCmd { cmd, .. } in cmds {
+            Self::Pipeline(Pipeline(cmds)) => {
+                for SingleCommand(cmd, ..) in cmds {
                     *cmd = cmd.replace(from.as_ref(), to.as_ref());
                 }
             }
@@ -102,84 +91,84 @@ impl Cmd {
         self
     }
 
-    /// Runs the command without piped input.
-    pub async fn run(&self) -> Result<CmdOutput> {
+    /// Run the command without piped input.
+    pub async fn run(&self) -> Result<CommandOutput> {
         self.run_with([]).await
     }
 
-    /// Runs the command with the given piped input.
-    pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CmdOutput> {
+    /// Run the command with the given piped input.
+    pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CommandOutput> {
         match self {
-            Self::SingleCmd(cmd) => cmd.run_with(input).await,
+            Self::SingleCommand(cmd) => cmd.run_with(input).await,
             Self::Pipeline(cmds) => cmds.run_with(input).await,
         }
     }
 }
 
-impl Default for Cmd {
+impl Default for Command {
     fn default() -> Self {
         Self::Pipeline(Pipeline::default())
     }
 }
 
-impl From<String> for Cmd {
+impl From<String> for Command {
     fn from(cmd: String) -> Self {
-        Self::SingleCmd(cmd.into())
+        Self::SingleCommand(cmd.into())
     }
 }
 
-impl From<&String> for Cmd {
+impl From<&String> for Command {
     fn from(cmd: &String) -> Self {
-        cmd.clone().into()
+        Self::SingleCommand(cmd.into())
     }
 }
 
-impl From<&str> for Cmd {
+impl From<&str> for Command {
     fn from(cmd: &str) -> Self {
-        cmd.to_owned().into()
+        Self::SingleCommand(cmd.into())
     }
 }
 
-impl From<Vec<String>> for Cmd {
+impl From<Vec<String>> for Command {
     fn from(cmd: Vec<String>) -> Self {
         Self::Pipeline(cmd.into())
     }
 }
 
-impl From<Vec<&String>> for Cmd {
+impl From<Vec<&String>> for Command {
     fn from(cmd: Vec<&String>) -> Self {
         Self::Pipeline(cmd.into())
     }
 }
 
-impl From<Vec<&str>> for Cmd {
+impl From<Vec<&str>> for Command {
     fn from(cmd: Vec<&str>) -> Self {
         Self::Pipeline(cmd.into())
     }
 }
 
-impl From<&[String]> for Cmd {
+impl From<&[String]> for Command {
     fn from(cmd: &[String]) -> Self {
         Self::Pipeline(cmd.into())
     }
 }
 
-impl From<&[&String]> for Cmd {
+impl From<&[&String]> for Command {
     fn from(cmd: &[&String]) -> Self {
         Self::Pipeline(cmd.into())
     }
 }
 
-impl From<&[&str]> for Cmd {
+impl From<&[&str]> for Command {
     fn from(cmd: &[&str]) -> Self {
         Self::Pipeline(cmd.into())
     }
 }
 
-impl ToString for Cmd {
+impl ToString for Command {
     fn to_string(&self) -> String {
         match self {
-            Self::SingleCmd(cmd) => cmd.to_string(),
+            Self::SingleCommand(cmd) => cmd.to_string(),
             Self::Pipeline(pipeline) => pipeline.to_string(),
         }
     }
@@ -187,32 +176,28 @@ impl ToString for Cmd {
 
 /// The single command structure.
 ///
-/// Represents commands that are only composed of one single command.
+/// Represents commands that are composed of one single command.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(from = "String", into = "String")]
-pub struct SingleCmd {
-    cmd: String,
-    #[serde(skip_deserializing)]
-    output_piped: bool,
-}
+pub struct SingleCommand(String, bool);
 
-impl SingleCmd {
+impl SingleCommand {
     pub fn with_output_piped(mut self, piped: bool) -> Self {
-        self.output_piped = piped;
+        self.1 = piped;
         self
     }
 
-    pub async fn run(&self) -> Result<CmdOutput> {
+    pub async fn run(&self) -> Result<CommandOutput> {
         self.run_with([]).await
     }
 
-    /// Runs the single command with the given input.
+    /// Run the single command with the given input.
     ///
     /// If the given input is empty, the command gets straight the
     /// output. Otherwise the commands pipes this input to the
     /// standard input channel then waits for the output on the
     /// standard output channel.
-    pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CmdOutput> {
+    pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CommandOutput> {
         debug!("running single command: {}", self.to_string());
 
         let input = input.as_ref();
@@ -224,15 +209,15 @@ impl SingleCmd {
         };
 
         let stdout = || {
-            if self.output_piped {
+            if self.1 {
                 Stdio::piped()
             } else {
                 Stdio::inherit()
             }
         };
 
-        let mut cmd = new_command()
-            .arg(&self.cmd)
+        let mut cmd = new_tokio_cmd()
+            .arg(&self.0)
             .stdin(stdin)
             .stdout(stdout())
             .stderr(stdout())
@@ -243,14 +228,10 @@ impl SingleCmd {
                 .as_mut()
                 .ok_or(Error::GetStdinError)?
                 .write_all(input)
-                .await
-                .map_err(Error::WriteStdinError)?;
+                .await?
         }
 
-        let output = cmd
-            .wait_with_output()
-            .await
-            .map_err(Error::GetOutputError)?;
+        let output = cmd.wait_with_output().await?;
 
         let code = output
             .status
@@ -260,57 +241,54 @@ impl SingleCmd {
         if code != 0 {
             let cmd = self.to_string();
             let err = String::from_utf8_lossy(&output.stderr).to_string();
-            return Err(Error::InvalidExitStatusCodeNonZeroError(cmd, code, err));
+            return Err(Error::GetExitStatusCodeNonZeroError(cmd, code, err));
         }
 
         Ok(output.stdout.into())
     }
 }
 
-impl Deref for SingleCmd {
+impl Deref for SingleCommand {
     type Target = String;
 
     fn deref(&self) -> &Self::Target {
-        &self.cmd
+        &self.0
     }
 }
 
-impl DerefMut for SingleCmd {
+impl DerefMut for SingleCommand {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.cmd
+        &mut self.0
     }
 }
 
-impl From<String> for SingleCmd {
+impl From<String> for SingleCommand {
     fn from(cmd: String) -> Self {
-        Self {
-            cmd,
-            output_piped: true,
-        }
+        Self(cmd, true)
     }
 }
 
-impl From<&String> for SingleCmd {
+impl From<&String> for SingleCommand {
     fn from(cmd: &String) -> Self {
         cmd.as_str().into()
     }
 }
 
-impl From<&str> for SingleCmd {
+impl From<&str> for SingleCommand {
     fn from(cmd: &str) -> Self {
         cmd.to_owned().into()
     }
 }
 
-impl From<SingleCmd> for String {
-    fn from(val: SingleCmd) -> Self {
-        val.cmd
+impl From<SingleCommand> for String {
+    fn from(cmd: SingleCommand) -> Self {
+        cmd.0
     }
 }
 
-impl ToString for SingleCmd {
+impl ToString for SingleCommand {
     fn to_string(&self) -> String {
-        self.clone().into()
+        self.0.to_owned()
     }
 }
 
@@ -322,19 +300,16 @@ impl ToString for SingleCmd {
 /// so on.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(from = "Vec<String>", into = "Vec<String>")]
-pub struct Pipeline {
-    #[serde(flatten)]
-    cmds: Vec<SingleCmd>,
-}
+pub struct Pipeline(Vec<SingleCommand>);
 
 impl Pipeline {
-    /// Runs the command pipeline with the given input.
-    pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CmdOutput> {
+    /// Run the command pipeline with the given input.
+    pub async fn run_with(&self, input: impl AsRef<[u8]>) -> Result<CommandOutput> {
         debug!("running pipeline: {}", self.to_string());
 
         let mut output = input.as_ref().to_owned();
 
-        for cmd in &self.cmds {
+        for cmd in &self.0 {
             output = cmd.run_with(&output).await?.0;
         }
 
@@ -343,64 +318,52 @@ impl Pipeline {
 }
 
 impl Deref for Pipeline {
-    type Target = Vec<SingleCmd>;
+    type Target = Vec<SingleCommand>;
 
     fn deref(&self) -> &Self::Target {
-        &self.cmds
+        &self.0
     }
 }
 
 impl DerefMut for Pipeline {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.cmds
+        &mut self.0
     }
 }
 
 impl From<Vec<String>> for Pipeline {
     fn from(cmd: Vec<String>) -> Self {
-        Self {
-            cmds: cmd.into_iter().map(Into::into).collect(),
-        }
+        Self(cmd.into_iter().map(Into::into).collect())
     }
 }
 
 impl From<Vec<&String>> for Pipeline {
     fn from(cmd: Vec<&String>) -> Self {
-        Self {
-            cmds: cmd.into_iter().map(Into::into).collect(),
-        }
+        Self(cmd.into_iter().map(Into::into).collect())
     }
 }
 
 impl From<Vec<&str>> for Pipeline {
     fn from(cmd: Vec<&str>) -> Self {
-        Self {
-            cmds: cmd.into_iter().map(Into::into).collect(),
-        }
+        Self(cmd.into_iter().map(Into::into).collect())
     }
 }
 
 impl From<&[String]> for Pipeline {
     fn from(cmd: &[String]) -> Self {
-        Self {
-            cmds: cmd.iter().map(Into::into).collect(),
-        }
+        Self(cmd.into_iter().map(Into::into).collect())
     }
 }
 
 impl From<&[&String]> for Pipeline {
     fn from(cmd: &[&String]) -> Self {
-        Self {
-            cmds: cmd.iter().map(|cmd| (*cmd).into()).collect(),
-        }
+        Self(cmd.iter().map(|cmd| (*cmd).into()).collect())
     }
 }
 
 impl From<&[&str]> for Pipeline {
     fn from(cmd: &[&str]) -> Self {
-        Self {
-            cmds: cmd.iter().map(|cmd| (*cmd).into()).collect(),
-        }
+        Self(cmd.iter().map(|cmd| (*cmd).into()).collect())
     }
 }
 
@@ -427,16 +390,16 @@ impl ToString for Pipeline {
 /// The only role of this struct is to provide convenient functions to
 /// export command output as string.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct CmdOutput(Vec<u8>);
+pub struct CommandOutput(Vec<u8>);
 
-impl CmdOutput {
+impl CommandOutput {
     /// Reads the command output as string lossy.
     pub fn to_string_lossy(&self) -> String {
         String::from_utf8_lossy(self).to_string()
     }
 }
 
-impl Deref for CmdOutput {
+impl Deref for CommandOutput {
     type Target = Vec<u8>;
 
     fn deref(&self) -> &Self::Target {
@@ -444,28 +407,28 @@ impl Deref for CmdOutput {
     }
 }
 
-impl DerefMut for CmdOutput {
+impl DerefMut for CommandOutput {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl From<Vec<u8>> for CmdOutput {
+impl From<Vec<u8>> for CommandOutput {
     fn from(output: Vec<u8>) -> Self {
         Self(output)
     }
 }
 
-impl From<CmdOutput> for Vec<u8> {
-    fn from(val: CmdOutput) -> Self {
+impl From<CommandOutput> for Vec<u8> {
+    fn from(val: CommandOutput) -> Self {
         val.0
     }
 }
 
-impl TryInto<String> for CmdOutput {
+impl TryFrom<CommandOutput> for String {
     type Error = Error;
 
-    fn try_into(self) -> Result<String> {
-        String::from_utf8(self.0).map_err(Error::ParseOutputAsUtf8StringError)
+    fn try_from(cmd: CommandOutput) -> result::Result<Self, Self::Error> {
+        String::from_utf8(cmd.into()).map_err(Error::ParseOutputAsUtf8StringError)
     }
 }
