@@ -3,6 +3,10 @@
 //! A [`Request`] is the type of data sent by the client to the server
 //! in order to control the timer.
 
+use std::io;
+
+use async_trait::async_trait;
+
 /// The request struct.
 ///
 /// Request are sent by clients and received by servers.
@@ -27,4 +31,14 @@ pub enum Request {
     /// Request to stop the timer. Stopping the timer resets the
     /// state, cycle and the value.
     Stop,
+}
+
+#[async_trait]
+pub trait RequestReader: Send + Sync {
+    async fn read(&mut self) -> io::Result<Request>;
+}
+
+#[async_trait]
+pub trait RequestWriter: Send + Sync {
+    async fn write(&mut self, req: Request) -> io::Result<()>;
 }

@@ -22,19 +22,25 @@ name = "time"
 default = [
   "server",
   "client",
-  "tcp",
+  "tcp-full",
 ]
+
 server = []
 client = []
-tcp-binder = ["server"]
-tcp-client = ["client"]
-tcp = ["tcp-binder", "tcp-client"]
+
+tcp = []
+tcp-binder = ["tcp", "server"]
+tcp-client = ["tcp", "client"]
+tcp-full = ["tcp-binder", "tcp-client"]
 
 [dev-dependencies]
 env_logger = "0.10"
 mock_instant = "0.3"
+tokio = { version = "1.23", default-features = false, features = ["full"] }
 
 [dependencies]
+async-trait = "0.1"
 log = "0.4"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.23", default-features = false, features = ["rt", "time", "net", "io-util"] }

@@ -56,6 +56,8 @@ pub mod request;
 pub mod response;
 #[cfg(feature = "server")]
 pub mod server;
+#[cfg(feature = "tcp")]
+pub mod tcp;
 pub mod timer;
 
 #[cfg(feature = "client")]

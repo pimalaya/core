@@ -7,19 +7,21 @@
 
 #[cfg(feature = "tcp-binder")]
 mod tcp;
+use async_trait::async_trait;
 #[cfg(feature = "tcp-binder")]
 pub use tcp::*;
 
 use log::{debug, trace};
 use std::{
+    future::Future,
     io,
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex},
-    thread,
+    sync::Arc,
     time::Duration,
 };
+use tokio::{sync::Mutex, task, time};
 
-use crate::{TimerCycle, TimerLoop};
+use crate::{RequestReader, ResponseWriter, TimerCycle, TimerLoop};
 
 use super::{Request, Response, ThreadSafeTimer, TimerConfig, TimerEvent};
 
@@ -82,32 +84,24 @@ impl ThreadSafeState {
     }
 
     /// Change the inner server state with the given one.
-    fn set(&self, next_state: ServerState) -> io::Result<()> {
-        match self.lock() {
-            Ok(mut state) => {
-                *state = next_state;
-                Ok(())
-            }
-            Err(err) => Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("cannot lock server state: {err}"),
-            )),
-        }
+    async fn set(&self, next_state: ServerState) {
+        let mut state = self.lock().await;
+        *state = next_state;
     }
 
     /// Change the inner server state to running.
-    pub fn set_running(&self) -> io::Result<()> {
-        self.set(ServerState::Running)
+    pub async fn set_running(&self) {
+        self.set(ServerState::Running).await
     }
 
     /// Change the inner server state to stopping.
-    pub fn set_stopping(&self) -> io::Result<()> {
-        self.set(ServerState::Stopping)
+    pub async fn set_stopping(&self) {
+        self.set(ServerState::Stopping).await
     }
 
     /// Change the inner server state to stopped.
-    pub fn set_stopped(&self) -> io::Result<()> {
-        self.set(ServerState::Stopped)
+    pub async fn set_stopped(&self) {
+        self.set(ServerState::Stopped).await
     }
 }
 
@@ -128,10 +122,11 @@ impl DerefMut for ThreadSafeState {
 /// The server bind trait.
 ///
 /// [`ServerBind`]ers must implement this trait.
-pub trait ServerBind: Sync + Send {
+#[async_trait]
+pub trait ServerBind: Send + Sync {
     /// Describe how the server should bind to accept connections from
     /// clients.
-    fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()>;
+    async fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()>;
 }
 
 /// The server stream trait.
@@ -140,12 +135,10 @@ pub trait ServerBind: Sync + Send {
 /// mandatory. It can be seen as a helper: by implementing the
 /// [`ServerStream::read`] and the [`ServerStream::write`] functions,
 /// the trait can deduce how to handle a request.
-pub trait ServerStream<T> {
-    fn read(&self, stream: &T) -> io::Result<Request>;
-    fn write(&self, stream: &mut T, res: Response) -> io::Result<()>;
-
-    fn handle(&self, timer: ThreadSafeTimer, stream: &mut T) -> io::Result<()> {
-        let req = self.read(stream)?;
+#[async_trait]
+pub trait ServerStream: RequestReader + ResponseWriter {
+    async fn handle(&mut self, timer: ThreadSafeTimer) -> io::Result<()> {
+        let req = self.read().await?;
         let res = match req {
             Request::Start => {
                 debug!("starting timer");
@@ -179,10 +172,12 @@ pub trait ServerStream<T> {
                 Response::Ok
             }
         };
-        self.write(stream, res)?;
+        self.write(res).await?;
         Ok(())
     }
 }
+
+impl<T: RequestReader + ResponseWriter> ServerStream for T {}
 
 /// The server struct.
 #[derive(Default)]
@@ -202,7 +197,10 @@ impl Server {
     /// well as all the binders in dedicated threads.
     ///
     /// The main thread is then blocked by the given `wait` closure.
-    pub fn bind_with(self, wait: impl Fn() -> io::Result<()>) -> io::Result<()> {
+    pub async fn bind_with<F: Future<Output = io::Result<()>>>(
+        self,
+        wait: impl FnOnce() -> F,
+    ) -> io::Result<()> {
         debug!("starting server");
 
         let fire_event = |event: ServerEvent| {
@@ -212,15 +210,16 @@ impl Server {
             }
         };
 
-        self.state.set_running()?;
+        self.state.set_running().await;
         fire_event(ServerEvent::Started);
 
         // the tick represents the timer running in a separated thread
         let state = self.state.clone();
         let timer = self.timer.clone();
-        let tick = thread::spawn(move || loop {
-            match state.lock() {
-                Ok(mut state) => match *state {
+        let tick = task::spawn(async move {
+            loop {
+                let mut state = state.lock().await;
+                match *state {
                     ServerState::Stopping => {
                         *state = ServerState::Stopped;
                         break;
@@ -236,37 +235,33 @@ impl Server {
                             break;
                         }
                     }
-                },
-                Err(err) => {
-                    debug!("cannot determine if server should stop, exiting: {err}");
-                    debug!("{err:?}");
-                    break;
-                }
-            }
+                };
+                drop(state);
 
-            trace!("timer tick: {timer:#?}");
-            thread::sleep(Duration::from_secs(1));
+                trace!("timer tick: {timer:#?}");
+                time::sleep(Duration::from_secs(1)).await;
+            }
         });
 
         // start all binders in dedicated threads in order not to
         // block the main thread
         for binder in self.config.binders {
             let timer = self.timer.clone();
-            thread::spawn(move || {
-                if let Err(err) = binder.bind(timer) {
+            task::spawn(async move {
+                if let Err(err) = binder.bind(timer).await {
                     debug!("cannot bind, exiting: {err}");
                     debug!("{err:?}");
                 }
             });
         }
 
-        wait()?;
+        wait().await?;
 
-        self.state.set_stopping()?;
+        self.state.set_stopping().await;
         fire_event(ServerEvent::Stopping);
 
         // wait for the timer thread to stop before exiting
-        tick.join()
+        tick.await
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "cannot wait for timer thread"))?;
         fire_event(ServerEvent::Stopped);
 
@@ -275,10 +270,13 @@ impl Server {
 
     /// Wrapper around [`Server::bind_with`] where the `wait` closure
     /// sleeps every second in an infinite loop.
-    pub fn bind(self) -> io::Result<()> {
-        self.bind_with(|| loop {
-            thread::sleep(Duration::from_secs(1));
+    pub async fn bind(self) -> io::Result<()> {
+        self.bind_with(|| async {
+            loop {
+                time::sleep(Duration::from_secs(1)).await;
+            }
         })
+        .await
     }
 }
 

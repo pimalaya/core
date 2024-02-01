@@ -3,13 +3,16 @@
 //! This module contains the implementation of the TCP client, based
 //! on [`std::net::TcpStream`].
 
-use log::trace;
-use std::{
-    io::{self, BufRead, BufReader, Write},
+use async_trait::async_trait;
+use std::io;
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt},
     net::TcpStream,
 };
 
-use crate::{Client, ClientStream, Request, Response, Timer};
+use crate::{
+    tcp::TcpHandler, Client, ClientStream, Request, RequestWriter, Response, ResponseReader, Timer,
+};
 
 /// The TCP client.
 ///
@@ -33,15 +36,39 @@ impl TcpClient {
     }
 }
 
-impl ClientStream<TcpStream> for TcpClient {
-    /// Read the given [`std::net::TcpStream`] to extract the response
-    /// sent by the server.
-    fn read(&self, stream: &TcpStream) -> io::Result<Response> {
-        let mut reader = BufReader::new(stream);
-        let mut res = String::new();
-        reader.read_line(&mut res).unwrap();
+#[async_trait]
+impl Client for TcpClient {
+    /// Send the given request to the TCP server.
+    async fn send(&self, req: Request) -> io::Result<Response> {
+        let stream = TcpStream::connect((self.host.as_str(), self.port)).await?;
+        let mut handler = TcpHandler::from(stream);
+        handler.handle(req).await
+    }
+}
 
-        trace!("receiving response: {res:?}");
+#[async_trait]
+impl RequestWriter for TcpHandler {
+    async fn write(&mut self, req: Request) -> io::Result<()> {
+        let req = match req {
+            Request::Start => format!("start\n"),
+            Request::Get => format!("get\n"),
+            Request::Set(duration) => format!("set {duration}\n"),
+            Request::Pause => format!("pause\n"),
+            Request::Resume => format!("resume\n"),
+            Request::Stop => format!("stop\n"),
+        };
+
+        self.writer.write_all(req.as_bytes()).await?;
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl ResponseReader for TcpHandler {
+    async fn read(&mut self) -> io::Result<Response> {
+        let mut res = String::new();
+        self.reader.read_line(&mut res).await?;
 
         let mut tokens = res.split_whitespace();
         match tokens.next() {
@@ -66,33 +93,5 @@ impl ClientStream<TcpStream> for TcpClient {
                 "missing response".to_owned(),
             )),
         }
-    }
-
-    /// Write the given request to the given [`std::net::TcpStream`].
-    fn write(&self, stream: &mut TcpStream, req: Request) -> io::Result<()> {
-        trace!("sending request: {req:?}");
-
-        let req = match req {
-            Request::Start => String::from("start"),
-            Request::Get => String::from("get"),
-            Request::Set(duration) => format!("set {duration}"),
-            Request::Pause => String::from("pause"),
-            Request::Resume => String::from("resume"),
-            Request::Stop => String::from("stop"),
-        };
-        stream.write_all((req + "\n").as_bytes())?;
-        Ok(())
-    }
-}
-
-impl Client for TcpClient {
-    /// Send the given request to the TCP server.
-    ///
-    /// To send a request, the [`TcpClient`] retrieves the
-    /// [`std::net::TcpStream`] by connecting to the server, then
-    /// handles it using the helper [`crate::ClientStream::handle`].
-    fn send(&self, req: Request) -> io::Result<Response> {
-        let mut stream = TcpStream::connect((self.host.as_str(), self.port))?;
-        self.handle(&mut stream, req)
     }
 }

@@ -3,13 +3,18 @@
 //! This module contains the implementation of the TCP server binder,
 //! based on [`std::net::TcpStream`].
 
-use log::{debug, trace};
-use std::{
-    io::{self, BufRead, BufReader, Write},
-    net::{TcpListener, TcpStream},
+use async_trait::async_trait;
+use log::debug;
+use std::io;
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt},
+    net::TcpListener,
 };
 
-use crate::{Request, Response, ServerBind, ServerStream, ThreadSafeTimer};
+use crate::{
+    tcp::TcpHandler, Request, RequestReader, Response, ResponseWriter, ServerBind, ServerStream,
+    ThreadSafeTimer,
+};
 
 /// The TCP server binder.
 ///
@@ -33,15 +38,41 @@ impl TcpBind {
     }
 }
 
-impl ServerStream<TcpStream> for TcpBind {
-    /// Read the given [`std::net::TcpStream`] to extract the request
-    /// sent by the client.
-    fn read(&self, stream: &TcpStream) -> io::Result<Request> {
-        let mut reader = BufReader::new(stream);
-        let mut req = String::new();
-        reader.read_line(&mut req).unwrap();
+#[async_trait]
+impl ServerBind for TcpBind {
+    /// Bind the TCP listener.
+    ///
+    /// To bind, the [`TcpBind`] gets a [`std::net::TcpListener`] then
+    /// indefinitely waits for incoming requests. When a connection
+    /// comes, [`TcpBind`] retrieves the associated
+    /// [`std::net::TcpStream`] and send it to the helper
+    /// [`crate::ServerStream::handle`].
+    async fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()> {
+        let listener = TcpListener::bind((self.host.as_str(), self.port)).await?;
 
-        trace!("receiving request: {req:?}");
+        loop {
+            match listener.accept().await {
+                Ok((stream, _)) => {
+                    let mut handler = TcpHandler::from(stream);
+                    if let Err(err) = handler.handle(timer.clone()).await {
+                        debug!("cannot handle request");
+                        debug!("{err:?}");
+                    }
+                }
+                Err(err) => {
+                    debug!("cannot get stream from client");
+                    debug!("{err:?}");
+                }
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl RequestReader for TcpHandler {
+    async fn read(&mut self) -> io::Result<Request> {
+        let mut req = String::new();
+        self.reader.read_line(&mut req).await?;
 
         let mut tokens = req.split_whitespace();
         match tokens.next() {
@@ -71,45 +102,19 @@ impl ServerStream<TcpStream> for TcpBind {
             )),
         }
     }
-
-    /// Write the given response to the given [`std::net::TcpStream`].
-    fn write(&self, stream: &mut TcpStream, res: Response) -> io::Result<()> {
-        trace!("sending response: {res:?}");
-
-        let res = match res {
-            Response::Ok => String::from("ok"),
-            Response::Timer(timer) => format!("timer {}", serde_json::to_string(&timer).unwrap()),
-        };
-        stream.write_all((res + "\n").as_bytes())?;
-        Ok(())
-    }
 }
 
-impl ServerBind for TcpBind {
-    /// Bind the TCP listener.
-    ///
-    /// To bind, the [`TcpBind`] gets a [`std::net::TcpListener`] then
-    /// indefinitely waits for incoming requests. When a connection
-    /// comes, [`TcpBind`] retrieves the associated
-    /// [`std::net::TcpStream`] and send it to the helper
-    /// [`crate::ServerStream::handle`].
-    fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()> {
-        let binder = TcpListener::bind((self.host.as_str(), self.port))?;
+#[async_trait]
+impl ResponseWriter for TcpHandler {
+    async fn write(&mut self, res: Response) -> io::Result<()> {
+        let res = match res {
+            Response::Ok => format!("ok\n"),
+            Response::Timer(timer) => {
+                format!("timer {}\n", serde_json::to_string(&timer).unwrap())
+            }
+        };
 
-        for stream in binder.incoming() {
-            match stream {
-                Err(err) => {
-                    debug!("cannot get stream from client: {err}");
-                    debug!("{err:?}");
-                }
-                Ok(mut stream) => {
-                    if let Err(err) = self.handle(timer.clone(), &mut stream) {
-                        debug!("cannot handle request: {err}");
-                        debug!("{err:?}");
-                    }
-                }
-            };
-        }
+        self.writer.write_all(res.as_bytes()).await?;
 
         Ok(())
     }

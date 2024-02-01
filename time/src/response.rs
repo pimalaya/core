@@ -3,6 +3,9 @@
 //! A [`Response`] is the type of data sent by the server to the
 //! client straight after receiving a request.
 
+use async_trait::async_trait;
+use std::io;
+
 use super::Timer;
 
 /// The response struct.
@@ -15,4 +18,14 @@ pub enum Response {
 
     /// Response that contains the current timer.
     Timer(Timer),
+}
+
+#[async_trait]
+pub trait ResponseReader: Send + Sync {
+    async fn read(&mut self) -> io::Result<Response>;
+}
+
+#[async_trait]
+pub trait ResponseWriter: Send + Sync {
+    async fn write(&mut self, res: Response) -> io::Result<()>;
 }

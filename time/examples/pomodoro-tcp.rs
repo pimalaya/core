@@ -1,10 +1,11 @@
-use std::{thread, time::Duration};
+use std::time::Duration;
 use time::{ServerBuilder, ServerEvent, TcpBind, TcpClient, TimerEvent};
 
 const HOST: &str = "127.0.0.1";
 const PORT: u16 = 3000;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let server = ServerBuilder::new()
         .with_server_handler(|event: ServerEvent| {
             println!("server event: {event:?}");
@@ -20,22 +21,23 @@ fn main() {
         .unwrap();
 
     server
-        .bind_with(|| {
+        .bind_with(|| async {
             // wait for the binder to be ready
-            thread::sleep(Duration::from_secs(1));
+            tokio::time::sleep(Duration::from_secs(1)).await;
 
             let client = TcpClient::new(HOST, PORT);
 
-            client.start().unwrap();
-            thread::sleep(Duration::from_secs(1));
+            client.start().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(1)).await;
 
-            client.pause().unwrap();
-            thread::sleep(Duration::from_secs(1));
+            client.pause().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(1)).await;
 
-            let timer = client.get().unwrap();
+            let timer = client.get().await.unwrap();
             println!("current timer: {timer:?}");
 
             Ok(())
         })
+        .await
         .unwrap();
 }
