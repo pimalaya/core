@@ -9,7 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Renamed cargo feature `tcp` to `tcp-full`. The cargo feature `tcp` still exists but for internal usage.
 - Made the code asynchronous, using `tokio`.
 - Moved `ServerStream::read` and `ServerStream::write` to `request::RequestReader` and `response::ResponseWriter`.
 - Changed `ServerStream` signature to `ServerStream: RequestReader + ResponseWriter`

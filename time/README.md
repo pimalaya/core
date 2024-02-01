@@ -1,6 +1,6 @@
 # ⏳ time-lib
 
-Rust library to manage time.
+Rust library to manage personal time.
 
 See the full [API documentation](https://docs.rs/time-lib/latest/time/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/examples).
 

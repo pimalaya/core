@@ -144,33 +144,33 @@ pub trait ServerStream: RequestReader + ResponseWriter {
         let res = match req {
             Request::Start => {
                 debug!("starting timer");
-                timer.start()?;
+                timer.start().await?;
                 Response::Ok
             }
             Request::Get => {
                 debug!("getting timer");
-                let timer = timer.get()?;
+                let timer = timer.get().await;
                 trace!("{timer:#?}");
                 Response::Timer(timer)
             }
             Request::Set(duration) => {
                 debug!("setting timer");
-                timer.set(duration)?;
+                timer.set(duration).await?;
                 Response::Ok
             }
             Request::Pause => {
                 debug!("pausing timer");
-                timer.pause()?;
+                timer.pause().await?;
                 Response::Ok
             }
             Request::Resume => {
                 debug!("resuming timer");
-                timer.resume()?;
+                timer.resume().await?;
                 Response::Ok
             }
             Request::Stop => {
                 debug!("stopping timer");
-                timer.stop()?;
+                timer.stop().await?;
                 Response::Ok
             }
         };
@@ -230,12 +230,7 @@ impl Server {
                         break;
                     }
                     ServerState::Running => {
-                        if let Err(err) = timer.update() {
-                            debug!("cannot update timer, exiting: {err}");
-                            debug!("{err:?}");
-                            *state = ServerState::Stopping;
-                            break;
-                        }
+                        timer.update().await;
                     }
                 };
                 drop(state);

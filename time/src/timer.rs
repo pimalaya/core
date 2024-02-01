@@ -5,18 +5,21 @@
 //! cycles count (infinite or finite). During the lifetime of the
 //! timer, timer events are triggered.
 
-use log::debug;
-#[cfg(test)]
+#[cfg(all(feature = "server", test))]
 use mock_instant::Instant;
 use serde::{Deserialize, Serialize};
-#[cfg(not(test))]
+#[cfg(feature = "server")]
+use std::io::{Error, ErrorKind};
+#[cfg(all(feature = "server", not(test)))]
 use std::time::Instant;
 use std::{
     fmt,
-    io::{Error, ErrorKind, Result},
+    io::Result,
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::Arc,
 };
+#[cfg(feature = "server")]
+use tokio::sync::Mutex;
 
 /// The timer loop.
 ///
@@ -178,6 +181,7 @@ impl Default for TimerConfig {
     }
 }
 
+#[cfg(feature = "server")]
 impl TimerConfig {
     fn clone_first_cycle(&self) -> Result<TimerCycle> {
         self.cycles.first().cloned().ok_or_else(|| {
@@ -221,9 +225,18 @@ impl fmt::Debug for Timer {
 }
 
 impl Eq for Timer {}
+
+#[cfg(feature = "server")]
 impl PartialEq for Timer {
     fn eq(&self, other: &Self) -> bool {
         self.state == other.state && self.cycle == other.cycle && self.elapsed() == other.elapsed()
+    }
+}
+
+#[cfg(not(feature = "server"))]
+impl PartialEq for Timer {
+    fn eq(&self, other: &Self) -> bool {
+        self.state == other.state && self.cycle == other.cycle
     }
 }
 
@@ -296,8 +309,8 @@ impl Timer {
 
     pub fn fire_event(&self, event: TimerEvent) {
         if let Err(err) = (self.config.handler)(event.clone()) {
-            debug!("cannot fire event {event:?}, skipping it: {err}");
-            debug!("{err:?}");
+            log::debug!("cannot fire event {event:?}");
+            log::debug!("{err:?}");
         }
     }
 
@@ -370,6 +383,7 @@ pub struct ThreadSafeTimer(Arc<Mutex<Timer>>);
 impl ThreadSafeTimer {
     pub fn new(config: TimerConfig) -> Result<Self> {
         let mut timer = Timer::default();
+
         timer.config = config;
         timer.cycle = timer.config.clone_first_cycle()?;
         timer.cycles_count = timer.config.cycles_count.clone();
@@ -377,40 +391,32 @@ impl ThreadSafeTimer {
         Ok(Self(Arc::new(Mutex::new(timer))))
     }
 
-    pub fn with_timer<T>(&self, run: impl Fn(MutexGuard<Timer>) -> Result<T>) -> Result<T> {
-        let timer = self
-            .0
-            .lock()
-            .map_err(|err| Error::new(ErrorKind::Other, err.to_string()))?;
-        run(timer)
+    pub async fn update(&self) {
+        self.0.lock().await.update();
     }
 
-    pub fn update(&self) -> Result<()> {
-        self.with_timer(|mut timer| Ok(timer.update()))
+    pub async fn start(&self) -> Result<()> {
+        self.0.lock().await.start()
     }
 
-    pub fn start(&self) -> Result<()> {
-        self.with_timer(|mut timer| timer.start())
+    pub async fn get(&self) -> Timer {
+        self.0.lock().await.clone()
     }
 
-    pub fn get(&self) -> Result<Timer> {
-        self.with_timer(|timer| Ok(timer.clone()))
+    pub async fn set(&self, duration: usize) -> Result<()> {
+        self.0.lock().await.set(duration)
     }
 
-    pub fn set(&self, duration: usize) -> Result<()> {
-        self.with_timer(|mut timer| timer.set(duration))
+    pub async fn pause(&self) -> Result<()> {
+        self.0.lock().await.pause()
     }
 
-    pub fn pause(&self) -> Result<()> {
-        self.with_timer(|mut timer| timer.pause())
+    pub async fn resume(&self) -> Result<()> {
+        self.0.lock().await.resume()
     }
 
-    pub fn resume(&self) -> Result<()> {
-        self.with_timer(|mut timer| timer.resume())
-    }
-
-    pub fn stop(&self) -> Result<()> {
-        self.with_timer(|mut timer| timer.stop())
+    pub async fn stop(&self) -> Result<()> {
+        self.0.lock().await.stop()
     }
 }
 
@@ -556,8 +562,8 @@ mod tests {
     }
 
     #[cfg(feature = "server")]
-    #[test]
-    fn thread_safe_timer() {
+    #[tokio::test]
+    async fn thread_safe_timer() {
         let mut timer = testing_timer();
         let events: Arc<Mutex<Vec<TimerEvent>>> = Arc::new(Mutex::new(Vec::new()));
 
@@ -570,7 +576,7 @@ mod tests {
         let timer = ThreadSafeTimer::new(timer.config).unwrap();
 
         assert_eq!(
-            timer.get().unwrap(),
+            timer.get().await,
             Timer {
                 state: TimerState::Stopped,
                 cycle: TimerCycle::new("a", 3),
@@ -578,11 +584,11 @@ mod tests {
             }
         );
 
-        timer.start().unwrap();
-        timer.set(21).unwrap();
+        timer.start().await.unwrap();
+        timer.set(21).await.unwrap();
 
         assert_eq!(
-            timer.get().unwrap(),
+            timer.get().await,
             Timer {
                 state: TimerState::Running,
                 cycle: TimerCycle::new("a", 21),
@@ -591,7 +597,7 @@ mod tests {
         );
 
         assert_eq!(
-            timer.get().unwrap(),
+            timer.get().await,
             Timer {
                 state: TimerState::Running,
                 cycle: TimerCycle::new("a", 21),
@@ -599,10 +605,10 @@ mod tests {
             }
         );
 
-        timer.pause().unwrap();
+        timer.pause().await.unwrap();
 
         assert_eq!(
-            timer.get().unwrap(),
+            timer.get().await,
             Timer {
                 state: TimerState::Paused,
                 cycle: TimerCycle::new("a", 21),
@@ -610,10 +616,10 @@ mod tests {
             }
         );
 
-        timer.resume().unwrap();
+        timer.resume().await.unwrap();
 
         assert_eq!(
-            timer.get().unwrap(),
+            timer.get().await,
             Timer {
                 state: TimerState::Running,
                 cycle: TimerCycle::new("a", 21),
@@ -621,10 +627,10 @@ mod tests {
             }
         );
 
-        timer.stop().unwrap();
+        timer.stop().await.unwrap();
 
         assert_eq!(
-            timer.get().unwrap(),
+            timer.get().await,
             Timer {
                 state: TimerState::Stopped,
                 cycle: TimerCycle::new("a", 3),

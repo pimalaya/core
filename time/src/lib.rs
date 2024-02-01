@@ -2,12 +2,12 @@
 //!
 //! Rust library to manange time.
 //!
-//! The core concept is the [`Timer`], which gathers information about
-//! the cycle and the state. The [`Server`] runs the timer and accepts
-//! connection from [`Client`]s using [`ServerBind`]ers. The clients
-//! communicate with the server using [`Request`]s and [`Response`]s,
-//! which allow them to control the timer. The timer can be customized
-//! using [`TimerConfig`] and [`TimerCycle`].
+//! The core concept is the [`Timer`], which contains information
+//! about the cycle and the state. The [`Server`] runs the timer and
+//! accepts connection from [`Client`]s using [`ServerBind`]ers. The
+//! clients communicate with the server using [`Request`]s and
+//! [`Response`]s, which allow them to control the timer. The timer
+//! can be customized using [`TimerConfig`] and [`TimerCycle`].
 //!
 //! ```text,ignore
 //! ┌────────────────────────┐
@@ -56,6 +56,6 @@ pub mod request;
 pub mod response;
 #[cfg(feature = "server")]
 pub mod server;
-#[cfg(feature = "tcp")]
+#[cfg(feature = "tcp-any")]
 pub mod tcp;
 pub mod timer;
