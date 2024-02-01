@@ -59,16 +59,3 @@ pub mod server;
 #[cfg(feature = "tcp")]
 pub mod tcp;
 pub mod timer;
-
-#[cfg(feature = "client")]
-#[doc(inline)]
-pub use client::*;
-#[doc(inline)]
-pub use request::*;
-#[doc(inline)]
-pub use response::*;
-#[cfg(feature = "server")]
-#[doc(inline)]
-pub use server::*;
-#[doc(inline)]
-pub use timer::*;

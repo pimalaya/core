@@ -1,9 +1,9 @@
-//! # Timer module.
+//! # Timer
 //!
-//! The [`Timer`] is the core structure of this module. A timer can be
-//! configured with [`TimerConfig`]. The state of the timer is managed
-//! by [`TimerState`], [`TimerCycle`] and [`TimerLoop`]. During the
-//! lifetime of the timer, [`TimerEvent`] are triggered.
+//! This module contains everything related to the timer. A timer can
+//! be identified by a state (running or stopped), a cycle and a
+//! cycles count (infinite or finite). During the lifetime of the
+//! timer, timer events are triggered.
 
 use log::debug;
 #[cfg(test)]
@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(not(test))]
 use std::time::Instant;
 use std::{
-    fmt, io,
+    fmt,
+    io::{Error, ErrorKind, Result},
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex, MutexGuard},
 };
@@ -25,8 +26,9 @@ use std::{
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TimerLoop {
     /// The timer loops indefinitely and therefore never stops by
-    /// itself. The only way to stop such timer is via a stop
-    /// requests.
+    /// itself.
+    ///
+    /// The only way to stop such timer is via a stop request.
     #[default]
     Infinite,
 
@@ -44,7 +46,41 @@ impl From<usize> for TimerLoop {
     }
 }
 
-/// The timer [cycles](crate::TimerCycle) list.
+/// The timer cycle.
+///
+/// A cycle is a step in the timer lifetime, represented by a name and
+/// a duration.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TimerCycle {
+    /// The name of the timer cycle.
+    pub name: String,
+
+    /// The duration of the timer cycle.
+    ///
+    /// This field has two meanings, depending on where it is
+    /// used. *From the config point of view*, the duration represents
+    /// the total duration of the cycle. *From the timer point of
+    /// view*, the duration represents the amount of time remaining
+    /// before the cycle ends.
+    pub duration: usize,
+}
+
+impl TimerCycle {
+    pub fn new(name: impl ToString, duration: usize) -> Self {
+        Self {
+            name: name.to_string(),
+            duration,
+        }
+    }
+}
+
+impl<T: ToString> From<(T, usize)> for TimerCycle {
+    fn from((name, duration): (T, usize)) -> Self {
+        Self::new(name, duration)
+    }
+}
+
+/// The timer cycles list.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TimerCycles(Vec<TimerCycle>);
 
@@ -68,39 +104,10 @@ impl DerefMut for TimerCycles {
     }
 }
 
-/// The timer cycle.
-///
-/// A cycle is a step in the timer lifetime, represented by a name and
-/// a duration.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-pub struct TimerCycle {
-    /// The name of the timer cycle.
-    pub name: String,
-
-    /// The duration of the timer cycle. This field has two meanings,
-    /// depending on where it is used. *From the config point of
-    /// view*, the duration represents the total duration of the
-    /// cycle. *From the timer point of view*, the duration represents
-    /// the amount of time remaining before the cycle ends.
-    pub duration: usize,
-}
-
-impl TimerCycle {
-    pub fn new(name: impl ToString, duration: usize) -> Self {
-        Self {
-            name: name.to_string(),
-            duration,
-        }
-    }
-}
-
-impl<T: ToString> From<(T, usize)> for TimerCycle {
-    fn from((name, duration): (T, usize)) -> Self {
-        Self::new(name, duration)
-    }
-}
-
 /// The timer state.
+///
+/// Enumeration of all the possible state of a timer: running, paused
+/// or stopped.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TimerState {
     /// The timer is running.
@@ -115,6 +122,9 @@ pub enum TimerState {
 }
 
 /// The timer event.
+///
+/// Enumeration of all possible events that can be triggered during
+/// the timer lifecycle.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TimerEvent {
     /// The timer started.
@@ -142,14 +152,19 @@ pub enum TimerEvent {
     Stopped,
 }
 
-/// The timer changed handler.
-pub type TimerChangedHandler = Arc<dyn Fn(TimerEvent) -> io::Result<()> + Sync + Send>;
+/// The timer changed event handler alias.
+pub type TimerChangedHandler = Arc<dyn Fn(TimerEvent) -> Result<()> + Sync + Send>;
 
 /// The timer configuration.
 #[derive(Clone)]
 pub struct TimerConfig {
+    /// The list of custom timer cycles.
     pub cycles: TimerCycles,
+
+    /// The timer cycles counter.
     pub cycles_count: TimerLoop,
+
+    /// The timer event handler.
     pub handler: TimerChangedHandler,
 }
 
@@ -164,17 +179,17 @@ impl Default for TimerConfig {
 }
 
 impl TimerConfig {
-    fn clone_first_cycle(&self) -> io::Result<TimerCycle> {
+    fn clone_first_cycle(&self) -> Result<TimerCycle> {
         self.cycles.first().cloned().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::NotFound,
+            Error::new(
+                ErrorKind::NotFound,
                 "cannot find first cycle from timer config",
             )
         })
     }
 }
 
-/// The timer struct.
+/// The main timer struct.
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Timer {
     /// The current timer configuration.
@@ -186,12 +201,15 @@ pub struct Timer {
 
     /// The current timer cycle.
     pub cycle: TimerCycle,
+
     /// The current cycles counter.
     pub cycles_count: TimerLoop,
 
     #[cfg(feature = "server")]
     #[serde(skip)]
     pub started_at: Option<Instant>,
+
+    #[cfg(feature = "server")]
     pub elapsed: usize,
 }
 
@@ -289,7 +307,7 @@ impl Timer {
         }
     }
 
-    pub fn start(&mut self) -> io::Result<()> {
+    pub fn start(&mut self) -> Result<()> {
         if matches!(self.state, TimerState::Stopped) {
             self.state = TimerState::Running;
             self.cycle = self.config.clone_first_cycle()?;
@@ -301,13 +319,13 @@ impl Timer {
         Ok(())
     }
 
-    pub fn set(&mut self, duration: usize) -> io::Result<()> {
+    pub fn set(&mut self, duration: usize) -> Result<()> {
         self.cycle.duration = duration;
         self.fire_event(TimerEvent::Set(self.cycle.clone()));
         Ok(())
     }
 
-    pub fn pause(&mut self) -> io::Result<()> {
+    pub fn pause(&mut self) -> Result<()> {
         if matches!(self.state, TimerState::Running) {
             self.state = TimerState::Paused;
             self.elapsed = self.elapsed();
@@ -317,7 +335,7 @@ impl Timer {
         Ok(())
     }
 
-    pub fn resume(&mut self) -> io::Result<()> {
+    pub fn resume(&mut self) -> Result<()> {
         if matches!(self.state, TimerState::Paused) {
             self.state = TimerState::Running;
             self.started_at = Some(Instant::now());
@@ -326,7 +344,7 @@ impl Timer {
         Ok(())
     }
 
-    pub fn stop(&mut self) -> io::Result<()> {
+    pub fn stop(&mut self) -> Result<()> {
         if matches!(self.state, TimerState::Running) {
             self.state = TimerState::Stopped;
             self.fire_events([TimerEvent::Ended(self.cycle.clone()), TimerEvent::Stopped]);
@@ -350,7 +368,7 @@ pub struct ThreadSafeTimer(Arc<Mutex<Timer>>);
 
 #[cfg(feature = "server")]
 impl ThreadSafeTimer {
-    pub fn new(config: TimerConfig) -> io::Result<Self> {
+    pub fn new(config: TimerConfig) -> Result<Self> {
         let mut timer = Timer::default();
         timer.config = config;
         timer.cycle = timer.config.clone_first_cycle()?;
@@ -359,39 +377,39 @@ impl ThreadSafeTimer {
         Ok(Self(Arc::new(Mutex::new(timer))))
     }
 
-    pub fn with_timer<T>(&self, run: impl Fn(MutexGuard<Timer>) -> io::Result<T>) -> io::Result<T> {
+    pub fn with_timer<T>(&self, run: impl Fn(MutexGuard<Timer>) -> Result<T>) -> Result<T> {
         let timer = self
             .0
             .lock()
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+            .map_err(|err| Error::new(ErrorKind::Other, err.to_string()))?;
         run(timer)
     }
 
-    pub fn update(&self) -> io::Result<()> {
+    pub fn update(&self) -> Result<()> {
         self.with_timer(|mut timer| Ok(timer.update()))
     }
 
-    pub fn start(&self) -> io::Result<()> {
+    pub fn start(&self) -> Result<()> {
         self.with_timer(|mut timer| timer.start())
     }
 
-    pub fn get(&self) -> io::Result<Timer> {
+    pub fn get(&self) -> Result<Timer> {
         self.with_timer(|timer| Ok(timer.clone()))
     }
 
-    pub fn set(&self, duration: usize) -> io::Result<()> {
+    pub fn set(&self, duration: usize) -> Result<()> {
         self.with_timer(|mut timer| timer.set(duration))
     }
 
-    pub fn pause(&self) -> io::Result<()> {
+    pub fn pause(&self) -> Result<()> {
         self.with_timer(|mut timer| timer.pause())
     }
 
-    pub fn resume(&self) -> io::Result<()> {
+    pub fn resume(&self) -> Result<()> {
         self.with_timer(|mut timer| timer.resume())
     }
 
-    pub fn stop(&self) -> io::Result<()> {
+    pub fn stop(&self) -> Result<()> {
         self.with_timer(|mut timer| timer.stop())
     }
 }
@@ -420,7 +438,7 @@ mod tests {
         time::Duration,
     };
 
-    use crate::{Timer, TimerConfig, TimerCycle, TimerCycles, TimerEvent, TimerState};
+    use super::*;
 
     fn testing_timer() -> Timer {
         Timer {
@@ -540,8 +558,6 @@ mod tests {
     #[cfg(feature = "server")]
     #[test]
     fn thread_safe_timer() {
-        use crate::ThreadSafeTimer;
-
         let mut timer = testing_timer();
         let events: Arc<Mutex<Vec<TimerEvent>>> = Arc::new(Mutex::new(Vec::new()));
 

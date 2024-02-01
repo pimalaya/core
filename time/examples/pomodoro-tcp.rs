@@ -1,8 +1,12 @@
 use std::time::Duration;
-use time::{ServerBuilder, ServerEvent, TcpBind, TcpClient, TimerEvent};
+use time::{
+    client::tcp::TcpClient,
+    server::{tcp::TcpBind, ServerBuilder, ServerEvent},
+    timer::TimerEvent,
+};
 
-const HOST: &str = "127.0.0.1";
-const PORT: u16 = 3000;
+static HOST: &str = "127.0.0.1";
+static PORT: u16 = 3000;
 
 #[tokio::main]
 async fn main() {

@@ -1,25 +1,22 @@
-//! # Client module.
+//! # Client
 //!
 //! The client connects to the server, sends requests in order to
 //! control the timer and receive responses.
 //!
-//! A client must implement the [`Client`] trait. A client may
-//! implement the [`ClientStream`] trait as well in order to reduce
-//! the complexity of the [`Client`]'s implementation.
+//! The client must implement the [`Client`] trait.
 
 #[cfg(feature = "tcp-client")]
-mod tcp;
+pub mod tcp;
 
 use async_trait::async_trait;
 use log::{info, trace};
-use std::io;
+use std::io::{Error, ErrorKind, Result};
 
-use crate::{RequestWriter, ResponseReader};
-
-use super::{Request, Response, Timer};
-
-#[cfg(feature = "tcp-client")]
-pub use self::tcp::*;
+use crate::{
+    request::{Request, RequestWriter},
+    response::{Response, ResponseReader},
+    timer::Timer,
+};
 
 /// The client trait.
 ///
@@ -28,22 +25,25 @@ pub use self::tcp::*;
 /// connect and send requests to the server.
 #[async_trait]
 pub trait Client: Send + Sync {
-    async fn send(&self, req: Request) -> io::Result<Response>;
+    /// Send the given request and returns the associated response.
+    async fn send(&self, req: Request) -> Result<Response>;
 
-    async fn start(&self) -> io::Result<()> {
+    /// Send the start timer request.
+    async fn start(&self) -> Result<()> {
         info!("sending request to start timer");
 
         match self.send(Request::Start).await {
             Ok(Response::Ok) => Ok(()),
-            Ok(res) => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
+            Ok(res) => Err(Error::new(
+                ErrorKind::InvalidData,
                 format!("invalid response: {res:?}"),
             )),
-            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+            Err(err) => Err(Error::new(ErrorKind::Other, err)),
         }
     }
 
-    async fn get(&self) -> io::Result<Timer> {
+    /// Send the get timer request.
+    async fn get(&self) -> Result<Timer> {
         info!("sending request to get timer");
 
         match self.send(Request::Get).await {
@@ -51,76 +51,75 @@ pub trait Client: Send + Sync {
                 trace!("timer: {timer:#?}");
                 Ok(timer)
             }
-            Ok(res) => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
+            Ok(res) => Err(Error::new(
+                ErrorKind::InvalidData,
                 format!("invalid response: {res:?}"),
             )),
-            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+            Err(err) => Err(Error::new(ErrorKind::Other, err)),
         }
     }
 
-    async fn set(&self, duration: usize) -> io::Result<()> {
+    /// Send the set timer request.
+    async fn set(&self, duration: usize) -> Result<()> {
         info!("sending request to set timer duration");
 
         match self.send(Request::Set(duration)).await {
             Ok(Response::Ok) => Ok(()),
-            Ok(res) => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
+            Ok(res) => Err(Error::new(
+                ErrorKind::InvalidData,
                 format!("invalid response: {res:?}"),
             )),
-            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+            Err(err) => Err(Error::new(ErrorKind::Other, err)),
         }
     }
 
-    async fn pause(&self) -> io::Result<()> {
+    /// Send the pause timer request.
+    async fn pause(&self) -> Result<()> {
         info!("sending request to pause timer");
 
         match self.send(Request::Pause).await {
             Ok(Response::Ok) => Ok(()),
-            Ok(res) => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
+            Ok(res) => Err(Error::new(
+                ErrorKind::InvalidData,
                 format!("invalid response: {res:?}"),
             )),
-            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+            Err(err) => Err(Error::new(ErrorKind::Other, err)),
         }
     }
 
-    async fn resume(&self) -> io::Result<()> {
+    /// Send the resume timer request.
+    async fn resume(&self) -> Result<()> {
         info!("sending request to resume timer");
 
         match self.send(Request::Resume).await {
             Ok(Response::Ok) => Ok(()),
-            Ok(res) => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
+            Ok(res) => Err(Error::new(
+                ErrorKind::InvalidData,
                 format!("invalid response: {res:?}"),
             )),
-            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+            Err(err) => Err(Error::new(ErrorKind::Other, err)),
         }
     }
 
-    async fn stop(&self) -> io::Result<()> {
+    /// Send the stop timer request.
+    async fn stop(&self) -> Result<()> {
         info!("sending request to stop timer");
 
         match self.send(Request::Stop).await {
             Ok(Response::Ok) => Ok(()),
-            Ok(res) => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
+            Ok(res) => Err(Error::new(
+                ErrorKind::InvalidData,
                 format!("invalid response: {res:?}"),
             )),
-            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+            Err(err) => Err(Error::new(ErrorKind::Other, err)),
         }
     }
 }
 
 /// The client stream trait.
-///
-/// Clients may implement this trait, but it is not mandatory. It can
-/// be seen as a helper: by implementing the [`ClientStream::read`]
-/// and the [`ClientStream::write`] functions, the trait can deduce
-/// how to handle a request.
 #[async_trait]
 pub trait ClientStream: RequestWriter + ResponseReader {
-    async fn handle(&mut self, req: Request) -> io::Result<Response> {
+    async fn handle(&mut self, req: Request) -> Result<Response> {
         self.write(req).await?;
         self.read().await
     }

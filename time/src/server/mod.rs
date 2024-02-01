@@ -1,39 +1,43 @@
-//! # Server module.
+//! # Server
 //!
-//! The [`Server`] runs the timer, accepts connections from clients
-//! and sends responses. The [`Server`] accepts connections using
-//! [`ServerBind`]ers. The [`Server`] should have at least one
-//! [`ServerBind`], otherwise it stops by itself.
+//! This module contains everything related to servers. The server
+//! runs the timer, accepts connections from clients and sends
+//! responses. It accepts connections using server binders. A server
+//! should have at least one binder, otherwise it stops by itself.
+//!
+//!
 
 #[cfg(feature = "tcp-binder")]
-mod tcp;
+pub mod tcp;
+
 use async_trait::async_trait;
-#[cfg(feature = "tcp-binder")]
-pub use tcp::*;
-
 use log::{debug, trace};
 use std::{
     future::Future,
-    io,
+    io::{Error, ErrorKind, Result},
     ops::{Deref, DerefMut},
     sync::Arc,
     time::Duration,
 };
 use tokio::{sync::Mutex, task, time};
 
-use crate::{RequestReader, ResponseWriter, TimerCycle, TimerLoop};
-
-use super::{Request, Response, ThreadSafeTimer, TimerConfig, TimerEvent};
+use crate::{
+    request::{Request, RequestReader},
+    response::{Response, ResponseWriter},
+    timer::{ThreadSafeTimer, TimerConfig, TimerCycle, TimerEvent, TimerLoop},
+};
 
 /// The server state enum.
 ///
-/// This enum represents the different states the server can be in.
+/// Enumeration of all the possible states of a server.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum ServerState {
     /// The server is in running mode, which blocks the main process.
     Running,
+
     /// The server received the order to stop.
     Stopping,
+
     /// The server is stopped and will free the main process.
     #[default]
     Stopped,
@@ -41,7 +45,7 @@ pub enum ServerState {
 
 /// The server configuration.
 pub struct ServerConfig {
-    /// The server state change handler.
+    /// The server state changed handler.
     handler: ServerStateChangedHandler,
 
     /// The binders list the server should use when starting up.
@@ -58,22 +62,22 @@ impl Default for ServerConfig {
 }
 
 /// The server state changed event.
-///
-/// Event triggered by [`ServerStateChangedHandler`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ServerEvent {
+    /// The server just started.
     Started,
+
+    /// The server is stopping.
     Stopping,
+
+    /// The server has stopped.
     Stopped,
 }
 
 /// The server state changed handler alias.
-pub type ServerStateChangedHandler = Arc<dyn Fn(ServerEvent) -> io::Result<()> + Sync + Send>;
+pub type ServerStateChangedHandler = Arc<dyn Fn(ServerEvent) -> Result<()> + Sync + Send>;
 
-/// Thread safe version of the [`ServerState`].
-///
-/// It allows the [`Server`] to mutate its state even from a
-/// [`std::thread::spawn`]).
+/// Thread safe version of the server state.
 #[derive(Clone, Debug, Default)]
 pub struct ThreadSafeState(Arc<Mutex<ServerState>>);
 
@@ -121,23 +125,21 @@ impl DerefMut for ThreadSafeState {
 
 /// The server bind trait.
 ///
-/// [`ServerBind`]ers must implement this trait.
+/// Server binders must implement this trait.
 #[async_trait]
 pub trait ServerBind: Send + Sync {
     /// Describe how the server should bind to accept connections from
     /// clients.
-    async fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()>;
+    async fn bind(&self, timer: ThreadSafeTimer) -> Result<()>;
 }
 
 /// The server stream trait.
 ///
-/// [`ServerBind`]ers may implement this trait, but it is not
-/// mandatory. It can be seen as a helper: by implementing the
-/// [`ServerStream::read`] and the [`ServerStream::write`] functions,
-/// the trait can deduce how to handle a request.
+/// Describes how a request should be parsed and handled.
 #[async_trait]
 pub trait ServerStream: RequestReader + ResponseWriter {
-    async fn handle(&mut self, timer: ThreadSafeTimer) -> io::Result<()> {
+    /// Read the request, process it then write the response.
+    async fn handle(&mut self, timer: ThreadSafeTimer) -> Result<()> {
         let req = self.read().await?;
         let res = match req {
             Request::Start => {
@@ -197,10 +199,10 @@ impl Server {
     /// well as all the binders in dedicated threads.
     ///
     /// The main thread is then blocked by the given `wait` closure.
-    pub async fn bind_with<F: Future<Output = io::Result<()>>>(
+    pub async fn bind_with<F: Future<Output = Result<()>>>(
         self,
         wait: impl FnOnce() -> F,
-    ) -> io::Result<()> {
+    ) -> Result<()> {
         debug!("starting server");
 
         let fire_event = |event: ServerEvent| {
@@ -262,7 +264,7 @@ impl Server {
 
         // wait for the timer thread to stop before exiting
         tick.await
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "cannot wait for timer thread"))?;
+            .map_err(|_| Error::new(ErrorKind::Other, "cannot wait for timer thread"))?;
         fire_event(ServerEvent::Stopped);
 
         Ok(())
@@ -270,7 +272,7 @@ impl Server {
 
     /// Wrapper around [`Server::bind_with`] where the `wait` closure
     /// sleeps every second in an infinite loop.
-    pub async fn bind(self) -> io::Result<()> {
+    pub async fn bind(self) -> Result<()> {
         self.bind_with(|| async {
             loop {
                 time::sleep(Duration::from_secs(1)).await;
@@ -349,7 +351,7 @@ impl ServerBuilder {
     /// Set the server handler.
     pub fn with_server_handler<H>(mut self, handler: H) -> Self
     where
-        H: Fn(ServerEvent) -> io::Result<()> + Sync + Send + 'static,
+        H: Fn(ServerEvent) -> Result<()> + Sync + Send + 'static,
     {
         self.server_config.handler = Arc::new(handler);
         self
@@ -364,7 +366,7 @@ impl ServerBuilder {
     /// Set the timer handler.
     pub fn with_timer_handler<H>(mut self, handler: H) -> Self
     where
-        H: Fn(TimerEvent) -> io::Result<()> + Sync + Send + 'static,
+        H: Fn(TimerEvent) -> Result<()> + Sync + Send + 'static,
     {
         self.timer_config.handler = Arc::new(handler);
         self
@@ -398,7 +400,7 @@ impl ServerBuilder {
     }
 
     /// Build the final server.
-    pub fn build(self) -> io::Result<Server> {
+    pub fn build(self) -> Result<Server> {
         Ok(Server {
             config: self.server_config,
             state: ThreadSafeState::new(),

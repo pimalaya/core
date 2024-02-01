@@ -1,10 +1,12 @@
 use std::time::Duration;
 use time::{
-    ServerBuilder, ServerEvent, TcpBind, TcpClient, Timer, TimerCycle, TimerEvent, TimerState,
+    client::tcp::TcpClient,
+    server::{tcp::TcpBind, ServerBuilder, ServerEvent},
+    timer::{Timer, TimerCycle, TimerEvent, TimerState},
 };
 
-const HOST: &str = "127.0.0.1";
-const PORT: u16 = 3000;
+static HOST: &str = "127.0.0.1";
+static PORT: u16 = 3000;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn multiple_tcp_clients() {

@@ -1,7 +1,7 @@
-//! # TCP server binder module.
+//! # TCP binder
 //!
 //! This module contains the implementation of the TCP server binder,
-//! based on [`std::net::TcpStream`].
+//! based on [`tokio::net::TcpStream`].
 
 use async_trait::async_trait;
 use log::debug;
@@ -12,9 +12,13 @@ use tokio::{
 };
 
 use crate::{
-    tcp::TcpHandler, Request, RequestReader, Response, ResponseWriter, ServerBind, ServerStream,
-    ThreadSafeTimer,
+    request::{Request, RequestReader},
+    response::{Response, ResponseWriter},
+    tcp::TcpHandler,
+    timer::ThreadSafeTimer,
 };
+
+use super::{ServerBind, ServerStream};
 
 /// The TCP server binder.
 ///
@@ -40,13 +44,6 @@ impl TcpBind {
 
 #[async_trait]
 impl ServerBind for TcpBind {
-    /// Bind the TCP listener.
-    ///
-    /// To bind, the [`TcpBind`] gets a [`std::net::TcpListener`] then
-    /// indefinitely waits for incoming requests. When a connection
-    /// comes, [`TcpBind`] retrieves the associated
-    /// [`std::net::TcpStream`] and send it to the helper
-    /// [`crate::ServerStream::handle`].
     async fn bind(&self, timer: ThreadSafeTimer) -> io::Result<()> {
         let listener = TcpListener::bind((self.host.as_str(), self.port)).await?;
 

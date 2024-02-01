@@ -1,31 +1,40 @@
-//! # Response module.
+//! # Response
 //!
-//! A [`Response`] is the type of data sent by the server to the
-//! client straight after receiving a request.
+//! When a server receives a request, it sends back a response. This
+//! module contains the response structure as well as traits to read
+//! and write a response.
 
 use async_trait::async_trait;
-use std::io;
+use std::io::Result;
 
-use super::Timer;
+use crate::timer::Timer;
 
-/// The response struct.
+/// The server response struct.
 ///
 /// Responses are sent by servers and received by clients.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Response {
-    /// Default response when everything goes fine.
+    /// Default response when everything goes as expected.
     Ok,
 
-    /// Response that contains the current timer.
+    /// Response containing the current timer.
     Timer(Timer),
 }
 
+/// Trait to read a server response.
+///
+/// Describes how a response should be parsed by a client.
 #[async_trait]
 pub trait ResponseReader: Send + Sync {
-    async fn read(&mut self) -> io::Result<Response>;
+    /// Read the current server response.
+    async fn read(&mut self) -> Result<Response>;
 }
 
+/// Trait to write a response.
+///
+/// Describes how a response should be sent by a server.
 #[async_trait]
 pub trait ResponseWriter: Send + Sync {
-    async fn write(&mut self, res: Response) -> io::Result<()>;
+    /// Write the given response.
+    async fn write(&mut self, res: Response) -> Result<()>;
 }

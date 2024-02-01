@@ -1,18 +1,23 @@
-//! # TCP client module.
+//! # TCP client
 //!
 //! This module contains the implementation of the TCP client, based
-//! on [`std::net::TcpStream`].
+//! on [`tokio::net::TcpStream`].
 
 use async_trait::async_trait;
-use std::io;
+use std::io::{Error, ErrorKind, Result};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt},
     net::TcpStream,
 };
 
 use crate::{
-    tcp::TcpHandler, Client, ClientStream, Request, RequestWriter, Response, ResponseReader, Timer,
+    request::{Request, RequestWriter},
+    response::{Response, ResponseReader},
+    tcp::TcpHandler,
+    timer::Timer,
 };
+
+use super::{Client, ClientStream};
 
 /// The TCP client.
 ///
@@ -39,7 +44,7 @@ impl TcpClient {
 #[async_trait]
 impl Client for TcpClient {
     /// Send the given request to the TCP server.
-    async fn send(&self, req: Request) -> io::Result<Response> {
+    async fn send(&self, req: Request) -> Result<Response> {
         let stream = TcpStream::connect((self.host.as_str(), self.port)).await?;
         let mut handler = TcpHandler::from(stream);
         handler.handle(req).await
@@ -48,7 +53,7 @@ impl Client for TcpClient {
 
 #[async_trait]
 impl RequestWriter for TcpHandler {
-    async fn write(&mut self, req: Request) -> io::Result<()> {
+    async fn write(&mut self, req: Request) -> Result<()> {
         let req = match req {
             Request::Start => format!("start\n"),
             Request::Get => format!("get\n"),
@@ -66,7 +71,7 @@ impl RequestWriter for TcpHandler {
 
 #[async_trait]
 impl ResponseReader for TcpHandler {
-    async fn read(&mut self) -> io::Result<Response> {
+    async fn read(&mut self) -> Result<Response> {
         let mut res = String::new();
         self.reader.read_line(&mut res).await?;
 
@@ -75,21 +80,21 @@ impl ResponseReader for TcpHandler {
             Some("ok") => Ok(Response::Ok),
             Some("timer") => match tokens.next().map(serde_json::from_str::<Timer>) {
                 Some(Ok(timer)) => Ok(Response::Timer(timer)),
-                Some(Err(err)) => Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
+                Some(Err(err)) => Err(Error::new(
+                    ErrorKind::InvalidInput,
                     format!("invalid timer: {err}"),
                 )),
-                None => Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
+                None => Err(Error::new(
+                    ErrorKind::InvalidInput,
                     "missing timer".to_owned(),
                 )),
             },
-            Some(res) => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
+            Some(res) => Err(Error::new(
+                ErrorKind::InvalidInput,
                 format!("invalid response: {res}"),
             )),
-            None => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
+            None => Err(Error::new(
+                ErrorKind::InvalidInput,
                 "missing response".to_owned(),
             )),
         }
