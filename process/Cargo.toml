@@ -1,6 +1,6 @@
 [package]
 name = "process-lib"
-version = "0.3.1"
+version = "0.4.0"
 description = "Cross-platform, asynchronous Rust library to run commands in pipelines"
 homepage = "https://pimalaya.org/"
 repository = "https://git.sr.ht/~soywod/pimalaya/tree/master/item/process/README.md"
@@ -23,7 +23,6 @@ tokio = { version = "1.23", default-features = false, features = ["macros", "rt"
 
 [dependencies]
 log = "0.4"
-once_cell = "1"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1"
 tokio = { version = "1.23", default-features = false, features = ["io-util", "process"] }
