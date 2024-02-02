@@ -288,7 +288,7 @@ pub struct ServerBuilder {
     timer_config: TimerConfig,
 }
 
-impl<'a> ServerBuilder {
+impl ServerBuilder {
     /// Create a new server builder using defaults.
     pub fn new() -> Self {
         Self::default()
