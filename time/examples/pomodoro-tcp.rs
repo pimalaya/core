@@ -11,11 +11,11 @@ static PORT: u16 = 3000;
 #[tokio::main]
 async fn main() {
     let server = ServerBuilder::new()
-        .with_server_handler(|event: ServerEvent| {
+        .with_server_handler(|event: ServerEvent| async move {
             println!("server event: {event:?}");
             Ok(())
         })
-        .with_timer_handler(|event: TimerEvent| {
+        .with_timer_handler(|event: TimerEvent| async move {
             println!("timer event: {event:?}");
             Ok(())
         })

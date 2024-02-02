@@ -13,11 +13,11 @@ async fn multiple_tcp_clients() {
     env_logger::builder().is_test(true).init();
 
     let server = ServerBuilder::new()
-        .with_server_handler(|event: ServerEvent| {
+        .with_server_handler(|event: ServerEvent| async move {
             println!("server event: {event:?}");
             Ok(())
         })
-        .with_timer_handler(|event: TimerEvent| {
+        .with_timer_handler(|event: TimerEvent| async move {
             println!("timer event: {event:?}");
             Ok(())
         })

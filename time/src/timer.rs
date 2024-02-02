@@ -21,6 +21,8 @@ use std::{
 #[cfg(feature = "server")]
 use tokio::sync::Mutex;
 
+use crate::handler::{self, Handler};
+
 /// The timer loop.
 ///
 /// When the timer reaches its last cycle, it starts again from the
@@ -155,9 +157,6 @@ pub enum TimerEvent {
     Stopped,
 }
 
-/// The timer changed event handler alias.
-pub type TimerChangedHandler = Arc<dyn Fn(TimerEvent) -> Result<()> + Sync + Send>;
-
 /// The timer configuration.
 #[derive(Clone)]
 pub struct TimerConfig {
@@ -168,7 +167,7 @@ pub struct TimerConfig {
     pub cycles_count: TimerLoop,
 
     /// The timer event handler.
-    pub handler: TimerChangedHandler,
+    pub handler: Arc<Handler<TimerEvent>>,
 }
 
 impl Default for TimerConfig {
@@ -176,7 +175,7 @@ impl Default for TimerConfig {
         Self {
             cycles: Default::default(),
             cycles_count: Default::default(),
-            handler: Arc::new(|_| Ok(())),
+            handler: handler::default(),
         }
     }
 }
@@ -218,7 +217,7 @@ pub struct Timer {
 }
 
 impl fmt::Debug for Timer {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let timer = serde_json::to_string(self).map_err(|_| fmt::Error)?;
         write!(f, "{timer}")
     }
@@ -249,7 +248,7 @@ impl Timer {
             + self.elapsed
     }
 
-    pub fn update(&mut self) {
+    pub async fn update(&mut self) {
         let mut elapsed = self.elapsed();
 
         match self.state {
@@ -285,7 +284,8 @@ impl Timer {
                     })
                     .unwrap_or(last_cycle);
 
-                self.fire_event(TimerEvent::Running(self.cycle.clone()));
+                self.fire_event(TimerEvent::Running(self.cycle.clone()))
+                    .await;
 
                 if self.cycle.name != next_cycle.name {
                     let mut prev_cycle = self.cycle.clone();
@@ -293,7 +293,8 @@ impl Timer {
                     self.fire_events([
                         TimerEvent::Ended(prev_cycle),
                         TimerEvent::Began(next_cycle.clone()),
-                    ]);
+                    ])
+                    .await;
                 }
 
                 self.cycle = next_cycle;
@@ -307,60 +308,65 @@ impl Timer {
         }
     }
 
-    pub fn fire_event(&self, event: TimerEvent) {
-        if let Err(err) = (self.config.handler)(event.clone()) {
+    pub async fn fire_event(&self, event: TimerEvent) {
+        let handler = &self.config.handler;
+        if let Err(err) = handler(event.clone()).await {
             log::debug!("cannot fire event {event:?}");
             log::debug!("{err:?}");
         }
     }
 
-    pub fn fire_events(&self, events: impl IntoIterator<Item = TimerEvent>) {
+    pub async fn fire_events(&self, events: impl IntoIterator<Item = TimerEvent>) {
         for event in events.into_iter() {
-            self.fire_event(event)
+            self.fire_event(event).await
         }
     }
 
-    pub fn start(&mut self) -> Result<()> {
+    pub async fn start(&mut self) -> Result<()> {
         if matches!(self.state, TimerState::Stopped) {
             self.state = TimerState::Running;
             self.cycle = self.config.clone_first_cycle()?;
             self.cycles_count = self.config.cycles_count.clone();
             self.started_at = Some(Instant::now());
             self.elapsed = 0;
-            self.fire_events([TimerEvent::Started, TimerEvent::Began(self.cycle.clone())]);
+            self.fire_events([TimerEvent::Started, TimerEvent::Began(self.cycle.clone())])
+                .await;
         }
         Ok(())
     }
 
-    pub fn set(&mut self, duration: usize) -> Result<()> {
+    pub async fn set(&mut self, duration: usize) -> Result<()> {
         self.cycle.duration = duration;
-        self.fire_event(TimerEvent::Set(self.cycle.clone()));
+        self.fire_event(TimerEvent::Set(self.cycle.clone())).await;
         Ok(())
     }
 
-    pub fn pause(&mut self) -> Result<()> {
+    pub async fn pause(&mut self) -> Result<()> {
         if matches!(self.state, TimerState::Running) {
             self.state = TimerState::Paused;
             self.elapsed = self.elapsed();
             self.started_at = None;
-            self.fire_event(TimerEvent::Paused(self.cycle.clone()));
+            self.fire_event(TimerEvent::Paused(self.cycle.clone()))
+                .await;
         }
         Ok(())
     }
 
-    pub fn resume(&mut self) -> Result<()> {
+    pub async fn resume(&mut self) -> Result<()> {
         if matches!(self.state, TimerState::Paused) {
             self.state = TimerState::Running;
             self.started_at = Some(Instant::now());
-            self.fire_event(TimerEvent::Resumed(self.cycle.clone()));
+            self.fire_event(TimerEvent::Resumed(self.cycle.clone()))
+                .await;
         }
         Ok(())
     }
 
-    pub fn stop(&mut self) -> Result<()> {
+    pub async fn stop(&mut self) -> Result<()> {
         if matches!(self.state, TimerState::Running) {
             self.state = TimerState::Stopped;
-            self.fire_events([TimerEvent::Ended(self.cycle.clone()), TimerEvent::Stopped]);
+            self.fire_events([TimerEvent::Ended(self.cycle.clone()), TimerEvent::Stopped])
+                .await;
             self.cycle = self.config.clone_first_cycle()?;
             self.cycles_count = self.config.cycles_count.clone();
             self.started_at = None;
@@ -392,11 +398,11 @@ impl ThreadSafeTimer {
     }
 
     pub async fn update(&self) {
-        self.0.lock().await.update();
+        self.0.lock().await.update().await;
     }
 
     pub async fn start(&self) -> Result<()> {
-        self.0.lock().await.start()
+        self.0.lock().await.start().await
     }
 
     pub async fn get(&self) -> Timer {
@@ -404,19 +410,19 @@ impl ThreadSafeTimer {
     }
 
     pub async fn set(&self, duration: usize) -> Result<()> {
-        self.0.lock().await.set(duration)
+        self.0.lock().await.set(duration).await
     }
 
     pub async fn pause(&self) -> Result<()> {
-        self.0.lock().await.pause()
+        self.0.lock().await.pause().await
     }
 
     pub async fn resume(&self) -> Result<()> {
-        self.0.lock().await.resume()
+        self.0.lock().await.resume().await
     }
 
     pub async fn stop(&self) -> Result<()> {
-        self.0.lock().await.stop()
+        self.0.lock().await.stop().await
     }
 }
 
@@ -439,10 +445,8 @@ impl DerefMut for ThreadSafeTimer {
 #[cfg(test)]
 mod tests {
     use mock_instant::{Instant, MockClock};
-    use std::{
-        sync::{Arc, Mutex},
-        time::Duration,
-    };
+    use once_cell::sync::Lazy;
+    use std::{sync::Arc, time::Duration};
 
     use super::*;
 
@@ -463,8 +467,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn running_infinite_timer() {
+    #[tokio::test]
+    async fn running_infinite_timer() {
         let mut timer = testing_timer();
 
         assert_eq!(timer.state, TimerState::Running);
@@ -475,7 +479,7 @@ mod tests {
         // by 2
 
         MockClock::advance(Duration::from_secs(2));
-        timer.update();
+        timer.update().await;
 
         assert_eq!(timer.state, TimerState::Running);
         assert_eq!(timer.cycle, TimerCycle::new("a", 1));
@@ -484,7 +488,7 @@ mod tests {
         // switch to the next one
 
         MockClock::advance(Duration::from_secs(1));
-        timer.update();
+        timer.update().await;
 
         assert_eq!(timer.state, TimerState::Running);
         assert_eq!(timer.cycle, TimerCycle::new("b", 2));
@@ -493,7 +497,7 @@ mod tests {
         // switch to the next one
 
         MockClock::advance(Duration::from_secs(2));
-        timer.update();
+        timer.update().await;
 
         assert_eq!(timer.state, TimerState::Running);
         assert_eq!(timer.cycle, TimerCycle::new("c", 1));
@@ -502,36 +506,37 @@ mod tests {
         // switch back to the first one
 
         MockClock::advance(Duration::from_secs(1));
-        timer.update();
+        timer.update().await;
 
         assert_eq!(timer.state, TimerState::Running);
         assert_eq!(timer.cycle, TimerCycle::new("a", 3));
     }
 
-    #[test]
-    fn running_timer_events() {
-        let mut timer = testing_timer();
-        let events: Arc<Mutex<Vec<TimerEvent>>> = Arc::new(Mutex::new(Vec::new()));
+    #[tokio::test]
+    async fn running_timer_events() {
+        static EVENTS: Lazy<Mutex<Vec<TimerEvent>>> = Lazy::new(|| Mutex::const_new(Vec::new()));
 
-        let events_for_closure = events.clone();
-        timer.config.handler = Arc::new(move |evt| {
-            let mut events = events_for_closure.lock().unwrap();
-            events.push(evt);
-            Ok(())
+        let mut timer = testing_timer();
+
+        timer.config.handler = Arc::new(|evt| {
+            Box::pin(async {
+                EVENTS.lock().await.push(evt);
+                Ok(())
+            })
         });
 
         // from a3 to b1
         MockClock::advance(Duration::from_secs(1));
-        timer.update();
+        timer.update().await;
         MockClock::advance(Duration::from_secs(1));
-        timer.update();
+        timer.update().await;
         MockClock::advance(Duration::from_secs(1));
-        timer.update();
+        timer.update().await;
         MockClock::advance(Duration::from_secs(1));
-        timer.update();
+        timer.update().await;
 
         assert_eq!(
-            *events.lock().unwrap(),
+            *EVENTS.lock().await,
             vec![
                 TimerEvent::Running(TimerCycle::new("a", 3)),
                 TimerEvent::Running(TimerCycle::new("a", 2)),
@@ -543,21 +548,21 @@ mod tests {
         );
     }
 
-    #[test]
-    fn paused_timer_not_impacted_by_iterator() {
+    #[tokio::test]
+    async fn paused_timer_not_impacted_by_iterator() {
         let mut timer = testing_timer();
         timer.state = TimerState::Paused;
         let prev_timer = timer.clone();
-        timer.update();
+        timer.update().await;
         assert_eq!(prev_timer, timer);
     }
 
-    #[test]
-    fn stopped_timer_not_impacted_by_iterator() {
+    #[tokio::test]
+    async fn stopped_timer_not_impacted_by_iterator() {
         let mut timer = testing_timer();
         timer.state = TimerState::Stopped;
         let prev_timer = timer.clone();
-        timer.update();
+        timer.update().await;
         assert_eq!(prev_timer, timer);
     }
 
@@ -565,13 +570,13 @@ mod tests {
     #[tokio::test]
     async fn thread_safe_timer() {
         let mut timer = testing_timer();
-        let events: Arc<Mutex<Vec<TimerEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        static EVENTS: Lazy<Mutex<Vec<TimerEvent>>> = Lazy::new(|| Mutex::const_new(Vec::new()));
 
-        let events_for_closure = events.clone();
         timer.config.handler = Arc::new(move |evt| {
-            let mut events = events_for_closure.lock().unwrap();
-            events.push(evt);
-            Ok(())
+            Box::pin(async {
+                EVENTS.lock().await.push(evt);
+                Ok(())
+            })
         });
         let timer = ThreadSafeTimer::new(timer.config).unwrap();
 
@@ -639,7 +644,7 @@ mod tests {
         );
 
         assert_eq!(
-            *events.lock().unwrap(),
+            *EVENTS.lock().await,
             vec![
                 TimerEvent::Started,
                 TimerEvent::Began(TimerCycle::new("a", 3)),

@@ -36,6 +36,7 @@ tcp = ["tcp-binder", "tcp-client"]
 [dev-dependencies]
 env_logger = "0.10"
 mock_instant = "0.3"
+once_cell = "1"
 tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]

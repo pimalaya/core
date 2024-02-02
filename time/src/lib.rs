@@ -52,6 +52,7 @@
 
 #[cfg(feature = "client")]
 pub mod client;
+pub(crate) mod handler;
 pub mod request;
 pub mod response;
 #[cfg(feature = "server")]

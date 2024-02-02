@@ -22,6 +22,7 @@ use std::{
 use tokio::{sync::Mutex, task, time};
 
 use crate::{
+    handler::{self, Handler},
     request::{Request, RequestReader},
     response::{Response, ResponseWriter},
     timer::{ThreadSafeTimer, TimerConfig, TimerCycle, TimerEvent, TimerLoop},
@@ -46,7 +47,7 @@ pub enum ServerState {
 /// The server configuration.
 pub struct ServerConfig {
     /// The server state changed handler.
-    handler: ServerStateChangedHandler,
+    handler: Arc<Handler<ServerEvent>>,
 
     /// The binders list the server should use when starting up.
     binders: Vec<Box<dyn ServerBind>>,
@@ -55,7 +56,7 @@ pub struct ServerConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            handler: Arc::new(|_| Ok(())),
+            handler: handler::default(),
             binders: Vec::new(),
         }
     }
@@ -73,9 +74,6 @@ pub enum ServerEvent {
     /// The server has stopped.
     Stopped,
 }
-
-/// The server state changed handler alias.
-pub type ServerStateChangedHandler = Arc<dyn Fn(ServerEvent) -> Result<()> + Sync + Send>;
 
 /// Thread safe version of the server state.
 #[derive(Clone, Debug, Default)]
@@ -201,19 +199,20 @@ impl Server {
     /// The main thread is then blocked by the given `wait` closure.
     pub async fn bind_with<F: Future<Output = Result<()>>>(
         self,
-        wait: impl FnOnce() -> F,
+        wait: impl FnOnce() -> F + Send + Sync + 'static,
     ) -> Result<()> {
         debug!("starting server");
 
-        let fire_event = |event: ServerEvent| {
-            if let Err(err) = (self.config.handler)(event.clone()) {
+        let handler = &self.config.handler;
+        let fire_event = |event: ServerEvent| async move {
+            if let Err(err) = handler(event.clone()).await {
                 debug!("cannot fire event {event:?}: {err}");
                 debug!("{err:?}");
             }
         };
 
         self.state.set_running().await;
-        fire_event(ServerEvent::Started);
+        fire_event(ServerEvent::Started).await;
 
         // the tick represents the timer running in a separated thread
         let state = self.state.clone();
@@ -255,12 +254,12 @@ impl Server {
         wait().await?;
 
         self.state.set_stopping().await;
-        fire_event(ServerEvent::Stopping);
+        fire_event(ServerEvent::Stopping).await;
 
         // wait for the timer thread to stop before exiting
         tick.await
             .map_err(|_| Error::new(ErrorKind::Other, "cannot wait for timer thread"))?;
-        fire_event(ServerEvent::Stopped);
+        fire_event(ServerEvent::Stopped).await;
 
         Ok(())
     }
@@ -289,7 +288,7 @@ pub struct ServerBuilder {
     timer_config: TimerConfig,
 }
 
-impl ServerBuilder {
+impl<'a> ServerBuilder {
     /// Create a new server builder using defaults.
     pub fn new() -> Self {
         Self::default()
@@ -344,11 +343,11 @@ impl ServerBuilder {
     }
 
     /// Set the server handler.
-    pub fn with_server_handler<H>(mut self, handler: H) -> Self
-    where
-        H: Fn(ServerEvent) -> Result<()> + Sync + Send + 'static,
-    {
-        self.server_config.handler = Arc::new(handler);
+    pub fn with_server_handler<F: Future<Output = Result<()>> + Send + 'static>(
+        mut self,
+        handler: impl Fn(ServerEvent) -> F + Send + Sync + 'static,
+    ) -> Self {
+        self.server_config.handler = Arc::new(move |evt| Box::pin(handler(evt)));
         self
     }
 
@@ -359,11 +358,11 @@ impl ServerBuilder {
     }
 
     /// Set the timer handler.
-    pub fn with_timer_handler<H>(mut self, handler: H) -> Self
-    where
-        H: Fn(TimerEvent) -> Result<()> + Sync + Send + 'static,
-    {
-        self.timer_config.handler = Arc::new(handler);
+    pub fn with_timer_handler<F: Future<Output = Result<()>> + Send + 'static>(
+        mut self,
+        handler: impl Fn(TimerEvent) -> F + Sync + Send + 'static,
+    ) -> Self {
+        self.timer_config.handler = Arc::new(move |evt| Box::pin(handler(evt)));
         self
     }
 

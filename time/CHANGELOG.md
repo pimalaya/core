@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Made the code asynchronous, using `tokio`.
+- Made server and timer handlers asynchronous as well.
 - Moved `ServerStream::read` and `ServerStream::write` to `request::RequestReader` and `response::ResponseWriter`.
 - Changed `ServerStream` signature to `ServerStream: RequestReader + ResponseWriter`
 - Moved `ClientStream::read` and `ServerStream::write` to `response::ResponseReader` and `request::RequestWriter`.
