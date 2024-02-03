@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Changed `WatchHook` from enum to struct. This way, multiple hook variants can be set up for one event (like sending a system notification and executing a shell command when receiving a new envelope).
+
 ### Fixed
 
 - Fixed watch IMAP envelopes issue preventing events to be triggered.

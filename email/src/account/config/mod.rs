@@ -13,6 +13,7 @@ use dirs::data_dir;
 use log::debug;
 use mail_builder::headers::address::{Address, EmailAddress};
 use mml::MimeInterpreterBuilder;
+use notify_rust::Notification;
 use process::Cmd;
 use serde::{Deserialize, Serialize};
 use shellexpand_utils::{shellexpand_path, shellexpand_str, try_shellexpand_path};
@@ -26,8 +27,6 @@ use std::{
 };
 use thiserror::Error;
 
-#[cfg(feature = "envelope-watch")]
-use crate::watch::config::WatchHook;
 #[cfg(feature = "account-sync")]
 use crate::{account::sync::config::SyncConfig, folder::sync::FolderSyncStrategy};
 use crate::{
@@ -37,6 +36,8 @@ use crate::{
     message::config::MessageConfig,
     Result,
 };
+#[cfg(feature = "envelope-watch")]
+use crate::{envelope::Envelope, watch::config::WatchHook};
 
 #[cfg(feature = "pgp")]
 use self::pgp::PgpConfig;
@@ -246,21 +247,117 @@ impl AccountConfig {
     }
 
     #[cfg(feature = "envelope-watch")]
-    /// Find the envelope received hook configuration.
-    pub fn find_received_envelope_hook(&self) -> Option<&WatchHook> {
-        self.envelope
+    /// Execute the envelope received hook.
+    pub async fn exec_received_envelope_hook(&self, envelope: &Envelope) {
+        let hook = self
+            .envelope
             .as_ref()
             .and_then(|c| c.watch.as_ref())
-            .and_then(|c| c.received.as_ref())
+            .and_then(|c| c.received.as_ref());
+
+        if let Some(hook) = hook.as_ref() {
+            self.exec_envelope_hook(hook, envelope).await
+        }
     }
 
     #[cfg(feature = "envelope-watch")]
-    /// Find the envelope any hook configuration.
-    pub fn find_any_envelope_hook(&self) -> Option<&WatchHook> {
-        self.envelope
+    /// Execute the envelope any hook.
+    pub async fn exec_any_envelope_hook(&self, envelope: &Envelope) {
+        let hook = self
+            .envelope
             .as_ref()
             .and_then(|c| c.watch.as_ref())
-            .and_then(|c| c.any.as_ref())
+            .and_then(|c| c.any.as_ref());
+
+        if let Some(hook) = hook.as_ref() {
+            self.exec_envelope_hook(hook, envelope).await
+        }
+    }
+
+    #[cfg(feature = "envelope-watch")]
+    /// Execute the given envelope hook.
+    pub async fn exec_envelope_hook(&self, hook: &WatchHook, envelope: &Envelope) {
+        let sender = envelope.from.name.as_deref().unwrap_or(&envelope.from.addr);
+        let sender_name = envelope.from.name.as_deref().unwrap_or("unknown");
+        let recipient = envelope.to.name.as_deref().unwrap_or(&envelope.to.addr);
+        let recipient_name = envelope.to.name.as_deref().unwrap_or("unknown");
+
+        if let Some(cmd) = hook.cmd.as_ref() {
+            let res = cmd
+                .clone()
+                .replace("{id}", &envelope.id)
+                .replace("{subject}", &envelope.subject)
+                .replace("{sender}", sender)
+                .replace("{sender.name}", sender_name)
+                .replace("{sender.address}", &envelope.from.addr)
+                .replace("{recipient}", recipient)
+                .replace("{recipient.name}", recipient_name)
+                .replace("{recipient.address}", &envelope.to.addr)
+                .run()
+                .await;
+            if let Err(err) = res {
+                debug!("error while executing watch command hook");
+                debug!("{err:?}");
+            }
+        }
+
+        let replace = move |fmt: &str, envelope: &Envelope| -> String {
+            fmt.replace("{id}", &envelope.id)
+                .replace("{subject}", &envelope.subject)
+                .replace("{sender}", sender)
+                .replace("{sender.name}", sender_name)
+                .replace("{sender.address}", &envelope.from.addr)
+                .replace("{recipient}", recipient)
+                .replace("{recipient.name}", recipient_name)
+                .replace("{recipient.address}", &envelope.to.addr)
+        };
+
+        #[cfg(target_os = "linux")]
+        if let Some(notify) = hook.notify.as_ref() {
+            let res = Notification::new()
+                .summary(&replace(&notify.summary, envelope))
+                .body(&replace(&notify.body, envelope))
+                .show_async()
+                .await;
+            if let Err(err) = res {
+                debug!("error while sending system notification");
+                debug!("{err:?}");
+            }
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        if let Some(notify) = hook.notify.as_ref() {
+            let summary = notify.summary.clone();
+            let body = notify.body.clone();
+            let envelope = envelope.clone();
+
+            let res = tokio::task::spawn_blocking(move || {
+                Notification::new()
+                    .summary(&replace(&summary, &envelope))
+                    .body(&replace(&body, &envelope))
+                    .show()
+            })
+            .await;
+
+            if let Err(err) = res {
+                debug!("cannot send system notification");
+                debug!("{err:?}");
+            } else {
+                let res = res.unwrap();
+                if let Err(err) = res {
+                    debug!("error while sending system notification");
+                    debug!("{err:?}");
+                }
+            }
+        }
+
+        if let Some(callback) = hook.callback.as_ref() {
+            let res = callback(envelope).await;
+            if let Err(err) = res {
+                debug!("error while executing callback");
+                debug!("{err:?}");
+            }
+        }
     }
 
     /// Find the alias of the given folder name.
