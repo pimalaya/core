@@ -13,6 +13,7 @@ pub mod tcp;
 use async_trait::async_trait;
 use log::{debug, trace};
 use std::{
+    fmt::Debug,
     future::Future,
     io::{Error, ErrorKind, Result},
     ops::{Deref, DerefMut},
@@ -125,7 +126,7 @@ impl DerefMut for ThreadSafeState {
 ///
 /// Server binders must implement this trait.
 #[async_trait]
-pub trait ServerBind: Send + Sync {
+pub trait ServerBind: Debug + Send + Sync {
     /// Describe how the server should bind to accept connections from
     /// clients.
     async fn bind(&self, timer: ThreadSafeTimer) -> Result<()>;
@@ -205,8 +206,9 @@ impl Server {
 
         let handler = &self.config.handler;
         let fire_event = |event: ServerEvent| async move {
+            debug!("firing server event {event:?}");
             if let Err(err) = handler(event.clone()).await {
-                debug!("cannot fire event {event:?}: {err}");
+                debug!("error while firing server event, skipping it");
                 debug!("{err:?}");
             }
         };
@@ -234,7 +236,6 @@ impl Server {
                 };
                 drop(state);
 
-                trace!("timer tick: {timer:#?}");
                 time::sleep(Duration::from_secs(1)).await;
             }
         });
@@ -244,14 +245,17 @@ impl Server {
         for binder in self.config.binders {
             let timer = self.timer.clone();
             task::spawn(async move {
+                debug!("binding {binder:?}");
                 if let Err(err) = binder.bind(timer).await {
-                    debug!("cannot bind, exiting: {err}");
+                    debug!("error while binding, skipping it");
                     debug!("{err:?}");
                 }
             });
         }
 
+        debug!("main loop started");
         wait().await?;
+        debug!("main loop stopped");
 
         self.state.set_stopping().await;
         fire_event(ServerEvent::Stopping).await;

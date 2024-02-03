@@ -5,6 +5,7 @@
 //! cycles count (infinite or finite). During the lifetime of the
 //! timer, timer events are triggered.
 
+use log::debug;
 #[cfg(all(feature = "server", test))]
 use mock_instant::Instant;
 use serde::{Deserialize, Serialize};
@@ -310,9 +311,10 @@ impl Timer {
 
     pub async fn fire_event(&self, event: TimerEvent) {
         let handler = &self.config.handler;
+        debug!("firing timer event {event:?}");
         if let Err(err) = handler(event.clone()).await {
-            log::debug!("cannot fire event {event:?}");
-            log::debug!("{err:?}");
+            debug!("cannot fire timer event, skipping it");
+            debug!("{err:?}");
         }
     }
 

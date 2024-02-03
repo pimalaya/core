@@ -24,6 +24,7 @@ use super::{ServerBind, ServerStream};
 ///
 /// This [`ServerBind`]er uses the TCP protocol to bind a listener, to
 /// read requests and write responses.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TcpBind {
     /// The TCP host of the listener.
     pub host: String,
