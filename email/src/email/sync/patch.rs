@@ -15,9 +15,7 @@ use std::{
 };
 
 use crate::{
-    account::sync::{
-        AccountSyncProgress, AccountSyncProgressEvent, LocalBackendBuilder, Source, Target,
-    },
+    account::sync::{AccountSyncProgress, AccountSyncProgressEvent, Source, Target},
     backend::BackendContextBuilder,
     flag, Result,
 };
@@ -38,28 +36,30 @@ pub type EmailSyncCachePatch = Vec<EmailSyncCacheHunk>;
 /// The email synchronization patch manager.
 ///
 /// This structure helps you to build a patch and to apply it.
-pub struct EmailSyncPatchManager<B: BackendContextBuilder> {
+pub struct EmailSyncPatchManager<L: BackendContextBuilder, R: BackendContextBuilder> {
     account_config: Arc<AccountConfig>,
-    local_builder: LocalBackendBuilder,
-    remote_builder: BackendBuilder<B>,
+    local_builder: BackendBuilder<L>,
+    remote_builder: BackendBuilder<R>,
     on_progress: AccountSyncProgress,
     dry_run: bool,
 }
 
-impl<B: BackendContextBuilder + 'static> EmailSyncPatchManager<B> {
+impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
+    EmailSyncPatchManager<L, R>
+{
     /// Creates a new email synchronization patch manager.
     pub fn new(
         account_config: Arc<AccountConfig>,
-        local_builder: LocalBackendBuilder,
-        remote_builder: BackendBuilder<B>,
-        on_progress: AccountSyncProgress,
+        local_builder: BackendBuilder<L>,
+        remote_builder: BackendBuilder<R>,
+        on_progress_callback: Option<AccountSyncProgress>,
         dry_run: bool,
     ) -> Self {
         Self {
             account_config,
             local_builder,
             remote_builder,
-            on_progress,
+            on_progress: on_progress_callback.unwrap_or_default(),
             dry_run,
         }
     }

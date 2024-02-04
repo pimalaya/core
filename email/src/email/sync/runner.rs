@@ -7,11 +7,10 @@ use log::{debug, trace};
 use std::sync::Arc;
 
 use crate::{
-    account::sync::{AccountSyncProgress, AccountSyncProgressEvent, LocalBackendBuilder},
+    account::sync::{AccountSyncProgress, AccountSyncProgressEvent},
     backend::{Backend, BackendBuilder, BackendContextBuilder},
     envelope::Id,
     flag::Flag,
-    maildir::MaildirContextSync,
     Result,
 };
 
@@ -23,12 +22,12 @@ use super::*;
 /// the given patch and process it, then loops until there is no more
 /// hunks available in the patch. The patch is in a mutex, which makes
 /// the runner thread safe. Multiple runners can run in parallel.
-pub struct EmailSyncRunner<B: BackendContextBuilder> {
+pub struct EmailSyncRunner<B: BackendContextBuilder, LocalBackendBuilder: BackendContextBuilder> {
     /// The runner identifier, for logging purpose.
     pub id: usize,
 
     /// The local Maildir backend builder.
-    pub local_builder: LocalBackendBuilder,
+    pub local_builder: BackendBuilder<LocalBackendBuilder>,
 
     /// The remote backend builder.
     pub remote_builder: BackendBuilder<B>,
@@ -40,14 +39,17 @@ pub struct EmailSyncRunner<B: BackendContextBuilder> {
     pub patch: Arc<Mutex<Vec<Vec<EmailSyncHunk>>>>,
 }
 
-impl<B: BackendContextBuilder> EmailSyncRunner<B> {
+impl<RemoteBackendBuilder: BackendContextBuilder, LocalBackendBuilder: BackendContextBuilder>
+    EmailSyncRunner<RemoteBackendBuilder, LocalBackendBuilder>
+{
     async fn process_hunk(
-        local: &Backend<MaildirContextSync>,
-        remote: &Backend<B::Context>,
+        local: &Backend<LocalBackendBuilder::Context>,
+        remote: &Backend<RemoteBackendBuilder::Context>,
         hunk: &EmailSyncHunk,
     ) -> Result<EmailSyncCachePatch>
     where
-        B::Context: Send,
+        RemoteBackendBuilder::Context: Send,
+        LocalBackendBuilder::Context: Send,
     {
         let cache_hunks = match hunk {
             EmailSyncHunk::GetThenCache(folder, id, Destination::Local) => {

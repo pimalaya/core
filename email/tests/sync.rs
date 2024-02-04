@@ -1,7 +1,8 @@
+use email::maildir::MaildirContextBuilder;
 use email::{
     account::{
         config::{passwd::PasswdConfig, AccountConfig},
-        sync::{config::SyncConfig, AccountSyncBuilder, LocalBackendBuilder},
+        sync::{config::SyncConfig, AccountSyncBuilder},
     },
     backend::BackendBuilder,
     email::sync::EmailSyncCache,
@@ -63,15 +64,11 @@ async fn sync() {
 
     // set up maildir reader
 
-    let mdir = LocalBackendBuilder::new(
-        account_config.clone(),
-        Arc::new(MaildirConfig {
-            root_dir: sync_dir.clone(),
-        }),
-    )
-    .build()
-    .await
-    .unwrap();
+    let mdir_ctx = MaildirContextBuilder::new(Arc::new(MaildirConfig {
+        root_dir: sync_dir.clone(),
+    }));
+    let mdir_builder = BackendBuilder::new(account_config.clone(), mdir_ctx);
+    let mdir = mdir_builder.clone().build().await.unwrap();
 
     // set up folders
 
@@ -178,8 +175,7 @@ async fn sync() {
 
     // sync imap account twice in a row to see if all work as expected
     // without duplicate items
-
-    let sync_builder = AccountSyncBuilder::new(account_config.clone(), imap_builder)
+    let sync_builder = AccountSyncBuilder::new(account_config.clone(), mdir_builder, imap_builder)
         .await
         .unwrap();
     sync_builder.sync().await.unwrap();

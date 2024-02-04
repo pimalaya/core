@@ -16,7 +16,7 @@ use std::{
 use crate::{
     account::{
         config::AccountConfig,
-        sync::{AccountSyncProgress, AccountSyncProgressEvent, Destination, LocalBackendBuilder},
+        sync::{AccountSyncProgress, AccountSyncProgressEvent, Destination},
     },
     backend::{BackendBuilder, BackendContextBuilder},
     folder::Folder,
@@ -40,21 +40,23 @@ pub type FolderSyncCachePatch = Vec<FolderSyncCacheHunk>;
 /// The folder synchronization patch manager.
 ///
 /// This structure helps you to build a patch and to apply it.
-pub struct FolderSyncPatchManager<B: BackendContextBuilder> {
+pub struct FolderSyncPatchManager<L: BackendContextBuilder, R: BackendContextBuilder> {
     account_config: Arc<AccountConfig>,
-    local_builder: LocalBackendBuilder,
-    remote_builder: BackendBuilder<B>,
+    local_builder: BackendBuilder<L>,
+    remote_builder: BackendBuilder<R>,
     strategy: FolderSyncStrategy,
     on_progress: AccountSyncProgress,
     dry_run: bool,
 }
 
-impl<B: BackendContextBuilder + 'static> FolderSyncPatchManager<B> {
+impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
+    FolderSyncPatchManager<L, R>
+{
     /// Creates a new folder synchronization patch manager.
     pub fn new(
         account_config: Arc<AccountConfig>,
-        local_builder: LocalBackendBuilder,
-        remote_builder: BackendBuilder<B>,
+        local_builder: BackendBuilder<L>,
+        remote_builder: BackendBuilder<R>,
         strategy: FolderSyncStrategy,
         on_progress: AccountSyncProgress,
         dry_run: bool,
@@ -191,8 +193,8 @@ impl<B: BackendContextBuilder + 'static> FolderSyncPatchManager<B> {
     }
 
     async fn process_hunk(
-        local_builder: LocalBackendBuilder,
-        remote_builder: BackendBuilder<B>,
+        local_builder: BackendBuilder<L>,
+        remote_builder: BackendBuilder<R>,
         hunk: &FolderSyncHunk,
     ) -> Result<FolderSyncCachePatch> {
         let cache_hunks = match &hunk {

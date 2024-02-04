@@ -20,7 +20,7 @@ use thiserror::Error;
 
 use crate::{
     account::config::AccountConfig,
-    backend::{Backend, BackendBuilder, BackendContextBuilder},
+    backend::{BackendBuilder, BackendContextBuilder},
     email::sync::{
         EmailSyncCache, EmailSyncCacheHunk, EmailSyncCachePatch, EmailSyncHunk, EmailSyncPatch,
         EmailSyncPatchManager,
@@ -29,7 +29,6 @@ use crate::{
         FolderName, FolderSyncCache, FolderSyncCacheHunk, FolderSyncHunk, FolderSyncPatchManager,
         FolderSyncPatches, FolderSyncStrategy, FoldersName,
     },
-    maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
     Result,
 };
 
@@ -181,24 +180,29 @@ impl AccountSyncProgress {
 /// but it follows the builder pattern. When all the options are set
 /// up, `sync()` synchronizes the current account locally, using the
 /// given remote builder.
-pub struct AccountSyncBuilder<B: BackendContextBuilder> {
+pub struct AccountSyncBuilder<L: BackendContextBuilder, R: BackendContextBuilder> {
     account_config: Arc<AccountConfig>,
-    remote_builder: BackendBuilder<B>,
+    local_builder: BackendBuilder<L>,
+    remote_builder: BackendBuilder<R>,
     on_progress: AccountSyncProgress,
     folders_strategy: FolderSyncStrategy,
     dry_run: bool,
 }
 
-impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
+impl<'a, L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
+    AccountSyncBuilder<L, R>
+{
     /// Creates a new account synchronization builder.
     pub async fn new(
         account_config: Arc<AccountConfig>,
-        remote_builder: BackendBuilder<B>,
-    ) -> Result<AccountSyncBuilder<B>> {
+        local_builder: BackendBuilder<L>,
+        remote_builder: BackendBuilder<R>,
+    ) -> Result<Self> {
         let folders_strategy = account_config.get_folder_sync_strategy();
 
         Ok(Self {
             account_config,
+            local_builder,
             remote_builder,
             on_progress: Default::default(),
             dry_run: Default::default(),
@@ -265,17 +269,10 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
             .try_lock(FileLockMode::Exclusive)
             .map_err(|err| Error::SyncAccountLockFileError(err, account.clone()))?;
 
-        let sync_dir = self.account_config.get_sync_dir()?;
-
         debug!("initializing folder and envelope cache");
         let conn = &mut self.account_config.get_sync_db_conn()?;
         FolderSyncCache::init(conn)?;
         EmailSyncCache::init(conn)?;
-
-        let local_builder = LocalBackendBuilder::new(
-            self.account_config.clone(),
-            Arc::new(MaildirConfig { root_dir: sync_dir }),
-        );
 
         debug!("applying folder aliases to the folder sync strategy");
         // TODO: move to FolderSyncPatchManager?
@@ -312,7 +309,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
 
         let folder_sync_patch_manager = FolderSyncPatchManager::new(
             self.account_config.clone(),
-            local_builder.clone(),
+            self.local_builder.clone(),
             self.remote_builder.clone(),
             folders_strategy,
             self.on_progress.clone(),
@@ -338,9 +335,9 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
 
         let envelope_sync_patch_manager = EmailSyncPatchManager::new(
             self.account_config.clone(),
-            local_builder.clone(),
+            self.local_builder.clone(),
             self.remote_builder.clone(),
-            self.on_progress.clone(),
+            Some(self.on_progress.clone()),
             self.dry_run,
         );
 
@@ -382,7 +379,7 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
 
         debug!("expunging folders");
         FuturesUnordered::from_iter(folders.iter().map(|folder| async {
-            local_builder
+            self.local_builder
                 .clone()
                 .build()
                 .await?
@@ -417,20 +414,5 @@ impl<'a, B: BackendContextBuilder + 'static> AccountSyncBuilder<B> {
         debug!("{sync_report:#?}");
 
         Ok(sync_report)
-    }
-}
-
-#[derive(Clone)]
-pub struct LocalBackendBuilder(BackendBuilder<MaildirContextBuilder>);
-
-impl LocalBackendBuilder {
-    pub fn new(account_config: Arc<AccountConfig>, mdir_config: Arc<MaildirConfig>) -> Self {
-        let ctx_builder = MaildirContextBuilder::new(mdir_config);
-        let backend_builder = BackendBuilder::new(account_config, ctx_builder);
-        Self(backend_builder)
-    }
-
-    pub async fn build(self) -> Result<Backend<MaildirContextSync>> {
-        self.0.build().await
     }
 }
