@@ -7,13 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added function `AutoConfig::is_gmail`.
+
 ### Changed
 
 - Changed `WatchHook` from enum to struct. This way, multiple hook variants can be set up for one event (like sending a system notification and executing a shell command when receiving a new envelope).
+- Made function `DnsClient::get_mx_domain` public.
 
 ### Fixed
 
 - Fixed watch IMAP envelopes issue preventing events to be triggered.
+- Fixed MX DNS account discovery that was not checking the ISPDB before checking TXT records.
+
+### Removed
+
+- Removed function `DnsClient::get_mailconf_mx_uri`.
 
 ## [0.21.0] - 2024-01-27
 

@@ -7,6 +7,19 @@
 //! *NOTE: only IMAP and SMTP configurations can be discovered by this
 //! module.*
 //!
+//! Discovery performs actions in this order:
+//!
+//! - Check ISP databases for example.com
+//!   - Check main ISP <autoconfig.example.com>
+//!   - Check alt ISP <example.com/.well-known>
+//!   - Check Thunderbird ISPDB <autoconfig.thunderbird.net/example.com>
+//! - Check example.com DNS records
+//!   - If example2.com found in example.com MX records
+//!     - Check ISP databases for example2.com
+//!     - Check for mailconf URI in example2.com TXT records
+//!   - Check mailconf URI in example.com TXT records
+//!   - Build autoconfig from imap and submission example.com SRV records
+//!
 //! [Autoconfiguration]: https://udn.realityripple.com/docs/Mozilla/Thunderbird/Autoconfiguration
 
 pub mod config;
@@ -41,7 +54,7 @@ pub async fn from_addr(addr: impl AsRef<str>) -> Result<AutoConfig> {
         Ok(config) => Ok(config),
         Err(err) => {
             trace!("{err}");
-            debug!("ISP discovery failed, falling back to DNS");
+            debug!("ISP discovery failed for {addr}, falling back to DNS");
             from_dns(&http, &addr).await
         }
     }
@@ -64,7 +77,7 @@ async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig>
         Ok((config, _)) => Ok(config),
         Err(err) => {
             trace!("{err}");
-            debug!("main ISP discovery failed, falling back to alternative ISP");
+            debug!("main ISP discovery failed for {addr}, falling back to alternative ISP");
 
             let from_alt_isps = [
                 from_plain_alt_isp(http, addr).boxed(),
@@ -75,7 +88,7 @@ async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig>
                 Ok((config, _)) => Ok(config),
                 Err(err) => {
                     trace!("{err}");
-                    debug!("alternative ISP discovery failed, falling back to ISPDB");
+                    debug!("alternative ISP discovery failed for {addr}, falling back to ISPDB");
                     from_ispdb(http, addr).await
                 }
             }
@@ -98,7 +111,7 @@ async fn from_secure_main_isp(http: &HttpClient, addr: &EmailAddress) -> Result<
 /// Discover configuration associated to a given email address using
 /// main ISP location.
 async fn from_main_isp(http: &HttpClient, scheme: &str, addr: &EmailAddress) -> Result<AutoConfig> {
-    let domain = addr.domain();
+    let domain = addr.domain().trim_matches('.');
     let uri_str =
         format!("{scheme}://autoconfig.{domain}/mail/config-v1.1.xml?emailaddress={addr}");
     let uri = Uri::from_str(&uri_str).unwrap();
@@ -125,7 +138,7 @@ async fn from_secure_alt_isp(http: &HttpClient, addr: &EmailAddress) -> Result<A
 /// Discover configuration associated to a given email address using
 /// alternative ISP location.
 async fn from_alt_isp(http: &HttpClient, scheme: &str, addr: &EmailAddress) -> Result<AutoConfig> {
-    let domain = addr.domain();
+    let domain = addr.domain().trim_matches('.');
     let uri_str = format!("{scheme}://{domain}/.well-known/autoconfig/mail/config-v1.1.xml");
     let uri = Uri::from_str(&uri_str).unwrap();
 
@@ -139,7 +152,7 @@ async fn from_alt_isp(http: &HttpClient, scheme: &str, addr: &EmailAddress) -> R
 /// Discover configuration associated to a given email address using
 /// Thunderbird ISPDB.
 async fn from_ispdb(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> {
-    let domain = addr.domain();
+    let domain = addr.domain().trim_matches('.');
     let uri_str = format!("https://autoconfig.thunderbird.net/v1.1/{domain}");
     let uri = Uri::from_str(&uri_str).unwrap();
 
@@ -156,19 +169,19 @@ async fn from_ispdb(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig
 /// Inspect first MX records, then TXT records, and finally SRV
 /// records.
 async fn from_dns(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> {
-    let domain = addr.domain();
+    let domain = addr.domain().trim_matches('.');
     let dns = DnsClient::new();
 
-    match from_dns_mx(http, &dns, domain).await {
+    match from_dns_mx(http, &dns, addr).await {
         Ok(config) => Ok(config),
         Err(err) => {
             trace!("{err}");
-            debug!("MX discovery failed, falling back to TXT");
+            debug!("MX discovery failed for {addr}, falling back to TXT records");
             match from_dns_txt(http, &dns, domain).await {
                 Ok(config) => Ok(config),
                 Err(err) => {
                     trace!("{err}");
-                    debug!("TXT discovery failed, falling back to SRV");
+                    debug!("TXT discovery failed for {addr}, falling back to SRV records");
                     from_dns_srv(&dns, domain).await
                 }
             }
@@ -178,14 +191,24 @@ async fn from_dns(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> 
 
 /// Discover configuration associated to a given email address using
 /// MX DNS records.
-async fn from_dns_mx(http: &HttpClient, dns: &DnsClient, domain: &str) -> Result<AutoConfig> {
-    let uri = dns.get_mailconf_mx_uri(domain).await?;
+async fn from_dns_mx(
+    http: &HttpClient,
+    dns: &DnsClient,
+    addr: &EmailAddress,
+) -> Result<AutoConfig> {
+    let local_part = addr.local_part();
+    let domain = dns.get_mx_domain(addr.domain()).await?;
+    let domain = domain.trim_matches('.');
+    let addr = EmailAddress::from_str(&format!("{local_part}@{domain}")).unwrap();
 
-    let config = http.get_config(uri).await?;
-    debug!("successfully discovered config from MX record");
-    trace!("{config:#?}");
-
-    Ok(config)
+    match from_isps(http, &addr).await {
+        Ok(config) => Ok(config),
+        Err(err) => {
+            trace!("{err}");
+            debug!("ISP discovery failed for {domain}, falling back to TXT records");
+            from_dns_txt(http, &dns, &domain).await
+        }
+    }
 }
 
 /// Discover configuration associated to a given email address using
@@ -194,7 +217,7 @@ async fn from_dns_txt(http: &HttpClient, dns: &DnsClient, domain: &str) -> Resul
     let uri = dns.get_mailconf_txt_uri(domain).await?;
 
     let config = http.get_config(uri).await?;
-    debug!("successfully discovered config from TXT record");
+    debug!("successfully discovered config from {domain} TXT record");
     trace!("{config:#?}");
 
     Ok(config)
@@ -261,7 +284,7 @@ async fn from_dns_srv(dns: &DnsClient, domain: &str) -> Result<AutoConfig> {
             }))
     }
 
-    debug!("successfully discovered config from SRV record");
+    debug!("successfully discovered config from {domain} SRV record");
     trace!("{config:#?}");
 
     Ok(config)

@@ -122,17 +122,6 @@ impl DnsClient {
         Self { resolver }
     }
 
-    /// Get the first mailconf URI of MX records from the given
-    /// domain.
-    ///
-    /// First, find the MX exchange domain associated to the given
-    /// domain, then find the TXT mailconf URI associated to this MX
-    /// exchange domain.
-    pub async fn get_mailconf_mx_uri(&self, domain: &str) -> Result<Uri> {
-        let domain = self.get_mx_domain(domain).await?;
-        self.get_mailconf_txt_uri(&domain).await
-    }
-
     /// Get the first mailconf URI of TXT records from the given
     /// domain.
     pub async fn get_mailconf_txt_uri(&self, domain: &str) -> Result<Uri> {
@@ -163,7 +152,7 @@ impl DnsClient {
     }
 
     /// Get the first MX exchange domain from a given domain.
-    async fn get_mx_domain(&self, domain: &str) -> Result<String> {
+    pub async fn get_mx_domain(&self, domain: &str) -> Result<String> {
         let mut records: Vec<MxRecord> = self
             .resolver
             .mx_lookup(domain)

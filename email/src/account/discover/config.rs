@@ -19,6 +19,10 @@ pub struct AutoConfig {
 }
 
 impl AutoConfig {
+    pub fn is_gmail(&self) -> bool {
+        self.email_provider.id == "googlemail.com"
+    }
+
     /// The config version
     pub fn version(&self) -> &str {
         &self.version
