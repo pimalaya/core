@@ -13,9 +13,8 @@ mod runner;
 use thiserror::Error;
 
 use crate::{
-    account::{config::AccountConfig, sync::Destination},
-    backend::BackendBuilder,
-    envelope::Envelope,
+    account::config::AccountConfig, backend::BackendBuilder, envelope::Envelope,
+    sync::SyncDestination,
 };
 
 #[doc(inline)]

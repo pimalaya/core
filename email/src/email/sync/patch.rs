@@ -225,7 +225,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
                 let tx = conn.transaction()?;
                 for hunk in &report.cache_patch.0 {
                     match hunk {
-                        EmailSyncCacheHunk::Insert(folder, envelope, Target::Local) => {
+                        EmailSyncCacheHunk::Insert(folder, envelope, Target::Left) => {
                             EmailSyncCache::insert_local_envelope(
                                 &tx,
                                 account,
@@ -233,7 +233,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
                                 envelope.clone(),
                             )?
                         }
-                        EmailSyncCacheHunk::Insert(folder, envelope, Target::Remote) => {
+                        EmailSyncCacheHunk::Insert(folder, envelope, Target::Right) => {
                             EmailSyncCache::insert_remote_envelope(
                                 &tx,
                                 account,
@@ -241,7 +241,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
                                 envelope.clone(),
                             )?
                         }
-                        EmailSyncCacheHunk::Delete(folder, internal_id, Target::Local) => {
+                        EmailSyncCacheHunk::Delete(folder, internal_id, Target::Left) => {
                             EmailSyncCache::delete_local_envelope(
                                 &tx,
                                 account,
@@ -249,7 +249,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
                                 internal_id,
                             )?
                         }
-                        EmailSyncCacheHunk::Delete(folder, internal_id, Target::Remote) => {
+                        EmailSyncCacheHunk::Delete(folder, internal_id, Target::Right) => {
                             EmailSyncCache::delete_remote_envelope(
                                 &tx,
                                 account,
@@ -320,8 +320,8 @@ pub fn build_patch(
                 patch.insert(vec![EmailSyncHunk::CopyThenCache(
                     folder.to_string(),
                     remote.clone(),
-                    Source::Remote,
-                    Target::Local,
+                    Source::Right,
+                    Target::Left,
                     true,
                 )]);
             }
@@ -335,7 +335,7 @@ pub fn build_patch(
                 patch.insert(vec![EmailSyncHunk::Uncache(
                     folder.to_string(),
                     remote_cache.id.clone(),
-                    Target::Remote,
+                    Target::Right,
                 )]);
             }
 
@@ -352,8 +352,8 @@ pub fn build_patch(
                 patch.insert(vec![EmailSyncHunk::CopyThenCache(
                     folder.to_string(),
                     remote.clone(),
-                    Source::Remote,
-                    Target::Local,
+                    Source::Right,
+                    Target::Left,
                     false,
                 )]);
 
@@ -364,7 +364,7 @@ pub fn build_patch(
                             flags: remote.flags.clone(),
                             ..remote_cache.clone()
                         },
-                        Target::Remote,
+                        Target::Right,
                     )]);
                 }
             }
@@ -378,8 +378,8 @@ pub fn build_patch(
                 patch.insert(vec![EmailSyncHunk::CopyThenCache(
                     folder.to_string(),
                     local.clone(),
-                    Source::Local,
-                    Target::Remote,
+                    Source::Left,
+                    Target::Right,
                     true,
                 )]);
             }
@@ -397,27 +397,23 @@ pub fn build_patch(
             (None, Some(local), None, Some(remote)) => {
                 if local.date > remote.date {
                     patch.insert(vec![
-                        EmailSyncHunk::Delete(
-                            folder.to_string(),
-                            remote.id.clone(),
-                            Target::Remote,
-                        ),
+                        EmailSyncHunk::Delete(folder.to_string(), remote.id.clone(), Target::Right),
                         EmailSyncHunk::CopyThenCache(
                             folder.to_string(),
                             local.clone(),
-                            Source::Local,
-                            Target::Remote,
+                            Source::Left,
+                            Target::Right,
                             true,
                         ),
                     ]);
                 } else {
                     patch.insert(vec![
-                        EmailSyncHunk::Delete(folder.to_string(), local.id.clone(), Target::Local),
+                        EmailSyncHunk::Delete(folder.to_string(), local.id.clone(), Target::Left),
                         EmailSyncHunk::CopyThenCache(
                             folder.to_string(),
                             remote.clone(),
-                            Source::Remote,
-                            Target::Local,
+                            Source::Right,
+                            Target::Left,
                             true,
                         ),
                     ]);
@@ -440,13 +436,13 @@ pub fn build_patch(
                     EmailSyncHunk::Uncache(
                         folder.to_string(),
                         remote_cache.id.clone(),
-                        Target::Remote,
+                        Target::Right,
                     ),
                     EmailSyncHunk::CopyThenCache(
                         folder.to_string(),
                         local.clone(),
-                        Source::Local,
-                        Target::Remote,
+                        Source::Left,
+                        Target::Right,
                         true,
                     ),
                 ]);
@@ -461,7 +457,7 @@ pub fn build_patch(
                 patch.insert(vec![EmailSyncHunk::GetThenCache(
                     folder.to_string(),
                     local.id.clone(),
-                    Source::Local,
+                    Source::Left,
                 )]);
 
                 let flags = flag::sync(
@@ -478,7 +474,7 @@ pub fn build_patch(
                             flags: flags.clone(),
                             ..local.clone()
                         },
-                        Target::Local,
+                        Target::Left,
                     )]);
                 }
 
@@ -489,7 +485,7 @@ pub fn build_patch(
                             flags: flags.clone(),
                             ..remote_cache.clone()
                         },
-                        Target::Remote,
+                        Target::Right,
                     )]);
                 }
 
@@ -500,7 +496,7 @@ pub fn build_patch(
                             flags: flags.clone(),
                             ..remote.clone()
                         },
-                        Target::Remote,
+                        Target::Right,
                     )]);
                 }
             }
@@ -514,7 +510,7 @@ pub fn build_patch(
                 patch.insert(vec![EmailSyncHunk::Uncache(
                     folder.to_string(),
                     local_cache.id.clone(),
-                    Target::Local,
+                    Target::Left,
                 )]);
             }
 
@@ -533,13 +529,13 @@ pub fn build_patch(
                     EmailSyncHunk::Uncache(
                         folder.to_string(),
                         local_cache.id.clone(),
-                        Target::Local,
+                        Target::Left,
                     ),
                     EmailSyncHunk::CopyThenCache(
                         folder.to_string(),
                         remote.clone(),
-                        Source::Remote,
-                        Target::Local,
+                        Source::Right,
+                        Target::Left,
                         true,
                     ),
                 ]);
@@ -553,12 +549,12 @@ pub fn build_patch(
                 vec![EmailSyncHunk::Uncache(
                     folder.to_string(),
                     local_cache.id.clone(),
-                    Target::Local,
+                    Target::Left,
                 )],
                 vec![EmailSyncHunk::Uncache(
                     folder.to_string(),
                     remote_cache.id.clone(),
-                    Target::Remote,
+                    Target::Right,
                 )],
             ]),
 
@@ -571,17 +567,17 @@ pub fn build_patch(
                 vec![EmailSyncHunk::Uncache(
                     folder.to_string(),
                     local_cache.id.clone(),
-                    Target::Local,
+                    Target::Left,
                 )],
                 vec![EmailSyncHunk::Uncache(
                     folder.to_string(),
                     remote_cache.id.clone(),
-                    Target::Remote,
+                    Target::Right,
                 )],
                 vec![EmailSyncHunk::Delete(
                     folder.to_string(),
                     remote.id.clone(),
-                    Target::Remote,
+                    Target::Right,
                 )],
             ]),
 
@@ -599,8 +595,8 @@ pub fn build_patch(
                 patch.insert(vec![EmailSyncHunk::CopyThenCache(
                     folder.to_string(),
                     local.clone(),
-                    Source::Local,
-                    Target::Remote,
+                    Source::Left,
+                    Target::Right,
                     false,
                 )]);
 
@@ -611,7 +607,7 @@ pub fn build_patch(
                             flags: local.flags.clone(),
                             ..local_cache.clone()
                         },
-                        Target::Local,
+                        Target::Left,
                     )]);
                 }
             }
@@ -637,7 +633,7 @@ pub fn build_patch(
                             flags: flags.clone(),
                             ..local_cache.clone()
                         },
-                        Target::Local,
+                        Target::Left,
                     )]);
                 }
 
@@ -648,7 +644,7 @@ pub fn build_patch(
                             flags: flags.clone(),
                             ..local.clone()
                         },
-                        Target::Local,
+                        Target::Left,
                     )]);
                 }
 
@@ -659,14 +655,14 @@ pub fn build_patch(
                             flags: flags.clone(),
                             ..remote.clone()
                         },
-                        Target::Remote,
+                        Target::Right,
                     )]);
                 }
 
                 patch.insert(vec![EmailSyncHunk::GetThenCache(
                     folder.to_string(),
                     remote.id.clone(),
-                    Source::Remote,
+                    Source::Right,
                 )]);
             }
 
@@ -679,17 +675,17 @@ pub fn build_patch(
                 vec![EmailSyncHunk::Uncache(
                     folder.to_string(),
                     local_cache.id.clone(),
-                    Target::Local,
+                    Target::Left,
                 )],
                 vec![EmailSyncHunk::Delete(
                     folder.to_string(),
                     local.id.clone(),
-                    Target::Local,
+                    Target::Left,
                 )],
                 vec![EmailSyncHunk::Uncache(
                     folder.to_string(),
                     remote_cache.id.clone(),
-                    Target::Remote,
+                    Target::Right,
                 )],
             ]),
 
@@ -712,7 +708,7 @@ pub fn build_patch(
                             flags: flags.clone(),
                             ..local_cache.clone()
                         },
-                        Target::Local,
+                        Target::Left,
                     )]);
                 }
 
@@ -723,7 +719,7 @@ pub fn build_patch(
                             flags: flags.clone(),
                             ..local.clone()
                         },
-                        Target::Local,
+                        Target::Left,
                     )]);
                 }
 
@@ -734,7 +730,7 @@ pub fn build_patch(
                             flags: flags.clone(),
                             ..remote_cache.clone()
                         },
-                        Target::Remote,
+                        Target::Right,
                     )]);
                 }
 
@@ -745,7 +741,7 @@ pub fn build_patch(
                             flags: flags.clone(),
                             ..remote.clone()
                         },
-                        Target::Remote,
+                        Target::Right,
                     )]);
                 }
             }
@@ -801,8 +797,8 @@ mod tests {
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
-                Source::Remote,
-                Target::Local,
+                Source::Right,
+                Target::Left,
                 true,
             )]]),
         );
@@ -827,7 +823,7 @@ mod tests {
             EmailSyncPatch::from_iter([vec![EmailSyncHunk::Uncache(
                 "inbox".into(),
                 "remote-cache-id".into(),
-                Target::Remote
+                Target::Right
             )]]),
         );
     }
@@ -862,8 +858,8 @@ mod tests {
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
-                Target::Remote,
-                Target::Local,
+                Target::Right,
+                Target::Left,
                 false,
             )]]),
         );
@@ -900,8 +896,8 @@ mod tests {
                         flags: "seen flagged deleted".into(),
                         ..Envelope::default()
                     },
-                    Target::Remote,
-                    Target::Local,
+                    Target::Right,
+                    Target::Left,
                     false,
                 )],
                 vec![EmailSyncHunk::UpdateCachedFlags(
@@ -911,7 +907,7 @@ mod tests {
                         flags: Flags::from_iter([Flag::Seen, Flag::Flagged, Flag::Deleted]),
                         ..Envelope::default()
                     },
-                    Target::Remote,
+                    Target::Right,
                 )]
             ])
         );
@@ -940,8 +936,8 @@ mod tests {
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
-                Target::Local,
-                Target::Remote,
+                Target::Left,
+                Target::Right,
                 true,
             )]]),
         );
@@ -1051,7 +1047,7 @@ mod tests {
         assert!(patch.contains(&EmailSyncHunk::Delete(
             "inbox".into(),
             "remote-id-1".into(),
-            Target::Remote
+            Target::Right
         )));
         assert!(patch.contains(&EmailSyncHunk::CopyThenCache(
             "inbox".into(),
@@ -1061,14 +1057,14 @@ mod tests {
                 date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                 ..Envelope::default()
             },
-            Target::Local,
-            Target::Remote,
+            Target::Left,
+            Target::Right,
             true,
         )));
         assert!(patch.contains(&EmailSyncHunk::Delete(
             "inbox".into(),
             "remote-id-2".into(),
-            Target::Remote
+            Target::Right
         )));
         assert!(patch.contains(&EmailSyncHunk::CopyThenCache(
             "inbox".into(),
@@ -1078,14 +1074,14 @@ mod tests {
                 date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                 ..Envelope::default()
             },
-            Target::Local,
-            Target::Remote,
+            Target::Left,
+            Target::Right,
             true,
         )));
         assert!(patch.contains(&EmailSyncHunk::Delete(
             "inbox".into(),
             "local-id-3".into(),
-            Target::Local
+            Target::Left
         )));
         assert!(patch.contains(&EmailSyncHunk::CopyThenCache(
             "inbox".into(),
@@ -1094,14 +1090,14 @@ mod tests {
                 flags: "seen".into(),
                 ..Envelope::default()
             },
-            Target::Remote,
-            Target::Local,
+            Target::Right,
+            Target::Left,
             true,
         )));
         assert!(patch.contains(&EmailSyncHunk::Delete(
             "inbox".into(),
             "local-id-4".into(),
-            Target::Local
+            Target::Left
         )));
         assert!(patch.contains(&EmailSyncHunk::CopyThenCache(
             "inbox".into(),
@@ -1111,14 +1107,14 @@ mod tests {
                 date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                 ..Envelope::default()
             },
-            Target::Remote,
-            Target::Local,
+            Target::Right,
+            Target::Left,
             true,
         )));
         assert!(patch.contains(&EmailSyncHunk::Delete(
             "inbox".into(),
             "local-id-5".into(),
-            Target::Local
+            Target::Left
         )));
         assert!(patch.contains(&EmailSyncHunk::CopyThenCache(
             "inbox".into(),
@@ -1128,8 +1124,8 @@ mod tests {
                 date: "2022-01-01T00:00:00-00:00".parse().unwrap(),
                 ..Envelope::default()
             },
-            Target::Remote,
-            Target::Local,
+            Target::Right,
+            Target::Left,
             true,
         )));
     }
@@ -1158,7 +1154,7 @@ mod tests {
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
             EmailSyncPatch::from_iter([vec![
-                EmailSyncHunk::Uncache("inbox".into(), "remote-id".into(), Target::Remote),
+                EmailSyncHunk::Uncache("inbox".into(), "remote-id".into(), Target::Right),
                 EmailSyncHunk::CopyThenCache(
                     "inbox".into(),
                     Envelope {
@@ -1166,8 +1162,8 @@ mod tests {
                         flags: "seen".into(),
                         ..Envelope::default()
                     },
-                    Target::Local,
-                    Target::Remote,
+                    Target::Left,
+                    Target::Right,
                     true,
                 )
             ]]),
@@ -1207,7 +1203,7 @@ mod tests {
             EmailSyncPatch::from_iter([vec![EmailSyncHunk::GetThenCache(
                 "inbox".into(),
                 "local-id".into(),
-                Target::Local,
+                Target::Left,
             )]])
         );
     }
@@ -1231,7 +1227,7 @@ mod tests {
             EmailSyncPatch::from_iter([vec![EmailSyncHunk::Uncache(
                 "inbox".into(),
                 "local-cache-id".into(),
-                Target::Local
+                Target::Left
             )]])
         );
     }
@@ -1260,7 +1256,7 @@ mod tests {
         assert_eq!(
             super::build_patch("inbox", local_cache, local, remote_cache, remote),
             EmailSyncPatch::from_iter([vec![
-                EmailSyncHunk::Uncache("inbox".into(), "local-cache-id".into(), Target::Local),
+                EmailSyncHunk::Uncache("inbox".into(), "local-cache-id".into(), Target::Left),
                 EmailSyncHunk::CopyThenCache(
                     "inbox".into(),
                     Envelope {
@@ -1268,8 +1264,8 @@ mod tests {
                         flags: "seen".into(),
                         ..Envelope::default()
                     },
-                    Target::Remote,
-                    Target::Local,
+                    Target::Right,
+                    Target::Left,
                     true,
                 ),
             ]])
@@ -1303,12 +1299,12 @@ mod tests {
                 vec![EmailSyncHunk::Uncache(
                     "inbox".into(),
                     "local-cache-id".into(),
-                    Target::Local
+                    Target::Left
                 )],
                 vec![EmailSyncHunk::Uncache(
                     "inbox".into(),
                     "remote-cache-id".into(),
-                    Target::Remote
+                    Target::Right
                 )],
             ])
         );
@@ -1348,17 +1344,17 @@ mod tests {
                 vec![EmailSyncHunk::Uncache(
                     "inbox".into(),
                     "local-cache-id".into(),
-                    Target::Local,
+                    Target::Left,
                 )],
                 vec![EmailSyncHunk::Uncache(
                     "inbox".into(),
                     "remote-cache-id".into(),
-                    Target::Remote,
+                    Target::Right,
                 )],
                 vec![EmailSyncHunk::Delete(
                     "inbox".into(),
                     "remote-id".into(),
-                    Target::Remote
+                    Target::Right
                 )],
             ])
         );
@@ -1394,8 +1390,8 @@ mod tests {
                     flags: "seen".into(),
                     ..Envelope::default()
                 },
-                Target::Local,
-                Target::Remote,
+                Target::Left,
+                Target::Right,
                 false,
             )]])
         );
@@ -1432,8 +1428,8 @@ mod tests {
                         flags: "flagged".into(),
                         ..Envelope::default()
                     },
-                    Target::Local,
-                    Target::Remote,
+                    Target::Left,
+                    Target::Right,
                     false,
                 )],
                 vec![EmailSyncHunk::UpdateCachedFlags(
@@ -1443,7 +1439,7 @@ mod tests {
                         flags: Flags::from_iter([Flag::Flagged]),
                         ..Envelope::default()
                     },
-                    Target::Local,
+                    Target::Left,
                 )]
             ])
         );
@@ -1482,7 +1478,7 @@ mod tests {
             EmailSyncPatch::from_iter([vec![EmailSyncHunk::GetThenCache(
                 "inbox".into(),
                 "remote-id".into(),
-                Target::Remote,
+                Target::Right,
             )]]),
         );
     }
@@ -1521,17 +1517,17 @@ mod tests {
                 vec![EmailSyncHunk::Uncache(
                     "inbox".into(),
                     "local-cache-id".into(),
-                    Target::Local,
+                    Target::Left,
                 )],
                 vec![EmailSyncHunk::Delete(
                     "inbox".into(),
                     "local-id".into(),
-                    Target::Local
+                    Target::Left
                 )],
                 vec![EmailSyncHunk::Uncache(
                     "inbox".into(),
                     "remote-cache-id".into(),
-                    Target::Remote,
+                    Target::Right,
                 )],
             ])
         );

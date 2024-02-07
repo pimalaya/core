@@ -63,6 +63,8 @@ pub mod notmuch;
 pub mod sendmail;
 #[cfg(feature = "smtp")]
 pub mod smtp;
+#[cfg(feature = "sync")]
+pub mod sync;
 pub mod watch;
 
 #[doc(inline)]

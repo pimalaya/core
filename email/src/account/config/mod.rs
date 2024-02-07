@@ -414,7 +414,7 @@ impl AccountConfig {
     ///
     /// This function is the reverse of [`get_folder_alias`], as it
     /// tries to find a key (folder kind) matching the given value
-    /// (folder alial).
+    /// (folder alias).
     pub fn find_folder_kind_from_alias(&self, alias: &str) -> Option<FolderKind> {
         self.folder
             .as_ref()

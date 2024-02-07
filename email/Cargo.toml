@@ -25,6 +25,7 @@ default = [
   # "notmuch",
   "smtp",
   "sendmail",
+  "sync",
   "account-discovery",
   "account-sync",
   "folder",
@@ -41,6 +42,8 @@ maildir = ["dep:maildirpp", "dep:notify", "dep:rayon"]
 notmuch = ["dep:notmuch"]
 smtp = ["dep:mail-send"]
 sendmail = []
+
+sync = ["dep:md5", "maildir", "folder-list"]
 
 account-discovery = [
   "dep:email_address",
@@ -120,6 +123,7 @@ mail-builder = "0.3"
 mail-parser = "0.9"
 mail-send = { version = "0.4", optional = true }
 maildirpp = { version = "=0.0.2", optional = true }
+md5 = { version = "0.7", optional = true }
 mml-lib = { version = "=1.0.7", default-features = false, features = ["compiler", "interpreter"] }
 notify = { version = "6", optional = true, default-features = false, features = ["macos_kqueue"] }
 notify-rust = { version = "4", optional = true }

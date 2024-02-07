@@ -29,6 +29,7 @@ use crate::{
         FolderName, FolderSyncCache, FolderSyncCacheHunk, FolderSyncHunk, FolderSyncPatchManager,
         FolderSyncPatches, FolderSyncStrategy, FoldersName,
     },
+    sync::SyncDestination,
     Result,
 };
 
@@ -45,30 +46,11 @@ pub enum Error {
     SyncAccountUnlockFileError(#[source] FileLockError, String),
 }
 
-/// The synchronization destination.
-#[derive(Debug, Clone, Eq, Hash, PartialEq)]
-pub enum Destination {
-    /// An item needs to be synchronized to the local Maildir.
-    Local,
-
-    /// An item needs to be synchronized remotely.
-    Remote,
-}
-
-impl fmt::Display for Destination {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Local => write!(f, "local"),
-            Self::Remote => write!(f, "remote"),
-        }
-    }
-}
-
 /// Alias for the source destination.
-pub type Source = Destination;
+pub type Source = SyncDestination;
 
 /// Alias for the target destination.
-pub type Target = Destination;
+pub type Target = SyncDestination;
 
 /// The backend synchronization progress event.
 ///

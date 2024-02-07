@@ -52,20 +52,20 @@ impl<RemoteBackendBuilder: BackendContextBuilder, LocalBackendBuilder: BackendCo
         LocalBackendBuilder::Context: Send,
     {
         let cache_hunks = match hunk {
-            EmailSyncHunk::GetThenCache(folder, id, Destination::Local) => {
+            EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Left) => {
                 let envelope = local.get_envelope(folder, &Id::single(id)).await?;
                 vec![EmailSyncCacheHunk::Insert(
                     folder.clone(),
                     envelope.clone(),
-                    Destination::Local,
+                    SyncDestination::Left,
                 )]
             }
-            EmailSyncHunk::GetThenCache(folder, id, Destination::Remote) => {
+            EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Right) => {
                 let envelope = remote.get_envelope(folder, &Id::single(id)).await?;
                 vec![EmailSyncCacheHunk::Insert(
                     folder.clone(),
                     envelope.clone(),
-                    Destination::Remote,
+                    SyncDestination::Right,
                 )]
             }
             EmailSyncHunk::CopyThenCache(
@@ -78,22 +78,22 @@ impl<RemoteBackendBuilder: BackendContextBuilder, LocalBackendBuilder: BackendCo
                 let mut cache_hunks = vec![];
                 let id = Id::single(&envelope.id);
                 let emails = match source {
-                    Destination::Local => {
+                    SyncDestination::Left => {
                         if *refresh_source_cache {
                             cache_hunks.push(EmailSyncCacheHunk::Insert(
                                 folder.clone(),
                                 envelope.clone(),
-                                Destination::Local,
+                                SyncDestination::Left,
                             ))
                         };
                         local.peek_messages(folder, &id).await?
                     }
-                    Destination::Remote => {
+                    SyncDestination::Right => {
                         if *refresh_source_cache {
                             cache_hunks.push(EmailSyncCacheHunk::Insert(
                                 folder.clone(),
                                 envelope.clone(),
-                                Destination::Remote,
+                                SyncDestination::Right,
                             ))
                         };
                         remote.peek_messages(folder, &id).await?
@@ -106,7 +106,7 @@ impl<RemoteBackendBuilder: BackendContextBuilder, LocalBackendBuilder: BackendCo
                     .ok_or_else(|| Error::FindEmailError(envelope.id.clone()))?;
 
                 match target {
-                    Destination::Local => {
+                    SyncDestination::Left => {
                         let id = local
                             .add_message_with_flags(folder, email.raw()?, &envelope.flags)
                             .await?;
@@ -114,10 +114,10 @@ impl<RemoteBackendBuilder: BackendContextBuilder, LocalBackendBuilder: BackendCo
                         cache_hunks.push(EmailSyncCacheHunk::Insert(
                             folder.clone(),
                             envelope.clone(),
-                            Destination::Local,
+                            SyncDestination::Left,
                         ));
                     }
-                    Destination::Remote => {
+                    SyncDestination::Right => {
                         let id = remote
                             .add_message_with_flags(folder, email.raw()?, &envelope.flags)
                             .await?;
@@ -125,73 +125,73 @@ impl<RemoteBackendBuilder: BackendContextBuilder, LocalBackendBuilder: BackendCo
                         cache_hunks.push(EmailSyncCacheHunk::Insert(
                             folder.clone(),
                             envelope.clone(),
-                            Destination::Remote,
+                            SyncDestination::Right,
                         ));
                     }
                 };
                 cache_hunks
             }
-            EmailSyncHunk::Uncache(folder, internal_id, Destination::Local) => {
+            EmailSyncHunk::Uncache(folder, internal_id, SyncDestination::Left) => {
                 vec![EmailSyncCacheHunk::Delete(
                     folder.clone(),
                     internal_id.clone(),
-                    Destination::Local,
+                    SyncDestination::Left,
                 )]
             }
-            EmailSyncHunk::Delete(folder, id, Destination::Local) => {
+            EmailSyncHunk::Delete(folder, id, SyncDestination::Left) => {
                 local
                     .add_flag(folder, &Id::single(id), Flag::Deleted)
                     .await?;
                 vec![]
             }
-            EmailSyncHunk::Uncache(folder, internal_id, Destination::Remote) => {
+            EmailSyncHunk::Uncache(folder, internal_id, SyncDestination::Right) => {
                 vec![EmailSyncCacheHunk::Delete(
                     folder.clone(),
                     internal_id.clone(),
-                    Destination::Remote,
+                    SyncDestination::Right,
                 )]
             }
-            EmailSyncHunk::Delete(folder, id, Destination::Remote) => {
+            EmailSyncHunk::Delete(folder, id, SyncDestination::Right) => {
                 remote
                     .add_flag(folder, &Id::single(id), Flag::Deleted)
                     .await?;
                 vec![]
             }
-            EmailSyncHunk::UpdateCachedFlags(folder, envelope, Destination::Local) => {
+            EmailSyncHunk::UpdateCachedFlags(folder, envelope, SyncDestination::Left) => {
                 vec![
                     EmailSyncCacheHunk::Delete(
                         folder.clone(),
                         envelope.id.clone(),
-                        Destination::Local,
+                        SyncDestination::Left,
                     ),
                     EmailSyncCacheHunk::Insert(
                         folder.clone(),
                         envelope.clone(),
-                        Destination::Local,
+                        SyncDestination::Left,
                     ),
                 ]
             }
-            EmailSyncHunk::UpdateFlags(folder, envelope, Destination::Local) => {
+            EmailSyncHunk::UpdateFlags(folder, envelope, SyncDestination::Left) => {
                 local
                     .set_flags(folder, &Id::single(&envelope.id), &envelope.flags)
                     .await?;
                 vec![]
             }
-            EmailSyncHunk::UpdateCachedFlags(folder, envelope, Destination::Remote) => {
+            EmailSyncHunk::UpdateCachedFlags(folder, envelope, SyncDestination::Right) => {
                 vec![
                     EmailSyncCacheHunk::Delete(
                         folder.clone(),
                         envelope.id.clone(),
-                        Destination::Remote,
+                        SyncDestination::Right,
                     ),
                     EmailSyncCacheHunk::Insert(
                         folder.clone(),
                         envelope.clone(),
-                        Destination::Remote,
+                        SyncDestination::Right,
                     ),
                 ]
             }
-            EmailSyncHunk::UpdateFlags(folder, envelope, Destination::Remote) => {
+            EmailSyncHunk::UpdateFlags(folder, envelope, SyncDestination::Right) => {
                 remote
                     .set_flags(folder, &Id::single(&envelope.id), &envelope.flags)
                     .await?;

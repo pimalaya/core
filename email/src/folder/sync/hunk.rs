@@ -16,7 +16,7 @@ pub type FolderName = String;
 pub type FoldersName = HashSet<FolderName>;
 
 /// The folder synchronization hunk.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum FolderSyncHunk {
     /// The given folder name needs to be created to the given
     /// destination.

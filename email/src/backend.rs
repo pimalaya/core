@@ -578,7 +578,7 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
 /// functionality tailored to specific requirements.
 pub struct BackendBuilder<B: BackendContextBuilder> {
     /// The account configuration.
-    account_config: Arc<AccountConfig>,
+    pub account_config: Arc<AccountConfig>,
 
     /// The backend context builder.
     ctx_builder: B,
