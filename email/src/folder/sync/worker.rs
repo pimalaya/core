@@ -68,7 +68,7 @@ where
         .await
 }
 
-/// The folder synchronization runner.
+/// The folder synchronization worker.
 ///
 /// Acts a bit like a worker: the `run()` function takes a hunk from
 /// the given patch and process it, then loops until there is no more

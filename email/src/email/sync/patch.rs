@@ -281,28 +281,28 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
 /// been exported in a dedicated function so that it can be easily
 /// tested.
 pub fn build_patch(
-    folder: &str,
-    local_cache: Envelopes,
-    local: Envelopes,
-    remote_cache: Envelopes,
-    remote: Envelopes,
+    folder: impl ToString,
+    left_cached: Envelopes,
+    left: Envelopes,
+    right_cached: Envelopes,
+    right: Envelopes,
 ) -> EmailSyncPatch {
     let mut patch = EmailSyncPatch::default();
     let mut message_ids = HashSet::new();
 
     // gather all existing ids found in all envelopes
-    message_ids.extend(local_cache.keys().map(|id| id.as_str()));
-    message_ids.extend(local.keys().map(|id| id.as_str()));
-    message_ids.extend(remote_cache.keys().map(|id| id.as_str()));
-    message_ids.extend(remote.keys().map(|id| id.as_str()));
+    message_ids.extend(left_cached.keys().map(|id| id.as_str()));
+    message_ids.extend(left.keys().map(|id| id.as_str()));
+    message_ids.extend(right_cached.keys().map(|id| id.as_str()));
+    message_ids.extend(right.keys().map(|id| id.as_str()));
 
     // Given the matrice local_cache × local × remote_cache × remote,
     // check every 2⁴ = 16 possibilities:
     for message_id in message_ids {
-        let local_cache = local_cache.get(message_id);
-        let local = local.get(message_id);
-        let remote_cache = remote_cache.get(message_id);
-        let remote = remote.get(message_id);
+        let local_cache = left_cached.get(message_id);
+        let local = left.get(message_id);
+        let remote_cache = right_cached.get(message_id);
+        let remote = right.get(message_id);
 
         match (local_cache, local, remote_cache, remote) {
             // 0000

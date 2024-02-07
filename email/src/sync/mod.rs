@@ -1,3 +1,5 @@
+pub mod report;
+
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use futures::Future;
 use log::debug;
@@ -6,9 +8,12 @@ use thiserror::Error;
 
 use crate::{
     backend::{BackendBuilder, BackendContextBuilder},
-    folder::sync::{FolderSyncBuilder, FolderSyncEvent, FolderSyncEventHandler, FolderSyncReport},
+    email::sync::{EmailSyncBuilder, EmailSyncEvent, EmailSyncEventHandler},
+    folder::sync::{FolderSyncBuilder, FolderSyncEvent, FolderSyncEventHandler},
     Result,
 };
+
+use self::report::SyncReport;
 
 /// Errors related to synchronization.
 #[derive(Debug, Error)]
@@ -43,6 +48,7 @@ pub struct SyncBuilder<L: BackendContextBuilder, R: BackendContextBuilder> {
     left_builder: BackendBuilder<L>,
     right_builder: BackendBuilder<R>,
     folder_handler: Option<Arc<FolderSyncEventHandler>>,
+    email_handler: Option<Arc<EmailSyncEventHandler>>,
     cache_dir: Option<PathBuf>,
 }
 
@@ -56,6 +62,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             left_builder,
             right_builder,
             folder_handler: None,
+            email_handler: None,
             cache_dir: None,
         }
     }
@@ -93,6 +100,39 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         self
     }
 
+    pub fn set_some_email_handler<F: Future<Output = Result<()>> + Send + 'static>(
+        &mut self,
+        handler: Option<impl Fn(EmailSyncEvent) -> F + Send + Sync + 'static>,
+    ) {
+        self.email_handler = match handler {
+            Some(handler) => Some(Arc::new(move |evt| Box::pin(handler(evt)))),
+            None => None,
+        };
+    }
+
+    pub fn set_email_handler<F: Future<Output = Result<()>> + Send + 'static>(
+        &mut self,
+        handler: impl Fn(EmailSyncEvent) -> F + Send + Sync + 'static,
+    ) {
+        self.set_some_email_handler(Some(handler));
+    }
+
+    pub fn with_some_email_handler<F: Future<Output = Result<()>> + Send + 'static>(
+        mut self,
+        handler: Option<impl Fn(EmailSyncEvent) -> F + Send + Sync + 'static>,
+    ) -> Self {
+        self.set_some_email_handler(handler);
+        self
+    }
+
+    pub fn with_email_handler<F: Future<Output = Result<()>> + Send + 'static>(
+        mut self,
+        handler: impl Fn(EmailSyncEvent) -> F + Send + Sync + 'static,
+    ) -> Self {
+        self.set_email_handler(handler);
+        self
+    }
+
     pub fn set_some_cache_dir(&mut self, dir: Option<impl Into<PathBuf>>) {
         self.cache_dir = dir.map(Into::into);
     }
@@ -111,7 +151,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         self
     }
 
-    pub async fn sync(self) -> Result<FolderSyncReport> {
+    pub async fn sync(self) -> Result<SyncReport> {
         let lock_file_name = format!("pimalaya-email-sync.{}.lock", self.id);
         let lock_file_path = env::temp_dir().join(lock_file_name);
 
@@ -126,17 +166,32 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             .try_lock(FileLockMode::Exclusive)
             .map_err(|err| Error::LockFileError(err, lock_file_path.clone()))?;
 
-        let folder_sync_report = FolderSyncBuilder::new(self.left_builder, self.right_builder)
-            .with_some_atomic_handler_ref(self.folder_handler)
-            .with_some_cache_dir(self.cache_dir)
-            .sync()
-            .await?;
+        let mut report = SyncReport::default();
+
+        report.folder =
+            FolderSyncBuilder::new(self.left_builder.clone(), self.right_builder.clone())
+                .with_some_atomic_handler_ref(self.folder_handler)
+                .with_some_cache_dir(self.cache_dir.clone())
+                .sync()
+                .await?;
+
+        let email_sync_builder = EmailSyncBuilder::new(self.left_builder, self.right_builder)
+            .with_some_atomic_handler_ref(self.email_handler)
+            .with_some_cache_dir(self.cache_dir);
+
+        // FIXME: this will close and open X connections per folder.
+        // instead we should spawn workers at the begining of the
+        // process then feed them with commands.
+        for folder in &report.folder.folders {
+            let email_sync_report = email_sync_builder.clone().sync(folder).await?;
+            report.email.patch.extend(email_sync_report.patch);
+        }
 
         debug!("unlocking sync file");
         lock_file
             .unlock()
             .map_err(|err| Error::UnlockFileError(err, lock_file_path))?;
 
-        Ok(folder_sync_report)
+        Ok(report)
     }
 }

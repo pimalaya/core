@@ -1,24 +1,24 @@
-use email::flag::{Flag, Flags};
-use email::folder::config::FolderConfig;
-use email::folder::sync::{FolderSyncEvent, FolderSyncHunk};
-use email::maildir::MaildirContextBuilder;
-use email::sync::{SyncBuilder, SyncDestination};
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::BackendBuilder,
+    email::sync::EmailSyncEvent,
+    flag::{Flag, Flags},
+    folder::{
+        config::FolderConfig,
+        sync::{FolderSyncEvent, FolderSyncHunk},
+    },
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapContextBuilder,
     },
-    maildir::config::MaildirConfig,
+    maildir::{config::MaildirConfig, MaildirContextBuilder},
+    sync::{SyncBuilder, SyncDestination},
 };
 use env_logger;
 use mail_builder::MessageBuilder;
 use once_cell::sync::Lazy;
 use secret::Secret;
-use std::collections::HashSet;
-use std::time::Duration;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, collections::HashSet, sync::Arc, time::Duration};
 use tempfile::tempdir;
 use tokio::sync::Mutex;
 
@@ -176,24 +176,27 @@ async fn test_sync() {
     static FOLDER_EVENTS_STACK: Lazy<Mutex<HashSet<FolderSyncEvent>>> =
         Lazy::new(|| Mutex::const_new(HashSet::default()));
 
+    static EMAIL_EVENTS_STACK: Lazy<Mutex<HashSet<EmailSyncEvent>>> =
+        Lazy::new(|| Mutex::const_new(HashSet::default()));
+
     let sync_builder = SyncBuilder::new(left_builder, right_builder)
         .with_cache_dir(tmp.join("cache"))
         .with_folder_handler(|evt| async {
             let mut stack = FOLDER_EVENTS_STACK.lock().await;
             stack.insert(evt);
             Ok(())
+        })
+        .with_email_handler(|evt| async {
+            let mut stack = EMAIL_EVENTS_STACK.lock().await;
+            stack.insert(evt);
+            Ok(())
         });
 
-    let patch: Vec<FolderSyncHunk> = sync_builder
-        .sync()
-        .await
-        .unwrap()
-        .patch
-        .into_iter()
-        .map(|(hunk, _err)| hunk)
-        .collect();
+    let report = sync_builder.sync().await.unwrap();
+    println!("report: {:#?}", report);
 
-    let expected_evts = HashSet::from_iter([
+    let folder_evts = FOLDER_EVENTS_STACK.lock().await;
+    let expected_folder_evts = HashSet::from_iter([
         FolderSyncEvent::ListedLeftCachedFolders(1),
         FolderSyncEvent::ListedRightCachedFolders(1),
         FolderSyncEvent::ListedLeftFolders(1),
@@ -213,13 +216,19 @@ async fn test_sync() {
         )),
     ]);
 
-    assert_eq!(*FOLDER_EVENTS_STACK.lock().await, expected_evts);
+    assert_eq!(*folder_evts, expected_folder_evts);
 
-    let expected_patch: Vec<FolderSyncHunk> = vec![
+    let folder_patch: Vec<_> = report
+        .folder
+        .patch
+        .into_iter()
+        .map(|(hunk, _err)| hunk)
+        .collect();
+    let expected_folder_patch: Vec<FolderSyncHunk> = vec![
         FolderSyncHunk::Cache("sync".into(), SyncDestination::Right),
         FolderSyncHunk::Create("sync".into(), SyncDestination::Left),
         FolderSyncHunk::Cache("sync".into(), SyncDestination::Left),
     ];
 
-    assert_eq!(patch, expected_patch);
+    assert_eq!(folder_patch, expected_folder_patch);
 }
