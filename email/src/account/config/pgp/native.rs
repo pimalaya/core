@@ -145,23 +145,23 @@ impl Default for NativePgpConfig {
     }
 }
 
-impl Into<Pgp> for NativePgpConfig {
-    fn into(self) -> Pgp {
+impl From<NativePgpConfig> for Pgp {
+    fn from(val: NativePgpConfig) -> Self {
         let public_keys_resolvers = {
             let mut resolvers = vec![];
 
-            if self.wkd {
+            if val.wkd {
                 resolvers.push(NativePgpPublicKeysResolver::Wkd)
             }
 
-            resolvers.push(NativePgpPublicKeysResolver::KeyServers(self.key_servers));
+            resolvers.push(NativePgpPublicKeysResolver::KeyServers(val.key_servers));
 
             resolvers
         };
 
         Pgp::Native(NativePgp {
-            secret_key: self.secret_key,
-            secret_key_passphrase: self.secret_key_passphrase,
+            secret_key: val.secret_key,
+            secret_key_passphrase: val.secret_key_passphrase,
             public_keys_resolvers,
         })
     }
