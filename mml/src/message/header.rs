@@ -165,11 +165,11 @@ fn extract_email_from_addr(a: &Addr) -> Option<String> {
     a.address.as_ref().map(|a| a.to_string())
 }
 
-fn extract_first_email_from_addrs(a: &Vec<Addr>) -> Option<String> {
+fn extract_first_email_from_addrs(a: &[Addr]) -> Option<String> {
     a.iter().next().and_then(extract_email_from_addr)
 }
 
-fn extract_emails_from_addrs(a: &Vec<Addr>) -> Vec<String> {
+fn extract_emails_from_addrs(a: &[Addr]) -> Vec<String> {
     a.iter().filter_map(extract_email_from_addr).collect()
 }
 
@@ -181,16 +181,16 @@ fn extract_emails_from_group(g: &Group) -> Vec<String> {
     extract_emails_from_addrs(&g.addresses)
 }
 
-fn extract_first_email_from_groups(g: &Vec<Group>) -> Option<String> {
+fn extract_first_email_from_groups(g: &[Group]) -> Option<String> {
     g.first()
         .map(|g| &g.addresses)
-        .and_then(extract_first_email_from_addrs)
+        .and_then(|i| extract_first_email_from_addrs(i))
 }
 
-fn extract_emails_from_groups(g: &Vec<Group>) -> Vec<String> {
+fn extract_emails_from_groups(g: &[Group]) -> Vec<String> {
     g.iter()
         .map(|g| &g.addresses)
-        .flat_map(extract_emails_from_addrs)
+        .flat_map(|i| extract_emails_from_addrs(i))
         .collect()
 }
 
