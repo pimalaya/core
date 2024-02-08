@@ -55,12 +55,12 @@ impl Client for TcpClient {
 impl RequestWriter for TcpHandler {
     async fn write(&mut self, req: Request) -> Result<()> {
         let req = match req {
-            Request::Start => format!("start\n"),
-            Request::Get => format!("get\n"),
+            Request::Start => "start\n".to_owned(),
+            Request::Get => "get\n".to_owned(),
             Request::Set(duration) => format!("set {duration}\n"),
-            Request::Pause => format!("pause\n"),
-            Request::Resume => format!("resume\n"),
-            Request::Stop => format!("stop\n"),
+            Request::Pause => "pause\n".to_owned(),
+            Request::Resume => "resume\n".to_owned(),
+            Request::Stop => "stop\n".to_owned(),
         };
 
         self.writer.write_all(req.as_bytes()).await?;
