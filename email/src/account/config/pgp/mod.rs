@@ -42,15 +42,15 @@ pub enum PgpConfig {
     Native(NativePgpConfig),
 }
 
-impl Into<Pgp> for PgpConfig {
-    fn into(self) -> Pgp {
-        match self {
+impl From<PgpConfig> for Pgp {
+    fn from(val: PgpConfig) -> Self {
+        match val {
             #[cfg(feature = "pgp-commands")]
-            Self::Cmds(config) => config.into(),
+            PgpConfig::Cmds(config) => config.into(),
             #[cfg(feature = "pgp-gpg")]
-            Self::Gpg(config) => config.into(),
+            PgpConfig::Gpg(config) => config.into(),
             #[cfg(feature = "pgp-native")]
-            Self::Native(config) => config.into(),
+            PgpConfig::Native(config) => config.into(),
         }
     }
 }

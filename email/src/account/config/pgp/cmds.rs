@@ -12,15 +12,15 @@ pub struct CmdsPgpConfig {
     pub verify_cmd: Option<Cmd>,
 }
 
-impl Into<Pgp> for CmdsPgpConfig {
-    fn into(self) -> Pgp {
+impl From<CmdsPgpConfig> for Pgp {
+    fn from(val: CmdsPgpConfig) -> Self {
         Pgp::Cmds(CmdsPgp {
-            encrypt_cmd: self.encrypt_cmd,
-            encrypt_recipient_fmt: self.encrypt_recipient_fmt,
-            encrypt_recipients_sep: self.encrypt_recipients_sep,
-            decrypt_cmd: self.decrypt_cmd,
-            sign_cmd: self.sign_cmd,
-            verify_cmd: self.verify_cmd,
+            encrypt_cmd: val.encrypt_cmd,
+            encrypt_recipient_fmt: val.encrypt_recipient_fmt,
+            encrypt_recipients_sep: val.encrypt_recipients_sep,
+            decrypt_cmd: val.decrypt_cmd,
+            sign_cmd: val.sign_cmd,
+            verify_cmd: val.verify_cmd,
         })
     }
 }

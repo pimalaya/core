@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct GpgConfig;
 
-impl Into<Pgp> for GpgConfig {
-    fn into(self) -> Pgp {
+impl From<GpgConfig> for Pgp {
+    fn from(val: GpgConfig) -> Self {
         Pgp::Gpg(Gpg { home_dir: None })
     }
 }
