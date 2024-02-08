@@ -84,9 +84,9 @@ impl Deref for SrvRecord {
     }
 }
 
-impl Into<SRV> for SrvRecord {
-    fn into(self) -> SRV {
-        self.0
+impl From<SrvRecord> for SRV {
+    fn from(val: SrvRecord) -> Self {
+        val.0
     }
 }
 
