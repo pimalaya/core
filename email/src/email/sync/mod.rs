@@ -6,15 +6,14 @@
 
 mod cache;
 mod hunk;
-mod patch;
+pub mod patch;
 mod report;
 mod runner;
 pub mod worker;
 
-use std::{collections::HashMap, fmt, path::PathBuf, pin::Pin, sync::Arc};
-
 use futures::Future;
 use log::debug;
+use std::{collections::HashMap, fmt, path::PathBuf, pin::Pin, sync::Arc};
 use thiserror::Error;
 
 use crate::{

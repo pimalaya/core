@@ -4,17 +4,23 @@ use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use futures::{lock::Mutex, Future};
 use log::debug;
 use std::{
-    collections::HashSet, env, fmt, fs::OpenOptions, io, path::PathBuf, pin::Pin, sync::Arc,
+    collections::{HashMap, HashSet},
+    env, fmt,
+    fs::OpenOptions,
+    io,
+    path::PathBuf,
+    pin::Pin,
+    sync::Arc,
 };
 use thiserror::Error;
 use tokio::sync::mpsc;
 
 use crate::{
     backend::{Backend, BackendBuilder, BackendContext, BackendContextBuilder},
-    folder::{
-        sync::{patch::build_patch, FolderSyncHunk},
-        Folder,
-    },
+    email::{self, sync::EmailSyncHunk},
+    envelope::{Envelope, Id},
+    flag::Flag,
+    folder::{self, sync::FolderSyncHunk, Folder},
     maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
     Result,
 };
@@ -33,6 +39,8 @@ pub enum Error {
 
     #[error("cannot get sync cache directory")]
     GetCacheDirectoryError,
+    #[error("cannot find message associated to envelope {0}")]
+    FindMessageError(String),
 }
 
 /// The synchronization destination.
@@ -290,7 +298,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             }
         }
 
-        let patch = build_patch(
+        let patch = folder::sync::patch::build_patch(
             left_cached_folders.unwrap(),
             left_folders.unwrap(),
             right_cached_folders.unwrap(),
@@ -306,6 +314,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             },
         );
 
+        let folders_len = folders.len();
         report.folder.folders = folders;
 
         let mut patch_len = patch.len();
@@ -405,14 +414,309 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             }
         }
 
-        // let email_sync_builder = EmailSyncBuilder::new(self.left_builder, self.right_builder)
-        //     .with_some_atomic_handler_ref(self.email_handler)
-        //     .with_some_cache_dir(self.cache_dir);
+        for folder_ref in &report.folder.folders {
+            let folder = folder_ref.clone();
+            pool.send(|ctx| async move {
+                let envelopes = HashMap::from_iter(
+                    ctx.left_cache
+                        .list_envelopes(&folder, 0, 0)
+                        .await?
+                        .into_iter()
+                        .map(|e| (e.message_id.clone(), e)),
+                );
 
-        // for folder in &report.folder.folders {
-        //     let email_sync_report = email_sync_builder.clone().sync(folder).await?;
-        //     report.email.patch.extend(email_sync_report.patch);
-        // }
+                SyncEvent::ListedLeftCachedEnvelopes(folder.clone(), envelopes.len())
+                    .emit(&ctx.handler)
+                    .await;
+
+                Result::Ok(SyncTask::ListLeftCachedEnvelopes(folder, envelopes))
+            })
+            .await;
+
+            let folder = folder_ref.clone();
+            pool.send(|ctx| async move {
+                let envelopes = HashMap::from_iter(
+                    ctx.left
+                        .list_envelopes(&folder, 0, 0)
+                        .await?
+                        .into_iter()
+                        .map(|e| (e.message_id.clone(), e)),
+                );
+
+                SyncEvent::ListedLeftEnvelopes(folder.clone(), envelopes.len())
+                    .emit(&ctx.handler)
+                    .await;
+
+                Result::Ok(SyncTask::ListLeftEnvelopes(folder, envelopes))
+            })
+            .await;
+
+            let folder = folder_ref.clone();
+            pool.send(|ctx| async move {
+                let envelopes = HashMap::from_iter(
+                    ctx.right_cache
+                        .list_envelopes(&folder, 0, 0)
+                        .await?
+                        .into_iter()
+                        .map(|e| (e.message_id.clone(), e)),
+                );
+
+                SyncEvent::ListedRightCachedEnvelopes(folder.clone(), envelopes.len())
+                    .emit(&ctx.handler)
+                    .await;
+
+                Result::Ok(SyncTask::ListRightCachedEnvelopes(folder, envelopes))
+            })
+            .await;
+
+            let folder = folder_ref.clone();
+            pool.send(|ctx| async move {
+                let envelopes = HashMap::from_iter(
+                    ctx.right
+                        .list_envelopes(&folder, 0, 0)
+                        .await?
+                        .into_iter()
+                        .map(|e| (e.message_id.clone(), e)),
+                );
+
+                SyncEvent::ListedRightEnvelopes(folder.clone(), envelopes.len())
+                    .emit(&ctx.handler)
+                    .await;
+
+                Result::Ok(SyncTask::ListRightEnvelopes(folder, envelopes))
+            })
+            .await;
+        }
+
+        #[derive(Debug, Default, Clone)]
+        struct Envelopes {
+            left_cache: Option<HashMap<String, Envelope>>,
+            left: Option<HashMap<String, Envelope>>,
+            right_cache: Option<HashMap<String, Envelope>>,
+            right: Option<HashMap<String, Envelope>>,
+        }
+
+        let mut envelopes: HashMap<String, Envelopes> = HashMap::default();
+
+        loop {
+            match pool.recv().await {
+                None => break,
+                Some(Err(err)) => Err(err)?,
+                Some(Ok(SyncTask::ListLeftCachedEnvelopes(f, e))) => {
+                    if !envelopes.contains_key(&f) {
+                        envelopes.insert(f.clone(), Default::default());
+                    }
+                    envelopes.get_mut(&f).unwrap().left_cache = Some(e);
+                }
+                Some(Ok(SyncTask::ListLeftEnvelopes(f, e))) => {
+                    if !envelopes.contains_key(&f) {
+                        envelopes.insert(f.clone(), Default::default());
+                    }
+                    envelopes.get_mut(&f).unwrap().left = Some(e);
+                }
+                Some(Ok(SyncTask::ListRightCachedEnvelopes(f, e))) => {
+                    if !envelopes.contains_key(&f) {
+                        envelopes.insert(f.clone(), Default::default());
+                    }
+                    envelopes.get_mut(&f).unwrap().right_cache = Some(e);
+                }
+                Some(Ok(SyncTask::ListRightEnvelopes(f, e))) => {
+                    if !envelopes.contains_key(&f) {
+                        envelopes.insert(f.clone(), Default::default());
+                    }
+                    envelopes.get_mut(&f).unwrap().right = Some(e);
+                }
+                Some(Ok(_)) => {
+                    // should not happen
+                }
+            }
+
+            if envelopes.len() < folders_len {
+                continue;
+            }
+
+            if envelopes.values().any(|e| {
+                e.left_cache.is_none()
+                    || e.left.is_none()
+                    || e.right_cache.is_none()
+                    || e.right.is_none()
+            }) {
+                continue;
+            }
+
+            break;
+        }
+
+        let patch: Vec<_> = envelopes
+            .into_iter()
+            .map(|(folder, envelopes)| {
+                email::sync::patch::build_patch(
+                    folder,
+                    envelopes.left_cache.unwrap(),
+                    envelopes.left.unwrap(),
+                    envelopes.right_cache.unwrap(),
+                    envelopes.right.unwrap(),
+                )
+            })
+            .flatten()
+            .flatten()
+            .collect();
+
+        let mut patch_len = patch.len();
+
+        for hunk in patch {
+            pool.send(move |ctx| {
+                let hunk_clone = hunk.clone();
+                let task = async move {
+                    match hunk_clone {
+                        EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Left) => {
+                            let _envelope = ctx.left.get_envelope(&folder, &Id::single(id)).await?;
+                            // TODO: insert left cache
+                            Ok(())
+                        }
+                        EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Right) => {
+                            let _envelope =
+                                ctx.right.get_envelope(&folder, &Id::single(id)).await?;
+                            // TODO: insert right cache
+                            Ok(())
+                        }
+                        EmailSyncHunk::CopyThenCache(
+                            folder,
+                            envelope,
+                            source,
+                            target,
+                            refresh_source_cache,
+                        ) => {
+                            let id = Id::single(&envelope.id);
+                            let msgs = match source {
+                                SyncDestination::Left => {
+                                    if refresh_source_cache {
+                                        // TODO: insert left cache
+                                    };
+                                    ctx.left.peek_messages(&folder, &id).await?
+                                }
+                                SyncDestination::Right => {
+                                    if refresh_source_cache {
+                                        // TODO: insert right cache
+                                    };
+                                    ctx.right.peek_messages(&folder, &id).await?
+                                }
+                            };
+
+                            let msgs = msgs.to_vec();
+                            let msg = msgs
+                                .first()
+                                .ok_or_else(|| Error::FindMessageError(envelope.id.clone()))?;
+
+                            match target {
+                                SyncDestination::Left => {
+                                    let id = ctx
+                                        .left
+                                        .add_message_with_flags(
+                                            &folder,
+                                            msg.raw()?,
+                                            &envelope.flags,
+                                        )
+                                        .await?;
+                                    let _envelope =
+                                        ctx.left.get_envelope(&folder, &Id::single(id)).await?;
+                                    Ok(())
+                                    // TODO: insert left cache
+                                }
+                                SyncDestination::Right => {
+                                    let id = ctx
+                                        .right
+                                        .add_message_with_flags(
+                                            &folder,
+                                            msg.raw()?,
+                                            &envelope.flags,
+                                        )
+                                        .await?;
+                                    let _envelope =
+                                        ctx.right.get_envelope(&folder, &Id::single(id)).await?;
+                                    Ok(())
+                                    // TODO: insert right cache
+                                }
+                            }
+                        }
+                        EmailSyncHunk::Uncache(_folder, _internal_id, SyncDestination::Left) => {
+                            // TODO: remove left cache
+                            Ok(())
+                        }
+                        EmailSyncHunk::Delete(folder, id, SyncDestination::Left) => {
+                            ctx.left
+                                .add_flag(&folder, &Id::single(id), Flag::Deleted)
+                                .await?;
+                            Ok(())
+                        }
+                        EmailSyncHunk::Uncache(_folder, _internal_id, SyncDestination::Right) => {
+                            // TODO: remove right cache
+                            Ok(())
+                        }
+                        EmailSyncHunk::Delete(folder, id, SyncDestination::Right) => {
+                            ctx.right
+                                .add_flag(&folder, &Id::single(id), Flag::Deleted)
+                                .await?;
+                            Ok(())
+                        }
+                        EmailSyncHunk::UpdateCachedFlags(
+                            _folder,
+                            _envelope,
+                            SyncDestination::Left,
+                        ) => {
+                            // TODO: remove left cache
+                            Ok(())
+                        }
+                        EmailSyncHunk::UpdateFlags(folder, envelope, SyncDestination::Left) => {
+                            ctx.left
+                                .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
+                                .await?;
+                            Ok(())
+                        }
+                        EmailSyncHunk::UpdateCachedFlags(
+                            _folder,
+                            _envelope,
+                            SyncDestination::Right,
+                        ) => {
+                            // TODO: remove right cache
+                            Ok(())
+                        }
+                        EmailSyncHunk::UpdateFlags(folder, envelope, SyncDestination::Right) => {
+                            ctx.right
+                                .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
+                                .await?;
+                            Ok(())
+                        }
+                    }
+                };
+
+                async move {
+                    match task.await {
+                        Ok(()) => Ok(SyncTask::ProcessEmailHunk((hunk, None))),
+                        Err(err) => Ok(SyncTask::ProcessEmailHunk((hunk, Some(err)))),
+                    }
+                }
+            })
+            .await;
+        }
+
+        loop {
+            match pool.recv().await {
+                None => break,
+                Some(Err(err)) => Err(err)?,
+                Some(Ok(SyncTask::ProcessEmailHunk(hunk))) => {
+                    report.email.patch.push(hunk);
+                    patch_len -= 1;
+                }
+                Some(Ok(_)) => {
+                    // should not happen
+                }
+            }
+
+            if patch_len == 0 {
+                break;
+            }
+        }
 
         debug!("unlocking sync file");
         lock_file
@@ -467,7 +771,6 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
         let (tx_worker, rx_pool) = mpsc::channel::<T>(1);
 
         for id in 1..(self.size + 1) {
-            println!("worker {id} init");
             let tx = tx_worker.clone();
             let rx = rx_workers.clone();
             let left_cache_builder = self.left_cache_builder.clone();
@@ -492,21 +795,22 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
                     handler,
                 });
 
-                // FIXME: lock occurs for too long
                 loop {
+                    debug!("sync worker {id} waiting for a task…");
                     let mut lock = rx.lock().await;
                     match lock.recv().await {
                         None => break,
                         Some(task) => {
                             drop(lock);
-                            println!("Worker {id} got a job; executing.");
-                            tx.send(task(ctx.clone()).await).await.unwrap();
-                            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                            debug!("sync worker {id} received a task, executing it…");
+                            let output = task(ctx.clone()).await;
+                            debug!("sync worker {id} successfully executed task!");
+                            tx.send(output).await.unwrap();
                         }
                     }
                 }
 
-                println!("no more task for {id}, exitting");
+                debug!("no more task for sync worker {id}, exitting");
 
                 Result::Ok(())
             });
@@ -553,6 +857,10 @@ pub enum SyncEvent {
     ListedLeftFolders(usize),
     ListedRightCachedFolders(usize),
     ListedRightFolders(usize),
+    ListedLeftCachedEnvelopes(String, usize),
+    ListedLeftEnvelopes(String, usize),
+    ListedRightCachedEnvelopes(String, usize),
+    ListedRightEnvelopes(String, usize),
 }
 
 impl SyncEvent {
@@ -582,6 +890,18 @@ impl fmt::Display for SyncEvent {
             SyncEvent::ListedRightFolders(n) => {
                 write!(f, "Listed {n} right folders")
             }
+            SyncEvent::ListedLeftCachedEnvelopes(folder, n) => {
+                write!(f, "Listed {n} left cached envelopes from {folder}")
+            }
+            SyncEvent::ListedLeftEnvelopes(folder, n) => {
+                write!(f, "Listed {n} left envelopes from {folder}")
+            }
+            SyncEvent::ListedRightCachedEnvelopes(folder, n) => {
+                write!(f, "Listed {n} right cached envelopes from {folder}")
+            }
+            SyncEvent::ListedRightEnvelopes(folder, n) => {
+                write!(f, "Listed {n} right envelopes from {folder}")
+            }
         }
     }
 }
@@ -600,4 +920,9 @@ pub enum SyncTask {
     ListRightCachedFolders(HashSet<String>),
     ListRightFolders(HashSet<String>),
     ProcessFolderHunk((FolderSyncHunk, Option<crate::Error>)),
+    ListLeftCachedEnvelopes(String, HashMap<String, Envelope>),
+    ListLeftEnvelopes(String, HashMap<String, Envelope>),
+    ListRightCachedEnvelopes(String, HashMap<String, Envelope>),
+    ListRightEnvelopes(String, HashMap<String, Envelope>),
+    ProcessEmailHunk((EmailSyncHunk, Option<crate::Error>)),
 }
