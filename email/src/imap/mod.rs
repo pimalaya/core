@@ -188,87 +188,87 @@ impl BackendContextBuilder for ImapContextBuilder {
 
     #[cfg(feature = "folder-add")]
     fn add_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFolder> {
-        Some(Arc::new(AddImapFolder::some_new_boxed))
+        BackendFeatureBuilder::new(AddImapFolder::some_new_boxed)
     }
 
     #[cfg(feature = "folder-list")]
     fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
-        Some(Arc::new(ListImapFolders::some_new_boxed))
+        BackendFeatureBuilder::new(ListImapFolders::some_new_boxed)
     }
 
     #[cfg(feature = "folder-expunge")]
     fn expunge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn ExpungeFolder> {
-        Some(Arc::new(ExpungeImapFolder::some_new_boxed))
+        BackendFeatureBuilder::new(ExpungeImapFolder::some_new_boxed)
     }
 
     #[cfg(feature = "folder-purge")]
     fn purge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn PurgeFolder> {
-        Some(Arc::new(PurgeImapFolder::some_new_boxed))
+        BackendFeatureBuilder::new(PurgeImapFolder::some_new_boxed)
     }
 
     #[cfg(feature = "folder-delete")]
     fn delete_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteFolder> {
-        Some(Arc::new(DeleteImapFolder::some_new_boxed))
+        BackendFeatureBuilder::new(DeleteImapFolder::some_new_boxed)
     }
 
     #[cfg(feature = "envelope-list")]
     fn list_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn ListEnvelopes> {
-        Some(Arc::new(ListImapEnvelopes::some_new_boxed))
+        BackendFeatureBuilder::new(ListImapEnvelopes::some_new_boxed)
     }
 
     #[cfg(feature = "envelope-watch")]
     fn watch_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes> {
-        Some(Arc::new(WatchImapEnvelopes::some_new_boxed))
+        BackendFeatureBuilder::new(WatchImapEnvelopes::some_new_boxed)
     }
 
     #[cfg(feature = "envelope-get")]
     fn get_envelope(&self) -> BackendFeatureBuilder<Self::Context, dyn GetEnvelope> {
-        Some(Arc::new(GetImapEnvelope::some_new_boxed))
+        BackendFeatureBuilder::new(GetImapEnvelope::some_new_boxed)
     }
 
     #[cfg(feature = "flag-add")]
     fn add_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFlags> {
-        Some(Arc::new(AddImapFlags::some_new_boxed))
+        BackendFeatureBuilder::new(AddImapFlags::some_new_boxed)
     }
 
     #[cfg(feature = "flag-set")]
     fn set_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn SetFlags> {
-        Some(Arc::new(SetImapFlags::some_new_boxed))
+        BackendFeatureBuilder::new(SetImapFlags::some_new_boxed)
     }
 
     #[cfg(feature = "flag-remove")]
     fn remove_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn RemoveFlags> {
-        Some(Arc::new(RemoveImapFlags::some_new_boxed))
+        BackendFeatureBuilder::new(RemoveImapFlags::some_new_boxed)
     }
 
     #[cfg(feature = "message-add")]
     fn add_message(&self) -> BackendFeatureBuilder<Self::Context, dyn AddMessage> {
-        Some(Arc::new(AddImapMessage::some_new_boxed))
+        BackendFeatureBuilder::new(AddImapMessage::some_new_boxed)
     }
 
     #[cfg(feature = "message-peek")]
     fn peek_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn PeekMessages> {
-        Some(Arc::new(PeekImapMessages::some_new_boxed))
+        BackendFeatureBuilder::new(PeekImapMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-get")]
     fn get_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn GetMessages> {
-        Some(Arc::new(GetImapMessages::some_new_boxed))
+        BackendFeatureBuilder::new(GetImapMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-copy")]
     fn copy_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn CopyMessages> {
-        Some(Arc::new(CopyImapMessages::some_new_boxed))
+        BackendFeatureBuilder::new(CopyImapMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-move")]
     fn move_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn MoveMessages> {
-        Some(Arc::new(MoveImapMessages::some_new_boxed))
+        BackendFeatureBuilder::new(MoveImapMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-delete")]
     fn delete_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteMessages> {
-        Some(Arc::new(DeleteImapMessages::some_new_boxed))
+        BackendFeatureBuilder::new(DeleteImapMessages::some_new_boxed)
     }
 
     async fn build(self) -> Result<Self::Context> {

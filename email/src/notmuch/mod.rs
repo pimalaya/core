@@ -149,12 +149,12 @@ impl BackendContextBuilder for NotmuchContextBuilder {
 
     #[cfg(feature = "folder-add")]
     fn add_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFolder> {
-        Some(Arc::new(AddNotmuchFolder::some_new_boxed))
+        BackendFeatureBuilder::new(AddNotmuchFolder::some_new_boxed)
     }
 
     #[cfg(feature = "folder-list")]
     fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
-        Some(Arc::new(ListNotmuchFolders::some_new_boxed))
+        BackendFeatureBuilder::new(ListNotmuchFolders::some_new_boxed)
     }
 
     // TODO
@@ -162,24 +162,24 @@ impl BackendContextBuilder for NotmuchContextBuilder {
     // fn expunge_folder(
     //     &self,
     // ) -> BackendFeatureBuilder<Self::Context, dyn ExpungeFolder> {
-    //     Some(Arc::new(ExpungeNotmuchFolder::some_new_boxed))
+    //     BackendFeatureBuilder::new(ExpungeNotmuchFolder::some_new_boxed)
     // }
 
     // TODO
     // #[cfg(feature = "folder-purge")]
     // fn purge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn PurgeFolder> {
-    //     Some(Arc::new(PurgeNotmuchFolder::some_new_boxed))
+    //     BackendFeatureBuilder::new(PurgeNotmuchFolder::some_new_boxed)
     // }
 
     // TODO
     // #[cfg(feature = "folder-delete")]
     // fn delete_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteFolder> {
-    //     Some(Arc::new(DeleteNotmuchFolder::some_new_boxed))
+    //     BackendFeatureBuilder::new(DeleteNotmuchFolder::some_new_boxed)
     // }
 
     #[cfg(feature = "envelope-list")]
     fn list_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn ListEnvelopes> {
-        Some(Arc::new(ListNotmuchEnvelopes::some_new_boxed))
+        BackendFeatureBuilder::new(ListNotmuchEnvelopes::some_new_boxed)
     }
 
     // TODO
@@ -187,57 +187,57 @@ impl BackendContextBuilder for NotmuchContextBuilder {
     // fn watch_envelopes(
     //     &self,
     // ) -> BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes> {
-    //     Some(Arc::new(WatchNotmuchEnvelopes::some_new_boxed))
+    //     BackendFeatureBuilder::new(WatchNotmuchEnvelopes::some_new_boxed)
     // }
 
     #[cfg(feature = "envelope-get")]
     fn get_envelope(&self) -> BackendFeatureBuilder<Self::Context, dyn GetEnvelope> {
-        Some(Arc::new(GetNotmuchEnvelope::some_new_boxed))
+        BackendFeatureBuilder::new(GetNotmuchEnvelope::some_new_boxed)
     }
 
     #[cfg(feature = "flag-add")]
     fn add_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFlags> {
-        Some(Arc::new(AddNotmuchFlags::some_new_boxed))
+        BackendFeatureBuilder::new(AddNotmuchFlags::some_new_boxed)
     }
 
     #[cfg(feature = "flag-set")]
     fn set_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn SetFlags> {
-        Some(Arc::new(SetNotmuchFlags::some_new_boxed))
+        BackendFeatureBuilder::new(SetNotmuchFlags::some_new_boxed)
     }
 
     #[cfg(feature = "flag-remove")]
     fn remove_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn RemoveFlags> {
-        Some(Arc::new(RemoveNotmuchFlags::some_new_boxed))
+        BackendFeatureBuilder::new(RemoveNotmuchFlags::some_new_boxed)
     }
 
     #[cfg(feature = "message-add")]
     fn add_message(&self) -> BackendFeatureBuilder<Self::Context, dyn AddMessage> {
-        Some(Arc::new(AddNotmuchMessage::some_new_boxed))
+        BackendFeatureBuilder::new(AddNotmuchMessage::some_new_boxed)
     }
 
     #[cfg(feature = "message-peek")]
     fn peek_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn PeekMessages> {
-        Some(Arc::new(PeekNotmuchMessages::some_new_boxed))
+        BackendFeatureBuilder::new(PeekNotmuchMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-get")]
     fn get_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn GetMessages> {
-        Some(Arc::new(GetNotmuchMessages::some_new_boxed))
+        BackendFeatureBuilder::new(GetNotmuchMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-copy")]
     fn copy_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn CopyMessages> {
-        Some(Arc::new(CopyNotmuchMessages::some_new_boxed))
+        BackendFeatureBuilder::new(CopyNotmuchMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-move")]
     fn move_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn MoveMessages> {
-        Some(Arc::new(MoveNotmuchMessages::some_new_boxed))
+        BackendFeatureBuilder::new(MoveNotmuchMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-delete")]
     fn delete_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteMessages> {
-        Some(Arc::new(DeleteNotmuchMessages::some_new_boxed))
+        BackendFeatureBuilder::new(DeleteNotmuchMessages::some_new_boxed)
     }
 
     async fn build(self) -> Result<Self::Context> {

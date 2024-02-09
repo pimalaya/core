@@ -147,7 +147,7 @@ impl BackendContextBuilder for SmtpContextBuilder {
 
     #[cfg(feature = "message-send")]
     fn send_message(&self) -> BackendFeatureBuilder<Self::Context, dyn SendMessage> {
-        Some(Arc::new(SendSmtpMessage::some_new_boxed))
+        BackendFeatureBuilder::new(SendSmtpMessage::some_new_boxed)
     }
 
     /// Build an SMTP sync client.

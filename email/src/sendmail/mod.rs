@@ -57,7 +57,7 @@ impl BackendContextBuilder for SendmailContextBuilder {
 
     #[cfg(feature = "message-send")]
     fn send_message(&self) -> BackendFeatureBuilder<Self::Context, dyn SendMessage> {
-        Some(Arc::new(SendSendmailMessage::some_new_boxed))
+        BackendFeatureBuilder::new(SendSendmailMessage::some_new_boxed)
     }
 
     /// Build an SENDMAIL sync session.

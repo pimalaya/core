@@ -158,88 +158,88 @@ impl BackendContextBuilder for MaildirContextBuilder {
 
     #[cfg(feature = "folder-add")]
     fn add_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFolder> {
-        Some(Arc::new(AddMaildirFolder::some_new_boxed))
+        BackendFeatureBuilder::new(AddMaildirFolder::some_new_boxed)
     }
 
     #[cfg(feature = "folder-list")]
     fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
-        Some(Arc::new(ListMaildirFolders::some_new_boxed))
+        BackendFeatureBuilder::new(ListMaildirFolders::some_new_boxed)
     }
 
     #[cfg(feature = "folder-expunge")]
     fn expunge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn ExpungeFolder> {
-        Some(Arc::new(ExpungeMaildirFolder::some_new_boxed))
+        BackendFeatureBuilder::new(ExpungeMaildirFolder::some_new_boxed)
     }
 
     // TODO
     // #[cfg(feature = "folder-purge")]
     // fn purge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn PurgeFolder> {
-    //     Some(Arc::new(PurgeMaildirFolder::some_new_boxed))
+    //     BackendFeatureBuilder::new(PurgeMaildirFolder::some_new_boxed)
     // }
 
     #[cfg(feature = "folder-delete")]
     fn delete_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteFolder> {
-        Some(Arc::new(DeleteMaildirFolder::some_new_boxed))
+        BackendFeatureBuilder::new(DeleteMaildirFolder::some_new_boxed)
     }
 
     #[cfg(feature = "envelope-list")]
     fn list_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn ListEnvelopes> {
-        Some(Arc::new(ListMaildirEnvelopes::some_new_boxed))
+        BackendFeatureBuilder::new(ListMaildirEnvelopes::some_new_boxed)
     }
 
     #[cfg(feature = "envelope-watch")]
     fn watch_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes> {
-        Some(Arc::new(WatchMaildirEnvelopes::some_new_boxed))
+        BackendFeatureBuilder::new(WatchMaildirEnvelopes::some_new_boxed)
     }
 
     #[cfg(feature = "envelope-get")]
     fn get_envelope(&self) -> BackendFeatureBuilder<Self::Context, dyn GetEnvelope> {
-        Some(Arc::new(GetMaildirEnvelope::some_new_boxed))
+        BackendFeatureBuilder::new(GetMaildirEnvelope::some_new_boxed)
     }
 
     #[cfg(feature = "flag-add")]
     fn add_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFlags> {
-        Some(Arc::new(AddMaildirFlags::some_new_boxed))
+        BackendFeatureBuilder::new(AddMaildirFlags::some_new_boxed)
     }
 
     #[cfg(feature = "flag-set")]
     fn set_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn SetFlags> {
-        Some(Arc::new(SetMaildirFlags::some_new_boxed))
+        BackendFeatureBuilder::new(SetMaildirFlags::some_new_boxed)
     }
 
     #[cfg(feature = "flag-remove")]
     fn remove_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn RemoveFlags> {
-        Some(Arc::new(RemoveMaildirFlags::some_new_boxed))
+        BackendFeatureBuilder::new(RemoveMaildirFlags::some_new_boxed)
     }
 
     #[cfg(feature = "message-add")]
     fn add_message(&self) -> BackendFeatureBuilder<Self::Context, dyn AddMessage> {
-        Some(Arc::new(AddMaildirMessage::some_new_boxed))
+        BackendFeatureBuilder::new(AddMaildirMessage::some_new_boxed)
     }
 
     #[cfg(feature = "message-get")]
     fn get_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn GetMessages> {
-        Some(Arc::new(GetMaildirMessages::some_new_boxed))
+        BackendFeatureBuilder::new(GetMaildirMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-peek")]
     fn peek_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn PeekMessages> {
-        Some(Arc::new(PeekMaildirMessages::some_new_boxed))
+        BackendFeatureBuilder::new(PeekMaildirMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-copy")]
     fn copy_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn CopyMessages> {
-        Some(Arc::new(CopyMaildirMessages::some_new_boxed))
+        BackendFeatureBuilder::new(CopyMaildirMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-move")]
     fn move_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn MoveMessages> {
-        Some(Arc::new(MoveMaildirMessages::some_new_boxed))
+        BackendFeatureBuilder::new(MoveMaildirMessages::some_new_boxed)
     }
 
     #[cfg(feature = "message-delete")]
     fn delete_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteMessages> {
-        Some(Arc::new(DeleteMaildirMessages::some_new_boxed))
+        BackendFeatureBuilder::new(DeleteMaildirMessages::some_new_boxed)
     }
 
     async fn build(self) -> Result<Self::Context> {
