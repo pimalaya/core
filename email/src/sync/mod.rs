@@ -11,7 +11,11 @@ use tokio::sync::mpsc;
 
 use crate::{
     backend::{Backend, BackendBuilder, BackendContext, BackendContextBuilder},
-    folder::Folder,
+    folder::{
+        sync::{patch::build_patch, FolderSyncHunk},
+        Folder,
+    },
+    maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
     Result,
 };
 
@@ -157,22 +161,50 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             .try_lock(FileLockMode::Exclusive)
             .map_err(|err| Error::LockFileError(err, lock_file_path.clone()))?;
 
-        let report = SyncReport::default();
+        let mut report = SyncReport::default();
 
-        enum SyncTask {
-            ListLeftFolders(HashSet<String>),
-            ListRightFolders(HashSet<String>),
-        }
+        let cache_dir = self.get_cache_dir()?;
+        let left_config = self.left_builder.account_config.clone();
+        let right_config = self.left_builder.account_config.clone();
 
-        let mut pool =
-            ThreadPoolBuilder::new(self.left_builder.clone(), self.right_builder.clone())
-                .build()
-                .await?;
+        let root_dir = cache_dir.join(&left_config.name);
+        let ctx = MaildirContextBuilder::new(Arc::new(MaildirConfig { root_dir }));
+        let left_cache_builder = BackendBuilder::new(left_config.clone(), ctx);
 
-        let handler = self.handler.clone();
-        pool.send(|backends| async move {
-            let folders = backends.left.list_folders().await?;
+        let root_dir = cache_dir.join(&right_config.name);
+        let ctx = MaildirContextBuilder::new(Arc::new(MaildirConfig { root_dir }));
+        let right_cache_builder = BackendBuilder::new(right_config.clone(), ctx);
 
+        let mut pool = ThreadPoolBuilder::new(
+            left_cache_builder,
+            self.left_builder.clone(),
+            right_cache_builder,
+            self.right_builder.clone(),
+            self.handler.clone(),
+            8,
+        )
+        .build()
+        .await?;
+
+        pool.send(|ctx| async move {
+            let folders = ctx.left_cache.list_folders().await?;
+            let names = HashSet::<String>::from_iter(
+                folders
+                    .iter()
+                    .map(Folder::get_kind_or_name)
+                    .map(ToOwned::to_owned),
+            );
+
+            SyncEvent::ListedLeftCachedFolders(names.len())
+                .emit(&ctx.handler)
+                .await;
+
+            Result::Ok(SyncTask::ListLeftCachedFolders(names))
+        })
+        .await;
+
+        pool.send(|ctx| async move {
+            let folders = ctx.left.list_folders().await?;
             let names = HashSet::<String>::from_iter(
                 folders
                     .iter()
@@ -181,17 +213,32 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             );
 
             SyncEvent::ListedLeftFolders(names.len())
-                .emit(&handler)
+                .emit(&ctx.handler)
                 .await;
 
             Result::Ok(SyncTask::ListLeftFolders(names))
         })
         .await;
 
-        let handler = self.handler.clone();
-        pool.send(|backends| async move {
-            let folders = backends.right.list_folders().await?;
+        pool.send(|ctx| async move {
+            let folders = ctx.right_cache.list_folders().await?;
+            let names = HashSet::<String>::from_iter(
+                folders
+                    .iter()
+                    .map(Folder::get_kind_or_name)
+                    .map(ToOwned::to_owned),
+            );
 
+            SyncEvent::ListedRightCachedFolders(names.len())
+                .emit(&ctx.handler)
+                .await;
+
+            Ok(SyncTask::ListRightCachedFolders(names))
+        })
+        .await;
+
+        pool.send(|ctx| async move {
+            let folders = ctx.right.list_folders().await?;
             let names = HashSet::from_iter(
                 folders
                     .iter()
@@ -200,38 +247,163 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             );
 
             SyncEvent::ListedRightFolders(names.len())
-                .emit(&handler)
+                .emit(&ctx.handler)
                 .await;
 
-            Result::Ok(SyncTask::ListRightFolders(names))
+            Ok(SyncTask::ListRightFolders(names))
         })
         .await;
 
+        let mut left_cached_folders = None::<HashSet<String>>;
         let mut left_folders = None::<HashSet<String>>;
+        let mut right_cached_folders = None::<HashSet<String>>;
         let mut right_folders = None::<HashSet<String>>;
 
-        while left_folders.is_none() || right_folders.is_none() {
+        loop {
             match pool.recv().await {
                 None => break,
                 Some(Err(err)) => Err(err)?,
+                Some(Ok(SyncTask::ListLeftCachedFolders(names))) => {
+                    left_cached_folders = Some(names);
+                }
                 Some(Ok(SyncTask::ListLeftFolders(names))) => {
                     left_folders = Some(names);
+                }
+                Some(Ok(SyncTask::ListRightCachedFolders(names))) => {
+                    right_cached_folders = Some(names);
                 }
                 Some(Ok(SyncTask::ListRightFolders(names))) => {
                     right_folders = Some(names);
                 }
+                Some(Ok(_)) => {
+                    // should not happen
+                }
+            }
+
+            let ready = left_cached_folders.is_some()
+                && left_folders.is_some()
+                && right_cached_folders.is_some()
+                && right_folders.is_some();
+
+            if ready {
+                break;
             }
         }
 
-        println!("left_folders: {:#?}", left_folders);
-        println!("right_folders: {:#?}", right_folders);
+        let patch = build_patch(
+            left_cached_folders.unwrap(),
+            left_folders.unwrap(),
+            right_cached_folders.unwrap(),
+            right_folders.unwrap(),
+        );
 
-        // report.folder =
-        //     FolderSyncBuilder::new(self.left_builder.clone(), self.right_builder.clone())
-        //         .with_some_atomic_handler_ref(self.folder_handler)
-        //         .with_some_cache_dir(self.cache_dir.clone())
-        //         .sync()
-        //         .await?;
+        let (folders, patch) = patch.into_iter().fold(
+            (HashSet::default(), vec![]),
+            |(mut folders, mut patch), (folder, hunks)| {
+                folders.insert(folder);
+                patch.extend(hunks);
+                (folders, patch)
+            },
+        );
+
+        report.folder.folders = folders;
+
+        let mut patch_len = patch.len();
+
+        for hunk in patch {
+            match hunk.clone() {
+                FolderSyncHunk::Cache(folder, SyncDestination::Left) => {
+                    pool.send(|ctx| async move {
+                        match ctx.left_cache.add_folder(&folder).await {
+                            Ok(()) => Ok(SyncTask::ProcessFolderHunk((hunk, None))),
+                            Err(err) => Ok(SyncTask::ProcessFolderHunk((hunk, Some(err)))),
+                        }
+                    })
+                    .await
+                }
+                FolderSyncHunk::Create(folder, SyncDestination::Left) => {
+                    pool.send(|ctx| async move {
+                        match ctx.left.add_folder(&folder).await {
+                            Ok(()) => Ok(SyncTask::ProcessFolderHunk((hunk, None))),
+                            Err(err) => Ok(SyncTask::ProcessFolderHunk((hunk, Some(err)))),
+                        }
+                    })
+                    .await
+                }
+                FolderSyncHunk::Cache(folder, SyncDestination::Right) => {
+                    pool.send(|ctx| async move {
+                        match ctx.right_cache.add_folder(&folder).await {
+                            Ok(()) => Ok(SyncTask::ProcessFolderHunk((hunk, None))),
+                            Err(err) => Ok(SyncTask::ProcessFolderHunk((hunk, Some(err)))),
+                        }
+                    })
+                    .await
+                }
+                FolderSyncHunk::Create(folder, SyncDestination::Right) => {
+                    pool.send(|ctx| async move {
+                        match ctx.right.add_folder(&folder).await {
+                            Ok(()) => Ok(SyncTask::ProcessFolderHunk((hunk, None))),
+                            Err(err) => Ok(SyncTask::ProcessFolderHunk((hunk, Some(err)))),
+                        }
+                    })
+                    .await
+                }
+                FolderSyncHunk::Uncache(folder, SyncDestination::Left) => {
+                    pool.send(|ctx| async move {
+                        match ctx.left_cache.delete_folder(&folder).await {
+                            Ok(()) => Ok(SyncTask::ProcessFolderHunk((hunk, None))),
+                            Err(err) => Ok(SyncTask::ProcessFolderHunk((hunk, Some(err)))),
+                        }
+                    })
+                    .await
+                }
+                FolderSyncHunk::Delete(folder, SyncDestination::Left) => {
+                    pool.send(|ctx| async move {
+                        match ctx.left.delete_folder(&folder).await {
+                            Ok(()) => Ok(SyncTask::ProcessFolderHunk((hunk, None))),
+                            Err(err) => Ok(SyncTask::ProcessFolderHunk((hunk, Some(err)))),
+                        }
+                    })
+                    .await
+                }
+                FolderSyncHunk::Uncache(folder, SyncDestination::Right) => {
+                    pool.send(|ctx| async move {
+                        match ctx.right_cache.delete_folder(&folder).await {
+                            Ok(()) => Ok(SyncTask::ProcessFolderHunk((hunk, None))),
+                            Err(err) => Ok(SyncTask::ProcessFolderHunk((hunk, Some(err)))),
+                        }
+                    })
+                    .await
+                }
+                FolderSyncHunk::Delete(folder, SyncDestination::Right) => {
+                    pool.send(|ctx| async move {
+                        match ctx.right.delete_folder(&folder).await {
+                            Ok(()) => Ok(SyncTask::ProcessFolderHunk((hunk, None))),
+                            Err(err) => Ok(SyncTask::ProcessFolderHunk((hunk, Some(err)))),
+                        }
+                    })
+                    .await
+                }
+            }
+        }
+
+        loop {
+            match pool.recv().await {
+                None => break,
+                Some(Err(err)) => Err(err)?,
+                Some(Ok(SyncTask::ProcessFolderHunk(hunk))) => {
+                    report.folder.patch.push(hunk);
+                    patch_len -= 1;
+                }
+                Some(Ok(_)) => {
+                    // should not happen
+                }
+            }
+
+            if patch_len == 0 {
+                break;
+            }
+        }
 
         // let email_sync_builder = EmailSyncBuilder::new(self.left_builder, self.right_builder)
         //     .with_some_atomic_handler_ref(self.email_handler)
@@ -252,57 +424,86 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
 }
 
 type Task<L, R, T> = Box<
-    dyn FnOnce(Arc<SyncBackends<L, R>>) -> Pin<Box<dyn Future<Output = T> + Send>> + Send + Sync,
+    dyn FnOnce(Arc<SyncPoolContext<L, R>>) -> Pin<Box<dyn Future<Output = T> + Send>> + Send + Sync,
 >;
 
 #[derive(Clone)]
 struct ThreadPoolBuilder<L: BackendContextBuilder, R: BackendContextBuilder> {
+    left_cache_builder: BackendBuilder<MaildirContextBuilder>,
     left_builder: BackendBuilder<L>,
+    right_cache_builder: BackendBuilder<MaildirContextBuilder>,
     right_builder: BackendBuilder<R>,
+    handler: Option<Arc<SyncEventHandler>>,
     size: usize,
 }
 
 impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
     ThreadPoolBuilder<L, R>
 {
-    pub fn new(left_builder: BackendBuilder<L>, right_builder: BackendBuilder<R>) -> Self {
+    pub fn new(
+        left_cache_builder: BackendBuilder<MaildirContextBuilder>,
+        left_builder: BackendBuilder<L>,
+        right_cache_builder: BackendBuilder<MaildirContextBuilder>,
+        right_builder: BackendBuilder<R>,
+        handler: Option<Arc<SyncEventHandler>>,
+        size: usize,
+    ) -> Self {
         Self {
+            left_cache_builder,
             left_builder,
+            right_cache_builder,
             right_builder,
-            size: 8,
+            handler,
+            size,
         }
     }
 
-    pub fn with_size(mut self, size: usize) -> Self {
-        self.size = size;
-        self
-    }
-
     pub async fn build<T: Send + 'static>(self) -> Result<ThreadPool<L::Context, R::Context, T>> {
-        let (tx_worker, rx) = mpsc::channel(1);
-        let (tx, rx_worker) = mpsc::channel::<Task<L::Context, R::Context, T>>(1);
-        let rx_worker = Arc::new(Mutex::new(rx_worker));
+        // channel for workers to receive and process tasks from the pool
+        let (tx_pool, rx_worker) = mpsc::channel::<Task<L::Context, R::Context, T>>(1);
+        let rx_workers = Arc::new(Mutex::new(rx_worker));
 
-        for id in 0..self.size {
+        // channel for workers to send output of their work to the pool
+        let (tx_worker, rx_pool) = mpsc::channel::<T>(1);
+
+        for id in 1..(self.size + 1) {
             println!("worker {id} init");
             let tx = tx_worker.clone();
-            let rx = rx_worker.clone();
+            let rx = rx_workers.clone();
+            let left_cache_builder = self.left_cache_builder.clone();
             let left_builder = self.left_builder.clone();
+            let right_cache_builder = self.right_cache_builder.clone();
             let right_builder = self.right_builder.clone();
+            let handler = self.handler.clone();
 
             tokio::spawn(async move {
-                let ctx = Arc::new(SyncBackends {
-                    left: left_builder.build().await?,
-                    // left_cached: self.left_cached_builder.build().await?,
-                    right: right_builder.build().await?,
-                    // right_cached: self.right_cached_builder.build().await?,
+                let (left_cache, left, right_cache, right) = tokio::try_join!(
+                    left_cache_builder.build(),
+                    left_builder.build(),
+                    right_cache_builder.build(),
+                    right_builder.build(),
+                )?;
+
+                let ctx = Arc::new(SyncPoolContext {
+                    left_cache,
+                    left,
+                    right_cache,
+                    right,
+                    handler,
                 });
 
                 // FIXME: lock occurs for too long
-                while let Some(task) = rx.lock().await.recv().await {
-                    println!("Worker {id} got a job; executing.");
-                    tx.send(task(ctx.clone()).await).await.unwrap();
-                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                loop {
+                    let mut lock = rx.lock().await;
+                    match lock.recv().await {
+                        None => break,
+                        Some(task) => {
+                            drop(lock);
+                            println!("Worker {id} got a job; executing.");
+                            tx.send(task(ctx.clone()).await).await.unwrap();
+                            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                        }
+                    }
                 }
 
                 println!("no more task for {id}, exitting");
@@ -311,7 +512,10 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
             });
         }
 
-        Ok(ThreadPool { tx, rx })
+        Ok(ThreadPool {
+            tx: tx_pool,
+            rx: rx_pool,
+        })
     }
 }
 
@@ -323,7 +527,7 @@ struct ThreadPool<L: BackendContext, R: BackendContext, T> {
 impl<L: BackendContext, R: BackendContext, T: Send + 'static> ThreadPool<L, R, T> {
     pub async fn send<F>(
         &mut self,
-        task: impl FnOnce(Arc<SyncBackends<L, R>>) -> F + Send + Sync + 'static,
+        task: impl FnOnce(Arc<SyncPoolContext<L, R>>) -> F + Send + Sync + 'static,
     ) where
         F: Future<Output = T> + Send + 'static,
     {
@@ -345,7 +549,9 @@ pub type SyncEventHandler =
 /// synchronization process.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum SyncEvent {
+    ListedLeftCachedFolders(usize),
     ListedLeftFolders(usize),
+    ListedRightCachedFolders(usize),
     ListedRightFolders(usize),
 }
 
@@ -364,8 +570,14 @@ impl SyncEvent {
 impl fmt::Display for SyncEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            SyncEvent::ListedLeftCachedFolders(n) => {
+                write!(f, "Listed {n} left cached folders")
+            }
             SyncEvent::ListedLeftFolders(n) => {
                 write!(f, "Listed {n} left folders")
+            }
+            SyncEvent::ListedRightCachedFolders(n) => {
+                write!(f, "Listed {n} right cached folders")
             }
             SyncEvent::ListedRightFolders(n) => {
                 write!(f, "Listed {n} right folders")
@@ -374,9 +586,18 @@ impl fmt::Display for SyncEvent {
     }
 }
 
-pub struct SyncBackends<L: BackendContext, R: BackendContext> {
+pub struct SyncPoolContext<L: BackendContext, R: BackendContext> {
+    pub left_cache: Backend<MaildirContextSync>,
     pub left: Backend<L>,
-    // pub left_cached: Backend<MaildirContextSync>,
+    pub right_cache: Backend<MaildirContextSync>,
     pub right: Backend<R>,
-    // pub right_cached: Backend<MaildirContextSync>,
+    pub handler: Option<Arc<SyncEventHandler>>,
+}
+
+pub enum SyncTask {
+    ListLeftCachedFolders(HashSet<String>),
+    ListLeftFolders(HashSet<String>),
+    ListRightCachedFolders(HashSet<String>),
+    ListRightFolders(HashSet<String>),
+    ProcessFolderHunk((FolderSyncHunk, Option<crate::Error>)),
 }

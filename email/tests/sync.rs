@@ -1,18 +1,14 @@
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::BackendBuilder,
-    email::sync::EmailSyncEvent,
     flag::{Flag, Flags},
-    folder::{
-        config::FolderConfig,
-        sync::{FolderSyncEvent, FolderSyncHunk},
-    },
+    folder::config::FolderConfig,
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapContextBuilder,
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder},
-    sync::{SyncBuilder, SyncDestination, SyncEvent},
+    sync::{SyncBuilder, SyncEvent},
 };
 use env_logger;
 use mail_builder::MessageBuilder;
@@ -186,6 +182,9 @@ async fn test_sync() {
 
     let report = sync_builder.sync().await.unwrap();
     println!("report: {:#?}", report);
+
+    let expected_folders = HashSet::from_iter(["INBOX".into(), "sync".into()]);
+    assert_eq!(report.folder.folders, expected_folders)
 
     // let evts = EVENTS_STACK.lock().await;
     // let expected_evts = HashSet::from_iter([
