@@ -106,7 +106,7 @@ pub(crate) fn plain_text_part<'a>(
 }
 
 #[cfg(test)]
-mod parts {
+mod tests {
     use concat_with::concat_line;
     use std::collections::HashMap;
 
