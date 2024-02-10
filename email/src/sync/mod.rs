@@ -708,7 +708,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             .await?;
         }
 
-        loop {
+        while patch_len > 0 {
             match pool.recv().await {
                 None => break,
                 Some(Err(err)) => Err(err)?,
@@ -722,10 +722,6 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 Some(Ok(_)) => {
                     // should not happen
                 }
-            }
-
-            if patch_len == 0 {
-                break;
             }
         }
 

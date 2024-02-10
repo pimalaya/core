@@ -368,6 +368,13 @@ async fn test_sync() {
 
     assert_eq!(email_patch, expected_email_patch);
 
+    // attempt a second sync that should lead to an empty report
+
+    let report = sync_builder.clone().sync().await.unwrap();
+
+    assert!(report.folder.patch.is_empty());
+    assert!(report.email.patch.is_empty());
+
     // check folders integrity
 
     let right_folders: HashSet<Folder> =
@@ -450,15 +457,6 @@ async fn test_sync() {
     assert_eq!(2, msgs.len());
     assert_eq!("E", msgs[0].parsed().unwrap().body_text(0).unwrap());
     assert_eq!("D", msgs[1].parsed().unwrap().body_text(0).unwrap());
-
-    // attempt a second sync that should lead to an empty report
-
-    let report = sync_builder.sync().await.unwrap();
-    println!("report: {:#?}", report);
-
-    assert!(report.folder.patch.is_empty());
-    // FIXME
-    assert!(report.email.patch.is_empty());
 
     // remove emails and update flags from both side, sync again and
     // check integrity
