@@ -22,7 +22,7 @@ use email::{
     message::{add::AddMessage, delete::DeleteMessages, peek::PeekMessages},
     sync::{SyncBuilder, SyncDestination, SyncEvent},
 };
-use env_logger;
+
 use mail_builder::MessageBuilder;
 use once_cell::sync::Lazy;
 use secret::Secret;
