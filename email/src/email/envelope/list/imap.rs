@@ -95,7 +95,7 @@ impl ListEnvelopes for ListImapEnvelopes {
 fn build_page_range(page: usize, page_size: usize, size: usize) -> result::Result<String, Error> {
     let page_cursor = page * page_size;
     if page_cursor >= size {
-        return Err(Error::BuildPageRangeOutOfBoundsError(page + 1))?;
+        Err(Error::BuildPageRangeOutOfBoundsError(page + 1))?
     }
 
     let range = if page_size == 0 {
