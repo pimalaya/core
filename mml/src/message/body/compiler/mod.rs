@@ -383,7 +383,7 @@ mod tests {
             .await
             .unwrap()
             .message_id("id@localhost")
-            .date(0 as u64)
+            .date(0_u64)
             .write_to_string()
             .unwrap();
 
@@ -413,7 +413,7 @@ mod tests {
             .await
             .unwrap()
             .message_id("id@localhost")
-            .date(0 as u64)
+            .date(0_u64)
             .write_to_string()
             .unwrap();
 
@@ -450,7 +450,7 @@ mod tests {
             .await
             .unwrap()
             .message_id("id@localhost")
-            .date(0 as u64)
+            .date(0_u64)
             .write_to_string()
             .unwrap();
 
