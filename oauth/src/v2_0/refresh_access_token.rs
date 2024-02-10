@@ -24,7 +24,7 @@ pub enum Error {
 /// for now but scopes will be added in the future. This flow exchange
 /// a refresh token for a new pair of access token and maybe a refresh
 /// token.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RefreshAccessToken;
 
 impl RefreshAccessToken {

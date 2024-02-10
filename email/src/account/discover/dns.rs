@@ -222,3 +222,9 @@ impl DnsClient {
         self.get_srv(domain, "submission").await
     }
 }
+
+impl Default for DnsClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}

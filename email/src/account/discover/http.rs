@@ -57,3 +57,9 @@ impl HttpClient {
         Ok(config)
     }
 }
+
+impl Default for HttpClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
