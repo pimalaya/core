@@ -25,6 +25,8 @@ pub mod watch;
 use chrono::Local;
 use chrono::{DateTime, FixedOffset, TimeZone};
 use log::debug;
+use mail_builder::headers::address::Address as MailBuilderAddress;
+use mail_builder::MessageBuilder;
 use std::{
     hash::Hash,
     ops::{Deref, DerefMut},
@@ -33,7 +35,7 @@ use std::{
 
 #[cfg(feature = "envelope-list")]
 use crate::account::config::AccountConfig;
-use crate::message::Message;
+use crate::{message::Message, Error, Result};
 
 #[doc(inline)]
 pub use self::{
@@ -188,6 +190,27 @@ impl PartialEq for Envelope {
 impl Hash for Envelope {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.message_id.hash(state);
+    }
+}
+
+impl TryFrom<Envelope> for Vec<u8> {
+    type Error = Error;
+
+    fn try_from(envelope: Envelope) -> Result<Self> {
+        MessageBuilder::new()
+            .message_id(envelope.message_id)
+            .from(MailBuilderAddress::new_address(
+                envelope.from.name,
+                envelope.from.addr,
+            ))
+            .to(MailBuilderAddress::new_address(
+                envelope.to.name,
+                envelope.to.addr,
+            ))
+            .subject(envelope.subject)
+            .date(envelope.date.timestamp())
+            .write_to_vec()
+            .map_err(Into::into)
     }
 }
 
