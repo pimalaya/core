@@ -46,9 +46,7 @@ pub(crate) fn quoted_val<'a>() -> impl Parser<'a, &'a str, Val<'a>, ParserError<
 ///
 /// It parses either the given const value or the quoted version of
 /// it.
-pub(crate) fn maybe_quoted_const_val<'a>(
-    val: &'a str,
-) -> impl Parser<'a, &'a str, Val<'a>, ParserError<'a>> + Clone {
+pub(crate) fn maybe_quoted_const_val(val: &str) -> impl Parser<&str, Val, ParserError> + Clone {
     choice((
         just(val).to_slice().delimited_by(dquote(), dquote()),
         just(val).to_slice(),
