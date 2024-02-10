@@ -78,6 +78,6 @@ impl NotmuchConfig {
 
     /// Find the Notmuch profile.
     pub fn find_profile(&self) -> Option<&str> {
-        self.profile.as_ref().map(String::as_str)
+        self.profile.as_deref()
     }
 }
