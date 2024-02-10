@@ -92,24 +92,19 @@ impl EmailAddress {
 ///
 /// There are two variants of the URL scheme. `Advanced` should be
 /// preferred.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 enum Variant {
     /// Advanced variant.
     ///
     /// This method uses a separate subdomain and is more flexible.
     /// This method should be preferred.
+    #[default]
     Advanced,
 
     /// Direct variant.
     ///
     /// This method is deprecated.
     Direct,
-}
-
-impl Default for Variant {
-    fn default() -> Self {
-        Variant::Advanced
-    }
 }
 
 /// Stores the parts needed to create a Web Key Directory URL.
