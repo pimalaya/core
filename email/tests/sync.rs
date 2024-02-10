@@ -20,7 +20,7 @@ use std::{collections::HashMap, collections::HashSet, sync::Arc};
 use tempfile::tempdir;
 use tokio::sync::Mutex;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_sync() {
     env_logger::builder().is_test(true).init();
 
@@ -167,7 +167,7 @@ async fn test_sync() {
     static EVENTS_STACK: Lazy<Mutex<HashSet<SyncEvent>>> =
         Lazy::new(|| Mutex::const_new(HashSet::default()));
 
-    let sync_builder = SyncBuilder::new(left_builder, right_builder)
+    let sync_builder = SyncBuilder::new(left_builder.clone(), right_builder.clone())
         .with_cache_dir(tmp.join("cache"))
         .with_handler(|evt| async {
             let mut stack = EVENTS_STACK.lock().await;
@@ -175,7 +175,20 @@ async fn test_sync() {
             Ok(())
         });
 
-    let report = sync_builder.sync().await.unwrap();
+    let left_cache = sync_builder
+        .get_left_cache_builder()
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let right_cache = sync_builder
+        .get_right_cache_builder()
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+
+    let report = sync_builder.clone().sync().await.unwrap();
 
     // check sync report integrity
 
@@ -183,7 +196,6 @@ async fn test_sync() {
 
     assert_eq!(report.folder.folders, expected_folders);
 
-    let evts = EVENTS_STACK.lock().await;
     let expected_evts = HashSet::from_iter([
         SyncEvent::ListedLeftCachedFolders(1),
         SyncEvent::ListedRightCachedFolders(1),
@@ -270,7 +282,11 @@ async fn test_sync() {
         )),
     ]);
 
-    assert_eq!(*evts, expected_evts);
+    {
+        let mut evts = EVENTS_STACK.lock().await;
+        assert_eq!(*evts, expected_evts);
+        evts.clear()
+    }
 
     let folder_patch: HashSet<_> = report
         .folder
@@ -356,6 +372,7 @@ async fn test_sync() {
 
     let right_folders: HashSet<Folder> =
         HashSet::from_iter::<Vec<Folder>>(right.list_folders().await.unwrap().into());
+
     let expected_right_folders = HashSet::from_iter([
         Folder {
             kind: Some(FolderKind::Inbox),
@@ -381,35 +398,42 @@ async fn test_sync() {
 
     assert_eq!(left_folders, right_folders);
 
-    // check left envelopes integrity
+    let left_cached_folders: HashSet<Folder> =
+        HashSet::from_iter::<Vec<Folder>>(left_cache.list_folders().await.unwrap().into());
 
-    let mut left_inbox_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
-    left_inbox_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+    assert_eq!(left_cached_folders, left_folders);
 
-    let mut right_inbox_envelopes = right.list_envelopes(INBOX, 0, 0).await.unwrap();
-    right_inbox_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+    let right_cached_folders: HashSet<Folder> =
+        HashSet::from_iter::<Vec<Folder>>(right_cache.list_folders().await.unwrap().into());
 
-    assert_eq!(left_inbox_envelopes, right_inbox_envelopes);
+    assert_eq!(right_cached_folders, right_folders);
 
-    let mut left_archives_envelopes = left.list_envelopes("Archives", 0, 0).await.unwrap();
-    left_archives_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+    // check envelopes integrity
 
-    let mut right_archives_envelopes = right.list_envelopes("Archives", 0, 0).await.unwrap();
-    right_archives_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+    for folder in [INBOX, "Archives", TRASH] {
+        let mut left_envelopes = left.list_envelopes(folder, 0, 0).await.unwrap();
+        left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    assert_eq!(left_archives_envelopes, right_archives_envelopes);
+        let mut left_cached_envelopes = left_cache.list_envelopes(folder, 0, 0).await.unwrap();
+        left_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    let mut left_trash_envelopes = left.list_envelopes(TRASH, 0, 0).await.unwrap();
-    left_trash_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+        let mut right_envelopes = right.list_envelopes(folder, 0, 0).await.unwrap();
+        right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    let mut right_trash_envelopes = right.list_envelopes(TRASH, 0, 0).await.unwrap();
-    right_trash_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+        let mut right_cached_envelopes = right_cache.list_envelopes(folder, 0, 0).await.unwrap();
+        right_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    assert_eq!(left_trash_envelopes, right_trash_envelopes);
+        assert_eq!(left_envelopes, left_cached_envelopes);
+        assert_eq!(right_envelopes, right_cached_envelopes);
+        assert_eq!(left_envelopes, right_envelopes);
+    }
 
     // check left emails content integrity
 
-    let ids = Id::multiple(left_inbox_envelopes.iter().map(|e| &e.id));
+    let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
+    left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    let ids = Id::multiple(left_envelopes.iter().map(|e| &e.id));
     let msgs = left.get_messages(INBOX, &ids).await.unwrap();
     let msgs = msgs.to_vec();
     assert_eq!(3, msgs.len());
@@ -417,15 +441,77 @@ async fn test_sync() {
     assert_eq!("B", msgs[1].parsed().unwrap().body_text(0).unwrap());
     assert_eq!("A", msgs[2].parsed().unwrap().body_text(0).unwrap());
 
-    let ids = Id::multiple(left_trash_envelopes.iter().map(|e| &e.id));
+    let mut left_envelopes = left.list_envelopes(TRASH, 0, 0).await.unwrap();
+    left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    let ids = Id::multiple(left_envelopes.iter().map(|e| &e.id));
     let msgs = left.get_messages(TRASH, &ids).await.unwrap();
     let msgs = msgs.to_vec();
     assert_eq!(2, msgs.len());
     assert_eq!("E", msgs[0].parsed().unwrap().body_text(0).unwrap());
     assert_eq!("D", msgs[1].parsed().unwrap().body_text(0).unwrap());
 
-    // check folders cache integrity
+    // attempt a second sync that should lead to an empty report
 
-    // TODO: generate left cache and right cache backends, then
-    // continue test suite from account_sync.rs.
+    let report = sync_builder.sync().await.unwrap();
+    println!("report: {:#?}", report);
+
+    assert!(report.folder.patch.is_empty());
+    // FIXME
+    assert!(report.email.patch.is_empty());
+
+    // remove emails and update flags from both side, sync again and
+    // check integrity
+
+    let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
+    left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    let mut right_envelopes = right.list_envelopes(INBOX, 0, 0).await.unwrap();
+    right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    right
+        .delete_messages(INBOX, &Id::single(&right_envelopes[0].id))
+        .await
+        .unwrap();
+    right
+        .add_flag(INBOX, &Id::single(&right_envelopes[1].id), Flag::Draft)
+        .await
+        .unwrap();
+    right.expunge_folder(INBOX).await.unwrap();
+
+    left.delete_messages(INBOX, &Id::single(&left_envelopes[2].id))
+        .await
+        .unwrap();
+    left.add_flags(
+        INBOX,
+        &Id::single(&left_envelopes[1].id),
+        &Flags::from_iter([Flag::Flagged, Flag::Answered]),
+    )
+    .await
+    .unwrap();
+    left.expunge_folder(INBOX).await.unwrap();
+
+    // TODO
+    // let report = sync_builder.sync().await.unwrap();
+
+    // assert_eq!(
+    //     report.folder.folders,
+    //     HashSet::from_iter([INBOX.into(), "Archives".into(), TRASH.into()])
+    // );
+
+    // let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
+    // left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    // let mut left_cached_envelopes = left_cache.list_envelopes(INBOX, 0, 0).await.unwrap();
+    // left_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    // let mut right_envelopes = right.list_envelopes(INBOX, 0, 0).await.unwrap();
+    // right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    // let mut right_cached_envelopes = right_cache.list_envelopes(INBOX, 0, 0).await.unwrap();
+    // right_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    // assert_eq!(left_envelopes, left_cached_envelopes);
+    // assert_eq!(right_envelopes, right_cached_envelopes);
+    // assert_eq!(left_envelopes, right_envelopes);
 }

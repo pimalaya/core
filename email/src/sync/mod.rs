@@ -1,7 +1,11 @@
 pub mod report;
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
-use futures::{lock::Mutex, Future};
+use futures::{
+    lock::Mutex,
+    stream::{FuturesUnordered, StreamExt},
+    Future,
+};
 use log::{debug, warn};
 use std::{
     collections::{HashMap, HashSet},
@@ -13,7 +17,7 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::{
     backend::{Backend, BackendBuilder, BackendContext, BackendContextBuilder},
@@ -154,6 +158,22 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             .ok_or(Error::GetCacheDirectoryError.into())
     }
 
+    pub fn get_left_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
+        let left_config = self.left_builder.account_config.clone();
+        let root_dir = self.get_cache_dir()?.join(&left_config.name);
+        let ctx = MaildirContextBuilder::new(Arc::new(MaildirConfig { root_dir }));
+        let left_cache_builder = BackendBuilder::new(left_config.clone(), ctx);
+        Ok(left_cache_builder)
+    }
+
+    pub fn get_right_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
+        let right_config = self.right_builder.account_config.clone();
+        let root_dir = self.get_cache_dir()?.join(&right_config.name);
+        let ctx = MaildirContextBuilder::new(Arc::new(MaildirConfig { root_dir }));
+        let right_cache_builder = BackendBuilder::new(right_config.clone(), ctx);
+        Ok(right_cache_builder)
+    }
+
     pub async fn sync(self) -> Result<SyncReport> {
         let lock_file_name = format!("pimalaya-email-sync.{}.lock", self.id);
         let lock_file_path = env::temp_dir().join(lock_file_name);
@@ -171,24 +191,10 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
 
         let mut report = SyncReport::default();
 
-        let cache_dir = self.get_cache_dir()?;
-        let left_config = self.left_builder.account_config.clone();
-        let right_config = self.right_builder.account_config.clone();
-
-        // TODO: export in a function
-        let root_dir = cache_dir.join(&left_config.name);
-        let ctx = MaildirContextBuilder::new(Arc::new(MaildirConfig { root_dir }));
-        let left_cache_builder = BackendBuilder::new(left_config.clone(), ctx);
-
-        // TODO: export in a function
-        let root_dir = cache_dir.join(&right_config.name);
-        let ctx = MaildirContextBuilder::new(Arc::new(MaildirConfig { root_dir }));
-        let right_cache_builder = BackendBuilder::new(right_config.clone(), ctx);
-
         let mut pool = ThreadPoolBuilder::new(
-            left_cache_builder,
+            self.get_left_cache_builder()?,
             self.left_builder.clone(),
-            right_cache_builder,
+            self.get_right_cache_builder()?,
             self.right_builder.clone(),
             self.handler.clone(),
             8,
@@ -374,7 +380,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             .await?;
         }
 
-        loop {
+        while patch_len > 0 {
             match pool.recv().await {
                 None => break,
                 Some(Err(err)) => Err(err)?,
@@ -388,10 +394,6 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 Some(Ok(_)) => {
                     // should not happen
                 }
-            }
-
-            if patch_len == 0 {
-                break;
             }
         }
 
@@ -727,6 +729,8 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             }
         }
 
+        pool.shutdown();
+
         debug!("unlocking sync file");
         lock_file
             .unlock()
@@ -773,29 +777,40 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
 
     pub async fn build<T: Send + 'static>(self) -> Result<ThreadPool<L::Context, R::Context, T>> {
         // channel for workers to receive and process tasks from the pool
-        let (tx_pool, rx_worker) = mpsc::channel::<Task<L::Context, R::Context, T>>(100);
+        let (tx_pool, rx_worker) = mpsc::unbounded_channel::<Task<L::Context, R::Context, T>>();
         let rx_workers = Arc::new(Mutex::new(rx_worker));
 
         // channel for workers to send output of their work to the pool
-        let (tx_worker, rx_pool) = mpsc::channel::<T>(100);
+        let (tx_worker, rx_pool) = mpsc::unbounded_channel::<T>();
 
-        for id in 1..(self.size) {
-            let tx = tx_worker.clone();
-            let rx = rx_workers.clone();
+        let mut threads = Vec::with_capacity(self.size);
+
+        let backends = FuturesUnordered::from_iter((0..self.size).map(|_| {
             let left_cache_builder = self.left_cache_builder.clone();
             let left_builder = self.left_builder.clone();
             let right_cache_builder = self.right_cache_builder.clone();
             let right_builder = self.right_builder.clone();
-            let handler = self.handler.clone();
 
-            tokio::spawn(async move {
-                let (left_cache, left, right_cache, right) = tokio::try_join!(
+            async move {
+                tokio::try_join!(
                     left_cache_builder.build(),
                     left_builder.build(),
                     right_cache_builder.build(),
                     right_builder.build(),
-                )?;
+                )
+            }
+        }))
+        .collect::<Vec<Result<_>>>()
+        .await;
 
+        for (id, backends) in backends.into_iter().enumerate() {
+            let (left_cache, left, right_cache, right) = backends?;
+
+            let tx = tx_worker.clone();
+            let rx = rx_workers.clone();
+            let handler = self.handler.clone();
+
+            threads.push(tokio::spawn(async move {
                 let ctx = Arc::new(SyncPoolContext {
                     left_cache,
                     left,
@@ -805,16 +820,19 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
                 });
 
                 loop {
-                    debug!("sync worker {id} waiting for a task…");
                     let mut lock = rx.lock().await;
+                    debug!("sync worker {id} waiting for a task…");
                     match lock.recv().await {
-                        None => break,
+                        None => {
+                            drop(lock);
+                            break;
+                        }
                         Some(task) => {
                             drop(lock);
                             debug!("sync worker {id} received a task, executing it…");
                             let output = task(ctx.clone()).await;
                             debug!("sync worker {id} successfully executed task!");
-                            if let Err(err) = tx.send(output).await {
+                            if let Err(err) = tx.send(output) {
                                 warn!("sync worker {id} cannot send output: {err}");
                             }
                         }
@@ -824,19 +842,21 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
                 debug!("no more task for sync worker {id}, exitting");
 
                 Result::Ok(())
-            });
+            }));
         }
 
         Ok(ThreadPool {
             tx: tx_pool,
             rx: rx_pool,
+            threads,
         })
     }
 }
 
 struct ThreadPool<L: BackendContext, R: BackendContext, T> {
-    tx: mpsc::Sender<Task<L, R, T>>,
-    rx: mpsc::Receiver<T>,
+    tx: mpsc::UnboundedSender<Task<L, R, T>>,
+    rx: mpsc::UnboundedReceiver<T>,
+    threads: Vec<JoinHandle<Result<()>>>,
 }
 
 impl<L: BackendContext + 'static, R: BackendContext + 'static, T: Send + 'static>
@@ -850,12 +870,19 @@ impl<L: BackendContext + 'static, R: BackendContext + 'static, T: Send + 'static
         F: Future<Output = T> + Send + 'static,
     {
         let task: Task<L, R, T> = Box::new(move |ctx| Box::pin(task(ctx)));
-        self.tx.send(task).await?;
+        self.tx.send(task)?;
         Ok(())
     }
 
     pub async fn recv(&mut self) -> Option<T> {
         self.rx.recv().await
+    }
+
+    pub fn shutdown(mut self) {
+        self.rx.close();
+        for thread in self.threads {
+            thread.abort()
+        }
     }
 }
 
