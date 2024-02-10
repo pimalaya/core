@@ -177,7 +177,7 @@ mod parts {
                 ))
                 .into_result(),
             Ok(Part::Single(
-                HashMap::from_iter([(TYPE, "text/html".into())]),
+                HashMap::from_iter([(TYPE, "text/html")]),
                 "<h1>This is a HTML text part.</h1>\n",
             )),
         );
@@ -315,7 +315,7 @@ mod parts {
                 ))
                 .into_result(),
             Ok(vec![Part::Multi(
-                HashMap::from_iter([(TYPE.into(), "alternative")]),
+                HashMap::from_iter([(TYPE, "alternative")]),
                 vec![
                     Part::PlainText("This is a plain text part.\n"),
                     Part::Single(

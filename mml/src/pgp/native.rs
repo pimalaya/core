@@ -78,7 +78,7 @@ impl NativePgpSecretKey {
             ))?),
             Self::Raw(skey) => Ok(skey.clone()),
             Self::Path(path) => {
-                let path = shellexpand_path(&path);
+                let path = shellexpand_path(path);
                 let skey = pgp::read_skey_from_file(path)
                     .await
                     .map_err(Error::ReadNativePgpSecretKeyError)?;

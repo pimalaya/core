@@ -23,7 +23,7 @@ async fn main() {
         .with_pgp(Pgp::Gpg(Gpg {
             home_dir: Some(PathBuf::from("./tests/gpg-home")),
         }))
-        .build(&mml)
+        .build(mml)
         .unwrap();
     let mime = mml_compiler.compile().await.unwrap().into_string().unwrap();
 

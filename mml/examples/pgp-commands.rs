@@ -30,7 +30,7 @@ async fn main() {
             sign_cmd: Some(Cmd::from("gpg --homedir ./tests/gpg-home -saq")),
             verify_cmd: Some(Cmd::from("gpg --homedir ./tests/gpg-home --verify -q")),
         }))
-        .build(&mml)
+        .build(mml)
         .unwrap();
     let mime = mml_compiler.compile().await.unwrap().into_string().unwrap();
 

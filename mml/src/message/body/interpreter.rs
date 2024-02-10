@@ -501,7 +501,7 @@ impl MimeBodyInterpreter {
             }
             #[cfg(feature = "pgp")]
             PartType::Multipart(ids) if ctype == "multipart/signed" => {
-                match self.verify_msg(msg, &ids).await {
+                match self.verify_msg(msg, ids).await {
                     Ok(()) => {
                         debug!("email part successfully verified using pgp");
                     }

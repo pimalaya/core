@@ -206,7 +206,7 @@ async fn from_dns_mx(
         Err(err) => {
             trace!("{err}");
             debug!("ISP discovery failed for {domain}, falling back to TXT records");
-            from_dns_txt(http, &dns, &domain).await
+            from_dns_txt(http, dns, domain).await
         }
     }
 }
