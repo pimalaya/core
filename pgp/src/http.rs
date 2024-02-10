@@ -33,13 +33,13 @@ pub enum Error {
 /// belonging to the given email address.
 async fn fetch(
     client: &Client<HttpsConnector<HttpConnector>>,
-    email: &String,
-    key_server: &String,
+    email: &str,
+    key_server: &str,
 ) -> Result<SignedPublicKey> {
     let uri: Uri = key_server
         .replace("<email>", email)
         .parse()
-        .map_err(|err| Error::ParseUriError(err, key_server.clone()))?;
+        .map_err(|err| Error::ParseUriError(err, key_server.to_owned()))?;
 
     let uri = match uri.scheme_str() {
         Some("hkp") | Some("hkps") => hkp::format_key_server_uri(uri, email).unwrap(),
@@ -58,7 +58,7 @@ async fn fetch(
 
     let cursor = Cursor::new(&*body);
     let (pkey, _) = SignedPublicKey::from_armor_single(cursor)
-        .map_err(|err| Error::ParsePublicKeyError(err, uri.clone()))?;
+        .map_err(|err| Error::ParsePublicKeyError(err, uri))?;
 
     Ok(pkey)
 }
