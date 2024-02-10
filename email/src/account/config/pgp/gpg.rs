@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 pub struct GpgConfig;
 
 impl From<GpgConfig> for Pgp {
-    fn from(val: GpgConfig) -> Self {
+    fn from(_val: GpgConfig) -> Self {
+        // TODO: retrieve Gpg home_dir from configurations.
         Pgp::Gpg(Gpg { home_dir: None })
     }
 }
