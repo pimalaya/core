@@ -45,7 +45,7 @@ async fn main() {
                 bob_pkey.clone(),
             )],
         }))
-        .build(&mml)
+        .build(mml)
         .unwrap();
     let mime = mml_compiler.compile().await.unwrap().into_string().unwrap();
 
