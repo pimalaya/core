@@ -351,7 +351,7 @@ impl From<Vec<&str>> for Pipeline {
 
 impl From<&[String]> for Pipeline {
     fn from(cmd: &[String]) -> Self {
-        Self(cmd.into_iter().map(Into::into).collect())
+        Self(cmd.iter().map(Into::into).collect())
     }
 }
 

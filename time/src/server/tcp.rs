@@ -106,7 +106,7 @@ impl RequestReader for TcpHandler {
 impl ResponseWriter for TcpHandler {
     async fn write(&mut self, res: Response) -> io::Result<()> {
         let res = match res {
-            Response::Ok => format!("ok\n"),
+            Response::Ok => "ok\n".to_string(),
             Response::Timer(timer) => {
                 format!("timer {}\n", serde_json::to_string(&timer).unwrap())
             }

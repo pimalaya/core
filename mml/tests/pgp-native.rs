@@ -94,7 +94,7 @@ async fn pgp_native() {
             secret_key: NativePgpSecretKey::Path(alice_skey_path.clone()),
             secret_key_passphrase: Secret::new_raw(""),
             public_keys_resolvers: vec![NativePgpPublicKeysResolver::KeyServers(vec![
-                String::from(key_server_addr),
+                key_server_addr,
             ])],
         }))
         .build(mml)
