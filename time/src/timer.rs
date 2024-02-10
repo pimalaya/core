@@ -271,14 +271,14 @@ impl Timer {
                     }
                 }
 
-                elapsed = elapsed % total_duration;
+                elapsed %= total_duration;
 
                 let last_cycle = cycles[cycles.len() - 1].clone();
                 let next_cycle = cycles
                     .into_iter()
                     .fold(None, |next_cycle, mut cycle| match next_cycle {
                         None if elapsed < cycle.duration => {
-                            cycle.duration = cycle.duration - elapsed;
+                            cycle.duration -= elapsed;
                             Some(cycle)
                         }
                         _ => next_cycle,
