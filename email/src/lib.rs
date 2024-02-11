@@ -65,6 +65,7 @@ pub mod sendmail;
 pub mod smtp;
 #[cfg(feature = "sync")]
 pub mod sync;
+pub mod thread_pool;
 pub mod watch;
 
 #[doc(inline)]

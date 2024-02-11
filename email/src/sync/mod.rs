@@ -1,12 +1,9 @@
+pub mod pool;
 pub mod report;
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
-use futures::{
-    lock::Mutex,
-    stream::{FuturesUnordered, StreamExt},
-    Future,
-};
-use log::{debug, warn};
+use futures::Future;
+use log::debug;
 use std::{
     collections::{HashMap, HashSet},
     env, fmt,
@@ -17,15 +14,15 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
-use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::{
-    backend::{Backend, BackendBuilder, BackendContext, BackendContextBuilder},
+    backend::{BackendBuilder, BackendContextBuilder},
     email::{self, sync::EmailSyncHunk},
     envelope::{Envelope, Id},
     flag::Flag,
     folder::{self, sync::FolderSyncHunk, Folder},
-    maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
+    maildir::{config::MaildirConfig, MaildirContextBuilder},
+    sync::pool::SyncTask,
     Result,
 };
 
@@ -191,15 +188,13 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
 
         let mut report = SyncReport::default();
 
-        let mut pool = ThreadPoolBuilder::new(
+        let mut pool = pool::new(
             self.get_left_cache_builder()?,
             self.left_builder.clone(),
             self.get_right_cache_builder()?,
             self.right_builder.clone(),
             self.handler.clone(),
-            8,
         )
-        .build()
         .await?;
 
         pool.send(|ctx| async move {
@@ -766,152 +761,6 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
     }
 }
 
-type Task<L, R, T> = Box<
-    dyn FnOnce(Arc<SyncPoolContext<L, R>>) -> Pin<Box<dyn Future<Output = T> + Send>> + Send + Sync,
->;
-
-#[derive(Clone)]
-struct ThreadPoolBuilder<L: BackendContextBuilder, R: BackendContextBuilder> {
-    left_cache_builder: BackendBuilder<MaildirContextBuilder>,
-    left_builder: BackendBuilder<L>,
-    right_cache_builder: BackendBuilder<MaildirContextBuilder>,
-    right_builder: BackendBuilder<R>,
-    handler: Option<Arc<SyncEventHandler>>,
-    size: usize,
-}
-
-impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
-    ThreadPoolBuilder<L, R>
-{
-    pub fn new(
-        left_cache_builder: BackendBuilder<MaildirContextBuilder>,
-        left_builder: BackendBuilder<L>,
-        right_cache_builder: BackendBuilder<MaildirContextBuilder>,
-        right_builder: BackendBuilder<R>,
-        handler: Option<Arc<SyncEventHandler>>,
-        size: usize,
-    ) -> Self {
-        Self {
-            left_cache_builder,
-            left_builder,
-            right_cache_builder,
-            right_builder,
-            handler,
-            size,
-        }
-    }
-
-    pub async fn build<T: Send + 'static>(self) -> Result<ThreadPool<L::Context, R::Context, T>> {
-        // channel for workers to receive and process tasks from the pool
-        let (tx_pool, rx_worker) = mpsc::unbounded_channel::<Task<L::Context, R::Context, T>>();
-        let rx_workers = Arc::new(Mutex::new(rx_worker));
-
-        // channel for workers to send output of their work to the pool
-        let (tx_worker, rx_pool) = mpsc::unbounded_channel::<T>();
-
-        let mut threads = Vec::with_capacity(self.size);
-
-        let backends = FuturesUnordered::from_iter((0..self.size).map(|_| {
-            let left_cache_builder = self.left_cache_builder.clone();
-            let left_builder = self.left_builder.clone();
-            let right_cache_builder = self.right_cache_builder.clone();
-            let right_builder = self.right_builder.clone();
-
-            async move {
-                tokio::try_join!(
-                    left_cache_builder.build(),
-                    left_builder.build(),
-                    right_cache_builder.build(),
-                    right_builder.build(),
-                )
-            }
-        }))
-        .collect::<Vec<Result<_>>>()
-        .await;
-
-        for (id, backends) in backends.into_iter().enumerate() {
-            let (left_cache, left, right_cache, right) = backends?;
-
-            let tx = tx_worker.clone();
-            let rx = rx_workers.clone();
-            let handler = self.handler.clone();
-
-            threads.push(tokio::spawn(async move {
-                let ctx = Arc::new(SyncPoolContext {
-                    left_cache,
-                    left,
-                    right_cache,
-                    right,
-                    handler,
-                });
-
-                loop {
-                    let mut lock = rx.lock().await;
-                    debug!("sync worker {id} waiting for a task…");
-                    match lock.recv().await {
-                        None => {
-                            drop(lock);
-                            break;
-                        }
-                        Some(task) => {
-                            drop(lock);
-                            debug!("sync worker {id} received a task, executing it…");
-                            let output = task(ctx.clone()).await;
-                            debug!("sync worker {id} successfully executed task!");
-                            if let Err(err) = tx.send(output) {
-                                warn!("sync worker {id} cannot send output: {err}");
-                            }
-                        }
-                    }
-                }
-
-                debug!("no more task for sync worker {id}, exitting");
-
-                Result::Ok(())
-            }));
-        }
-
-        Ok(ThreadPool {
-            tx: tx_pool,
-            rx: rx_pool,
-            threads,
-        })
-    }
-}
-
-struct ThreadPool<L: BackendContext, R: BackendContext, T> {
-    tx: mpsc::UnboundedSender<Task<L, R, T>>,
-    rx: mpsc::UnboundedReceiver<T>,
-    threads: Vec<JoinHandle<Result<()>>>,
-}
-
-impl<L: BackendContext + 'static, R: BackendContext + 'static, T: Send + 'static>
-    ThreadPool<L, R, T>
-{
-    pub fn send<F>(
-        &mut self,
-        task: impl FnOnce(Arc<SyncPoolContext<L, R>>) -> F + Send + Sync + 'static,
-    ) -> Result<()>
-    where
-        F: Future<Output = T> + Send + 'static,
-    {
-        let task: Task<L, R, T> = Box::new(move |ctx| Box::pin(task(ctx)));
-        self.tx.send(task)?;
-        Ok(())
-    }
-
-    pub async fn recv(&mut self) -> Option<T> {
-        self.rx.recv().await
-    }
-
-    pub fn shutdown(mut self) {
-        self.rx.close();
-        for thread in self.threads {
-            thread.abort()
-        }
-    }
-}
-
 pub type SyncEventHandler =
     dyn Fn(SyncEvent) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + Sync;
 
@@ -988,26 +837,4 @@ impl fmt::Display for SyncEvent {
             }
         }
     }
-}
-
-pub struct SyncPoolContext<L: BackendContext, R: BackendContext> {
-    pub left_cache: Backend<MaildirContextSync>,
-    pub left: Backend<L>,
-    pub right_cache: Backend<MaildirContextSync>,
-    pub right: Backend<R>,
-    pub handler: Option<Arc<SyncEventHandler>>,
-}
-
-pub enum SyncTask {
-    ListLeftCachedFolders(HashSet<String>),
-    ListLeftFolders(HashSet<String>),
-    ListRightCachedFolders(HashSet<String>),
-    ListRightFolders(HashSet<String>),
-    ProcessFolderHunk((FolderSyncHunk, Option<crate::Error>)),
-    ExpungeFolder,
-    ListLeftCachedEnvelopes(String, HashMap<String, Envelope>),
-    ListLeftEnvelopes(String, HashMap<String, Envelope>),
-    ListRightCachedEnvelopes(String, HashMap<String, Envelope>),
-    ListRightEnvelopes(String, HashMap<String, Envelope>),
-    ProcessEmailHunk((EmailSyncHunk, Option<crate::Error>)),
 }
