@@ -216,8 +216,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 .await;
 
             Result::Ok(SyncTask::ListLeftCachedFolders(names))
-        })
-        .await?;
+        })?;
 
         pool.send(|ctx| async move {
             let folders = ctx.left.list_folders().await?;
@@ -233,8 +232,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 .await;
 
             Result::Ok(SyncTask::ListLeftFolders(names))
-        })
-        .await?;
+        })?;
 
         pool.send(|ctx| async move {
             let folders = ctx.right_cache.list_folders().await?;
@@ -250,8 +248,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 .await;
 
             Ok(SyncTask::ListRightCachedFolders(names))
-        })
-        .await?;
+        })?;
 
         pool.send(|ctx| async move {
             let folders = ctx.right.list_folders().await?;
@@ -267,8 +264,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 .await;
 
             Ok(SyncTask::ListRightFolders(names))
-        })
-        .await?;
+        })?;
 
         let mut left_cached_folders = None::<HashSet<String>>;
         let mut left_folders = None::<HashSet<String>>;
@@ -376,8 +372,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                         Err(err) => Ok(SyncTask::ProcessFolderHunk((hunk, Some(err)))),
                     }
                 }
-            })
-            .await?;
+            })?;
         }
 
         while patch_len > 0 {
@@ -413,8 +408,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                     .await;
 
                 Result::Ok(SyncTask::ListLeftCachedEnvelopes(folder, envelopes))
-            })
-            .await?;
+            })?;
 
             let folder = folder_ref.clone();
             pool.send(|ctx| async move {
@@ -431,8 +425,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                     .await;
 
                 Result::Ok(SyncTask::ListLeftEnvelopes(folder, envelopes))
-            })
-            .await?;
+            })?;
 
             let folder = folder_ref.clone();
             pool.send(|ctx| async move {
@@ -449,8 +442,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                     .await;
 
                 Result::Ok(SyncTask::ListRightCachedEnvelopes(folder, envelopes))
-            })
-            .await?;
+            })?;
 
             let folder = folder_ref.clone();
             pool.send(|ctx| async move {
@@ -467,8 +459,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                     .await;
 
                 Result::Ok(SyncTask::ListRightEnvelopes(folder, envelopes))
-            })
-            .await?;
+            })?;
         }
 
         #[derive(Debug, Default, Clone)]
@@ -704,8 +695,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                         Err(err) => Ok(SyncTask::ProcessEmailHunk((hunk, Some(err)))),
                     }
                 }
-            })
-            .await?;
+            })?;
         }
 
         while patch_len > 0 {
@@ -718,6 +708,46 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                         .await;
                     report.email.patch.push(hunk);
                     patch_len -= 1;
+                }
+                Some(Ok(_)) => {
+                    // should not happen
+                }
+            }
+        }
+
+        for folder_ref in &report.folder.folders {
+            let folder = folder_ref.clone();
+            pool.send(|ctx| async move {
+                ctx.left_cache.expunge_folder(&folder).await?;
+                Result::Ok(SyncTask::ExpungeFolder)
+            })?;
+
+            let folder = folder_ref.clone();
+            pool.send(|ctx| async move {
+                ctx.left.expunge_folder(&folder).await?;
+                Result::Ok(SyncTask::ExpungeFolder)
+            })?;
+
+            let folder = folder_ref.clone();
+            pool.send(|ctx| async move {
+                ctx.right_cache.expunge_folder(&folder).await?;
+                Result::Ok(SyncTask::ExpungeFolder)
+            })?;
+
+            let folder = folder_ref.clone();
+            pool.send(|ctx| async move {
+                ctx.right.expunge_folder(&folder).await?;
+                Result::Ok(SyncTask::ExpungeFolder)
+            })?;
+        }
+
+        let mut remaining_expunges = 4 * folders_len;
+        while remaining_expunges > 0 {
+            match pool.recv().await {
+                None => break,
+                Some(Err(err)) => Err(err)?,
+                Some(Ok(SyncTask::ExpungeFolder)) => {
+                    remaining_expunges -= 1;
                 }
                 Some(Ok(_)) => {
                     // should not happen
@@ -858,7 +888,7 @@ struct ThreadPool<L: BackendContext, R: BackendContext, T> {
 impl<L: BackendContext + 'static, R: BackendContext + 'static, T: Send + 'static>
     ThreadPool<L, R, T>
 {
-    pub async fn send<F>(
+    pub fn send<F>(
         &mut self,
         task: impl FnOnce(Arc<SyncPoolContext<L, R>>) -> F + Send + Sync + 'static,
     ) -> Result<()>
@@ -974,6 +1004,7 @@ pub enum SyncTask {
     ListRightCachedFolders(HashSet<String>),
     ListRightFolders(HashSet<String>),
     ProcessFolderHunk((FolderSyncHunk, Option<crate::Error>)),
+    ExpungeFolder,
     ListLeftCachedEnvelopes(String, HashMap<String, Envelope>),
     ListLeftEnvelopes(String, HashMap<String, Envelope>),
     ListRightCachedEnvelopes(String, HashMap<String, Envelope>),

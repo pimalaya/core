@@ -441,7 +441,7 @@ async fn test_sync() {
     left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
     let ids = Id::multiple(left_envelopes.iter().map(|e| &e.id));
-    let msgs = left.get_messages(INBOX, &ids).await.unwrap();
+    let msgs = left.peek_messages(INBOX, &ids).await.unwrap();
     let msgs = msgs.to_vec();
     assert_eq!(3, msgs.len());
     assert_eq!("C", msgs[0].parsed().unwrap().body_text(0).unwrap());
@@ -452,17 +452,29 @@ async fn test_sync() {
     left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
     let ids = Id::multiple(left_envelopes.iter().map(|e| &e.id));
-    let msgs = left.get_messages(TRASH, &ids).await.unwrap();
+    let msgs = left.peek_messages(TRASH, &ids).await.unwrap();
     let msgs = msgs.to_vec();
     assert_eq!(2, msgs.len());
     assert_eq!("E", msgs[0].parsed().unwrap().body_text(0).unwrap());
     assert_eq!("D", msgs[1].parsed().unwrap().body_text(0).unwrap());
 
-    // remove emails and update flags from both side, sync again and
+    // remove messages and update flags from both side, sync again and
     // check integrity
 
     let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
     left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    left.delete_messages(INBOX, &Id::single(&left_envelopes[2].id))
+        .await
+        .unwrap();
+    left.add_flags(
+        INBOX,
+        &Id::single(&left_envelopes[1].id),
+        &Flags::from_iter([Flag::Flagged, Flag::Answered]),
+    )
+    .await
+    .unwrap();
+    left.expunge_folder(INBOX).await.unwrap();
 
     let mut right_envelopes = right.list_envelopes(INBOX, 0, 0).await.unwrap();
     right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
@@ -477,39 +489,23 @@ async fn test_sync() {
         .unwrap();
     right.expunge_folder(INBOX).await.unwrap();
 
-    left.delete_messages(INBOX, &Id::single(&left_envelopes[2].id))
-        .await
-        .unwrap();
-    left.add_flags(
-        INBOX,
-        &Id::single(&left_envelopes[1].id),
-        &Flags::from_iter([Flag::Flagged, Flag::Answered]),
-    )
-    .await
-    .unwrap();
-    left.expunge_folder(INBOX).await.unwrap();
+    let report = sync_builder.sync().await.unwrap();
 
-    // TODO
-    // let report = sync_builder.sync().await.unwrap();
+    let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
+    left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    // assert_eq!(
-    //     report.folder.folders,
-    //     HashSet::from_iter([INBOX.into(), "Archives".into(), TRASH.into()])
-    // );
+    let mut left_cached_envelopes = left_cache.list_envelopes(INBOX, 0, 0).await.unwrap();
+    left_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    // let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
-    // left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+    let mut right_envelopes = right.list_envelopes(INBOX, 0, 0).await.unwrap();
+    right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    // let mut left_cached_envelopes = left_cache.list_envelopes(INBOX, 0, 0).await.unwrap();
-    // left_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+    let mut right_cached_envelopes = right_cache.list_envelopes(INBOX, 0, 0).await.unwrap();
+    right_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    // let mut right_envelopes = right.list_envelopes(INBOX, 0, 0).await.unwrap();
-    // right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
-
-    // let mut right_cached_envelopes = right_cache.list_envelopes(INBOX, 0, 0).await.unwrap();
-    // right_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
-
-    // assert_eq!(left_envelopes, left_cached_envelopes);
-    // assert_eq!(right_envelopes, right_cached_envelopes);
-    // assert_eq!(left_envelopes, right_envelopes);
+    assert!(report.folder.patch.is_empty());
+    assert!(!report.email.patch.is_empty());
+    assert_eq!(left_envelopes, left_cached_envelopes);
+    assert_eq!(right_envelopes, right_cached_envelopes);
+    assert_eq!(left_envelopes, right_envelopes);
 }
