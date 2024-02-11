@@ -47,6 +47,11 @@ impl PartialEq for WatchHook {
 /// an envelope.
 #[derive(Clone)]
 pub struct WatchFn(
+    // This function is essentially an asyc Fn with an empty anyhow result type.
+    // So it should not create too much type complexity.
+    // Added to that there is a new function that can take the complexity of
+    // pinning and arcing away.
+    #[allow(clippy::type_complexity)]
     Arc<dyn Fn(&Envelope) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + Sync>,
 );
 
