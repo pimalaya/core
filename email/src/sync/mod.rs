@@ -2,7 +2,7 @@ pub mod pool;
 pub mod report;
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
-use futures::Future;
+use futures::{stream::FuturesUnordered, Future, StreamExt};
 use log::debug;
 use std::{
     collections::{HashMap, HashSet},
@@ -22,7 +22,6 @@ use crate::{
     flag::Flag,
     folder::{self, sync::FolderSyncHunk, Folder},
     maildir::{config::MaildirConfig, MaildirContextBuilder},
-    sync::pool::SyncTask,
     Result,
 };
 
@@ -188,7 +187,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
 
         let mut report = SyncReport::default();
 
-        let mut pool = pool::new(
+        let pool = pool::new(
             self.get_left_cache_builder()?,
             self.left_builder.clone(),
             self.get_right_cache_builder()?,
@@ -197,7 +196,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         )
         .await?;
 
-        pool.send(|ctx| async move {
+        let left_cached_folders = pool.exec(|ctx| async move {
             let folders = ctx.left_cache.list_folders().await?;
             let names = HashSet::<String>::from_iter(
                 folders
@@ -210,10 +209,10 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 .emit(&ctx.handler)
                 .await;
 
-            Result::Ok(SyncTask::ListLeftCachedFolders(names))
-        })?;
+            Result::Ok(names)
+        });
 
-        pool.send(|ctx| async move {
+        let left_folders = pool.exec(|ctx| async move {
             let folders = ctx.left.list_folders().await?;
             let names = HashSet::<String>::from_iter(
                 folders
@@ -226,10 +225,10 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 .emit(&ctx.handler)
                 .await;
 
-            Result::Ok(SyncTask::ListLeftFolders(names))
-        })?;
+            Result::Ok(names)
+        });
 
-        pool.send(|ctx| async move {
+        let right_cached_folders = pool.exec(|ctx| async move {
             let folders = ctx.right_cache.list_folders().await?;
             let names = HashSet::<String>::from_iter(
                 folders
@@ -242,12 +241,12 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 .emit(&ctx.handler)
                 .await;
 
-            Ok(SyncTask::ListRightCachedFolders(names))
-        })?;
+            Result::Ok(names)
+        });
 
-        pool.send(|ctx| async move {
+        let right_folders = pool.exec(|ctx| async move {
             let folders = ctx.right.list_folders().await?;
-            let names = HashSet::from_iter(
+            let names: HashSet<String> = HashSet::from_iter(
                 folders
                     .iter()
                     .map(Folder::get_kind_or_name)
@@ -258,61 +257,23 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 .emit(&ctx.handler)
                 .await;
 
-            Ok(SyncTask::ListRightFolders(names))
-        })?;
+            Result::Ok(names)
+        });
 
-        let mut left_cached_folders = None::<HashSet<String>>;
-        let mut left_folders = None::<HashSet<String>>;
-        let mut right_cached_folders = None::<HashSet<String>>;
-        let mut right_folders = None::<HashSet<String>>;
-
-        loop {
-            match pool.recv().await {
-                None => break,
-                Some(Err(err)) => Err(err)?,
-                Some(Ok(SyncTask::ListLeftCachedFolders(names))) => {
-                    left_cached_folders = Some(names);
-                }
-                Some(Ok(SyncTask::ListLeftFolders(names))) => {
-                    left_folders = Some(names);
-                }
-                Some(Ok(SyncTask::ListRightCachedFolders(names))) => {
-                    right_cached_folders = Some(names);
-                }
-                Some(Ok(SyncTask::ListRightFolders(names))) => {
-                    right_folders = Some(names);
-                }
-                Some(Ok(_)) => {
-                    // should not happen
-                }
-            }
-
-            if left_cached_folders.is_none() {
-                continue;
-            }
-
-            if left_folders.is_none() {
-                continue;
-            }
-
-            if right_cached_folders.is_none() {
-                continue;
-            }
-
-            if right_folders.is_none() {
-                continue;
-            }
-
-            break;
-        }
+        let (left_cached_folders, left_folders, right_cached_folders, right_folders) = tokio::try_join!(
+            left_cached_folders,
+            left_folders,
+            right_cached_folders,
+            right_folders
+        )?;
 
         SyncEvent::ListedAllFolders.emit(&self.handler).await;
 
         let patch = folder::sync::patch::build_patch(
-            left_cached_folders.unwrap(),
-            left_folders.unwrap(),
-            right_cached_folders.unwrap(),
-            right_folders.unwrap(),
+            left_cached_folders,
+            left_folders,
+            right_cached_folders,
+            right_folders,
         );
 
         let (folders, patch) = patch.into_iter().fold(
@@ -324,13 +285,9 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             },
         );
 
-        let folders_len = folders.len();
         report.folder.folders = folders;
-
-        let mut patch_len = patch.len();
-
-        for hunk in patch {
-            pool.send(move |ctx| {
+        report.folder.patch = FuturesUnordered::from_iter(patch.into_iter().map(|hunk| {
+            pool.exec(move |ctx| {
                 let hunk_clone = hunk.clone();
                 let task = async move {
                     match hunk_clone {
@@ -363,34 +320,19 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
 
                 async move {
                     match task.await {
-                        Ok(()) => Ok(SyncTask::ProcessFolderHunk((hunk, None))),
-                        Err(err) => Ok(SyncTask::ProcessFolderHunk((hunk, Some(err)))),
+                        Ok(()) => (hunk, None),
+                        Err(err) => (hunk, Some(err)),
                     }
                 }
-            })?;
-        }
+            })
+        }))
+        .collect::<Vec<_>>()
+        .await;
 
-        while patch_len > 0 {
-            match pool.recv().await {
-                None => break,
-                Some(Err(err)) => Err(err)?,
-                Some(Ok(SyncTask::ProcessFolderHunk(hunk))) => {
-                    SyncEvent::ProcessedFolderHunk(hunk.0.clone())
-                        .emit(&self.handler)
-                        .await;
-                    report.folder.patch.push(hunk);
-                    patch_len -= 1;
-                }
-                Some(Ok(_)) => {
-                    // should not happen
-                }
-            }
-        }
-
-        for folder_ref in &report.folder.folders {
+        let patch = FuturesUnordered::from_iter(report.folder.folders.iter().map(|folder_ref| {
             let folder = folder_ref.clone();
-            pool.send(|ctx| async move {
-                let envelopes = HashMap::from_iter(
+            let left_cached_envelopes = pool.exec(|ctx| async move {
+                let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                     ctx.left_cache
                         .list_envelopes(&folder, 0, 0)
                         .await?
@@ -402,12 +344,12 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                     .emit(&ctx.handler)
                     .await;
 
-                Result::Ok(SyncTask::ListLeftCachedEnvelopes(folder, envelopes))
-            })?;
+                Result::Ok(envelopes)
+            });
 
             let folder = folder_ref.clone();
-            pool.send(|ctx| async move {
-                let envelopes = HashMap::from_iter(
+            let left_envelopes = pool.exec(|ctx| async move {
+                let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                     ctx.left
                         .list_envelopes(&folder, 0, 0)
                         .await?
@@ -419,12 +361,12 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                     .emit(&ctx.handler)
                     .await;
 
-                Result::Ok(SyncTask::ListLeftEnvelopes(folder, envelopes))
-            })?;
+                Result::Ok(envelopes)
+            });
 
             let folder = folder_ref.clone();
-            pool.send(|ctx| async move {
-                let envelopes = HashMap::from_iter(
+            let right_cached_envelopes = pool.exec(|ctx| async move {
+                let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                     ctx.right_cache
                         .list_envelopes(&folder, 0, 0)
                         .await?
@@ -436,12 +378,12 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                     .emit(&ctx.handler)
                     .await;
 
-                Result::Ok(SyncTask::ListRightCachedEnvelopes(folder, envelopes))
-            })?;
+                Result::Ok(envelopes)
+            });
 
             let folder = folder_ref.clone();
-            pool.send(|ctx| async move {
-                let envelopes = HashMap::from_iter(
+            let right_envelopes = pool.exec(|ctx| async move {
+                let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                     ctx.right
                         .list_envelopes(&folder, 0, 0)
                         .await?
@@ -453,90 +395,48 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                     .emit(&ctx.handler)
                     .await;
 
-                Result::Ok(SyncTask::ListRightEnvelopes(folder, envelopes))
-            })?;
-        }
+                Result::Ok(envelopes)
+            });
 
-        #[derive(Debug, Default, Clone)]
-        struct Envelopes {
-            left_cache: Option<HashMap<String, Envelope>>,
-            left: Option<HashMap<String, Envelope>>,
-            right_cache: Option<HashMap<String, Envelope>>,
-            right: Option<HashMap<String, Envelope>>,
-        }
+            async move {
+                let (
+                    left_cached_envelopes,
+                    left_envelopes,
+                    right_cached_envelopes,
+                    right_envelopes,
+                ) = tokio::try_join!(
+                    left_cached_envelopes,
+                    left_envelopes,
+                    right_cached_envelopes,
+                    right_envelopes
+                )?;
 
-        let mut envelopes: HashMap<String, Envelopes> = HashMap::default();
-
-        loop {
-            match pool.recv().await {
-                None => break,
-                Some(Err(err)) => Err(err)?,
-                Some(Ok(SyncTask::ListLeftCachedEnvelopes(f, e))) => {
-                    if !envelopes.contains_key(&f) {
-                        envelopes.insert(f.clone(), Default::default());
-                    }
-                    envelopes.get_mut(&f).unwrap().left_cache = Some(e);
-                }
-                Some(Ok(SyncTask::ListLeftEnvelopes(f, e))) => {
-                    if !envelopes.contains_key(&f) {
-                        envelopes.insert(f.clone(), Default::default());
-                    }
-                    envelopes.get_mut(&f).unwrap().left = Some(e);
-                }
-                Some(Ok(SyncTask::ListRightCachedEnvelopes(f, e))) => {
-                    if !envelopes.contains_key(&f) {
-                        envelopes.insert(f.clone(), Default::default());
-                    }
-                    envelopes.get_mut(&f).unwrap().right_cache = Some(e);
-                }
-                Some(Ok(SyncTask::ListRightEnvelopes(f, e))) => {
-                    if !envelopes.contains_key(&f) {
-                        envelopes.insert(f.clone(), Default::default());
-                    }
-                    envelopes.get_mut(&f).unwrap().right = Some(e);
-                }
-                Some(Ok(_)) => {
-                    // should not happen
+                Result::Ok(email::sync::patch::build_patch(
+                    folder_ref,
+                    left_cached_envelopes,
+                    left_envelopes,
+                    right_cached_envelopes,
+                    right_envelopes,
+                ))
+            }
+        }))
+        .filter_map(|res| async {
+            match res {
+                Ok(res) => Some(res),
+                Err(err) => {
+                    debug!("cannot join tasks: {err}");
+                    None
                 }
             }
+        })
+        .fold(Vec::new(), |mut patch, p| async {
+            patch.extend(p.into_iter().flatten());
+            patch
+        })
+        .await;
 
-            if envelopes.len() < folders_len {
-                continue;
-            }
-
-            if envelopes.values().any(|e| {
-                e.left_cache.is_none()
-                    || e.left.is_none()
-                    || e.right_cache.is_none()
-                    || e.right.is_none()
-            }) {
-                continue;
-            }
-
-            break;
-        }
-
-        SyncEvent::ListedAllEnvelopes.emit(&self.handler).await;
-
-        let patch: Vec<_> = envelopes
-            .into_iter()
-            .map(|(folder, envelopes)| {
-                email::sync::patch::build_patch(
-                    folder,
-                    envelopes.left_cache.unwrap(),
-                    envelopes.left.unwrap(),
-                    envelopes.right_cache.unwrap(),
-                    envelopes.right.unwrap(),
-                )
-            })
-            .flatten()
-            .flatten()
-            .collect();
-
-        let mut patch_len = patch.len();
-
-        for hunk in patch {
-            pool.send(move |ctx| {
+        report.email.patch = FuturesUnordered::from_iter(patch.into_iter().map(|hunk| {
+            pool.exec(move |ctx| {
                 let hunk_clone = hunk.clone();
                 let task = async move {
                     match hunk_clone {
@@ -686,71 +586,54 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
 
                 async move {
                     match task.await {
-                        Ok(()) => Ok(SyncTask::ProcessEmailHunk((hunk, None))),
-                        Err(err) => Ok(SyncTask::ProcessEmailHunk((hunk, Some(err)))),
+                        Ok(()) => (hunk, None),
+                        Err(err) => (hunk, Some(err)),
                     }
                 }
-            })?;
-        }
+            })
+        }))
+        .collect::<Vec<_>>()
+        .await;
 
-        while patch_len > 0 {
-            match pool.recv().await {
-                None => break,
-                Some(Err(err)) => Err(err)?,
-                Some(Ok(SyncTask::ProcessEmailHunk(hunk))) => {
-                    SyncEvent::ProcessedEmailHunk(hunk.0.clone())
-                        .emit(&self.handler)
-                        .await;
-                    report.email.patch.push(hunk);
-                    patch_len -= 1;
-                }
-                Some(Ok(_)) => {
-                    // should not happen
+        FuturesUnordered::from_iter(report.folder.folders.iter().map(|folder_ref| {
+            let folder = folder_ref.clone();
+            let left_cached_expunge =
+                pool.exec(|ctx| async move { ctx.left_cache.expunge_folder(&folder).await });
+
+            let folder = folder_ref.clone();
+            let left_expunge =
+                pool.exec(|ctx| async move { ctx.left.expunge_folder(&folder).await });
+
+            let folder = folder_ref.clone();
+            let right_cached_expunge =
+                pool.exec(|ctx| async move { ctx.right_cache.expunge_folder(&folder).await });
+
+            let folder = folder_ref.clone();
+            let right_expunge =
+                pool.exec(|ctx| async move { ctx.right.expunge_folder(&folder).await });
+
+            async move {
+                tokio::try_join!(
+                    left_cached_expunge,
+                    left_expunge,
+                    right_cached_expunge,
+                    right_expunge
+                )
+            }
+        }))
+        .filter_map(|res| async {
+            match res {
+                Ok(res) => Some(res),
+                Err(err) => {
+                    debug!("cannot join tasks: {err}");
+                    None
                 }
             }
-        }
+        })
+        .for_each(|_| async {})
+        .await;
 
-        for folder_ref in &report.folder.folders {
-            let folder = folder_ref.clone();
-            pool.send(|ctx| async move {
-                ctx.left_cache.expunge_folder(&folder).await?;
-                Result::Ok(SyncTask::ExpungeFolder)
-            })?;
-
-            let folder = folder_ref.clone();
-            pool.send(|ctx| async move {
-                ctx.left.expunge_folder(&folder).await?;
-                Result::Ok(SyncTask::ExpungeFolder)
-            })?;
-
-            let folder = folder_ref.clone();
-            pool.send(|ctx| async move {
-                ctx.right_cache.expunge_folder(&folder).await?;
-                Result::Ok(SyncTask::ExpungeFolder)
-            })?;
-
-            let folder = folder_ref.clone();
-            pool.send(|ctx| async move {
-                ctx.right.expunge_folder(&folder).await?;
-                Result::Ok(SyncTask::ExpungeFolder)
-            })?;
-        }
-
-        let mut remaining_expunges = 4 * folders_len;
-        while remaining_expunges > 0 {
-            match pool.recv().await {
-                None => break,
-                Some(Err(err)) => Err(err)?,
-                Some(Ok(SyncTask::ExpungeFolder)) => {
-                    remaining_expunges -= 1;
-                }
-                Some(Ok(_)) => {
-                    // should not happen
-                }
-            }
-        }
-
-        pool.shutdown();
+        pool.shutdown().await;
 
         debug!("unlocking sync file");
         lock_file

@@ -39,7 +39,7 @@ pub async fn new<L, R>(
     right_cache_builder: BackendBuilder<MaildirContextBuilder>,
     right_builder: BackendBuilder<R>,
     handler: Option<Arc<SyncEventHandler>>,
-) -> Result<ThreadPool<SyncPoolContext<L::Context, R::Context>, Result<SyncTask>>>
+) -> Result<ThreadPool<SyncPoolContext<L::Context, R::Context>>>
 where
     L: BackendContextBuilder + 'static,
     R: BackendContextBuilder + 'static,
