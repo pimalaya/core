@@ -10,7 +10,11 @@
 use async_trait::async_trait;
 use futures::{lock::Mutex, stream::FuturesUnordered, Future, StreamExt};
 use log::debug;
-use std::{pin::Pin, sync::Arc};
+use std::{
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll, Waker},
+};
 use thiserror::Error;
 use tokio::{sync::mpsc, task::JoinHandle};
 
@@ -27,10 +31,84 @@ pub enum Error {
 pub type ThreadPoolTask<C> =
     Box<dyn FnOnce(Arc<C>) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
 
+/// The thread pool task resolver.
+///
+/// The resolver awaits for a task to be executed using a shared
+/// state.
+pub struct ThreadPoolTaskResolver<T>(Arc<Mutex<ThreadPoolTaskResolverState<T>>>);
+
+impl<T> ThreadPoolTaskResolver<T> {
+    /// Create a new task resolver with an empty state.
+    pub fn new() -> Self {
+        let state = ThreadPoolTaskResolverState {
+            output: None,
+            waker: None,
+        };
+
+        Self(Arc::new(Mutex::new(state)))
+    }
+
+    /// Resolves the given task.
+    ///
+    /// The task output is saved into the shared state, and poll again
+    /// the resolver if a waker is found in the shared state.
+    pub async fn resolve<F>(&self, task: F)
+    where
+        F: Future<Output = T> + Send + 'static,
+    {
+        let output = task.await;
+        let mut state = self.0.lock().await;
+        state.output = Some(output);
+        if let Some(waker) = state.waker.take() {
+            waker.wake()
+        }
+    }
+}
+
+impl<T> Clone for ThreadPoolTaskResolver<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T> Future for ThreadPoolTaskResolver<T> {
+    type Output = T;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match Box::pin(self.0.lock()).as_mut().poll(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(mut state) => match state.output.take() {
+                Some(output) => Poll::Ready(output),
+                None => {
+                    state.waker = Some(cx.waker().clone());
+                    Poll::Pending
+                }
+            },
+        }
+    }
+}
+
+/// The thread pool task resolver shared state.
+pub struct ThreadPoolTaskResolverState<T> {
+    /// The output of the resolved task.
+    output: Option<T>,
+
+    /// The resolver waker.
+    waker: Option<Waker>,
+}
+
 /// The thread pool.
 pub struct ThreadPool<C: ThreadPoolContext> {
-    /// Channels used to send tasks to threads.
+    /// Channel used by the pool.
+    ///
+    /// This channel is used to send tasks to threads.
     tx: mpsc::UnboundedSender<ThreadPoolTask<C>>,
+
+    /// Channel used by threads.
+    ///
+    /// Only one thread can receive a task at a time. When a thread
+    /// receives a task, it releases the lock and a new thread can
+    /// receive the next task.
     rx: Arc<Mutex<mpsc::UnboundedReceiver<ThreadPoolTask<C>>>>,
 
     /// The list of threads spawned by the pool.
@@ -41,26 +119,33 @@ impl<C> ThreadPool<C>
 where
     C: ThreadPoolContext + 'static,
 {
+    /// Execute the given task and awaits for its resolution.
+    ///
+    /// The task is sent to the pool channel and will be executed by
+    /// the first available thread. This function awaits for its
+    /// resolution.
     pub async fn exec<F, T>(&self, task: impl FnOnce(Arc<C>) -> F + Send + Sync + 'static) -> T
     where
         F: Future<Output = T> + Send + 'static,
         T: Send + 'static,
     {
-        let (tx, mut rx) = mpsc::channel::<T>(1);
+        let resolver = ThreadPoolTaskResolver::<T>::new();
+        let resolver_ref = resolver.clone();
 
         let task: ThreadPoolTask<C> =
-            Box::new(move |ctx| Box::pin(async move { tx.send(task(ctx).await).await.unwrap() }));
+            Box::new(move |ctx| Box::pin(async move { resolver_ref.resolve(task(ctx)).await }));
 
         self.tx.send(task).unwrap();
 
-        rx.recv().await.unwrap()
+        resolver.await
     }
 
-    /// Close channels and abort threads.
+    /// Abort pool threads and close the channel receiver.
     pub async fn shutdown(self) {
         for thread in self.threads {
             thread.abort()
         }
+
         self.rx.lock().await.close();
     }
 }

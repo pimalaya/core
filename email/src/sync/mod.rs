@@ -289,6 +289,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         report.folder.patch = FuturesUnordered::from_iter(patch.into_iter().map(|hunk| {
             pool.exec(move |ctx| {
                 let hunk_clone = hunk.clone();
+                let handler = ctx.handler.clone();
                 let task = async move {
                     match hunk_clone {
                         FolderSyncHunk::Cache(folder, SyncDestination::Left) => {
@@ -319,7 +320,13 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 };
 
                 async move {
-                    match task.await {
+                    let output = task.await;
+
+                    SyncEvent::ProcessedFolderHunk(hunk.clone())
+                        .emit(&handler)
+                        .await;
+
+                    match output {
                         Ok(()) => (hunk, None),
                         Err(err) => (hunk, Some(err)),
                     }
@@ -435,9 +442,12 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         })
         .await;
 
+        SyncEvent::ListedAllEnvelopes.emit(&self.handler).await;
+
         report.email.patch = FuturesUnordered::from_iter(patch.into_iter().map(|hunk| {
             pool.exec(move |ctx| {
                 let hunk_clone = hunk.clone();
+                let handler = ctx.handler.clone();
                 let task = async move {
                     match hunk_clone {
                         EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Left) => {
@@ -585,7 +595,13 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 };
 
                 async move {
-                    match task.await {
+                    let output = task.await;
+
+                    SyncEvent::ProcessedEmailHunk(hunk.clone())
+                        .emit(&handler)
+                        .await;
+
+                    match output {
                         Ok(()) => (hunk, None),
                         Err(err) => (hunk, Some(err)),
                     }
