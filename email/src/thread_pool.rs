@@ -15,17 +15,9 @@ use std::{
     sync::Arc,
     task::{Context, Poll, Waker},
 };
-use thiserror::Error;
 use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::Result;
-
-/// Thread pool dedicated errors.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot take empty output from thread pool task {0}")]
-    TakeTaskHandlerOutputError(String),
-}
 
 /// The thread pool task.
 pub type ThreadPoolTask<C> =
