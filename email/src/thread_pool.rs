@@ -44,10 +44,7 @@ impl<T> ThreadPoolTaskResolver<T> {
     ///
     /// The task output is saved into the shared state, and poll again
     /// the resolver if a waker is found in the shared state.
-    pub async fn resolve<F>(&self, task: F)
-    where
-        F: Future<Output = T> + Send + 'static,
-    {
+    pub async fn resolve(&self, task: impl Future<Output = T> + Send + 'static) {
         let output = task.await;
         let mut state = self.0.lock().await;
         state.output = Some(output);
