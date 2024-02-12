@@ -129,11 +129,13 @@ where
         F: Future<Output = T> + Send + 'static,
         T: Send + 'static,
     {
-        let resolver = ThreadPoolTaskResolver::<T>::new();
-        let resolver_ref = resolver.clone();
+        let resolver = ThreadPoolTaskResolver::new();
 
-        let task: ThreadPoolTask<C> =
-            Box::new(move |ctx| Box::pin(async move { resolver_ref.resolve(task(ctx)).await }));
+        let r = resolver.clone();
+        let task: ThreadPoolTask<C> = Box::new(move |ctx| {
+            let task = async move { r.resolve(task(ctx)).await };
+            Box::pin(task)
+        });
 
         self.tx.send(task).unwrap();
 
