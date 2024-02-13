@@ -103,7 +103,7 @@ impl<RemoteBackendBuilder: BackendContextBuilder, LocalBackendBuilder: BackendCo
                 let emails = emails.to_vec();
                 let email = emails
                     .first()
-                    .ok_or_else(|| Error::FindEmailError(envelope.id.clone()))?;
+                    .ok_or_else(|| Error::FindMessageError(envelope.id.clone()))?;
 
                 match target {
                     SyncDestination::Left => {

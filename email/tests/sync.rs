@@ -194,7 +194,7 @@ async fn test_sync() {
 
     let expected_folders = HashSet::from_iter([INBOX.into(), "Archives".into(), TRASH.into()]);
 
-    assert_eq!(report.folder.folders, expected_folders);
+    assert_eq!(report.folder.names, expected_folders);
 
     let expected_evts = HashSet::from_iter([
         SyncEvent::ListedLeftCachedFolders(1),

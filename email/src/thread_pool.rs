@@ -1,11 +1,14 @@
 //! # Thread pool
 //!
-//! Module dedicated to thread pool management. The [`ThreadPool`]
-//! struct allows you to send tasks and receive task output from the
-//! pool. A task is a function that takes a
+//! Module dedicated to thread pool management. The [`ThreadPool`] is
+//! the main structure of this module: it basically spawns n threads
+//! and transfers tasks to them using an unbounded channel. The
+//! receiver part is shared accross all threads in a mutex, this way
+//! only one thread can wait for a task at a time. When a thread
+//! receives a task, it releases the lock and an other thread can wait
+//! for the next task. A task is a function that takes a
 //! [`ThreadPoolContextBuilder::Context`] and returns a future. The
-//! future resolves to a task output (usually an enum). The easiest
-//! way to build a pool is to use the [`ThreadPoolBuilder`].
+//! easiest way to build a pool is to use the [`ThreadPoolBuilder`].
 
 use async_trait::async_trait;
 use futures::{lock::Mutex, stream::FuturesUnordered, Future, StreamExt};
@@ -25,8 +28,8 @@ pub type ThreadPoolTask<C> =
 
 /// The thread pool task resolver.
 ///
-/// The resolver awaits for a task to be executed using a shared
-/// state.
+/// The resolver awaits for a task to be executed by one of the
+/// available thread of the pool using a shared state.
 pub struct ThreadPoolTaskResolver<T>(Arc<Mutex<ThreadPoolTaskResolverState<T>>>);
 
 impl<T> ThreadPoolTaskResolver<T> {
@@ -42,8 +45,8 @@ impl<T> ThreadPoolTaskResolver<T> {
 
     /// Resolves the given task.
     ///
-    /// The task output is saved into the shared state, and poll again
-    /// the resolver if a waker is found in the shared state.
+    /// The task output is saved into the shared state, and if a waker
+    /// is found in the shared state the resolver is polled again.
     pub async fn resolve(&self, task: impl Future<Output = T> + Send + 'static) {
         let output = task.await;
         let mut state = self.0.lock().await;
@@ -131,8 +134,8 @@ where
         resolver.await
     }
 
-    /// Abort pool threads and close the channel receiver.
-    pub async fn shutdown(self) {
+    /// Abort pool threads and close the channel.
+    pub async fn close(self) {
         for thread in self.threads {
             thread.abort()
         }
@@ -189,9 +192,9 @@ impl<B: ThreadPoolContextBuilder + 'static> ThreadPoolBuilder<B> {
         .collect::<Vec<Result<_>>>()
         .await;
 
-        for (index, ctx) in ctxs.into_iter().enumerate() {
+        for (i, ctx) in ctxs.into_iter().enumerate() {
             let ctx = ctx?;
-            let thread_id = index + 1;
+            let thread_id = i + 1;
             let rx = rx.clone();
 
             threads.push(tokio::spawn(async move {

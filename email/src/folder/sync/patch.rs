@@ -334,7 +334,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
             }
         };
 
-        report.folders = folders;
+        report.names = folders;
 
         trace!("sync report: {:#?}", report);
 

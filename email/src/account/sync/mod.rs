@@ -308,7 +308,7 @@ impl<'a, L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static>
             .await?;
         info!("{folder_sync_report:#?}");
 
-        let folders = folder_sync_report.folders.clone();
+        let folders = folder_sync_report.names.clone();
 
         self.on_progress
             .emit(AccountSyncProgressEvent::BuildEnvelopePatch(

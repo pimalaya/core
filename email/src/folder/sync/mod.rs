@@ -9,7 +9,7 @@ pub mod patch;
 mod report;
 pub mod worker;
 
-use futures::Future;
+use futures::{stream::FuturesUnordered, Future, StreamExt};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt, path::PathBuf, pin::Pin, sync::Arc};
@@ -18,6 +18,8 @@ use thiserror::Error;
 use crate::{
     backend::{BackendBuilder, BackendContextBuilder},
     maildir::{config::MaildirConfig, MaildirContextBuilder},
+    sync::{pool::SyncPoolContext, SyncDestination, SyncEvent, SyncEventHandler},
+    thread_pool::ThreadPool,
     Result,
 };
 
@@ -355,4 +357,201 @@ where
 
         Ok(report)
     }
+}
+
+pub(crate) async fn sync<L, R>(
+    pool: &ThreadPool<SyncPoolContext<L::Context, R::Context>>,
+    handler: &Option<Arc<SyncEventHandler>>,
+) -> Result<FolderSyncReport>
+where
+    L: BackendContextBuilder + 'static,
+    R: BackendContextBuilder + 'static,
+{
+    let mut report = FolderSyncReport::default();
+
+    let left_cached_folders = pool.exec(|ctx| async move {
+        let folders = ctx.left_cache.list_folders().await?;
+        let names = HashSet::<String>::from_iter(
+            folders
+                .iter()
+                .map(Folder::get_kind_or_name)
+                .map(ToOwned::to_owned),
+        );
+
+        SyncEvent::ListedLeftCachedFolders(names.len())
+            .emit(&ctx.handler)
+            .await;
+
+        Result::Ok(names)
+    });
+
+    let left_folders = pool.exec(|ctx| async move {
+        let folders = ctx.left.list_folders().await?;
+        let names = HashSet::<String>::from_iter(
+            folders
+                .iter()
+                .map(Folder::get_kind_or_name)
+                .map(ToOwned::to_owned),
+        );
+
+        SyncEvent::ListedLeftFolders(names.len())
+            .emit(&ctx.handler)
+            .await;
+
+        Result::Ok(names)
+    });
+
+    let right_cached_folders = pool.exec(|ctx| async move {
+        let folders = ctx.right_cache.list_folders().await?;
+        let names = HashSet::<String>::from_iter(
+            folders
+                .iter()
+                .map(Folder::get_kind_or_name)
+                .map(ToOwned::to_owned),
+        );
+
+        SyncEvent::ListedRightCachedFolders(names.len())
+            .emit(&ctx.handler)
+            .await;
+
+        Result::Ok(names)
+    });
+
+    let right_folders = pool.exec(|ctx| async move {
+        let folders = ctx.right.list_folders().await?;
+        let names: HashSet<String> = HashSet::from_iter(
+            folders
+                .iter()
+                .map(Folder::get_kind_or_name)
+                .map(ToOwned::to_owned),
+        );
+
+        SyncEvent::ListedRightFolders(names.len())
+            .emit(&ctx.handler)
+            .await;
+
+        Result::Ok(names)
+    });
+
+    let (left_cached_folders, left_folders, right_cached_folders, right_folders) = tokio::try_join!(
+        left_cached_folders,
+        left_folders,
+        right_cached_folders,
+        right_folders
+    )?;
+
+    SyncEvent::ListedAllFolders.emit(&handler).await;
+
+    let patch = build_patch(
+        left_cached_folders,
+        left_folders,
+        right_cached_folders,
+        right_folders,
+    );
+
+    let (folders, patch) = patch.into_iter().fold(
+        (HashSet::default(), vec![]),
+        |(mut folders, mut patch), (folder, hunks)| {
+            folders.insert(folder);
+            patch.extend(hunks);
+            (folders, patch)
+        },
+    );
+
+    report.names = folders;
+    report.patch = FuturesUnordered::from_iter(patch.into_iter().map(|hunk| {
+        pool.exec(move |ctx| {
+            let hunk_clone = hunk.clone();
+            let handler = ctx.handler.clone();
+            let task = async move {
+                match hunk_clone {
+                    FolderSyncHunk::Cache(folder, SyncDestination::Left) => {
+                        ctx.left_cache.add_folder(&folder).await
+                    }
+                    FolderSyncHunk::Create(folder, SyncDestination::Left) => {
+                        ctx.left.add_folder(&folder).await
+                    }
+                    FolderSyncHunk::Cache(folder, SyncDestination::Right) => {
+                        ctx.right_cache.add_folder(&folder).await
+                    }
+                    FolderSyncHunk::Create(folder, SyncDestination::Right) => {
+                        ctx.right.add_folder(&folder).await
+                    }
+                    FolderSyncHunk::Uncache(folder, SyncDestination::Left) => {
+                        ctx.left_cache.delete_folder(&folder).await
+                    }
+                    FolderSyncHunk::Delete(folder, SyncDestination::Left) => {
+                        ctx.left.delete_folder(&folder).await
+                    }
+                    FolderSyncHunk::Uncache(folder, SyncDestination::Right) => {
+                        ctx.right_cache.delete_folder(&folder).await
+                    }
+                    FolderSyncHunk::Delete(folder, SyncDestination::Right) => {
+                        ctx.right.delete_folder(&folder).await
+                    }
+                }
+            };
+
+            async move {
+                let output = task.await;
+
+                SyncEvent::ProcessedFolderHunk(hunk.clone())
+                    .emit(&handler)
+                    .await;
+
+                match output {
+                    Ok(()) => (hunk, None),
+                    Err(err) => (hunk, Some(err)),
+                }
+            }
+        })
+    }))
+    .collect::<Vec<_>>()
+    .await;
+
+    Ok(report)
+}
+
+pub(crate) async fn expunge<L, R>(
+    pool: &ThreadPool<SyncPoolContext<L::Context, R::Context>>,
+    folders: &HashSet<String>,
+) where
+    L: BackendContextBuilder + 'static,
+    R: BackendContextBuilder + 'static,
+{
+    FuturesUnordered::from_iter(folders.iter().map(|folder_ref| {
+        let folder = folder_ref.clone();
+        let left_cached_expunge =
+            pool.exec(|ctx| async move { ctx.left_cache.expunge_folder(&folder).await });
+
+        let folder = folder_ref.clone();
+        let left_expunge = pool.exec(|ctx| async move { ctx.left.expunge_folder(&folder).await });
+
+        let folder = folder_ref.clone();
+        let right_cached_expunge =
+            pool.exec(|ctx| async move { ctx.right_cache.expunge_folder(&folder).await });
+
+        let folder = folder_ref.clone();
+        let right_expunge = pool.exec(|ctx| async move { ctx.right.expunge_folder(&folder).await });
+
+        async move {
+            tokio::try_join!(
+                left_cached_expunge,
+                left_expunge,
+                right_cached_expunge,
+                right_expunge
+            )
+        }
+    }))
+    .filter_map(|res| async {
+        match res {
+            Ok(res) => Some(res),
+            Err(err) => {
+                debug!("cannot join tasks: {err}");
+                None
+            }
+        }
+    })
+    .for_each(|_| async {})
+    .await;
 }

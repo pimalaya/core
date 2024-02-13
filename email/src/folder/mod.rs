@@ -39,6 +39,9 @@ use std::{
 };
 use thiserror::Error;
 
+#[cfg(feature = "sync")]
+pub(crate) use sync::sync;
+
 /// Errors dedicated to folder management.
 #[derive(Debug, Error)]
 pub enum Error {
