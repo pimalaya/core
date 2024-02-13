@@ -1,8 +1,9 @@
 //! # Sync report
 //!
-//! Module dedicated to the synchronization report.
+//! Module dedicated to synchronization reporting. The main structure
+//! of thi module is [`SyncReport`].
 
-use crate::{email::sync::EmailSyncReport, folder::sync::FolderSyncReport};
+use crate::{email::sync::report::EmailSyncReport, folder::sync::report::FolderSyncReport};
 
 /// The synchronization report.
 ///
@@ -10,9 +11,9 @@ use crate::{email::sync::EmailSyncReport, folder::sync::FolderSyncReport};
 /// the emails synchronization.
 #[derive(Debug, Default)]
 pub struct SyncReport {
-    /// The report of folders synchronization.
+    /// The report of folder synchronization.
     pub folder: FolderSyncReport,
 
-    /// The report of emails synchronization.
+    /// The report of email synchronization.
     pub email: EmailSyncReport,
 }

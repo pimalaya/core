@@ -1,17 +1,23 @@
+//! # Synchronization
+//!
+//! Module dedicated to synchronization of folders and emails between
+//! two backends. The main structure of this module is
+//! [`SyncBuilder`].
+
 pub mod pool;
 pub mod report;
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
-use log::debug;
+use log::{debug, trace};
 use std::{env, fmt, fs::OpenOptions, future::Future, io, path::PathBuf, pin::Pin, sync::Arc};
 use thiserror::Error;
 
 use crate::{
     backend::{BackendBuilder, BackendContextBuilder},
-    email::{self, sync::EmailSyncHunk},
+    email::{self, sync::hunk::EmailSyncHunk},
     folder::{
         self,
-        sync::{FolderSyncHunk, FolderSyncStrategy},
+        sync::{hunk::FolderSyncHunk, FolderSyncStrategy},
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder},
     Result,
@@ -33,27 +39,7 @@ pub enum Error {
     GetCacheDirectoryError,
 }
 
-/// The synchronization destination.
-#[derive(Debug, Clone, Eq, Hash, PartialEq)]
-pub enum SyncDestination {
-    Left,
-    Right,
-}
-
-impl fmt::Display for SyncDestination {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Left => write!(f, "left"),
-            Self::Right => write!(f, "right"),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct SyncFilters {
-    folders: Option<FolderSyncStrategy>,
-}
-
+/// The synchronization builder.
 #[derive(Clone)]
 pub struct SyncBuilder<L: BackendContextBuilder, R: BackendContextBuilder> {
     id: String,
@@ -66,6 +52,8 @@ pub struct SyncBuilder<L: BackendContextBuilder, R: BackendContextBuilder> {
 }
 
 impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> SyncBuilder<L, R> {
+    /// Create a new synchronization builder using the two given
+    /// backend builders.
     pub fn new(left_builder: BackendBuilder<L>, right_builder: BackendBuilder<R>) -> Self {
         let id = left_builder.account_config.name.clone() + &right_builder.account_config.name;
         let id = format!("{:x}", md5::compute(id));
@@ -268,13 +256,14 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
     }
 }
 
+/// The synchronization async event handler.
 pub type SyncEventHandler =
     dyn Fn(SyncEvent) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + Sync;
 
-/// The backend synchronization progress event.
+/// The synchronization event.
 ///
-/// Represents all the events that can be triggered during the backend
-/// synchronization process.
+/// Represents all the events that can be triggered during the
+/// backends synchronization process.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum SyncEvent {
     ListedLeftCachedFolders(usize),
@@ -295,7 +284,8 @@ impl SyncEvent {
     pub async fn emit(&self, handler: &Option<Arc<SyncEventHandler>>) {
         if let Some(handler) = handler.as_ref() {
             if let Err(err) = handler(self.clone()).await {
-                debug!("error while emitting sync event: {err:?}");
+                debug!("error while emitting sync event: {err}");
+                trace!("{err:?}");
             } else {
                 debug!("emitted sync event {self:?}");
             }
@@ -344,4 +334,27 @@ impl fmt::Display for SyncEvent {
             }
         }
     }
+}
+
+/// The synchronization destination.
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+pub enum SyncDestination {
+    Left,
+    Right,
+}
+
+impl fmt::Display for SyncDestination {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Left => write!(f, "left"),
+            Self::Right => write!(f, "right"),
+        }
+    }
+}
+
+/// The synchronization filters.
+#[derive(Clone)]
+pub struct SyncFilters {
+    /// Filter folders using the given strategy.
+    folders: Option<FolderSyncStrategy>,
 }

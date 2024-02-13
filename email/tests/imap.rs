@@ -4,7 +4,7 @@ use email::{
     backend::BackendBuilder,
     envelope::Id,
     flag::Flag,
-    folder::{config::FolderConfig, INBOX, SENT},
+    folder::{config::FolderConfig, SENT},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapContextBuilder,
@@ -44,11 +44,8 @@ async fn test_imap_features() {
     // setting up folders
 
     for folder in imap.list_folders().await.unwrap().iter() {
-        if folder.is_inbox() {
-            imap.purge_folder(INBOX).await.unwrap()
-        } else {
-            imap.delete_folder(&folder.name).await.unwrap()
-        }
+        let _ = imap.purge_folder(&folder.name).await;
+        let _ = imap.delete_folder(&folder.name).await;
     }
 
     imap.add_folder("[Gmail]/Sent").await.unwrap();

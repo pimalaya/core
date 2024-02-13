@@ -1,7 +1,6 @@
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::BackendBuilder,
-    folder::INBOX,
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapContextBuilder,
@@ -53,7 +52,10 @@ async fn test_smtp_features() {
 
     // setting up folders
 
-    imap.purge_folder(INBOX).await.unwrap();
+    for folder in imap.list_folders().await.unwrap().iter() {
+        let _ = imap.purge_folder(&folder.name).await;
+        let _ = imap.delete_folder(&folder.name).await;
+    }
 
     // checking that an email can be built and sent
 

@@ -1,15 +1,12 @@
-//! Module dedicated to emails synchronization hunk.
+//! # Email sync hunk
 //!
-//! The core structure of the module is the [`EmailSyncHunk`], which
-//! represents a change in a patch.
+//! Module dedicated to email synchronization hunk. The main structure
+//! of the module is the [`EmailSyncHunk`], which represents a change
+//! in a patch.
 
 use std::fmt;
 
-use crate::{
-    account::sync::{Source, Target},
-    envelope::Envelope,
-    folder::sync::FolderName,
-};
+use crate::{envelope::Envelope, folder::sync::hunk::FolderName, sync::SyncDestination};
 
 /// Alias for the email identifier (Message-ID).
 pub type Id = String;
@@ -22,30 +19,36 @@ pub type RefreshSourceCache = bool;
 pub enum EmailSyncHunk {
     /// The email matching the given identifier from the given folder
     /// needs to be retrieved for the given source then cached.
-    GetThenCache(FolderName, Id, Source),
+    GetThenCache(FolderName, Id, SyncDestination),
 
     /// The email matching the given envelope id from the given folder
     /// needs to be copied from the given source to the given target
     /// then cached if the refresh flag is `true`.
-    CopyThenCache(FolderName, Envelope, Source, Target, RefreshSourceCache),
+    CopyThenCache(
+        FolderName,
+        Envelope,
+        SyncDestination,
+        SyncDestination,
+        RefreshSourceCache,
+    ),
 
     /// The envelope matching the given envelope identifier from the
     /// given folder needs to refresh its flags cache for the given
     /// target.
-    UpdateCachedFlags(FolderName, Envelope, Target),
+    UpdateCachedFlags(FolderName, Envelope, SyncDestination),
 
     /// The envelope matching the given envelope identifier from the
     /// given folder needs to update its flags for the given target.
-    UpdateFlags(FolderName, Envelope, Target),
+    UpdateFlags(FolderName, Envelope, SyncDestination),
 
     /// The envelope matching the given identifier from the given
     /// folder needs to be removed from the cache for the given
     /// target.
-    Uncache(FolderName, Id, Target),
+    Uncache(FolderName, Id, SyncDestination),
 
     /// The envelope matching the given identifier from the given
     /// folder needs to be deleted from the given target.
-    Delete(FolderName, Id, Target),
+    Delete(FolderName, Id, SyncDestination),
 }
 
 impl fmt::Display for EmailSyncHunk {
@@ -108,9 +111,9 @@ impl EmailSyncHunk {
 pub enum EmailSyncCacheHunk {
     /// The email matching the given envelope identifier needs to be
     /// added to the cache for the given destination.
-    Insert(FolderName, Envelope, Target),
+    Insert(FolderName, Envelope, SyncDestination),
 
     /// The email matching the given identifier needs to be removed
     /// from the cache for the given destination.
-    Delete(FolderName, Id, Target),
+    Delete(FolderName, Id, SyncDestination),
 }

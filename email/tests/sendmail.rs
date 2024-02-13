@@ -54,7 +54,10 @@ async fn test_sendmail_features() {
 
     // setting up folders
 
-    imap.purge_folder("INBOX").await.unwrap();
+    for folder in imap.list_folders().await.unwrap().iter() {
+        let _ = imap.purge_folder(&folder.name).await;
+        let _ = imap.delete_folder(&folder.name).await;
+    }
 
     // checking that an email can be sent
 

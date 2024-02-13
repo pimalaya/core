@@ -48,9 +48,6 @@ pub const DEFAULT_SIGNATURE_DELIM: &str = "-- \n";
 /// Errors related to account configuration.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[cfg(feature = "account-sync")]
-    #[error("cannot open the synchronization database")]
-    BuildSyncDatabaseError(#[source] rusqlite::Error),
     #[error("cannot parse download file name from {0}")]
     ParseDownloadFileNameError(PathBuf),
     #[error("cannot get sync directory from XDG_DATA_HOME")]
@@ -226,14 +223,6 @@ impl AccountConfig {
                 Ok(sync_dir)
             }
         }
-    }
-
-    #[cfg(feature = "account-sync")]
-    /// Open a SQLite connection to the synchronization database.
-    pub fn get_sync_db_conn(&self) -> Result<rusqlite::Connection> {
-        let conn = rusqlite::Connection::open(self.get_sync_dir()?.join(".sync.sqlite"))
-            .map_err(Error::BuildSyncDatabaseError)?;
-        Ok(conn)
     }
 
     #[cfg(feature = "account-sync")]

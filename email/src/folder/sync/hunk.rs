@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use crate::account::sync::Target;
+use crate::sync::SyncDestination;
 
 use super::*;
 
@@ -20,19 +20,19 @@ pub type FoldersName = HashSet<FolderName>;
 pub enum FolderSyncHunk {
     /// The given folder name needs to be created to the given
     /// destination.
-    Create(FolderName, Target),
+    Create(FolderName, SyncDestination),
 
     /// The given folder name needs to be added to the cache for the
     /// given destination.
-    Cache(FolderName, Target),
+    Cache(FolderName, SyncDestination),
 
     /// The given folder needs to be deleted from the given
     /// destination.
-    Delete(FolderName, Target),
+    Delete(FolderName, SyncDestination),
 
     /// The given folder needs to be removed from the cache for the
     /// given destination.
-    Uncache(FolderName, Target),
+    Uncache(FolderName, SyncDestination),
 }
 
 impl fmt::Display for FolderSyncHunk {
@@ -69,9 +69,9 @@ impl FolderSyncHunk {
 pub enum FolderSyncCacheHunk {
     /// The given folder name needs to be added to the cache for the
     /// given destination.
-    Insert(FolderName, Target),
+    Insert(FolderName, SyncDestination),
 
     /// The given folder name needs to be removed from the cache for
     /// the given destination.
-    Delete(FolderName, Target),
+    Delete(FolderName, SyncDestination),
 }

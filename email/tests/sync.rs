@@ -1,12 +1,12 @@
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::BackendBuilder,
-    email::sync::EmailSyncHunk,
+    email::sync::hunk::EmailSyncHunk,
     envelope::{Envelope, Id},
     flag::{Flag, Flags},
     folder::{
         config::FolderConfig,
-        sync::{FolderSyncHunk, FolderSyncStrategy},
+        sync::{hunk::FolderSyncHunk, FolderSyncStrategy},
         Folder, FolderKind, INBOX, TRASH,
     },
     imap::{

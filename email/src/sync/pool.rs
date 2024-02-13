@@ -1,36 +1,15 @@
 use async_trait::async_trait;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use crate::{
     backend::{Backend, BackendBuilder, BackendContext, BackendContextBuilder},
-    email::sync::EmailSyncHunk,
-    envelope::Envelope,
-    folder::sync::{FolderSyncHunk, FolderSyncStrategy},
+    folder::sync::FolderSyncStrategy,
     maildir::{MaildirContextBuilder, MaildirContextSync},
     thread_pool::{ThreadPool, ThreadPoolBuilder, ThreadPoolContext, ThreadPoolContextBuilder},
     Result,
 };
 
 use super::SyncEventHandler;
-
-/// The thread pool task dedicated to synchronization.
-#[derive(Debug)]
-pub enum SyncTask {
-    ListLeftCachedFolders(HashSet<String>),
-    ListLeftFolders(HashSet<String>),
-    ListRightCachedFolders(HashSet<String>),
-    ListRightFolders(HashSet<String>),
-    ProcessFolderHunk((FolderSyncHunk, Option<crate::Error>)),
-    ExpungeFolder,
-    ListLeftCachedEnvelopes(String, HashMap<String, Envelope>),
-    ListLeftEnvelopes(String, HashMap<String, Envelope>),
-    ListRightCachedEnvelopes(String, HashMap<String, Envelope>),
-    ListRightEnvelopes(String, HashMap<String, Envelope>),
-    ProcessEmailHunk((EmailSyncHunk, Option<crate::Error>)),
-}
 
 /// Create a new thread pool dedicated to synchronization.
 pub async fn new<L, R>(
