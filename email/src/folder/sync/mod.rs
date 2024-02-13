@@ -18,7 +18,7 @@ use thiserror::Error;
 use crate::{
     backend::{BackendBuilder, BackendContextBuilder},
     maildir::{config::MaildirConfig, MaildirContextBuilder},
-    sync::{pool::SyncPoolContext, SyncDestination, SyncEvent, SyncEventHandler},
+    sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
     thread_pool::ThreadPool,
     Result,
 };
@@ -361,7 +361,6 @@ where
 
 pub(crate) async fn sync<L, R>(
     pool: &ThreadPool<SyncPoolContext<L::Context, R::Context>>,
-    handler: &Option<Arc<SyncEventHandler>>,
 ) -> Result<FolderSyncReport>
 where
     L: BackendContextBuilder + 'static,
@@ -375,7 +374,28 @@ where
             folders
                 .iter()
                 .map(Folder::get_kind_or_name)
-                .map(ToOwned::to_owned),
+                // TODO: instead of fetching all the folders then
+                // filtering them here, it could be better to filter
+                // them at the source directly, which implies to add a
+                // new backend fn called `search_folders` and to set
+                // up a common search API across backends.
+                .filter_map(|folder| match &ctx.folders_filter {
+                    FolderSyncStrategy::All => Some(folder.to_owned()),
+                    FolderSyncStrategy::Include(folders) => {
+                        if folders.contains(folder) {
+                            Some(folder.to_owned())
+                        } else {
+                            None
+                        }
+                    }
+                    FolderSyncStrategy::Exclude(folders) => {
+                        if folders.contains(folder) {
+                            None
+                        } else {
+                            Some(folder.to_owned())
+                        }
+                    }
+                }),
         );
 
         SyncEvent::ListedLeftCachedFolders(names.len())
@@ -391,7 +411,28 @@ where
             folders
                 .iter()
                 .map(Folder::get_kind_or_name)
-                .map(ToOwned::to_owned),
+                // TODO: instead of fetching all the folders then
+                // filtering them here, it could be better to filter
+                // them at the source directly, which implies to add a
+                // new backend fn called `search_folders` and to set
+                // up a common search API across backends.
+                .filter_map(|folder| match &ctx.folders_filter {
+                    FolderSyncStrategy::All => Some(folder.to_owned()),
+                    FolderSyncStrategy::Include(folders) => {
+                        if folders.contains(folder) {
+                            Some(folder.to_owned())
+                        } else {
+                            None
+                        }
+                    }
+                    FolderSyncStrategy::Exclude(folders) => {
+                        if folders.contains(folder) {
+                            None
+                        } else {
+                            Some(folder.to_owned())
+                        }
+                    }
+                }),
         );
 
         SyncEvent::ListedLeftFolders(names.len())
@@ -407,7 +448,28 @@ where
             folders
                 .iter()
                 .map(Folder::get_kind_or_name)
-                .map(ToOwned::to_owned),
+                // TODO: instead of fetching all the folders then
+                // filtering them here, it could be better to filter
+                // them at the source directly, which implies to add a
+                // new backend fn called `search_folders` and to set
+                // up a common search API across backends.
+                .filter_map(|folder| match &ctx.folders_filter {
+                    FolderSyncStrategy::All => Some(folder.to_owned()),
+                    FolderSyncStrategy::Include(folders) => {
+                        if folders.contains(folder) {
+                            Some(folder.to_owned())
+                        } else {
+                            None
+                        }
+                    }
+                    FolderSyncStrategy::Exclude(folders) => {
+                        if folders.contains(folder) {
+                            None
+                        } else {
+                            Some(folder.to_owned())
+                        }
+                    }
+                }),
         );
 
         SyncEvent::ListedRightCachedFolders(names.len())
@@ -423,7 +485,28 @@ where
             folders
                 .iter()
                 .map(Folder::get_kind_or_name)
-                .map(ToOwned::to_owned),
+                // TODO: instead of fetching all the folders then
+                // filtering them here, it could be better to filter
+                // them at the source directly, which implies to add a
+                // new backend fn called `search_folders` and to set
+                // up a common search API across backends.
+                .filter_map(|folder| match &ctx.folders_filter {
+                    FolderSyncStrategy::All => Some(folder.to_owned()),
+                    FolderSyncStrategy::Include(folders) => {
+                        if folders.contains(folder) {
+                            Some(folder.to_owned())
+                        } else {
+                            None
+                        }
+                    }
+                    FolderSyncStrategy::Exclude(folders) => {
+                        if folders.contains(folder) {
+                            None
+                        } else {
+                            Some(folder.to_owned())
+                        }
+                    }
+                }),
         );
 
         SyncEvent::ListedRightFolders(names.len())
@@ -440,7 +523,8 @@ where
         right_folders
     )?;
 
-    SyncEvent::ListedAllFolders.emit(&handler).await;
+    pool.exec(|ctx| async move { SyncEvent::ListedAllFolders.emit(&ctx.handler).await })
+        .await;
 
     let patch = build_patch(
         left_cached_folders,
@@ -460,10 +544,14 @@ where
 
     report.names = folders;
     report.patch = FuturesUnordered::from_iter(patch.into_iter().map(|hunk| {
-        pool.exec(move |ctx| {
+        pool.exec(|ctx| {
             let hunk_clone = hunk.clone();
             let handler = ctx.handler.clone();
             let task = async move {
+                if ctx.dry_run {
+                    return Ok(());
+                }
+
                 match hunk_clone {
                     FolderSyncHunk::Cache(folder, SyncDestination::Left) => {
                         ctx.left_cache.add_folder(&folder).await
@@ -521,18 +609,40 @@ pub(crate) async fn expunge<L, R>(
 {
     FuturesUnordered::from_iter(folders.iter().map(|folder_ref| {
         let folder = folder_ref.clone();
-        let left_cached_expunge =
-            pool.exec(|ctx| async move { ctx.left_cache.expunge_folder(&folder).await });
+        let left_cached_expunge = pool.exec(|ctx| async move {
+            if ctx.dry_run {
+                Ok(())
+            } else {
+                ctx.left_cache.expunge_folder(&folder).await
+            }
+        });
 
         let folder = folder_ref.clone();
-        let left_expunge = pool.exec(|ctx| async move { ctx.left.expunge_folder(&folder).await });
+        let left_expunge = pool.exec(|ctx| async move {
+            if ctx.dry_run {
+                Ok(())
+            } else {
+                ctx.left.expunge_folder(&folder).await
+            }
+        });
 
         let folder = folder_ref.clone();
-        let right_cached_expunge =
-            pool.exec(|ctx| async move { ctx.right_cache.expunge_folder(&folder).await });
+        let right_cached_expunge = pool.exec(|ctx| async move {
+            if ctx.dry_run {
+                Ok(())
+            } else {
+                ctx.right_cache.expunge_folder(&folder).await
+            }
+        });
 
         let folder = folder_ref.clone();
-        let right_expunge = pool.exec(|ctx| async move { ctx.right.expunge_folder(&folder).await });
+        let right_expunge = pool.exec(|ctx| async move {
+            if ctx.dry_run {
+                Ok(())
+            } else {
+                ctx.right.expunge_folder(&folder).await
+            }
+        });
 
         async move {
             tokio::try_join!(

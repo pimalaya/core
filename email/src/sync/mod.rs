@@ -9,7 +9,10 @@ use thiserror::Error;
 use crate::{
     backend::{BackendBuilder, BackendContextBuilder},
     email::{self, sync::EmailSyncHunk},
-    folder::{self, sync::FolderSyncHunk},
+    folder::{
+        self,
+        sync::{FolderSyncHunk, FolderSyncStrategy},
+    },
     maildir::{config::MaildirConfig, MaildirContextBuilder},
     Result,
 };
@@ -47,12 +50,19 @@ impl fmt::Display for SyncDestination {
 }
 
 #[derive(Clone)]
+pub struct SyncFilters {
+    folders: Option<FolderSyncStrategy>,
+}
+
+#[derive(Clone)]
 pub struct SyncBuilder<L: BackendContextBuilder, R: BackendContextBuilder> {
     id: String,
     left_builder: BackendBuilder<L>,
     right_builder: BackendBuilder<R>,
-    handler: Option<Arc<SyncEventHandler>>,
     cache_dir: Option<PathBuf>,
+    handler: Option<Arc<SyncEventHandler>>,
+    dry_run: Option<bool>,
+    filters: Option<SyncFilters>,
 }
 
 impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> SyncBuilder<L, R> {
@@ -64,42 +74,11 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             id,
             left_builder,
             right_builder,
-            handler: None,
             cache_dir: None,
+            handler: None,
+            dry_run: None,
+            filters: None,
         }
-    }
-
-    pub fn set_some_handler<F: Future<Output = Result<()>> + Send + 'static>(
-        &mut self,
-        handler: Option<impl Fn(SyncEvent) -> F + Send + Sync + 'static>,
-    ) {
-        self.handler = match handler {
-            Some(handler) => Some(Arc::new(move |evt| Box::pin(handler(evt)))),
-            None => None,
-        };
-    }
-
-    pub fn set_handler<F: Future<Output = Result<()>> + Send + 'static>(
-        &mut self,
-        handler: impl Fn(SyncEvent) -> F + Send + Sync + 'static,
-    ) {
-        self.set_some_handler(Some(handler));
-    }
-
-    pub fn with_some_handler<F: Future<Output = Result<()>> + Send + 'static>(
-        mut self,
-        handler: Option<impl Fn(SyncEvent) -> F + Send + Sync + 'static>,
-    ) -> Self {
-        self.set_some_handler(handler);
-        self
-    }
-
-    pub fn with_handler<F: Future<Output = Result<()>> + Send + 'static>(
-        mut self,
-        handler: impl Fn(SyncEvent) -> F + Send + Sync + 'static,
-    ) -> Self {
-        self.set_handler(handler);
-        self
     }
 
     pub fn set_some_cache_dir(&mut self, dir: Option<impl Into<PathBuf>>) {
@@ -141,6 +120,94 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             .ok_or(Error::GetCacheDirectoryError.into())
     }
 
+    pub fn set_some_handler<F: Future<Output = Result<()>> + Send + 'static>(
+        &mut self,
+        handler: Option<impl Fn(SyncEvent) -> F + Send + Sync + 'static>,
+    ) {
+        self.handler = match handler {
+            Some(handler) => Some(Arc::new(move |evt| Box::pin(handler(evt)))),
+            None => None,
+        };
+    }
+
+    pub fn set_handler<F: Future<Output = Result<()>> + Send + 'static>(
+        &mut self,
+        handler: impl Fn(SyncEvent) -> F + Send + Sync + 'static,
+    ) {
+        self.set_some_handler(Some(handler));
+    }
+
+    pub fn with_some_handler<F: Future<Output = Result<()>> + Send + 'static>(
+        mut self,
+        handler: Option<impl Fn(SyncEvent) -> F + Send + Sync + 'static>,
+    ) -> Self {
+        self.set_some_handler(handler);
+        self
+    }
+
+    pub fn with_handler<F: Future<Output = Result<()>> + Send + 'static>(
+        mut self,
+        handler: impl Fn(SyncEvent) -> F + Send + Sync + 'static,
+    ) -> Self {
+        self.set_handler(handler);
+        self
+    }
+
+    pub fn set_some_dry_run(&mut self, dry_run: Option<bool>) {
+        self.dry_run = dry_run;
+    }
+
+    pub fn set_dry_run(&mut self, dry_run: bool) {
+        self.set_some_dry_run(Some(dry_run));
+    }
+
+    pub fn with_some_dry_run(mut self, dry_run: Option<bool>) -> Self {
+        self.set_some_dry_run(dry_run);
+        self
+    }
+
+    pub fn with_dry_run(mut self, dry_run: bool) -> Self {
+        self.set_dry_run(dry_run);
+        self
+    }
+
+    pub fn get_dry_run(&self) -> bool {
+        self.dry_run.unwrap_or_default()
+    }
+
+    pub fn set_some_folders_filter(&mut self, folders: Option<impl Into<FolderSyncStrategy>>) {
+        let folders = folders.map(Into::into);
+        match self.filters.as_mut() {
+            Some(filters) => filters.folders = folders,
+            None => self.filters = Some(SyncFilters { folders }),
+        }
+    }
+
+    pub fn set_folders_filter(&mut self, folders: impl Into<FolderSyncStrategy>) {
+        self.set_some_folders_filter(Some(folders));
+    }
+
+    pub fn with_some_folders_filter(
+        mut self,
+        folders: Option<impl Into<FolderSyncStrategy>>,
+    ) -> Self {
+        self.set_some_folders_filter(folders);
+        self
+    }
+
+    pub fn with_folders_filter(mut self, folders: impl Into<FolderSyncStrategy>) -> Self {
+        self.set_folders_filter(folders);
+        self
+    }
+
+    pub fn get_folders_filter(&self) -> FolderSyncStrategy {
+        self.filters
+            .as_ref()
+            .and_then(|f| f.folders.as_ref())
+            .cloned()
+            .unwrap_or_default()
+    }
+
     pub fn get_left_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
         let left_config = self.left_builder.account_config.clone();
         let root_dir = self.get_cache_dir()?.join(&left_config.name);
@@ -178,12 +245,16 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             self.get_right_cache_builder()?,
             self.right_builder.clone(),
             self.handler.clone(),
+            self.get_dry_run(),
+            self.get_folders_filter(),
         )
         .await?;
 
         let mut report = SyncReport::default();
-        report.folder = folder::sync::<L, R>(&pool, &self.handler).await?;
-        report.email = email::sync::<L, R>(&pool, &self.handler, &report.folder.names).await?;
+
+        report.folder = folder::sync::<L, R>(&pool).await?;
+        report.email = email::sync::<L, R>(&pool, &report.folder.names).await?;
+
         folder::sync::expunge::<L, R>(&pool, &report.folder.names).await;
 
         pool.close().await;

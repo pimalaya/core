@@ -4,7 +4,11 @@ use email::{
     email::sync::EmailSyncHunk,
     envelope::{Envelope, Id},
     flag::{Flag, Flags},
-    folder::{config::FolderConfig, sync::FolderSyncHunk, Folder, FolderKind, INBOX, TRASH},
+    folder::{
+        config::FolderConfig,
+        sync::{FolderSyncHunk, FolderSyncStrategy},
+        Folder, FolderKind, INBOX, TRASH,
+    },
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapContextBuilder,
@@ -162,7 +166,7 @@ async fn test_sync() {
         .await
         .unwrap();
 
-    // prepare sync builder then sync once
+    // prepare sync builder
 
     static EVENTS_STACK: Lazy<Mutex<HashSet<SyncEvent>>> =
         Lazy::new(|| Mutex::const_new(HashSet::default()));
@@ -188,9 +192,74 @@ async fn test_sync() {
         .await
         .unwrap();
 
-    let report = sync_builder.clone().sync().await.unwrap();
+    // check sync integrity with dry run on INBOX only
 
-    // check sync report integrity
+    let report = sync_builder
+        .clone()
+        .with_dry_run(true)
+        .with_folders_filter(FolderSyncStrategy::Include(HashSet::from_iter([
+            INBOX.into()
+        ])))
+        .sync()
+        .await
+        .unwrap();
+
+    let expected_folders = HashSet::from_iter([INBOX.into()]);
+
+    assert_eq!(report.folder.names, expected_folders);
+
+    let expected_evts = HashSet::from_iter([
+        SyncEvent::ListedLeftCachedFolders(1),
+        SyncEvent::ListedRightCachedFolders(1),
+        SyncEvent::ListedLeftFolders(1),
+        SyncEvent::ListedRightFolders(1),
+        SyncEvent::ListedAllFolders,
+        SyncEvent::ListedLeftCachedEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedRightCachedEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedLeftEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedRightEnvelopes(INBOX.into(), 3),
+        SyncEvent::ListedAllEnvelopes,
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<a@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<b@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<c@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+    ]);
+
+    {
+        let mut evts = EVENTS_STACK.lock().await;
+        assert_eq!(*evts, expected_evts);
+        evts.clear()
+    }
+
+    // check full sync integrity
+
+    let report = sync_builder.clone().sync().await.unwrap();
 
     let expected_folders = HashSet::from_iter([INBOX.into(), "Archives".into(), TRASH.into()]);
 

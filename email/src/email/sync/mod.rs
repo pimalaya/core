@@ -28,7 +28,7 @@ use crate::{
     envelope::{Envelope, Id},
     flag::Flag,
     maildir::{config::MaildirConfig, MaildirContextBuilder},
-    sync::{pool::SyncPoolContext, SyncDestination, SyncEvent, SyncEventHandler},
+    sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
     thread_pool::ThreadPool,
     Result,
 };
@@ -350,7 +350,6 @@ where
 
 pub(crate) async fn sync<L, R>(
     pool: &ThreadPool<SyncPoolContext<L::Context, R::Context>>,
-    handler: &Option<Arc<SyncEventHandler>>,
     folders: &HashSet<String>,
 ) -> Result<EmailSyncReport>
 where
@@ -365,7 +364,14 @@ where
             let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                 ctx.left_cache
                     .list_envelopes(&folder, 0, 0)
-                    .await?
+                    .await
+                    .or_else(|err| {
+                        if ctx.dry_run {
+                            Ok(Default::default())
+                        } else {
+                            Err(err)
+                        }
+                    })?
                     .into_iter()
                     .map(|e| (e.message_id.clone(), e)),
             );
@@ -382,7 +388,14 @@ where
             let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                 ctx.left
                     .list_envelopes(&folder, 0, 0)
-                    .await?
+                    .await
+                    .or_else(|err| {
+                        if ctx.dry_run {
+                            Ok(Default::default())
+                        } else {
+                            Err(err)
+                        }
+                    })?
                     .into_iter()
                     .map(|e| (e.message_id.clone(), e)),
             );
@@ -399,7 +412,14 @@ where
             let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                 ctx.right_cache
                     .list_envelopes(&folder, 0, 0)
-                    .await?
+                    .await
+                    .or_else(|err| {
+                        if ctx.dry_run {
+                            Ok(Default::default())
+                        } else {
+                            Err(err)
+                        }
+                    })?
                     .into_iter()
                     .map(|e| (e.message_id.clone(), e)),
             );
@@ -416,7 +436,14 @@ where
             let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                 ctx.right
                     .list_envelopes(&folder, 0, 0)
-                    .await?
+                    .await
+                    .or_else(|err| {
+                        if ctx.dry_run {
+                            Ok(Default::default())
+                        } else {
+                            Err(err)
+                        }
+                    })?
                     .into_iter()
                     .map(|e| (e.message_id.clone(), e)),
             );
@@ -461,13 +488,21 @@ where
     })
     .await;
 
-    SyncEvent::ListedAllEnvelopes.emit(&handler).await;
+    pool.exec(|ctx| async move {
+        SyncEvent::ListedAllEnvelopes.emit(&ctx.handler).await;
+    })
+    .await;
 
     report.patch = FuturesUnordered::from_iter(patch.into_iter().map(|hunk| {
-        pool.exec(move |ctx| {
+        pool.exec(|ctx| {
             let hunk_clone = hunk.clone();
             let handler = ctx.handler.clone();
+
             let task = async move {
+                if ctx.dry_run {
+                    return Ok(());
+                }
+
                 match hunk_clone {
                     EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Left) => {
                         let envelope = ctx.left.get_envelope(&folder, &Id::single(id)).await?;
