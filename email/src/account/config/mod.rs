@@ -189,7 +189,13 @@ impl AccountConfig {
         match self.sync.as_ref().and_then(|c| c.dir.as_ref()) {
             Some(dir) => try_shellexpand_path(dir).is_ok(),
             None => data_dir()
-                .map(|dir| dir.join("himalaya").join(&self.name).is_dir())
+                .map(|dir| {
+                    dir.join("pimalaya")
+                        .join("email")
+                        .join("sync")
+                        .join(&self.name)
+                        .is_dir()
+                })
                 .unwrap_or_default(),
         }
     }
@@ -214,9 +220,9 @@ impl AccountConfig {
                 Ok(sync_dir)
             }
             None => {
-                debug!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/himalaya");
+                debug!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/pimalaya/email/sync");
                 let sync_dir = data_dir()
-                    .map(|dir| dir.join("himalaya"))
+                    .map(|dir| dir.join("pimalaya").join("email").join("sync"))
                     .ok_or(Error::GetXdgDataDirError)?
                     .join(&self.name);
                 fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsError)?;

@@ -218,7 +218,6 @@ async fn test_sync() {
         SyncEvent::ListedRightCachedEnvelopes(INBOX.into(), 0),
         SyncEvent::ListedLeftEnvelopes(INBOX.into(), 0),
         SyncEvent::ListedRightEnvelopes(INBOX.into(), 3),
-        SyncEvent::ListedAllEnvelopes,
         SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
             INBOX.into(),
             Envelope {

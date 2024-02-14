@@ -8,8 +8,12 @@ pub mod pool;
 pub mod report;
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
+use dirs::cache_dir;
 use log::{debug, trace};
-use std::{env, fmt, fs::OpenOptions, future::Future, io, path::PathBuf, pin::Pin, sync::Arc};
+use std::{
+    collections::BTreeMap, env, fmt, fs::OpenOptions, future::Future, io, path::PathBuf, pin::Pin,
+    sync::Arc,
+};
 use thiserror::Error;
 
 use crate::{
@@ -17,7 +21,11 @@ use crate::{
     email::{self, sync::hunk::EmailSyncHunk},
     folder::{
         self,
-        sync::{hunk::FolderSyncHunk, FolderSyncStrategy},
+        sync::{
+            hunk::{FolderName, FolderSyncHunk},
+            patch::FolderSyncPatch,
+            FolderSyncStrategy,
+        },
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder},
     Result,
@@ -88,7 +96,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
     }
 
     pub fn find_default_cache_dir(&self) -> Option<PathBuf> {
-        dirs::cache_dir().map(|dir| {
+        cache_dir().map(|dir| {
             dir.join("pimalaya")
                 .join("email")
                 .join("sync")
@@ -227,25 +235,27 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             .try_lock(FileLockMode::Exclusive)
             .map_err(|err| Error::LockFileError(err, lock_file_path.clone()))?;
 
-        let pool = pool::new(
-            self.get_left_cache_builder()?,
-            self.left_builder.clone(),
-            self.get_right_cache_builder()?,
-            self.right_builder.clone(),
-            self.handler.clone(),
-            self.get_dry_run(),
-            self.get_folders_filter(),
-        )
-        .await?;
+        let pool = Arc::new(
+            pool::new(
+                self.get_left_cache_builder()?,
+                self.left_builder.clone(),
+                self.get_right_cache_builder()?,
+                self.right_builder.clone(),
+                self.handler.clone(),
+                self.get_dry_run(),
+                self.get_folders_filter(),
+            )
+            .await?,
+        );
 
         let mut report = SyncReport::default();
 
-        report.folder = folder::sync::<L, R>(&pool).await?;
-        report.email = email::sync::<L, R>(&pool, &report.folder.names).await?;
+        report.folder = folder::sync::<L, R>(pool.clone()).await?;
+        report.email = email::sync::<L, R>(pool.clone(), &report.folder.names).await?;
 
-        folder::sync::expunge::<L, R>(&pool, &report.folder.names).await;
+        folder::sync::expunge::<L, R>(pool.clone(), &report.folder.names).await;
 
-        pool.close().await;
+        Arc::into_inner(pool).unwrap().close().await;
 
         debug!("unlocking sync file");
         lock_file
@@ -271,13 +281,17 @@ pub enum SyncEvent {
     ListedRightCachedFolders(usize),
     ListedRightFolders(usize),
     ListedAllFolders,
+    GeneratedFolderPatch(BTreeMap<FolderName, FolderSyncPatch>),
     ProcessedFolderHunk(FolderSyncHunk),
-    ListedLeftCachedEnvelopes(String, usize),
-    ListedLeftEnvelopes(String, usize),
-    ListedRightCachedEnvelopes(String, usize),
-    ListedRightEnvelopes(String, usize),
-    ListedAllEnvelopes,
+    ProcessedAllFolderHunks,
+    ListedLeftCachedEnvelopes(FolderName, usize),
+    ListedLeftEnvelopes(FolderName, usize),
+    ListedRightCachedEnvelopes(FolderName, usize),
+    ListedRightEnvelopes(FolderName, usize),
+    GeneratedEmailPatch(BTreeMap<FolderName, Vec<EmailSyncHunk>>),
     ProcessedEmailHunk(EmailSyncHunk),
+    ProcessedAllEmailHunks,
+    ExpungedAllFolders,
 }
 
 impl SyncEvent {
@@ -311,8 +325,16 @@ impl fmt::Display for SyncEvent {
             SyncEvent::ListedAllFolders => {
                 write!(f, "Listed all folders")
             }
+            SyncEvent::GeneratedFolderPatch(patch) => {
+                let n = patch.keys().count();
+                let p = patch.values().flatten().count();
+                write!(f, "Generated {p} patch for {n} folders")
+            }
             SyncEvent::ProcessedFolderHunk(hunk) => {
                 write!(f, "{hunk}")
+            }
+            SyncEvent::ProcessedAllFolderHunks => {
+                write!(f, "Processed all folder hunks")
             }
             SyncEvent::ListedLeftCachedEnvelopes(folder, n) => {
                 write!(f, "Listed {n} left cached envelopes from {folder}")
@@ -326,11 +348,19 @@ impl fmt::Display for SyncEvent {
             SyncEvent::ListedRightEnvelopes(folder, n) => {
                 write!(f, "Listed {n} right envelopes from {folder}")
             }
-            SyncEvent::ListedAllEnvelopes => {
-                write!(f, "Listed all envelopes from all folders")
+            SyncEvent::GeneratedEmailPatch(patch) => {
+                let nf = patch.keys().count();
+                let np = patch.values().flatten().count();
+                write!(f, "Generated {np} patch for {nf} folders")
             }
             SyncEvent::ProcessedEmailHunk(hunk) => {
                 write!(f, "{hunk}")
+            }
+            SyncEvent::ProcessedAllEmailHunks => {
+                write!(f, "Processed all email hunks")
+            }
+            SyncEvent::ExpungedAllFolders => {
+                write!(f, "Expunged all folders")
             }
         }
     }

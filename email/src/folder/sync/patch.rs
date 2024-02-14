@@ -6,7 +6,7 @@
 //! You also have access to a [`FolderSyncPatchManager`] which helps
 //! you to build and to apply a folder patch.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::sync::SyncDestination;
 
@@ -30,7 +30,7 @@ pub fn build(
     local: FoldersName,
     remote_cache: FoldersName,
     remote: FoldersName,
-) -> HashMap<FolderName, FolderSyncPatch> {
+) -> BTreeMap<FolderName, FolderSyncPatch> {
     let mut folders = HashSet::new();
 
     // Gathers all existing folders name.
@@ -151,12 +151,12 @@ pub fn build(
         (folder, patch)
     });
 
-    HashMap::from_iter(patches)
+    BTreeMap::from_iter(patches)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     use crate::sync::SyncDestination;
 
@@ -172,7 +172,7 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::default(),
             ),
-            HashMap::new()
+            BTreeMap::new()
         );
 
         // 0001
@@ -183,7 +183,7 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), SyncDestination::Left),
@@ -201,7 +201,7 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![FolderSyncHunk::Uncache(
                     "folder".into(),
@@ -218,7 +218,7 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), SyncDestination::Left),
@@ -235,7 +235,7 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), SyncDestination::Left),
@@ -253,7 +253,7 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), SyncDestination::Left),
@@ -270,7 +270,7 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), SyncDestination::Left),
@@ -287,7 +287,7 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![FolderSyncHunk::Cache(
                     "folder".into(),
@@ -304,7 +304,7 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![FolderSyncHunk::Uncache(
                     "folder".into(),
@@ -321,7 +321,7 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Create("folder".into(), SyncDestination::Left),
@@ -338,7 +338,7 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Uncache("folder".into(), SyncDestination::Left),
@@ -355,7 +355,7 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Uncache("folder".into(), SyncDestination::Left),
@@ -373,7 +373,7 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Cache("folder".into(), SyncDestination::Right),
@@ -390,7 +390,7 @@ mod tests {
                 FoldersName::default(),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![FolderSyncHunk::Cache(
                     "folder".into(),
@@ -407,7 +407,7 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::default(),
             ),
-            HashMap::from_iter([(
+            BTreeMap::from_iter([(
                 "folder".into(),
                 vec![
                     FolderSyncHunk::Uncache("folder".into(), SyncDestination::Left),
@@ -425,7 +425,7 @@ mod tests {
                 FoldersName::from_iter(["folder".into()]),
                 FoldersName::from_iter(["folder".into()]),
             ),
-            HashMap::from_iter([("folder".into(), vec![])])
+            BTreeMap::from_iter([("folder".into(), vec![])])
         );
     }
 }

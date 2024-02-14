@@ -15,6 +15,7 @@ pub type Envelopes = HashMap<String, Envelope>;
 
 /// An email synchronization patch is just a list of email
 /// synchronization hunks (changes).
+// TODO: remove HashSet
 pub type EmailSyncPatch = HashSet<Vec<EmailSyncHunk>>;
 
 /// Email synchronization patch builder.

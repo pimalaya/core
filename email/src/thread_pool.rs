@@ -184,16 +184,15 @@ impl<B: ThreadPoolContextBuilder + 'static> ThreadPoolBuilder<B> {
         let (tx, rx) = mpsc::unbounded_channel::<ThreadPoolTask<B::Context>>();
         let rx = Arc::new(Mutex::new(rx));
 
-        let mut threads = Vec::with_capacity(self.size);
-
         let ctxs = FuturesUnordered::from_iter(
-            (0..self.size).map(|_| async { self.ctx_builder.clone().build().await }),
+            (0..self.size).map(move |_| tokio::spawn(self.ctx_builder.clone().build())),
         )
-        .collect::<Vec<Result<_>>>()
+        .collect::<Vec<_>>()
         .await;
 
+        let mut threads = Vec::with_capacity(self.size);
         for (i, ctx) in ctxs.into_iter().enumerate() {
-            let ctx = ctx?;
+            let ctx = ctx??;
             let thread_id = i + 1;
             let rx = rx.clone();
 

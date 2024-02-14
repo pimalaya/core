@@ -8,10 +8,7 @@
 
 pub mod config;
 
-use std::{
-    ops::{Deref, DerefMut},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use crate::{
     backend::{BackendBuilder, BackendContextBuilder},
@@ -20,37 +17,30 @@ use crate::{
     Result,
 };
 
+use super::config::AccountConfig;
+
 /// The account synchronization builder.
 ///
 /// This builder is just a wrapper around [`SyncBuilder`], where the
 /// left backend builder is a pre-defined Maildir one. The aim of this
 /// builder is to provide offline support for any given backend.
-pub struct AccountSyncBuilder<R: BackendContextBuilder>(SyncBuilder<MaildirContextBuilder, R>);
+pub struct AccountSyncBuilder;
 
-impl<R: BackendContextBuilder + 'static> AccountSyncBuilder<R> {
+impl AccountSyncBuilder {
     /// Create a new account synchronization builder.
-    pub async fn new(right_builder: BackendBuilder<R>) -> Result<Self> {
-        let account_config = right_builder.account_config.clone();
+    pub fn new<R: BackendContextBuilder + 'static>(
+        right_builder: BackendBuilder<R>,
+    ) -> Result<SyncBuilder<MaildirContextBuilder, R>> {
+        let account_config = Arc::new(AccountConfig {
+            name: right_builder.account_config.name.clone() + "-cache",
+            ..(*right_builder.account_config).clone()
+        });
+
         let sync_dir = account_config.get_sync_dir()?;
         let mdir_config = Arc::new(MaildirConfig { root_dir: sync_dir });
         let ctx_builder = MaildirContextBuilder::new(mdir_config);
         let left_builder = BackendBuilder::new(account_config, ctx_builder);
-        let sync_builder = SyncBuilder::new(left_builder, right_builder);
 
-        Ok(Self(sync_builder))
-    }
-}
-
-impl<R: BackendContextBuilder> Deref for AccountSyncBuilder<R> {
-    type Target = SyncBuilder<MaildirContextBuilder, R>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<R: BackendContextBuilder> DerefMut for AccountSyncBuilder<R> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        Ok(SyncBuilder::new(left_builder, right_builder))
     }
 }
