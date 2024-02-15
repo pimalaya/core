@@ -40,13 +40,13 @@ async fn test_sendmail_features() {
         .into(),
     });
 
-    let imap_ctx = ImapContextBuilder::new(imap_config);
+    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
     let imap = BackendBuilder::new(account_config.clone(), imap_ctx)
         .build()
         .await
         .unwrap();
 
-    let sendmail_ctx = SendmailContextBuilder::new(sendmail_config);
+    let sendmail_ctx = SendmailContextBuilder::new(account_config.clone(), sendmail_config);
     let sendmail = BackendBuilder::new(account_config, sendmail_ctx)
         .build()
         .await

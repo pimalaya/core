@@ -47,7 +47,7 @@ pub use self::{
 /// The email envelope is composed of an identifier, some
 /// [flags](self::Flags), and few headers taken from the email
 /// [message](crate::Message).
-#[derive(Clone, Debug, Default, Eq)]
+#[derive(Clone, Debug, Default, Eq, Ord, PartialOrd)]
 pub struct Envelope {
     /// The shape of the envelope identifier may vary depending on the backend.
     /// For IMAP backend, it is an stringified auto-incremented integer.

@@ -127,13 +127,19 @@ impl BackendContext for NotmuchContextSync {}
 /// The Notmuch context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct NotmuchContextBuilder {
+    /// The account configuration.
+    pub account_config: Arc<AccountConfig>,
+
     /// The Notmuch configuration.
     pub notmuch_config: Arc<NotmuchConfig>,
 }
 
 impl NotmuchContextBuilder {
-    pub fn new(notmuch_config: Arc<NotmuchConfig>) -> Self {
-        Self { notmuch_config }
+    pub fn new(account_config: Arc<AccountConfig>, notmuch_config: Arc<NotmuchConfig>) -> Self {
+        Self {
+            account_config,
+            notmuch_config,
+        }
     }
 }
 
@@ -234,7 +240,7 @@ impl BackendContextBuilder for NotmuchContextBuilder {
         Some(Arc::new(DeleteNotmuchMessages::some_new_boxed))
     }
 
-    async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
+    async fn build(self) -> Result<Self::Context> {
         info!("building new notmuch context");
 
         let root = Maildir::from(self.notmuch_config.get_maildir_path()?);
@@ -244,19 +250,19 @@ impl BackendContextBuilder for NotmuchContextBuilder {
         });
 
         let mdir_ctx = MaildirContext {
-            account_config: account_config.clone(),
+            account_config: self.account_config.clone(),
             maildir_config,
             root,
         };
 
         let ctx = NotmuchContext {
-            account_config: account_config.clone(),
+            account_config: self.account_config.clone(),
             notmuch_config: self.notmuch_config.clone(),
             mdir_ctx,
         };
 
         Ok(NotmuchContextSync {
-            account_config,
+            account_config: self.account_config,
             notmuch_config: self.notmuch_config,
             inner: Arc::new(Mutex::new(ctx)),
         })

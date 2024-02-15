@@ -20,7 +20,11 @@ use env_logger;
 use mail_builder::MessageBuilder;
 use once_cell::sync::Lazy;
 use secret::Secret;
-use std::{collections::HashMap, collections::HashSet, sync::Arc};
+use std::{
+    collections::HashMap,
+    collections::{BTreeMap, BTreeSet, HashSet},
+    sync::Arc,
+};
 use tempfile::tempdir;
 use tokio::sync::Mutex;
 
@@ -63,13 +67,14 @@ async fn test_sync() {
 
     // set up left backend (Maildir)
 
-    let left_ctx = MaildirContextBuilder::new(mdir_config_left);
+    let left_ctx = MaildirContextBuilder::new(account_config_left.clone(), mdir_config_left);
     let left_builder = BackendBuilder::new(account_config_left.clone(), left_ctx);
     let left = left_builder.clone().build().await.unwrap();
 
     // set up right backend (IMAP)
 
-    let right_ctx = ImapContextBuilder::new(imap_config_right.clone());
+    let right_ctx =
+        ImapContextBuilder::new(account_config_right.clone(), imap_config_right.clone());
     let right_builder = BackendBuilder::new(account_config_right.clone(), right_ctx);
     let right = right_builder.clone().build().await.unwrap();
 
@@ -214,10 +219,50 @@ async fn test_sync() {
         SyncEvent::ListedLeftFolders(1),
         SyncEvent::ListedRightFolders(1),
         SyncEvent::ListedAllFolders,
+        SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([(
+            INBOX.into(),
+            BTreeSet::from_iter([]),
+        )])),
+        SyncEvent::ProcessedAllFolderHunks,
         SyncEvent::ListedLeftCachedEnvelopes(INBOX.into(), 0),
         SyncEvent::ListedRightCachedEnvelopes(INBOX.into(), 0),
         SyncEvent::ListedLeftEnvelopes(INBOX.into(), 0),
         SyncEvent::ListedRightEnvelopes(INBOX.into(), 3),
+        SyncEvent::GeneratedEmailPatch(BTreeMap::from_iter([(
+            INBOX.into(),
+            BTreeSet::from_iter([
+                EmailSyncHunk::CopyThenCache(
+                    INBOX.into(),
+                    Envelope {
+                        message_id: "<a@localhost>".into(),
+                        ..Default::default()
+                    },
+                    SyncDestination::Right,
+                    SyncDestination::Left,
+                    true,
+                ),
+                EmailSyncHunk::CopyThenCache(
+                    INBOX.into(),
+                    Envelope {
+                        message_id: "<b@localhost>".into(),
+                        ..Default::default()
+                    },
+                    SyncDestination::Right,
+                    SyncDestination::Left,
+                    true,
+                ),
+                EmailSyncHunk::CopyThenCache(
+                    INBOX.into(),
+                    Envelope {
+                        message_id: "<c@localhost>".into(),
+                        ..Default::default()
+                    },
+                    SyncDestination::Right,
+                    SyncDestination::Left,
+                    true,
+                ),
+            ]),
+        )])),
         SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
             INBOX.into(),
             Envelope {
@@ -248,6 +293,8 @@ async fn test_sync() {
             SyncDestination::Left,
             true,
         )),
+        SyncEvent::ProcessedAllEmailHunks,
+        SyncEvent::ExpungedAllFolders,
     ]);
 
     {
@@ -270,6 +317,26 @@ async fn test_sync() {
         SyncEvent::ListedLeftFolders(1),
         SyncEvent::ListedRightFolders(3),
         SyncEvent::ListedAllFolders,
+        SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([
+            (INBOX.into(), BTreeSet::from_iter([])),
+            (
+                "Archives".into(),
+                BTreeSet::from_iter([
+                    FolderSyncHunk::Cache("Archives".into(), SyncDestination::Right),
+                    FolderSyncHunk::Create("Archives".into(), SyncDestination::Left),
+                    FolderSyncHunk::Cache("Archives".into(), SyncDestination::Left),
+                ]),
+            ),
+            (
+                "Trash".into(),
+                BTreeSet::from_iter([
+                    FolderSyncHunk::Cache(TRASH.into(), SyncDestination::Right),
+                    FolderSyncHunk::Create(TRASH.into(), SyncDestination::Left),
+                    FolderSyncHunk::Cache(TRASH.into(), SyncDestination::Left),
+                ]),
+            ),
+        ])),
+        SyncEvent::ProcessedAllFolderHunks,
         SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(
             "Archives".into(),
             SyncDestination::Right,
@@ -297,7 +364,69 @@ async fn test_sync() {
         SyncEvent::ListedRightCachedEnvelopes(TRASH.into(), 0),
         SyncEvent::ListedLeftEnvelopes(TRASH.into(), 0),
         SyncEvent::ListedRightEnvelopes(TRASH.into(), 2),
-        SyncEvent::ListedAllEnvelopes,
+        SyncEvent::GeneratedEmailPatch(BTreeMap::from_iter([
+            ("Archives".into(), BTreeSet::from_iter([])),
+            (
+                INBOX.into(),
+                BTreeSet::from_iter([
+                    EmailSyncHunk::CopyThenCache(
+                        INBOX.into(),
+                        Envelope {
+                            message_id: "<a@localhost>".into(),
+                            ..Default::default()
+                        },
+                        SyncDestination::Right,
+                        SyncDestination::Left,
+                        true,
+                    ),
+                    EmailSyncHunk::CopyThenCache(
+                        INBOX.into(),
+                        Envelope {
+                            message_id: "<b@localhost>".into(),
+                            ..Default::default()
+                        },
+                        SyncDestination::Right,
+                        SyncDestination::Left,
+                        true,
+                    ),
+                    EmailSyncHunk::CopyThenCache(
+                        INBOX.into(),
+                        Envelope {
+                            message_id: "<c@localhost>".into(),
+                            ..Default::default()
+                        },
+                        SyncDestination::Right,
+                        SyncDestination::Left,
+                        true,
+                    ),
+                ]),
+            ),
+            (
+                TRASH.into(),
+                BTreeSet::from_iter([
+                    EmailSyncHunk::CopyThenCache(
+                        TRASH.into(),
+                        Envelope {
+                            message_id: "<d@localhost>".into(),
+                            ..Default::default()
+                        },
+                        SyncDestination::Right,
+                        SyncDestination::Left,
+                        true,
+                    ),
+                    EmailSyncHunk::CopyThenCache(
+                        TRASH.into(),
+                        Envelope {
+                            message_id: "<e@localhost>".into(),
+                            ..Default::default()
+                        },
+                        SyncDestination::Right,
+                        SyncDestination::Left,
+                        true,
+                    ),
+                ]),
+            ),
+        ])),
         SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
             INBOX.into(),
             Envelope {
@@ -348,10 +477,13 @@ async fn test_sync() {
             SyncDestination::Left,
             true,
         )),
+        SyncEvent::ProcessedAllEmailHunks,
+        SyncEvent::ExpungedAllFolders,
     ]);
 
     {
         let mut evts = EVENTS_STACK.lock().await;
+        println!("diff: {:#?}", (*evts).difference(&expected_evts));
         assert_eq!(*evts, expected_evts);
         evts.clear()
     }

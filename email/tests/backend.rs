@@ -96,14 +96,14 @@ async fn test_backend_v2() {
             self.list_folders_from(self.imap.as_ref())
         }
 
-        async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
+        async fn build(self) -> Result<Self::Context> {
             let imap = match self.imap {
-                Some(imap) => Some(imap.build(account_config.clone()).await?),
+                Some(imap) => Some(imap.build().await?),
                 None => None,
             };
 
             let smtp = match self.smtp {
-                Some(smtp) => Some(smtp.build(account_config).await?),
+                Some(smtp) => Some(smtp.build().await?),
                 None => None,
             };
 
@@ -114,7 +114,10 @@ async fn test_backend_v2() {
     // 5. plug all together
 
     let ctx_builder = MyContextBuilder {
-        imap: Some(ImapContextBuilder::new(imap_config.clone())),
+        imap: Some(ImapContextBuilder::new(
+            account_config.clone(),
+            imap_config.clone(),
+        )),
         smtp: None,
     };
     let backend_builder = BackendBuilder::new(account_config.clone(), ctx_builder);
@@ -165,10 +168,10 @@ async fn test_backend_v2() {
             self.list_folders_from(Some(&self.imap))
         }
 
-        async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
+        async fn build(self) -> Result<Self::Context> {
             Ok(MyStaticContext {
-                imap: self.imap.build(account_config.clone()).await?,
-                smtp: self.smtp.build(account_config).await?,
+                imap: self.imap.build().await?,
+                smtp: self.smtp.build().await?,
             })
         }
     }
@@ -199,11 +202,11 @@ async fn test_backend_v2() {
     // 8. plug all together
 
     let ctx_builder = MyStaticContextBuilder {
-        imap: ImapContextBuilder::new(imap_config),
-        smtp: SmtpContextBuilder::new(smtp_config),
+        imap: ImapContextBuilder::new(account_config.clone(), imap_config),
+        smtp: SmtpContextBuilder::new(account_config.clone(), smtp_config),
     };
 
-    let backend = MyBackend(ctx_builder.build(account_config).await.unwrap());
+    let backend = MyBackend(ctx_builder.build().await.unwrap());
 
     assert!(backend.list_folders().await.is_ok());
 }

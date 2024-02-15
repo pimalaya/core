@@ -9,7 +9,7 @@ pub mod report;
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, trace};
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::Arc,
 };
 use thiserror::Error;
@@ -187,7 +187,7 @@ where
         }
     })
     .fold(BTreeMap::new(), |mut patch, (folder, p)| async {
-        patch.insert(folder, p.into_iter().flatten().collect::<Vec<_>>());
+        patch.insert(folder, p.into_iter().flatten().collect::<BTreeSet<_>>());
         patch
     })
     .await;

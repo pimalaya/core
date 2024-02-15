@@ -9,7 +9,7 @@ use std::hash::Hash;
 ///
 /// An address is composed of an optional name and
 /// an email address.
-#[derive(Clone, Debug, Default, Eq)]
+#[derive(Clone, Debug, Default, Eq, Ord, PartialOrd)]
 pub struct Address {
     pub name: Option<String>,
     pub addr: String,

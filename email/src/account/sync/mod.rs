@@ -33,12 +33,22 @@ impl AccountSyncBuilder {
     ) -> Result<SyncBuilder<MaildirContextBuilder, R>> {
         let account_config = Arc::new(AccountConfig {
             name: right_builder.account_config.name.clone() + "-cache",
-            ..(*right_builder.account_config).clone()
+            email: right_builder.account_config.email.clone(),
+            display_name: right_builder.account_config.display_name.clone(),
+            signature: right_builder.account_config.signature.clone(),
+            signature_delim: right_builder.account_config.signature_delim.clone(),
+            downloads_dir: right_builder.account_config.downloads_dir.clone(),
+            folder: right_builder.account_config.folder.clone(),
+            envelope: right_builder.account_config.envelope.clone(),
+            message: right_builder.account_config.message.clone(),
+            sync: None,
+            #[cfg(feature = "pgp")]
+            pgp: right_builder.account_config.pgp.clone(),
         });
 
-        let sync_dir = account_config.get_sync_dir()?;
+        let sync_dir = right_builder.account_config.get_sync_dir()?;
         let mdir_config = Arc::new(MaildirConfig { root_dir: sync_dir });
-        let ctx_builder = MaildirContextBuilder::new(mdir_config);
+        let ctx_builder = MaildirContextBuilder::new(account_config.clone(), mdir_config);
         let left_builder = BackendBuilder::new(account_config, ctx_builder);
 
         Ok(SyncBuilder::new(left_builder, right_builder))

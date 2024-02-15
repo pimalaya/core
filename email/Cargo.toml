@@ -99,7 +99,7 @@ pgp-native = ["pgp", "keyring-lib", "mml-lib/pgp-native", "dep:pgp-lib"]
 concat-with = "0.2"
 env_logger = "0.10"
 tempfile = "3.3"
-tokio = { version = "1.23", default-features = false, features = ["macros", "rt", "rt-multi-thread", "time"] }
+tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]
 advisory-lock = { version = "0.3", optional = true }
@@ -139,7 +139,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde-xml-rs = { version = "0.6", optional = true }
 shellexpand-utils = "=0.2.0"
 thiserror = "1"
-tokio = { version = "1.23", default-features = false, features = ["fs", "net"] }
+tokio = { version = "1.23", default-features = false, features = ["macros", "fs", "net"] }
 tokio-rustls = "0.25"
 tree_magic_mini = "3"
 urlencoding = "2.1"

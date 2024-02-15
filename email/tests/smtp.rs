@@ -38,13 +38,13 @@ async fn test_smtp_features() {
         ..Default::default()
     });
 
-    let imap_ctx = ImapContextBuilder::new(imap_config);
+    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
     let imap = BackendBuilder::new(account_config.clone(), imap_ctx)
         .build()
         .await
         .unwrap();
 
-    let smtp_ctx = SmtpContextBuilder::new(smtp_config);
+    let smtp_ctx = SmtpContextBuilder::new(account_config.clone(), smtp_config);
     let smtp = BackendBuilder::new(account_config.clone(), smtp_ctx)
         .build()
         .await

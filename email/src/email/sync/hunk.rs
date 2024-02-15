@@ -15,7 +15,7 @@ pub type Id = String;
 pub type RefreshSourceCache = bool;
 
 /// The email synchronization hunk.
-#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub enum EmailSyncHunk {
     /// The email matching the given identifier from the given folder
     /// needs to be retrieved for the given source then cached.

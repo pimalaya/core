@@ -35,7 +35,7 @@ async fn test_imap_features() {
         ..Default::default()
     });
 
-    let imap_ctx = ImapContextBuilder::new(imap_config.clone());
+    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config.clone());
     let imap = BackendBuilder::new(account_config.clone(), imap_ctx)
         .build()
         .await

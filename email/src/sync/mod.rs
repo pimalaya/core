@@ -11,7 +11,13 @@ use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
 use dirs::cache_dir;
 use log::{debug, trace};
 use std::{
-    collections::BTreeMap, env, fmt, fs::OpenOptions, future::Future, io, path::PathBuf, pin::Pin,
+    collections::{BTreeMap, BTreeSet},
+    env, fmt,
+    fs::OpenOptions,
+    future::Future,
+    io,
+    path::PathBuf,
+    pin::Pin,
     sync::Arc,
 };
 use thiserror::Error;
@@ -207,16 +213,18 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
     pub fn get_left_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
         let left_config = self.left_builder.account_config.clone();
         let root_dir = self.get_cache_dir()?.join(&left_config.name);
-        let ctx = MaildirContextBuilder::new(Arc::new(MaildirConfig { root_dir }));
-        let left_cache_builder = BackendBuilder::new(left_config.clone(), ctx);
+        let ctx =
+            MaildirContextBuilder::new(left_config.clone(), Arc::new(MaildirConfig { root_dir }));
+        let left_cache_builder = BackendBuilder::new(left_config, ctx);
         Ok(left_cache_builder)
     }
 
     pub fn get_right_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
         let right_config = self.right_builder.account_config.clone();
         let root_dir = self.get_cache_dir()?.join(&right_config.name);
-        let ctx = MaildirContextBuilder::new(Arc::new(MaildirConfig { root_dir }));
-        let right_cache_builder = BackendBuilder::new(right_config.clone(), ctx);
+        let ctx =
+            MaildirContextBuilder::new(right_config.clone(), Arc::new(MaildirConfig { root_dir }));
+        let right_cache_builder = BackendBuilder::new(right_config, ctx);
         Ok(right_cache_builder)
     }
 
@@ -288,7 +296,7 @@ pub enum SyncEvent {
     ListedLeftEnvelopes(FolderName, usize),
     ListedRightCachedEnvelopes(FolderName, usize),
     ListedRightEnvelopes(FolderName, usize),
-    GeneratedEmailPatch(BTreeMap<FolderName, Vec<EmailSyncHunk>>),
+    GeneratedEmailPatch(BTreeMap<FolderName, BTreeSet<EmailSyncHunk>>),
     ProcessedEmailHunk(EmailSyncHunk),
     ProcessedAllEmailHunks,
     ExpungedAllFolders,
@@ -367,7 +375,7 @@ impl fmt::Display for SyncEvent {
 }
 
 /// The synchronization destination.
-#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub enum SyncDestination {
     Left,
     Right,

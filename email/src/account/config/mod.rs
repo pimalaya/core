@@ -222,9 +222,11 @@ impl AccountConfig {
             None => {
                 debug!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/pimalaya/email/sync");
                 let sync_dir = data_dir()
-                    .map(|dir| dir.join("pimalaya").join("email").join("sync"))
                     .ok_or(Error::GetXdgDataDirError)?
-                    .join(&self.name);
+                    .join("pimalaya")
+                    .join("email")
+                    .join("sync")
+                    .join(self.name.clone() + "-cache");
                 fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsError)?;
                 Ok(sync_dir)
             }

@@ -152,6 +152,9 @@ impl BackendContext for ImapContextSync {}
 /// The IMAP backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ImapContextBuilder {
+    /// The account configuration.
+    pub account_config: Arc<AccountConfig>,
+
     /// The IMAP configuration.
     pub imap_config: Arc<ImapConfig>,
 
@@ -160,8 +163,9 @@ pub struct ImapContextBuilder {
 }
 
 impl ImapContextBuilder {
-    pub fn new(imap_config: Arc<ImapConfig>) -> Self {
+    pub fn new(account_config: Arc<AccountConfig>, imap_config: Arc<ImapConfig>) -> Self {
         Self {
+            account_config,
             imap_config,
             prebuilt_credentials: None,
         }
@@ -267,7 +271,7 @@ impl BackendContextBuilder for ImapContextBuilder {
         Some(Arc::new(DeleteImapMessages::some_new_boxed))
     }
 
-    async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
+    async fn build(self) -> Result<Self::Context> {
         info!("building new imap context");
 
         let creds = self.prebuilt_credentials.as_ref();
@@ -296,13 +300,13 @@ impl BackendContextBuilder for ImapContextBuilder {
         }?;
 
         let ctx = ImapContext {
-            account_config: account_config.clone(),
+            account_config: self.account_config.clone(),
             imap_config: self.imap_config.clone(),
             session,
         };
 
         Ok(ImapContextSync {
-            account_config,
+            account_config: self.account_config,
             imap_config: self.imap_config,
             inner: Arc::new(Mutex::new(ctx)),
         })

@@ -52,6 +52,8 @@ use crate::message::peek::PeekMessages;
 use crate::message::r#move::MoveMessages;
 #[cfg(feature = "message-send")]
 use crate::message::send::SendMessage;
+#[cfg(feature = "sync")]
+use crate::thread_pool::{ThreadPoolContext, ThreadPoolContextBuilder};
 #[allow(unused)]
 use crate::{
     account::config::AccountConfig,
@@ -140,7 +142,14 @@ pub type BackendFeatureBuilder<C, F> = Option<Arc<dyn Fn(&C) -> BackendFeature<F
 /// This is just a marker for other traits. Every backend context
 /// needs to implement this trait manually or to derive
 /// [`BackendContext`].
-pub trait BackendContext: Send + Sync {}
+pub trait BackendContext: Send + Sync {
+    //
+}
+
+#[cfg(feature = "sync")]
+impl<T: BackendContext> ThreadPoolContext for T {
+    //
+}
 
 /// Get a context in a context.
 ///
@@ -558,7 +567,17 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     }
 
     /// Build the final context.
-    async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context>;
+    async fn build(self) -> Result<Self::Context>;
+}
+
+#[cfg(feature = "sync")]
+#[async_trait]
+impl<T: BackendContextBuilder> ThreadPoolContextBuilder for T {
+    type Context = T::Context;
+
+    async fn build(self) -> Result<Self::Context> {
+        BackendContextBuilder::build(self).await
+    }
 }
 
 /// The runtime backend builder.
@@ -1259,7 +1278,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
             .delete_messages
             .and_then(|f| f.or(self.ctx_builder.delete_messages()));
 
-        let context = self.ctx_builder.build(self.account_config.clone()).await?;
+        let context = self.ctx_builder.build().await?;
         let mut backend = Backend::new(self.account_config, context);
 
         #[cfg(feature = "folder-add")]
