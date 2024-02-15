@@ -147,7 +147,7 @@ pub trait BackendContext: Send + Sync {
 }
 
 #[cfg(feature = "sync")]
-impl<T: BackendContext> ThreadPoolContext for T {
+impl<C: BackendContext> ThreadPoolContext for Backend<C> {
     //
 }
 
@@ -260,14 +260,14 @@ impl<C: BackendContext, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for
 ///         self.list_folders_from(self.imap.as_ref())
 ///     }
 ///
-///     async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
+///     async fn build(self) -> Result<Self::Context> {
 ///         let imap = match self.imap {
-///             Some(imap) => Some(imap.build(account_config.clone()).await?),
+///             Some(imap) => Some(imap.build().await?),
 ///             None => None,
 ///         };
 ///
 ///         let smtp = match self.smtp {
-///             Some(smtp) => Some(smtp.build(account_config).await?),
+///             Some(smtp) => Some(smtp.build().await?),
 ///             None => None,
 ///         };
 ///
@@ -572,11 +572,11 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
 
 #[cfg(feature = "sync")]
 #[async_trait]
-impl<T: BackendContextBuilder> ThreadPoolContextBuilder for T {
-    type Context = T::Context;
+impl<B: BackendContextBuilder> ThreadPoolContextBuilder for BackendBuilder<B> {
+    type Context = Backend<B::Context>;
 
     async fn build(self) -> Result<Self::Context> {
-        BackendContextBuilder::build(self).await
+        BackendBuilder::build(self).await
     }
 }
 
