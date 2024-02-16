@@ -48,7 +48,7 @@ impl AccountSyncBuilder {
 
         let sync_dir = right_builder.account_config.get_sync_dir()?;
         let mdir_config = Arc::new(MaildirConfig { root_dir: sync_dir });
-        let ctx_builder = MaildirContextBuilder::new(account_config.clone(), mdir_config);
+        let ctx_builder = MaildirContextBuilder::new(mdir_config);
         let left_builder = BackendBuilder::new(account_config, ctx_builder);
 
         Ok(SyncBuilder::new(left_builder, right_builder))
