@@ -12,6 +12,7 @@ pub mod macros {
 }
 
 use async_trait::async_trait;
+use paste::paste;
 #[allow(unused)]
 use std::sync::Arc;
 use thiserror::Error;
@@ -87,7 +88,6 @@ pub struct BackendFeatureBuilder<C, F: ?Sized>(
     Option<Arc<dyn Fn(&C) -> BackendFeature<F> + Send + Sync>>,
 );
 
-// derive clone can't be used https://www.reddit.com/r/rust/comments/y359hf/comment/is7hb1s/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button
 impl<C, F: ?Sized> Clone for BackendFeatureBuilder<C, F> {
     fn clone(&self) -> Self {
         match self.0 {
@@ -98,9 +98,7 @@ impl<C, F: ?Sized> Clone for BackendFeatureBuilder<C, F> {
 }
 
 impl<C, F: ?Sized> BackendFeatureBuilder<C, F> {
-    pub fn new<MapperFunc: Fn(&C) -> BackendFeature<F> + Send + Sync + 'static>(
-        func: MapperFunc,
-    ) -> Self {
+    pub fn new(func: impl Fn(&C) -> BackendFeature<F> + Send + Sync + 'static) -> Self {
         Self(Some(Arc::new(func)))
     }
 
@@ -226,13 +224,13 @@ impl<C: BackendContext, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for
 }
 
 macro_rules! map_feature_from {
-    ($name:tt, $type:ty) => {
-        paste::paste! {
-            fn [< $name _from >] (
+    ($name:ty) => {
+        paste! {
+            fn [< $name:snake _from >] (
                 &self,
                 cb: Option<&B>,
-            ) -> BackendFeatureBuilder<Self::Context, dyn $type> {
-                self.map_feature(BackendContextBuilder::$name, cb)
+            ) -> BackendFeatureBuilder<Self::Context, dyn $name> {
+                self.map_feature(BackendContextBuilder::[< $name:snake >], cb)
             }
         }
     };
@@ -324,24 +322,24 @@ where
             .fit_to_context_type()
     }
 
-    map_feature_from!(add_folder, AddFolder);
-    map_feature_from!(list_folders, ListFolders);
-    map_feature_from!(expunge_folder, ExpungeFolder);
-    map_feature_from!(purge_folder, PurgeFolder);
-    map_feature_from!(delete_folder, DeleteFolder);
-    map_feature_from!(get_envelope, GetEnvelope);
-    map_feature_from!(list_envelopes, ListEnvelopes);
-    map_feature_from!(watch_envelopes, WatchEnvelopes);
-    map_feature_from!(add_flags, AddFlags);
-    map_feature_from!(set_flags, SetFlags);
-    map_feature_from!(remove_flags, RemoveFlags);
-    map_feature_from!(add_message, AddMessage);
-    map_feature_from!(send_message, SendMessage);
-    map_feature_from!(get_messages, GetMessages);
-    map_feature_from!(peek_messages, PeekMessages);
-    map_feature_from!(copy_messages, CopyMessages);
-    map_feature_from!(move_messages, MoveMessages);
-    map_feature_from!(delete_messages, DeleteMessages);
+    map_feature_from!(AddFolder);
+    map_feature_from!(ListFolders);
+    map_feature_from!(ExpungeFolder);
+    map_feature_from!(PurgeFolder);
+    map_feature_from!(DeleteFolder);
+    map_feature_from!(GetEnvelope);
+    map_feature_from!(ListEnvelopes);
+    map_feature_from!(WatchEnvelopes);
+    map_feature_from!(AddFlags);
+    map_feature_from!(SetFlags);
+    map_feature_from!(RemoveFlags);
+    map_feature_from!(AddMessage);
+    map_feature_from!(SendMessage);
+    map_feature_from!(GetMessages);
+    map_feature_from!(PeekMessages);
+    map_feature_from!(CopyMessages);
+    map_feature_from!(MoveMessages);
+    map_feature_from!(DeleteMessages);
 }
 
 /// Generic implementation for the backend context builder with a
@@ -357,9 +355,11 @@ where
 }
 
 macro_rules! context_feature {
-    ($name:tt, $type:tt) => {
-        fn $name(&self) -> BackendFeatureBuilder<Self::Context, dyn $type> {
-            BackendFeatureBuilder::none()
+    ($type:ty) => {
+        paste! {
+            fn [< $type:snake >] (&self) -> BackendFeatureBuilder<Self::Context, dyn $type> {
+                BackendFeatureBuilder::none()
+            }
         }
     };
 }
@@ -381,24 +381,24 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     /// `email::smtp::SmtpContextSync`.
     type Context: BackendContext;
 
-    context_feature!(add_folder, AddFolder);
-    context_feature!(list_folders, ListFolders);
-    context_feature!(expunge_folder, ExpungeFolder);
-    context_feature!(purge_folder, PurgeFolder);
-    context_feature!(delete_folder, DeleteFolder);
-    context_feature!(list_envelopes, ListEnvelopes);
-    context_feature!(watch_envelopes, WatchEnvelopes);
-    context_feature!(get_envelope, GetEnvelope);
-    context_feature!(add_flags, AddFlags);
-    context_feature!(set_flags, SetFlags);
-    context_feature!(remove_flags, RemoveFlags);
-    context_feature!(add_message, AddMessage);
-    context_feature!(send_message, SendMessage);
-    context_feature!(peek_messages, PeekMessages);
-    context_feature!(get_messages, GetMessages);
-    context_feature!(copy_messages, CopyMessages);
-    context_feature!(move_messages, MoveMessages);
-    context_feature!(delete_messages, DeleteMessages);
+    context_feature!(AddFolder);
+    context_feature!(ListFolders);
+    context_feature!(ExpungeFolder);
+    context_feature!(PurgeFolder);
+    context_feature!(DeleteFolder);
+    context_feature!(ListEnvelopes);
+    context_feature!(WatchEnvelopes);
+    context_feature!(GetEnvelope);
+    context_feature!(AddFlags);
+    context_feature!(SetFlags);
+    context_feature!(RemoveFlags);
+    context_feature!(AddMessage);
+    context_feature!(SendMessage);
+    context_feature!(PeekMessages);
+    context_feature!(GetMessages);
+    context_feature!(CopyMessages);
+    context_feature!(MoveMessages);
+    context_feature!(DeleteMessages);
 
     /// Build the final context.
     async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context>;
@@ -648,34 +648,34 @@ impl<C: BackendContext> Default for FeaturesConfiguration<C> {
 }
 
 macro_rules! feature_config {
-    ($name:tt, $type:ty) => {
-        paste::paste! {
-            pub fn [< set_ $name >](
+    ($type:ty) => {
+        paste! {
+            pub fn [<set_ $type:snake>](
                 &mut self,
                 f: impl Into<FeatureConfiguration<B::Context, dyn $type>>,
             ) {
-                self.features.$name = f.into();
+                self.features.[<$type:snake>] = f.into();
             }
 
-            pub fn [< with_ $name>](
+            pub fn [<with_ $type:snake>](
                 mut self,
                 f: impl Into<FeatureConfiguration<B::Context, dyn $type>>,
             ) -> Self {
-                self.[<set_ $name>](f);
+                self.[<set_ $type:snake>](f);
                 self
             }
 
-            pub fn [< with_disabled_ $name>](
+            pub fn [<with_disabled_ $type:snake>](
                 mut self,
             ) -> Self {
-                self.[<set_ $name>](FeatureConfiguration::FeatureDisabled);
+                self.[<set_ $type:snake>](FeatureConfiguration::FeatureDisabled);
                 self
             }
 
-            pub fn [< with_context_default_ $name >](
+            pub fn [<with_context_default_ $type:snake>](
                 mut self,
             ) -> Self {
-                self.[<set_ $name>](FeatureConfiguration::Default);
+                self.[<set_ $type:snake>](FeatureConfiguration::Default);
                 self
             }
         }
@@ -711,24 +711,24 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
         self
     }
 
-    feature_config!(add_folder, AddFolder);
-    feature_config!(list_folders, ListFolders);
-    feature_config!(expunge_folder, ExpungeFolder);
-    feature_config!(purge_folder, PurgeFolder);
-    feature_config!(delete_folder, DeleteFolder);
-    feature_config!(list_envelopes, ListEnvelopes);
-    feature_config!(watch_envelopes, WatchEnvelopes);
-    feature_config!(get_envelope, GetEnvelope);
-    feature_config!(add_flags, AddFlags);
-    feature_config!(set_flags, SetFlags);
-    feature_config!(remove_flags, RemoveFlags);
-    feature_config!(add_message, AddMessage);
-    feature_config!(send_message, SendMessage);
-    feature_config!(peek_messages, PeekMessages);
-    feature_config!(get_messages, GetMessages);
-    feature_config!(copy_messages, CopyMessages);
-    feature_config!(move_messages, MoveMessages);
-    feature_config!(delete_messages, DeleteMessages);
+    feature_config!(AddFolder);
+    feature_config!(ListFolders);
+    feature_config!(ExpungeFolder);
+    feature_config!(PurgeFolder);
+    feature_config!(DeleteFolder);
+    feature_config!(ListEnvelopes);
+    feature_config!(WatchEnvelopes);
+    feature_config!(GetEnvelope);
+    feature_config!(AddFlags);
+    feature_config!(SetFlags);
+    feature_config!(RemoveFlags);
+    feature_config!(AddMessage);
+    feature_config!(SendMessage);
+    feature_config!(PeekMessages);
+    feature_config!(GetMessages);
+    feature_config!(CopyMessages);
+    feature_config!(MoveMessages);
+    feature_config!(DeleteMessages);
 
     /// Build the final backend.
     pub async fn build(self) -> Result<Backend<B::Context>> {
@@ -741,7 +741,7 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
 
         macro_rules! build_feature {
             ($name:tt) => {
-                paste::paste! {
+                paste! {
                     backend.[<set_ $name>](
                         self
                         .features
