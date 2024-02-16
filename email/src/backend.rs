@@ -16,111 +16,61 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use thiserror::Error;
 
-#[cfg(feature = "envelope-get")]
-use crate::envelope::get::GetEnvelope;
-#[cfg(feature = "envelope-list")]
-use crate::envelope::list::ListEnvelopes;
-#[cfg(feature = "envelope-watch")]
-use crate::envelope::watch::WatchEnvelopes;
-#[cfg(feature = "flag-add")]
-use crate::flag::add::AddFlags;
-#[cfg(feature = "flag-remove")]
-use crate::flag::remove::RemoveFlags;
-#[cfg(feature = "flag-set")]
-use crate::flag::set::SetFlags;
-#[cfg(feature = "folder-add")]
-use crate::folder::add::AddFolder;
-#[cfg(feature = "folder-delete")]
-use crate::folder::delete::DeleteFolder;
-#[cfg(feature = "folder-expunge")]
-use crate::folder::expunge::ExpungeFolder;
-#[cfg(feature = "folder-list")]
-use crate::folder::list::ListFolders;
-#[cfg(feature = "folder-purge")]
-use crate::folder::purge::PurgeFolder;
-#[cfg(feature = "message-add")]
-use crate::message::add::AddMessage;
-#[cfg(feature = "message-copy")]
-use crate::message::copy::CopyMessages;
-#[cfg(feature = "message-delete")]
-use crate::message::delete::DeleteMessages;
-#[cfg(feature = "message-get")]
-use crate::message::get::GetMessages;
-#[cfg(feature = "message-peek")]
-use crate::message::peek::PeekMessages;
-#[cfg(feature = "message-move")]
-use crate::message::r#move::MoveMessages;
-#[cfg(feature = "message-send")]
-use crate::message::send::SendMessage;
-#[allow(unused)]
 use crate::{
     account::config::AccountConfig,
-    envelope::{Envelope, Envelopes},
-    envelope::{Id, SingleId},
-    flag::{Flag, Flags},
-    folder::Folders,
-    message::Messages,
+    envelope::{get::GetEnvelope, watch::WatchEnvelopes, Envelope, Envelopes},
+    envelope::{list::ListEnvelopes, Id, SingleId},
+    flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag, Flags},
+    folder::{
+        add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
+        purge::PurgeFolder, Folders,
+    },
+    message::{
+        add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
+        peek::PeekMessages, r#move::MoveMessages, send::SendMessage, Messages,
+    },
     Result,
 };
 
 /// Errors related to backend.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[cfg(feature = "folder-add")]
     #[error("cannot add folder: feature not available")]
     AddFolderNotAvailableError,
-    #[cfg(feature = "folder-list")]
     #[error("cannot list folders: feature not available")]
     ListFoldersNotAvailableError,
-    #[cfg(feature = "folder-expunge")]
     #[error("cannot expunge folder: feature not available")]
     ExpungeFolderNotAvailableError,
-    #[cfg(feature = "folder-purge")]
     #[error("cannot purge folder: feature not available")]
     PurgeFolderNotAvailableError,
-    #[cfg(feature = "folder-delete")]
     #[error("cannot delete folder: feature not available")]
     DeleteFolderNotAvailableError,
-    #[cfg(feature = "envelope-list")]
     #[error("cannot list envelopes: feature not available")]
     ListEnvelopesNotAvailableError,
-    #[cfg(feature = "envelope-watch")]
     #[error("cannot watch for envelopes changes: feature not available")]
     WatchEnvelopesNotAvailableError,
-    #[cfg(feature = "envelope-get")]
     #[error("cannot get envelope: feature not available")]
     GetEnvelopeNotAvailableError,
-    #[cfg(feature = "flag-add")]
     #[error("cannot add flag(s): feature not available")]
     AddFlagsNotAvailableError,
-    #[cfg(feature = "flag-set")]
     #[error("cannot set flag(s): feature not available")]
     SetFlagsNotAvailableError,
-    #[cfg(feature = "flag-remove")]
     #[error("cannot remove flag(s): feature not available")]
     RemoveFlagsNotAvailableError,
-    #[cfg(feature = "message-add")]
     #[error("cannot add message: feature not available")]
     AddMessageNotAvailableError,
-    #[cfg(feature = "message-add")]
     #[error("cannot add message with flags: feature not available")]
     AddMessageWithFlagsNotAvailableError,
-    #[cfg(feature = "message-send")]
     #[error("cannot send message: feature not available")]
     SendMessageNotAvailableError,
-    #[cfg(feature = "message-get")]
     #[error("cannot get messages: feature not available")]
     GetMessagesNotAvailableError,
-    #[cfg(feature = "message-peek")]
     #[error("cannot peek messages: feature not available")]
     PeekMessagesNotAvailableError,
-    #[cfg(feature = "message-copy")]
     #[error("cannot copy messages: feature not available")]
     CopyMessagesNotAvailableError,
-    #[cfg(feature = "message-move")]
     #[error("cannot move messages: feature not available")]
     MoveMessagesNotAvailableError,
-    #[cfg(feature = "message-delete")]
     #[error("cannot delete messages: feature not available")]
     DeleteMessagesNotAvailableError,
 }
@@ -276,8 +226,7 @@ impl<C: BackendContext, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for
 }
 
 macro_rules! map_feature_from {
-    ($name:tt, $type:ty, $gate:expr) => {
-        #[cfg(feature = $gate)]
+    ($name:tt, $type:ty) => {
         paste::paste! {
             fn [< $name _from >] (
                 &self,
@@ -375,24 +324,24 @@ where
             .fit_to_context_type()
     }
 
-    map_feature_from!(add_folder, AddFolder, "folder-add");
-    map_feature_from!(list_folders, ListFolders, "folder-list");
-    map_feature_from!(expunge_folder, ExpungeFolder, "folder-expunge");
-    map_feature_from!(purge_folder, PurgeFolder, "folder-purge");
-    map_feature_from!(delete_folder, DeleteFolder, "folder-delete");
-    map_feature_from!(get_envelope, GetEnvelope, "envelope-get");
-    map_feature_from!(list_envelopes, ListEnvelopes, "envelope-list");
-    map_feature_from!(watch_envelopes, WatchEnvelopes, "envelope-watch");
-    map_feature_from!(add_flags, AddFlags, "flag-add");
-    map_feature_from!(set_flags, SetFlags, "flag-set");
-    map_feature_from!(remove_flags, RemoveFlags, "flag-remove");
-    map_feature_from!(add_message, AddMessage, "message-add");
-    map_feature_from!(send_message, SendMessage, "message-send");
-    map_feature_from!(get_messages, GetMessages, "message-get");
-    map_feature_from!(peek_messages, PeekMessages, "message-peek");
-    map_feature_from!(copy_messages, CopyMessages, "message-copy");
-    map_feature_from!(move_messages, MoveMessages, "message-move");
-    map_feature_from!(delete_messages, DeleteMessages, "message-delete");
+    map_feature_from!(add_folder, AddFolder);
+    map_feature_from!(list_folders, ListFolders);
+    map_feature_from!(expunge_folder, ExpungeFolder);
+    map_feature_from!(purge_folder, PurgeFolder);
+    map_feature_from!(delete_folder, DeleteFolder);
+    map_feature_from!(get_envelope, GetEnvelope);
+    map_feature_from!(list_envelopes, ListEnvelopes);
+    map_feature_from!(watch_envelopes, WatchEnvelopes);
+    map_feature_from!(add_flags, AddFlags);
+    map_feature_from!(set_flags, SetFlags);
+    map_feature_from!(remove_flags, RemoveFlags);
+    map_feature_from!(add_message, AddMessage);
+    map_feature_from!(send_message, SendMessage);
+    map_feature_from!(get_messages, GetMessages);
+    map_feature_from!(peek_messages, PeekMessages);
+    map_feature_from!(copy_messages, CopyMessages);
+    map_feature_from!(move_messages, MoveMessages);
+    map_feature_from!(delete_messages, DeleteMessages);
 }
 
 /// Generic implementation for the backend context builder with a
@@ -404,11 +353,11 @@ where
     B: BackendContextBuilder,
     B::Context: BackendContext + 'static,
 {
+    //
 }
 
 macro_rules! context_feature {
-    ($name:tt, $type:tt, $gate:expr) => {
-        #[cfg(feature = $gate)]
+    ($name:tt, $type:tt) => {
         fn $name(&self) -> BackendFeatureBuilder<Self::Context, dyn $type> {
             BackendFeatureBuilder::none()
         }
@@ -432,24 +381,24 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     /// `email::smtp::SmtpContextSync`.
     type Context: BackendContext;
 
-    context_feature!(add_folder, AddFolder, "folder-add");
-    context_feature!(list_folders, ListFolders, "folder-list");
-    context_feature!(expunge_folder, ExpungeFolder, "folder-expunge");
-    context_feature!(purge_folder, PurgeFolder, "folder-purge");
-    context_feature!(delete_folder, DeleteFolder, "folder-delete");
-    context_feature!(list_envelopes, ListEnvelopes, "envelope-list");
-    context_feature!(watch_envelopes, WatchEnvelopes, "envelope-watch");
-    context_feature!(get_envelope, GetEnvelope, "envelope-get");
-    context_feature!(add_flags, AddFlags, "flag-add");
-    context_feature!(set_flags, SetFlags, "flag-set");
-    context_feature!(remove_flags, RemoveFlags, "flag-remove");
-    context_feature!(add_message, AddMessage, "message-add");
-    context_feature!(send_message, SendMessage, "message-send");
-    context_feature!(peek_messages, PeekMessages, "message-peek");
-    context_feature!(get_messages, GetMessages, "message-get");
-    context_feature!(copy_messages, CopyMessages, "message-copy");
-    context_feature!(move_messages, MoveMessages, "message-move");
-    context_feature!(delete_messages, DeleteMessages, "message-delete");
+    context_feature!(add_folder, AddFolder);
+    context_feature!(list_folders, ListFolders);
+    context_feature!(expunge_folder, ExpungeFolder);
+    context_feature!(purge_folder, PurgeFolder);
+    context_feature!(delete_folder, DeleteFolder);
+    context_feature!(list_envelopes, ListEnvelopes);
+    context_feature!(watch_envelopes, WatchEnvelopes);
+    context_feature!(get_envelope, GetEnvelope);
+    context_feature!(add_flags, AddFlags);
+    context_feature!(set_flags, SetFlags);
+    context_feature!(remove_flags, RemoveFlags);
+    context_feature!(add_message, AddMessage);
+    context_feature!(send_message, SendMessage);
+    context_feature!(peek_messages, PeekMessages);
+    context_feature!(get_messages, GetMessages);
+    context_feature!(copy_messages, CopyMessages);
+    context_feature!(move_messages, MoveMessages);
+    context_feature!(delete_messages, DeleteMessages);
 
     /// Build the final context.
     async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context>;
@@ -568,116 +517,80 @@ pub struct BackendBuilder<B: BackendContextBuilder> {
 #[derive(Debug)]
 pub struct FeaturesConfiguration<C: BackendContext> {
     /// The add folder backend feature builder.
-    #[cfg(feature = "folder-add")]
     pub add_folder: FeatureConfiguration<C, dyn AddFolder>,
 
     /// The list folders backend feature builder.
-    #[cfg(feature = "folder-list")]
     pub list_folders: FeatureConfiguration<C, dyn ListFolders>,
 
     /// The expunge folder backend feature builder.
-    #[cfg(feature = "folder-expunge")]
     pub expunge_folder: FeatureConfiguration<C, dyn ExpungeFolder>,
 
     /// The purge folder backend feature builder.
-    #[cfg(feature = "folder-purge")]
     pub purge_folder: FeatureConfiguration<C, dyn PurgeFolder>,
 
     /// The delete folder backend feature builder.
-    #[cfg(feature = "folder-delete")]
     pub delete_folder: FeatureConfiguration<C, dyn DeleteFolder>,
 
     /// The list envelopes backend feature builder.
-    #[cfg(feature = "envelope-list")]
     pub list_envelopes: FeatureConfiguration<C, dyn ListEnvelopes>,
 
     /// The watch envelopes backend feature builder.
-    #[cfg(feature = "envelope-watch")]
     pub watch_envelopes: FeatureConfiguration<C, dyn WatchEnvelopes>,
 
     /// The get envelope backend feature builder.
-    #[cfg(feature = "envelope-get")]
     pub get_envelope: FeatureConfiguration<C, dyn GetEnvelope>,
 
     /// The add flags backend feature builder.
-    #[cfg(feature = "flag-add")]
     pub add_flags: FeatureConfiguration<C, dyn AddFlags>,
 
     /// The set flags backend feature builder.
-    #[cfg(feature = "flag-set")]
     pub set_flags: FeatureConfiguration<C, dyn SetFlags>,
 
     /// The remove flags backend feature builder.
-    #[cfg(feature = "flag-remove")]
     pub remove_flags: FeatureConfiguration<C, dyn RemoveFlags>,
 
     /// The add message backend feature builder.
-    #[cfg(feature = "message-add")]
     pub add_message: FeatureConfiguration<C, dyn AddMessage>,
 
     /// The send message backend feature builder.
-    #[cfg(feature = "message-send")]
     pub send_message: FeatureConfiguration<C, dyn SendMessage>,
 
     /// The peek messages backend feature builder.
-    #[cfg(feature = "message-peek")]
     pub peek_messages: FeatureConfiguration<C, dyn PeekMessages>,
 
     /// The get messages backend feature builder.
-    #[cfg(feature = "message-get")]
     pub get_messages: FeatureConfiguration<C, dyn GetMessages>,
 
     /// The copy messages backend feature builder.
-    #[cfg(feature = "message-copy")]
     pub copy_messages: FeatureConfiguration<C, dyn CopyMessages>,
 
     /// The move messages backend feature builder.
-    #[cfg(feature = "message-move")]
     pub move_messages: FeatureConfiguration<C, dyn MoveMessages>,
 
     /// The delete messages backend feature builder.
-    #[cfg(feature = "message-delete")]
     pub delete_messages: FeatureConfiguration<C, dyn DeleteMessages>,
 }
 
 impl<C: BackendContext> FeaturesConfiguration<C> {
     pub fn disabled() -> Self {
         Self {
-            #[cfg(feature = "folder-add")]
             add_folder: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "folder-list")]
             list_folders: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "folder-expunge")]
             expunge_folder: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "folder-purge")]
             purge_folder: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "folder-delete")]
             delete_folder: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "envelope-list")]
             list_envelopes: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "envelope-watch")]
             watch_envelopes: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "envelope-get")]
             get_envelope: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "flag-add")]
             add_flags: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "flag-set")]
             set_flags: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "flag-remove")]
             remove_flags: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "message-add")]
             add_message: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "message-send")]
             send_message: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "message-peek")]
             peek_messages: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "message-get")]
             get_messages: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "message-copy")]
             copy_messages: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "message-move")]
             move_messages: FeatureConfiguration::FeatureDisabled,
-            #[cfg(feature = "message-delete")]
             delete_messages: FeatureConfiguration::FeatureDisabled,
         }
     }
@@ -687,41 +600,23 @@ impl<C: BackendContext> FeaturesConfiguration<C> {
 impl<C: BackendContext> Clone for FeaturesConfiguration<C> {
     fn clone(&self) -> Self {
         Self {
-            #[cfg(feature = "folder-add")]
             add_folder: self.add_folder.clone(),
-            #[cfg(feature = "folder-list")]
             list_folders: self.list_folders.clone(),
-            #[cfg(feature = "folder-expunge")]
             expunge_folder: self.expunge_folder.clone(),
-            #[cfg(feature = "folder-purge")]
             purge_folder: self.purge_folder.clone(),
-            #[cfg(feature = "folder-delete")]
             delete_folder: self.delete_folder.clone(),
-            #[cfg(feature = "envelope-list")]
             list_envelopes: self.list_envelopes.clone(),
-            #[cfg(feature = "envelope-watch")]
             watch_envelopes: self.watch_envelopes.clone(),
-            #[cfg(feature = "envelope-get")]
             get_envelope: self.get_envelope.clone(),
-            #[cfg(feature = "flag-add")]
             add_flags: self.add_flags.clone(),
-            #[cfg(feature = "flag-set")]
             set_flags: self.set_flags.clone(),
-            #[cfg(feature = "flag-remove")]
             remove_flags: self.remove_flags.clone(),
-            #[cfg(feature = "message-add")]
             add_message: self.add_message.clone(),
-            #[cfg(feature = "message-send")]
             send_message: self.send_message.clone(),
-            #[cfg(feature = "message-peek")]
             peek_messages: self.peek_messages.clone(),
-            #[cfg(feature = "message-get")]
             get_messages: self.get_messages.clone(),
-            #[cfg(feature = "message-copy")]
             copy_messages: self.copy_messages.clone(),
-            #[cfg(feature = "message-move")]
             move_messages: self.move_messages.clone(),
-            #[cfg(feature = "message-delete")]
             delete_messages: self.delete_messages.clone(),
         }
     }
@@ -730,50 +625,31 @@ impl<C: BackendContext> Clone for FeaturesConfiguration<C> {
 impl<C: BackendContext> Default for FeaturesConfiguration<C> {
     fn default() -> Self {
         Self {
-            #[cfg(feature = "folder-add")]
             add_folder: FeatureConfiguration::default(),
-            #[cfg(feature = "folder-list")]
             list_folders: FeatureConfiguration::default(),
-            #[cfg(feature = "folder-expunge")]
             expunge_folder: FeatureConfiguration::default(),
-            #[cfg(feature = "folder-purge")]
             purge_folder: FeatureConfiguration::default(),
-            #[cfg(feature = "folder-delete")]
             delete_folder: FeatureConfiguration::default(),
-            #[cfg(feature = "envelope-list")]
             list_envelopes: FeatureConfiguration::default(),
-            #[cfg(feature = "envelope-watch")]
             watch_envelopes: FeatureConfiguration::default(),
-            #[cfg(feature = "envelope-get")]
             get_envelope: FeatureConfiguration::default(),
-            #[cfg(feature = "flag-add")]
             add_flags: FeatureConfiguration::default(),
-            #[cfg(feature = "flag-set")]
             set_flags: FeatureConfiguration::default(),
-            #[cfg(feature = "flag-remove")]
             remove_flags: FeatureConfiguration::default(),
-            #[cfg(feature = "message-add")]
             add_message: FeatureConfiguration::default(),
-            #[cfg(feature = "message-send")]
             send_message: FeatureConfiguration::default(),
-            #[cfg(feature = "message-peek")]
             peek_messages: FeatureConfiguration::default(),
-            #[cfg(feature = "message-get")]
             get_messages: FeatureConfiguration::default(),
-            #[cfg(feature = "message-copy")]
             copy_messages: FeatureConfiguration::default(),
-            #[cfg(feature = "message-move")]
             move_messages: FeatureConfiguration::default(),
-            #[cfg(feature = "message-delete")]
             delete_messages: FeatureConfiguration::default(),
         }
     }
 }
 
 macro_rules! feature_config {
-    ($name:tt, $type:ty, $gate:expr) => {
+    ($name:tt, $type:ty) => {
         paste::paste! {
-            #[cfg(feature = $gate)]
             pub fn [< set_ $name >](
                 &mut self,
                 f: impl Into<FeatureConfiguration<B::Context, dyn $type>>,
@@ -781,7 +657,6 @@ macro_rules! feature_config {
                 self.features.$name = f.into();
             }
 
-            #[cfg(feature = $gate)]
             pub fn [< with_ $name>](
                 mut self,
                 f: impl Into<FeatureConfiguration<B::Context, dyn $type>>,
@@ -790,7 +665,6 @@ macro_rules! feature_config {
                 self
             }
 
-            #[cfg(feature = $gate)]
             pub fn [< with_disabled_ $name>](
                 mut self,
             ) -> Self {
@@ -798,7 +672,6 @@ macro_rules! feature_config {
                 self
             }
 
-            #[cfg(feature = $gate)]
             pub fn [< with_context_default_ $name >](
                 mut self,
             ) -> Self {
@@ -838,24 +711,24 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
         self
     }
 
-    feature_config!(add_folder, AddFolder, "folder-add");
-    feature_config!(list_folders, ListFolders, "folder-list");
-    feature_config!(expunge_folder, ExpungeFolder, "folder-expunge");
-    feature_config!(purge_folder, PurgeFolder, "folder-purge");
-    feature_config!(delete_folder, DeleteFolder, "folder-delete");
-    feature_config!(list_envelopes, ListEnvelopes, "envelope-list");
-    feature_config!(watch_envelopes, WatchEnvelopes, "envelope-watch");
-    feature_config!(get_envelope, GetEnvelope, "envelope-get");
-    feature_config!(add_flags, AddFlags, "flag-add");
-    feature_config!(set_flags, SetFlags, "flag-set");
-    feature_config!(remove_flags, RemoveFlags, "flag-remove");
-    feature_config!(add_message, AddMessage, "message-add");
-    feature_config!(send_message, SendMessage, "message-send");
-    feature_config!(peek_messages, PeekMessages, "message-peek");
-    feature_config!(get_messages, GetMessages, "message-get");
-    feature_config!(copy_messages, CopyMessages, "message-copy");
-    feature_config!(move_messages, MoveMessages, "message-move");
-    feature_config!(delete_messages, DeleteMessages, "message-delete");
+    feature_config!(add_folder, AddFolder);
+    feature_config!(list_folders, ListFolders);
+    feature_config!(expunge_folder, ExpungeFolder);
+    feature_config!(purge_folder, PurgeFolder);
+    feature_config!(delete_folder, DeleteFolder);
+    feature_config!(list_envelopes, ListEnvelopes);
+    feature_config!(watch_envelopes, WatchEnvelopes);
+    feature_config!(get_envelope, GetEnvelope);
+    feature_config!(add_flags, AddFlags);
+    feature_config!(set_flags, SetFlags);
+    feature_config!(remove_flags, RemoveFlags);
+    feature_config!(add_message, AddMessage);
+    feature_config!(send_message, SendMessage);
+    feature_config!(peek_messages, PeekMessages);
+    feature_config!(get_messages, GetMessages);
+    feature_config!(copy_messages, CopyMessages);
+    feature_config!(move_messages, MoveMessages);
+    feature_config!(delete_messages, DeleteMessages);
 
     /// Build the final backend.
     pub async fn build(self) -> Result<Backend<B::Context>> {
@@ -867,9 +740,8 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
         let mut backend = Backend::new(self.account_config, context);
 
         macro_rules! build_feature {
-            ($name:tt, $gate:expr) => {
+            ($name:tt) => {
                 paste::paste! {
-                    #[cfg(feature = $gate)]
                     backend.[<set_ $name>](
                         self
                         .features
@@ -881,24 +753,24 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
             };
         }
 
-        build_feature!(add_folder, "folder-add");
-        build_feature!(list_folders, "folder-list");
-        build_feature!(expunge_folder, "folder-expunge");
-        build_feature!(purge_folder, "folder-purge");
-        build_feature!(delete_folder, "folder-delete");
-        build_feature!(list_envelopes, "envelope-list");
-        build_feature!(watch_envelopes, "envelope-watch");
-        build_feature!(get_envelope, "envelope-get");
-        build_feature!(add_flags, "flag-add");
-        build_feature!(set_flags, "flag-set");
-        build_feature!(remove_flags, "flag-remove");
-        build_feature!(add_message, "message-add");
-        build_feature!(send_message, "message-send");
-        build_feature!(peek_messages, "message-peek");
-        build_feature!(get_messages, "message-get");
-        build_feature!(copy_messages, "message-copy");
-        build_feature!(move_messages, "message-move");
-        build_feature!(delete_messages, "message-delete");
+        build_feature!(add_folder);
+        build_feature!(list_folders);
+        build_feature!(expunge_folder);
+        build_feature!(purge_folder);
+        build_feature!(delete_folder);
+        build_feature!(list_envelopes);
+        build_feature!(watch_envelopes);
+        build_feature!(get_envelope);
+        build_feature!(add_flags);
+        build_feature!(set_flags);
+        build_feature!(remove_flags);
+        build_feature!(add_message);
+        build_feature!(send_message);
+        build_feature!(peek_messages);
+        build_feature!(get_messages);
+        build_feature!(copy_messages);
+        build_feature!(move_messages);
+        build_feature!(delete_messages);
 
         Ok(backend)
     }
@@ -926,75 +798,57 @@ pub struct Backend<C: BackendContext> {
     pub context: C,
 
     /// The optional add folder feature.
-    #[cfg(feature = "folder-add")]
     pub add_folder: BackendFeature<dyn AddFolder>,
 
     /// The optional list folders feature.
-    #[cfg(feature = "folder-list")]
     pub list_folders: BackendFeature<dyn ListFolders>,
 
     /// The optional expunge folder feature.
-    #[cfg(feature = "folder-expunge")]
     pub expunge_folder: BackendFeature<dyn ExpungeFolder>,
 
     /// The optional purge folder feature.
-    #[cfg(feature = "folder-purge")]
     pub purge_folder: BackendFeature<dyn PurgeFolder>,
 
     /// The optional delete folder feature.
-    #[cfg(feature = "folder-delete")]
     pub delete_folder: BackendFeature<dyn DeleteFolder>,
 
     /// The optional list envelopes feature.
-    #[cfg(feature = "envelope-list")]
     pub list_envelopes: BackendFeature<dyn ListEnvelopes>,
 
     /// The optional watch envelopes feature.
-    #[cfg(feature = "envelope-watch")]
     pub watch_envelopes: BackendFeature<dyn WatchEnvelopes>,
 
     /// The optional get envelope feature.
-    #[cfg(feature = "envelope-get")]
     pub get_envelope: BackendFeature<dyn GetEnvelope>,
 
     /// The optional add flags feature.
-    #[cfg(feature = "flag-add")]
     pub add_flags: BackendFeature<dyn AddFlags>,
 
     /// The optional set flags feature.
-    #[cfg(feature = "flag-set")]
     pub set_flags: BackendFeature<dyn SetFlags>,
 
     /// The optional remove flags feature.
-    #[cfg(feature = "flag-remove")]
     pub remove_flags: BackendFeature<dyn RemoveFlags>,
 
     /// The optional add message feature.
-    #[cfg(feature = "message-add")]
     pub add_message: BackendFeature<dyn AddMessage>,
 
     /// The optional send message feature.
-    #[cfg(feature = "message-send")]
     pub send_message: BackendFeature<dyn SendMessage>,
 
     /// The optional peek messages feature.
-    #[cfg(feature = "message-peek")]
     pub peek_messages: BackendFeature<dyn PeekMessages>,
 
     /// The optional get messages feature.
-    #[cfg(feature = "message-get")]
     pub get_messages: BackendFeature<dyn GetMessages>,
 
     /// The optional copy messages feature.
-    #[cfg(feature = "message-copy")]
     pub copy_messages: BackendFeature<dyn CopyMessages>,
 
     /// The optional move messages feature.
-    #[cfg(feature = "message-move")]
     pub move_messages: BackendFeature<dyn MoveMessages>,
 
     /// The optional delete messages feature.
-    #[cfg(feature = "message-delete")]
     pub delete_messages: BackendFeature<dyn DeleteMessages>,
 }
 
@@ -1006,172 +860,154 @@ impl<C: BackendContext> Backend<C> {
             account_config,
             context,
 
-            #[cfg(feature = "folder-add")]
             add_folder: None,
 
-            #[cfg(feature = "folder-list")]
             list_folders: None,
 
-            #[cfg(feature = "folder-expunge")]
             expunge_folder: None,
 
-            #[cfg(feature = "folder-purge")]
             purge_folder: None,
 
-            #[cfg(feature = "folder-delete")]
             delete_folder: None,
 
-            #[cfg(feature = "envelope-list")]
             list_envelopes: None,
 
-            #[cfg(feature = "envelope-watch")]
             watch_envelopes: None,
 
-            #[cfg(feature = "envelope-get")]
             get_envelope: None,
 
-            #[cfg(feature = "flag-add")]
             add_flags: None,
 
-            #[cfg(feature = "flag-set")]
             set_flags: None,
 
-            #[cfg(feature = "flag-remove")]
             remove_flags: None,
 
-            #[cfg(feature = "message-add")]
             add_message: None,
 
-            #[cfg(feature = "message-send")]
             send_message: None,
 
-            #[cfg(feature = "message-peek")]
             peek_messages: None,
 
-            #[cfg(feature = "message-get")]
             get_messages: None,
 
-            #[cfg(feature = "message-copy")]
             copy_messages: None,
 
-            #[cfg(feature = "message-move")]
             move_messages: None,
 
-            #[cfg(feature = "message-delete")]
             delete_messages: None,
         }
     }
 
     /// Set the add folder backend feature.
-    #[cfg(feature = "folder-add")]
+
     pub fn set_add_folder(&mut self, f: BackendFeature<dyn AddFolder>) {
         self.add_folder = f;
     }
 
     /// Set the list folders backend feature.
-    #[cfg(feature = "folder-list")]
+
     pub fn set_list_folders(&mut self, f: BackendFeature<dyn ListFolders>) {
         self.list_folders = f;
     }
     /// Set the expunge folder backend feature.
-    #[cfg(feature = "folder-expunge")]
+
     pub fn set_expunge_folder(&mut self, f: BackendFeature<dyn ExpungeFolder>) {
         self.expunge_folder = f;
     }
 
     /// Set the purge folder backend feature.
-    #[cfg(feature = "folder-purge")]
+
     pub fn set_purge_folder(&mut self, f: BackendFeature<dyn PurgeFolder>) {
         self.purge_folder = f;
     }
 
     /// Set the delete folder backend feature.
-    #[cfg(feature = "folder-delete")]
+
     pub fn set_delete_folder(&mut self, f: BackendFeature<dyn DeleteFolder>) {
         self.delete_folder = f;
     }
 
     /// Set the list envelopes backend feature.
-    #[cfg(feature = "envelope-list")]
+
     pub fn set_list_envelopes(&mut self, f: BackendFeature<dyn ListEnvelopes>) {
         self.list_envelopes = f;
     }
 
     /// Set the watch envelopes backend feature.
-    #[cfg(feature = "envelope-watch")]
+
     pub fn set_watch_envelopes(&mut self, f: BackendFeature<dyn WatchEnvelopes>) {
         self.watch_envelopes = f;
     }
 
     /// Set the get envelope backend feature.
-    #[cfg(feature = "envelope-get")]
+
     pub fn set_get_envelope(&mut self, f: BackendFeature<dyn GetEnvelope>) {
         self.get_envelope = f;
     }
 
     /// Set the add flags backend feature.
-    #[cfg(feature = "flag-add")]
+
     pub fn set_add_flags(&mut self, f: BackendFeature<dyn AddFlags>) {
         self.add_flags = f;
     }
 
     /// Set the set flags backend feature.
-    #[cfg(feature = "flag-set")]
+
     pub fn set_set_flags(&mut self, f: BackendFeature<dyn SetFlags>) {
         self.set_flags = f;
     }
 
     /// Set the remove flags backend feature.
-    #[cfg(feature = "flag-remove")]
+
     pub fn set_remove_flags(&mut self, f: BackendFeature<dyn RemoveFlags>) {
         self.remove_flags = f;
     }
 
     /// Set the add message backend feature.
-    #[cfg(feature = "message-add")]
+
     pub fn set_add_message(&mut self, f: BackendFeature<dyn AddMessage>) {
         self.add_message = f;
     }
 
     /// Set the send message backend feature.
-    #[cfg(feature = "message-send")]
+
     pub fn set_send_message(&mut self, f: BackendFeature<dyn SendMessage>) {
         self.send_message = f;
     }
 
     /// Set the peek messages backend feature.
-    #[cfg(feature = "message-peek")]
+
     pub fn set_peek_messages(&mut self, f: BackendFeature<dyn PeekMessages>) {
         self.peek_messages = f;
     }
 
     /// Set the get messages backend feature.
-    #[cfg(feature = "message-get")]
+
     pub fn set_get_messages(&mut self, f: BackendFeature<dyn GetMessages>) {
         self.get_messages = f;
     }
 
     /// Set the copy messages backend feature.
-    #[cfg(feature = "message-copy")]
+
     pub fn set_copy_messages(&mut self, f: BackendFeature<dyn CopyMessages>) {
         self.copy_messages = f;
     }
 
     /// Set the move messages backend feature.
-    #[cfg(feature = "message-move")]
+
     pub fn set_move_messages(&mut self, f: BackendFeature<dyn MoveMessages>) {
         self.move_messages = f;
     }
 
     /// Set the delete messages backend feature.
-    #[cfg(feature = "message-delete")]
+
     pub fn set_delete_messages(&mut self, f: BackendFeature<dyn DeleteMessages>) {
         self.delete_messages = f;
     }
 
     /// Call the add folder feature, returning an error if the feature
     /// is not defined.
-    #[cfg(feature = "folder-add")]
+
     pub async fn add_folder(&self, folder: &str) -> Result<()> {
         self.add_folder
             .as_ref()
@@ -1182,7 +1018,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the list folders feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "folder-list")]
+
     pub async fn list_folders(&self) -> Result<Folders> {
         self.list_folders
             .as_ref()
@@ -1193,7 +1029,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the expunge folder feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "folder-expunge")]
+
     pub async fn expunge_folder(&self, folder: &str) -> Result<()> {
         self.expunge_folder
             .as_ref()
@@ -1204,7 +1040,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the purge folder feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "folder-purge")]
+
     pub async fn purge_folder(&self, folder: &str) -> Result<()> {
         self.purge_folder
             .as_ref()
@@ -1215,7 +1051,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the delete folder feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "folder-delete")]
+
     pub async fn delete_folder(&self, folder: &str) -> Result<()> {
         self.delete_folder
             .as_ref()
@@ -1226,7 +1062,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the list envelopes feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "envelope-list")]
+
     pub async fn list_envelopes(
         &self,
         folder: &str,
@@ -1242,7 +1078,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the watch envelopes feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "envelope-watch")]
+
     pub async fn watch_envelopes(&self, folder: &str) -> Result<()> {
         self.watch_envelopes
             .as_ref()
@@ -1253,7 +1089,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the get envelope feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "envelope-get")]
+
     pub async fn get_envelope(&self, folder: &str, id: &Id) -> Result<Envelope> {
         self.get_envelope
             .as_ref()
@@ -1264,7 +1100,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the add flags feature, returning an error if the feature
     /// is not defined.
-    #[cfg(feature = "flag-add")]
+
     pub async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         self.add_flags
             .as_ref()
@@ -1275,7 +1111,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the add flag feature, returning an error if the feature
     /// is not defined.
-    #[cfg(feature = "flag-add")]
+
     pub async fn add_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
         self.add_flags
             .as_ref()
@@ -1286,7 +1122,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the set flags feature, returning an error if the feature
     /// is not defined.
-    #[cfg(feature = "flag-set")]
+
     pub async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         self.set_flags
             .as_ref()
@@ -1297,7 +1133,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the set flag feature, returning an error if the feature
     /// is not defined.
-    #[cfg(feature = "flag-set")]
+
     pub async fn set_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
         self.set_flags
             .as_ref()
@@ -1308,7 +1144,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the remove flags feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "flag-remove")]
+
     pub async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
         self.remove_flags
             .as_ref()
@@ -1319,7 +1155,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the remove flag feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "flag-remove")]
+
     pub async fn remove_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
         self.remove_flags
             .as_ref()
@@ -1330,7 +1166,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the add message with flags feature, returning an error if
     /// the feature is not defined.
-    #[cfg(feature = "message-add")]
+
     pub async fn add_message_with_flags(
         &self,
         folder: &str,
@@ -1346,7 +1182,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the add message with flag feature, returning an error if
     /// the feature is not defined.
-    #[cfg(feature = "message-add")]
+
     pub async fn add_message_with_flag(
         &self,
         folder: &str,
@@ -1362,7 +1198,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the add message feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "message-add")]
+
     pub async fn add_message(&self, folder: &str, raw_msg: &[u8]) -> Result<SingleId> {
         self.add_message
             .as_ref()
@@ -1373,7 +1209,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the send message feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "message-send")]
+
     pub async fn send_message(&self, msg: &[u8]) -> Result<()> {
         self.send_message
             .as_ref()
@@ -1381,7 +1217,6 @@ impl<C: BackendContext> Backend<C> {
             .send_message(msg)
             .await?;
 
-        #[cfg(feature = "message-add")]
         if self.account_config.should_save_copy_sent_message() {
             let folder = self.account_config.get_sent_folder_alias();
             log::debug!("saving copy of sent message to {folder}");
@@ -1393,7 +1228,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the peek messages feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "message-peek")]
+
     pub async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
         self.peek_messages
             .as_ref()
@@ -1404,7 +1239,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the get messages feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "message-get")]
+
     pub async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
         self.get_messages
             .as_ref()
@@ -1415,7 +1250,7 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the copy messages feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "message-copy")]
+
     pub async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         self.copy_messages
             .as_ref()
@@ -1426,7 +1261,6 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the move messages feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "message-move")]
     pub async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
         self.move_messages
             .as_ref()
@@ -1437,7 +1271,6 @@ impl<C: BackendContext> Backend<C> {
 
     /// Call the delete messages feature, returning an error if the
     /// feature is not defined.
-    #[cfg(feature = "message-delete")]
     pub async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
         self.delete_messages
             .as_ref()

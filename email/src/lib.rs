@@ -53,6 +53,7 @@ pub mod backend;
 pub mod config;
 pub mod email;
 pub mod folder;
+
 #[cfg(feature = "imap")]
 pub mod imap;
 #[cfg(feature = "maildir")]
@@ -63,7 +64,8 @@ pub mod notmuch;
 pub mod sendmail;
 #[cfg(feature = "smtp")]
 pub mod smtp;
-#[cfg(feature = "sync")]
+
+#[cfg(feature = "account-sync")]
 pub mod sync;
 pub mod thread_pool;
 pub mod watch;

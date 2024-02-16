@@ -4,11 +4,10 @@ use async_trait::async_trait;
 use log::info;
 use std::sync::Arc;
 
-#[cfg(feature = "message-send")]
-use crate::message::send::{sendmail::SendSendmailMessage, SendMessage};
 use crate::{
     account::config::AccountConfig,
     backend::{BackendContext, BackendContextBuilder, BackendFeatureBuilder},
+    message::send::{sendmail::SendSendmailMessage, SendMessage},
     Result,
 };
 
@@ -49,7 +48,6 @@ impl SendmailContextBuilder {
 impl BackendContextBuilder for SendmailContextBuilder {
     type Context = SendmailContextSync;
 
-    #[cfg(feature = "message-send")]
     fn send_message(&self) -> BackendFeatureBuilder<Self::Context, dyn SendMessage> {
         BackendFeatureBuilder::new(SendSendmailMessage::some_new_boxed)
     }

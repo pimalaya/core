@@ -3,7 +3,6 @@
 //! This module contains everything to serialize and deserialize email
 //! envelope flags.
 
-#[cfg(feature = "flag-add")]
 pub mod add;
 #[cfg(feature = "imap")]
 pub mod imap;
@@ -11,10 +10,9 @@ pub mod imap;
 pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;
-#[cfg(feature = "flag-remove")]
 pub mod remove;
-#[cfg(feature = "flag-set")]
 pub mod set;
+
 #[cfg(feature = "account-sync")]
 mod sync;
 

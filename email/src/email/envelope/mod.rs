@@ -7,23 +7,18 @@
 pub mod address;
 pub mod config;
 pub mod flag;
-#[cfg(feature = "envelope-get")]
 pub mod get;
 pub mod id;
 #[cfg(feature = "imap")]
 pub mod imap;
-#[cfg(feature = "envelope-list")]
 pub mod list;
 #[cfg(feature = "maildir")]
 pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;
-#[cfg(feature = "envelope-watch")]
 pub mod watch;
 
-#[cfg(feature = "envelope-list")]
-use chrono::Local;
-use chrono::{DateTime, FixedOffset, TimeZone};
+use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::debug;
 use std::{
     hash::{Hash, Hasher},
@@ -31,9 +26,7 @@ use std::{
     vec,
 };
 
-#[cfg(feature = "envelope-list")]
-use crate::account::config::AccountConfig;
-use crate::message::Message;
+use crate::{account::config::AccountConfig, message::Message};
 
 #[doc(inline)]
 pub use self::{
@@ -161,7 +154,6 @@ impl Envelope {
         }
     }
 
-    #[cfg(feature = "envelope-list")]
     /// Format the envelope date according to the datetime format and
     /// timezone from the [account configuration](crate::AccountConfig).
     pub fn format_date(&self, config: &AccountConfig) -> String {

@@ -12,11 +12,10 @@ use thiserror::Error;
 use tokio::{net::TcpStream, sync::Mutex};
 use tokio_rustls::client::TlsStream;
 
-#[cfg(feature = "message-send")]
-use crate::message::send::{smtp::SendSmtpMessage, SendMessage};
 use crate::{
     account::config::AccountConfig,
     backend::{BackendContext, BackendContextBuilder, BackendFeatureBuilder},
+    message::send::{smtp::SendSmtpMessage, SendMessage},
     Result,
 };
 
@@ -139,7 +138,6 @@ impl SmtpContextBuilder {
 impl BackendContextBuilder for SmtpContextBuilder {
     type Context = SmtpContextSync;
 
-    #[cfg(feature = "message-send")]
     fn send_message(&self) -> BackendFeatureBuilder<Self::Context, dyn SendMessage> {
         BackendFeatureBuilder::new(SendSmtpMessage::some_new_boxed)
     }

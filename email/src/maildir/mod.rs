@@ -7,46 +7,36 @@ use shellexpand_utils::{shellexpand_path, try_shellexpand_path};
 use std::{ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
-#[cfg(feature = "envelope-get")]
-use crate::envelope::get::{maildir::GetMaildirEnvelope, GetEnvelope};
-#[cfg(feature = "envelope-list")]
-use crate::envelope::list::{maildir::ListMaildirEnvelopes, ListEnvelopes};
-#[cfg(feature = "envelope-watch")]
-use crate::envelope::watch::{maildir::WatchMaildirEnvelopes, WatchEnvelopes};
-#[cfg(feature = "flag-add")]
-use crate::flag::add::{maildir::AddMaildirFlags, AddFlags};
-#[cfg(feature = "flag-remove")]
-use crate::flag::remove::{maildir::RemoveMaildirFlags, RemoveFlags};
-#[cfg(feature = "flag-set")]
-use crate::flag::set::{maildir::SetMaildirFlags, SetFlags};
-#[cfg(feature = "folder-add")]
-use crate::folder::add::{maildir::AddMaildirFolder, AddFolder};
-#[cfg(feature = "folder-delete")]
-use crate::folder::delete::{maildir::DeleteMaildirFolder, DeleteFolder};
-#[cfg(feature = "folder-expunge")]
-use crate::folder::expunge::{maildir::ExpungeMaildirFolder, ExpungeFolder};
-// TODO
-// #[cfg(feature = "folder-purge")]
-// use crate::folder::purge::{maildir::PurgeMaildirFolder, PurgeFolder};
-#[cfg(feature = "folder-list")]
-use crate::folder::list::{maildir::ListMaildirFolders, ListFolders};
-#[cfg(feature = "message-add")]
-use crate::message::add::{maildir::AddMaildirMessage, AddMessage};
-#[cfg(feature = "message-copy")]
-use crate::message::copy::{maildir::CopyMaildirMessages, CopyMessages};
-#[cfg(feature = "message-delete")]
-use crate::message::delete::{maildir::DeleteMaildirMessages, DeleteMessages};
-#[cfg(feature = "message-get")]
-use crate::message::get::{maildir::GetMaildirMessages, GetMessages};
-#[cfg(feature = "message-peek")]
-use crate::message::peek::{maildir::PeekMaildirMessages, PeekMessages};
-#[cfg(feature = "message-move")]
-use crate::message::r#move::{maildir::MoveMaildirMessages, MoveMessages};
 use crate::{
     account::config::AccountConfig,
     backend::{BackendContext, BackendContextBuilder, BackendFeatureBuilder},
-    folder::FolderKind,
-    maildir, Result,
+    envelope::{
+        get::{maildir::GetMaildirEnvelope, GetEnvelope},
+        list::{maildir::ListMaildirEnvelopes, ListEnvelopes},
+        watch::{maildir::WatchMaildirEnvelopes, WatchEnvelopes},
+    },
+    flag::{
+        add::{maildir::AddMaildirFlags, AddFlags},
+        remove::{maildir::RemoveMaildirFlags, RemoveFlags},
+        set::{maildir::SetMaildirFlags, SetFlags},
+    },
+    folder::{
+        add::{maildir::AddMaildirFolder, AddFolder},
+        delete::{maildir::DeleteMaildirFolder, DeleteFolder},
+        expunge::{maildir::ExpungeMaildirFolder, ExpungeFolder},
+        list::{maildir::ListMaildirFolders, ListFolders},
+        FolderKind,
+    },
+    maildir,
+    message::{
+        add::{maildir::AddMaildirMessage, AddMessage},
+        copy::{maildir::CopyMaildirMessages, CopyMessages},
+        delete::{maildir::DeleteMaildirMessages, DeleteMessages},
+        get::{maildir::GetMaildirMessages, GetMessages},
+        peek::{maildir::PeekMaildirMessages, PeekMessages},
+        r#move::{maildir::MoveMaildirMessages, MoveMessages},
+    },
+    Result,
 };
 
 use self::config::MaildirConfig;
@@ -150,88 +140,72 @@ impl MaildirContextBuilder {
 impl BackendContextBuilder for MaildirContextBuilder {
     type Context = MaildirContextSync;
 
-    #[cfg(feature = "folder-add")]
     fn add_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFolder> {
         BackendFeatureBuilder::new(AddMaildirFolder::some_new_boxed)
     }
 
-    #[cfg(feature = "folder-list")]
     fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
         BackendFeatureBuilder::new(ListMaildirFolders::some_new_boxed)
     }
 
-    #[cfg(feature = "folder-expunge")]
     fn expunge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn ExpungeFolder> {
         BackendFeatureBuilder::new(ExpungeMaildirFolder::some_new_boxed)
     }
 
     // TODO
-    // #[cfg(feature = "folder-purge")]
+    //
     // fn purge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn PurgeFolder> {
     //     BackendFeatureBuilder::new(PurgeMaildirFolder::some_new_boxed)
     // }
 
-    #[cfg(feature = "folder-delete")]
     fn delete_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteFolder> {
         BackendFeatureBuilder::new(DeleteMaildirFolder::some_new_boxed)
     }
 
-    #[cfg(feature = "envelope-list")]
     fn list_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn ListEnvelopes> {
         BackendFeatureBuilder::new(ListMaildirEnvelopes::some_new_boxed)
     }
 
-    #[cfg(feature = "envelope-watch")]
     fn watch_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes> {
         BackendFeatureBuilder::new(WatchMaildirEnvelopes::some_new_boxed)
     }
 
-    #[cfg(feature = "envelope-get")]
     fn get_envelope(&self) -> BackendFeatureBuilder<Self::Context, dyn GetEnvelope> {
         BackendFeatureBuilder::new(GetMaildirEnvelope::some_new_boxed)
     }
 
-    #[cfg(feature = "flag-add")]
     fn add_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFlags> {
         BackendFeatureBuilder::new(AddMaildirFlags::some_new_boxed)
     }
 
-    #[cfg(feature = "flag-set")]
     fn set_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn SetFlags> {
         BackendFeatureBuilder::new(SetMaildirFlags::some_new_boxed)
     }
 
-    #[cfg(feature = "flag-remove")]
     fn remove_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn RemoveFlags> {
         BackendFeatureBuilder::new(RemoveMaildirFlags::some_new_boxed)
     }
 
-    #[cfg(feature = "message-add")]
     fn add_message(&self) -> BackendFeatureBuilder<Self::Context, dyn AddMessage> {
         BackendFeatureBuilder::new(AddMaildirMessage::some_new_boxed)
     }
 
-    #[cfg(feature = "message-get")]
     fn get_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn GetMessages> {
         BackendFeatureBuilder::new(GetMaildirMessages::some_new_boxed)
     }
 
-    #[cfg(feature = "message-peek")]
     fn peek_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn PeekMessages> {
         BackendFeatureBuilder::new(PeekMaildirMessages::some_new_boxed)
     }
 
-    #[cfg(feature = "message-copy")]
     fn copy_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn CopyMessages> {
         BackendFeatureBuilder::new(CopyMaildirMessages::some_new_boxed)
     }
 
-    #[cfg(feature = "message-move")]
     fn move_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn MoveMessages> {
         BackendFeatureBuilder::new(MoveMaildirMessages::some_new_boxed)
     }
 
-    #[cfg(feature = "message-delete")]
     fn delete_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteMessages> {
         BackendFeatureBuilder::new(DeleteMaildirMessages::some_new_boxed)
     }

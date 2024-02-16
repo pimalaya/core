@@ -20,5 +20,5 @@ pub mod utils;
 
 #[doc(inline)]
 pub use self::utils::*;
-#[cfg(feature = "sync")]
+#[cfg(feature = "account-sync")]
 pub(crate) use sync::sync;

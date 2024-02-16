@@ -91,7 +91,6 @@ async fn test_backend_v2() {
     impl BackendContextBuilder for MyContextBuilder {
         type Context = MyContext;
 
-        #[cfg(feature = "folder-list")]
         fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
             self.list_folders_from(self.imap.as_ref())
         }
@@ -163,7 +162,6 @@ async fn test_backend_v2() {
     impl BackendContextBuilder for MyStaticContextBuilder {
         type Context = MyStaticContext;
 
-        #[cfg(feature = "folder-list")]
         fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
             self.list_folders_from(Some(&self.imap))
         }
