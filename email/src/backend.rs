@@ -52,8 +52,6 @@ use crate::message::peek::PeekMessages;
 use crate::message::r#move::MoveMessages;
 #[cfg(feature = "message-send")]
 use crate::message::send::SendMessage;
-#[cfg(feature = "sync")]
-use crate::thread_pool::{ThreadPoolContext, ThreadPoolContextBuilder};
 #[allow(unused)]
 use crate::{
     account::config::AccountConfig,
@@ -62,6 +60,7 @@ use crate::{
     flag::{Flag, Flags},
     folder::Folders,
     message::Messages,
+    thread_pool::{ThreadPool, ThreadPoolBuilder, ThreadPoolContext, ThreadPoolContextBuilder},
     Result,
 };
 
@@ -143,11 +142,6 @@ pub type BackendFeatureBuilder<C, F> = Option<Arc<dyn Fn(&C) -> BackendFeature<F
 /// needs to implement this trait manually or to derive
 /// [`BackendContext`].
 pub trait BackendContext: Send + Sync {
-    //
-}
-
-#[cfg(feature = "sync")]
-impl<C: BackendContext> ThreadPoolContext for Backend<C> {
     //
 }
 
@@ -439,6 +433,7 @@ where
     B: BackendContextBuilder,
     B::Context: BackendContext + 'static,
 {
+    //
 }
 
 /// The backend context builder trait.
@@ -570,7 +565,6 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     async fn build(self) -> Result<Self::Context>;
 }
 
-#[cfg(feature = "sync")]
 #[async_trait]
 impl<B: BackendContextBuilder> ThreadPoolContextBuilder for BackendBuilder<B> {
     type Context = Backend<B::Context>;
@@ -1337,6 +1331,15 @@ impl<B: BackendContextBuilder> BackendBuilder<B> {
 
         Ok(backend)
     }
+
+    /// Build a pool of backends.
+    pub async fn build_pool(self, size: usize) -> Result<BackendPool<B::Context>>
+    where
+        B: 'static,
+    {
+        let pool = ThreadPoolBuilder::new(self).with_size(size).build().await?;
+        Ok(BackendPool(pool))
+    }
 }
 
 impl<B: BackendContextBuilder + Clone> Clone for BackendBuilder<B> {
@@ -1914,6 +1917,281 @@ impl<C: BackendContext> Backend<C> {
             .as_ref()
             .ok_or(Error::DeleteMessagesNotAvailableError)?
             .delete_messages(folder, id)
+            .await
+    }
+}
+
+impl<C: BackendContext> ThreadPoolContext for Backend<C> {
+    //
+}
+
+/// The pool of email backends.
+///
+/// The API is similar to the backend itself, except that features are
+/// executed in a pool, by the first available backend.
+pub struct BackendPool<C: BackendContext>(ThreadPool<Backend<C>>);
+
+impl<C: BackendContext + 'static> BackendPool<C> {
+    /// Call the add folder feature, returning an error if the feature
+    /// is not defined.
+    #[cfg(feature = "folder-add")]
+    pub async fn add_folder(&self, folder: &str) -> Result<()> {
+        let folder = folder.to_owned();
+        self.0
+            .exec(move |b| async move { b.add_folder(&folder).await })
+            .await
+    }
+
+    /// Call the list folders feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "folder-list")]
+    pub async fn list_folders(&self) -> Result<Folders> {
+        self.0.exec(|b| async move { b.list_folders().await }).await
+    }
+
+    /// Call the expunge folder feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "folder-expunge")]
+    pub async fn expunge_folder(&self, folder: &str) -> Result<()> {
+        let folder = folder.to_owned();
+        self.0
+            .exec(move |b| async move { b.expunge_folder(&folder).await })
+            .await
+    }
+
+    /// Call the purge folder feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "folder-purge")]
+    pub async fn purge_folder(&self, folder: &str) -> Result<()> {
+        let folder = folder.to_owned();
+        self.0
+            .exec(move |b| async move { b.purge_folder(&folder).await })
+            .await
+    }
+
+    /// Call the delete folder feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "folder-delete")]
+    pub async fn delete_folder(&self, folder: &str) -> Result<()> {
+        let folder = folder.to_owned();
+        self.0
+            .exec(move |b| async move { b.delete_folder(&folder).await })
+            .await
+    }
+
+    /// Call the list envelopes feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "envelope-list")]
+    pub async fn list_envelopes(
+        &self,
+        folder: &str,
+        page_size: usize,
+        page: usize,
+    ) -> Result<Envelopes> {
+        let folder = folder.to_owned();
+        self.0
+            .exec(move |b| async move { b.list_envelopes(&folder, page_size, page).await })
+            .await
+    }
+
+    /// Call the watch envelopes feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "envelope-watch")]
+    pub async fn watch_envelopes(&self, folder: &str) -> Result<()> {
+        let folder = folder.to_owned();
+        self.0
+            .exec(move |b| async move { b.watch_envelopes(&folder).await })
+            .await
+    }
+
+    /// Call the get envelope feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "envelope-get")]
+    pub async fn get_envelope(&self, folder: &str, id: &Id) -> Result<Envelope> {
+        let folder = folder.to_owned();
+        let id = id.to_owned();
+        self.0
+            .exec(move |b| async move { b.get_envelope(&folder, &id).await })
+            .await
+    }
+
+    /// Call the add flags feature, returning an error if the feature
+    /// is not defined.
+    #[cfg(feature = "flag-add")]
+    pub async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        let folder = folder.to_owned();
+        let id = id.to_owned();
+        let flags = flags.clone();
+        self.0
+            .exec(move |b| async move { b.add_flags(&folder, &id, &flags).await })
+            .await
+    }
+
+    /// Call the add flag feature, returning an error if the feature
+    /// is not defined.
+    #[cfg(feature = "flag-add")]
+    pub async fn add_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
+        let folder = folder.to_owned();
+        let id = id.to_owned();
+        self.0
+            .exec(move |b| async move { b.add_flag(&folder, &id, flag).await })
+            .await
+    }
+
+    /// Call the set flags feature, returning an error if the feature
+    /// is not defined.
+    #[cfg(feature = "flag-set")]
+    pub async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        let folder = folder.to_owned();
+        let id = id.to_owned();
+        let flags = flags.clone();
+        self.0
+            .exec(move |b| async move { b.set_flags(&folder, &id, &flags).await })
+            .await
+    }
+
+    /// Call the set flag feature, returning an error if the feature
+    /// is not defined.
+    #[cfg(feature = "flag-set")]
+    pub async fn set_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
+        let folder = folder.to_owned();
+        let id = id.to_owned();
+        self.0
+            .exec(move |b| async move { b.set_flag(&folder, &id, flag).await })
+            .await
+    }
+
+    /// Call the remove flags feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "flag-remove")]
+    pub async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        let folder = folder.to_owned();
+        let id = id.to_owned();
+        let flags = flags.clone();
+        self.0
+            .exec(move |b| async move { b.remove_flags(&folder, &id, &flags).await })
+            .await
+    }
+
+    /// Call the remove flag feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "flag-remove")]
+    pub async fn remove_flag(&self, folder: &str, id: &Id, flag: Flag) -> Result<()> {
+        let folder = folder.to_owned();
+        let id = id.to_owned();
+        self.0
+            .exec(move |b| async move { b.remove_flag(&folder, &id, flag).await })
+            .await
+    }
+
+    /// Call the add message with flags feature, returning an error if
+    /// the feature is not defined.
+    #[cfg(feature = "message-add")]
+    pub async fn add_message_with_flags(
+        &self,
+        folder: &str,
+        msg: &[u8],
+        flags: &Flags,
+    ) -> Result<SingleId> {
+        let folder = folder.to_owned();
+        let msg = msg.to_owned();
+        let flags = flags.clone();
+        self.0
+            .exec(move |b| async move { b.add_message_with_flags(&folder, &msg, &flags).await })
+            .await
+    }
+
+    /// Call the add message with flag feature, returning an error if
+    /// the feature is not defined.
+    #[cfg(feature = "message-add")]
+    pub async fn add_message_with_flag(
+        &self,
+        folder: &str,
+        msg: &[u8],
+        flag: Flag,
+    ) -> Result<SingleId> {
+        let folder = folder.to_owned();
+        let msg = msg.to_owned();
+        self.0
+            .exec(move |b| async move { b.add_message_with_flag(&folder, &msg, flag).await })
+            .await
+    }
+
+    /// Call the add message feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "message-add")]
+    pub async fn add_message(&self, folder: &str, msg: &[u8]) -> Result<SingleId> {
+        let folder = folder.to_owned();
+        let msg = msg.to_owned();
+        self.0
+            .exec(move |b| async move { b.add_message(&folder, &msg).await })
+            .await
+    }
+
+    /// Call the send message feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "message-send")]
+    pub async fn send_message(&self, msg: &[u8]) -> Result<()> {
+        let msg = msg.to_owned();
+        self.0
+            .exec(move |b| async move { b.send_message(&msg).await })
+            .await
+    }
+
+    /// Call the peek messages feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "message-peek")]
+    pub async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        let folder = folder.to_owned();
+        let id = id.clone();
+        self.0
+            .exec(move |b| async move { b.peek_messages(&folder, &id).await })
+            .await
+    }
+
+    /// Call the get messages feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "message-get")]
+    pub async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        let folder = folder.to_owned();
+        let id = id.clone();
+        self.0
+            .exec(move |b| async move { b.get_messages(&folder, &id).await })
+            .await
+    }
+
+    /// Call the copy messages feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "message-copy")]
+    pub async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+        let from_folder = from_folder.to_owned();
+        let to_folder = to_folder.to_owned();
+        let id = id.clone();
+        self.0
+            .exec(move |b| async move { b.copy_messages(&from_folder, &to_folder, &id).await })
+            .await
+    }
+
+    /// Call the move messages feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "message-move")]
+    pub async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+        let from_folder = from_folder.to_owned();
+        let to_folder = to_folder.to_owned();
+        let id = id.clone();
+        self.0
+            .exec(move |b| async move { b.move_messages(&from_folder, &to_folder, &id).await })
+            .await
+    }
+
+    /// Call the delete messages feature, returning an error if the
+    /// feature is not defined.
+    #[cfg(feature = "message-delete")]
+    pub async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
+        let folder = folder.to_owned();
+        let id = id.clone();
+        self.0
+            .exec(move |b| async move { b.delete_messages(&folder, &id).await })
             .await
     }
 }
