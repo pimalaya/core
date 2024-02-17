@@ -46,7 +46,7 @@ async fn test_notmuch_features() {
         ..Default::default()
     });
 
-    let notmuch_ctx = NotmuchContextBuilder::new(account_config.clone(), notmuch_config.clone());
+    let notmuch_ctx = NotmuchContextBuilder::new(notmuch_config.clone());
     let notmuch = BackendBuilder::new(account_config.clone(), notmuch_ctx)
         .build()
         .await

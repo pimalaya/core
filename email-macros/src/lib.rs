@@ -16,6 +16,18 @@ pub fn derive_backend_context(input: TokenStream) -> TokenStream {
     TokenStream::from(output)
 }
 
+#[proc_macro_derive(BackendContextV2)]
+pub fn derive_backend_context_v2(input: TokenStream) -> TokenStream {
+    let input: DeriveInput = parse_macro_input!(input);
+    let ident = &input.ident;
+
+    let output = quote! {
+        impl email::backend_v2::BackendContext for #ident {}
+    };
+
+    TokenStream::from(output)
+}
+
 // TODO
 // #[proc_macro_derive(EmailBackendContext, attributes(context))]
 // pub fn derive_email_backend_context(input: TokenStream) -> TokenStream {

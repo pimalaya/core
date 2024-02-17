@@ -13,3 +13,6 @@ members = [
   "shellexpand-utils",
   "time",
 ]
+
+[patch.crates-io]
+email-macros = { path = "./email-macros" }

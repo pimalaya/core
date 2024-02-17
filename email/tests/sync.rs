@@ -67,7 +67,7 @@ async fn test_sync() {
 
     // set up left backend (Maildir)
 
-    let left_ctx = MaildirContextBuilder::new(account_config_left.clone(), mdir_config_left);
+    let left_ctx = MaildirContextBuilder::new(mdir_config_left);
     let left_builder = BackendBuilder::new(account_config_left.clone(), left_ctx);
     let left = left_builder.clone().build().await.unwrap();
 

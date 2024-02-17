@@ -139,10 +139,14 @@ impl Deref for ImapContextSync {
 }
 
 impl BackendContext for ImapContextSync {}
+impl crate::backend_v2::BackendContext for ImapContextSync {}
 
 /// The IMAP backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ImapContextBuilder {
+    /// The account configuration.
+    pub account_config: Arc<AccountConfig>,
+
     /// The IMAP configuration.
     pub imap_config: Arc<ImapConfig>,
 
@@ -151,8 +155,9 @@ pub struct ImapContextBuilder {
 }
 
 impl ImapContextBuilder {
-    pub fn new(imap_config: Arc<ImapConfig>) -> Self {
+    pub fn new(account_config: Arc<AccountConfig>, imap_config: Arc<ImapConfig>) -> Self {
         Self {
+            account_config,
             imap_config,
             prebuilt_credentials: None,
         }
@@ -277,6 +282,58 @@ impl BackendContextBuilder for ImapContextBuilder {
 
         Ok(ImapContextSync {
             account_config,
+            imap_config: self.imap_config,
+            inner: Arc::new(Mutex::new(ctx)),
+        })
+    }
+}
+
+#[async_trait]
+impl crate::backend_v2::BackendContextBuilder for ImapContextBuilder {
+    type Context = ImapContextSync;
+
+    fn list_folders(
+        &self,
+    ) -> Option<crate::backend_v2::BackendFeature<Self::Context, dyn ListFolders>> {
+        Some(Arc::new(ListImapFolders::some_new_boxed))
+    }
+
+    async fn build(self) -> Result<Self::Context> {
+        info!("building new imap context");
+
+        let creds = self.prebuilt_credentials.as_ref();
+
+        let session = match &self.imap_config.auth {
+            ImapAuthConfig::Passwd(_) => build_session(&self.imap_config, creds).await,
+            ImapAuthConfig::OAuth2(oauth2_config) => {
+                match build_session(&self.imap_config, creds).await {
+                    Ok(sess) => Ok(sess),
+                    Err(err) => {
+                        let downcast_err = err.downcast_ref::<Error>();
+
+                        if let Some(Error::AuthenticateError(imap::Error::Parse(
+                            imap::error::ParseError::Authentication(_, _),
+                        ))) = downcast_err
+                        {
+                            debug!("error while authenticating user, refreshing access token");
+                            let access_token = oauth2_config.refresh_access_token().await?;
+                            build_session(&self.imap_config, Some(&access_token)).await
+                        } else {
+                            Err(err)
+                        }
+                    }
+                }
+            }
+        }?;
+
+        let ctx = ImapContext {
+            account_config: self.account_config.clone(),
+            imap_config: self.imap_config.clone(),
+            session,
+        };
+
+        Ok(ImapContextSync {
+            account_config: self.account_config,
             imap_config: self.imap_config,
             inner: Arc::new(Mutex::new(ctx)),
         })

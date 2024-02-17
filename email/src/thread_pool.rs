@@ -136,7 +136,7 @@ where
 
     /// Abort pool threads and close the channel.
     pub async fn close(self) {
-        for thread in self.threads {
+        for thread in &self.threads {
             thread.abort()
         }
 

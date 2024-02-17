@@ -120,17 +120,24 @@ impl SmtpContext {
 pub type SmtpContextSync = Arc<Mutex<SmtpContext>>;
 
 impl BackendContext for SmtpContextSync {}
+impl crate::backend_v2::BackendContext for SmtpContextSync {}
 
 /// The SMTP client builder.
 #[derive(Clone)]
 pub struct SmtpContextBuilder {
+    /// The account configuration.
+    pub account_config: Arc<AccountConfig>,
+
     /// The SMTP configuration.
     smtp_config: Arc<SmtpConfig>,
 }
 
 impl SmtpContextBuilder {
-    pub fn new(smtp_config: Arc<SmtpConfig>) -> Self {
-        Self { smtp_config }
+    pub fn new(account_config: Arc<AccountConfig>, smtp_config: Arc<SmtpConfig>) -> Self {
+        Self {
+            account_config,
+            smtp_config,
+        }
     }
 }
 
@@ -163,6 +170,44 @@ impl BackendContextBuilder for SmtpContextBuilder {
 
         let ctx = SmtpContext {
             account_config,
+            smtp_config: self.smtp_config,
+            client_builder,
+            client,
+        };
+
+        Ok(Arc::new(Mutex::new(ctx)))
+    }
+}
+
+#[async_trait]
+impl crate::backend_v2::BackendContextBuilder for SmtpContextBuilder {
+    type Context = SmtpContextSync;
+
+    // fn send_message(&self) -> Option<BackendFeature<Self::Context, dyn SendMessage>> {
+    //     Some(Arc::new(SendSmtpMessage::some_new_boxed))
+    // }
+
+    /// Build an SMTP sync client.
+    ///
+    /// The SMTP client is created at this moment. If the client
+    /// cannot be created using the OAuth 2.0 authentication, the
+    /// access token is refreshed first then a new client is created.
+    async fn build(self) -> Result<Self::Context> {
+        info!("building new smtp context");
+
+        let mut client_builder =
+            SmtpClientBuilder::new(self.smtp_config.host.clone(), self.smtp_config.port)
+                .credentials(self.smtp_config.credentials().await?)
+                .implicit_tls(!self.smtp_config.is_start_tls_encryption_enabled());
+
+        if self.smtp_config.is_encryption_disabled() {
+            client_builder = client_builder.allow_invalid_certs();
+        }
+
+        let (client_builder, client) = build_client(&self.smtp_config, client_builder).await?;
+
+        let ctx = SmtpContext {
+            account_config: self.account_config,
             smtp_config: self.smtp_config,
             client_builder,
             client,

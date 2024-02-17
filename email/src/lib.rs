@@ -50,6 +50,7 @@
 
 pub mod account;
 pub mod backend;
+pub mod backend_v2;
 pub mod config;
 pub mod email;
 pub mod folder;

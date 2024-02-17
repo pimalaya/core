@@ -46,7 +46,7 @@ async fn test_sendmail_features() {
         .await
         .unwrap();
 
-    let sendmail_ctx = SendmailContextBuilder::new(account_config.clone(), sendmail_config);
+    let sendmail_ctx = SendmailContextBuilder::new(sendmail_config);
     let sendmail = BackendBuilder::new(account_config, sendmail_ctx)
         .build()
         .await

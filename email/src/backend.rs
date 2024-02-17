@@ -13,7 +13,6 @@ pub mod macros {
 
 use async_trait::async_trait;
 use paste::paste;
-#[allow(unused)]
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -165,7 +164,7 @@ where
 ///
 /// This is just a marker for other traits. Every backend context
 /// needs to implement this trait manually or to derive
-/// [`BackendContext`].
+/// [`email_macros::BackendContext`].
 pub trait BackendContext: Send + Sync {}
 
 /// Get a context in a context.
@@ -224,13 +223,13 @@ impl<C: BackendContext, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for
 }
 
 macro_rules! map_feature_from {
-    ($name:ty) => {
+    ($feat:ty) => {
         paste! {
-            fn [< $name:snake _from >] (
+            fn [<$feat:snake _from>] (
                 &self,
                 cb: Option<&B>,
-            ) -> BackendFeatureBuilder<Self::Context, dyn $name> {
-                self.map_feature(BackendContextBuilder::[< $name:snake >], cb)
+            ) -> BackendFeatureBuilder<Self::Context, dyn $feat> {
+                self.map_feature(BackendContextBuilder::[<$feat:snake>], cb)
             }
         }
     };
@@ -355,9 +354,9 @@ where
 }
 
 macro_rules! context_feature {
-    ($type:ty) => {
+    ($feat:ty) => {
         paste! {
-            fn [< $type:snake >] (&self) -> BackendFeatureBuilder<Self::Context, dyn $type> {
+            fn [<$feat:snake>] (&self) -> BackendFeatureBuilder<Self::Context, dyn $feat> {
                 BackendFeatureBuilder::none()
             }
         }

@@ -1,14 +1,14 @@
 use async_trait::async_trait;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
-    backend::{
-        macros::BackendContext, BackendBuilder, BackendContextBuilder, BackendFeatureBuilder,
-        FindBackendSubcontext, GetBackendSubcontext, MapBackendFeature,
+    backend_v2::{
+        macros::BackendContextV2, BackendBuilder, BackendContextBuilder, BackendFeature,
+        BackendPool, FindBackendSubcontext, GetBackendSubcontext, MapBackendFeature,
     },
     folder::{
         config::FolderConfig,
         list::{imap::ListImapFolders, ListFolders},
-        Folders, SENT,
+        Folder, FolderKind, Folders, SENT,
     },
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
@@ -24,7 +24,7 @@ use secret::Secret;
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 #[tokio::test]
-async fn test_backend() {
+async fn test_backend_v2() {
     env_logger::builder().is_test(true).init();
 
     let account_config = Arc::new(AccountConfig {
@@ -57,7 +57,7 @@ async fn test_backend() {
 
     // 1. define custom context
 
-    #[derive(BackendContext)]
+    #[derive(BackendContextV2)]
     struct MyContext {
         imap: Option<ImapContextSync>,
         smtp: Option<SmtpContextSync>,
@@ -91,18 +91,18 @@ async fn test_backend() {
     impl BackendContextBuilder for MyContextBuilder {
         type Context = MyContext;
 
-        fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
+        fn list_folders(&self) -> Option<BackendFeature<Self::Context, dyn ListFolders>> {
             self.list_folders_from(self.imap.as_ref())
         }
 
-        async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
+        async fn build(self) -> Result<Self::Context> {
             let imap = match self.imap {
-                Some(imap) => Some(imap.build(account_config.clone()).await?),
+                Some(imap) => Some(imap.build().await?),
                 None => None,
             };
 
             let smtp = match self.smtp {
-                Some(smtp) => Some(smtp.build(account_config).await?),
+                Some(smtp) => Some(smtp.build().await?),
                 None => None,
             };
 
@@ -120,15 +120,25 @@ async fn test_backend() {
         smtp: None,
     };
     let backend_builder = BackendBuilder::new(account_config.clone(), ctx_builder);
-    let backend = backend_builder.build().await.unwrap();
+    let backend: BackendPool<MyContext> = backend_builder.build().await.unwrap();
+    let folders = backend.list_folders().await.unwrap();
 
-    assert!(backend.list_folders().await.is_ok());
+    assert_eq!(
+        folders,
+        Folders::from_iter([Folder {
+            kind: Some(FolderKind::Inbox),
+            name: "INBOX".into(),
+            desc: "".into()
+        }])
+    );
+
+    drop(backend);
 
     // TEST STATIC BACKEND
 
     // 1. define custom context made of subcontexts
 
-    #[derive(BackendContext)]
+    #[derive(BackendContextV2)]
     struct MyStaticContext {
         imap: ImapContextSync,
         smtp: SmtpContextSync,
@@ -162,14 +172,14 @@ async fn test_backend() {
     impl BackendContextBuilder for MyStaticContextBuilder {
         type Context = MyStaticContext;
 
-        fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
+        fn list_folders(&self) -> Option<BackendFeature<Self::Context, dyn ListFolders>> {
             self.list_folders_from(Some(&self.imap))
         }
 
-        async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
+        async fn build(self) -> Result<Self::Context> {
             Ok(MyStaticContext {
-                imap: self.imap.build(account_config.clone()).await?,
-                smtp: self.smtp.build(account_config).await?,
+                imap: self.imap.build().await?,
+                smtp: self.smtp.build().await?,
             })
         }
     }
@@ -201,10 +211,10 @@ async fn test_backend() {
 
     let ctx_builder = MyStaticContextBuilder {
         imap: ImapContextBuilder::new(account_config.clone(), imap_config),
-        smtp: SmtpContextBuilder::new(account_config.clone(), smtp_config),
+        smtp: SmtpContextBuilder::new(account_config, smtp_config),
     };
 
-    let backend = MyBackend(ctx_builder.build(account_config).await.unwrap());
+    let backend = MyBackend(ctx_builder.build().await.unwrap());
 
     assert!(backend.list_folders().await.is_ok());
 }
