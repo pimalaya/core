@@ -9,7 +9,10 @@ use tokio::sync::Mutex;
 
 use crate::{
     account::config::{oauth2::OAuth2Method, AccountConfig},
-    backend::{BackendContext, BackendContextBuilder, BackendFeatureBuilder},
+    backend::{
+        context::{BackendContext, BackendContextBuilder},
+        feature::BackendFeature,
+    },
     envelope::{
         get::{imap::GetImapEnvelope, GetEnvelope},
         list::{imap::ListImapEnvelopes, ListEnvelopes},
@@ -139,7 +142,6 @@ impl Deref for ImapContextSync {
 }
 
 impl BackendContext for ImapContextSync {}
-impl crate::backend_v2::context::BackendContext for ImapContextSync {}
 
 /// The IMAP backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -178,124 +180,72 @@ impl ImapContextBuilder {
 impl BackendContextBuilder for ImapContextBuilder {
     type Context = ImapContextSync;
 
-    fn add_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFolder> {
-        BackendFeatureBuilder::new(AddImapFolder::some_new_boxed)
+    fn add_folder(&self) -> Option<BackendFeature<Self::Context, dyn AddFolder>> {
+        Some(Arc::new(AddImapFolder::some_new_boxed))
     }
 
-    fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
-        BackendFeatureBuilder::new(ListImapFolders::some_new_boxed)
-    }
-
-    fn expunge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn ExpungeFolder> {
-        BackendFeatureBuilder::new(ExpungeImapFolder::some_new_boxed)
-    }
-
-    fn purge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn PurgeFolder> {
-        BackendFeatureBuilder::new(PurgeImapFolder::some_new_boxed)
-    }
-
-    fn delete_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteFolder> {
-        BackendFeatureBuilder::new(DeleteImapFolder::some_new_boxed)
-    }
-
-    fn list_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn ListEnvelopes> {
-        BackendFeatureBuilder::new(ListImapEnvelopes::some_new_boxed)
-    }
-
-    fn watch_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes> {
-        BackendFeatureBuilder::new(WatchImapEnvelopes::some_new_boxed)
-    }
-
-    fn get_envelope(&self) -> BackendFeatureBuilder<Self::Context, dyn GetEnvelope> {
-        BackendFeatureBuilder::new(GetImapEnvelope::some_new_boxed)
-    }
-
-    fn add_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFlags> {
-        BackendFeatureBuilder::new(AddImapFlags::some_new_boxed)
-    }
-
-    fn set_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn SetFlags> {
-        BackendFeatureBuilder::new(SetImapFlags::some_new_boxed)
-    }
-
-    fn remove_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn RemoveFlags> {
-        BackendFeatureBuilder::new(RemoveImapFlags::some_new_boxed)
-    }
-
-    fn add_message(&self) -> BackendFeatureBuilder<Self::Context, dyn AddMessage> {
-        BackendFeatureBuilder::new(AddImapMessage::some_new_boxed)
-    }
-
-    fn peek_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn PeekMessages> {
-        BackendFeatureBuilder::new(PeekImapMessages::some_new_boxed)
-    }
-
-    fn get_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn GetMessages> {
-        BackendFeatureBuilder::new(GetImapMessages::some_new_boxed)
-    }
-
-    fn copy_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn CopyMessages> {
-        BackendFeatureBuilder::new(CopyImapMessages::some_new_boxed)
-    }
-
-    fn move_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn MoveMessages> {
-        BackendFeatureBuilder::new(MoveImapMessages::some_new_boxed)
-    }
-
-    fn delete_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteMessages> {
-        BackendFeatureBuilder::new(DeleteImapMessages::some_new_boxed)
-    }
-
-    async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
-        info!("building new imap context");
-
-        let creds = self.prebuilt_credentials.as_ref();
-
-        let session = match &self.imap_config.auth {
-            ImapAuthConfig::Passwd(_) => build_session(&self.imap_config, creds).await,
-            ImapAuthConfig::OAuth2(oauth2_config) => {
-                match build_session(&self.imap_config, creds).await {
-                    Ok(sess) => Ok(sess),
-                    Err(err) => {
-                        let downcast_err = err.downcast_ref::<Error>();
-
-                        if let Some(Error::AuthenticateError(imap::Error::Parse(
-                            imap::error::ParseError::Authentication(_, _),
-                        ))) = downcast_err
-                        {
-                            debug!("error while authenticating user, refreshing access token");
-                            let access_token = oauth2_config.refresh_access_token().await?;
-                            build_session(&self.imap_config, Some(&access_token)).await
-                        } else {
-                            Err(err)
-                        }
-                    }
-                }
-            }
-        }?;
-
-        let ctx = ImapContext {
-            account_config: account_config.clone(),
-            imap_config: self.imap_config.clone(),
-            session,
-        };
-
-        Ok(ImapContextSync {
-            account_config,
-            imap_config: self.imap_config,
-            inner: Arc::new(Mutex::new(ctx)),
-        })
-    }
-}
-
-#[async_trait]
-impl crate::backend_v2::context::BackendContextBuilder for ImapContextBuilder {
-    type Context = ImapContextSync;
-
-    fn list_folders(
-        &self,
-    ) -> Option<crate::backend_v2::feature::BackendFeature<Self::Context, dyn ListFolders>> {
+    fn list_folders(&self) -> Option<BackendFeature<Self::Context, dyn ListFolders>> {
         Some(Arc::new(ListImapFolders::some_new_boxed))
+    }
+
+    fn expunge_folder(&self) -> Option<BackendFeature<Self::Context, dyn ExpungeFolder>> {
+        Some(Arc::new(ExpungeImapFolder::some_new_boxed))
+    }
+
+    fn purge_folder(&self) -> Option<BackendFeature<Self::Context, dyn PurgeFolder>> {
+        Some(Arc::new(PurgeImapFolder::some_new_boxed))
+    }
+
+    fn delete_folder(&self) -> Option<BackendFeature<Self::Context, dyn DeleteFolder>> {
+        Some(Arc::new(DeleteImapFolder::some_new_boxed))
+    }
+
+    fn get_envelope(&self) -> Option<BackendFeature<Self::Context, dyn GetEnvelope>> {
+        Some(Arc::new(GetImapEnvelope::some_new_boxed))
+    }
+
+    fn list_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn ListEnvelopes>> {
+        Some(Arc::new(ListImapEnvelopes::some_new_boxed))
+    }
+
+    fn watch_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn WatchEnvelopes>> {
+        Some(Arc::new(WatchImapEnvelopes::some_new_boxed))
+    }
+
+    fn add_flags(&self) -> Option<BackendFeature<Self::Context, dyn AddFlags>> {
+        Some(Arc::new(AddImapFlags::some_new_boxed))
+    }
+
+    fn set_flags(&self) -> Option<BackendFeature<Self::Context, dyn SetFlags>> {
+        Some(Arc::new(SetImapFlags::some_new_boxed))
+    }
+
+    fn remove_flags(&self) -> Option<BackendFeature<Self::Context, dyn RemoveFlags>> {
+        Some(Arc::new(RemoveImapFlags::some_new_boxed))
+    }
+
+    fn add_message(&self) -> Option<BackendFeature<Self::Context, dyn AddMessage>> {
+        Some(Arc::new(AddImapMessage::some_new_boxed))
+    }
+
+    fn peek_messages(&self) -> Option<BackendFeature<Self::Context, dyn PeekMessages>> {
+        Some(Arc::new(PeekImapMessages::some_new_boxed))
+    }
+
+    fn get_messages(&self) -> Option<BackendFeature<Self::Context, dyn GetMessages>> {
+        Some(Arc::new(GetImapMessages::some_new_boxed))
+    }
+
+    fn copy_messages(&self) -> Option<BackendFeature<Self::Context, dyn CopyMessages>> {
+        Some(Arc::new(CopyImapMessages::some_new_boxed))
+    }
+
+    fn move_messages(&self) -> Option<BackendFeature<Self::Context, dyn MoveMessages>> {
+        Some(Arc::new(MoveImapMessages::some_new_boxed))
+    }
+
+    fn delete_messages(&self) -> Option<BackendFeature<Self::Context, dyn DeleteMessages>> {
+        Some(Arc::new(DeleteImapMessages::some_new_boxed))
     }
 
     async fn build(self) -> Result<Self::Context> {

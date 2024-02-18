@@ -15,9 +15,10 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    backend::BackendContextBuilder,
-    envelope::{Envelope, Id},
-    flag::Flag,
+    backend::context::BackendContextBuilder,
+    envelope::{get::GetEnvelope, list::ListEnvelopes, Envelope, Id},
+    flag::{add::AddFlags, set::SetFlags, Flag},
+    message::{add::AddMessage, peek::PeekMessages},
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
     thread_pool::ThreadPool,
     Result,

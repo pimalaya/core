@@ -1,19 +1,25 @@
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
-    backend::BackendBuilder,
+    backend::{Backend, BackendBuilder},
     email::sync::hunk::EmailSyncHunk,
-    envelope::{Envelope, Id},
-    flag::{Flag, Flags},
+    envelope::{list::ListEnvelopes, Envelope, Id},
+    flag::{add::AddFlags, Flag, Flags},
     folder::{
+        add::AddFolder,
         config::FolderConfig,
+        delete::DeleteFolder,
+        expunge::ExpungeFolder,
+        list::ListFolders,
+        purge::PurgeFolder,
         sync::{hunk::FolderSyncHunk, FolderSyncStrategy},
         Folder, FolderKind, INBOX, TRASH,
     },
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder,
+        ImapContextBuilder, ImapContextSync,
     },
-    maildir::{config::MaildirConfig, MaildirContextBuilder},
+    maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
+    message::{add::AddMessage, delete::DeleteMessages, peek::PeekMessages},
     sync::{SyncBuilder, SyncDestination, SyncEvent},
 };
 use env_logger;
@@ -67,16 +73,24 @@ async fn test_sync() {
 
     // set up left backend (Maildir)
 
-    let left_ctx = MaildirContextBuilder::new(mdir_config_left);
+    let left_ctx = MaildirContextBuilder::new(account_config_left.clone(), mdir_config_left);
     let left_builder = BackendBuilder::new(account_config_left.clone(), left_ctx);
-    let left = left_builder.clone().build().await.unwrap();
+    let left = left_builder
+        .clone()
+        .build::<Backend<MaildirContextSync>>()
+        .await
+        .unwrap();
 
     // set up right backend (IMAP)
 
     let right_ctx =
         ImapContextBuilder::new(account_config_right.clone(), imap_config_right.clone());
     let right_builder = BackendBuilder::new(account_config_right.clone(), right_ctx);
-    let right = right_builder.clone().build().await.unwrap();
+    let right = right_builder
+        .clone()
+        .build::<Backend<ImapContextSync>>()
+        .await
+        .unwrap();
 
     // reset right backend folders (keep only INBOX, Archives and [Gmail]/Trash)
 
@@ -187,13 +201,13 @@ async fn test_sync() {
     let left_cache = sync_builder
         .get_left_cache_builder()
         .unwrap()
-        .build()
+        .build::<Backend<MaildirContextSync>>()
         .await
         .unwrap();
     let right_cache = sync_builder
         .get_right_cache_builder()
         .unwrap()
-        .build()
+        .build::<Backend<MaildirContextSync>>()
         .await
         .unwrap();
 

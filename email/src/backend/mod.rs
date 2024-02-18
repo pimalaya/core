@@ -52,7 +52,7 @@ pub mod feature;
 pub mod mapper;
 pub mod pool;
 pub mod macros {
-    pub use email_macros::BackendContextV2;
+    pub use email_macros::BackendContext;
 }
 
 use async_trait::async_trait;
@@ -446,63 +446,6 @@ impl<C: BackendContext> DeleteMessages for Backend<C> {
     }
 }
 
-#[async_trait]
-impl<CB> AsyncTryIntoBackendFeatures<Backend<CB::Context>> for BackendBuilder<CB>
-where
-    CB: BackendContextBuilder,
-{
-    async fn try_into_backend(self) -> Result<Backend<CB::Context>> {
-        let add_folder = self.get_add_folder();
-        let list_folders = self.get_list_folders();
-        let expunge_folder = self.get_expunge_folder();
-        let purge_folder = self.get_purge_folder();
-        let delete_folder = self.get_delete_folder();
-
-        let get_envelope = self.get_get_envelope();
-        let list_envelopes = self.get_list_envelopes();
-        let watch_envelopes = self.get_watch_envelopes();
-
-        let add_flags = self.get_add_flags();
-        let set_flags = self.get_set_flags();
-        let remove_flags = self.get_remove_flags();
-
-        let add_message = self.get_add_message();
-        let send_message = self.get_send_message();
-        let peek_messages = self.get_peek_messages();
-        let get_messages = self.get_get_messages();
-        let copy_messages = self.get_copy_messages();
-        let move_messages = self.get_move_messages();
-        let delete_messages = self.get_delete_messages();
-
-        Ok(Backend {
-            account_config: self.account_config,
-            context: Arc::new(self.ctx_builder.build().await?),
-
-            add_folder,
-            list_folders,
-            expunge_folder,
-            purge_folder,
-            delete_folder,
-
-            get_envelope,
-            list_envelopes,
-            watch_envelopes,
-
-            add_flags,
-            set_flags,
-            remove_flags,
-
-            add_message,
-            send_message,
-            peek_messages,
-            get_messages,
-            copy_messages,
-            move_messages,
-            delete_messages,
-        })
-    }
-}
-
 /// Macro for defining [`BackendBuilder`] feature getter and setters.
 macro_rules! feature_accessors {
     ($feat:ty) => {
@@ -689,5 +632,97 @@ where
         Self: AsyncTryIntoBackendFeatures<B>,
     {
         self.try_into_backend().await
+    }
+}
+
+#[async_trait]
+impl<CB> AsyncTryIntoBackendFeatures<Backend<CB::Context>> for BackendBuilder<CB>
+where
+    CB: BackendContextBuilder,
+{
+    async fn try_into_backend(self) -> Result<Backend<CB::Context>> {
+        let add_folder = self.get_add_folder();
+        let list_folders = self.get_list_folders();
+        let expunge_folder = self.get_expunge_folder();
+        let purge_folder = self.get_purge_folder();
+        let delete_folder = self.get_delete_folder();
+
+        let get_envelope = self.get_get_envelope();
+        let list_envelopes = self.get_list_envelopes();
+        let watch_envelopes = self.get_watch_envelopes();
+
+        let add_flags = self.get_add_flags();
+        let set_flags = self.get_set_flags();
+        let remove_flags = self.get_remove_flags();
+
+        let add_message = self.get_add_message();
+        let send_message = self.get_send_message();
+        let peek_messages = self.get_peek_messages();
+        let get_messages = self.get_get_messages();
+        let copy_messages = self.get_copy_messages();
+        let move_messages = self.get_move_messages();
+        let delete_messages = self.get_delete_messages();
+
+        Ok(Backend {
+            account_config: self.account_config,
+            context: Arc::new(self.ctx_builder.build().await?),
+
+            add_folder,
+            list_folders,
+            expunge_folder,
+            purge_folder,
+            delete_folder,
+
+            get_envelope,
+            list_envelopes,
+            watch_envelopes,
+
+            add_flags,
+            set_flags,
+            remove_flags,
+
+            add_message,
+            send_message,
+            peek_messages,
+            get_messages,
+            copy_messages,
+            move_messages,
+            delete_messages,
+        })
+    }
+}
+
+#[async_trait]
+impl<CB> Clone for BackendBuilder<CB>
+where
+    CB: BackendContextBuilder,
+{
+    fn clone(&self) -> Self {
+        Self {
+            account_config: self.account_config.clone(),
+            ctx_builder: self.ctx_builder.clone(),
+
+            add_folder: self.add_folder.clone(),
+            list_folders: self.list_folders.clone(),
+            expunge_folder: self.expunge_folder.clone(),
+            purge_folder: self.purge_folder.clone(),
+            delete_folder: self.delete_folder.clone(),
+
+            get_envelope: self.get_envelope.clone(),
+            list_envelopes: self.list_envelopes.clone(),
+            watch_envelopes: self.watch_envelopes.clone(),
+
+            add_flags: self.add_flags.clone(),
+            set_flags: self.set_flags.clone(),
+            remove_flags: self.remove_flags.clone(),
+
+            add_message: self.add_message.clone(),
+            send_message: self.send_message.clone(),
+            peek_messages: self.peek_messages.clone(),
+            get_messages: self.get_messages.clone(),
+            copy_messages: self.copy_messages.clone(),
+            move_messages: self.move_messages.clone(),
+            delete_messages: self.delete_messages.clone(),
+        }
     }
 }

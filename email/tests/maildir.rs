@@ -1,11 +1,15 @@
 use concat_with::concat_line;
 use email::{
     account::config::AccountConfig,
-    backend::BackendBuilder,
-    envelope::Id,
-    flag::Flag,
-    folder::config::FolderConfig,
-    maildir::{config::MaildirConfig, MaildirContextBuilder},
+    backend::{Backend, BackendBuilder},
+    envelope::{list::ListEnvelopes, Id},
+    flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag},
+    folder::{config::FolderConfig, expunge::ExpungeFolder},
+    maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
+    message::{
+        add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
+        r#move::MoveMessages,
+    },
 };
 use mail_builder::MessageBuilder;
 use maildirpp::Maildir;
@@ -52,9 +56,9 @@ async fn test_maildir_features() {
         root_dir: mdir_path.clone(),
     });
 
-    let mdir_ctx = MaildirContextBuilder::new(mdir_config.clone());
+    let mdir_ctx = MaildirContextBuilder::new(account_config.clone(), mdir_config.clone());
     let mdir = BackendBuilder::new(account_config.clone(), mdir_ctx)
-        .build()
+        .build::<Backend<MaildirContextSync>>()
         .await
         .unwrap();
 
@@ -63,9 +67,9 @@ async fn test_maildir_features() {
     let mdir_config = Arc::new(MaildirConfig {
         root_dir: mdir_path.clone(),
     });
-    let submdir_ctx = MaildirContextBuilder::new(mdir_config.clone());
+    let submdir_ctx = MaildirContextBuilder::new(account_config.clone(), mdir_config.clone());
     let submdir = BackendBuilder::new(account_config.clone(), submdir_ctx)
-        .build()
+        .build::<Backend<MaildirContextSync>>()
         .await
         .unwrap();
 

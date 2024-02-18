@@ -1,13 +1,20 @@
 use concat_with::concat_line;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
-    backend::BackendBuilder,
-    envelope::Id,
-    flag::Flag,
-    folder::{config::FolderConfig, SENT},
+    backend::{Backend, BackendBuilder},
+    envelope::{list::ListEnvelopes, Id},
+    flag::{add::AddFlags, Flag},
+    folder::{
+        add::AddFolder, config::FolderConfig, delete::DeleteFolder, expunge::ExpungeFolder,
+        list::ListFolders, purge::PurgeFolder, SENT,
+    },
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder,
+        ImapContextBuilder, ImapContextSync,
+    },
+    message::{
+        add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
+        r#move::MoveMessages,
     },
 };
 use mml::MmlCompilerBuilder;
@@ -37,7 +44,7 @@ async fn test_imap_features() {
 
     let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config.clone());
     let imap = BackendBuilder::new(account_config.clone(), imap_ctx)
-        .build()
+        .build::<Backend<ImapContextSync>>()
         .await
         .unwrap();
 

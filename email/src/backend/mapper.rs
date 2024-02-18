@@ -39,75 +39,15 @@ macro_rules! some_feature_mapper {
     };
 }
 
-// TODO: reword
-/// Map a feature from a subcontext to a context.
+/// Map a backend feature from subcontext B to context A.
 ///
-/// A good use case is when you have a custom backend context composed
-/// of multiple subcontexts. When implementing the
-/// [`BackendContextBuilder`] trait for your custom backend context,
-/// you will have to forward backend features using the right
-/// subcontext.
+/// This is useful when you have a context composed of multiple
+/// subcontexts. It prevents you to manually map the feature.
 ///
-/// ```rust
-/// use std::sync::Arc;
-/// use async_trait::async_trait;
+/// See a usage example at `../../tests/dynamic_backend.rs`.
 ///
-/// use email::imap::{ImapContextSync, ImapContextBuilder};
-/// use email::smtp::{SmtpContextSync, SmtpContextBuilder};
-/// use email::backend::{BackendContextBuilder, FindBackendSubcontext, BackendFeatureBuilder, MapBackendFeature, macros::BackendContext};
-/// use email::account::config::AccountConfig;
-/// use email::folder::list::ListFolders;
-/// use email::Result;
-///
-/// #[derive(BackendContext)]
-/// struct MyContext {
-///     imap: Option<ImapContextSync>,
-///     smtp: Option<SmtpContextSync>,
-/// }
-///
-/// impl FindBackendSubcontext<ImapContextSync> for MyContext {
-///     fn find_subcontext(&self) -> Option<&ImapContextSync> {
-///         self.imap.as_ref()
-///     }
-/// }
-///
-/// impl FindBackendSubcontext<SmtpContextSync> for MyContext {
-///     fn find_subcontext(&self) -> Option<&SmtpContextSync> {
-///         self.smtp.as_ref()
-///     }
-/// }
-///
-/// #[derive(Clone)]
-/// struct MyContextBuilder {
-///     imap: Option<ImapContextBuilder>,
-///     smtp: Option<SmtpContextBuilder>,
-/// }
-///
-/// #[async_trait]
-/// impl BackendContextBuilder for MyContextBuilder {
-///     type Context = MyContext;
-///
-///     fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
-///         // This is how you can map a
-///         // `BackendFeatureBuilder<ImapContextSync, dyn ListFolders>` to a
-///         // `BackendFeatureBuilder<Self::Context, dyn ListFolders>`:
-///         self.list_folders_from(self.imap.as_ref())
-///     }
-///
-///     async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
-///         let imap = match self.imap {
-///             Some(imap) => Some(imap.build(account_config.clone()).await?),
-///             None => None,
-///         };
-///
-///         let smtp = match self.smtp {
-///             Some(smtp) => Some(smtp.build(account_config).await?),
-///             None => None,
-///         };
-///
-///         Ok(MyContext { imap, smtp })
-///     }
-/// }
+/// ```rust,ignore
+#[doc = include_str!("../../tests/dynamic_backend.rs")]
 /// ```
 pub trait SomeBackendContextBuilderMapper<CB>
 where
@@ -144,6 +84,7 @@ where
     some_feature_mapper!(DeleteMessages);
 }
 
+/// Automatically implement [`SomeBackendContextBuilderMapper`].
 impl<CB1, CB2> SomeBackendContextBuilderMapper<CB2> for CB1
 where
     CB1: BackendContextBuilder,
@@ -203,6 +144,7 @@ where
     feature_mapper!(DeleteMessages);
 }
 
+/// Automatically implement [`BackendContextBuilderMapper`].
 impl<CB1, CB2> BackendContextBuilderMapper<CB2> for CB1
 where
     CB1: BackendContextBuilder,

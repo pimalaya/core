@@ -9,7 +9,10 @@ use tokio::sync::Mutex;
 
 use crate::{
     account::config::AccountConfig,
-    backend::{BackendContext, BackendContextBuilder, BackendFeatureBuilder},
+    backend::{
+        context::{BackendContext, BackendContextBuilder},
+        feature::BackendFeature,
+    },
     envelope::{
         get::{maildir::GetMaildirEnvelope, GetEnvelope},
         list::{maildir::ListMaildirEnvelopes, ListEnvelopes},
@@ -126,13 +129,19 @@ impl BackendContext for MaildirContextSync {}
 /// The Maildir backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MaildirContextBuilder {
+    /// The account configuration.
+    pub account_config: Arc<AccountConfig>,
+
     /// The Maildir configuration.
     pub mdir_config: Arc<MaildirConfig>,
 }
 
 impl MaildirContextBuilder {
-    pub fn new(mdir_config: Arc<MaildirConfig>) -> Self {
-        Self { mdir_config }
+    pub fn new(account_config: Arc<AccountConfig>, mdir_config: Arc<MaildirConfig>) -> Self {
+        Self {
+            account_config,
+            mdir_config,
+        }
     }
 }
 
@@ -140,77 +149,76 @@ impl MaildirContextBuilder {
 impl BackendContextBuilder for MaildirContextBuilder {
     type Context = MaildirContextSync;
 
-    fn add_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFolder> {
-        BackendFeatureBuilder::new(AddMaildirFolder::some_new_boxed)
+    fn add_folder(&self) -> Option<BackendFeature<Self::Context, dyn AddFolder>> {
+        Some(Arc::new(AddMaildirFolder::some_new_boxed))
     }
 
-    fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
-        BackendFeatureBuilder::new(ListMaildirFolders::some_new_boxed)
+    fn list_folders(&self) -> Option<BackendFeature<Self::Context, dyn ListFolders>> {
+        Some(Arc::new(ListMaildirFolders::some_new_boxed))
     }
 
-    fn expunge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn ExpungeFolder> {
-        BackendFeatureBuilder::new(ExpungeMaildirFolder::some_new_boxed)
+    fn expunge_folder(&self) -> Option<BackendFeature<Self::Context, dyn ExpungeFolder>> {
+        Some(Arc::new(ExpungeMaildirFolder::some_new_boxed))
     }
 
     // TODO
-    //
-    // fn purge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn PurgeFolder> {
-    //     BackendFeatureBuilder::new(PurgeMaildirFolder::some_new_boxed)
+    // fn purge_folder(&self) -> Option<BackendFeature<Self::Context, dyn PurgeFolder>> {
+    //     Some(Arc::new(PurgeMaildirFolder::some_new_boxed))
     // }
 
-    fn delete_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteFolder> {
-        BackendFeatureBuilder::new(DeleteMaildirFolder::some_new_boxed)
+    fn delete_folder(&self) -> Option<BackendFeature<Self::Context, dyn DeleteFolder>> {
+        Some(Arc::new(DeleteMaildirFolder::some_new_boxed))
     }
 
-    fn list_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn ListEnvelopes> {
-        BackendFeatureBuilder::new(ListMaildirEnvelopes::some_new_boxed)
+    fn get_envelope(&self) -> Option<BackendFeature<Self::Context, dyn GetEnvelope>> {
+        Some(Arc::new(GetMaildirEnvelope::some_new_boxed))
     }
 
-    fn watch_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes> {
-        BackendFeatureBuilder::new(WatchMaildirEnvelopes::some_new_boxed)
+    fn list_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn ListEnvelopes>> {
+        Some(Arc::new(ListMaildirEnvelopes::some_new_boxed))
     }
 
-    fn get_envelope(&self) -> BackendFeatureBuilder<Self::Context, dyn GetEnvelope> {
-        BackendFeatureBuilder::new(GetMaildirEnvelope::some_new_boxed)
+    fn watch_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn WatchEnvelopes>> {
+        Some(Arc::new(WatchMaildirEnvelopes::some_new_boxed))
     }
 
-    fn add_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFlags> {
-        BackendFeatureBuilder::new(AddMaildirFlags::some_new_boxed)
+    fn add_flags(&self) -> Option<BackendFeature<Self::Context, dyn AddFlags>> {
+        Some(Arc::new(AddMaildirFlags::some_new_boxed))
     }
 
-    fn set_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn SetFlags> {
-        BackendFeatureBuilder::new(SetMaildirFlags::some_new_boxed)
+    fn set_flags(&self) -> Option<BackendFeature<Self::Context, dyn SetFlags>> {
+        Some(Arc::new(SetMaildirFlags::some_new_boxed))
     }
 
-    fn remove_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn RemoveFlags> {
-        BackendFeatureBuilder::new(RemoveMaildirFlags::some_new_boxed)
+    fn remove_flags(&self) -> Option<BackendFeature<Self::Context, dyn RemoveFlags>> {
+        Some(Arc::new(RemoveMaildirFlags::some_new_boxed))
     }
 
-    fn add_message(&self) -> BackendFeatureBuilder<Self::Context, dyn AddMessage> {
-        BackendFeatureBuilder::new(AddMaildirMessage::some_new_boxed)
+    fn add_message(&self) -> Option<BackendFeature<Self::Context, dyn AddMessage>> {
+        Some(Arc::new(AddMaildirMessage::some_new_boxed))
     }
 
-    fn get_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn GetMessages> {
-        BackendFeatureBuilder::new(GetMaildirMessages::some_new_boxed)
+    fn peek_messages(&self) -> Option<BackendFeature<Self::Context, dyn PeekMessages>> {
+        Some(Arc::new(PeekMaildirMessages::some_new_boxed))
     }
 
-    fn peek_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn PeekMessages> {
-        BackendFeatureBuilder::new(PeekMaildirMessages::some_new_boxed)
+    fn get_messages(&self) -> Option<BackendFeature<Self::Context, dyn GetMessages>> {
+        Some(Arc::new(GetMaildirMessages::some_new_boxed))
     }
 
-    fn copy_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn CopyMessages> {
-        BackendFeatureBuilder::new(CopyMaildirMessages::some_new_boxed)
+    fn copy_messages(&self) -> Option<BackendFeature<Self::Context, dyn CopyMessages>> {
+        Some(Arc::new(CopyMaildirMessages::some_new_boxed))
     }
 
-    fn move_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn MoveMessages> {
-        BackendFeatureBuilder::new(MoveMaildirMessages::some_new_boxed)
+    fn move_messages(&self) -> Option<BackendFeature<Self::Context, dyn MoveMessages>> {
+        Some(Arc::new(MoveMaildirMessages::some_new_boxed))
     }
 
-    fn delete_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteMessages> {
-        BackendFeatureBuilder::new(DeleteMaildirMessages::some_new_boxed)
+    fn delete_messages(&self) -> Option<BackendFeature<Self::Context, dyn DeleteMessages>> {
+        Some(Arc::new(DeleteMaildirMessages::some_new_boxed))
     }
 
-    async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
+    async fn build(self) -> Result<Self::Context> {
         info!("building new maildir context");
 
         let path = shellexpand_path(&self.mdir_config.root_dir);
@@ -219,13 +227,13 @@ impl BackendContextBuilder for MaildirContextBuilder {
         root.create_dirs()?;
 
         let ctx = MaildirContext {
-            account_config: account_config.clone(),
+            account_config: self.account_config.clone(),
             maildir_config: self.mdir_config.clone(),
             root,
         };
 
         Ok(MaildirContextSync {
-            account_config,
+            account_config: self.account_config,
             maildir_config: self.mdir_config,
             inner: Arc::new(Mutex::new(ctx)),
         })

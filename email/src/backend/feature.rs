@@ -33,7 +33,7 @@ pub type BackendFeature<C, F> = Arc<dyn Fn(&C) -> Option<Box<F>> + Send + Sync>;
 ///
 /// This enum is used by the backend builder to determine where a
 /// specific backend feature should be taken from.
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub enum BackendFeatureSource<C: BackendContext, F: ?Sized> {
     /// The feature should be disabled.
     None,
@@ -46,6 +46,20 @@ pub enum BackendFeatureSource<C: BackendContext, F: ?Sized> {
     /// The feature should be taken from the
     /// [`super::BackendBuilder`], using the given feature.
     Backend(BackendFeature<C, F>),
+}
+
+impl<C, F> Clone for BackendFeatureSource<C, F>
+where
+    C: BackendContext,
+    F: ?Sized,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::None => Self::None,
+            Self::Context => Self::Context,
+            Self::Backend(f) => Self::Backend(f.clone()),
+        }
+    }
 }
 
 impl<C, F, T> From<T> for BackendFeatureSource<C, F>

@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
-    backend_v2::{
-        context::BackendContextBuilder, feature::BackendFeature, macros::BackendContextV2,
+    backend::{
+        context::BackendContextBuilder, feature::BackendFeature, macros::BackendContext,
         mapper::SomeBackendContextBuilderMapper, pool::BackendPool, BackendBuilder,
     },
-    folder::{list::ListFolders, Folder, FolderKind, Folders},
+    folder::{list::ListFolders, Folder, FolderKind},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapContextBuilder, ImapContextSync,
@@ -33,7 +33,7 @@ async fn test_dynamic_backend() {
 
     // 1. define custom context
 
-    #[derive(BackendContextV2)]
+    #[derive(BackendContext)]
     struct DynamicContext {
         imap: Option<ImapContextSync>,
         smtp: Option<SmtpContextSync>,

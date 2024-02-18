@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
-    backend_v2::{context::BackendContextBuilder, macros::BackendContextV2},
+    backend::{context::BackendContextBuilder, macros::BackendContext},
     folder::{
         list::{imap::ListImapFolders, ListFolders},
         Folder, FolderKind, Folders,
@@ -46,7 +46,7 @@ async fn test_static_backend() {
 
     // 1. define custom context made of subcontexts
 
-    #[derive(BackendContextV2)]
+    #[derive(BackendContext)]
     struct StaticContext {
         imap: ImapContextSync,
         smtp: SmtpContextSync,

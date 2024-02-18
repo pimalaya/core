@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
 
 use crate::{
-    backend::BackendContextBuilder,
+    backend::context::BackendContextBuilder,
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
     thread_pool::ThreadPool,
     Result,
@@ -21,7 +21,9 @@ use crate::{
 
 use self::{hunk::FolderSyncHunk, report::FolderSyncReport};
 
-use super::Folder;
+use super::{
+    add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders, Folder,
+};
 
 /// The folder synchronization strategy.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]

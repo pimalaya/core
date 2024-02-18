@@ -2,7 +2,10 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use crate::{
-    backend::{Backend, BackendBuilder, BackendContext, BackendContextBuilder},
+    backend::{
+        context::{BackendContext, BackendContextBuilder},
+        Backend, BackendBuilder,
+    },
     folder::sync::FolderSyncStrategy,
     maildir::{MaildirContextBuilder, MaildirContextSync},
     thread_pool::{ThreadPool, ThreadPoolBuilder, ThreadPoolContext, ThreadPoolContextBuilder},
