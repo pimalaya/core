@@ -1,3 +1,8 @@
+//! # Backend pool
+//!
+//! A [`BackendPool`] allows you to execute batches of features in
+//! parallel.
+
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -14,11 +19,18 @@ use super::{
     AsyncTryIntoBackendFeatures, BackendBuilder, Error,
 };
 
+/// The backend pool.
+///
+/// This implementation owns a pool of context, and backend features
+/// are executed by the first available context.
+///
+/// This implementation is useful when you need to call a batch of
+/// features, in parallel.
 pub struct BackendPool<C: BackendContext> {
     /// The account configuration.
     pub account_config: Arc<AccountConfig>,
 
-    /// The backend context.
+    /// The backend context pool.
     pub pool: ThreadPool<C>,
 
     /// The optional add folder feature.
@@ -64,13 +76,16 @@ where
     }
 }
 
+impl<T> ThreadPoolContext for T where T: BackendContext {}
+
 #[async_trait]
-impl<T: BackendContextBuilder> ThreadPoolContextBuilder for T {
+impl<T> ThreadPoolContextBuilder for T
+where
+    T: BackendContextBuilder,
+{
     type Context = T::Context;
 
     async fn build(self) -> Result<Self::Context> {
         BackendContextBuilder::build(self).await
     }
 }
-
-impl<T: BackendContext> ThreadPoolContext for T {}

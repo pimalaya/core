@@ -1,3 +1,9 @@
+//! # Backend feature
+//!
+//! A [`BackendFeature`] is an action like adding folder, listing
+//! envelopes or sending message. A feature needs a backend context to
+//! be executed.
+
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -5,36 +11,28 @@ use crate::{folder::list::ListFolders, Result};
 
 use super::context::BackendContext;
 
-pub trait BackendFeatures: ListFolders {
-    //
-}
-
-impl<T: ListFolders> BackendFeatures for T {
-    //
-}
-
-#[async_trait]
-pub trait AsyncTryIntoBackendFeatures<B: BackendFeatures> {
-    async fn try_into_backend(self) -> Result<B>;
-}
-
-/// The backend feature builder.
+/// The backend feature.
 ///
-/// A feature builder is a function that takes an atomic reference to
-/// a context as parameter and returns a backend feature.
+/// A backend feature is a function that takes a reference to a
+/// backend context as parameter and returns a feature.
 pub type BackendFeature<C, F> = Arc<dyn Fn(&C) -> Option<Box<F>> + Send + Sync>;
 
+/// The backend feature source.
+///
+/// This enum is used by the backend builder to determine where a
+/// specific backend feature should be taken from.
 #[derive(Clone, Default)]
 pub enum BackendFeatureSource<C: BackendContext, F: ?Sized> {
-    /// The feature should be initialized in [`Backend`] to `None`
+    /// The feature should be disabled.
     None,
-    /// The feature should be initialized from the [`BackendContext`].
-    /// If the context doesn't support this feature it will be initialized to `None`.
+
+    /// The feature should be taken from the
+    /// [`super::BackendContextBuilder`].
     #[default]
     Context,
-    /// Use this given [`BackendFeatureBuilder`] to initialize the feature in [`Backend`].
-    /// If this is a `BackendFeatureBuilder::none()`, it will try to initialize this feature
-    /// from the context (as if [`FeatureConfiguration::Default`] was used).
+
+    /// The feature should be taken from the
+    /// [`super::BackendBuilder`], using the given feature.
     Backend(BackendFeature<C, F>),
 }
 
@@ -47,4 +45,25 @@ where
     fn from(value: T) -> Self {
         Self::Backend(Arc::new(value))
     }
+}
+
+/// The backend features supertrait.
+///
+/// This trait is just an alias for all existing backend features.
+pub trait BackendFeatures: ListFolders {}
+
+/// Automatically implement [`BackendFeatures`] for structures
+/// implementing all existing backend features.
+impl<T> BackendFeatures for T where T: ListFolders {}
+
+/// The backend implementation builder.
+///
+/// This trait defines how to build a backend implementation from a
+/// [`BackendFeatures`] implementation.
+#[async_trait]
+pub trait AsyncTryIntoBackendFeatures<B>
+where
+    B: BackendFeatures,
+{
+    async fn try_into_backend(self) -> Result<B>;
 }

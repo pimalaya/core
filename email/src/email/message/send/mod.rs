@@ -11,5 +11,5 @@ use crate::Result;
 #[async_trait]
 pub trait SendMessage: Send + Sync {
     /// Send the given raw email message.
-    async fn send_message(&self, raw_msg: &[u8]) -> Result<()>;
+    async fn send_message(&self, msg: &[u8]) -> Result<()>;
 }

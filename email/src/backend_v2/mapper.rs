@@ -1,3 +1,8 @@
+//! # Backend feature mapper
+//!
+//! This module contains [`BackendContextBuilder`] helpers to map
+//! features from a subcontext B to a context A.
+
 use paste::paste;
 use std::sync::Arc;
 
@@ -8,6 +13,7 @@ use super::{
     feature::BackendFeature,
 };
 
+/// Macro for defining some [`BackendContextBuilder`] feature mapper.
 macro_rules! some_feature_mapper {
     ($feat:ty) => {
         paste! {
@@ -22,6 +28,7 @@ macro_rules! some_feature_mapper {
     };
 }
 
+// TODO: reword
 /// Map a feature from a subcontext to a context.
 ///
 /// A good use case is when you have a custom backend context composed
@@ -91,7 +98,6 @@ macro_rules! some_feature_mapper {
 ///     }
 /// }
 /// ```
-///
 pub trait SomeBackendContextBuilderMapper<CB>
 where
     Self: BackendContextBuilder,
@@ -110,8 +116,6 @@ where
     some_feature_mapper!(ListFolders);
 }
 
-/// Generic implementation for the backend context builder with a
-/// context implementing [`FindBackendSubcontext`].
 impl<CB1, CB2> SomeBackendContextBuilderMapper<CB2> for CB1
 where
     CB1: BackendContextBuilder,
@@ -119,9 +123,9 @@ where
     CB2: BackendContextBuilder,
     CB2::Context: BackendContext + 'static,
 {
-    //
 }
 
+/// Macro for defining [`BackendContextBuilder`] feature mapper.
 macro_rules! feature_mapper {
     ($feat:ty) => {
         paste! {
@@ -135,6 +139,7 @@ macro_rules! feature_mapper {
     };
 }
 
+/// Same as [`SomeBackendContextBuilderMapper`] but without Option.
 pub trait BackendContextBuilderMapper<CB>
 where
     Self: BackendContextBuilder,
@@ -153,8 +158,6 @@ where
     feature_mapper!(ListFolders);
 }
 
-/// Generic implementation for the backend context builder with a
-/// context implementing [`FindBackendSubcontext`].
 impl<CB1, CB2> BackendContextBuilderMapper<CB2> for CB1
 where
     CB1: BackendContextBuilder,
@@ -162,5 +165,4 @@ where
     CB2: BackendContextBuilder,
     CB2::Context: BackendContext + 'static,
 {
-    //
 }
