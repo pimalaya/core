@@ -14,9 +14,3 @@ pub trait AddFolder: Send + Sync {
     /// Create the given folder.
     async fn add_folder(&self, folder: &str) -> Result<()>;
 }
-
-#[async_trait]
-pub trait AddFolderV2: Send + Sync {
-    /// Create the given folder.
-    async fn add_folder_v2(&self, folder: &str) -> Result<()>;
-}

@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend_v2::{
-        macros::BackendContextV2, BackendBuilder, BackendContextBuilder, BackendFeature,
-        BackendPool, FindBackendSubcontext, GetBackendSubcontext, MapBackendFeature,
+        macros::BackendContextV2, BackendBuilder, BackendContextBuilder,
+        BackendContextBuilderMapper, BackendFeature, BackendPool, SomeBackendContextBuilderMapper,
     },
     folder::{
         config::FolderConfig,
@@ -63,17 +63,17 @@ async fn test_backend_v2() {
         smtp: Option<SmtpContextSync>,
     }
 
-    // 2. implement subcontexts (could be auto-implemented by macros)
+    // 2. implement as refs (could be auto-implemented by macros)
 
-    impl FindBackendSubcontext<ImapContextSync> for MyContext {
-        fn find_subcontext(&self) -> Option<&ImapContextSync> {
-            self.imap.as_ref()
+    impl AsRef<Option<ImapContextSync>> for MyContext {
+        fn as_ref(&self) -> &Option<ImapContextSync> {
+            &self.imap
         }
     }
 
-    impl FindBackendSubcontext<SmtpContextSync> for MyContext {
-        fn find_subcontext(&self) -> Option<&SmtpContextSync> {
-            self.smtp.as_ref()
+    impl AsRef<Option<SmtpContextSync>> for MyContext {
+        fn as_ref(&self) -> &Option<SmtpContextSync> {
+            &self.smtp
         }
     }
 
@@ -92,7 +92,7 @@ async fn test_backend_v2() {
         type Context = MyContext;
 
         fn list_folders(&self) -> Option<BackendFeature<Self::Context, dyn ListFolders>> {
-            self.list_folders_from(self.imap.as_ref())
+            self.list_folders_with_some(&self.imap)
         }
 
         async fn build(self) -> Result<Self::Context> {
@@ -146,14 +146,14 @@ async fn test_backend_v2() {
 
     // 2. implement context getters (proc-macro?)
 
-    impl GetBackendSubcontext<ImapContextSync> for MyStaticContext {
-        fn get_subcontext(&self) -> &ImapContextSync {
+    impl AsRef<ImapContextSync> for MyStaticContext {
+        fn as_ref(&self) -> &ImapContextSync {
             &self.imap
         }
     }
 
-    impl GetBackendSubcontext<SmtpContextSync> for MyStaticContext {
-        fn get_subcontext(&self) -> &SmtpContextSync {
+    impl AsRef<SmtpContextSync> for MyStaticContext {
+        fn as_ref(&self) -> &SmtpContextSync {
             &self.smtp
         }
     }
@@ -173,7 +173,7 @@ async fn test_backend_v2() {
         type Context = MyStaticContext;
 
         fn list_folders(&self) -> Option<BackendFeature<Self::Context, dyn ListFolders>> {
-            self.list_folders_from(Some(&self.imap))
+            self.list_folders_with(&self.imap)
         }
 
         async fn build(self) -> Result<Self::Context> {

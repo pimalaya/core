@@ -294,69 +294,15 @@ pub trait BackendContext: Send + Sync {
 
 impl<T: BackendContext> ThreadPoolContext for T {}
 
-/// Get a context in a context.
-///
-/// A good use case is when you have a custom backend context composed
-/// of multiple subcontexts:
-///
-/// ```rust
-/// struct MyContext {
-///     imap: email::imap::ImapContextSync,
-///     smtp: email::smtp::SmtpContextSync,
-/// }
-/// ```
-///
-/// If your context is composed of optional subcontexts, use
-/// [`FindBackendSubcontext`] instead.
-pub trait GetBackendSubcontext<C: BackendContext> {
-    fn get_subcontext(&self) -> &C;
-}
-
-/// Generic implementation for contexts that match themselves as
-/// subcontext.
-impl<C: BackendContext> GetBackendSubcontext<C> for C {
-    fn get_subcontext(&self) -> &C {
-        self
-    }
-}
-
-/// Find a context in a context.
-///
-/// A good use case is when you have a custom backend context composed
-/// of multiple optional subcontexts:
-///
-/// ```rust
-/// struct MyContext {
-///     imap: Option<email::imap::ImapContextSync>,
-///     smtp: Option<email::smtp::SmtpContextSync>,
-/// }
-/// ```
-///
-/// If your context is composed of existing subcontexts, use
-/// [`GetBackendSubcontext`] instead.
-pub trait FindBackendSubcontext<C: BackendContext> {
-    fn find_subcontext(&self) -> Option<&C>;
-}
-
-/// Generic implementation for contexts that match themselves as
-/// subcontext.
-///
-/// If a context can get a subcontext, then it can also find a
-/// subcontext.
-impl<C: BackendContext, T: GetBackendSubcontext<C>> FindBackendSubcontext<C> for T {
-    fn find_subcontext(&self) -> Option<&C> {
-        Some(self.get_subcontext())
-    }
-}
-
-macro_rules! map_feature_from {
+macro_rules! some_feature_mapper {
     ($feat:ty) => {
         paste! {
-            fn [<$feat:snake _from>] (
+            fn [<$feat:snake _with_some>](
                 &self,
-                cb: Option<&CB>,
+                cb: &Option<CB>,
             ) -> Option<BackendFeature<Self::Context, dyn $feat>> {
-               self.map_feature(cb.and_then(|cb| cb.[<$feat:snake>]()))
+                let cb = cb.as_ref()?;
+                self.map_feature(cb.[<$feat:snake>]())
             }
         }
     };
@@ -432,10 +378,10 @@ macro_rules! map_feature_from {
 /// }
 /// ```
 ///
-pub trait MapBackendFeature<CB>
+pub trait SomeBackendContextBuilderMapper<CB>
 where
     Self: BackendContextBuilder,
-    Self::Context: FindBackendSubcontext<CB::Context> + 'static,
+    Self::Context: AsRef<Option<CB::Context>> + 'static,
     CB: BackendContextBuilder,
     CB::Context: BackendContext + 'static,
 {
@@ -444,18 +390,61 @@ where
         f: Option<BackendFeature<CB::Context, T>>,
     ) -> Option<BackendFeature<Self::Context, T>> {
         let f = f?;
-        Some(Arc::new(move |ctx| f(ctx.find_subcontext()?)))
+        Some(Arc::new(move |ctx| f(ctx.as_ref().as_ref()?)))
     }
 
-    map_feature_from!(ListFolders);
+    some_feature_mapper!(ListFolders);
 }
 
 /// Generic implementation for the backend context builder with a
 /// context implementing [`FindBackendSubcontext`].
-impl<CB1, CB2> MapBackendFeature<CB2> for CB1
+impl<CB1, CB2> SomeBackendContextBuilderMapper<CB2> for CB1
 where
     CB1: BackendContextBuilder,
-    CB1::Context: FindBackendSubcontext<CB2::Context> + 'static,
+    CB1::Context: AsRef<Option<CB2::Context>> + 'static,
+    CB2: BackendContextBuilder,
+    CB2::Context: BackendContext + 'static,
+{
+    //
+}
+
+macro_rules! feature_mapper {
+    ($feat:ty) => {
+        paste! {
+            fn [<$feat:snake _with>] (
+                &self,
+                cb: &CB,
+            ) -> Option<BackendFeature<Self::Context, dyn $feat>> {
+               self.map_feature(cb.[<$feat:snake>]())
+            }
+        }
+    };
+}
+
+pub trait BackendContextBuilderMapper<CB>
+where
+    Self: BackendContextBuilder,
+    Self::Context: AsRef<CB::Context> + 'static,
+    CB: BackendContextBuilder,
+    CB::Context: BackendContext + 'static,
+{
+    fn map_feature<T: ?Sized + 'static>(
+        &self,
+        f: Option<BackendFeature<CB::Context, T>>,
+    ) -> Option<BackendFeature<Self::Context, T>> {
+        let f = f?;
+        Some(Arc::new(move |ctx| f(ctx.as_ref())))
+    }
+
+    feature_mapper!(ListFolders);
+}
+
+/// Generic implementation for the backend context builder with a
+/// context implementing [`FindBackendSubcontext`].
+impl<CB1, CB2> BackendContextBuilderMapper<CB2> for CB1
+where
+    CB1: BackendContextBuilder,
+    CB1::Context: AsRef<CB2::Context> + 'static,
     CB2: BackendContextBuilder,
     CB2::Context: BackendContext + 'static,
 {
