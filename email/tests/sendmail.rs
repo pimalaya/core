@@ -1,11 +1,14 @@
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
-    backend::BackendBuilder,
+    backend::{Backend, BackendBuilder},
+    envelope::list::ListEnvelopes,
+    folder::{delete::DeleteFolder, list::ListFolders, purge::PurgeFolder},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder,
+        ImapContextBuilder, ImapContextSync,
     },
-    sendmail::{config::SendmailConfig, SendmailContextBuilder},
+    message::send::SendMessage,
+    sendmail::{config::SendmailConfig, SendmailContext, SendmailContextBuilder},
 };
 use mail_builder::MessageBuilder;
 use secret::Secret;
@@ -40,21 +43,24 @@ async fn test_sendmail_features() {
         .into(),
     });
 
-    let imap_ctx = ImapContextBuilder::new(imap_config);
+    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
     let imap = BackendBuilder::new(account_config.clone(), imap_ctx)
-        .build()
+        .build::<Backend<ImapContextSync>>()
         .await
         .unwrap();
 
-    let sendmail_ctx = SendmailContextBuilder::new(sendmail_config);
+    let sendmail_ctx = SendmailContextBuilder::new(account_config.clone(), sendmail_config);
     let sendmail = BackendBuilder::new(account_config, sendmail_ctx)
-        .build()
+        .build::<Backend<SendmailContext>>()
         .await
         .unwrap();
 
     // setting up folders
 
-    imap.purge_folder("INBOX").await.unwrap();
+    for folder in imap.list_folders().await.unwrap().iter() {
+        let _ = imap.purge_folder(&folder.name).await;
+        let _ = imap.delete_folder(&folder.name).await;
+    }
 
     // checking that an email can be sent
 

@@ -28,12 +28,12 @@ pub trait GetMessages: Send + Sync {
     async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages>;
 }
 
-#[async_trait]
-impl<T: PeekMessages + AddFlags> GetMessages for T {
-    async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
-        default_get_messages(self, self, folder, id).await
-    }
-}
+// #[async_trait]
+// impl<T: PeekMessages + AddFlags> GetMessages for T {
+//     async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+//         default_get_messages(self, self, folder, id).await
+//     }
+// }
 
 pub async fn default_get_messages(
     a: &dyn PeekMessages,

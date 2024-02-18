@@ -7,43 +7,37 @@ use std::{ops::Deref, sync::Arc};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-#[cfg(feature = "envelope-get")]
-use crate::envelope::get::{imap::GetImapEnvelope, GetEnvelope};
-#[cfg(feature = "envelope-list")]
-use crate::envelope::list::{imap::ListImapEnvelopes, ListEnvelopes};
-#[cfg(feature = "envelope-watch")]
-use crate::envelope::watch::{imap::WatchImapEnvelopes, WatchEnvelopes};
-#[cfg(feature = "flag-add")]
-use crate::flag::add::{imap::AddImapFlags, AddFlags};
-#[cfg(feature = "flag-remove")]
-use crate::flag::remove::{imap::RemoveImapFlags, RemoveFlags};
-#[cfg(feature = "flag-set")]
-use crate::flag::set::{imap::SetImapFlags, SetFlags};
-#[cfg(feature = "folder-add")]
-use crate::folder::add::{imap::AddImapFolder, AddFolder};
-#[cfg(feature = "folder-delete")]
-use crate::folder::delete::{imap::DeleteImapFolder, DeleteFolder};
-#[cfg(feature = "folder-expunge")]
-use crate::folder::expunge::{imap::ExpungeImapFolder, ExpungeFolder};
-#[cfg(feature = "folder-list")]
-use crate::folder::list::{imap::ListImapFolders, ListFolders};
-#[cfg(feature = "folder-purge")]
-use crate::folder::purge::{imap::PurgeImapFolder, PurgeFolder};
-#[cfg(feature = "message-add")]
-use crate::message::add::{imap::AddImapMessage, AddMessage};
-#[cfg(feature = "message-copy")]
-use crate::message::copy::{imap::CopyImapMessages, CopyMessages};
-#[cfg(feature = "message-delete")]
-use crate::message::delete::{imap::DeleteImapMessages, DeleteMessages};
-#[cfg(feature = "message-get")]
-use crate::message::get::{imap::GetImapMessages, GetMessages};
-#[cfg(feature = "message-peek")]
-use crate::message::peek::{imap::PeekImapMessages, PeekMessages};
-#[cfg(feature = "message-move")]
-use crate::message::r#move::{imap::MoveImapMessages, MoveMessages};
 use crate::{
     account::config::{oauth2::OAuth2Method, AccountConfig},
-    backend::{BackendContext, BackendContextBuilder, BackendFeatureBuilder},
+    backend::{
+        context::{BackendContext, BackendContextBuilder},
+        feature::BackendFeature,
+    },
+    envelope::{
+        get::{imap::GetImapEnvelope, GetEnvelope},
+        list::{imap::ListImapEnvelopes, ListEnvelopes},
+        watch::{imap::WatchImapEnvelopes, WatchEnvelopes},
+    },
+    flag::{
+        add::{imap::AddImapFlags, AddFlags},
+        remove::{imap::RemoveImapFlags, RemoveFlags},
+        set::{imap::SetImapFlags, SetFlags},
+    },
+    folder::{
+        add::{imap::AddImapFolder, AddFolder},
+        delete::{imap::DeleteImapFolder, DeleteFolder},
+        expunge::{imap::ExpungeImapFolder, ExpungeFolder},
+        list::{imap::ListImapFolders, ListFolders},
+        purge::{imap::PurgeImapFolder, PurgeFolder},
+    },
+    message::{
+        add::{imap::AddImapMessage, AddMessage},
+        copy::{imap::CopyImapMessages, CopyMessages},
+        delete::{imap::DeleteImapMessages, DeleteMessages},
+        get::{imap::GetImapMessages, GetMessages},
+        peek::{imap::PeekImapMessages, PeekMessages},
+        r#move::{imap::MoveImapMessages, MoveMessages},
+    },
     Result,
 };
 
@@ -152,6 +146,9 @@ impl BackendContext for ImapContextSync {}
 /// The IMAP backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ImapContextBuilder {
+    /// The account configuration.
+    pub account_config: Arc<AccountConfig>,
+
     /// The IMAP configuration.
     pub imap_config: Arc<ImapConfig>,
 
@@ -160,8 +157,9 @@ pub struct ImapContextBuilder {
 }
 
 impl ImapContextBuilder {
-    pub fn new(imap_config: Arc<ImapConfig>) -> Self {
+    pub fn new(account_config: Arc<AccountConfig>, imap_config: Arc<ImapConfig>) -> Self {
         Self {
+            account_config,
             imap_config,
             prebuilt_credentials: None,
         }
@@ -182,92 +180,75 @@ impl ImapContextBuilder {
 impl BackendContextBuilder for ImapContextBuilder {
     type Context = ImapContextSync;
 
-    #[cfg(feature = "folder-add")]
-    fn add_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFolder> {
+    fn add_folder(&self) -> Option<BackendFeature<Self::Context, dyn AddFolder>> {
         Some(Arc::new(AddImapFolder::some_new_boxed))
     }
 
-    #[cfg(feature = "folder-list")]
-    fn list_folders(&self) -> BackendFeatureBuilder<Self::Context, dyn ListFolders> {
+    fn list_folders(&self) -> Option<BackendFeature<Self::Context, dyn ListFolders>> {
         Some(Arc::new(ListImapFolders::some_new_boxed))
     }
 
-    #[cfg(feature = "folder-expunge")]
-    fn expunge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn ExpungeFolder> {
+    fn expunge_folder(&self) -> Option<BackendFeature<Self::Context, dyn ExpungeFolder>> {
         Some(Arc::new(ExpungeImapFolder::some_new_boxed))
     }
 
-    #[cfg(feature = "folder-purge")]
-    fn purge_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn PurgeFolder> {
+    fn purge_folder(&self) -> Option<BackendFeature<Self::Context, dyn PurgeFolder>> {
         Some(Arc::new(PurgeImapFolder::some_new_boxed))
     }
 
-    #[cfg(feature = "folder-delete")]
-    fn delete_folder(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteFolder> {
+    fn delete_folder(&self) -> Option<BackendFeature<Self::Context, dyn DeleteFolder>> {
         Some(Arc::new(DeleteImapFolder::some_new_boxed))
     }
 
-    #[cfg(feature = "envelope-list")]
-    fn list_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn ListEnvelopes> {
-        Some(Arc::new(ListImapEnvelopes::some_new_boxed))
-    }
-
-    #[cfg(feature = "envelope-watch")]
-    fn watch_envelopes(&self) -> BackendFeatureBuilder<Self::Context, dyn WatchEnvelopes> {
-        Some(Arc::new(WatchImapEnvelopes::some_new_boxed))
-    }
-
-    #[cfg(feature = "envelope-get")]
-    fn get_envelope(&self) -> BackendFeatureBuilder<Self::Context, dyn GetEnvelope> {
+    fn get_envelope(&self) -> Option<BackendFeature<Self::Context, dyn GetEnvelope>> {
         Some(Arc::new(GetImapEnvelope::some_new_boxed))
     }
 
-    #[cfg(feature = "flag-add")]
-    fn add_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn AddFlags> {
+    fn list_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn ListEnvelopes>> {
+        Some(Arc::new(ListImapEnvelopes::some_new_boxed))
+    }
+
+    fn watch_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn WatchEnvelopes>> {
+        Some(Arc::new(WatchImapEnvelopes::some_new_boxed))
+    }
+
+    fn add_flags(&self) -> Option<BackendFeature<Self::Context, dyn AddFlags>> {
         Some(Arc::new(AddImapFlags::some_new_boxed))
     }
 
-    #[cfg(feature = "flag-set")]
-    fn set_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn SetFlags> {
+    fn set_flags(&self) -> Option<BackendFeature<Self::Context, dyn SetFlags>> {
         Some(Arc::new(SetImapFlags::some_new_boxed))
     }
 
-    #[cfg(feature = "flag-remove")]
-    fn remove_flags(&self) -> BackendFeatureBuilder<Self::Context, dyn RemoveFlags> {
+    fn remove_flags(&self) -> Option<BackendFeature<Self::Context, dyn RemoveFlags>> {
         Some(Arc::new(RemoveImapFlags::some_new_boxed))
     }
 
-    #[cfg(feature = "message-add")]
-    fn add_message(&self) -> BackendFeatureBuilder<Self::Context, dyn AddMessage> {
+    fn add_message(&self) -> Option<BackendFeature<Self::Context, dyn AddMessage>> {
         Some(Arc::new(AddImapMessage::some_new_boxed))
     }
 
-    #[cfg(feature = "message-peek")]
-    fn peek_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn PeekMessages> {
+    fn peek_messages(&self) -> Option<BackendFeature<Self::Context, dyn PeekMessages>> {
         Some(Arc::new(PeekImapMessages::some_new_boxed))
     }
 
-    #[cfg(feature = "message-get")]
-    fn get_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn GetMessages> {
+    fn get_messages(&self) -> Option<BackendFeature<Self::Context, dyn GetMessages>> {
         Some(Arc::new(GetImapMessages::some_new_boxed))
     }
 
-    #[cfg(feature = "message-copy")]
-    fn copy_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn CopyMessages> {
+    fn copy_messages(&self) -> Option<BackendFeature<Self::Context, dyn CopyMessages>> {
         Some(Arc::new(CopyImapMessages::some_new_boxed))
     }
 
-    #[cfg(feature = "message-move")]
-    fn move_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn MoveMessages> {
+    fn move_messages(&self) -> Option<BackendFeature<Self::Context, dyn MoveMessages>> {
         Some(Arc::new(MoveImapMessages::some_new_boxed))
     }
 
-    #[cfg(feature = "message-delete")]
-    fn delete_messages(&self) -> BackendFeatureBuilder<Self::Context, dyn DeleteMessages> {
+    fn delete_messages(&self) -> Option<BackendFeature<Self::Context, dyn DeleteMessages>> {
         Some(Arc::new(DeleteImapMessages::some_new_boxed))
     }
 
-    async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
+    async fn build(self) -> Result<Self::Context> {
         info!("building new imap context");
 
         let creds = self.prebuilt_credentials.as_ref();
@@ -296,13 +277,13 @@ impl BackendContextBuilder for ImapContextBuilder {
         }?;
 
         let ctx = ImapContext {
-            account_config: account_config.clone(),
+            account_config: self.account_config.clone(),
             imap_config: self.imap_config.clone(),
             session,
         };
 
         Ok(ImapContextSync {
-            account_config,
+            account_config: self.account_config,
             imap_config: self.imap_config,
             inner: Arc::new(Mutex::new(ctx)),
         })

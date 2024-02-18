@@ -1,14 +1,16 @@
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
-    backend::BackendBuilder,
-    folder::INBOX,
+    backend::{Backend, BackendBuilder},
+    envelope::list::ListEnvelopes,
+    folder::{delete::DeleteFolder, list::ListFolders, purge::PurgeFolder},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder,
+        ImapContextBuilder, ImapContextSync,
     },
+    message::send::SendMessage,
     smtp::{
         config::{SmtpAuthConfig, SmtpConfig, SmtpEncryptionKind},
-        SmtpContextBuilder,
+        SmtpContextBuilder, SmtpContextSync,
     },
 };
 use mail_builder::MessageBuilder;
@@ -39,21 +41,24 @@ async fn test_smtp_features() {
         ..Default::default()
     });
 
-    let imap_ctx = ImapContextBuilder::new(imap_config);
+    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
     let imap = BackendBuilder::new(account_config.clone(), imap_ctx)
-        .build()
+        .build::<Backend<ImapContextSync>>()
         .await
         .unwrap();
 
-    let smtp_ctx = SmtpContextBuilder::new(smtp_config);
+    let smtp_ctx = SmtpContextBuilder::new(account_config.clone(), smtp_config);
     let smtp = BackendBuilder::new(account_config.clone(), smtp_ctx)
-        .build()
+        .build::<Backend<SmtpContextSync>>()
         .await
         .unwrap();
 
     // setting up folders
 
-    imap.purge_folder(INBOX).await.unwrap();
+    for folder in imap.list_folders().await.unwrap().iter() {
+        let _ = imap.purge_folder(&folder.name).await;
+        let _ = imap.delete_folder(&folder.name).await;
+    }
 
     // checking that an email can be built and sent
 

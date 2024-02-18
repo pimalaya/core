@@ -6,30 +6,20 @@
 //! The core concept of this module is the [Message] structure, which
 //! is just wrapper around the [mail_parser::Message] struct.
 
-#[cfg(feature = "message-add")]
 pub mod add;
 pub mod attachment;
 pub mod config;
-#[cfg(feature = "message-copy")]
 pub mod copy;
-#[cfg(feature = "message-delete")]
 pub mod delete;
-#[cfg(feature = "message-get")]
 pub mod get;
-#[cfg(feature = "message-move")]
 pub mod r#move;
-#[cfg(feature = "message-peek")]
 pub mod peek;
-#[cfg(feature = "message-send")]
 pub mod send;
 pub mod template;
 
-#[cfg(feature = "imap")]
 use imap::types::{Fetch, Fetches};
-#[cfg(feature = "imap")]
 use log::debug;
 use mail_parser::{MessageParser, MimeHeaders};
-#[cfg(feature = "maildir")]
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
@@ -87,7 +77,7 @@ pub enum Error {
 /// The raw message wrapper.
 enum RawMessage<'a> {
     Cow(Cow<'a, [u8]>),
-    #[cfg(feature = "imap")]
+
     Fetch(&'a Fetch<'a>),
 }
 
@@ -105,7 +95,7 @@ impl Message<'_> {
     fn parsed_builder<'a>(raw: &'a mut RawMessage) -> Option<mail_parser::Message<'a>> {
         match raw {
             RawMessage::Cow(ref bytes) => MessageParser::new().parse(bytes.as_ref()),
-            #[cfg(feature = "imap")]
+
             RawMessage::Fetch(fetch) => {
                 MessageParser::new().parse(fetch.body().unwrap_or_default())
             }
@@ -203,7 +193,6 @@ impl<'a> From<&'a [u8]> for Message<'a> {
     }
 }
 
-#[cfg(feature = "imap")]
 impl<'a> From<&'a Fetch<'a>> for Message<'a> {
     fn from(fetch: &'a Fetch) -> Self {
         MessageBuilder {
@@ -214,7 +203,6 @@ impl<'a> From<&'a Fetch<'a>> for Message<'a> {
     }
 }
 
-#[cfg(feature = "maildir")]
 impl<'a> From<&'a mut MailEntry> for Message<'a> {
     fn from(entry: &'a mut MailEntry) -> Self {
         MessageBuilder {
@@ -233,9 +221,9 @@ impl<'a> From<&'a str> for Message<'a> {
 
 enum RawMessages {
     Vec(Vec<Vec<u8>>),
-    #[cfg(feature = "imap")]
+
     Fetches(Fetches),
-    #[cfg(feature = "maildir")]
+
     MailEntries(Vec<MailEntry>),
 }
 
@@ -251,7 +239,7 @@ impl Messages {
     fn emails_builder(raw: &mut RawMessages) -> Vec<Message> {
         match raw {
             RawMessages::Vec(vec) => vec.iter().map(Vec::as_slice).map(Message::from).collect(),
-            #[cfg(feature = "imap")]
+
             RawMessages::Fetches(fetches) => fetches
                 .iter()
                 .filter(|fetch| match fetch.body() {
@@ -264,7 +252,7 @@ impl Messages {
                 })
                 .map(Message::from)
                 .collect(),
-            #[cfg(feature = "maildir")]
+
             RawMessages::MailEntries(entries) => entries.iter_mut().map(Message::from).collect(),
         }
     }
@@ -288,7 +276,6 @@ impl From<Vec<Vec<u8>>> for Messages {
     }
 }
 
-#[cfg(feature = "imap")]
 impl TryFrom<Fetches> for Messages {
     type Error = crate::Error;
 
@@ -305,7 +292,6 @@ impl TryFrom<Fetches> for Messages {
     }
 }
 
-#[cfg(feature = "maildir")]
 impl TryFrom<Vec<MailEntry>> for Messages {
     type Error = crate::Error;
 

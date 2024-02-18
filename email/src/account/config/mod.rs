@@ -36,7 +36,7 @@ use crate::{
     message::config::MessageConfig,
     Result,
 };
-#[cfg(feature = "envelope-watch")]
+
 use crate::{envelope::Envelope, watch::config::WatchHook};
 
 #[cfg(feature = "pgp")]
@@ -48,9 +48,6 @@ pub const DEFAULT_SIGNATURE_DELIM: &str = "-- \n";
 /// Errors related to account configuration.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[cfg(feature = "account-sync")]
-    #[error("cannot open the synchronization database")]
-    BuildSyncDatabaseError(#[source] rusqlite::Error),
     #[error("cannot parse download file name from {0}")]
     ParseDownloadFileNameError(PathBuf),
     #[error("cannot get sync directory from XDG_DATA_HOME")]
@@ -192,7 +189,13 @@ impl AccountConfig {
         match self.sync.as_ref().and_then(|c| c.dir.as_ref()) {
             Some(dir) => try_shellexpand_path(dir).is_ok(),
             None => data_dir()
-                .map(|dir| dir.join("himalaya").join(&self.name).is_dir())
+                .map(|dir| {
+                    dir.join("pimalaya")
+                        .join("email")
+                        .join("sync")
+                        .join(&self.name)
+                        .is_dir()
+                })
                 .unwrap_or_default(),
         }
     }
@@ -217,23 +220,17 @@ impl AccountConfig {
                 Ok(sync_dir)
             }
             None => {
-                debug!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/himalaya");
+                debug!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/pimalaya/email/sync");
                 let sync_dir = data_dir()
-                    .map(|dir| dir.join("himalaya"))
                     .ok_or(Error::GetXdgDataDirError)?
-                    .join(&self.name);
+                    .join("pimalaya")
+                    .join("email")
+                    .join("sync")
+                    .join(self.name.clone() + "-cache");
                 fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsError)?;
                 Ok(sync_dir)
             }
         }
-    }
-
-    #[cfg(feature = "account-sync")]
-    /// Open a SQLite connection to the synchronization database.
-    pub fn get_sync_db_conn(&self) -> Result<rusqlite::Connection> {
-        let conn = rusqlite::Connection::open(self.get_sync_dir()?.join(".sync.sqlite"))
-            .map_err(Error::BuildSyncDatabaseError)?;
-        Ok(conn)
     }
 
     #[cfg(feature = "account-sync")]
@@ -246,7 +243,6 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    #[cfg(feature = "envelope-watch")]
     /// Execute the envelope received hook.
     pub async fn exec_received_envelope_hook(&self, envelope: &Envelope) {
         let hook = self
@@ -260,7 +256,6 @@ impl AccountConfig {
         }
     }
 
-    #[cfg(feature = "envelope-watch")]
     /// Execute the envelope any hook.
     pub async fn exec_any_envelope_hook(&self, envelope: &Envelope) {
         let hook = self
@@ -274,7 +269,6 @@ impl AccountConfig {
         }
     }
 
-    #[cfg(feature = "envelope-watch")]
     /// Execute the given envelope hook.
     pub async fn exec_envelope_hook(&self, hook: &WatchHook, envelope: &Envelope) {
         let sender = envelope.from.name.as_deref().unwrap_or(&envelope.from.addr);
@@ -414,7 +408,7 @@ impl AccountConfig {
     ///
     /// This function is the reverse of [`get_folder_alias`], as it
     /// tries to find a key (folder kind) matching the given value
-    /// (folder alial).
+    /// (folder alias).
     pub fn find_folder_kind_from_alias(&self, alias: &str) -> Option<FolderKind> {
         self.folder
             .as_ref()
@@ -431,7 +425,6 @@ impl AccountConfig {
             })
     }
 
-    #[cfg(feature = "envelope-list")]
     /// Get the envelope listing page size if defined, otherwise
     /// return the default one.
     pub fn get_envelope_list_page_size(&self) -> usize {
@@ -445,87 +438,63 @@ impl AccountConfig {
     /// Get the message reading format if defined, otherwise return
     /// the default one.
     pub fn get_message_read_format(&self) -> EmailTextPlainFormat {
-        #[cfg(feature = "message-get")]
-        return self
-            .message
+        self.message
             .as_ref()
             .and_then(|c| c.read.as_ref())
             .and_then(|c| c.format.as_ref())
             .cloned()
-            .unwrap_or_default();
-
-        #[cfg(not(feature = "message-get"))]
-        return Default::default();
+            .unwrap_or_default()
     }
 
     /// Get the message reading headers if defined, otherwise return
     /// the default ones.
     pub fn get_message_read_headers(&self) -> Vec<String> {
-        let default_headers = vec!["From".into(), "To".into(), "Cc".into(), "Subject".into()];
-
-        #[cfg(feature = "message-get")]
-        return self
-            .message
+        self.message
             .as_ref()
             .and_then(|c| c.read.as_ref())
             .and_then(|c| c.headers.as_ref())
             .cloned()
-            .unwrap_or(default_headers);
-
-        #[cfg(not(feature = "message-get"))]
-        return default_headers;
+            .unwrap_or(vec![
+                "From".into(),
+                "To".into(),
+                "Cc".into(),
+                "Subject".into(),
+            ])
     }
 
     /// Get the message writing headers if defined, otherwise return
     /// the default ones.
     pub fn get_message_write_headers(&self) -> Vec<String> {
-        let default_headers = vec![
-            "From".into(),
-            "To".into(),
-            "In-Reply-To".into(),
-            "Cc".into(),
-            "Subject".into(),
-        ];
-
-        #[cfg(feature = "message-add")]
-        return self
-            .message
+        self.message
             .as_ref()
             .and_then(|c| c.write.as_ref())
             .and_then(|c| c.headers.as_ref())
             .cloned()
-            .unwrap_or(default_headers);
-
-        #[cfg(not(feature = "message-add"))]
-        return default_headers;
+            .unwrap_or(vec![
+                "From".into(),
+                "To".into(),
+                "In-Reply-To".into(),
+                "Cc".into(),
+                "Subject".into(),
+            ])
     }
 
     /// Find the message pre-send hook.
     pub fn find_message_pre_send_hook(&self) -> Option<&Cmd> {
-        #[cfg(feature = "message-send")]
-        return self
-            .message
+        self.message
             .as_ref()
             .and_then(|c| c.send.as_ref())
-            .and_then(|c| c.pre_hook.as_ref());
-
-        #[cfg(not(feature = "message-send"))]
-        return None;
+            .and_then(|c| c.pre_hook.as_ref())
     }
 
     /// Return `true` if a copy of sent messages should be saved in
     /// the sent folder.
     pub fn should_save_copy_sent_message(&self) -> bool {
-        #[cfg(feature = "message-send")]
-        return self
-            .message
+        self.message
             .as_ref()
             .and_then(|c| c.send.as_ref())
             .and_then(|c| c.save_copy)
-            .unwrap_or_default();
-
-        #[cfg(not(feature = "message-send"))]
-        return false;
+            .unwrap_or_default()
     }
 
     /// Generate a template interpreter with prefilled options from
@@ -542,7 +511,6 @@ impl AccountConfig {
         builder
     }
 
-    #[cfg(feature = "envelope-list")]
     /// Get the envelope listing datetime format, otherwise return the
     /// default one.
     pub fn get_envelope_list_datetime_fmt(&self) -> String {
@@ -553,7 +521,6 @@ impl AccountConfig {
             .unwrap_or_else(|| String::from("%F %R%:z"))
     }
 
-    #[cfg(feature = "envelope-list")]
     /// Return `true` if the envelope listing datetime local timezone
     /// option is enabled.
     pub fn has_envelope_list_datetime_local_tz(&self) -> bool {

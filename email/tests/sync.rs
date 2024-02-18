@@ -1,39 +1,59 @@
-use email::maildir::MaildirContextBuilder;
 use email::{
-    account::{
-        config::{passwd::PasswdConfig, AccountConfig},
-        sync::{config::SyncConfig, AccountSyncBuilder},
+    account::config::{passwd::PasswdConfig, AccountConfig},
+    backend::{Backend, BackendBuilder},
+    email::sync::hunk::EmailSyncHunk,
+    envelope::{list::ListEnvelopes, Envelope, Id},
+    flag::{add::AddFlags, Flag, Flags},
+    folder::{
+        add::AddFolder,
+        config::FolderConfig,
+        delete::DeleteFolder,
+        expunge::ExpungeFolder,
+        list::ListFolders,
+        purge::PurgeFolder,
+        sync::{hunk::FolderSyncHunk, FolderSyncStrategy},
+        Folder, FolderKind, INBOX, TRASH,
     },
-    backend::BackendBuilder,
-    email::sync::EmailSyncCache,
-    envelope::Id,
-    flag::{Flag, Flags},
-    folder::{self, config::FolderConfig, FolderKind, INBOX, SENT, TRASH},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder,
+        ImapContextBuilder, ImapContextSync,
     },
-    maildir::config::MaildirConfig,
+    maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
+    message::{add::AddMessage, delete::DeleteMessages, peek::PeekMessages},
+    sync::{SyncBuilder, SyncDestination, SyncEvent},
 };
 use env_logger;
 use mail_builder::MessageBuilder;
+use once_cell::sync::Lazy;
 use secret::Secret;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
+    collections::{BTreeMap, BTreeSet, HashSet},
     sync::Arc,
-    time::Duration,
 };
 use tempfile::tempdir;
+use tokio::sync::Mutex;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn sync() {
+async fn test_sync() {
     env_logger::builder().is_test(true).init();
 
-    // set up config
+    let tmp = tempdir().unwrap().path().to_owned();
 
-    let sync_dir = tempdir().unwrap().path().join("sync-dir");
+    // set up left configs
 
-    let imap_config = Arc::new(ImapConfig {
+    let mdir_config_left = Arc::new(MaildirConfig {
+        root_dir: tmp.join("left"),
+    });
+
+    let account_config_left = Arc::new(AccountConfig {
+        name: "left".into(),
+        ..Default::default()
+    });
+
+    // set up right configs
+
+    let imap_config_right = Arc::new(ImapConfig {
         host: "localhost".into(),
         port: 3143,
         encryption: Some(ImapEncryptionKind::None),
@@ -42,305 +62,664 @@ async fn sync() {
         ..ImapConfig::default()
     });
 
-    let account_config = Arc::new(AccountConfig {
-        name: "account".into(),
+    let account_config_right = Arc::new(AccountConfig {
+        name: "right".into(),
         folder: Some(FolderConfig {
-            aliases: Some(HashMap::from_iter([(SENT.into(), "[Gmail]/Sent".into())])),
-            ..Default::default()
-        }),
-        sync: Some(SyncConfig {
-            enable: Some(true),
-            dir: Some(sync_dir.clone()),
+            aliases: Some(HashMap::from_iter([(TRASH.into(), "[Gmail]/Trash".into())])),
             ..Default::default()
         }),
         ..Default::default()
     });
 
-    // set up imap
+    // set up left backend (Maildir)
 
-    let imap_ctx = ImapContextBuilder::new(imap_config.clone());
-    let imap_builder = BackendBuilder::new(account_config.clone(), imap_ctx);
-    let imap = imap_builder.clone().build().await.unwrap();
-
-    // set up maildir reader
-
-    let mdir_ctx = MaildirContextBuilder::new(Arc::new(MaildirConfig {
-        root_dir: sync_dir.clone(),
-    }));
-    let mdir_builder = BackendBuilder::new(account_config.clone(), mdir_ctx);
-    let mdir = mdir_builder.clone().build().await.unwrap();
-
-    // set up folders
-
-    for folder in imap.list_folders().await.unwrap().iter() {
-        if folder.is_inbox() {
-            imap.purge_folder(INBOX).await.unwrap()
-        } else {
-            imap.delete_folder(&folder.name).await.unwrap()
-        }
-    }
-
-    imap.add_folder("[Gmail]/Sent").await.unwrap();
-    imap.add_folder(TRASH).await.unwrap();
-
-    // add three emails to folder INBOX with delay (in order to have
-    // different dates)
-
-    imap.add_message_with_flag(
-        INBOX,
-        &MessageBuilder::new()
-            .message_id("<a@localhost>")
-            .from("alice@localhost")
-            .to("bob@localhost")
-            .subject("A")
-            .text_body("A")
-            .write_to_vec()
-            .unwrap(),
-        Flag::Seen,
-    )
-    .await
-    .unwrap();
-
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
-    imap.add_message_with_flags(
-        INBOX,
-        &MessageBuilder::new()
-            .message_id("<b@localhost>")
-            .from("alice@localhost")
-            .to("bob@localhost")
-            .subject("B")
-            .text_body("B")
-            .write_to_vec()
-            .unwrap(),
-        &Flags::from_iter([Flag::Seen, Flag::Flagged, Flag::Custom("custom".into())]),
-    )
-    .await
-    .unwrap();
-
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
-    imap.add_message_with_flags(
-        INBOX,
-        &MessageBuilder::new()
-            .message_id("<c@localhost>")
-            .from("alice@localhost")
-            .to("bob@localhost")
-            .subject("C")
-            .text_body("C")
-            .write_to_vec()
-            .unwrap(),
-        &Flags::default(),
-    )
-    .await
-    .unwrap();
-
-    let imap_inbox_envelopes = imap.list_envelopes(INBOX, 0, 0).await.unwrap();
-
-    // add two more emails to folder [Gmail]/Sent
-
-    imap.add_message_with_flags(
-        "sent",
-        &MessageBuilder::new()
-            .message_id("<d@localhost>")
-            .from("alice@localhost")
-            .to("bob@localhost")
-            .subject("D")
-            .text_body("D")
-            .write_to_vec()
-            .unwrap(),
-        &Flags::default(),
-    )
-    .await
-    .unwrap();
-
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
-    imap.add_message_with_flags(
-        "SenT",
-        &MessageBuilder::new()
-            .message_id("<e@localhost>")
-            .from("alice@localhost")
-            .to("bob@localhost")
-            .subject("E")
-            .text_body("E")
-            .write_to_vec()
-            .unwrap(),
-        &Flags::default(),
-    )
-    .await
-    .unwrap();
-
-    let imap_sent_envelopes = imap.list_envelopes(SENT, 0, 0).await.unwrap();
-
-    // sync imap account twice in a row to see if all work as expected
-    // without duplicate items
-    let sync_builder = AccountSyncBuilder::new(account_config.clone(), mdir_builder, imap_builder)
+    let left_ctx = MaildirContextBuilder::new(account_config_left.clone(), mdir_config_left);
+    let left_builder = BackendBuilder::new(account_config_left.clone(), left_ctx);
+    let left = left_builder
+        .clone()
+        .build::<Backend<MaildirContextSync>>()
         .await
         .unwrap();
-    sync_builder.sync().await.unwrap();
-    sync_builder.sync().await.unwrap();
+
+    // set up right backend (IMAP)
+
+    let right_ctx =
+        ImapContextBuilder::new(account_config_right.clone(), imap_config_right.clone());
+    let right_builder = BackendBuilder::new(account_config_right.clone(), right_ctx);
+    let right = right_builder
+        .clone()
+        .build::<Backend<ImapContextSync>>()
+        .await
+        .unwrap();
+
+    // reset right backend folders (keep only INBOX, Archives and [Gmail]/Trash)
+
+    for folder in right.list_folders().await.unwrap().iter() {
+        let _ = right.purge_folder(&folder.name).await;
+        let _ = right.delete_folder(&folder.name).await;
+    }
+
+    right.add_folder("Archives").await.unwrap();
+    right.add_folder("[Gmail]/Trash").await.unwrap();
+
+    // add three messages to right INBOX folder
+
+    right
+        .add_message_with_flag(
+            INBOX,
+            &MessageBuilder::new()
+                .message_id("<a@localhost>")
+                .from("alice@localhost")
+                .to("bob@localhost")
+                .subject("A")
+                .text_body("A")
+                .write_to_vec()
+                .unwrap(),
+            Flag::Seen,
+        )
+        .await
+        .unwrap();
+
+    right
+        .add_message_with_flags(
+            INBOX,
+            &MessageBuilder::new()
+                .message_id("<b@localhost>")
+                .from("alice@localhost")
+                .to("bob@localhost")
+                .subject("B")
+                .text_body("B")
+                .write_to_vec()
+                .unwrap(),
+            &Flags::from_iter([Flag::Seen, Flag::Flagged, Flag::Custom("custom".into())]),
+        )
+        .await
+        .unwrap();
+
+    right
+        .add_message(
+            INBOX,
+            &MessageBuilder::new()
+                .message_id("<c@localhost>")
+                .from("alice@localhost")
+                .to("bob@localhost")
+                .subject("C")
+                .text_body("C")
+                .write_to_vec()
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // add two more emails to right folder [Gmail]/Trash
+
+    right
+        .add_message_with_flags(
+            "[Gmail]/Trash",
+            &MessageBuilder::new()
+                .message_id("<d@localhost>")
+                .from("alice@localhost")
+                .to("bob@localhost")
+                .subject("D")
+                .text_body("D")
+                .write_to_vec()
+                .unwrap(),
+            &Flags::default(),
+        )
+        .await
+        .unwrap();
+
+    right
+        .add_message_with_flags(
+            "TrAsH",
+            &MessageBuilder::new()
+                .message_id("<e@localhost>")
+                .from("alice@localhost")
+                .to("bob@localhost")
+                .subject("E")
+                .text_body("E")
+                .write_to_vec()
+                .unwrap(),
+            &Flags::default(),
+        )
+        .await
+        .unwrap();
+
+    // prepare sync builder
+
+    static EVENTS_STACK: Lazy<Mutex<HashSet<SyncEvent>>> =
+        Lazy::new(|| Mutex::const_new(HashSet::default()));
+
+    let sync_builder = SyncBuilder::new(left_builder.clone(), right_builder.clone())
+        .with_cache_dir(tmp.join("cache"))
+        .with_handler(|evt| async {
+            let mut stack = EVENTS_STACK.lock().await;
+            stack.insert(evt);
+            Ok(())
+        });
+
+    let left_cache = sync_builder
+        .get_left_cache_builder()
+        .unwrap()
+        .build::<Backend<MaildirContextSync>>()
+        .await
+        .unwrap();
+    let right_cache = sync_builder
+        .get_right_cache_builder()
+        .unwrap()
+        .build::<Backend<MaildirContextSync>>()
+        .await
+        .unwrap();
+
+    // check sync integrity with dry run on INBOX only
+
+    let report = sync_builder
+        .clone()
+        .with_dry_run(true)
+        .with_folders_filter(FolderSyncStrategy::Include(HashSet::from_iter([
+            INBOX.into()
+        ])))
+        .sync()
+        .await
+        .unwrap();
+
+    let expected_folders = HashSet::from_iter([INBOX.into()]);
+
+    assert_eq!(report.folder.names, expected_folders);
+
+    let expected_evts = HashSet::from_iter([
+        SyncEvent::ListedLeftCachedFolders(1),
+        SyncEvent::ListedRightCachedFolders(1),
+        SyncEvent::ListedLeftFolders(1),
+        SyncEvent::ListedRightFolders(1),
+        SyncEvent::ListedAllFolders,
+        SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([(
+            INBOX.into(),
+            BTreeSet::from_iter([]),
+        )])),
+        SyncEvent::ProcessedAllFolderHunks,
+        SyncEvent::ListedLeftCachedEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedRightCachedEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedLeftEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedRightEnvelopes(INBOX.into(), 3),
+        SyncEvent::GeneratedEmailPatch(BTreeMap::from_iter([(
+            INBOX.into(),
+            BTreeSet::from_iter([
+                EmailSyncHunk::CopyThenCache(
+                    INBOX.into(),
+                    Envelope {
+                        message_id: "<a@localhost>".into(),
+                        ..Default::default()
+                    },
+                    SyncDestination::Right,
+                    SyncDestination::Left,
+                    true,
+                ),
+                EmailSyncHunk::CopyThenCache(
+                    INBOX.into(),
+                    Envelope {
+                        message_id: "<b@localhost>".into(),
+                        ..Default::default()
+                    },
+                    SyncDestination::Right,
+                    SyncDestination::Left,
+                    true,
+                ),
+                EmailSyncHunk::CopyThenCache(
+                    INBOX.into(),
+                    Envelope {
+                        message_id: "<c@localhost>".into(),
+                        ..Default::default()
+                    },
+                    SyncDestination::Right,
+                    SyncDestination::Left,
+                    true,
+                ),
+            ]),
+        )])),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<a@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<b@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<c@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedAllEmailHunks,
+        SyncEvent::ExpungedAllFolders,
+    ]);
+
+    {
+        let mut evts = EVENTS_STACK.lock().await;
+        assert_eq!(*evts, expected_evts);
+        evts.clear()
+    }
+
+    // check full sync integrity
+
+    let report = sync_builder.clone().sync().await.unwrap();
+
+    let expected_folders = HashSet::from_iter([INBOX.into(), "Archives".into(), TRASH.into()]);
+
+    assert_eq!(report.folder.names, expected_folders);
+
+    let expected_evts = HashSet::from_iter([
+        SyncEvent::ListedLeftCachedFolders(1),
+        SyncEvent::ListedRightCachedFolders(1),
+        SyncEvent::ListedLeftFolders(1),
+        SyncEvent::ListedRightFolders(3),
+        SyncEvent::ListedAllFolders,
+        SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([
+            (INBOX.into(), BTreeSet::from_iter([])),
+            (
+                "Archives".into(),
+                BTreeSet::from_iter([
+                    FolderSyncHunk::Cache("Archives".into(), SyncDestination::Right),
+                    FolderSyncHunk::Create("Archives".into(), SyncDestination::Left),
+                    FolderSyncHunk::Cache("Archives".into(), SyncDestination::Left),
+                ]),
+            ),
+            (
+                "Trash".into(),
+                BTreeSet::from_iter([
+                    FolderSyncHunk::Cache(TRASH.into(), SyncDestination::Right),
+                    FolderSyncHunk::Create(TRASH.into(), SyncDestination::Left),
+                    FolderSyncHunk::Cache(TRASH.into(), SyncDestination::Left),
+                ]),
+            ),
+        ])),
+        SyncEvent::ProcessedAllFolderHunks,
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(
+            "Archives".into(),
+            SyncDestination::Right,
+        )),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Create(
+            "Archives".into(),
+            SyncDestination::Left,
+        )),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(
+            "Archives".into(),
+            SyncDestination::Left,
+        )),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(TRASH.into(), SyncDestination::Right)),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Create(TRASH.into(), SyncDestination::Left)),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(TRASH.into(), SyncDestination::Left)),
+        SyncEvent::ListedLeftCachedEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedRightCachedEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedLeftEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedRightEnvelopes(INBOX.into(), 3),
+        SyncEvent::ListedLeftCachedEnvelopes("Archives".into(), 0),
+        SyncEvent::ListedRightCachedEnvelopes("Archives".into(), 0),
+        SyncEvent::ListedLeftEnvelopes("Archives".into(), 0),
+        SyncEvent::ListedRightEnvelopes("Archives".into(), 0),
+        SyncEvent::ListedLeftCachedEnvelopes(TRASH.into(), 0),
+        SyncEvent::ListedRightCachedEnvelopes(TRASH.into(), 0),
+        SyncEvent::ListedLeftEnvelopes(TRASH.into(), 0),
+        SyncEvent::ListedRightEnvelopes(TRASH.into(), 2),
+        SyncEvent::GeneratedEmailPatch(BTreeMap::from_iter([
+            ("Archives".into(), BTreeSet::from_iter([])),
+            (
+                INBOX.into(),
+                BTreeSet::from_iter([
+                    EmailSyncHunk::CopyThenCache(
+                        INBOX.into(),
+                        Envelope {
+                            message_id: "<a@localhost>".into(),
+                            ..Default::default()
+                        },
+                        SyncDestination::Right,
+                        SyncDestination::Left,
+                        true,
+                    ),
+                    EmailSyncHunk::CopyThenCache(
+                        INBOX.into(),
+                        Envelope {
+                            message_id: "<b@localhost>".into(),
+                            ..Default::default()
+                        },
+                        SyncDestination::Right,
+                        SyncDestination::Left,
+                        true,
+                    ),
+                    EmailSyncHunk::CopyThenCache(
+                        INBOX.into(),
+                        Envelope {
+                            message_id: "<c@localhost>".into(),
+                            ..Default::default()
+                        },
+                        SyncDestination::Right,
+                        SyncDestination::Left,
+                        true,
+                    ),
+                ]),
+            ),
+            (
+                TRASH.into(),
+                BTreeSet::from_iter([
+                    EmailSyncHunk::CopyThenCache(
+                        TRASH.into(),
+                        Envelope {
+                            message_id: "<d@localhost>".into(),
+                            ..Default::default()
+                        },
+                        SyncDestination::Right,
+                        SyncDestination::Left,
+                        true,
+                    ),
+                    EmailSyncHunk::CopyThenCache(
+                        TRASH.into(),
+                        Envelope {
+                            message_id: "<e@localhost>".into(),
+                            ..Default::default()
+                        },
+                        SyncDestination::Right,
+                        SyncDestination::Left,
+                        true,
+                    ),
+                ]),
+            ),
+        ])),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<a@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<b@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<c@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            TRASH.into(),
+            Envelope {
+                message_id: "<d@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            TRASH.into(),
+            Envelope {
+                message_id: "<e@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedAllEmailHunks,
+        SyncEvent::ExpungedAllFolders,
+    ]);
+
+    {
+        let mut evts = EVENTS_STACK.lock().await;
+        println!("diff: {:#?}", (*evts).difference(&expected_evts));
+        assert_eq!(*evts, expected_evts);
+        evts.clear()
+    }
+
+    let folder_patch: HashSet<_> = report
+        .folder
+        .patch
+        .into_iter()
+        .map(|(hunk, _err)| hunk)
+        .collect();
+
+    let expected_folder_patch = HashSet::from_iter([
+        FolderSyncHunk::Cache("Archives".into(), SyncDestination::Right),
+        FolderSyncHunk::Create("Archives".into(), SyncDestination::Left),
+        FolderSyncHunk::Cache("Archives".into(), SyncDestination::Left),
+        FolderSyncHunk::Cache(TRASH.into(), SyncDestination::Right),
+        FolderSyncHunk::Create(TRASH.into(), SyncDestination::Left),
+        FolderSyncHunk::Cache(TRASH.into(), SyncDestination::Left),
+    ]);
+
+    assert_eq!(folder_patch, expected_folder_patch);
+
+    let email_patch: HashSet<_> = report
+        .email
+        .patch
+        .into_iter()
+        .map(|(hunk, _err)| hunk)
+        .collect();
+
+    let expected_email_patch = HashSet::from_iter([
+        EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<a@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        ),
+        EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<b@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        ),
+        EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<c@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        ),
+        EmailSyncHunk::CopyThenCache(
+            TRASH.into(),
+            Envelope {
+                message_id: "<d@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        ),
+        EmailSyncHunk::CopyThenCache(
+            TRASH.into(),
+            Envelope {
+                message_id: "<e@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        ),
+    ]);
+
+    assert_eq!(email_patch, expected_email_patch);
+
+    // attempt a second sync that should lead to an empty report
+
+    let report = sync_builder.clone().sync().await.unwrap();
+
+    assert!(report.folder.patch.is_empty());
+    assert!(report.email.patch.is_empty());
 
     // check folders integrity
 
-    let mut imap_folders = imap.list_folders().await.unwrap();
-    imap_folders.sort_by(|a, b| a.name.cmp(&b.name));
+    let right_folders: HashSet<Folder> =
+        HashSet::from_iter::<Vec<Folder>>(right.list_folders().await.unwrap().into());
 
-    assert_eq!(imap_folders.len(), 3);
-    assert_eq!(imap_folders[0].name, "INBOX");
-    assert_eq!(imap_folders[0].kind, Some(FolderKind::Inbox));
-    assert_eq!(imap_folders[1].name, "Trash");
-    assert_eq!(imap_folders[1].kind, Some(FolderKind::Trash));
-    assert_eq!(imap_folders[2].name, "[Gmail]/Sent");
-    assert_eq!(imap_folders[2].kind, Some(FolderKind::Sent));
+    let expected_right_folders = HashSet::from_iter([
+        Folder {
+            kind: Some(FolderKind::Inbox),
+            name: INBOX.into(),
+            ..Default::default()
+        },
+        Folder {
+            kind: None,
+            name: "Archives".into(),
+            ..Default::default()
+        },
+        Folder {
+            kind: Some(FolderKind::Trash),
+            name: TRASH.into(),
+            ..Default::default()
+        },
+    ]);
 
-    let mut mdir_folders = mdir.list_folders().await.unwrap();
-    mdir_folders.sort_by(|a, b| a.name.cmp(&b.name));
+    assert_eq!(right_folders, expected_right_folders);
 
-    assert_eq!(imap_folders, mdir_folders);
+    let left_folders: HashSet<Folder> =
+        HashSet::from_iter::<Vec<Folder>>(left.list_folders().await.unwrap().into());
 
-    // check maildir envelopes integrity
+    assert_eq!(left_folders, right_folders);
 
-    let mdir_inbox_envelopes = mdir.list_envelopes(INBOX, 0, 0).await.unwrap();
-    assert_eq!(imap_inbox_envelopes, mdir_inbox_envelopes);
+    let left_cached_folders: HashSet<Folder> =
+        HashSet::from_iter::<Vec<Folder>>(left_cache.list_folders().await.unwrap().into());
 
-    let mdir_sent_envelopes = mdir.list_envelopes(SENT, 0, 0).await.unwrap();
-    assert_eq!(imap_sent_envelopes, mdir_sent_envelopes);
+    assert_eq!(left_cached_folders, left_folders);
 
-    // check maildir emails content integrity
+    let right_cached_folders: HashSet<Folder> =
+        HashSet::from_iter::<Vec<Folder>>(right_cache.list_folders().await.unwrap().into());
 
-    let ids = Id::multiple(mdir_inbox_envelopes.iter().map(|e| &e.id));
-    let msgs = mdir.get_messages(INBOX, &ids).await.unwrap();
+    assert_eq!(right_cached_folders, right_folders);
+
+    // check envelopes integrity
+
+    for folder in [INBOX, "Archives", TRASH] {
+        let mut left_envelopes = left.list_envelopes(folder, 0, 0).await.unwrap();
+        left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+        let mut left_cached_envelopes = left_cache.list_envelopes(folder, 0, 0).await.unwrap();
+        left_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+        let mut right_envelopes = right.list_envelopes(folder, 0, 0).await.unwrap();
+        right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+        let mut right_cached_envelopes = right_cache.list_envelopes(folder, 0, 0).await.unwrap();
+        right_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+        assert_eq!(left_envelopes, left_cached_envelopes);
+        assert_eq!(right_envelopes, right_cached_envelopes);
+        assert_eq!(left_envelopes, right_envelopes);
+    }
+
+    // check left emails content integrity
+
+    let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
+    left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    let ids = Id::multiple(left_envelopes.iter().map(|e| &e.id));
+    let msgs = left.peek_messages(INBOX, &ids).await.unwrap();
     let msgs = msgs.to_vec();
     assert_eq!(3, msgs.len());
     assert_eq!("C", msgs[0].parsed().unwrap().body_text(0).unwrap());
     assert_eq!("B", msgs[1].parsed().unwrap().body_text(0).unwrap());
     assert_eq!("A", msgs[2].parsed().unwrap().body_text(0).unwrap());
 
-    let ids = Id::multiple(mdir_sent_envelopes.iter().map(|e| &e.id));
-    let msgs = mdir.get_messages(SENT, &ids).await.unwrap();
+    let mut left_envelopes = left.list_envelopes(TRASH, 0, 0).await.unwrap();
+    left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    let ids = Id::multiple(left_envelopes.iter().map(|e| &e.id));
+    let msgs = left.peek_messages(TRASH, &ids).await.unwrap();
     let msgs = msgs.to_vec();
     assert_eq!(2, msgs.len());
     assert_eq!("E", msgs[0].parsed().unwrap().body_text(0).unwrap());
     assert_eq!("D", msgs[1].parsed().unwrap().body_text(0).unwrap());
 
-    // check folders cache integrity
-
-    let mut conn = rusqlite::Connection::open(sync_dir.join(".sync.sqlite")).unwrap();
-
-    let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
-        &mut conn,
-        &account_config.name,
-        &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter([SENT.into()])),
-    )
-    .unwrap();
-    assert!(!local_folders_cached.contains(INBOX));
-    assert!(local_folders_cached.contains(SENT));
-
-    let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
-        &mut conn,
-        &account_config.name,
-        &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter([SENT.into()])),
-    )
-    .unwrap();
-    assert!(local_folders_cached.contains(INBOX));
-    assert!(!local_folders_cached.contains(SENT));
-
-    let local_folders_cached = folder::sync::FolderSyncCache::list_local_folders(
-        &mut conn,
-        &account_config.name,
-        &folder::sync::FolderSyncStrategy::All,
-    )
-    .unwrap();
-    assert!(local_folders_cached.contains(INBOX));
-    assert!(local_folders_cached.contains(SENT));
-
-    let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
-        &mut conn,
-        &account_config.name,
-        &folder::sync::FolderSyncStrategy::Include(HashSet::from_iter([SENT.into()])),
-    )
-    .unwrap();
-    assert!(!remote_folders_cached.contains(INBOX));
-    assert!(remote_folders_cached.contains(SENT));
-
-    let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
-        &mut conn,
-        &account_config.name,
-        &folder::sync::FolderSyncStrategy::Exclude(HashSet::from_iter([SENT.into()])),
-    )
-    .unwrap();
-    assert!(remote_folders_cached.contains(INBOX));
-    assert!(!remote_folders_cached.contains(SENT));
-
-    let remote_folders_cached = folder::sync::FolderSyncCache::list_remote_folders(
-        &mut conn,
-        &account_config.name,
-        &folder::sync::FolderSyncStrategy::All,
-    )
-    .unwrap();
-    assert!(remote_folders_cached.contains(INBOX));
-    assert!(remote_folders_cached.contains(SENT));
-
-    // CHECK envelopes cache integrity
-
-    let mdir_inbox_envelopes_cached =
-        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, INBOX).unwrap();
-    let imap_inbox_envelopes_cached =
-        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, INBOX).unwrap();
-
-    assert_eq!(mdir_inbox_envelopes, mdir_inbox_envelopes_cached);
-    assert_eq!(imap_inbox_envelopes, imap_inbox_envelopes_cached);
-
-    let mdir_sent_envelopes_cached =
-        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, SENT).unwrap();
-    let imap_sent_envelopes_cached =
-        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, SENT).unwrap();
-
-    assert_eq!(mdir_sent_envelopes, mdir_sent_envelopes_cached);
-    assert_eq!(imap_sent_envelopes, imap_sent_envelopes_cached);
-
-    // remove emails and update flags from both side, sync again and
+    // remove messages and update flags from both side, sync again and
     // check integrity
 
-    imap.delete_messages(INBOX, &Id::single(&imap_inbox_envelopes[0].id))
+    let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
+    left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    left.delete_messages(INBOX, &Id::single(&left_envelopes[2].id))
         .await
         .unwrap();
-    imap.add_flags(
+    left.add_flags(
         INBOX,
-        &Id::single(&imap_inbox_envelopes[1].id),
-        &Flags::from_iter([Flag::Draft]),
-    )
-    .await
-    .unwrap();
-    imap.expunge_folder(INBOX).await.unwrap();
-    mdir.delete_messages(INBOX, &Id::single(&mdir_inbox_envelopes[2].id))
-        .await
-        .unwrap();
-    mdir.add_flags(
-        INBOX,
-        &Id::single(&mdir_inbox_envelopes[1].id),
+        &Id::single(&left_envelopes[1].id),
         &Flags::from_iter([Flag::Flagged, Flag::Answered]),
     )
     .await
     .unwrap();
-    mdir.expunge_folder(INBOX).await.unwrap();
+    left.expunge_folder(INBOX).await.unwrap();
+
+    let mut right_envelopes = right.list_envelopes(INBOX, 0, 0).await.unwrap();
+    right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    right
+        .delete_messages(INBOX, &Id::single(&right_envelopes[0].id))
+        .await
+        .unwrap();
+    right
+        .add_flag(INBOX, &Id::single(&right_envelopes[1].id), Flag::Draft)
+        .await
+        .unwrap();
+    right.expunge_folder(INBOX).await.unwrap();
 
     let report = sync_builder.sync().await.unwrap();
-    assert_eq!(
-        report.folders,
-        HashSet::from_iter([INBOX.into(), SENT.into(), TRASH.into()])
-    );
 
-    let imap_envelopes = imap.list_envelopes(INBOX, 0, 0).await.unwrap();
-    let mdir_envelopes = mdir.list_envelopes(INBOX, 0, 0).await.unwrap();
-    assert_eq!(imap_envelopes, mdir_envelopes);
+    let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
+    left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    let cached_mdir_envelopes =
-        EmailSyncCache::list_local_envelopes(&mut conn, &account_config.name, INBOX).unwrap();
-    assert_eq!(cached_mdir_envelopes, mdir_envelopes);
+    let mut left_cached_envelopes = left_cache.list_envelopes(INBOX, 0, 0).await.unwrap();
+    left_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    let cached_imap_envelopes =
-        EmailSyncCache::list_remote_envelopes(&mut conn, &account_config.name, INBOX).unwrap();
-    assert_eq!(cached_imap_envelopes, imap_envelopes);
+    let mut right_envelopes = right.list_envelopes(INBOX, 0, 0).await.unwrap();
+    right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    let mut right_cached_envelopes = right_cache.list_envelopes(INBOX, 0, 0).await.unwrap();
+    right_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
+
+    assert!(report.folder.patch.is_empty());
+    assert!(!report.email.patch.is_empty());
+    assert_eq!(left_envelopes, left_cached_envelopes);
+    assert_eq!(right_envelopes, right_cached_envelopes);
+    assert_eq!(left_envelopes, right_envelopes);
 }

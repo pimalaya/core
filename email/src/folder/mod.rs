@@ -13,20 +13,15 @@
 //! Finally, the [`sync`] module contains everything needed to
 //! synchronize a remote folder with a local one.
 
-#[cfg(feature = "folder-add")]
 pub mod add;
 pub mod config;
-#[cfg(feature = "folder-delete")]
 pub mod delete;
-#[cfg(feature = "folder-expunge")]
 pub mod expunge;
 #[cfg(feature = "imap")]
 pub mod imap;
-#[cfg(feature = "folder-list")]
 pub mod list;
 #[cfg(feature = "maildir")]
 pub mod maildir;
-#[cfg(feature = "folder-purge")]
 pub mod purge;
 #[cfg(feature = "account-sync")]
 pub mod sync;
@@ -38,6 +33,9 @@ use std::{
     str::FromStr,
 };
 use thiserror::Error;
+
+#[cfg(feature = "account-sync")]
+pub(crate) use sync::sync;
 
 /// Errors dedicated to folder management.
 #[derive(Debug, Error)]

@@ -1,11 +1,12 @@
 use concat_with::concat_line;
 use email::{
     account::config::AccountConfig,
-    backend::BackendBuilder,
-    envelope::Id,
-    flag::{Flag, Flags},
+    backend::{Backend, BackendBuilder},
+    envelope::{list::ListEnvelopes, Id},
+    flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag, Flags},
     folder::{config::FolderConfig, INBOX},
-    notmuch::{config::NotmuchConfig, NotmuchContextBuilder},
+    message::{add::AddMessage, copy::CopyMessages, get::GetMessages, r#move::MoveMessages},
+    notmuch::{config::NotmuchConfig, NotmuchContextBuilder, NotmuchContextSync},
 };
 use mail_builder::MessageBuilder;
 use maildirpp::Maildir;
@@ -46,9 +47,9 @@ async fn test_notmuch_features() {
         ..Default::default()
     });
 
-    let notmuch_ctx = NotmuchContextBuilder::new(notmuch_config.clone());
+    let notmuch_ctx = NotmuchContextBuilder::new(account_config.clone(), notmuch_config.clone());
     let notmuch = BackendBuilder::new(account_config.clone(), notmuch_ctx)
-        .build()
+        .build::<Backend<NotmuchContextSync>>()
         .await
         .unwrap();
 

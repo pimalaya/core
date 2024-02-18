@@ -1,13 +1,20 @@
 use concat_with::concat_line;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
-    backend::BackendBuilder,
-    envelope::Id,
-    flag::Flag,
-    folder::{config::FolderConfig, INBOX, SENT},
+    backend::{Backend, BackendBuilder},
+    envelope::{list::ListEnvelopes, Id},
+    flag::{add::AddFlags, Flag},
+    folder::{
+        add::AddFolder, config::FolderConfig, delete::DeleteFolder, expunge::ExpungeFolder,
+        list::ListFolders, purge::PurgeFolder, SENT,
+    },
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder,
+        ImapContextBuilder, ImapContextSync,
+    },
+    message::{
+        add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
+        r#move::MoveMessages,
     },
 };
 use mml::MmlCompilerBuilder;
@@ -35,20 +42,17 @@ async fn test_imap_features() {
         ..Default::default()
     });
 
-    let imap_ctx = ImapContextBuilder::new(imap_config.clone());
+    let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config.clone());
     let imap = BackendBuilder::new(account_config.clone(), imap_ctx)
-        .build()
+        .build::<Backend<ImapContextSync>>()
         .await
         .unwrap();
 
     // setting up folders
 
     for folder in imap.list_folders().await.unwrap().iter() {
-        if folder.is_inbox() {
-            imap.purge_folder(INBOX).await.unwrap()
-        } else {
-            imap.delete_folder(&folder.name).await.unwrap()
-        }
+        let _ = imap.purge_folder(&folder.name).await;
+        let _ = imap.delete_folder(&folder.name).await;
     }
 
     imap.add_folder("[Gmail]/Sent").await.unwrap();

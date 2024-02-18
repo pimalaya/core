@@ -3,7 +3,6 @@
 //! This module contains everything to serialize and deserialize email
 //! envelope flags.
 
-#[cfg(feature = "flag-add")]
 pub mod add;
 #[cfg(feature = "imap")]
 pub mod imap;
@@ -11,16 +10,15 @@ pub mod imap;
 pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;
-#[cfg(feature = "flag-remove")]
 pub mod remove;
-#[cfg(feature = "flag-set")]
 pub mod set;
+
 #[cfg(feature = "account-sync")]
 mod sync;
 
 use log::debug;
 use std::{
-    collections::HashSet,
+    collections::BTreeSet,
     fmt,
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
@@ -143,8 +141,8 @@ impl fmt::Display for Flag {
 ///
 /// The list of flags that can be attached to an email envelope. It
 /// uses a [`std::collections::HashSet`] to prevent duplicates.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Flags(HashSet<Flag>);
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+pub struct Flags(BTreeSet<Flag>);
 
 impl Hash for Flags {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -167,7 +165,7 @@ impl fmt::Display for Flags {
 }
 
 impl Deref for Flags {
-    type Target = HashSet<Flag>;
+    type Target = BTreeSet<Flag>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

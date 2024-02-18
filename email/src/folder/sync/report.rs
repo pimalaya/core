@@ -4,19 +4,15 @@
 
 use crate::Error;
 
-use super::{FolderSyncCacheHunk, FolderSyncHunk, FoldersName};
+use super::hunk::{FolderSyncHunk, FoldersName};
 
 /// The folder synchronization report.
 #[derive(Debug, Default)]
 pub struct FolderSyncReport {
     /// The list of folders found during the synchronization process.
-    pub folders: FoldersName,
+    pub names: FoldersName,
 
     /// The list of processed hunks associated with an optional
     /// error. Hunks that could not be processed are ignored.
     pub patch: Vec<(FolderSyncHunk, Option<Error>)>,
-
-    /// The list of processed cache hunks associated with an optional
-    /// error. Cache hunks that could not be processed are ignored.
-    pub cache_patch: (Vec<FolderSyncCacheHunk>, Option<Error>),
 }

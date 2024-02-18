@@ -7,33 +7,26 @@
 pub mod address;
 pub mod config;
 pub mod flag;
-#[cfg(feature = "envelope-get")]
 pub mod get;
 pub mod id;
 #[cfg(feature = "imap")]
 pub mod imap;
-#[cfg(feature = "envelope-list")]
 pub mod list;
 #[cfg(feature = "maildir")]
 pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;
-#[cfg(feature = "envelope-watch")]
 pub mod watch;
 
-#[cfg(feature = "envelope-list")]
-use chrono::Local;
-use chrono::{DateTime, FixedOffset, TimeZone};
+use chrono::{DateTime, FixedOffset, Local, TimeZone};
 use log::debug;
 use std::{
-    hash::Hash,
+    hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
     vec,
 };
 
-#[cfg(feature = "envelope-list")]
-use crate::account::config::AccountConfig;
-use crate::message::Message;
+use crate::{account::config::AccountConfig, message::Message};
 
 #[doc(inline)]
 pub use self::{
@@ -47,7 +40,7 @@ pub use self::{
 /// The email envelope is composed of an identifier, some
 /// [flags](self::Flags), and few headers taken from the email
 /// [message](crate::Message).
-#[derive(Clone, Debug, Default, Eq)]
+#[derive(Clone, Debug, Default, Eq, Ord, PartialOrd)]
 pub struct Envelope {
     /// The shape of the envelope identifier may vary depending on the backend.
     /// For IMAP backend, it is an stringified auto-incremented integer.
@@ -161,7 +154,6 @@ impl Envelope {
         }
     }
 
-    #[cfg(feature = "envelope-list")]
     /// Format the envelope date according to the datetime format and
     /// timezone from the [account configuration](crate::AccountConfig).
     pub fn format_date(&self, config: &AccountConfig) -> String {
@@ -186,7 +178,7 @@ impl PartialEq for Envelope {
 }
 
 impl Hash for Envelope {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.message_id.hash(state);
     }
 }

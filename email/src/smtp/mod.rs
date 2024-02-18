@@ -12,11 +12,13 @@ use thiserror::Error;
 use tokio::{net::TcpStream, sync::Mutex};
 use tokio_rustls::client::TlsStream;
 
-#[cfg(feature = "message-send")]
-use crate::message::send::{smtp::SendSmtpMessage, SendMessage};
 use crate::{
     account::config::AccountConfig,
-    backend::{BackendContext, BackendContextBuilder, BackendFeatureBuilder},
+    backend::{
+        context::{BackendContext, BackendContextBuilder},
+        feature::BackendFeature,
+    },
+    message::send::{smtp::SendSmtpMessage, SendMessage},
     Result,
 };
 
@@ -125,13 +127,19 @@ impl BackendContext for SmtpContextSync {}
 /// The SMTP client builder.
 #[derive(Clone)]
 pub struct SmtpContextBuilder {
+    /// The account configuration.
+    pub account_config: Arc<AccountConfig>,
+
     /// The SMTP configuration.
     smtp_config: Arc<SmtpConfig>,
 }
 
 impl SmtpContextBuilder {
-    pub fn new(smtp_config: Arc<SmtpConfig>) -> Self {
-        Self { smtp_config }
+    pub fn new(account_config: Arc<AccountConfig>, smtp_config: Arc<SmtpConfig>) -> Self {
+        Self {
+            account_config,
+            smtp_config,
+        }
     }
 }
 
@@ -139,8 +147,7 @@ impl SmtpContextBuilder {
 impl BackendContextBuilder for SmtpContextBuilder {
     type Context = SmtpContextSync;
 
-    #[cfg(feature = "message-send")]
-    fn send_message(&self) -> BackendFeatureBuilder<Self::Context, dyn SendMessage> {
+    fn send_message(&self) -> Option<BackendFeature<Self::Context, dyn SendMessage>> {
         Some(Arc::new(SendSmtpMessage::some_new_boxed))
     }
 
@@ -149,7 +156,7 @@ impl BackendContextBuilder for SmtpContextBuilder {
     /// The SMTP client is created at this moment. If the client
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new client is created.
-    async fn build(self, account_config: Arc<AccountConfig>) -> Result<Self::Context> {
+    async fn build(self) -> Result<Self::Context> {
         info!("building new smtp context");
 
         let mut client_builder =
@@ -164,7 +171,7 @@ impl BackendContextBuilder for SmtpContextBuilder {
         let (client_builder, client) = build_client(&self.smtp_config, client_builder).await?;
 
         let ctx = SmtpContext {
-            account_config,
+            account_config: self.account_config,
             smtp_config: self.smtp_config,
             client_builder,
             client,
