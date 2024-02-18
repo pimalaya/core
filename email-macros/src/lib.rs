@@ -22,7 +22,7 @@ pub fn derive_backend_context_v2(input: TokenStream) -> TokenStream {
     let ident = &input.ident;
 
     let output = quote! {
-        impl email::backend_v2::BackendContext for #ident {}
+        impl email::backend_v2::context::BackendContext for #ident {}
     };
 
     TokenStream::from(output)

@@ -2,8 +2,12 @@ use async_trait::async_trait;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend_v2::{
-        macros::BackendContextV2, BackendBuilder, BackendContextBuilder,
-        BackendContextBuilderMapper, BackendFeature, BackendPool, SomeBackendContextBuilderMapper,
+        context::BackendContextBuilder,
+        feature::BackendFeature,
+        macros::BackendContextV2,
+        mapper::{BackendContextBuilderMapper, SomeBackendContextBuilderMapper},
+        pool::BackendPool,
+        BackendBuilder,
     },
     folder::{
         config::FolderConfig,

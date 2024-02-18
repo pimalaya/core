@@ -139,7 +139,7 @@ impl Deref for ImapContextSync {
 }
 
 impl BackendContext for ImapContextSync {}
-impl crate::backend_v2::BackendContext for ImapContextSync {}
+impl crate::backend_v2::context::BackendContext for ImapContextSync {}
 
 /// The IMAP backend context builder.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -289,12 +289,12 @@ impl BackendContextBuilder for ImapContextBuilder {
 }
 
 #[async_trait]
-impl crate::backend_v2::BackendContextBuilder for ImapContextBuilder {
+impl crate::backend_v2::context::BackendContextBuilder for ImapContextBuilder {
     type Context = ImapContextSync;
 
     fn list_folders(
         &self,
-    ) -> Option<crate::backend_v2::BackendFeature<Self::Context, dyn ListFolders>> {
+    ) -> Option<crate::backend_v2::feature::BackendFeature<Self::Context, dyn ListFolders>> {
         Some(Arc::new(ListImapFolders::some_new_boxed))
     }
 

@@ -120,7 +120,7 @@ impl SmtpContext {
 pub type SmtpContextSync = Arc<Mutex<SmtpContext>>;
 
 impl BackendContext for SmtpContextSync {}
-impl crate::backend_v2::BackendContext for SmtpContextSync {}
+impl crate::backend_v2::context::BackendContext for SmtpContextSync {}
 
 /// The SMTP client builder.
 #[derive(Clone)]
@@ -180,7 +180,7 @@ impl BackendContextBuilder for SmtpContextBuilder {
 }
 
 #[async_trait]
-impl crate::backend_v2::BackendContextBuilder for SmtpContextBuilder {
+impl crate::backend_v2::context::BackendContextBuilder for SmtpContextBuilder {
     type Context = SmtpContextSync;
 
     // fn send_message(&self) -> Option<BackendFeature<Self::Context, dyn SendMessage>> {
