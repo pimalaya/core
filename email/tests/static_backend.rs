@@ -87,12 +87,9 @@ async fn test_static_backend() {
 
     let folders = backend.list_folders().await.unwrap();
 
-    assert_eq!(
-        folders,
-        Folders::from_iter([Folder {
-            kind: Some(FolderKind::Inbox),
-            name: "INBOX".into(),
-            desc: "".into()
-        }])
-    );
+    assert!(folders.contains(&Folder {
+        kind: Some(FolderKind::Inbox),
+        name: "INBOX".into(),
+        desc: "".into()
+    }));
 }

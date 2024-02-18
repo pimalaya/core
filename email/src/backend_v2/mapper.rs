@@ -6,7 +6,18 @@
 use paste::paste;
 use std::sync::Arc;
 
-use crate::folder::list::ListFolders;
+use crate::{
+    envelope::{get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes},
+    flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
+    folder::{
+        add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
+        purge::PurgeFolder,
+    },
+    message::{
+        add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
+        peek::PeekMessages, r#move::MoveMessages, send::SendMessage,
+    },
+};
 
 use super::{
     context::{BackendContext, BackendContextBuilder},
@@ -113,7 +124,24 @@ where
         Some(Arc::new(move |ctx| f(ctx.as_ref().as_ref()?)))
     }
 
+    some_feature_mapper!(AddFolder);
     some_feature_mapper!(ListFolders);
+    some_feature_mapper!(ExpungeFolder);
+    some_feature_mapper!(PurgeFolder);
+    some_feature_mapper!(DeleteFolder);
+    some_feature_mapper!(GetEnvelope);
+    some_feature_mapper!(ListEnvelopes);
+    some_feature_mapper!(WatchEnvelopes);
+    some_feature_mapper!(AddFlags);
+    some_feature_mapper!(SetFlags);
+    some_feature_mapper!(RemoveFlags);
+    some_feature_mapper!(AddMessage);
+    some_feature_mapper!(SendMessage);
+    some_feature_mapper!(PeekMessages);
+    some_feature_mapper!(GetMessages);
+    some_feature_mapper!(CopyMessages);
+    some_feature_mapper!(MoveMessages);
+    some_feature_mapper!(DeleteMessages);
 }
 
 impl<CB1, CB2> SomeBackendContextBuilderMapper<CB2> for CB1
@@ -155,7 +183,24 @@ where
         Some(Arc::new(move |ctx| f(ctx.as_ref())))
     }
 
+    feature_mapper!(AddFolder);
     feature_mapper!(ListFolders);
+    feature_mapper!(ExpungeFolder);
+    feature_mapper!(PurgeFolder);
+    feature_mapper!(DeleteFolder);
+    feature_mapper!(GetEnvelope);
+    feature_mapper!(ListEnvelopes);
+    feature_mapper!(WatchEnvelopes);
+    feature_mapper!(AddFlags);
+    feature_mapper!(SetFlags);
+    feature_mapper!(RemoveFlags);
+    feature_mapper!(AddMessage);
+    feature_mapper!(SendMessage);
+    feature_mapper!(PeekMessages);
+    feature_mapper!(GetMessages);
+    feature_mapper!(CopyMessages);
+    feature_mapper!(MoveMessages);
+    feature_mapper!(DeleteMessages);
 }
 
 impl<CB1, CB2> BackendContextBuilderMapper<CB2> for CB1

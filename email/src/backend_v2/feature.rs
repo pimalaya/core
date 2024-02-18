@@ -7,7 +7,19 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use crate::{folder::list::ListFolders, Result};
+use crate::{
+    envelope::{get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes},
+    flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
+    folder::{
+        add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
+        purge::PurgeFolder,
+    },
+    message::{
+        add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
+        peek::PeekMessages, r#move::MoveMessages, send::SendMessage,
+    },
+    Result,
+};
 
 use super::context::BackendContext;
 
@@ -50,11 +62,51 @@ where
 /// The backend features supertrait.
 ///
 /// This trait is just an alias for all existing backend features.
-pub trait BackendFeatures: ListFolders {}
+pub trait BackendFeatures:
+    AddFolder
+    + ListFolders
+    + ExpungeFolder
+    + PurgeFolder
+    + DeleteFolder
+    + GetEnvelope
+    + ListEnvelopes
+    + WatchEnvelopes
+    + AddFlags
+    + SetFlags
+    + RemoveFlags
+    + AddMessage
+    + SendMessage
+    + PeekMessages
+    + GetMessages
+    + CopyMessages
+    + MoveMessages
+    + DeleteMessages
+{
+}
 
 /// Automatically implement [`BackendFeatures`] for structures
 /// implementing all existing backend features.
-impl<T> BackendFeatures for T where T: ListFolders {}
+impl<T> BackendFeatures for T where
+    T: AddFolder
+        + ListFolders
+        + ExpungeFolder
+        + PurgeFolder
+        + DeleteFolder
+        + GetEnvelope
+        + ListEnvelopes
+        + WatchEnvelopes
+        + AddFlags
+        + SetFlags
+        + RemoveFlags
+        + AddMessage
+        + SendMessage
+        + PeekMessages
+        + GetMessages
+        + CopyMessages
+        + MoveMessages
+        + DeleteMessages
+{
+}
 
 /// The backend implementation builder.
 ///

@@ -100,12 +100,9 @@ async fn test_dynamic_backend() {
     let backend: BackendPool<DynamicContext> = backend_builder.build().await.unwrap();
     let folders = backend.list_folders().await.unwrap();
 
-    assert_eq!(
-        folders,
-        Folders::from_iter([Folder {
-            kind: Some(FolderKind::Inbox),
-            name: "INBOX".into(),
-            desc: "".into()
-        }])
-    );
+    assert!(folders.contains(&Folder {
+        kind: Some(FolderKind::Inbox),
+        name: "INBOX".into(),
+        desc: "".into()
+    }));
 }

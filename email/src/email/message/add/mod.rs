@@ -21,7 +21,7 @@ pub trait AddMessage: Send + Sync {
     async fn add_message_with_flags(
         &self,
         folder: &str,
-        raw_msg: &[u8],
+        msg: &[u8],
         flags: &Flags,
     ) -> Result<SingleId>;
 
@@ -30,16 +30,16 @@ pub trait AddMessage: Send + Sync {
     async fn add_message_with_flag(
         &self,
         folder: &str,
-        raw_msg: &[u8],
+        msg: &[u8],
         flag: Flag,
     ) -> Result<SingleId> {
-        self.add_message_with_flags(folder, raw_msg, &Flags::from_iter([flag]))
+        self.add_message_with_flags(folder, msg, &Flags::from_iter([flag]))
             .await
     }
 
     /// Add the given raw email message to the given folder.
-    async fn add_message(&self, folder: &str, raw_msg: &[u8]) -> Result<SingleId> {
-        self.add_message_with_flags(folder, raw_msg, &Default::default())
+    async fn add_message(&self, folder: &str, msg: &[u8]) -> Result<SingleId> {
+        self.add_message_with_flags(folder, msg, &Default::default())
             .await
     }
 }

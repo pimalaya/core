@@ -8,7 +8,19 @@
 use async_trait::async_trait;
 use paste::paste;
 
-use crate::{folder::list::ListFolders, Result};
+use crate::{
+    envelope::{get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes},
+    flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
+    folder::{
+        add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
+        purge::PurgeFolder,
+    },
+    message::{
+        add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
+        peek::PeekMessages, r#move::MoveMessages, send::SendMessage,
+    },
+    Result,
+};
 
 use super::feature::BackendFeature;
 
@@ -17,12 +29,10 @@ use super::feature::BackendFeature;
 /// This is just a marker for other backend traits. Every backend
 /// context needs to implement this trait manually or to derive
 /// [`crate::backend_v2::macros::BackendContextV2`].
-pub trait BackendContext: Send + Sync {
-    //
-}
+pub trait BackendContext: Send + Sync {}
 
-/// Macro for defining [`BackendContextBuilder`] feature setter.
-macro_rules! feature_setter {
+/// Macro for defining [`BackendContextBuilder`] features.
+macro_rules! feature {
     ($feat:ty) => {
         paste! {
             /// Define the given backend feature.
@@ -42,7 +52,24 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     /// The type of the context being built by this builder.
     type Context: BackendContext;
 
-    feature_setter!(ListFolders);
+    feature!(AddFolder);
+    feature!(ListFolders);
+    feature!(ExpungeFolder);
+    feature!(PurgeFolder);
+    feature!(DeleteFolder);
+    feature!(GetEnvelope);
+    feature!(ListEnvelopes);
+    feature!(WatchEnvelopes);
+    feature!(AddFlags);
+    feature!(SetFlags);
+    feature!(RemoveFlags);
+    feature!(AddMessage);
+    feature!(SendMessage);
+    feature!(PeekMessages);
+    feature!(GetMessages);
+    feature!(CopyMessages);
+    feature!(MoveMessages);
+    feature!(DeleteMessages);
 
     /// Build the final context used by the backend.
     async fn build(self) -> Result<Self::Context>;
