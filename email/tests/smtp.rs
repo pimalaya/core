@@ -38,7 +38,6 @@ async fn test_smtp_features() {
         encryption: Some(SmtpEncryptionKind::None),
         login: "alice@localhost".into(),
         auth: SmtpAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
-        ..Default::default()
     });
 
     let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);

@@ -41,7 +41,6 @@ async fn test_static_backend() {
         encryption: Some(SmtpEncryptionKind::None),
         login: "alice@localhost".into(),
         auth: SmtpAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
-        ..Default::default()
     });
 
     // 1. define custom context made of subcontexts
