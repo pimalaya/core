@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added function `AutoConfig::is_gmail`.
+- Added sync filter `SyncFilters::date_range` of type `Option<SyncDateRangeFilter>`.
 
 ### Changed
 

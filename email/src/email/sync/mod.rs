@@ -6,6 +6,7 @@ pub mod hunk;
 pub mod patch;
 pub mod report;
 
+use chrono::Local;
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, trace};
 use std::{
@@ -61,7 +62,13 @@ where
                                 }
                             })?
                             .into_iter()
-                            .map(|e| (e.message_id.clone(), e)),
+                            .filter_map(|e| {
+                                if ctx.date_range_filter.matches(&e.date.with_timezone(&Local)) {
+                                    Some((e.message_id.clone(), e))
+                                } else {
+                                    None
+                                }
+                            }),
                     );
 
                     SyncEvent::ListedLeftCachedEnvelopes(folder_ref.clone(), envelopes.len())
@@ -90,7 +97,13 @@ where
                                 }
                             })?
                             .into_iter()
-                            .map(|e| (e.message_id.clone(), e)),
+                            .filter_map(|e| {
+                                if ctx.date_range_filter.matches(&e.date.with_timezone(&Local)) {
+                                    Some((e.message_id.clone(), e))
+                                } else {
+                                    None
+                                }
+                            }),
                     );
 
                     SyncEvent::ListedLeftEnvelopes(folder_ref.clone(), envelopes.len())
@@ -119,7 +132,13 @@ where
                                 }
                             })?
                             .into_iter()
-                            .map(|e| (e.message_id.clone(), e)),
+                            .filter_map(|e| {
+                                if ctx.date_range_filter.matches(&e.date.with_timezone(&Local)) {
+                                    Some((e.message_id.clone(), e))
+                                } else {
+                                    None
+                                }
+                            }),
                     );
 
                     SyncEvent::ListedRightCachedEnvelopes(folder_ref.clone(), envelopes.len())
@@ -148,7 +167,13 @@ where
                                 }
                             })?
                             .into_iter()
-                            .map(|e| (e.message_id.clone(), e)),
+                            .filter_map(|e| {
+                                if ctx.date_range_filter.matches(&e.date.with_timezone(&Local)) {
+                                    Some((e.message_id.clone(), e))
+                                } else {
+                                    None
+                                }
+                            }),
                     );
 
                     SyncEvent::ListedRightEnvelopes(folder_ref.clone(), envelopes.len())

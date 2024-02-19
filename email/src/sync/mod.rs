@@ -8,6 +8,7 @@ pub mod pool;
 pub mod report;
 
 use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
+use chrono::{DateTime, Local};
 use dirs::cache_dir;
 use log::{debug, trace};
 use std::{
@@ -181,7 +182,12 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         let folders = folders.map(Into::into);
         match self.filters.as_mut() {
             Some(filters) => filters.folders = folders,
-            None => self.filters = Some(SyncFilters { folders }),
+            None => {
+                self.filters = Some(SyncFilters {
+                    folders,
+                    ..Default::default()
+                })
+            }
         }
     }
 
@@ -208,6 +214,92 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             .and_then(|f| f.folders.as_ref())
             .cloned()
             .unwrap_or_default()
+    }
+
+    pub fn set_some_from_date_filter(&mut self, date: Option<impl Into<DateTime<Local>>>) {
+        let date = date.map(Into::into);
+        match self.filters.as_mut() {
+            Some(filters) => match filters.date_range.as_mut() {
+                Some(date_range) => date_range.set_some_from(date),
+                None => {
+                    filters.date_range = Some(SyncDateRangeFilter::default().with_some_from(date))
+                }
+            },
+            None => {
+                self.filters = Some(SyncFilters {
+                    date_range: Some(SyncDateRangeFilter::default().with_some_from(date)),
+                    ..Default::default()
+                })
+            }
+        }
+    }
+
+    pub fn set_from_date_filter(&mut self, date: impl Into<DateTime<Local>>) {
+        self.set_some_from_date_filter(Some(date));
+    }
+
+    pub fn with_some_from_date_filter(mut self, date: Option<impl Into<DateTime<Local>>>) -> Self {
+        self.set_some_from_date_filter(date);
+        self
+    }
+
+    pub fn with_from_date_filter(mut self, date: impl Into<DateTime<Local>>) -> Self {
+        self.set_from_date_filter(date);
+        self
+    }
+
+    pub fn find_from_date_filter(&self) -> Option<&DateTime<Local>> {
+        self.filters
+            .as_ref()
+            .and_then(|f| f.date_range.as_ref())
+            .and_then(|r| r.find_from())
+    }
+
+    pub fn get_date_range_filter(&self) -> SyncDateRangeFilter {
+        self.filters
+            .as_ref()
+            .and_then(|f| f.date_range.as_ref())
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub fn set_some_to_date_filter(&mut self, date: Option<impl Into<DateTime<Local>>>) {
+        let date = date.map(Into::into);
+        match self.filters.as_mut() {
+            Some(filters) => match filters.date_range.as_mut() {
+                Some(date_range) => date_range.set_some_to(date),
+                None => {
+                    filters.date_range = Some(SyncDateRangeFilter::default().with_some_to(date))
+                }
+            },
+            None => {
+                self.filters = Some(SyncFilters {
+                    date_range: Some(SyncDateRangeFilter::default().with_some_to(date)),
+                    ..Default::default()
+                })
+            }
+        }
+    }
+
+    pub fn set_to_date_filter(&mut self, date: impl Into<DateTime<Local>>) {
+        self.set_some_to_date_filter(Some(date));
+    }
+
+    pub fn with_some_to_date_filter(mut self, date: Option<impl Into<DateTime<Local>>>) -> Self {
+        self.set_some_to_date_filter(date);
+        self
+    }
+
+    pub fn with_to_date_filter(mut self, date: impl Into<DateTime<Local>>) -> Self {
+        self.set_to_date_filter(date);
+        self
+    }
+
+    pub fn find_to_date_filter(&self) -> Option<&DateTime<Local>> {
+        self.filters
+            .as_ref()
+            .and_then(|f| f.date_range.as_ref())
+            .and_then(|r| r.find_to())
     }
 
     pub fn get_left_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
@@ -252,6 +344,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 self.handler.clone(),
                 self.get_dry_run(),
                 self.get_folders_filter(),
+                self.get_date_range_filter(),
             )
             .await?,
         );
@@ -391,8 +484,84 @@ impl fmt::Display for SyncDestination {
 }
 
 /// The synchronization filters.
-#[derive(Clone)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SyncFilters {
     /// Filter folders using the given strategy.
     folders: Option<FolderSyncStrategy>,
+
+    /// Filter envelopes using the given date range.
+    ///
+    /// This filter operates on the `Date` header of the envelopes.
+    date_range: Option<SyncDateRangeFilter>,
+}
+
+/// The date range synchronization filter.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SyncDateRangeFilter {
+    from: Option<DateTime<Local>>,
+    to: Option<DateTime<Local>>,
+}
+
+impl SyncDateRangeFilter {
+    pub fn set_some_from(&mut self, date: Option<impl Into<DateTime<Local>>>) {
+        self.from = date.map(Into::into);
+    }
+
+    pub fn set_from(&mut self, date: impl Into<DateTime<Local>>) {
+        self.set_some_from(Some(date));
+    }
+
+    pub fn with_some_from(mut self, date: Option<impl Into<DateTime<Local>>>) -> Self {
+        self.set_some_from(date);
+        self
+    }
+
+    pub fn with_from(mut self, date: impl Into<DateTime<Local>>) -> Self {
+        self.set_from(date);
+        self
+    }
+
+    pub fn find_from(&self) -> Option<&DateTime<Local>> {
+        self.from.as_ref()
+    }
+
+    pub fn set_some_to(&mut self, date: Option<impl Into<DateTime<Local>>>) {
+        self.to = date.map(Into::into);
+    }
+
+    pub fn set_to(&mut self, date: impl Into<DateTime<Local>>) {
+        self.set_some_to(Some(date));
+    }
+
+    pub fn with_some_to(mut self, date: Option<impl Into<DateTime<Local>>>) -> Self {
+        self.set_some_to(date);
+        self
+    }
+
+    pub fn with_to(mut self, date: impl Into<DateTime<Local>>) -> Self {
+        self.set_to(date);
+        self
+    }
+
+    pub fn find_to(&self) -> Option<&DateTime<Local>> {
+        self.to.as_ref()
+    }
+
+    pub fn matches(&self, date: &DateTime<Local>) -> bool {
+        self.matches_from(date) && self.matches_to(date)
+    }
+
+    pub fn matches_from(&self, date: &DateTime<Local>) -> bool {
+        match self.from.as_ref() {
+            Some(from) => from >= date,
+            None => true,
+        }
+    }
+
+    pub fn matches_to(&self, date: &DateTime<Local>) -> bool {
+        match self.to.as_ref() {
+            Some(to) => to <= date,
+            None => true,
+        }
+    }
 }
