@@ -171,7 +171,7 @@ impl AccountConfig {
 
         let final_path = self.get_downloads_dir().join(file_name);
 
-        rename_file_if_duplicate(final_path, |path, _count| path.is_file())
+        rename_file_if_duplicate(&final_path, |path, _count| path.is_file())
     }
 
     #[cfg(feature = "account-sync")]
@@ -548,28 +548,29 @@ impl<'a> From<AccountConfig> for Address<'a> {
 /// creates a new path with an auto-incremented integer suffix and
 /// returs it, otherwise returs the original file path.
 pub(crate) fn rename_file_if_duplicate(
-    mut original_fpath: PathBuf,
+    origin_file_path: &Path,
     is_file: impl Fn(&PathBuf, u8) -> bool,
 ) -> Result<PathBuf> {
     let mut count = 0;
-    let fext = original_fpath
+
+    let mut file_path = origin_file_path.to_owned();
+    let file_stem = origin_file_path.file_stem().and_then(OsStr::to_str);
+    let file_ext = origin_file_path
         .extension()
         .and_then(OsStr::to_str)
         .map(|fext| String::from(".") + fext)
         .unwrap_or_default();
 
-    while is_file(&original_fpath, count) {
+    while is_file(&file_path, count) {
         count += 1;
-        original_fpath.set_file_name(OsStr::new(
-            &original_fpath
-                .file_stem()
-                .and_then(OsStr::to_str)
-                .map(|fstem| format!("{}_{}{}", fstem, count, fext))
-                .ok_or_else(|| Error::ParseDownloadFileNameError(original_fpath.to_owned()))?,
-        ));
+        file_path.set_file_name(
+            &file_stem
+                .map(|fstem| format!("{}_{}{}", fstem, count, file_ext))
+                .ok_or_else(|| Error::ParseDownloadFileNameError(file_path.to_owned()))?,
+        );
     }
 
-    Ok(original_fpath)
+    Ok(file_path)
 }
 
 #[cfg(test)]
@@ -582,33 +583,33 @@ mod tests {
 
         // when file path is unique
         assert!(matches!(
-            super::rename_file_if_duplicate(path.clone(), |_, _| false),
+            super::rename_file_if_duplicate(&path, |_, _| false),
             Ok(path) if path == PathBuf::from("downloads/file.ext")
         ));
 
         // when 1 file path already exist
         assert!(matches!(
-            super::rename_file_if_duplicate(path.clone(), |_, count| count <  1),
+            super::rename_file_if_duplicate(&path, |_, count| count <  1),
             Ok(path) if path == PathBuf::from("downloads/file_1.ext")
         ));
 
         // when 5 file paths already exist
         assert!(matches!(
-            super::rename_file_if_duplicate(path, |_, count| count < 5),
+            super::rename_file_if_duplicate(&path, |_, count| count < 5),
             Ok(path) if path == PathBuf::from("downloads/file_5.ext")
         ));
 
         // when file path has no extension
         let path = PathBuf::from("downloads/file");
         assert!(matches!(
-            super::rename_file_if_duplicate(path, |_, count| count < 5),
+            super::rename_file_if_duplicate(&path, |_, count| count < 5),
             Ok(path) if path == PathBuf::from("downloads/file_5")
         ));
 
         // when file path has 2 extensions
         let path = PathBuf::from("downloads/file.ext.ext2");
         assert!(matches!(
-            super::rename_file_if_duplicate(path, |_, count| count < 5),
+            super::rename_file_if_duplicate(&path, |_, count| count < 5),
             Ok(path) if path == PathBuf::from("downloads/file.ext_5.ext2")
         ));
     }
