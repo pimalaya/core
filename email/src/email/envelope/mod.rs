@@ -167,6 +167,18 @@ impl Envelope {
 
         date.to_string()
     }
+
+    /// Build a message from the current envelope.
+    ///
+    /// The message is just composed of two headers and contains no
+    /// content. It is mostly used by the synchronization to cache
+    /// envelopes.
+    #[cfg(feature = "account-sync")]
+    pub fn to_sync_cache_msg(&self) -> String {
+        let id = &self.message_id;
+        let date = self.date.to_rfc2822();
+        format!("Message-ID: {id}\nDate: {date}\n\n")
+    }
 }
 
 // NOTE: this is useful for the sync, not sure how relevant it is for

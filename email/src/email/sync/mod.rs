@@ -217,7 +217,7 @@ where
                         EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Left) => {
                             let envelope = ctx.left.get_envelope(&folder, &Id::single(id)).await?;
                             let flags = envelope.flags.clone();
-                            let msg = format!("Message-ID: {}\n\n", envelope.message_id);
+                            let msg = envelope.to_sync_cache_msg();
                             ctx.left_cache
                                 .add_message_with_flags(&folder, msg.as_bytes(), &flags)
                                 .await?;
@@ -226,7 +226,7 @@ where
                         EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Right) => {
                             let envelope = ctx.right.get_envelope(&folder, &Id::single(id)).await?;
                             let flags = envelope.flags.clone();
-                            let msg = format!("Message-ID: {}\n\n", envelope.message_id);
+                            let msg = envelope.to_sync_cache_msg();
                             ctx.right_cache
                                 .add_message_with_flags(&folder, msg.as_bytes(), &flags)
                                 .await?;
@@ -244,8 +244,7 @@ where
                                 SyncDestination::Left => {
                                     if refresh_source_cache {
                                         let flags = envelope.flags.clone();
-                                        let msg =
-                                            format!("Message-ID: {}\n\n", envelope.message_id);
+                                        let msg = envelope.to_sync_cache_msg();
                                         ctx.left_cache
                                             .add_message_with_flags(&folder, msg.as_bytes(), &flags)
                                             .await?;
@@ -255,8 +254,7 @@ where
                                 SyncDestination::Right => {
                                     if refresh_source_cache {
                                         let flags = envelope.flags.clone();
-                                        let msg =
-                                            format!("Message-ID: {}\n\n", envelope.message_id);
+                                        let msg = envelope.to_sync_cache_msg();
                                         ctx.right_cache
                                             .add_message_with_flags(&folder, msg.as_bytes(), &flags)
                                             .await?;
@@ -283,7 +281,7 @@ where
                                     let envelope =
                                         ctx.left.get_envelope(&folder, &Id::single(id)).await?;
                                     let flags = envelope.flags.clone();
-                                    let msg = format!("Message-ID: {}\n\n", envelope.message_id);
+                                    let msg = envelope.to_sync_cache_msg();
                                     ctx.left_cache
                                         .add_message_with_flags(&folder, msg.as_bytes(), &flags)
                                         .await?;
@@ -301,7 +299,7 @@ where
                                     let envelope =
                                         ctx.right.get_envelope(&folder, &Id::single(id)).await?;
                                     let flags = envelope.flags.clone();
-                                    let msg = format!("Message-ID: {}\n\n", envelope.message_id);
+                                    let msg = envelope.to_sync_cache_msg();
                                     ctx.right_cache
                                         .add_message_with_flags(&folder, msg.as_bytes(), &flags)
                                         .await?;
