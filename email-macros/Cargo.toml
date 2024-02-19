@@ -1,6 +1,6 @@
 [package]
 name = "email-macros"
-version = "0.0.1"
+version = "0.0.2"
 description = "Macros for email-lib"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
