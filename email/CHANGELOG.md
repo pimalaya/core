@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Changed `WatchHook` from enum to struct. This way, multiple hook variants can be set up for one event (like sending a system notification and executing a shell command when receiving a new envelope).
 - Made function `DnsClient::get_mx_domain` public.
+- Replaced the `AccountConfig::get_sync_dir` path from `$XDG_DATA_HOME/himalaya` to `$XDG_DATA_HOME/pimalaya/email/sync`. First, Himalaya should not be present in Pimalaya lib. Secondly the sync dir can now be shared between projects relying on `email-lib`.
+- Replaced `SQLite` sync cache by a light version of the `Maildir` backend, where only `Message-ID` and `Date` headers from messages are kept.
+- Refactored the whole sync system: the backend sync is now generic (it can sync 2 different backends together) and its code has been extracted into a dedicated module `sync`. The sync patch applier (which used to process hunk in parallel) is now generic and its code has been extracted into a dedicated module `thread_pool` (it can execute generic tasks in parallel).
+- Refactored the backend module: code has been splitted into submodules. The `Backend` struct became a trait `BackendFeatures`, which is just an alias for all features `AddFolder + ListEnvelopes + SendMessage + …`. The lib exposes two backend implementation: `Backend` (which is the direct equivalent of the previous struct) and `BackendPool` (which can execute features in parallel).
 
 ### Fixed
 
@@ -24,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed function `DnsClient::get_mailconf_mx_uri`.
+- Removed cargo features `folder`, `account`, `flag`, `message`, and all associated sub features. The code started to be too hard to maintain. Adding so many features was a wrong choice.
+- Removed `AccountConfig::get_sync_db_conn` function.
 
 ## [0.21.0] - 2024-01-27
 
