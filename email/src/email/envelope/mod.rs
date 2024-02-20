@@ -117,7 +117,10 @@ impl Envelope {
                 // NOTE: this is useful for the sync to prevent
                 // messages without Message-ID to still being
                 // synchronized.
-                .unwrap_or_else(|| envelope.date.to_rfc3339());
+                .unwrap_or_else(|| {
+                    let date_hash = md5::compute(envelope.date.to_string());
+                    format!("<{date_hash:x}@generated>")
+                });
         } else {
             debug!("cannot parse message header, skipping it");
         };
