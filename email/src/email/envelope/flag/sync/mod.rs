@@ -3,6 +3,8 @@
 //! This module contains a single function [sync] that synchronizes
 //! multiple email envelope flags sources.
 
+pub mod config;
+
 use std::collections::HashSet;
 
 use super::{Flag, Flags};

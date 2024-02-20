@@ -4,6 +4,7 @@
 //! envelope flags.
 
 pub mod add;
+pub mod config;
 #[cfg(feature = "imap")]
 pub mod imap;
 #[cfg(feature = "maildir")]
@@ -12,9 +13,8 @@ pub mod maildir;
 pub mod notmuch;
 pub mod remove;
 pub mod set;
-
 #[cfg(feature = "account-sync")]
-mod sync;
+pub mod sync;
 
 use log::debug;
 use std::{

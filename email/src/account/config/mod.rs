@@ -28,10 +28,11 @@ use std::{
 use thiserror::Error;
 
 #[cfg(feature = "account-sync")]
-use crate::{account::sync::config::SyncConfig, folder::sync::FolderSyncStrategy};
+use crate::account::sync::config::SyncConfig;
 use crate::{
     email::config::EmailTextPlainFormat,
     envelope::config::EnvelopeConfig,
+    flag::config::FlagConfig,
     folder::{config::FolderConfig, FolderKind, DRAFTS, INBOX, SENT, TRASH},
     message::config::MessageConfig,
     Result,
@@ -104,6 +105,9 @@ pub struct AccountConfig {
 
     /// The envelope configuration.
     pub envelope: Option<EnvelopeConfig>,
+
+    /// The flag configuration.
+    pub flag: Option<FlagConfig>,
 
     /// The message configuration.
     pub message: Option<MessageConfig>,
@@ -234,13 +238,63 @@ impl AccountConfig {
     }
 
     #[cfg(feature = "account-sync")]
-    /// Get the folder sync strategy.
-    pub fn get_folder_sync_strategy(&self) -> FolderSyncStrategy {
-        self.sync
+    pub fn matches_envelope_sync_filters(&self, envelope: &Envelope) -> bool {
+        self.envelope
             .as_ref()
-            .and_then(|c| c.strategy.as_ref())
-            .cloned()
+            .and_then(|c| c.sync.as_ref())
+            .map(|c| c.filter.clone())
             .unwrap_or_default()
+            .matches(envelope)
+    }
+
+    #[cfg(feature = "account-sync")]
+    pub fn can_sync_create_folder(&self) -> bool {
+        self.folder
+            .as_ref()
+            .and_then(|c| c.sync.as_ref())
+            .map(|c| c.permissions.clone())
+            .unwrap_or_default()
+            .create
+    }
+
+    #[cfg(feature = "account-sync")]
+    pub fn can_sync_delete_folder(&self) -> bool {
+        self.folder
+            .as_ref()
+            .and_then(|c| c.sync.as_ref())
+            .map(|c| c.permissions.clone())
+            .unwrap_or_default()
+            .delete
+    }
+
+    #[cfg(feature = "account-sync")]
+    pub fn can_sync_update_flags(&self) -> bool {
+        self.flag
+            .as_ref()
+            .and_then(|c| c.sync.as_ref())
+            .map(|c| c.permissions.clone())
+            .unwrap_or_default()
+            .update
+    }
+
+    #[cfg(feature = "account-sync")]
+    pub fn can_sync_create_message(&self) -> bool {
+        self.message
+            .as_ref()
+            .and_then(|c| c.sync.as_ref())
+            .map(|c| c.permissions.clone())
+            .unwrap_or_default()
+            .create
+    }
+
+    #[cfg(feature = "account-sync")]
+    pub fn can_sync_delete_message(&self) -> bool {
+        self.message
+            .as_ref()
+            .and_then(|c| c.sync.as_ref())
+            .map(|c| c.permissions.clone())
+            .unwrap_or_default()
+            .delete
     }
 
     /// Execute the envelope received hook.

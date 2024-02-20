@@ -6,7 +6,6 @@ pub mod hunk;
 pub mod patch;
 pub mod report;
 
-use chrono::Local;
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, trace};
 use std::{
@@ -50,6 +49,7 @@ where
         let left_cached_envelopes = tokio::spawn(async move {
             pool_ref
                 .exec(|ctx| async move {
+                    let backend = &ctx.left_cache;
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                         ctx.left_cache
                             .list_envelopes(&folder_ref, 0, 0)
@@ -63,7 +63,7 @@ where
                             })?
                             .into_iter()
                             .filter_map(|e| {
-                                if ctx.date_range_filter.matches(&e.date.with_timezone(&Local)) {
+                                if backend.account_config.matches_envelope_sync_filters(&e) {
                                     Some((e.message_id.clone(), e))
                                 } else {
                                     None
@@ -85,8 +85,9 @@ where
         let left_envelopes = tokio::spawn(async move {
             pool_ref
                 .exec(|ctx| async move {
+                    let backend = &ctx.left;
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
-                        ctx.left
+                        backend
                             .list_envelopes(&folder_ref, 0, 0)
                             .await
                             .or_else(|err| {
@@ -98,7 +99,7 @@ where
                             })?
                             .into_iter()
                             .filter_map(|e| {
-                                if ctx.date_range_filter.matches(&e.date.with_timezone(&Local)) {
+                                if backend.account_config.matches_envelope_sync_filters(&e) {
                                     Some((e.message_id.clone(), e))
                                 } else {
                                     None
@@ -120,8 +121,9 @@ where
         let right_cached_envelopes = tokio::spawn(async move {
             pool_ref
                 .exec(|ctx| async move {
+                    let backend = &ctx.right_cache;
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
-                        ctx.right_cache
+                        backend
                             .list_envelopes(&folder_ref, 0, 0)
                             .await
                             .or_else(|err| {
@@ -133,7 +135,7 @@ where
                             })?
                             .into_iter()
                             .filter_map(|e| {
-                                if ctx.date_range_filter.matches(&e.date.with_timezone(&Local)) {
+                                if backend.account_config.matches_envelope_sync_filters(&e) {
                                     Some((e.message_id.clone(), e))
                                 } else {
                                     None
@@ -155,8 +157,9 @@ where
         let right_envelopes = tokio::spawn(async move {
             pool_ref
                 .exec(|ctx| async move {
+                    let backend = &ctx.right;
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
-                        ctx.right
+                        backend
                             .list_envelopes(&folder_ref, 0, 0)
                             .await
                             .or_else(|err| {
@@ -168,7 +171,7 @@ where
                             })?
                             .into_iter()
                             .filter_map(|e| {
-                                if ctx.date_range_filter.matches(&e.date.with_timezone(&Local)) {
+                                if backend.account_config.matches_envelope_sync_filters(&e) {
                                     Some((e.message_id.clone(), e))
                                 } else {
                                     None
@@ -240,22 +243,26 @@ where
 
                     match hunk_clone {
                         EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Left) => {
-                            let envelope = ctx.left.get_envelope(&folder, &Id::single(id)).await?;
-                            let flags = envelope.flags.clone();
-                            let msg = envelope.to_sync_cache_msg();
-                            ctx.left_cache
-                                .add_message_with_flags(&folder, msg.as_bytes(), &flags)
-                                .await?;
-                            Ok(())
+                            if ctx.left_cache.account_config.can_sync_create_message() {
+                                let envelope =
+                                    ctx.left.get_envelope(&folder, &Id::single(id)).await?;
+                                let flags = envelope.flags.clone();
+                                let msg = envelope.to_sync_cache_msg();
+                                ctx.left_cache
+                                    .add_message_with_flags(&folder, msg.as_bytes(), &flags)
+                                    .await?;
+                            }
                         }
                         EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Right) => {
-                            let envelope = ctx.right.get_envelope(&folder, &Id::single(id)).await?;
-                            let flags = envelope.flags.clone();
-                            let msg = envelope.to_sync_cache_msg();
-                            ctx.right_cache
-                                .add_message_with_flags(&folder, msg.as_bytes(), &flags)
-                                .await?;
-                            Ok(())
+                            if ctx.right_cache.account_config.can_sync_create_message() {
+                                let envelope =
+                                    ctx.right.get_envelope(&folder, &Id::single(id)).await?;
+                                let flags = envelope.flags.clone();
+                                let msg = envelope.to_sync_cache_msg();
+                                ctx.right_cache
+                                    .add_message_with_flags(&folder, msg.as_bytes(), &flags)
+                                    .await?;
+                            }
                         }
                         EmailSyncHunk::CopyThenCache(
                             folder,
@@ -267,22 +274,34 @@ where
                             let id = Id::single(&envelope.id);
                             let msgs = match source {
                                 SyncDestination::Left => {
-                                    if refresh_source_cache {
-                                        let flags = envelope.flags.clone();
-                                        let msg = envelope.to_sync_cache_msg();
-                                        ctx.left_cache
-                                            .add_message_with_flags(&folder, msg.as_bytes(), &flags)
-                                            .await?;
+                                    if ctx.left_cache.account_config.can_sync_create_message() {
+                                        if refresh_source_cache {
+                                            let flags = envelope.flags.clone();
+                                            let msg = envelope.to_sync_cache_msg();
+                                            ctx.left_cache
+                                                .add_message_with_flags(
+                                                    &folder,
+                                                    msg.as_bytes(),
+                                                    &flags,
+                                                )
+                                                .await?;
+                                        };
                                     };
                                     ctx.left.peek_messages(&folder, &id).await?
                                 }
                                 SyncDestination::Right => {
-                                    if refresh_source_cache {
-                                        let flags = envelope.flags.clone();
-                                        let msg = envelope.to_sync_cache_msg();
-                                        ctx.right_cache
-                                            .add_message_with_flags(&folder, msg.as_bytes(), &flags)
-                                            .await?;
+                                    if ctx.right_cache.account_config.can_sync_create_message() {
+                                        if refresh_source_cache {
+                                            let flags = envelope.flags.clone();
+                                            let msg = envelope.to_sync_cache_msg();
+                                            ctx.right_cache
+                                                .add_message_with_flags(
+                                                    &folder,
+                                                    msg.as_bytes(),
+                                                    &flags,
+                                                )
+                                                .await?;
+                                        };
                                     };
                                     ctx.right.peek_messages(&folder, &id).await?
                                 }
@@ -295,92 +314,114 @@ where
 
                             match target {
                                 SyncDestination::Left => {
-                                    let id = ctx
-                                        .left
-                                        .add_message_with_flags(
-                                            &folder,
-                                            msg.raw()?,
-                                            &envelope.flags,
-                                        )
-                                        .await?;
-                                    let envelope =
-                                        ctx.left.get_envelope(&folder, &Id::single(id)).await?;
-                                    let flags = envelope.flags.clone();
-                                    let msg = envelope.to_sync_cache_msg();
-                                    ctx.left_cache
-                                        .add_message_with_flags(&folder, msg.as_bytes(), &flags)
-                                        .await?;
-                                    Ok(())
+                                    if ctx.left.account_config.can_sync_create_message() {
+                                        let id = ctx
+                                            .left
+                                            .add_message_with_flags(
+                                                &folder,
+                                                msg.raw()?,
+                                                &envelope.flags,
+                                            )
+                                            .await?;
+                                        let envelope =
+                                            ctx.left.get_envelope(&folder, &Id::single(id)).await?;
+                                        let flags = envelope.flags.clone();
+                                        let msg = envelope.to_sync_cache_msg();
+                                        ctx.left_cache
+                                            .add_message_with_flags(&folder, msg.as_bytes(), &flags)
+                                            .await?;
+                                    }
                                 }
                                 SyncDestination::Right => {
-                                    let id = ctx
-                                        .right
-                                        .add_message_with_flags(
-                                            &folder,
-                                            msg.raw()?,
-                                            &envelope.flags,
-                                        )
-                                        .await?;
-                                    let envelope =
-                                        ctx.right.get_envelope(&folder, &Id::single(id)).await?;
-                                    let flags = envelope.flags.clone();
-                                    let msg = envelope.to_sync_cache_msg();
-                                    ctx.right_cache
-                                        .add_message_with_flags(&folder, msg.as_bytes(), &flags)
-                                        .await?;
-                                    Ok(())
+                                    if ctx.right.account_config.can_sync_create_message() {
+                                        let id = ctx
+                                            .right
+                                            .add_message_with_flags(
+                                                &folder,
+                                                msg.raw()?,
+                                                &envelope.flags,
+                                            )
+                                            .await?;
+                                        let envelope = ctx
+                                            .right
+                                            .get_envelope(&folder, &Id::single(id))
+                                            .await?;
+                                        let flags = envelope.flags.clone();
+                                        let msg = envelope.to_sync_cache_msg();
+                                        ctx.right_cache
+                                            .add_message_with_flags(&folder, msg.as_bytes(), &flags)
+                                            .await?;
+                                    }
                                 }
-                            }
+                            };
                         }
                         EmailSyncHunk::Uncache(folder, id, SyncDestination::Left) => {
-                            ctx.left_cache
-                                .add_flag(&folder, &Id::single(id), Flag::Deleted)
-                                .await
+                            if ctx.left_cache.account_config.can_sync_delete_message() {
+                                ctx.left_cache
+                                    .add_flag(&folder, &Id::single(id), Flag::Deleted)
+                                    .await?;
+                            }
                         }
                         EmailSyncHunk::Delete(folder, id, SyncDestination::Left) => {
-                            ctx.left
-                                .add_flag(&folder, &Id::single(id), Flag::Deleted)
-                                .await
+                            if ctx.left.account_config.can_sync_delete_message() {
+                                ctx.left
+                                    .add_flag(&folder, &Id::single(id), Flag::Deleted)
+                                    .await?;
+                            }
                         }
                         EmailSyncHunk::Uncache(folder, id, SyncDestination::Right) => {
-                            ctx.right_cache
-                                .add_flag(&folder, &Id::single(id), Flag::Deleted)
-                                .await
+                            if ctx.right_cache.account_config.can_sync_delete_message() {
+                                ctx.right_cache
+                                    .add_flag(&folder, &Id::single(id), Flag::Deleted)
+                                    .await?;
+                            }
                         }
                         EmailSyncHunk::Delete(folder, id, SyncDestination::Right) => {
-                            ctx.right
-                                .add_flag(&folder, &Id::single(id), Flag::Deleted)
-                                .await
+                            if ctx.right.account_config.can_sync_delete_message() {
+                                ctx.right
+                                    .add_flag(&folder, &Id::single(id), Flag::Deleted)
+                                    .await?;
+                            }
                         }
                         EmailSyncHunk::UpdateCachedFlags(
                             folder,
                             envelope,
                             SyncDestination::Left,
                         ) => {
-                            ctx.left_cache
-                                .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
-                                .await
+                            if ctx.left_cache.account_config.can_sync_update_flags() {
+                                ctx.left_cache
+                                    .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
+                                    .await?;
+                            }
                         }
                         EmailSyncHunk::UpdateFlags(folder, envelope, SyncDestination::Left) => {
-                            ctx.left
-                                .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
-                                .await
+                            if ctx.left.account_config.can_sync_update_flags() {
+                                ctx.left
+                                    .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
+                                    .await?;
+                            }
                         }
                         EmailSyncHunk::UpdateCachedFlags(
                             folder,
                             envelope,
                             SyncDestination::Right,
                         ) => {
-                            ctx.right_cache
-                                .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
-                                .await
+                            if ctx.right_cache.account_config.can_sync_update_flags() {
+                                ctx.right_cache
+                                    .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
+                                    .await?;
+                            }
                         }
                         EmailSyncHunk::UpdateFlags(folder, envelope, SyncDestination::Right) => {
-                            ctx.right
-                                .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
-                                .await
+                            if ctx.right.account_config.can_sync_update_flags() {
+                                ctx.right
+                                    .set_flags(&folder, &Id::single(&envelope.id), &envelope.flags)
+                                    .await?;
+                            }
                         }
-                    }
+                    };
+
+                    Ok(())
                 };
 
                 async move {

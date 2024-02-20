@@ -78,6 +78,7 @@ impl Config {
                 .or_else(|| self.downloads_dir.as_ref().map(ToOwned::to_owned)),
             folder: account_config.folder.clone(),
             envelope: account_config.envelope.clone(),
+            flag: account_config.flag.clone(),
             message: account_config.message.clone(),
             #[cfg(feature = "account-sync")]
             sync: account_config.sync.clone(),

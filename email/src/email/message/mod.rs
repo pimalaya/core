@@ -15,6 +15,8 @@ pub mod get;
 pub mod r#move;
 pub mod peek;
 pub mod send;
+#[cfg(feature = "account-sync")]
+pub mod sync;
 pub mod template;
 
 use imap::types::{Fetch, Fetches};

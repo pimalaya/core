@@ -16,6 +16,8 @@ pub mod list;
 pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;
+#[cfg(feature = "account-sync")]
+pub mod sync;
 pub mod watch;
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone};

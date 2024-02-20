@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::folder::sync::FolderSyncStrategy;
-
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct SyncConfig {
@@ -13,7 +11,4 @@ pub struct SyncConfig {
     /// Customize the root directory where the Maildir cache is
     /// saved. Defaults to `$XDG_DATA_HOME/himalaya/<account-name>`.
     pub dir: Option<PathBuf>,
-
-    /// Use the given strategy to synchronize folders.
-    pub strategy: Option<FolderSyncStrategy>,
 }

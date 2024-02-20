@@ -10,7 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added function `AutoConfig::is_gmail`.
-- Added sync filter `SyncFilters::date_range` of type `Option<SyncDateRangeFilter>`.
+- Added `FolderConfig::sync` to customize folder sync.
+- Added `FolderSyncConfig::filter` to filter sync folder by names.
+- Added `FolderSyncConfig::permissions` to allow folder creation or deletion.
+- Added `EnvelopeConfig::sync` to customize envelope sync.
+- Added `EnvelopeSyncConfig::filter` to filter envelopes by date range.
+- Added `FlagConfig::sync` to customize flag sync.
+- Added `FlagSyncConfig::permissions` to allow flag update.
+- Added `MessageConfig::sync` to customize message sync.
+- Added `MessageSyncConfig::permissions` to allow message creating and deletion.
 
 ### Changed
 
@@ -20,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced `SQLite` sync cache by a light version of the `Maildir` backend, where only `Message-ID` and `Date` headers from messages are kept.
 - Refactored the whole sync system: the backend sync is now generic (it can sync 2 different backends together) and its code has been extracted into a dedicated module `sync`. The sync patch applier (which used to process hunk in parallel) is now generic and its code has been extracted into a dedicated module `thread_pool` (it can execute generic tasks in parallel).
 - Refactored the backend module: code has been splitted into submodules. The `Backend` struct became a trait `BackendFeatures`, which is just an alias for all features `AddFolder + ListEnvelopes + SendMessage + …`. The lib exposes two backend implementation: `Backend` (which is the direct equivalent of the previous struct) and `BackendPool` (which can execute features in parallel).
+- Moved `account::SyncConfig::strategy` to `FolderConfig::sync` > `FolderSyncConfig::filter`.
 
 ### Fixed
 

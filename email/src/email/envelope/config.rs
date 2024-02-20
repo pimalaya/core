@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use super::list::config::EnvelopeListConfig;
-
-use super::watch::config::WatchEnvelopeConfig;
+#[cfg(feature = "account-sync")]
+use super::sync::config::EnvelopeSyncConfig;
+use super::{list::config::EnvelopeListConfig, watch::config::WatchEnvelopeConfig};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -12,4 +12,8 @@ pub struct EnvelopeConfig {
 
     /// Configuration dedicated to envelope changes.
     pub watch: Option<WatchEnvelopeConfig>,
+
+    #[cfg(feature = "account-sync")]
+    /// Configuration dedicated to envelope changes.
+    pub sync: Option<EnvelopeSyncConfig>,
 }

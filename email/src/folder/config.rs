@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::list::config::FolderListConfig;
+#[cfg(feature = "account-sync")]
+use super::sync::config::FolderSyncConfig;
 
 /// The folder configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -18,4 +20,8 @@ pub struct FolderConfig {
 
     /// The configuration dedicated to folder listing.
     pub list: Option<FolderListConfig>,
+
+    #[cfg(feature = "account-sync")]
+    /// The configuration dedicated to folder synchronization.
+    pub sync: Option<FolderSyncConfig>,
 }

@@ -11,7 +11,7 @@ use email::{
         expunge::ExpungeFolder,
         list::ListFolders,
         purge::PurgeFolder,
-        sync::{hunk::FolderSyncHunk, FolderSyncStrategy},
+        sync::{config::FolderSyncStrategy, hunk::FolderSyncHunk},
         Folder, FolderKind, INBOX, TRASH,
     },
     imap::{
@@ -216,7 +216,7 @@ async fn test_sync() {
     let report = sync_builder
         .clone()
         .with_dry_run(true)
-        .with_folders_filter(FolderSyncStrategy::Include(HashSet::from_iter([
+        .with_folders_filter(FolderSyncStrategy::Include(BTreeSet::from_iter([
             INBOX.into()
         ])))
         .sync()

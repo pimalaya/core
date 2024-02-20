@@ -40,6 +40,7 @@ impl AccountSyncBuilder {
             downloads_dir: right_builder.account_config.downloads_dir.clone(),
             folder: right_builder.account_config.folder.clone(),
             envelope: right_builder.account_config.envelope.clone(),
+            flag: right_builder.account_config.flag.clone(),
             message: right_builder.account_config.message.clone(),
             sync: None,
             #[cfg(feature = "pgp")]

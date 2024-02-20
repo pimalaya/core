@@ -6,13 +6,13 @@ use crate::{
         context::{BackendContext, BackendContextBuilder},
         Backend, BackendBuilder,
     },
-    folder::sync::FolderSyncStrategy,
+    folder::sync::config::FolderSyncStrategy,
     maildir::{MaildirContextBuilder, MaildirContextSync},
     thread_pool::{ThreadPool, ThreadPoolBuilder, ThreadPoolContext, ThreadPoolContextBuilder},
     Result,
 };
 
-use super::{SyncDateRangeFilter, SyncEventHandler};
+use super::SyncEventHandler;
 
 /// Create a new thread pool dedicated to synchronization.
 pub async fn new<L, R>(
@@ -22,8 +22,7 @@ pub async fn new<L, R>(
     right_builder: BackendBuilder<R>,
     handler: Option<Arc<SyncEventHandler>>,
     dry_run: bool,
-    folders_filter: FolderSyncStrategy,
-    date_range_filter: SyncDateRangeFilter,
+    folder_filter: Option<FolderSyncStrategy>,
 ) -> Result<ThreadPool<SyncPoolContext<L::Context, R::Context>>>
 where
     L: BackendContextBuilder + 'static,
@@ -36,8 +35,7 @@ where
         right_builder,
         handler,
         dry_run,
-        folders_filter,
-        date_range_filter,
+        folder_filter,
     );
 
     let pool_builder = ThreadPoolBuilder::new(pool_ctx_builder);
@@ -59,8 +57,7 @@ where
     right_builder: BackendBuilder<R>,
     handler: Option<Arc<SyncEventHandler>>,
     dry_run: bool,
-    folders_filter: FolderSyncStrategy,
-    date_range_filter: SyncDateRangeFilter,
+    folder_filter: Option<FolderSyncStrategy>,
 }
 
 impl<L, R> SyncPoolContextBuilder<L, R>
@@ -75,8 +72,7 @@ where
         right_builder: BackendBuilder<R>,
         handler: Option<Arc<SyncEventHandler>>,
         dry_run: bool,
-        folders_filter: FolderSyncStrategy,
-        date_range_filter: SyncDateRangeFilter,
+        folder_filter: Option<FolderSyncStrategy>,
     ) -> Self {
         Self {
             left_cache_builder,
@@ -85,8 +81,7 @@ where
             right_builder,
             handler,
             dry_run,
-            folders_filter,
-            date_range_filter,
+            folder_filter,
         }
     }
 }
@@ -114,8 +109,7 @@ where
             right,
             handler: self.handler,
             dry_run: self.dry_run,
-            folders_filter: self.folders_filter,
-            date_range_filter: self.date_range_filter,
+            folder_filter: self.folder_filter,
         })
     }
 }
@@ -127,8 +121,24 @@ pub struct SyncPoolContext<L: BackendContext, R: BackendContext> {
     pub right: Backend<R>,
     pub handler: Option<Arc<SyncEventHandler>>,
     pub dry_run: bool,
-    pub folders_filter: FolderSyncStrategy,
-    pub date_range_filter: SyncDateRangeFilter,
+    pub folder_filter: Option<FolderSyncStrategy>,
+}
+
+impl<L: BackendContext, R: BackendContext> SyncPoolContext<L, R> {
+    pub fn matches_folder_filter(&self, folder: &str) -> bool {
+        self.folder_filter
+            .clone()
+            .or_else(|| {
+                self.right
+                    .account_config
+                    .folder
+                    .as_ref()
+                    .and_then(|c| c.sync.as_ref())
+                    .map(|c| c.filter.clone())
+            })
+            .unwrap_or_default()
+            .matches(folder)
+    }
 }
 
 impl<L: BackendContext, R: BackendContext> ThreadPoolContext for SyncPoolContext<L, R> {

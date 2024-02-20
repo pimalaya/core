@@ -3,13 +3,13 @@
 //! This module contains everything you need to synchronize remote
 //! folders with local ones.
 
+pub mod config;
 pub mod hunk;
 pub mod patch;
 pub mod report;
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, trace};
-use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
 
 use crate::{
@@ -19,33 +19,11 @@ use crate::{
     Result,
 };
 
-use self::{hunk::FolderSyncHunk, report::FolderSyncReport};
-
 use super::{
     add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders, Folder,
 };
 
-/// The folder synchronization strategy.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum FolderSyncStrategy {
-    /// Synchronizes all folders.
-    #[default]
-    All,
-
-    /// Synchronizes only folders matching the given names.
-    Include(HashSet<String>),
-
-    /// Synchronizes all folders except the ones matching the given
-    /// names.
-    Exclude(HashSet<String>),
-}
-
-impl FolderSyncStrategy {
-    pub fn is_default(&self) -> bool {
-        *self == Self::default()
-    }
-}
+use self::{hunk::FolderSyncHunk, report::FolderSyncReport};
 
 pub(crate) async fn sync<L, R>(
     pool: Arc<ThreadPool<SyncPoolContext<L::Context, R::Context>>>,
@@ -70,21 +48,11 @@ where
                         // them at the source directly, which implies to add a
                         // new backend fn called `search_folders` and to set
                         // up a common search API across backends.
-                        .filter_map(|folder| match &ctx.folders_filter {
-                            FolderSyncStrategy::All => Some(folder.to_owned()),
-                            FolderSyncStrategy::Include(folders) => {
-                                if folders.contains(folder) {
-                                    Some(folder.to_owned())
-                                } else {
-                                    None
-                                }
-                            }
-                            FolderSyncStrategy::Exclude(folders) => {
-                                if folders.contains(folder) {
-                                    None
-                                } else {
-                                    Some(folder.to_owned())
-                                }
+                        .filter_map(|folder| {
+                            if ctx.matches_folder_filter(folder) {
+                                Some(folder.to_owned())
+                            } else {
+                                None
                             }
                         }),
                 );
@@ -112,21 +80,11 @@ where
                         // them at the source directly, which implies to add a
                         // new backend fn called `search_folders` and to set
                         // up a common search API across backends.
-                        .filter_map(|folder| match &ctx.folders_filter {
-                            FolderSyncStrategy::All => Some(folder.to_owned()),
-                            FolderSyncStrategy::Include(folders) => {
-                                if folders.contains(folder) {
-                                    Some(folder.to_owned())
-                                } else {
-                                    None
-                                }
-                            }
-                            FolderSyncStrategy::Exclude(folders) => {
-                                if folders.contains(folder) {
-                                    None
-                                } else {
-                                    Some(folder.to_owned())
-                                }
+                        .filter_map(|folder| {
+                            if ctx.matches_folder_filter(folder) {
+                                Some(folder.to_owned())
+                            } else {
+                                None
                             }
                         }),
                 );
@@ -154,21 +112,11 @@ where
                         // them at the source directly, which implies to add a
                         // new backend fn called `search_folders` and to set
                         // up a common search API across backends.
-                        .filter_map(|folder| match &ctx.folders_filter {
-                            FolderSyncStrategy::All => Some(folder.to_owned()),
-                            FolderSyncStrategy::Include(folders) => {
-                                if folders.contains(folder) {
-                                    Some(folder.to_owned())
-                                } else {
-                                    None
-                                }
-                            }
-                            FolderSyncStrategy::Exclude(folders) => {
-                                if folders.contains(folder) {
-                                    None
-                                } else {
-                                    Some(folder.to_owned())
-                                }
+                        .filter_map(|folder| {
+                            if ctx.matches_folder_filter(folder) {
+                                Some(folder.to_owned())
+                            } else {
+                                None
                             }
                         }),
                 );
@@ -196,21 +144,11 @@ where
                         // them at the source directly, which implies to add a
                         // new backend fn called `search_folders` and to set
                         // up a common search API across backends.
-                        .filter_map(|folder| match &ctx.folders_filter {
-                            FolderSyncStrategy::All => Some(folder.to_owned()),
-                            FolderSyncStrategy::Include(folders) => {
-                                if folders.contains(folder) {
-                                    Some(folder.to_owned())
-                                } else {
-                                    None
-                                }
-                            }
-                            FolderSyncStrategy::Exclude(folders) => {
-                                if folders.contains(folder) {
-                                    None
-                                } else {
-                                    Some(folder.to_owned())
-                                }
+                        .filter_map(|folder| {
+                            if ctx.matches_folder_filter(folder) {
+                                Some(folder.to_owned())
+                            } else {
+                                None
                             }
                         }),
                 );
@@ -272,30 +210,48 @@ where
 
                     match hunk_clone {
                         FolderSyncHunk::Cache(folder, SyncDestination::Left) => {
-                            ctx.left_cache.add_folder(&folder).await
+                            if ctx.left_cache.account_config.can_sync_create_folder() {
+                                ctx.left_cache.add_folder(&folder).await?;
+                            }
                         }
                         FolderSyncHunk::Create(folder, SyncDestination::Left) => {
-                            ctx.left.add_folder(&folder).await
+                            if ctx.left.account_config.can_sync_create_folder() {
+                                ctx.left.add_folder(&folder).await?;
+                            }
                         }
                         FolderSyncHunk::Cache(folder, SyncDestination::Right) => {
-                            ctx.right_cache.add_folder(&folder).await
+                            if ctx.right_cache.account_config.can_sync_create_folder() {
+                                ctx.right_cache.add_folder(&folder).await?;
+                            }
                         }
                         FolderSyncHunk::Create(folder, SyncDestination::Right) => {
-                            ctx.right.add_folder(&folder).await
+                            if ctx.right.account_config.can_sync_create_folder() {
+                                ctx.right.add_folder(&folder).await?;
+                            }
                         }
                         FolderSyncHunk::Uncache(folder, SyncDestination::Left) => {
-                            ctx.left_cache.delete_folder(&folder).await
+                            if ctx.left_cache.account_config.can_sync_delete_folder() {
+                                ctx.left_cache.delete_folder(&folder).await?;
+                            }
                         }
                         FolderSyncHunk::Delete(folder, SyncDestination::Left) => {
-                            ctx.left.delete_folder(&folder).await
+                            if ctx.left.account_config.can_sync_delete_folder() {
+                                ctx.left.delete_folder(&folder).await?;
+                            }
                         }
                         FolderSyncHunk::Uncache(folder, SyncDestination::Right) => {
-                            ctx.right_cache.delete_folder(&folder).await
+                            if ctx.right_cache.account_config.can_sync_delete_folder() {
+                                ctx.right_cache.delete_folder(&folder).await?;
+                            }
                         }
                         FolderSyncHunk::Delete(folder, SyncDestination::Right) => {
-                            ctx.right.delete_folder(&folder).await
+                            if ctx.right.account_config.can_sync_delete_folder() {
+                                ctx.right.delete_folder(&folder).await?;
+                            }
                         }
-                    }
+                    };
+
+                    Ok(())
                 };
 
                 async move {
