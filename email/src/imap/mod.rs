@@ -104,16 +104,8 @@ impl ImapContext {
 
 impl Drop for ImapContext {
     fn drop(&mut self) {
-        // TODO: check if a mailbox is selected before
-        if let Err(err) = self.session.close() {
-            debug!("cannot close imap session: {err}");
-            debug!("{err:?}");
-        }
-
-        if let Err(err) = self.session.logout() {
-            debug!("cannot logout from imap session: {err}");
-            debug!("{err:?}");
-        }
+        let _ = self.session.close();
+        let _ = self.session.logout();
     }
 }
 
