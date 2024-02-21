@@ -128,6 +128,24 @@ impl Envelope {
         envelope
     }
 
+    pub fn set_some_from(&mut self, addr: Option<Address>) {
+        if let Some(addr) = addr {
+            self.from = addr;
+        }
+    }
+
+    pub fn set_some_to(&mut self, addr: Option<Address>) {
+        if let Some(addr) = addr {
+            self.to = addr;
+        }
+    }
+
+    pub fn set_some_date(&mut self, date: Option<&mail_parser::DateTime>) {
+        if let Some(date) = date {
+            self.set_date(date)
+        }
+    }
+
     /// Transform a [`mail_parser::DateTime`] into a fixed offset [`chrono::DateTime`]
     /// and add it to the current envelope.
     pub fn set_date(&mut self, date: &mail_parser::DateTime) {

@@ -3,15 +3,13 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::Id, imap::ImapContextSync, Result};
+use crate::{
+    envelope::{list::imap::LIST_ENVELOPES_QUERY, Id},
+    imap::ImapContextSync,
+    Result,
+};
 
 use super::{Envelope, GetEnvelope};
-
-/// The IMAP query needed to retrieve everything we need to build an
-/// [envelope]: UID, flags and headers (Message-ID, From, To, Subject,
-/// Date).
-const ENVELOPE_QUERY: &str =
-    "(UID FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM TO SUBJECT DATE)])";
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -62,7 +60,7 @@ impl GetEnvelope for GetImapEnvelope {
 
         let fetches = ctx
             .exec(
-                |session| session.uid_fetch(id.to_string(), ENVELOPE_QUERY),
+                |session| session.uid_fetch(id.to_string(), LIST_ENVELOPES_QUERY),
                 |err| Error::FetchEnvolpesError(err, folder.clone(), id.clone()).into(),
             )
             .await?;

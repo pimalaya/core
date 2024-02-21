@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use log::{debug, info};
+use log::{debug, info, trace};
 use std::result;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
@@ -11,8 +11,7 @@ use super::{Envelopes, ListEnvelopes};
 /// The IMAP query needed to retrieve everything we need to build an
 /// [envelope]: UID, flags and headers (Message-ID, From, To, Subject,
 /// Date).
-pub const LIST_ENVELOPES_QUERY: &str =
-    "(UID FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM TO SUBJECT DATE)])";
+pub const LIST_ENVELOPES_QUERY: &str = "(UID FLAGS ENVELOPE)";
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -84,7 +83,8 @@ impl ListEnvelopes for ListImapEnvelopes {
             .await?;
 
         let envelopes = Envelopes::from_imap_fetches(fetches);
-        debug!("imap envelopes: {envelopes:#?}");
+        debug!("found {} imap envelopes", envelopes.len());
+        trace!("{envelopes:#?}");
 
         Ok(envelopes)
     }
