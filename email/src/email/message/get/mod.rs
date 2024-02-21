@@ -16,6 +16,7 @@ use crate::{
 
 use super::{peek::PeekMessages, Messages};
 
+/// Get messages backend feature.
 #[async_trait]
 pub trait GetMessages: Send + Sync {
     /// Get email messages from the given folder matching the given
@@ -28,20 +29,22 @@ pub trait GetMessages: Send + Sync {
     async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages>;
 }
 
-// #[async_trait]
-// impl<T: PeekMessages + AddFlags> GetMessages for T {
-//     async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
-//         default_get_messages(self, self, folder, id).await
-//     }
-// }
+/// Default get messages backend feature.
+///
+/// This trait implements a default get messages based on peek
+/// messages and add flags feature.
+#[async_trait]
+pub trait DefaultGetMessages: Send + Sync + PeekMessages + AddFlags {
+    async fn default_get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        let messages = self.peek_messages(folder, id).await?;
+        self.add_flag(folder, id, Flag::Seen).await?;
+        Ok(messages)
+    }
+}
 
-pub async fn default_get_messages(
-    a: &dyn PeekMessages,
-    b: &dyn AddFlags,
-    folder: &str,
-    id: &Id,
-) -> Result<Messages> {
-    let messages = a.peek_messages(folder, id).await?;
-    b.add_flag(folder, id, Flag::Seen).await?;
-    Ok(messages)
+#[async_trait]
+impl<T: DefaultGetMessages> GetMessages for T {
+    async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        self.default_get_messages(folder, id).await
+    }
 }

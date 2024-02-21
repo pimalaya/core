@@ -106,7 +106,7 @@ impl<C: BackendContext + 'static> AddFolder for BackendPool<C> {
 }
 
 #[async_trait]
-impl<C: BackendContext + 'static + 'static> ListFolders for BackendPool<C> {
+impl<C: BackendContext + 'static> ListFolders for BackendPool<C> {
     async fn list_folders(&self) -> Result<Folders> {
         let feature = self
             .list_folders

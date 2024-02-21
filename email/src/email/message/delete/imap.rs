@@ -1,11 +1,18 @@
 use async_trait::async_trait;
 
 use crate::{
-    envelope::Id, flag::add::imap::AddImapFlags, imap::ImapContextSync,
-    message::r#move::imap::MoveImapMessages, Result,
+    account::config::{AccountConfig, HasAccountConfig},
+    envelope::Id,
+    flag::{
+        add::{imap::AddImapFlags, AddFlags},
+        Flags,
+    },
+    imap::ImapContextSync,
+    message::r#move::{imap::MoveImapMessages, MoveMessages},
+    Result,
 };
 
-use super::{default_delete_messages, DeleteMessages};
+use super::{DefaultDeleteMessages, DeleteMessages};
 
 #[derive(Clone)]
 pub struct DeleteImapMessages {
@@ -30,16 +37,27 @@ impl DeleteImapMessages {
     }
 }
 
-#[async_trait]
-impl DeleteMessages for DeleteImapMessages {
-    async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
-        default_delete_messages(
-            &self.move_messages.ctx.account_config,
-            &self.move_messages,
-            &self.add_flags,
-            folder,
-            id,
-        )
-        .await
+impl HasAccountConfig for DeleteImapMessages {
+    fn account_config(&self) -> &AccountConfig {
+        &self.move_messages.ctx.account_config
     }
 }
+
+#[async_trait]
+impl MoveMessages for DeleteImapMessages {
+    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+        self.move_messages
+            .move_messages(from_folder, to_folder, id)
+            .await
+    }
+}
+
+#[async_trait]
+impl AddFlags for DeleteImapMessages {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        self.add_flags.add_flags(folder, id, flags).await
+    }
+}
+
+#[async_trait]
+impl DefaultDeleteMessages for DeleteImapMessages {}

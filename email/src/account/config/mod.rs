@@ -59,6 +59,10 @@ pub enum Error {
     GetFileNameFromPathError(PathBuf),
 }
 
+pub trait HasAccountConfig {
+    fn account_config(&self) -> &AccountConfig;
+}
+
 /// The user's account configuration.
 ///
 /// It represents everything that the user can customize for a given

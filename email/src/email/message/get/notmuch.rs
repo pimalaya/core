@@ -1,11 +1,17 @@
 use async_trait::async_trait;
 
 use crate::{
-    envelope::Id, flag::add::notmuch::AddNotmuchFlags, message::peek::notmuch::PeekNotmuchMessages,
-    notmuch::NotmuchContextSync, Result,
+    envelope::Id,
+    flag::{
+        add::{notmuch::AddNotmuchFlags, AddFlags},
+        Flags,
+    },
+    message::peek::{notmuch::PeekNotmuchMessages, PeekMessages},
+    notmuch::NotmuchContextSync,
+    Result,
 };
 
-use super::{default_get_messages, GetMessages, Messages};
+use super::{DefaultGetMessages, GetMessages, Messages};
 
 #[derive(Clone)]
 pub struct GetNotmuchMessages {
@@ -31,8 +37,18 @@ impl GetNotmuchMessages {
 }
 
 #[async_trait]
-impl GetMessages for GetNotmuchMessages {
-    async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
-        default_get_messages(&self.peek_messages, &self.add_flags, folder, id).await
+impl PeekMessages for GetNotmuchMessages {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        self.peek_messages.peek_messages(folder, id).await
     }
 }
+
+#[async_trait]
+impl AddFlags for GetNotmuchMessages {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        self.add_flags.add_flags(folder, id, flags).await
+    }
+}
+
+#[async_trait]
+impl DefaultGetMessages for GetNotmuchMessages {}

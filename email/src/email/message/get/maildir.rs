@@ -1,11 +1,17 @@
 use async_trait::async_trait;
 
 use crate::{
-    envelope::Id, flag::add::maildir::AddMaildirFlags, maildir::MaildirContextSync,
-    message::peek::maildir::PeekMaildirMessages, Result,
+    envelope::Id,
+    flag::{
+        add::{maildir::AddMaildirFlags, AddFlags},
+        Flags,
+    },
+    maildir::MaildirContextSync,
+    message::peek::{maildir::PeekMaildirMessages, PeekMessages},
+    Result,
 };
 
-use super::{default_get_messages, GetMessages, Messages};
+use super::{DefaultGetMessages, GetMessages, Messages};
 
 #[derive(Clone)]
 pub struct GetMaildirMessages {
@@ -31,8 +37,18 @@ impl GetMaildirMessages {
 }
 
 #[async_trait]
-impl GetMessages for GetMaildirMessages {
-    async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
-        default_get_messages(&self.peek_messages, &self.add_flags, folder, id).await
+impl PeekMessages for GetMaildirMessages {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+        self.peek_messages.peek_messages(folder, id).await
     }
 }
+
+#[async_trait]
+impl AddFlags for GetMaildirMessages {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        self.add_flags.add_flags(folder, id, flags).await
+    }
+}
+
+#[async_trait]
+impl DefaultGetMessages for GetMaildirMessages {}

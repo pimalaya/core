@@ -1,11 +1,18 @@
 use async_trait::async_trait;
 
 use crate::{
-    envelope::Id, flag::add::notmuch::AddNotmuchFlags,
-    message::r#move::notmuch::MoveNotmuchMessages, notmuch::NotmuchContextSync, Result,
+    account::config::{AccountConfig, HasAccountConfig},
+    envelope::Id,
+    flag::{
+        add::{notmuch::AddNotmuchFlags, AddFlags},
+        Flags,
+    },
+    message::r#move::{notmuch::MoveNotmuchMessages, MoveMessages},
+    notmuch::NotmuchContextSync,
+    Result,
 };
 
-use super::{default_delete_messages, DeleteMessages};
+use super::{DefaultDeleteMessages, DeleteMessages};
 
 #[derive(Clone)]
 pub struct DeleteNotmuchMessages {
@@ -30,16 +37,27 @@ impl DeleteNotmuchMessages {
     }
 }
 
-#[async_trait]
-impl DeleteMessages for DeleteNotmuchMessages {
-    async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
-        default_delete_messages(
-            &self.move_messages.ctx.account_config,
-            &self.move_messages,
-            &self.add_flags,
-            folder,
-            id,
-        )
-        .await
+impl HasAccountConfig for DeleteNotmuchMessages {
+    fn account_config(&self) -> &AccountConfig {
+        &self.move_messages.ctx.account_config
     }
 }
+
+#[async_trait]
+impl MoveMessages for DeleteNotmuchMessages {
+    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+        self.move_messages
+            .move_messages(from_folder, to_folder, id)
+            .await
+    }
+}
+
+#[async_trait]
+impl AddFlags for DeleteNotmuchMessages {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+        self.add_flags.add_flags(folder, id, flags).await
+    }
+}
+
+#[async_trait]
+impl DefaultDeleteMessages for DeleteNotmuchMessages {}

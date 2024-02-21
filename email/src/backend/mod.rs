@@ -61,7 +61,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::{
-    account::config::AccountConfig,
+    account::config::{AccountConfig, HasAccountConfig},
     envelope::{
         get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes, Envelope, Envelopes, Id,
         SingleId,
@@ -184,14 +184,18 @@ where
     pub delete_messages: Option<BackendFeature<C, dyn DeleteMessages>>,
 }
 
+impl<C: BackendContext> HasAccountConfig for Backend<C> {
+    fn account_config(&self) -> &AccountConfig {
+        &self.account_config
+    }
+}
+
 #[async_trait]
 impl<C: BackendContext> AddFolder for Backend<C> {
     async fn add_folder(&self, folder: &str) -> Result<()> {
-        let feature = self
-            .add_folder
+        self.add_folder
             .as_ref()
-            .ok_or(Error::AddFolderNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::AddFolderNotAvailableError)?
             .add_folder(folder)
             .await
@@ -201,11 +205,9 @@ impl<C: BackendContext> AddFolder for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> ListFolders for Backend<C> {
     async fn list_folders(&self) -> Result<Folders> {
-        let feature = self
-            .list_folders
+        self.list_folders
             .as_ref()
-            .ok_or(Error::ListFoldersNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::ListFoldersNotAvailableError)?
             .list_folders()
             .await
@@ -215,11 +217,9 @@ impl<C: BackendContext> ListFolders for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> ExpungeFolder for Backend<C> {
     async fn expunge_folder(&self, folder: &str) -> Result<()> {
-        let feature = self
-            .expunge_folder
+        self.expunge_folder
             .as_ref()
-            .ok_or(Error::ExpungeFolderNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::ExpungeFolderNotAvailableError)?
             .expunge_folder(folder)
             .await
@@ -229,11 +229,9 @@ impl<C: BackendContext> ExpungeFolder for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> PurgeFolder for Backend<C> {
     async fn purge_folder(&self, folder: &str) -> Result<()> {
-        let feature = self
-            .purge_folder
+        self.purge_folder
             .as_ref()
-            .ok_or(Error::PurgeFolderNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::PurgeFolderNotAvailableError)?
             .purge_folder(folder)
             .await
@@ -243,11 +241,9 @@ impl<C: BackendContext> PurgeFolder for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> DeleteFolder for Backend<C> {
     async fn delete_folder(&self, folder: &str) -> Result<()> {
-        let feature = self
-            .delete_folder
+        self.delete_folder
             .as_ref()
-            .ok_or(Error::DeleteFolderNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::DeleteFolderNotAvailableError)?
             .delete_folder(folder)
             .await
@@ -257,11 +253,9 @@ impl<C: BackendContext> DeleteFolder for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> GetEnvelope for Backend<C> {
     async fn get_envelope(&self, folder: &str, id: &Id) -> Result<Envelope> {
-        let feature = self
-            .get_envelope
+        self.get_envelope
             .as_ref()
-            .ok_or(Error::GetEnvelopeNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::GetEnvelopeNotAvailableError)?
             .get_envelope(folder, id)
             .await
@@ -276,11 +270,9 @@ impl<C: BackendContext> ListEnvelopes for Backend<C> {
         page_size: usize,
         page: usize,
     ) -> Result<Envelopes> {
-        let feature = self
-            .list_envelopes
+        self.list_envelopes
             .as_ref()
-            .ok_or(Error::ListEnvelopesNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::ListEnvelopesNotAvailableError)?
             .list_envelopes(folder, page_size, page)
             .await
@@ -290,11 +282,9 @@ impl<C: BackendContext> ListEnvelopes for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> WatchEnvelopes for Backend<C> {
     async fn watch_envelopes(&self, folder: &str) -> Result<()> {
-        let feature = self
-            .watch_envelopes
+        self.watch_envelopes
             .as_ref()
-            .ok_or(Error::WatchEnvelopesNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::WatchEnvelopesNotAvailableError)?
             .watch_envelopes(folder)
             .await
@@ -304,11 +294,9 @@ impl<C: BackendContext> WatchEnvelopes for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> AddFlags for Backend<C> {
     async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
-        let feature = self
-            .add_flags
+        self.add_flags
             .as_ref()
-            .ok_or(Error::AddFlagsNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::AddFlagsNotAvailableError)?
             .add_flags(folder, id, flags)
             .await
@@ -318,11 +306,9 @@ impl<C: BackendContext> AddFlags for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> SetFlags for Backend<C> {
     async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
-        let feature = self
-            .set_flags
+        self.set_flags
             .as_ref()
-            .ok_or(Error::SetFlagsNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::SetFlagsNotAvailableError)?
             .set_flags(folder, id, flags)
             .await
@@ -332,11 +318,9 @@ impl<C: BackendContext> SetFlags for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> RemoveFlags for Backend<C> {
     async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
-        let feature = self
-            .remove_flags
+        self.remove_flags
             .as_ref()
-            .ok_or(Error::RemoveFlagsNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::RemoveFlagsNotAvailableError)?
             .remove_flags(folder, id, flags)
             .await
@@ -351,11 +335,9 @@ impl<C: BackendContext> AddMessage for Backend<C> {
         msg: &[u8],
         flags: &Flags,
     ) -> Result<SingleId> {
-        let feature = self
-            .add_message
+        self.add_message
             .as_ref()
-            .ok_or(Error::AddMessageNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::AddMessageNotAvailableError)?
             .add_message_with_flags(folder, msg, flags)
             .await
@@ -365,11 +347,9 @@ impl<C: BackendContext> AddMessage for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> SendMessage for Backend<C> {
     async fn send_message(&self, msg: &[u8]) -> Result<()> {
-        let feature = self
-            .send_message
+        self.send_message
             .as_ref()
-            .ok_or(Error::SendMessageNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::SendMessageNotAvailableError)?
             .send_message(msg)
             .await
@@ -379,11 +359,9 @@ impl<C: BackendContext> SendMessage for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> PeekMessages for Backend<C> {
     async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
-        let feature = self
-            .peek_messages
+        self.peek_messages
             .as_ref()
-            .ok_or(Error::PeekMessagesNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::PeekMessagesNotAvailableError)?
             .peek_messages(folder, id)
             .await
@@ -393,11 +371,9 @@ impl<C: BackendContext> PeekMessages for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> GetMessages for Backend<C> {
     async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
-        let feature = self
-            .get_messages
+        self.get_messages
             .as_ref()
-            .ok_or(Error::GetMessagesNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::GetMessagesNotAvailableError)?
             .get_messages(folder, id)
             .await
@@ -407,11 +383,9 @@ impl<C: BackendContext> GetMessages for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> CopyMessages for Backend<C> {
     async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
-        let feature = self
-            .copy_messages
+        self.copy_messages
             .as_ref()
-            .ok_or(Error::CopyMessagesNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::CopyMessagesNotAvailableError)?
             .copy_messages(from_folder, to_folder, id)
             .await
@@ -421,11 +395,9 @@ impl<C: BackendContext> CopyMessages for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> MoveMessages for Backend<C> {
     async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
-        let feature = self
-            .move_messages
+        self.move_messages
             .as_ref()
-            .ok_or(Error::MoveMessagesNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::MoveMessagesNotAvailableError)?
             .move_messages(from_folder, to_folder, id)
             .await
@@ -435,11 +407,9 @@ impl<C: BackendContext> MoveMessages for Backend<C> {
 #[async_trait]
 impl<C: BackendContext> DeleteMessages for Backend<C> {
     async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
-        let feature = self
-            .delete_messages
+        self.delete_messages
             .as_ref()
-            .ok_or(Error::DeleteMessagesNotAvailableError)?;
-        feature(&self.context)
+            .and_then(|feature| feature(&self.context))
             .ok_or(Error::DeleteMessagesNotAvailableError)?
             .delete_messages(folder, id)
             .await

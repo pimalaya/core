@@ -8,7 +8,7 @@ pub mod notmuch;
 use async_trait::async_trait;
 
 use crate::{
-    account::config::AccountConfig,
+    account::config::HasAccountConfig,
     envelope::Id,
     flag::{add::AddFlags, Flag},
     Result,
@@ -16,6 +16,7 @@ use crate::{
 
 use super::r#move::MoveMessages;
 
+/// Delete messages backend feature.
 #[async_trait]
 pub trait DeleteMessages: Send + Sync {
     /// Delete emails from the given folder to the given folder
@@ -30,25 +31,27 @@ pub trait DeleteMessages: Send + Sync {
     async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()>;
 }
 
+/// Default delete messages backend feature.
+///
+/// This trait implements a default delete messages based on move
+/// messages and add flags feature.
 #[async_trait]
-impl<T: MoveMessages + AddFlags> DeleteMessages for (AccountConfig, T) {
-    async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
-        default_delete_messages(&self.0, &self.1, &self.1, folder, id).await
+pub trait DefaultDeleteMessages: Send + Sync + HasAccountConfig + MoveMessages + AddFlags {
+    async fn default_delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
+        let account_config = self.account_config();
+        let trash_folder = account_config.get_trash_folder_alias();
+
+        if account_config.get_folder_alias(folder) == trash_folder {
+            self.add_flag(folder, id, Flag::Deleted).await
+        } else {
+            self.move_messages(folder, &trash_folder, id).await
+        }
     }
 }
 
-pub async fn default_delete_messages(
-    account_config: &AccountConfig,
-    a: &dyn MoveMessages,
-    b: &dyn AddFlags,
-    folder: &str,
-    id: &Id,
-) -> Result<()> {
-    let trash_folder = account_config.get_trash_folder_alias();
-
-    if account_config.get_folder_alias(folder) == trash_folder {
-        b.add_flag(folder, id, Flag::Deleted).await
-    } else {
-        a.move_messages(folder, &trash_folder, id).await
+#[async_trait]
+impl<T: DefaultDeleteMessages> DeleteMessages for T {
+    async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
+        self.default_delete_messages(folder, id).await
     }
 }
