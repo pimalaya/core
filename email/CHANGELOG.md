@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed watch IMAP envelopes issue preventing events to be triggered.
 - Fixed MX DNS account discovery that was not checking the ISPDB before checking TXT records.
+- Fixed SMTP message not sent to all recipients [#172].
 
 ### Removed
 
@@ -806,3 +807,4 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#110]: https://todo.sr.ht/~soywod/pimalaya/110
 [#152]: https://todo.sr.ht/~soywod/pimalaya/152
 [#158]: https://todo.sr.ht/~soywod/pimalaya/158
+[#172]: https://todo.sr.ht/~soywod/pimalaya/172

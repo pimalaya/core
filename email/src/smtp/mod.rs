@@ -2,7 +2,7 @@ pub mod config;
 
 use async_trait::async_trait;
 use log::{debug, info};
-use mail_parser::{Address, HeaderName, HeaderValue, Message, MessageParser};
+use mail_parser::{Addr, Address, HeaderName, HeaderValue, Message, MessageParser};
 use mail_send::{
     smtp::message::{Address as SmtpAddress, IntoMessage, Message as SmtpMessage},
     SmtpClientBuilder,
@@ -26,12 +26,12 @@ use self::config::{SmtpAuthConfig, SmtpConfig};
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("cannot send email without a sender")]
-    SendEmailMissingSenderError,
-    #[error("cannot send email without a recipient")]
-    SendEmailMissingRecipientError,
-    #[error("cannot send email")]
-    SendEmailError(#[source] mail_send::Error),
+    #[error("cannot send message without a sender")]
+    SendMessageMissingSenderError,
+    #[error("cannot send message without a recipient")]
+    SendMessageMissingRecipientError,
+    #[error("cannot send message")]
+    SendMessageError(#[source] mail_send::Error),
     #[error("cannot connect to smtp server using tcp")]
     ConnectTcpError(#[source] mail_send::Error),
     #[error("cannot connect to smtp server using tls")]
@@ -85,7 +85,7 @@ impl SmtpContext {
                 self.client
                     .send(into_smtp_msg(msg)?)
                     .await
-                    .map_err(Error::SendEmailError)?;
+                    .map_err(Error::SendMessageError)?;
                 Ok(())
             }
             SmtpAuthConfig::OAuth2(oauth2_config) => {
@@ -106,10 +106,10 @@ impl SmtpContext {
                         self.client
                             .send(into_smtp_msg(msg)?)
                             .await
-                            .map_err(Error::SendEmailError)?;
+                            .map_err(Error::SendMessageError)?;
                         Ok(())
                     }
-                    Err(err) => Err(Error::SendEmailError(err).into()),
+                    Err(err) => Err(Error::SendMessageError(err).into()),
                 }
             }
         }
@@ -253,7 +253,8 @@ pub async fn build_tls_client(
     }
 }
 
-/// Transforms a [`mail_parser::Message`] into a [`mail_send::smtp::message::Message`].
+/// Transform a [`mail_parser::Message`] into a
+/// [`mail_send::smtp::message::Message`].
 ///
 /// This function returns an error if no sender or no recipient is
 /// found in the original message.
@@ -268,18 +269,14 @@ fn into_smtp_msg(msg: Message<'_>) -> Result<SmtpMessage<'_>> {
         match key {
             HeaderName::From => match val {
                 HeaderValue::Address(Address::List(addrs)) => {
-                    if let Some(addr) = addrs.first() {
-                        if let Some(ref email) = addr.address {
-                            mail_from = email.to_string().into();
-                        }
+                    if let Some(email) = addrs.first().and_then(find_valid_email) {
+                        mail_from = email.to_string().into();
                     }
                 }
                 HeaderValue::Address(Address::Group(groups)) => {
                     if let Some(group) = groups.first() {
-                        if let Some(addr) = group.addresses.first() {
-                            if let Some(ref email) = addr.address {
-                                mail_from = email.to_string().into();
-                            }
+                        if let Some(email) = group.addresses.first().and_then(find_valid_email) {
+                            mail_from = email.to_string().into();
                         }
                     }
                 }
@@ -287,22 +284,15 @@ fn into_smtp_msg(msg: Message<'_>) -> Result<SmtpMessage<'_>> {
             },
             HeaderName::To | HeaderName::Cc | HeaderName::Bcc => match val {
                 HeaderValue::Address(Address::List(addrs)) => {
-                    if let Some(addr) = addrs.first() {
-                        if let Some(ref email) = addr.address {
-                            rcpt_to.insert(email.to_string());
-                        }
-                    }
+                    rcpt_to.extend(addrs.iter().filter_map(find_valid_email));
                 }
                 HeaderValue::Address(Address::Group(groups)) => {
-                    if let Some(group) = groups.first() {
-                        if let Some(addr) = group.addresses.first() {
-                            if let Some(ref email) = addr.address {
-                                {
-                                    rcpt_to.insert(email.to_string());
-                                }
-                            }
-                        }
-                    }
+                    rcpt_to.extend(
+                        groups
+                            .iter()
+                            .flat_map(|group| group.addresses.iter())
+                            .filter_map(find_valid_email),
+                    );
                 }
                 _ => (),
             },
@@ -311,11 +301,13 @@ fn into_smtp_msg(msg: Message<'_>) -> Result<SmtpMessage<'_>> {
     }
 
     if rcpt_to.is_empty() {
-        return Err(Error::SendEmailMissingRecipientError.into());
+        return Err(Error::SendMessageMissingRecipientError.into());
     }
 
     let msg = SmtpMessage {
-        mail_from: mail_from.ok_or(Error::SendEmailMissingSenderError)?.into(),
+        mail_from: mail_from
+            .ok_or(Error::SendMessageMissingSenderError)?
+            .into(),
         rcpt_to: rcpt_to
             .into_iter()
             .map(|email| SmtpAddress {
@@ -327,4 +319,18 @@ fn into_smtp_msg(msg: Message<'_>) -> Result<SmtpMessage<'_>> {
     };
 
     Ok(msg)
+}
+
+fn find_valid_email(addr: &Addr) -> Option<String> {
+    match &addr.address {
+        None => None,
+        Some(email) => {
+            let email = email.trim();
+            if email.is_empty() {
+                None
+            } else {
+                Some(email.to_string())
+            }
+        }
+    }
 }
