@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2024-02-21
+
 ### Added
 
 - Added function `AutoConfig::is_gmail`.
@@ -34,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed watch IMAP envelopes issue preventing events to be triggered.
 - Fixed MX DNS account discovery that was not checking the ISPDB before checking TXT records.
-- Fixed SMTP message not sent to all recipients [#172].
+- Fixed SMTP messages not properly sent to all recipients [#172].
 
 ### Removed
 
