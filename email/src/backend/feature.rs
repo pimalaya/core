@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use crate::{
+    account::config::HasAccountConfig,
     envelope::{get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
     folder::{
@@ -77,7 +78,8 @@ where
 ///
 /// This trait is just an alias for all existing backend features.
 pub trait BackendFeatures:
-    AddFolder
+    HasAccountConfig
+    + AddFolder
     + ListFolders
     + ExpungeFolder
     + PurgeFolder
@@ -101,7 +103,8 @@ pub trait BackendFeatures:
 /// Automatically implement [`BackendFeatures`] for structures
 /// implementing all existing backend features.
 impl<T> BackendFeatures for T where
-    T: AddFolder
+    T: HasAccountConfig
+        + AddFolder
         + ListFolders
         + ExpungeFolder
         + PurgeFolder

@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use crate::{
-    account::config::AccountConfig,
+    account::config::{AccountConfig, HasAccountConfig},
     envelope::{
         get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes, Envelope, Envelopes, Id,
         SingleId,
@@ -83,6 +83,12 @@ pub struct BackendPool<C: BackendContext> {
     pub move_messages: Option<BackendFeature<C, dyn MoveMessages>>,
     /// The delete messages backend feature.
     pub delete_messages: Option<BackendFeature<C, dyn DeleteMessages>>,
+}
+
+impl<C: BackendContext> HasAccountConfig for BackendPool<C> {
+    fn account_config(&self) -> &AccountConfig {
+        &self.account_config
+    }
 }
 
 #[async_trait]
