@@ -11,7 +11,7 @@ use crate::{
     account::config::{oauth2::OAuth2Method, AccountConfig},
     backend::{
         context::{BackendContext, BackendContextBuilder},
-        feature::BackendFeature,
+        feature::{BackendFeature, CheckUp},
     },
     envelope::{
         get::{imap::GetImapEnvelope, GetEnvelope},
@@ -100,6 +100,10 @@ impl ImapContext {
             },
         }
     }
+
+    pub async fn noop(&mut self) -> Result<()> {
+        Ok(self.session.noop()?)
+    }
 }
 
 impl Drop for ImapContext {
@@ -171,6 +175,10 @@ impl ImapContextBuilder {
 #[async_trait]
 impl BackendContextBuilder for ImapContextBuilder {
     type Context = ImapContextSync;
+
+    fn check_up(&self) -> Option<BackendFeature<Self::Context, dyn CheckUp>> {
+        Some(Arc::new(CheckUpImap::some_new_boxed))
+    }
 
     fn add_folder(&self) -> Option<BackendFeature<Self::Context, dyn AddFolder>> {
         Some(Arc::new(AddImapFolder::some_new_boxed))
@@ -338,6 +346,33 @@ impl Authenticator for OAuthBearer {
             "n,a={},\x01host={}\x01port={}\x01auth=Bearer {}\x01\x01",
             self.user, self.host, self.port, self.access_token
         )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CheckUpImap {
+    ctx: ImapContextSync,
+}
+
+impl CheckUpImap {
+    pub fn new(ctx: &ImapContextSync) -> Self {
+        Self { ctx: ctx.clone() }
+    }
+
+    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn CheckUp> {
+        Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn CheckUp>> {
+        Some(Self::new_boxed(ctx))
+    }
+}
+
+#[async_trait]
+impl CheckUp for CheckUpImap {
+    async fn check_up(&self) -> Result<()> {
+        let mut ctx = self.ctx.lock().await;
+        ctx.noop().await
     }
 }
 

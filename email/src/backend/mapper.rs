@@ -21,7 +21,7 @@ use crate::{
 
 use super::{
     context::{BackendContext, BackendContextBuilder},
-    feature::BackendFeature,
+    feature::{BackendFeature, CheckUp},
 };
 
 /// Macro for defining some [`BackendContextBuilder`] feature mapper.
@@ -63,6 +63,8 @@ where
         let f = f?;
         Some(Arc::new(move |ctx| f(ctx.as_ref().as_ref()?)))
     }
+
+    some_feature_mapper!(CheckUp);
 
     some_feature_mapper!(AddFolder);
     some_feature_mapper!(ListFolders);

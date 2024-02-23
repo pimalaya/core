@@ -24,6 +24,18 @@ use crate::{
 
 use super::context::BackendContext;
 
+/// Backend builder feature for checking up configuration and context
+/// integrity.
+///
+/// This feature is used to check the integrity of the context.
+#[async_trait]
+pub trait CheckUp: Send + Sync {
+    /// Define how the no operation should be executed.
+    async fn check_up(&self) -> Result<()> {
+        Ok(())
+    }
+}
+
 /// The backend feature.
 ///
 /// A backend feature is a function that takes a reference to a

@@ -22,7 +22,7 @@ use crate::{
     Result,
 };
 
-use super::feature::BackendFeature;
+use super::feature::{BackendFeature, CheckUp};
 
 /// The backend context.
 ///
@@ -51,6 +51,8 @@ macro_rules! feature {
 pub trait BackendContextBuilder: Clone + Send + Sync {
     /// The type of the context being built by this builder.
     type Context: BackendContext;
+
+    feature!(CheckUp);
 
     feature!(AddFolder);
     feature!(ListFolders);

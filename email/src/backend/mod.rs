@@ -80,7 +80,9 @@ use crate::{
 
 use self::{
     context::{BackendContext, BackendContextBuilder},
-    feature::{AsyncTryIntoBackendFeatures, BackendFeature, BackendFeatureSource, BackendFeatures},
+    feature::{
+        AsyncTryIntoBackendFeatures, BackendFeature, BackendFeatureSource, BackendFeatures, CheckUp,
+    },
 };
 
 /// Errors related to backend.
@@ -489,6 +491,9 @@ where
     /// The backend context builder.
     ctx_builder: CB,
 
+    /// The noop backend builder feature.
+    pub check_up: BackendFeatureSource<CB::Context, dyn CheckUp>,
+
     /// The add folder backend builder feature.
     pub add_folder: BackendFeatureSource<CB::Context, dyn AddFolder>,
     /// The list folders backend builder feature.
@@ -543,6 +548,8 @@ where
             account_config,
             ctx_builder,
 
+            check_up: BackendFeatureSource::Context,
+
             add_folder: BackendFeatureSource::Context,
             list_folders: BackendFeatureSource::Context,
             expunge_folder: BackendFeatureSource::Context,
@@ -573,6 +580,8 @@ where
         self
     }
 
+    feature_accessors!(CheckUp);
+
     feature_accessors!(AddFolder);
     feature_accessors!(ListFolders);
     feature_accessors!(ExpungeFolder);
@@ -602,6 +611,37 @@ where
         Self: AsyncTryIntoBackendFeatures<B>,
     {
         self.try_into_backend().await
+    }
+
+    /// Consumes the builder to perform a check up of the
+    /// configuration and the context.
+    ///
+    /// This function checks up the integrity of the configuration and
+    /// the final built context.
+    pub async fn check_up<B>(self) -> Result<()>
+    where
+        B: BackendFeatures,
+        Self: AsyncTryIntoBackendFeatures<B>,
+    {
+        match self.check_up {
+            BackendFeatureSource::None => Ok(()),
+            BackendFeatureSource::Context => {
+                if let Some(f) = self.ctx_builder.check_up() {
+                    let context = self.ctx_builder.build().await?;
+                    if let Some(f) = f(&context) {
+                        f.check_up().await?;
+                    }
+                }
+                Ok(())
+            }
+            BackendFeatureSource::Backend(f) => {
+                let context = self.ctx_builder.build().await?;
+                if let Some(f) = f(&context) {
+                    f.check_up().await?;
+                }
+                Ok(())
+            }
+        }
     }
 }
 
@@ -671,6 +711,8 @@ where
         Self {
             account_config: self.account_config.clone(),
             ctx_builder: self.ctx_builder.clone(),
+
+            check_up: self.check_up.clone(),
 
             add_folder: self.add_folder.clone(),
             list_folders: self.list_folders.clone(),

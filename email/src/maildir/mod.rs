@@ -11,7 +11,7 @@ use crate::{
     account::config::AccountConfig,
     backend::{
         context::{BackendContext, BackendContextBuilder},
-        feature::BackendFeature,
+        feature::{BackendFeature, CheckUp},
     },
     envelope::{
         get::{maildir::GetMaildirEnvelope, GetEnvelope},
@@ -149,6 +149,10 @@ impl MaildirContextBuilder {
 impl BackendContextBuilder for MaildirContextBuilder {
     type Context = MaildirContextSync;
 
+    fn check_up(&self) -> Option<BackendFeature<Self::Context, dyn CheckUp>> {
+        Some(Arc::new(CheckUpMaildir::some_new_boxed))
+    }
+
     fn add_folder(&self) -> Option<BackendFeature<Self::Context, dyn AddFolder>> {
         Some(Arc::new(AddMaildirFolder::some_new_boxed))
     }
@@ -237,6 +241,40 @@ impl BackendContextBuilder for MaildirContextBuilder {
             maildir_config: self.mdir_config,
             inner: Arc::new(Mutex::new(ctx)),
         })
+    }
+}
+
+#[derive(Clone)]
+pub struct CheckUpMaildir {
+    pub ctx: MaildirContextSync,
+}
+
+impl CheckUpMaildir {
+    pub fn new(ctx: &MaildirContextSync) -> Self {
+        Self { ctx: ctx.clone() }
+    }
+
+    pub fn new_boxed(ctx: &MaildirContextSync) -> Box<dyn CheckUp> {
+        Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &MaildirContextSync) -> Option<Box<dyn CheckUp>> {
+        Some(Self::new_boxed(ctx))
+    }
+}
+
+#[async_trait]
+impl CheckUp for CheckUpMaildir {
+    async fn check_up(&self) -> Result<()> {
+        let ctx = self.ctx.lock().await;
+
+        ctx.root
+            .list_cur()
+            .into_iter()
+            .map(|e| e.map(|_| ()))
+            .collect::<maildirpp::Result<()>>()?;
+
+        Ok(())
     }
 }
 

@@ -16,7 +16,7 @@ use crate::{
     account::config::AccountConfig,
     backend::{
         context::{BackendContext, BackendContextBuilder},
-        feature::BackendFeature,
+        feature::{BackendFeature, CheckUp},
     },
     message::send::{smtp::SendSmtpMessage, SendMessage},
     Result,
@@ -114,6 +114,10 @@ impl SmtpContext {
             }
         }
     }
+
+    pub async fn noop(&mut self) -> Result<()> {
+        Ok(self.client.noop().await?)
+    }
 }
 
 /// The sync version of the SMTP backend context.
@@ -146,6 +150,10 @@ impl SmtpContextBuilder {
 #[async_trait]
 impl BackendContextBuilder for SmtpContextBuilder {
     type Context = SmtpContextSync;
+
+    fn check_up(&self) -> Option<BackendFeature<Self::Context, dyn CheckUp>> {
+        Some(Arc::new(CheckUpSmtp::some_new_boxed))
+    }
 
     fn send_message(&self) -> Option<BackendFeature<Self::Context, dyn SendMessage>> {
         Some(Arc::new(SendSmtpMessage::some_new_boxed))
@@ -192,6 +200,42 @@ impl SmtpClientStream {
             Self::Tcp(client) => client.send(msg).await,
             Self::Tls(client) => client.send(msg).await,
         }
+    }
+
+    pub async fn noop(&mut self) -> mail_send::Result<()> {
+        // TODO: replace by noop() as soon as PR merged:
+        // <https://github.com/stalwartlabs/mail-send/pull/29>
+        match self {
+            Self::Tcp(client) => client.rset().await,
+            Self::Tls(client) => client.rset().await,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct CheckUpSmtp {
+    ctx: SmtpContextSync,
+}
+
+impl CheckUpSmtp {
+    pub fn new(ctx: &SmtpContextSync) -> Self {
+        Self { ctx: ctx.clone() }
+    }
+
+    pub fn new_boxed(ctx: &SmtpContextSync) -> Box<dyn CheckUp> {
+        Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &SmtpContextSync) -> Option<Box<dyn CheckUp>> {
+        Some(Self::new_boxed(ctx))
+    }
+}
+
+#[async_trait]
+impl CheckUp for CheckUpSmtp {
+    async fn check_up(&self) -> Result<()> {
+        let mut ctx = self.ctx.lock().await;
+        ctx.noop().await
     }
 }
 

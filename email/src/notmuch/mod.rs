@@ -13,7 +13,7 @@ use crate::{
     account::config::AccountConfig,
     backend::{
         context::{BackendContext, BackendContextBuilder},
-        feature::BackendFeature,
+        feature::{BackendFeature, CheckUp},
     },
     envelope::{
         get::{notmuch::GetNotmuchEnvelope, GetEnvelope},
@@ -133,6 +133,10 @@ impl NotmuchContextBuilder {
 impl BackendContextBuilder for NotmuchContextBuilder {
     type Context = NotmuchContextSync;
 
+    fn check_up(&self) -> Option<BackendFeature<Self::Context, dyn CheckUp>> {
+        Some(Arc::new(CheckUpNotmuch::some_new_boxed))
+    }
+
     fn add_folder(&self) -> Option<BackendFeature<Self::Context, dyn AddFolder>> {
         Some(Arc::new(AddNotmuchFolder::some_new_boxed))
     }
@@ -231,6 +235,38 @@ impl BackendContextBuilder for NotmuchContextBuilder {
             notmuch_config: self.notmuch_config,
             inner: Arc::new(Mutex::new(ctx)),
         })
+    }
+}
+
+#[derive(Clone)]
+pub struct CheckUpNotmuch {
+    pub ctx: NotmuchContextSync,
+}
+
+impl CheckUpNotmuch {
+    pub fn new(ctx: &NotmuchContextSync) -> Self {
+        Self { ctx: ctx.clone() }
+    }
+
+    pub fn new_boxed(ctx: &NotmuchContextSync) -> Box<dyn CheckUp> {
+        Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &NotmuchContextSync) -> Option<Box<dyn CheckUp>> {
+        Some(Self::new_boxed(ctx))
+    }
+}
+
+#[async_trait]
+impl CheckUp for CheckUpNotmuch {
+    async fn check_up(&self) -> Result<()> {
+        let ctx = self.ctx.lock().await;
+
+        let db = ctx.open_db()?;
+        db.create_query("*")?.count_messages()?;
+        db.close()?;
+
+        Ok(())
     }
 }
 

@@ -8,7 +8,7 @@ use crate::{
     account::config::AccountConfig,
     backend::{
         context::{BackendContext, BackendContextBuilder},
-        feature::BackendFeature,
+        feature::{BackendFeature, CheckUp},
     },
     message::send::{sendmail::SendSendmailMessage, SendMessage},
     Result,
@@ -57,6 +57,10 @@ impl SendmailContextBuilder {
 impl BackendContextBuilder for SendmailContextBuilder {
     type Context = SendmailContextSync;
 
+    fn check_up(&self) -> Option<BackendFeature<Self::Context, dyn CheckUp>> {
+        Some(Arc::new(CheckUpSendmail::some_new_boxed))
+    }
+
     fn send_message(&self) -> Option<BackendFeature<Self::Context, dyn SendMessage>> {
         Some(Arc::new(SendSendmailMessage::some_new_boxed))
     }
@@ -73,5 +77,32 @@ impl BackendContextBuilder for SendmailContextBuilder {
             account_config: self.account_config,
             sendmail_config: self.sendmail_config,
         })
+    }
+}
+
+#[derive(Clone)]
+pub struct CheckUpSendmail {
+    pub ctx: SendmailContextSync,
+}
+
+impl CheckUpSendmail {
+    pub fn new(ctx: &SendmailContext) -> Self {
+        Self { ctx: ctx.clone() }
+    }
+
+    pub fn new_boxed(ctx: &SendmailContext) -> Box<dyn CheckUp> {
+        Box::new(Self::new(ctx))
+    }
+
+    pub fn some_new_boxed(ctx: &SendmailContext) -> Option<Box<dyn CheckUp>> {
+        Some(Self::new_boxed(ctx))
+    }
+}
+
+#[async_trait]
+impl CheckUp for CheckUpSendmail {
+    async fn check_up(&self) -> Result<()> {
+        self.ctx.sendmail_config.cmd.run().await?;
+        Ok(())
     }
 }
