@@ -19,6 +19,7 @@ pub mod send;
 pub mod sync;
 pub mod template;
 
+#[cfg(feature = "imap")]
 use imap::types::{Fetch, Fetches};
 use log::debug;
 use mail_parser::{MessageParser, MimeHeaders};
@@ -79,7 +80,7 @@ pub enum Error {
 /// The raw message wrapper.
 enum RawMessage<'a> {
     Cow(Cow<'a, [u8]>),
-
+    #[cfg(feature = "imap")]
     Fetch(&'a Fetch<'a>),
 }
 
@@ -97,7 +98,7 @@ impl Message<'_> {
     fn parsed_builder<'a>(raw: &'a mut RawMessage) -> Option<mail_parser::Message<'a>> {
         match raw {
             RawMessage::Cow(ref bytes) => MessageParser::new().parse(bytes.as_ref()),
-
+            #[cfg(feature = "imap")]
             RawMessage::Fetch(fetch) => {
                 MessageParser::new().parse(fetch.body().unwrap_or_default())
             }
