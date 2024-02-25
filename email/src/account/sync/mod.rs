@@ -27,8 +27,8 @@ use super::config::AccountConfig;
 pub struct AccountSyncBuilder;
 
 impl AccountSyncBuilder {
-    /// Create a new account synchronization builder.
-    pub fn new<R: BackendContextBuilder + 'static>(
+    /// Try to create a new account synchronization builder.
+    pub fn try_new<R: BackendContextBuilder + 'static>(
         right_builder: BackendBuilder<R>,
     ) -> Result<SyncBuilder<MaildirContextBuilder, R>> {
         let account_config = Arc::new(AccountConfig {

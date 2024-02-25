@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `set_posting_style`, `set_some_posting_style`, `with_posting_style`, `with_some_posting_style` to `{Reply,Forward}TemplateBuilder::new`
 - Added `set_signature_style`, `set_some_signature_style`, `with_signature_style`, `with_some_signature_style` to `{New,Reply,Forward}TemplateBuilder::new`
 - Changed `DefaultDeleteMessages` behaviour: if the message deletion style matches the flag-based one, add the Deleted flag, otherwise move to Trash.
+- Renamed `AccountSyncBuilder::new` to `try_new`.
 
 ### Fixed
 

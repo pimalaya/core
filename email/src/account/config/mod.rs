@@ -199,8 +199,8 @@ impl AccountConfig {
         rename_file_if_duplicate(&final_path, |path, _count| path.is_file())
     }
 
-    #[cfg(feature = "account-sync")]
     /// Return `true` if the synchronization is enabled.
+    #[cfg(feature = "account-sync")]
     pub fn is_sync_enabled(&self) -> bool {
         self.sync
             .as_ref()
@@ -208,8 +208,8 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    #[cfg(feature = "account-sync")]
     /// Return `true` if the synchronization directory already exists.
+    #[cfg(feature = "account-sync")]
     pub fn does_sync_dir_exist(&self) -> bool {
         match self.sync.as_ref().and_then(|c| c.dir.as_ref()) {
             Some(dir) => try_shellexpand_path(dir).is_ok(),
@@ -225,16 +225,16 @@ impl AccountConfig {
         }
     }
 
-    #[cfg(feature = "account-sync")]
     /// Return `true` if the synchronization is enabled AND if the
     /// sync directory exists.
+    #[cfg(feature = "account-sync")]
     pub fn is_sync_usable(&self) -> bool {
         self.is_sync_enabled() && self.does_sync_dir_exist()
     }
 
-    #[cfg(feature = "account-sync")]
     /// Get the synchronization directory if exist, otherwise create
     /// it.
+    #[cfg(feature = "account-sync")]
     pub fn get_sync_dir(&self) -> Result<PathBuf> {
         match self.sync.as_ref().and_then(|c| c.dir.as_ref()) {
             Some(dir) => {
