@@ -32,8 +32,8 @@ async fn multiple_tcp_clients() {
             // wait for the binder to be ready
             tokio::time::sleep(Duration::from_secs(1)).await;
 
-            let client1 = TcpClient::new(HOST, PORT);
-            let client2 = TcpClient::new(HOST, PORT);
+            let client1 = TcpClient::new_boxed(HOST, PORT);
+            let client2 = TcpClient::new_boxed(HOST, PORT);
 
             client1.start().await.unwrap();
             tokio::time::sleep(Duration::from_secs(2)).await;

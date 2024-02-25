@@ -33,7 +33,7 @@ pub struct TcpClient {
 
 impl TcpClient {
     /// Create a new TCP client using the given host and port.
-    pub fn new(host: impl ToString, port: u16) -> Box<dyn Client> {
+    pub fn new_boxed(host: impl ToString, port: u16) -> Box<dyn Client> {
         Box::new(Self {
             host: host.to_string(),
             port,

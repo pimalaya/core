@@ -29,7 +29,7 @@ async fn main() {
             // wait for the binder to be ready
             tokio::time::sleep(Duration::from_secs(1)).await;
 
-            let client = TcpClient::new(HOST, PORT);
+            let client = TcpClient::new_boxed(HOST, PORT);
 
             client.start().await.unwrap();
             tokio::time::sleep(Duration::from_secs(1)).await;
