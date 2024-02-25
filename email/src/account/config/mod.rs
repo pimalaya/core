@@ -329,22 +329,10 @@ impl AccountConfig {
 
     /// Execute the given envelope hook.
     pub async fn exec_envelope_hook(&self, hook: &WatchHook, envelope: &Envelope) {
-        let sender = match envelope.from.name.as_ref() {
-            Some(sender) => sender,
-            None => &envelope.from.addr,
-        };
-        let sender_name = match envelope.from.name.as_ref() {
-            Some(name) => name,
-            None => "unknown",
-        };
-        let recipient = match envelope.to.name.as_ref() {
-            Some(sender) => sender,
-            None => &envelope.to.addr,
-        };
-        let recipient_name = match envelope.to.name.as_ref() {
-            Some(name) => name,
-            None => "unknown",
-        };
+        let sender = envelope.from.name.as_deref().unwrap_or(&envelope.from.addr);
+        let sender_name = envelope.from.name.as_deref().unwrap_or("unknown");
+        let recipient = envelope.to.name.as_deref().unwrap_or(&envelope.to.addr);
+        let recipient_name = envelope.to.name.as_deref().unwrap_or("unknown");
 
         if let Some(cmd) = hook.cmd.as_ref() {
             let res = cmd
@@ -391,15 +379,11 @@ impl AccountConfig {
 
         #[cfg(not(target_os = "linux"))]
         if let Some(notify) = hook.notify.as_ref() {
-            let summary = notify.summary.clone();
-            let body = notify.body.clone();
-            let envelope = envelope.clone();
+            let summary = replace(&notify.summary, &envelope);
+            let body = replace(&notify.body, &envelope);
 
             let res = tokio::task::spawn_blocking(move || {
-                Notification::new()
-                    .summary(&replace(&summary, &envelope))
-                    .body(&replace(&body, &envelope))
-                    .show()
+                Notification::new().summary(&summary).body(&body).show()
             })
             .await;
 

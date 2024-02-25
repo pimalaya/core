@@ -1,6 +1,6 @@
 [package]
 name = "email-lib"
-version = "0.22.2"
+version = "0.22.3"
 description = "Rust library to manage emails"
 homepage = "https://pimalaya.org"
 documentation = "https://docs.rs/email-lib/latest/email/"
