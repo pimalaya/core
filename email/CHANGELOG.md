@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1] - 2024-02-25
+
 ### Added
 
 - Added backend builder feature `CheckUp` to check integrity of configuration and context.
