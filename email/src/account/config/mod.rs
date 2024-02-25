@@ -329,10 +329,22 @@ impl AccountConfig {
 
     /// Execute the given envelope hook.
     pub async fn exec_envelope_hook(&self, hook: &WatchHook, envelope: &Envelope) {
-        let sender = envelope.from.name.as_deref().unwrap_or(&envelope.from.addr);
-        let sender_name = envelope.from.name.as_deref().unwrap_or("unknown");
-        let recipient = envelope.to.name.as_deref().unwrap_or(&envelope.to.addr);
-        let recipient_name = envelope.to.name.as_deref().unwrap_or("unknown");
+        let sender = match envelope.from.name.as_ref() {
+            Some(sender) => sender,
+            None => &envelope.from.addr,
+        };
+        let sender_name = match envelope.from.name.as_ref() {
+            Some(name) => name,
+            None => "unknown",
+        };
+        let recipient = match envelope.to.name.as_ref() {
+            Some(sender) => sender,
+            None => &envelope.to.addr,
+        };
+        let recipient_name = match envelope.to.name.as_ref() {
+            Some(name) => name,
+            None => "unknown",
+        };
 
         if let Some(cmd) = hook.cmd.as_ref() {
             let res = cmd
