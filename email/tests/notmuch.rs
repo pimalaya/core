@@ -82,14 +82,20 @@ async fn test_notmuch_features() {
 
     // check that the envelope of the added message exists
 
-    let envelopes = notmuch.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let envelopes = notmuch
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     let inbox_envelope = envelopes.first().unwrap();
 
     assert_eq!(1, envelopes.len());
     assert_eq!("alice@localhost", inbox_envelope.from.addr);
     assert_eq!("Plain message!", inbox_envelope.subject);
 
-    let envelopes = notmuch.list_envelopes("custom", 0, 0).await.unwrap();
+    let envelopes = notmuch
+        .list_envelopes("custom", Default::default())
+        .await
+        .unwrap();
     let custom_envelope = envelopes.first().unwrap();
 
     assert_eq!(1, envelopes.len());
@@ -156,7 +162,10 @@ async fn test_notmuch_features() {
         .await
         .unwrap();
 
-    let envelopes = notmuch.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let envelopes = notmuch
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
 
     assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
@@ -169,7 +178,10 @@ async fn test_notmuch_features() {
         .await
         .unwrap();
 
-    let envelopes = notmuch.list_envelopes("custom", 0, 0).await.unwrap();
+    let envelopes = notmuch
+        .list_envelopes("custom", Default::default())
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
 
     assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
@@ -185,7 +197,10 @@ async fn test_notmuch_features() {
         .await
         .unwrap();
 
-    let envelopes = notmuch.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let envelopes = notmuch
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
 
     assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
@@ -198,7 +213,10 @@ async fn test_notmuch_features() {
         .await
         .unwrap();
 
-    let envelopes = notmuch.list_envelopes("custom", 0, 0).await.unwrap();
+    let envelopes = notmuch
+        .list_envelopes("custom", Default::default())
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
 
     assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
@@ -213,7 +231,10 @@ async fn test_notmuch_features() {
         .await
         .unwrap();
 
-    let envelopes = notmuch.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let envelopes = notmuch
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
 
     assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
@@ -226,7 +247,10 @@ async fn test_notmuch_features() {
         .await
         .unwrap();
 
-    let envelopes = notmuch.list_envelopes("custom", 0, 0).await.unwrap();
+    let envelopes = notmuch
+        .list_envelopes("custom", Default::default())
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
 
     assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
@@ -241,8 +265,14 @@ async fn test_notmuch_features() {
         .await
         .unwrap();
 
-    let inbox_envelopes = notmuch.list_envelopes(INBOX, 0, 0).await.unwrap();
-    let custom_envelopes = notmuch.list_envelopes("custom", 0, 0).await.unwrap();
+    let inbox_envelopes = notmuch
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
+    let custom_envelopes = notmuch
+        .list_envelopes("custom", Default::default())
+        .await
+        .unwrap();
 
     assert_eq!(inbox_envelopes.len(), 1);
     assert_eq!(custom_envelopes.len(), 2);
@@ -254,8 +284,14 @@ async fn test_notmuch_features() {
         .await
         .unwrap();
 
-    let inbox_envelopes = notmuch.list_envelopes(INBOX, 0, 0).await.unwrap();
-    let custom_envelopes = notmuch.list_envelopes("custom", 0, 0).await.unwrap();
+    let inbox_envelopes = notmuch
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
+    let custom_envelopes = notmuch
+        .list_envelopes("custom", Default::default())
+        .await
+        .unwrap();
 
     assert_eq!(inbox_envelopes.len(), 2);
     assert_eq!(custom_envelopes.len(), 1);

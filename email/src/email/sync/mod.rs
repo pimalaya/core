@@ -52,7 +52,7 @@ where
                     let backend = &ctx.left_cache;
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                         ctx.left_cache
-                            .list_envelopes(&folder_ref, 0, 0)
+                            .list_envelopes(&folder_ref, Default::default())
                             .await
                             .or_else(|err| {
                                 if ctx.dry_run {
@@ -88,7 +88,7 @@ where
                     let backend = &ctx.left;
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                         backend
-                            .list_envelopes(&folder_ref, 0, 0)
+                            .list_envelopes(&folder_ref, Default::default())
                             .await
                             .or_else(|err| {
                                 if ctx.dry_run {
@@ -124,7 +124,7 @@ where
                     let backend = &ctx.right_cache;
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                         backend
-                            .list_envelopes(&folder_ref, 0, 0)
+                            .list_envelopes(&folder_ref, Default::default())
                             .await
                             .or_else(|err| {
                                 if ctx.dry_run {
@@ -160,7 +160,7 @@ where
                     let backend = &ctx.right;
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                         backend
-                            .list_envelopes(&folder_ref, 0, 0)
+                            .list_envelopes(&folder_ref, Default::default())
                             .await
                             .or_else(|err| {
                                 if ctx.dry_run {

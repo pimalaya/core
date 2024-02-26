@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::{folder::FolderKind, notmuch::NotmuchContextSync, Result};
 
-use super::{Envelopes, ListEnvelopes};
+use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -33,12 +33,7 @@ impl ListNotmuchEnvelopes {
 
 #[async_trait]
 impl ListEnvelopes for ListNotmuchEnvelopes {
-    async fn list_envelopes(
-        &self,
-        folder: &str,
-        page_size: usize,
-        page: usize,
-    ) -> Result<Envelopes> {
+    async fn list_envelopes(&self, folder: &str, opts: ListEnvelopesOptions) -> Result<Envelopes> {
         info!("listing notmuch envelopes from folder {folder}");
 
         let ctx = self.ctx.lock().await;
@@ -60,7 +55,7 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
         debug!("found {envelopes_len} notmuch envelopes matching query {query}");
         trace!("{envelopes:#?}");
 
-        let page_begin = page * page_size;
+        let page_begin = opts.page * opts.page_size;
 
         if page_begin > envelopes.len() {
             return Err(Error::GetEnvelopesOutOfBoundsError(
@@ -69,10 +64,10 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
             ))?;
         }
 
-        let page_end = envelopes.len().min(if page_size == 0 {
+        let page_end = envelopes.len().min(if opts.page_size == 0 {
             envelopes.len()
         } else {
-            page_begin + page_size
+            page_begin + opts.page_size
         });
 
         *envelopes = envelopes[page_begin..page_end].into();

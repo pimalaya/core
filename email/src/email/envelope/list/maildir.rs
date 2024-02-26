@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::{maildir::MaildirContextSync, Result};
 
-use super::{Envelopes, ListEnvelopes};
+use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -33,12 +33,7 @@ impl ListMaildirEnvelopes {
 
 #[async_trait]
 impl ListEnvelopes for ListMaildirEnvelopes {
-    async fn list_envelopes(
-        &self,
-        folder: &str,
-        page_size: usize,
-        page: usize,
-    ) -> Result<Envelopes> {
+    async fn list_envelopes(&self, folder: &str, opts: ListEnvelopesOptions) -> Result<Envelopes> {
         info!("listing maildir envelopes from folder {folder}");
 
         let ctx = self.ctx.lock().await;
@@ -47,7 +42,7 @@ impl ListEnvelopes for ListMaildirEnvelopes {
         let mut envelopes = Envelopes::from_mdir_entries(mdir.list_cur());
         debug!("maildir envelopes: {envelopes:#?}");
 
-        let page_begin = page * page_size;
+        let page_begin = opts.page * opts.page_size;
         debug!("page begin: {}", page_begin);
         if page_begin > envelopes.len() {
             return Err(
@@ -55,10 +50,10 @@ impl ListEnvelopes for ListMaildirEnvelopes {
             );
         }
 
-        let page_end = envelopes.len().min(if page_size == 0 {
+        let page_end = envelopes.len().min(if opts.page_size == 0 {
             envelopes.len()
         } else {
-            page_begin + page_size
+            page_begin + opts.page_size
         });
         debug!("page end: {}", page_end);
 

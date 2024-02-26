@@ -632,16 +632,28 @@ async fn test_sync() {
     // check envelopes integrity
 
     for folder in [INBOX, "Archives", TRASH] {
-        let mut left_envelopes = left.list_envelopes(folder, 0, 0).await.unwrap();
+        let mut left_envelopes = left
+            .list_envelopes(folder, Default::default())
+            .await
+            .unwrap();
         left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-        let mut left_cached_envelopes = left_cache.list_envelopes(folder, 0, 0).await.unwrap();
+        let mut left_cached_envelopes = left_cache
+            .list_envelopes(folder, Default::default())
+            .await
+            .unwrap();
         left_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-        let mut right_envelopes = right.list_envelopes(folder, 0, 0).await.unwrap();
+        let mut right_envelopes = right
+            .list_envelopes(folder, Default::default())
+            .await
+            .unwrap();
         right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-        let mut right_cached_envelopes = right_cache.list_envelopes(folder, 0, 0).await.unwrap();
+        let mut right_cached_envelopes = right_cache
+            .list_envelopes(folder, Default::default())
+            .await
+            .unwrap();
         right_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
         assert_eq!(left_envelopes, left_cached_envelopes);
@@ -651,7 +663,10 @@ async fn test_sync() {
 
     // check left emails content integrity
 
-    let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let mut left_envelopes = left
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
     let ids = Id::multiple(left_envelopes.iter().map(|e| &e.id));
@@ -662,7 +677,10 @@ async fn test_sync() {
     assert_eq!("B", msgs[1].parsed().unwrap().body_text(0).unwrap());
     assert_eq!("A", msgs[2].parsed().unwrap().body_text(0).unwrap());
 
-    let mut left_envelopes = left.list_envelopes(TRASH, 0, 0).await.unwrap();
+    let mut left_envelopes = left
+        .list_envelopes(TRASH, Default::default())
+        .await
+        .unwrap();
     left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
     let ids = Id::multiple(left_envelopes.iter().map(|e| &e.id));
@@ -675,7 +693,10 @@ async fn test_sync() {
     // remove messages and update flags from both side, sync again and
     // check integrity
 
-    let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let mut left_envelopes = left
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
     left.delete_messages(INBOX, &Id::single(&left_envelopes[2].id))
@@ -690,7 +711,10 @@ async fn test_sync() {
     .unwrap();
     left.expunge_folder(INBOX).await.unwrap();
 
-    let mut right_envelopes = right.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let mut right_envelopes = right
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
     right
@@ -705,16 +729,28 @@ async fn test_sync() {
 
     let report = sync_builder.sync().await.unwrap();
 
-    let mut left_envelopes = left.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let mut left_envelopes = left
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     left_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    let mut left_cached_envelopes = left_cache.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let mut left_cached_envelopes = left_cache
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     left_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    let mut right_envelopes = right.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let mut right_envelopes = right
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     right_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
-    let mut right_cached_envelopes = right_cache.list_envelopes(INBOX, 0, 0).await.unwrap();
+    let mut right_cached_envelopes = right_cache
+        .list_envelopes(INBOX, Default::default())
+        .await
+        .unwrap();
     right_cached_envelopes.sort_by(|a, b| b.message_id.cmp(&a.message_id));
 
     assert!(report.folder.patch.is_empty());

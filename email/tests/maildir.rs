@@ -108,7 +108,10 @@ async fn test_maildir_features() {
     assert_eq!(tpl, expected_tpl);
 
     // check that the envelope of the added message exists
-    let envelopes = mdir.list_envelopes("INBOX", 10, 0).await.unwrap();
+    let envelopes = mdir
+        .list_envelopes("INBOX", Default::default())
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
     assert_eq!(1, envelopes.len());
     assert_eq!("alice@localhost", envelope.from.addr);
@@ -118,7 +121,10 @@ async fn test_maildir_features() {
     mdir.add_flag("INBOX", &Id::single(&envelope.id), Flag::Flagged)
         .await
         .unwrap();
-    let envelopes = mdir.list_envelopes("INBOX", 1, 0).await.unwrap();
+    let envelopes = mdir
+        .list_envelopes("INBOX", Default::default())
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
     assert!(envelope.flags.contains(&Flag::Seen));
     assert!(envelope.flags.contains(&Flag::Flagged));
@@ -127,7 +133,10 @@ async fn test_maildir_features() {
     mdir.set_flag("INBOX", &Id::single(&envelope.id), Flag::Answered)
         .await
         .unwrap();
-    let envelopes = mdir.list_envelopes("INBOX", 1, 0).await.unwrap();
+    let envelopes = mdir
+        .list_envelopes("INBOX", Default::default())
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
     assert!(!envelope.flags.contains(&Flag::Seen));
     assert!(!envelope.flags.contains(&Flag::Flagged));
@@ -137,7 +146,10 @@ async fn test_maildir_features() {
     mdir.remove_flag("INBOX", &Id::single(&envelope.id), Flag::Answered)
         .await
         .unwrap();
-    let envelopes = mdir.list_envelopes("INBOX", 1, 0).await.unwrap();
+    let envelopes = mdir
+        .list_envelopes("INBOX", Default::default())
+        .await
+        .unwrap();
     let envelope = envelopes.first().unwrap();
     assert!(!envelope.flags.contains(&Flag::Seen));
     assert!(!envelope.flags.contains(&Flag::Flagged));
@@ -147,10 +159,22 @@ async fn test_maildir_features() {
     mdir.copy_messages("INBOX", "subdir", &Id::single(&envelope.id))
         .await
         .unwrap();
-    let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
-    let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
-    let abs_subdir = mdir.list_envelopes("abs-subdir", 0, 0).await.unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
+    let inbox = mdir
+        .list_envelopes("INBOX", Default::default())
+        .await
+        .unwrap();
+    let subdir = mdir
+        .list_envelopes("subdir", Default::default())
+        .await
+        .unwrap();
+    let abs_subdir = mdir
+        .list_envelopes("abs-subdir", Default::default())
+        .await
+        .unwrap();
+    let trash = mdir
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(1, inbox.len());
     assert_eq!(1, subdir.len());
     assert_eq!(1, abs_subdir.len());
@@ -172,18 +196,36 @@ async fn test_maildir_features() {
     mdir.add_flag("subdir", &Id::single(&subdir[0].id), Flag::Deleted)
         .await
         .unwrap();
-    let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
-    let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
-    let abs_subdir = mdir.list_envelopes("abs-subdir", 0, 0).await.unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
+    let inbox = mdir
+        .list_envelopes("INBOX", Default::default())
+        .await
+        .unwrap();
+    let subdir = mdir
+        .list_envelopes("subdir", Default::default())
+        .await
+        .unwrap();
+    let abs_subdir = mdir
+        .list_envelopes("abs-subdir", Default::default())
+        .await
+        .unwrap();
+    let trash = mdir
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(1, inbox.len());
     assert_eq!(1, subdir.len());
     assert_eq!(1, abs_subdir.len());
     assert_eq!(0, trash.len());
 
     mdir.expunge_folder("subdir").await.unwrap();
-    let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
-    let abs_subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
+    let subdir = mdir
+        .list_envelopes("subdir", Default::default())
+        .await
+        .unwrap();
+    let abs_subdir = mdir
+        .list_envelopes("subdir", Default::default())
+        .await
+        .unwrap();
     assert_eq!(0, subdir.len());
     assert_eq!(0, abs_subdir.len());
 
@@ -191,9 +233,18 @@ async fn test_maildir_features() {
     mdir.move_messages("INBOX", "subdir", &Id::single(&envelope.id))
         .await
         .unwrap();
-    let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
-    let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
+    let inbox = mdir
+        .list_envelopes("INBOX", Default::default())
+        .await
+        .unwrap();
+    let subdir = mdir
+        .list_envelopes("subdir", Default::default())
+        .await
+        .unwrap();
+    let trash = mdir
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(0, inbox.len());
     assert_eq!(1, subdir.len());
     assert_eq!(0, trash.len());
@@ -202,9 +253,18 @@ async fn test_maildir_features() {
     mdir.delete_messages("subdir", &Id::single(&subdir[0].id))
         .await
         .unwrap();
-    let inbox = mdir.list_envelopes("INBOX", 0, 0).await.unwrap();
-    let subdir = mdir.list_envelopes("subdir", 0, 0).await.unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
+    let inbox = mdir
+        .list_envelopes("INBOX", Default::default())
+        .await
+        .unwrap();
+    let subdir = mdir
+        .list_envelopes("subdir", Default::default())
+        .await
+        .unwrap();
+    let trash = mdir
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(0, inbox.len());
     assert_eq!(0, subdir.len());
     assert_eq!(1, trash.len());
@@ -212,11 +272,17 @@ async fn test_maildir_features() {
     mdir.delete_messages("Trash", &Id::single(&trash[0].id))
         .await
         .unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
+    let trash = mdir
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(1, trash.len());
     assert!(trash[0].flags.contains(&Flag::Deleted));
 
     mdir.expunge_folder("Trash").await.unwrap();
-    let trash = mdir.list_envelopes("Trash", 0, 0).await.unwrap();
+    let trash = mdir
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(0, trash.len());
 }

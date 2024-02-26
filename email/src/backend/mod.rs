@@ -63,8 +63,10 @@ use thiserror::Error;
 use crate::{
     account::config::{AccountConfig, HasAccountConfig},
     envelope::{
-        get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes, Envelope, Envelopes, Id,
-        SingleId,
+        get::GetEnvelope,
+        list::{ListEnvelopes, ListEnvelopesOptions},
+        watch::WatchEnvelopes,
+        Envelope, Envelopes, Id, SingleId,
     },
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flags},
     folder::{
@@ -266,17 +268,12 @@ impl<C: BackendContext> GetEnvelope for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> ListEnvelopes for Backend<C> {
-    async fn list_envelopes(
-        &self,
-        folder: &str,
-        page_size: usize,
-        page: usize,
-    ) -> Result<Envelopes> {
+    async fn list_envelopes(&self, folder: &str, opts: ListEnvelopesOptions) -> Result<Envelopes> {
         self.list_envelopes
             .as_ref()
             .and_then(|feature| feature(&self.context))
             .ok_or(Error::ListEnvelopesNotAvailableError)?
-            .list_envelopes(folder, page_size, page)
+            .list_envelopes(folder, opts)
             .await
     }
 }

@@ -100,7 +100,7 @@ async fn test_imap_features() {
     assert_eq!(tpl, expected_tpl);
 
     // checking that the envelope of the added email exists
-    let sent = imap.list_envelopes(SENT, 0, 0).await.unwrap();
+    let sent = imap.list_envelopes(SENT, Default::default()).await.unwrap();
     assert_eq!(1, sent.len());
     assert_eq!("alice@localhost", sent[0].from.addr);
     assert_eq!("subject", sent[0].subject);
@@ -109,9 +109,15 @@ async fn test_imap_features() {
     imap.copy_messages(SENT, "Отправленные", &Id::single(&sent[0].id))
         .await
         .unwrap();
-    let sent = imap.list_envelopes(SENT, 0, 0).await.unwrap();
-    let sent_ru = imap.list_envelopes("Отправленные", 0, 0).await.unwrap();
-    let trash = imap.list_envelopes("Trash", 0, 0).await.unwrap();
+    let sent = imap.list_envelopes(SENT, Default::default()).await.unwrap();
+    let sent_ru = imap
+        .list_envelopes("Отправленные", Default::default())
+        .await
+        .unwrap();
+    let trash = imap
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(1, sent.len());
     assert_eq!(1, sent_ru.len());
     assert_eq!(0, trash.len());
@@ -120,25 +126,40 @@ async fn test_imap_features() {
     imap.add_flag("Отправленные", &Id::single(&sent_ru[0].id), Flag::Deleted)
         .await
         .unwrap();
-    let sent = imap.list_envelopes(SENT, 0, 0).await.unwrap();
-    let sent_ru = imap.list_envelopes("Отправленные", 0, 0).await.unwrap();
-    let trash = imap.list_envelopes("Trash", 0, 0).await.unwrap();
+    let sent = imap.list_envelopes(SENT, Default::default()).await.unwrap();
+    let sent_ru = imap
+        .list_envelopes("Отправленные", Default::default())
+        .await
+        .unwrap();
+    let trash = imap
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(1, sent.len());
     assert_eq!(1, sent_ru.len());
     assert_eq!(0, trash.len());
     assert!(sent_ru[0].flags.contains(&Flag::Deleted));
 
     imap.expunge_folder("Отправленные").await.unwrap();
-    let sent_ru = imap.list_envelopes("Отправленные", 0, 0).await.unwrap();
+    let sent_ru = imap
+        .list_envelopes("Отправленные", Default::default())
+        .await
+        .unwrap();
     assert_eq!(0, sent_ru.len());
 
     // checking that the email can be moved
     imap.move_messages(SENT, "Отправленные", &Id::single(&sent[0].id))
         .await
         .unwrap();
-    let sent = imap.list_envelopes(SENT, 0, 0).await.unwrap();
-    let sent_ru = imap.list_envelopes("Отправленные", 0, 0).await.unwrap();
-    let trash = imap.list_envelopes("Trash", 0, 0).await.unwrap();
+    let sent = imap.list_envelopes(SENT, Default::default()).await.unwrap();
+    let sent_ru = imap
+        .list_envelopes("Отправленные", Default::default())
+        .await
+        .unwrap();
+    let trash = imap
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(0, sent.len());
     assert_eq!(1, sent_ru.len());
     assert_eq!(0, trash.len());
@@ -147,9 +168,15 @@ async fn test_imap_features() {
     imap.delete_messages("Отправленные", &Id::single(&sent_ru[0].id))
         .await
         .unwrap();
-    let sent = imap.list_envelopes(SENT, 0, 0).await.unwrap();
-    let sent_ru = imap.list_envelopes("Отправленные", 0, 0).await.unwrap();
-    let trash = imap.list_envelopes("Trash", 0, 0).await.unwrap();
+    let sent = imap.list_envelopes(SENT, Default::default()).await.unwrap();
+    let sent_ru = imap
+        .list_envelopes("Отправленные", Default::default())
+        .await
+        .unwrap();
+    let trash = imap
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(0, sent.len());
     assert_eq!(0, sent_ru.len());
     assert_eq!(1, trash.len());
@@ -157,11 +184,17 @@ async fn test_imap_features() {
     imap.delete_messages("Trash", &Id::single(&trash[0].id))
         .await
         .unwrap();
-    let trash = imap.list_envelopes("Trash", 0, 0).await.unwrap();
+    let trash = imap
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(1, trash.len());
     assert!(trash[0].flags.contains(&Flag::Deleted));
 
     imap.expunge_folder("Trash").await.unwrap();
-    let trash = imap.list_envelopes("Trash", 0, 0).await.unwrap();
+    let trash = imap
+        .list_envelopes("Trash", Default::default())
+        .await
+        .unwrap();
     assert_eq!(0, trash.len());
 }

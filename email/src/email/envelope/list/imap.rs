@@ -6,7 +6,7 @@ use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{imap::ImapContextSync, Result};
 
-use super::{Envelopes, ListEnvelopes};
+use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 
 /// The IMAP query needed to retrieve everything we need to build an
 /// [envelope]: UID, flags and headers (Message-ID, From, To, Subject,
@@ -44,12 +44,7 @@ impl ListImapEnvelopes {
 
 #[async_trait]
 impl ListEnvelopes for ListImapEnvelopes {
-    async fn list_envelopes(
-        &self,
-        folder: &str,
-        page_size: usize,
-        page: usize,
-    ) -> Result<Envelopes> {
+    async fn list_envelopes(&self, folder: &str, opts: ListEnvelopesOptions) -> Result<Envelopes> {
         info!("listing imap envelopes from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -72,7 +67,7 @@ impl ListEnvelopes for ListImapEnvelopes {
             return Ok(Envelopes::default());
         }
 
-        let range = build_page_range(page, page_size, folder_size)?;
+        let range = build_page_range(opts.page, opts.page_size, folder_size)?;
         debug!("page range: {range}");
 
         let fetches = ctx

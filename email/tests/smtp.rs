@@ -74,7 +74,10 @@ async fn test_smtp_features() {
 
     // checking that the envelope of the sent email exists
 
-    let envelopes = imap.list_envelopes("INBOX", 10, 0).await.unwrap();
+    let envelopes = imap
+        .list_envelopes("INBOX", Default::default())
+        .await
+        .unwrap();
     assert_eq!(1, envelopes.len());
     let envelope = envelopes.first().unwrap();
     assert_eq!("alice@localhost", envelope.from.addr);

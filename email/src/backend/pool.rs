@@ -9,8 +9,10 @@ use std::sync::Arc;
 use crate::{
     account::config::{AccountConfig, HasAccountConfig},
     envelope::{
-        get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes, Envelope, Envelopes, Id,
-        SingleId,
+        get::GetEnvelope,
+        list::{ListEnvelopes, ListEnvelopesOptions},
+        watch::WatchEnvelopes,
+        Envelope, Envelopes, Id, SingleId,
     },
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flags},
     folder::{
@@ -213,12 +215,7 @@ impl<C: BackendContext + 'static> GetEnvelope for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> ListEnvelopes for BackendPool<C> {
-    async fn list_envelopes(
-        &self,
-        folder: &str,
-        page_size: usize,
-        page: usize,
-    ) -> Result<Envelopes> {
+    async fn list_envelopes(&self, folder: &str, opts: ListEnvelopesOptions) -> Result<Envelopes> {
         let folder = folder.to_owned();
         let feature = self
             .list_envelopes
@@ -229,7 +226,7 @@ impl<C: BackendContext + 'static> ListEnvelopes for BackendPool<C> {
             .exec(move |ctx| async move {
                 feature(&ctx)
                     .ok_or(Error::ListEnvelopesNotAvailableError)?
-                    .list_envelopes(&folder, page_size, page)
+                    .list_envelopes(&folder, opts)
                     .await
             })
             .await
