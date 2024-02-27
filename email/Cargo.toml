@@ -110,3 +110,9 @@ tokio-rustls = "0.25"
 tree_magic_mini = "3"
 urlencoding = "2.1"
 utf7-imap = { version = "=0.3.2", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+chumsky = { version = "=1.0.0-alpha.6", features = ["label"] }
+
+[target.'cfg(windows)'.dependencies]
+chumsky = { version = "=1.0.0-alpha.6", default-features = false, features = ["std", "label"] }

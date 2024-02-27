@@ -6,7 +6,7 @@ use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{imap::ImapContextSync, Result};
 
-use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
+use super::{Envelopes, ListEnvelopes, ListEnvelopesFilter, ListEnvelopesOptions};
 
 /// The IMAP query needed to retrieve everything we need to build an
 /// [envelope]: UID, flags and headers (Message-ID, From, To, Subject,
@@ -19,6 +19,8 @@ pub enum Error {
     SelectFolderError(#[source] imap::Error, String),
     #[error("cannot list imap envelopes {2} from folder {1}")]
     ListEnvelopesError(#[source] imap::Error, String, String),
+    #[error("cannot search imap envelopes from folder {1} with query {2}")]
+    SearchEnvelopesError(#[source] imap::Error, String, String),
     #[error("cannot list imap envelopes: page {0} out of bounds")]
     BuildPageRangeOutOfBoundsError(usize),
 }
@@ -39,6 +41,52 @@ impl ListImapEnvelopes {
 
     pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn ListEnvelopes>> {
         Some(Self::new_boxed(ctx))
+    }
+}
+
+impl ListEnvelopesFilter {
+    pub fn to_imap_search_query(&self) -> String {
+        match self {
+            ListEnvelopesFilter::And(left, right) => {
+                let left = left.to_imap_search_query();
+                let right = right.to_imap_search_query();
+                format!("{left} {right}")
+            }
+            ListEnvelopesFilter::Or(left, right) => {
+                let left = left.to_imap_search_query();
+                let right = right.to_imap_search_query();
+                format!("OR ({left}) ({right})")
+            }
+            ListEnvelopesFilter::Not(filter) => {
+                let filter = filter.to_imap_search_query();
+                format!("NOT ({filter})")
+            }
+            ListEnvelopesFilter::Folder(_folder) => {
+                // TODO
+                String::new()
+            }
+            ListEnvelopesFilter::Before(date) => {
+                format!("BEFORE {date}")
+            }
+            ListEnvelopesFilter::After(date) => {
+                format!("SINCE {date}")
+            }
+            ListEnvelopesFilter::From(addr) => {
+                format!("FROM {addr}")
+            }
+            ListEnvelopesFilter::To(addr) => {
+                format!("TO {addr}")
+            }
+            ListEnvelopesFilter::Subject(subject) => {
+                format!("SUBJECT {subject}")
+            }
+            ListEnvelopesFilter::Body(body) => {
+                format!("BODY {body}")
+            }
+            ListEnvelopesFilter::Keyword(keyword) => {
+                format!("KEYWORD {keyword}")
+            }
+        }
     }
 }
 
@@ -67,15 +115,37 @@ impl ListEnvelopes for ListImapEnvelopes {
             return Ok(Envelopes::default());
         }
 
-        let range = build_page_range(opts.page, opts.page_size, folder_size)?;
-        debug!("page range: {range}");
+        let fetches = if let Some(filter) = opts.filter {
+            let query = filter.to_imap_search_query();
+            println!("query: {:?}", query);
+            let uids = ctx
+                .exec(
+                    |session| session.uid_search(&query),
+                    |err| Error::SearchEnvelopesError(err, folder.clone(), query.clone()).into(),
+                )
+                .await?;
+            let range = uids.into_iter().fold(String::new(), |mut range, uid| {
+                if !range.is_empty() {
+                    range.push(',');
+                }
+                range.push_str(&uid.to_string());
+                range
+            });
 
-        let fetches = ctx
-            .exec(
+            ctx.exec(
+                |session| session.uid_fetch(&range, LIST_ENVELOPES_QUERY),
+                |err| Error::ListEnvelopesError(err, folder.clone(), range.clone()).into(),
+            )
+            .await
+        } else {
+            let range = build_page_range(opts.page, opts.page_size, folder_size)?;
+
+            ctx.exec(
                 |session| session.fetch(&range, LIST_ENVELOPES_QUERY),
                 |err| Error::ListEnvelopesError(err, folder.clone(), range.clone()).into(),
             )
-            .await?;
+            .await
+        }?;
 
         let envelopes = Envelopes::from_imap_fetches(fetches);
         debug!("found {} imap envelopes", envelopes.len());
