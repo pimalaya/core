@@ -55,19 +55,26 @@ impl WatchEnvelopes for WatchImapEnvelopes {
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        ctx.exec(
-            |session| session.examine(&folder_encoded),
-            |err| Error::ExamineFolderError(err, folder.clone()).into(),
-        )
-        .await?;
-
-        let fetches = ctx
+        let envelopes_count = ctx
             .exec(
-                |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
-                |err| Error::ListAllEnvelopesError(err, folder.clone()).into(),
+                |session| session.examine(&folder_encoded),
+                |err| Error::ExamineFolderError(err, folder.clone()).into(),
             )
-            .await?;
-        let envelopes = Envelopes::from_imap_fetches(fetches);
+            .await?
+            .exists;
+
+        let envelopes = if envelopes_count == 0 {
+            Default::default()
+        } else {
+            let fetches = ctx
+                .exec(
+                    |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
+                    |err| Error::ListAllEnvelopesError(err, folder.clone()).into(),
+                )
+                .await?;
+            Envelopes::from_imap_fetches(fetches)
+        };
+
         let mut envelopes: HashMap<String, Envelope> =
             HashMap::from_iter(envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
