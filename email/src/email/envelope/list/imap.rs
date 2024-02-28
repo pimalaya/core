@@ -66,9 +66,11 @@ impl ListEnvelopesFilter {
                 String::new()
             }
             ListEnvelopesFilter::Before(date) => {
+                let date = date.format("%d-%b-%Y");
                 format!("BEFORE {date}")
             }
             ListEnvelopesFilter::After(date) => {
+                let date = date.format("%d-%b-%Y");
                 format!("SINCE {date}")
             }
             ListEnvelopesFilter::From(addr) => {

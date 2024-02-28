@@ -11,6 +11,7 @@ use chrono::{
     DateTime, Duration, Local, LocalResult, NaiveDate, NaiveDateTime, NaiveTime, ParseError,
 };
 use chumsky::prelude::*;
+use std::str::FromStr;
 use thiserror::Error;
 
 use crate::Result;
@@ -19,6 +20,8 @@ use super::Envelopes;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot parse list envelopes query: {1}")]
+    ParseFilterError(Vec<Rich<'static, char>>, String),
     #[error("cannot parse date from list envelopes query")]
     ParseNaiveDateTimeError(#[source] ParseError),
     #[error("cannot parse date from list envelopes query: cannot apply local timezone to {0}")]
@@ -55,6 +58,21 @@ pub enum ListEnvelopesFilter {
     Subject(String),
     Body(String),
     Keyword(String),
+}
+
+impl FromStr for ListEnvelopesFilter {
+    type Err = Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        filter().parse(s).into_result().map_err(|errs| {
+            Error::ParseFilterError(
+                errs.into_iter()
+                    .map(|err| err.clone().into_owned())
+                    .collect(),
+                s.to_owned(),
+            )
+        })
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -110,6 +128,7 @@ fn condition<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<
 
 fn before<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>> + Clone {
     just("before")
+        .labelled("before")
         .padded()
         .ignore_then(date(|dt| dt))
         .map(ListEnvelopesFilter::Before)
@@ -117,6 +136,7 @@ fn before<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>
 
 fn after<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>> + Clone {
     just("after")
+        .labelled("after")
         .padded()
         .ignore_then(date(|dt| dt + Duration::days(1)))
         .map(ListEnvelopesFilter::After)
@@ -124,6 +144,7 @@ fn after<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>>
 
 fn from<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>> + Clone {
     just("from")
+        .labelled("from")
         .padded()
         .ignore_then(val())
         .map(ListEnvelopesFilter::From)
@@ -131,6 +152,7 @@ fn from<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>> 
 
 fn to<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>> + Clone {
     just("to")
+        .labelled("to")
         .padded()
         .ignore_then(val())
         .map(ListEnvelopesFilter::To)
@@ -138,6 +160,7 @@ fn to<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>> + 
 
 fn subject<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>> + Clone {
     just("subject")
+        .labelled("subject")
         .padded()
         .ignore_then(val())
         .map(ListEnvelopesFilter::Subject)
@@ -145,6 +168,7 @@ fn subject<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a
 
 fn body<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>> + Clone {
     just("body")
+        .labelled("body")
         .padded()
         .ignore_then(val())
         .map(ListEnvelopesFilter::Body)
@@ -152,6 +176,7 @@ fn body<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>> 
 
 fn keyword<'a>() -> impl Parser<'a, &'a str, ListEnvelopesFilter, ParserError<'a>> + Clone {
     just("keyword")
+        .labelled("keyword")
         .padded()
         .ignore_then(val())
         .map(ListEnvelopesFilter::Keyword)
