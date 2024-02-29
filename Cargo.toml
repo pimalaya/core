@@ -16,3 +16,4 @@ members = [
 
 [patch.crates-io]
 email-macros = { path = "./email-macros" }
+chumsky = { git = "https://github.com/zesterer/chumsky.git", rev = "6837537" }

@@ -224,9 +224,9 @@ impl<'a> From<&'a str> for Message<'a> {
 
 enum RawMessages {
     Vec(Vec<Vec<u8>>),
-
+    #[cfg(feature = "imap")]
     Fetches(Fetches),
-
+    #[cfg(feature = "maildir")]
     MailEntries(Vec<MailEntry>),
 }
 
@@ -242,7 +242,7 @@ impl Messages {
     fn emails_builder(raw: &mut RawMessages) -> Vec<Message> {
         match raw {
             RawMessages::Vec(vec) => vec.iter().map(Vec::as_slice).map(Message::from).collect(),
-
+            #[cfg(feature = "imap")]
             RawMessages::Fetches(fetches) => fetches
                 .iter()
                 .filter(|fetch| match fetch.body() {
@@ -255,7 +255,7 @@ impl Messages {
                 })
                 .map(Message::from)
                 .collect(),
-
+            #[cfg(feature = "maildir")]
             RawMessages::MailEntries(entries) => entries.iter_mut().map(Message::from).collect(),
         }
     }
@@ -279,6 +279,7 @@ impl From<Vec<Vec<u8>>> for Messages {
     }
 }
 
+#[cfg(feature = "imap")]
 impl TryFrom<Fetches> for Messages {
     type Error = crate::Error;
 
@@ -295,6 +296,7 @@ impl TryFrom<Fetches> for Messages {
     }
 }
 
+#[cfg(feature = "maildir")]
 impl TryFrom<Vec<MailEntry>> for Messages {
     type Error = crate::Error;
 

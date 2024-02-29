@@ -4,9 +4,9 @@ use std::result;
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapContextSync, Result};
+use crate::{email::search_query::SearchEmailsQuery, imap::ImapContextSync, Result};
 
-use super::{Envelopes, ListEnvelopes, ListEnvelopesFilter, ListEnvelopesOptions};
+use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 
 /// The IMAP query needed to retrieve everything we need to build an
 /// [envelope]: UID, flags and headers (Message-ID, From, To, Subject,
@@ -44,48 +44,48 @@ impl ListImapEnvelopes {
     }
 }
 
-impl ListEnvelopesFilter {
+impl SearchEmailsQuery {
     pub fn to_imap_search_query(&self) -> String {
         match self {
-            ListEnvelopesFilter::And(left, right) => {
+            SearchEmailsQuery::And(left, right) => {
                 let left = left.to_imap_search_query();
                 let right = right.to_imap_search_query();
                 format!("{left} {right}")
             }
-            ListEnvelopesFilter::Or(left, right) => {
+            SearchEmailsQuery::Or(left, right) => {
                 let left = left.to_imap_search_query();
                 let right = right.to_imap_search_query();
                 format!("OR ({left}) ({right})")
             }
-            ListEnvelopesFilter::Not(filter) => {
+            SearchEmailsQuery::Not(filter) => {
                 let filter = filter.to_imap_search_query();
                 format!("NOT ({filter})")
             }
-            ListEnvelopesFilter::Folder(_folder) => {
+            SearchEmailsQuery::Folder(_folder) => {
                 // TODO
                 String::new()
             }
-            ListEnvelopesFilter::Before(date) => {
+            SearchEmailsQuery::Before(date) => {
                 let date = date.format("%d-%b-%Y");
                 format!("BEFORE {date}")
             }
-            ListEnvelopesFilter::After(date) => {
+            SearchEmailsQuery::After(date) => {
                 let date = date.format("%d-%b-%Y");
                 format!("SINCE {date}")
             }
-            ListEnvelopesFilter::From(addr) => {
+            SearchEmailsQuery::From(addr) => {
                 format!("FROM {addr}")
             }
-            ListEnvelopesFilter::To(addr) => {
+            SearchEmailsQuery::To(addr) => {
                 format!("TO {addr}")
             }
-            ListEnvelopesFilter::Subject(subject) => {
+            SearchEmailsQuery::Subject(subject) => {
                 format!("SUBJECT {subject}")
             }
-            ListEnvelopesFilter::Body(body) => {
+            SearchEmailsQuery::Body(body) => {
                 format!("BODY {body}")
             }
-            ListEnvelopesFilter::Keyword(keyword) => {
+            SearchEmailsQuery::Keyword(keyword) => {
                 format!("KEYWORD {keyword}")
             }
         }
@@ -117,15 +117,17 @@ impl ListEnvelopes for ListImapEnvelopes {
             return Ok(Envelopes::default());
         }
 
-        let fetches = if let Some(filter) = opts.filter {
-            let query = filter.to_imap_search_query();
-            println!("query: {:?}", query);
+        let fetches = if let Some(query) = opts.query {
+            let query = query.to_imap_search_query();
+            debug!("list envelopes imap search query: {query}");
+
             let uids = ctx
                 .exec(
                     |session| session.uid_search(&query),
                     |err| Error::SearchEnvelopesError(err, folder.clone(), query.clone()).into(),
                 )
                 .await?;
+
             let range = uids.into_iter().fold(String::new(), |mut range, uid| {
                 if !range.is_empty() {
                     range.push(',');

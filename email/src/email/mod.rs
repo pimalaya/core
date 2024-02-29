@@ -14,6 +14,7 @@
 pub mod config;
 pub mod envelope;
 pub mod message;
+pub mod search_query;
 #[cfg(feature = "account-sync")]
 pub mod sync;
 pub mod utils;

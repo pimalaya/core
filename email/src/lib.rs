@@ -70,10 +70,7 @@ pub mod thread_pool;
 pub mod watch;
 
 #[doc(inline)]
-pub use email::{
-    envelope::{self, flag},
-    message::{self, template},
-};
+pub use email::{envelope::flag, message::template, *};
 
 /// The global `Error` alias of the library.
 ///

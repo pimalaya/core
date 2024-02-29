@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added module `email::search_query` containing the `SearchEmailsQuery` struct and parsers.
+
+### Changed
+
+- `ListEnvelopes` takes now a `ListEnvelopesOptions` composed of `page: usize`, `page_size: usize` and `query: Option<SearchEmailsQuery>`.
+
 ### Fixed
 
 - Fixed watch IMAP envelopes when folder was empty [#179].
