@@ -16,7 +16,6 @@ pub enum SearchEmailsQuery {
     And(Box<SearchEmailsQuery>, Box<SearchEmailsQuery>),
     Or(Box<SearchEmailsQuery>, Box<SearchEmailsQuery>),
     Not(Box<SearchEmailsQuery>),
-    Folder(String),
     Before(DateTime<Local>),
     After(DateTime<Local>),
     From(String),

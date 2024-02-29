@@ -1,3 +1,9 @@
+//! # Search emails query parsers
+//!
+//! This module contains parsers needed to parse a full search emails
+//! query, and exposes a [`query`] parser. Parsing is based on the
+//! great lib [chumsky].
+
 use chrono::{
     DateTime, Duration, Local, LocalResult, NaiveDate, NaiveDateTime, NaiveTime, ParseError,
 };
@@ -6,6 +12,7 @@ use thiserror::Error;
 
 use super::SearchEmailsQuery;
 
+/// Error dedicated to search emails query parsing.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse date from list envelopes query")]
@@ -16,26 +23,20 @@ pub enum Error {
     ParseLocalDateTimeAmbiguousError(DateTime<Local>, DateTime<Local>),
 }
 
-const SPACE: char = ' ';
-const LPAREN: char = '(';
-const RPAREN: char = ')';
-const BSLASH: char = '\\';
-const DQUOTE: char = '"';
-
 type ParserError<'a> = extra::Err<Rich<'a, char>>;
 
 pub(crate) fn query<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuery, ParserError<'a>> + Clone {
     recursive(|filter| {
         let space_or_end = choice((
-            just(' ')
+            space()
+                .labelled("space between filters")
                 .repeated()
-                .at_least(1)
-                .labelled("space between filters"),
-            just(RPAREN).or_not().ignored().rewind(),
+                .at_least(1),
+            rparen().or_not().ignored().rewind(),
             end(),
         ));
 
-        let simple_filter = choice((
+        let filter = choice((
             before(),
             after(),
             from(),
@@ -43,16 +44,9 @@ pub(crate) fn query<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuery, ParserE
             subject(),
             body(),
             keyword(),
-        ));
-
-        let nested_filter = filter.delimited_by(
-            just(LPAREN).labelled("beginning of nested (filter)"),
-            just(RPAREN).labelled("ending of nested (filter)"),
-        );
-
-        let filter = choice((
-            nested_filter.labelled("nested (filter)"),
-            simple_filter.labelled("filter"),
+            filter
+                .delimited_by(lparen(), rparen())
+                .labelled("(nested filter)"),
         ))
         .then_ignore(space_or_end);
 
@@ -78,138 +72,138 @@ pub(crate) fn query<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuery, ParserE
 
 fn not<'a>() -> impl Parser<'a, &'a str, (), ParserError<'a>> + Clone {
     just('n')
-        .labelled("not")
-        .ignore_then(just('o').labelled("o in not"))
-        .ignore_then(just('t').labelled("t in not"))
-        .ignore_then(just(' ').repeated().at_least(1).labelled("space after not"))
+        .labelled("`not`")
+        .ignore_then(just('o').labelled("o of `not`"))
+        .ignore_then(just('t').labelled("t of `not`"))
+        .ignore_then(space().labelled("space after `not`").repeated().at_least(1))
 }
 
 fn and<'a>() -> impl Parser<'a, &'a str, (), ParserError<'a>> + Clone {
     just('a')
-        .labelled("and")
-        .ignore_then(just('n').labelled("n in and"))
-        .ignore_then(just('d').labelled("d in and"))
-        .ignore_then(just(' ').repeated().at_least(1).labelled("space after and"))
+        .labelled("`and`")
+        .ignore_then(just('n').labelled("n of `and`"))
+        .ignore_then(just('d').labelled("d of `and`"))
+        .ignore_then(space().labelled("space after `and`").repeated().at_least(1))
 }
 
 fn or<'a>() -> impl Parser<'a, &'a str, (), ParserError<'a>> + Clone {
     just('o')
-        .labelled("or")
-        .ignore_then(just('r').labelled("r in or"))
-        .ignore_then(just(' ').repeated().at_least(1).labelled("space after or"))
+        .labelled("`or`")
+        .ignore_then(just('r').labelled("r of `or`"))
+        .ignore_then(space().labelled("space after `or`").repeated().at_least(1))
 }
 
 fn before<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuery, ParserError<'a>> + Clone {
     just('b')
-        .labelled("before")
-        .ignore_then(just('e').labelled("e in before"))
-        .ignore_then(just('f').labelled("f in before"))
-        .ignore_then(just('o').labelled("o in before"))
-        .ignore_then(just('r').labelled("r in before"))
-        .ignore_then(just('e').labelled("e in before"))
+        .labelled("`before`")
+        .ignore_then(just('e').labelled("e of `before`"))
+        .ignore_then(just('f').labelled("f of `before`"))
+        .ignore_then(just('o').labelled("o of `before`"))
+        .ignore_then(just('r').labelled("r of `before`"))
+        .ignore_then(just('e').labelled("e of `before`"))
         .ignore_then(
-            just(' ')
+            space()
+                .labelled("space after `before`")
                 .repeated()
-                .at_least(1)
-                .labelled("space after before"),
+                .at_least(1),
         )
-        .ignore_then(date(|dt| dt).labelled("before date filter"))
+        .ignore_then(date(|dt| dt).labelled("value after `before`"))
         .map(SearchEmailsQuery::Before)
 }
 
 fn after<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuery, ParserError<'a>> + Clone {
     just('a')
-        .labelled("after")
-        .ignore_then(just('f').labelled("f in after"))
-        .ignore_then(just('t').labelled("t in after"))
-        .ignore_then(just('e').labelled("e in after"))
-        .ignore_then(just('r').labelled("r in after"))
+        .labelled("`after`")
+        .ignore_then(just('f').labelled("f of `after`"))
+        .ignore_then(just('t').labelled("t of `after`"))
+        .ignore_then(just('e').labelled("e of `after`"))
+        .ignore_then(just('r').labelled("r of `after`"))
         .ignore_then(
-            just(' ')
+            space()
+                .labelled("space after `after`")
                 .repeated()
-                .at_least(1)
-                .labelled("space after after"),
+                .at_least(1),
         )
-        .ignore_then(date(|dt| dt + Duration::days(1)).labelled("after date filter"))
+        .ignore_then(date(|dt| dt + Duration::days(1)).labelled("value after `after`"))
         .map(SearchEmailsQuery::After)
 }
 
 fn from<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuery, ParserError<'a>> + Clone {
     just('f')
-        .labelled("from")
-        .ignore_then(just('r').labelled("r in from"))
-        .ignore_then(just('o').labelled("o in from"))
-        .ignore_then(just('m').labelled("m in from"))
+        .labelled("`from`")
+        .ignore_then(just('r').labelled("r of `from`"))
+        .ignore_then(just('o').labelled("o of `from`"))
+        .ignore_then(just('m').labelled("m of `from`"))
         .ignore_then(
-            just(' ')
+            space()
                 .repeated()
                 .at_least(1)
-                .labelled("space after from"),
+                .labelled("space after `from`"),
         )
-        .ignore_then(val().labelled("from filter"))
+        .ignore_then(val().labelled("value after `from`"))
         .map(SearchEmailsQuery::From)
 }
 
 fn to<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuery, ParserError<'a>> + Clone {
     just('t')
-        .labelled("to")
-        .ignore_then(just('o').labelled("o in to"))
-        .ignore_then(just(' ').repeated().at_least(1).labelled("space after to"))
-        .ignore_then(val().labelled("to filter"))
+        .labelled("`to`")
+        .ignore_then(just('o').labelled("o of `to`"))
+        .ignore_then(space().labelled("space after `to`").repeated().at_least(1))
+        .ignore_then(val().labelled("value after `to`"))
         .map(SearchEmailsQuery::To)
 }
 
 fn subject<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuery, ParserError<'a>> + Clone {
     just('s')
-        .labelled("subject")
-        .ignore_then(just('u').labelled("u in subject"))
-        .ignore_then(just('b').labelled("b in subject"))
-        .ignore_then(just('j').labelled("j in subject"))
-        .ignore_then(just('e').labelled("e in subject"))
-        .ignore_then(just('c').labelled("c in subject"))
-        .ignore_then(just('t').labelled("t in subject"))
+        .labelled("`subject`")
+        .ignore_then(just('u').labelled("u of `subject`"))
+        .ignore_then(just('b').labelled("b of `subject`"))
+        .ignore_then(just('j').labelled("j of `subject`"))
+        .ignore_then(just('e').labelled("e of `subject`"))
+        .ignore_then(just('c').labelled("c of `subject`"))
+        .ignore_then(just('t').labelled("t of `subject`"))
         .ignore_then(
-            just(' ')
+            space()
+                .labelled("space after `subject`")
                 .repeated()
-                .at_least(1)
-                .labelled("space after subject"),
+                .at_least(1),
         )
-        .ignore_then(val().labelled("subject filter"))
+        .ignore_then(val().labelled("value after `subject`"))
         .map(SearchEmailsQuery::Subject)
 }
 
 fn body<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuery, ParserError<'a>> + Clone {
     just('b')
-        .labelled("body")
-        .ignore_then(just('o').labelled("o in body"))
-        .ignore_then(just('d').labelled("d in body"))
-        .ignore_then(just('y').labelled("y in body"))
+        .labelled("`body`")
+        .ignore_then(just('o').labelled("o of `body`"))
+        .ignore_then(just('d').labelled("d of `body`"))
+        .ignore_then(just('y').labelled("y of `body`"))
         .ignore_then(
-            just(' ')
+            space()
+                .labelled("space after `body`")
                 .repeated()
-                .at_least(1)
-                .labelled("space after body"),
+                .at_least(1),
         )
-        .ignore_then(val().labelled("body filter"))
+        .ignore_then(val().labelled("value after `body`"))
         .map(SearchEmailsQuery::Body)
 }
 
 fn keyword<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuery, ParserError<'a>> + Clone {
     just('k')
-        .labelled("keyword")
-        .ignore_then(just('e').labelled("e in keyword"))
-        .ignore_then(just('y').labelled("y in keyword"))
-        .ignore_then(just('w').labelled("w in keyword"))
-        .ignore_then(just('o').labelled("o in keyword"))
-        .ignore_then(just('r').labelled("r in keyword"))
-        .ignore_then(just('d').labelled("d in keyword"))
+        .labelled("`keyword`")
+        .ignore_then(just('e').labelled("e of `keyword`"))
+        .ignore_then(just('y').labelled("y of `keyword`"))
+        .ignore_then(just('w').labelled("w of `keyword`"))
+        .ignore_then(just('o').labelled("o of `keyword`"))
+        .ignore_then(just('r').labelled("r of `keyword`"))
+        .ignore_then(just('d').labelled("d of `keyword`"))
         .ignore_then(
-            just(' ')
+            space()
+                .labelled("space after `keyword`")
                 .repeated()
-                .at_least(1)
-                .labelled("space after keyword"),
+                .at_least(1),
         )
-        .ignore_then(val().labelled("keyword filter"))
+        .ignore_then(val().labelled("value after `keyword`"))
         .map(SearchEmailsQuery::Keyword)
 }
 
@@ -252,10 +246,10 @@ fn val<'a>() -> impl Parser<'a, &'a str, String, ParserError<'a>> + Clone {
 }
 
 fn quoted_val<'a>() -> impl Parser<'a, &'a str, String, ParserError<'a>> + Clone {
-    let escapable_chars = [BSLASH, DQUOTE];
+    let escapable_chars = ['\\', '"'];
 
     choice((
-        backslash().ignore_then(one_of(escapable_chars)),
+        bslash().ignore_then(one_of(escapable_chars)),
         none_of(escapable_chars),
     ))
     .repeated()
@@ -264,10 +258,10 @@ fn quoted_val<'a>() -> impl Parser<'a, &'a str, String, ParserError<'a>> + Clone
 }
 
 fn unquoted_val<'a>() -> impl Parser<'a, &'a str, String, ParserError<'a>> + Clone {
-    let escapable_chars = [BSLASH, SPACE, LPAREN, RPAREN];
+    let escapable_chars = ['\\', ' ', '(', ')'];
 
     choice((
-        backslash().ignore_then(one_of(escapable_chars)),
+        bslash().ignore_then(one_of(escapable_chars)),
         none_of(escapable_chars),
     ))
     .repeated()
@@ -275,12 +269,24 @@ fn unquoted_val<'a>() -> impl Parser<'a, &'a str, String, ParserError<'a>> + Clo
     .collect()
 }
 
-fn backslash<'a>() -> impl Parser<'a, &'a str, char, ParserError<'a>> + Clone {
-    just(BSLASH).labelled("backslash")
+fn space<'a>() -> impl Parser<'a, &'a str, char, ParserError<'a>> + Clone {
+    just(' ')
+}
+
+fn lparen<'a>() -> impl Parser<'a, &'a str, char, ParserError<'a>> + Clone {
+    just('(').labelled("nested filter opening '('")
+}
+
+fn rparen<'a>() -> impl Parser<'a, &'a str, char, ParserError<'a>> + Clone {
+    just(')').labelled("nested filter closing ')'")
+}
+
+fn bslash<'a>() -> impl Parser<'a, &'a str, char, ParserError<'a>> + Clone {
+    just('\\').labelled("backslash")
 }
 
 fn dquote<'a>() -> impl Parser<'a, &'a str, char, ParserError<'a>> + Clone {
-    just(DQUOTE).labelled("double quote")
+    just('"').labelled("double quote")
 }
 
 #[cfg(test)]

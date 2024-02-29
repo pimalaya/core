@@ -44,54 +44,6 @@ impl ListImapEnvelopes {
     }
 }
 
-impl SearchEmailsQuery {
-    pub fn to_imap_search_query(&self) -> String {
-        match self {
-            SearchEmailsQuery::And(left, right) => {
-                let left = left.to_imap_search_query();
-                let right = right.to_imap_search_query();
-                format!("{left} {right}")
-            }
-            SearchEmailsQuery::Or(left, right) => {
-                let left = left.to_imap_search_query();
-                let right = right.to_imap_search_query();
-                format!("OR ({left}) ({right})")
-            }
-            SearchEmailsQuery::Not(filter) => {
-                let filter = filter.to_imap_search_query();
-                format!("NOT ({filter})")
-            }
-            SearchEmailsQuery::Folder(_folder) => {
-                // TODO
-                String::new()
-            }
-            SearchEmailsQuery::Before(date) => {
-                let date = date.format("%d-%b-%Y");
-                format!("BEFORE {date}")
-            }
-            SearchEmailsQuery::After(date) => {
-                let date = date.format("%d-%b-%Y");
-                format!("SINCE {date}")
-            }
-            SearchEmailsQuery::From(addr) => {
-                format!("FROM {addr}")
-            }
-            SearchEmailsQuery::To(addr) => {
-                format!("TO {addr}")
-            }
-            SearchEmailsQuery::Subject(subject) => {
-                format!("SUBJECT {subject}")
-            }
-            SearchEmailsQuery::Body(body) => {
-                format!("BODY {body}")
-            }
-            SearchEmailsQuery::Keyword(keyword) => {
-                format!("KEYWORD {keyword}")
-            }
-        }
-    }
-}
-
 #[async_trait]
 impl ListEnvelopes for ListImapEnvelopes {
     async fn list_envelopes(&self, folder: &str, opts: ListEnvelopesOptions) -> Result<Envelopes> {
@@ -156,6 +108,50 @@ impl ListEnvelopes for ListImapEnvelopes {
         trace!("{envelopes:#?}");
 
         Ok(envelopes)
+    }
+}
+
+impl SearchEmailsQuery {
+    pub fn to_imap_search_query(&self) -> String {
+        match self {
+            SearchEmailsQuery::And(left, right) => {
+                let left = left.to_imap_search_query();
+                let right = right.to_imap_search_query();
+                format!("{left} {right}")
+            }
+            SearchEmailsQuery::Or(left, right) => {
+                let left = left.to_imap_search_query();
+                let right = right.to_imap_search_query();
+                format!("OR ({left}) ({right})")
+            }
+            SearchEmailsQuery::Not(filter) => {
+                let filter = filter.to_imap_search_query();
+                format!("NOT ({filter})")
+            }
+            SearchEmailsQuery::Before(date) => {
+                let date = date.format("%d-%b-%Y");
+                format!("BEFORE {date}")
+            }
+            SearchEmailsQuery::After(date) => {
+                let date = date.format("%d-%b-%Y");
+                format!("SINCE {date}")
+            }
+            SearchEmailsQuery::From(addr) => {
+                format!("FROM {addr}")
+            }
+            SearchEmailsQuery::To(addr) => {
+                format!("TO {addr}")
+            }
+            SearchEmailsQuery::Subject(subject) => {
+                format!("SUBJECT {subject}")
+            }
+            SearchEmailsQuery::Body(body) => {
+                format!("BODY {body}")
+            }
+            SearchEmailsQuery::Keyword(keyword) => {
+                format!("KEYWORD {keyword}")
+            }
+        }
     }
 }
 

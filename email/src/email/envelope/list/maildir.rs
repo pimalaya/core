@@ -2,7 +2,9 @@ use async_trait::async_trait;
 use log::{debug, info};
 use thiserror::Error;
 
-use crate::{maildir::MaildirContextSync, Result};
+use crate::{
+    envelope::Envelope, maildir::MaildirContextSync, search_query::SearchEmailsQuery, Result,
+};
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 
@@ -39,7 +41,7 @@ impl ListEnvelopes for ListMaildirEnvelopes {
         let ctx = self.ctx.lock().await;
         let mdir = ctx.get_maildir_from_folder_name(folder)?;
 
-        let mut envelopes = Envelopes::from_mdir_entries(mdir.list_cur());
+        let mut envelopes = Envelopes::from_mdir_entries(mdir.list_cur(), opts.query.as_ref());
         debug!("maildir envelopes: {envelopes:#?}");
 
         let page_begin = opts.page * opts.page_size;
@@ -61,5 +63,54 @@ impl ListEnvelopes for ListMaildirEnvelopes {
         *envelopes = envelopes[page_begin..page_end].into();
 
         Ok(envelopes)
+    }
+}
+
+impl SearchEmailsQuery {
+    pub fn matches_maildir_search_query(&self, envelope: &Envelope) -> bool {
+        match self {
+            SearchEmailsQuery::And(left, right) => {
+                let left = left.matches_maildir_search_query(envelope);
+                let right = right.matches_maildir_search_query(envelope);
+                left && right
+            }
+            SearchEmailsQuery::Or(left, right) => {
+                let left = left.matches_maildir_search_query(envelope);
+                let right = right.matches_maildir_search_query(envelope);
+                left || right
+            }
+            SearchEmailsQuery::Not(filter) => !filter.matches_maildir_search_query(envelope),
+            SearchEmailsQuery::Before(date) => &envelope.date <= date,
+            SearchEmailsQuery::After(date) => &envelope.date > date,
+            SearchEmailsQuery::From(pattern) => {
+                if let Some(name) = &envelope.from.name {
+                    if name.contains(pattern) {
+                        return true;
+                    }
+                }
+                envelope.from.addr.contains(pattern)
+            }
+            SearchEmailsQuery::To(pattern) => {
+                if let Some(name) = &envelope.to.name {
+                    if name.contains(pattern) {
+                        return true;
+                    }
+                }
+                envelope.to.addr.contains(pattern)
+            }
+            SearchEmailsQuery::Subject(pattern) => envelope.subject.contains(pattern),
+            SearchEmailsQuery::Body(_pattern) => {
+                // TODO
+                true
+            }
+            SearchEmailsQuery::Keyword(pattern) => {
+                for flag in envelope.flags.iter() {
+                    if flag.to_string().contains(pattern) {
+                        return true;
+                    }
+                }
+                false
+            }
+        }
     }
 }

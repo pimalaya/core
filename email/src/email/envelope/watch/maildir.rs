@@ -49,7 +49,7 @@ impl WatchEnvelopes for WatchMaildirEnvelopes {
         let config = &session.account_config;
 
         let mdir = session.get_maildir_from_folder_name(folder)?;
-        let envelopes = Envelopes::from_mdir_entries(mdir.list_cur());
+        let envelopes = Envelopes::from_mdir_entries(mdir.list_cur(), None);
         let mut envelopes: HashMap<String, Envelope> =
             HashMap::from_iter(envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
@@ -63,7 +63,7 @@ impl WatchEnvelopes for WatchMaildirEnvelopes {
                 Ok(evt) => {
                     trace!("received filesystem change event: {evt:?}");
 
-                    let next_envelopes = Envelopes::from_mdir_entries(mdir.list_cur());
+                    let next_envelopes = Envelopes::from_mdir_entries(mdir.list_cur(), None);
                     let next_envelopes: HashMap<String, Envelope> =
                         HashMap::from_iter(next_envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
