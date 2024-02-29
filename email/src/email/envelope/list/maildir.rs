@@ -1,5 +1,8 @@
+use std::{fs, path::Path};
+
 use async_trait::async_trait;
-use log::{debug, info};
+use chumsky::container::Seq;
+use log::{debug, info, trace, warn};
 use thiserror::Error;
 
 use crate::{
@@ -67,19 +70,21 @@ impl ListEnvelopes for ListMaildirEnvelopes {
 }
 
 impl SearchEmailsQuery {
-    pub fn matches_maildir_search_query(&self, envelope: &Envelope) -> bool {
+    pub fn matches_maildir_search_query(&self, envelope: &Envelope, msg_path: &Path) -> bool {
         match self {
             SearchEmailsQuery::And(left, right) => {
-                let left = left.matches_maildir_search_query(envelope);
-                let right = right.matches_maildir_search_query(envelope);
+                let left = left.matches_maildir_search_query(envelope, msg_path);
+                let right = right.matches_maildir_search_query(envelope, msg_path);
                 left && right
             }
             SearchEmailsQuery::Or(left, right) => {
-                let left = left.matches_maildir_search_query(envelope);
-                let right = right.matches_maildir_search_query(envelope);
+                let left = left.matches_maildir_search_query(envelope, msg_path);
+                let right = right.matches_maildir_search_query(envelope, msg_path);
                 left || right
             }
-            SearchEmailsQuery::Not(filter) => !filter.matches_maildir_search_query(envelope),
+            SearchEmailsQuery::Not(filter) => {
+                !filter.matches_maildir_search_query(envelope, msg_path)
+            }
             SearchEmailsQuery::Before(date) => &envelope.date <= date,
             SearchEmailsQuery::After(date) => &envelope.date > date,
             SearchEmailsQuery::From(pattern) => {
@@ -99,10 +104,17 @@ impl SearchEmailsQuery {
                 envelope.to.addr.contains(pattern)
             }
             SearchEmailsQuery::Subject(pattern) => envelope.subject.contains(pattern),
-            SearchEmailsQuery::Body(_pattern) => {
-                // TODO
-                true
-            }
+            SearchEmailsQuery::Body(pattern) => match fs::read(msg_path) {
+                Ok(contents) => contents
+                    .windows(pattern.as_bytes().len())
+                    .find(|window| window.eq_ignore_ascii_case(pattern.as_bytes()))
+                    .is_some(),
+                Err(err) => {
+                    warn!("cannot find message at {msg_path:?}, skipping body filter");
+                    trace!("{err:?}");
+                    true
+                }
+            },
             SearchEmailsQuery::Keyword(pattern) => {
                 for flag in envelope.flags.iter() {
                     if flag.to_string().contains(pattern) {

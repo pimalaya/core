@@ -3,7 +3,7 @@
 //! This module contains envelope-related mapping functions from the
 //! [maildirpp] crate types.
 
-use log::debug;
+use log::{debug, trace};
 use maildirpp::{MailEntries, MailEntry};
 use rayon::prelude::*;
 
@@ -20,18 +20,22 @@ impl Envelopes {
                 .collect::<Vec<_>>()
                 .into_par_iter()
                 .filter_map(|entry| match entry {
-                    Ok(entry) => Some(Envelope::from_mdir_entry(entry)),
+                    Ok(entry) => Some(entry),
                     Err(err) => {
                         debug!("cannot parse maildir entry, skipping it: {err}");
-                        debug!("{err:?}");
+                        trace!("{err:?}");
                         None
                     }
                 })
-                .filter(|envelope| {
+                .filter_map(|entry| {
+                    let msg_path = entry.path().to_owned();
+                    let envelope = Envelope::from_mdir_entry(entry);
                     if let Some(query) = query {
-                        query.matches_maildir_search_query(envelope)
+                        query
+                            .matches_maildir_search_query(&envelope, msg_path.as_ref())
+                            .then_some(envelope)
                     } else {
-                        true
+                        Some(envelope)
                     }
                 })
                 .collect::<Vec<_>>(),
