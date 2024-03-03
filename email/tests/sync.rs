@@ -497,7 +497,6 @@ async fn test_sync() {
 
     {
         let mut evts = EVENTS_STACK.lock().await;
-        println!("diff: {:#?}", (*evts).difference(&expected_evts));
         assert_eq!(*evts, expected_evts);
         evts.clear()
     }

@@ -1,12 +1,14 @@
-use std::{fs, path::Path};
-
 use async_trait::async_trait;
 use chumsky::container::Seq;
 use log::{debug, info, trace, warn};
+use std::{fs, path::Path};
 use thiserror::Error;
 
 use crate::{
-    envelope::Envelope, maildir::MaildirContextSync, search_query::SearchEmailsQuery, Result,
+    envelope::Envelope,
+    maildir::MaildirContextSync,
+    search_query::{filter::SearchEmailsQueryFilter, SearchEmailsQuery},
+    Result,
 };
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
@@ -45,7 +47,8 @@ impl ListEnvelopes for ListMaildirEnvelopes {
         let mdir = ctx.get_maildir_from_folder_name(folder)?;
 
         let mut envelopes = Envelopes::from_mdir_entries(mdir.list_cur(), opts.query.as_ref());
-        debug!("maildir envelopes: {envelopes:#?}");
+        debug!("found {} maildir envelopes", envelopes.len());
+        trace!("{envelopes:#?}");
 
         let page_begin = opts.page * opts.page_size;
         debug!("page begin: {}", page_begin);
@@ -62,7 +65,7 @@ impl ListEnvelopes for ListMaildirEnvelopes {
         });
         debug!("page end: {}", page_end);
 
-        envelopes.sort_by(|a, b| b.date.partial_cmp(&a.date).unwrap());
+        opts.sort_envelopes(&mut envelopes);
         *envelopes = envelopes[page_begin..page_end].into();
 
         Ok(envelopes)
@@ -71,23 +74,33 @@ impl ListEnvelopes for ListMaildirEnvelopes {
 
 impl SearchEmailsQuery {
     pub fn matches_maildir_search_query(&self, envelope: &Envelope, msg_path: &Path) -> bool {
+        self.filters
+            .as_ref()
+            .map(|f| f.matches_maildir_search_query(envelope, msg_path))
+            .unwrap_or(true)
+    }
+}
+
+impl SearchEmailsQueryFilter {
+    pub fn matches_maildir_search_query(&self, envelope: &Envelope, msg_path: &Path) -> bool {
         match self {
-            SearchEmailsQuery::And(left, right) => {
+            SearchEmailsQueryFilter::And(left, right) => {
                 let left = left.matches_maildir_search_query(envelope, msg_path);
                 let right = right.matches_maildir_search_query(envelope, msg_path);
                 left && right
             }
-            SearchEmailsQuery::Or(left, right) => {
+            SearchEmailsQueryFilter::Or(left, right) => {
                 let left = left.matches_maildir_search_query(envelope, msg_path);
                 let right = right.matches_maildir_search_query(envelope, msg_path);
                 left || right
             }
-            SearchEmailsQuery::Not(filter) => {
+            SearchEmailsQueryFilter::Not(filter) => {
                 !filter.matches_maildir_search_query(envelope, msg_path)
             }
-            SearchEmailsQuery::Before(date) => &envelope.date <= date,
-            SearchEmailsQuery::After(date) => &envelope.date > date,
-            SearchEmailsQuery::From(pattern) => {
+            SearchEmailsQueryFilter::Date(date) => &envelope.date <= date,
+            SearchEmailsQueryFilter::BeforeDate(date) => &envelope.date <= date,
+            SearchEmailsQueryFilter::AfterDate(date) => &envelope.date > date,
+            SearchEmailsQueryFilter::From(pattern) => {
                 if let Some(name) = &envelope.from.name {
                     if name.contains(pattern) {
                         return true;
@@ -95,7 +108,7 @@ impl SearchEmailsQuery {
                 }
                 envelope.from.addr.contains(pattern)
             }
-            SearchEmailsQuery::To(pattern) => {
+            SearchEmailsQueryFilter::To(pattern) => {
                 if let Some(name) = &envelope.to.name {
                     if name.contains(pattern) {
                         return true;
@@ -103,8 +116,8 @@ impl SearchEmailsQuery {
                 }
                 envelope.to.addr.contains(pattern)
             }
-            SearchEmailsQuery::Subject(pattern) => envelope.subject.contains(pattern),
-            SearchEmailsQuery::Body(pattern) => match fs::read(msg_path) {
+            SearchEmailsQueryFilter::Subject(pattern) => envelope.subject.contains(pattern),
+            SearchEmailsQueryFilter::Body(pattern) => match fs::read(msg_path) {
                 Ok(contents) => contents
                     .windows(pattern.as_bytes().len())
                     .find(|window| window.eq_ignore_ascii_case(pattern.as_bytes()))
@@ -115,7 +128,7 @@ impl SearchEmailsQuery {
                     true
                 }
             },
-            SearchEmailsQuery::Keyword(pattern) => {
+            SearchEmailsQueryFilter::Keyword(pattern) => {
                 for flag in envelope.flags.iter() {
                     if flag.to_string().contains(pattern) {
                         return true;

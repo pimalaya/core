@@ -30,7 +30,6 @@ impl Envelopes {
     pub fn from_imap_fetches(fetches: Fetches) -> Self {
         fetches
             .iter()
-            .rev()
             .filter_map(|envelope| match Envelope::from_imap_fetch(envelope) {
                 Ok(envelope) => Some(envelope),
                 Err(err) => {

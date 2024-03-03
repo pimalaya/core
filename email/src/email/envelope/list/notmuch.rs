@@ -3,7 +3,10 @@ use log::{debug, info, trace};
 use thiserror::Error;
 
 use crate::{
-    folder::FolderKind, notmuch::NotmuchContextSync, search_query::SearchEmailsQuery, Result,
+    folder::FolderKind,
+    notmuch::NotmuchContextSync,
+    search_query::{filter::SearchEmailsQueryFilter, SearchEmailsQuery},
+    Result,
 };
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
@@ -12,6 +15,8 @@ use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 pub enum Error {
     #[error("cannot list notmuch envelopes from {0}: page {1} out of bounds")]
     GetEnvelopesOutOfBoundsError(String, usize),
+    #[error("cannot list notmuch envelopes from {0}: invalid query {1}")]
+    SearchMessagesInvalidQuery(#[source] notmuch::Error, String, String),
 }
 
 #[derive(Clone)]
@@ -49,15 +54,22 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
             format!("folder:{folder:?}")
         };
 
-        if let Some(query) = opts.query {
-            final_query.push_str(" and ");
-            final_query.push_str(&query.to_notmuch_search_query());
+        if let Some(query) = opts.query.as_ref() {
+            let query = query.to_notmuch_search_query();
+            if !query.is_empty() {
+                final_query.push_str(" and ");
+                final_query.push_str(&query);
+            }
         }
 
         let query_builder = db.create_query(&final_query)?;
 
-        let mut envelopes = Envelopes::from_notmuch_msgs(query_builder.search_messages()?);
-        envelopes.sort_by(|a, b| b.date.partial_cmp(&a.date).unwrap());
+        let msgs = query_builder.search_messages().map_err(|err| {
+            Error::SearchMessagesInvalidQuery(err, folder.to_owned(), final_query.clone())
+        })?;
+
+        let mut envelopes = Envelopes::from_notmuch_msgs(msgs);
+
         let envelopes_len = envelopes.len();
         debug!("found {envelopes_len} notmuch envelopes matching query {final_query}");
         trace!("{envelopes:#?}");
@@ -77,6 +89,7 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
             page_begin + opts.page_size
         });
 
+        opts.sort_envelopes(&mut envelopes);
         *envelopes = envelopes[page_begin..page_end].into();
 
         db.close()?;
@@ -87,44 +100,73 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
 
 impl SearchEmailsQuery {
     pub fn to_notmuch_search_query(&self) -> String {
+        self.filters
+            .as_ref()
+            .map(|f| f.to_notmuch_search_query())
+            .unwrap_or_default()
+    }
+}
+
+impl SearchEmailsQueryFilter {
+    pub fn to_notmuch_search_query(&self) -> String {
+        let mut query = String::new();
+
         match self {
-            SearchEmailsQuery::And(left, right) => {
-                let left = left.to_notmuch_search_query();
-                let right = right.to_notmuch_search_query();
-                format!("({left}) and ({right})")
+            SearchEmailsQueryFilter::And(left, right) => {
+                query.push_str("(");
+                query.push_str(&left.to_notmuch_search_query());
+                query.push_str(") and (");
+                query.push_str(&right.to_notmuch_search_query());
+                query.push(')');
             }
-            SearchEmailsQuery::Or(left, right) => {
-                let left = left.to_notmuch_search_query();
-                let right = right.to_notmuch_search_query();
-                format!("({left}) or ({right})")
+            SearchEmailsQueryFilter::Or(left, right) => {
+                query.push_str("(");
+                query.push_str(&left.to_notmuch_search_query());
+                query.push_str(") or (");
+                query.push_str(&right.to_notmuch_search_query());
+                query.push(')');
             }
-            SearchEmailsQuery::Not(filter) => {
-                let filter = filter.to_notmuch_search_query();
-                format!("not ({filter})")
+            SearchEmailsQueryFilter::Not(right) => {
+                query.push_str("not (");
+                query.push_str(&right.to_notmuch_search_query());
+                query.push_str(")");
             }
-            SearchEmailsQuery::Before(date) => {
-                let date = date.timestamp();
-                format!("date:..@{date}")
+            SearchEmailsQueryFilter::Date(date) => {
+                query.push_str("date:@");
+                query.push_str(&date.timestamp().to_string());
             }
-            SearchEmailsQuery::After(date) => {
-                let date = date.timestamp();
-                format!("date:@{date}..")
+            SearchEmailsQueryFilter::BeforeDate(date) => {
+                query.push_str("date:..@");
+                query.push_str(&date.timestamp().to_string());
             }
-            SearchEmailsQuery::From(addr) => {
-                format!("from:{addr:?}")
+            SearchEmailsQueryFilter::AfterDate(date) => {
+                query.push_str("date:@");
+                query.push_str(&date.timestamp().to_string());
+                query.push_str("..");
             }
-            SearchEmailsQuery::To(addr) => {
-                format!("to:{addr:?}")
+            SearchEmailsQueryFilter::From(pattern) => {
+                query.push_str("from:");
+                query.push_str(pattern);
             }
-            SearchEmailsQuery::Subject(subject) => {
-                format!("subject:{subject:?}")
+
+            SearchEmailsQueryFilter::To(pattern) => {
+                query.push_str("to:");
+                query.push_str(pattern);
             }
-            SearchEmailsQuery::Body(body) => {
-                format!("body:{body:?}")
+            SearchEmailsQueryFilter::Subject(pattern) => {
+                query.push_str("subject:");
+                query.push_str(pattern);
             }
-            SearchEmailsQuery::Keyword(keyword) => {
-                format!("keyword:{keyword:?}")
+            SearchEmailsQueryFilter::Body(pattern) => {
+                query.push_str("body:");
+                query.push_str(pattern);
             }
-        }
+            SearchEmailsQueryFilter::Keyword(pattern) => {
+                query.push_str("keyword:");
+                query.push_str(pattern);
+            }
+        };
+
+        query
     }
 }

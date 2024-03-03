@@ -1,10 +1,20 @@
 use async_trait::async_trait;
+use imap::extensions::sort::{SortCharset, SortCriterion};
 use log::{debug, info, trace};
-use std::result;
+use std::{collections::HashMap, result};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::search_query::SearchEmailsQuery, imap::ImapContextSync, Result};
+use crate::{
+    envelope::Envelope,
+    imap::ImapContextSync,
+    search_query::{
+        filter::SearchEmailsQueryFilter,
+        sorter::{SearchEmailsQueryOrder, SearchEmailsQuerySorter},
+        SearchEmailsQuery,
+    },
+    Result,
+};
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 
@@ -69,18 +79,18 @@ impl ListEnvelopes for ListImapEnvelopes {
             return Ok(Envelopes::default());
         }
 
-        let fetches = if let Some(query) = opts.query {
-            let query = query.to_imap_search_query();
-            debug!("list envelopes imap search query: {query}");
+        let envelopes = if let Some(query) = opts.query {
+            let filters = query.to_imap_sort_query();
+            let sorters = query.to_imap_sort_criteria();
 
             let uids = ctx
                 .exec(
-                    |session| session.uid_search(&query),
-                    |err| Error::SearchEnvelopesError(err, folder.clone(), query.clone()).into(),
+                    |session| session.uid_sort(&sorters, SortCharset::Utf8, &filters),
+                    |err| Error::SearchEnvelopesError(err, folder.clone(), filters.clone()).into(),
                 )
                 .await?;
 
-            let range = uids.into_iter().fold(String::new(), |mut range, uid| {
+            let range = uids.iter().fold(String::new(), |mut range, uid| {
                 if !range.is_empty() {
                     range.push(',');
                 }
@@ -88,22 +98,40 @@ impl ListEnvelopes for ListImapEnvelopes {
                 range
             });
 
-            ctx.exec(
-                |session| session.uid_fetch(&range, LIST_ENVELOPES_QUERY),
-                |err| Error::ListEnvelopesError(err, folder.clone(), range.clone()).into(),
-            )
-            .await
+            let fetches = ctx
+                .exec(
+                    |session| session.uid_fetch(&range, LIST_ENVELOPES_QUERY),
+                    |err| Error::ListEnvelopesError(err, folder.clone(), range.clone()).into(),
+                )
+                .await?;
+
+            let mut envelopes: HashMap<String, Envelope> =
+                HashMap::from_iter(fetches.iter().filter_map(
+                    |fetch| match Envelope::from_imap_fetch(fetch) {
+                        Ok(envelope) => Some((envelope.id.clone(), envelope)),
+                        Err(err) => {
+                            debug!("cannot build imap envelope, skipping it: {err}");
+                            None
+                        }
+                    },
+                ));
+
+            uids.into_iter()
+                .map(|uid| envelopes.remove_entry(&uid.to_string()).unwrap().1)
+                .collect()
         } else {
             let range = build_page_range(opts.page, opts.page_size, folder_size)?;
 
-            ctx.exec(
-                |session| session.fetch(&range, LIST_ENVELOPES_QUERY),
-                |err| Error::ListEnvelopesError(err, folder.clone(), range.clone()).into(),
-            )
-            .await
-        }?;
+            let fetches = ctx
+                .exec(
+                    |session| session.fetch(&range, LIST_ENVELOPES_QUERY),
+                    |err| Error::ListEnvelopesError(err, folder.clone(), range.clone()).into(),
+                )
+                .await?;
 
-        let envelopes = Envelopes::from_imap_fetches(fetches);
+            Envelopes::from_imap_fetches(fetches)
+        };
+
         debug!("found {} imap envelopes", envelopes.len());
         trace!("{envelopes:#?}");
 
@@ -112,46 +140,122 @@ impl ListEnvelopes for ListImapEnvelopes {
 }
 
 impl SearchEmailsQuery {
-    pub fn to_imap_search_query(&self) -> String {
+    pub fn to_imap_sort_query(&self) -> String {
+        let query = self
+            .filters
+            .as_ref()
+            .map(|f| f.to_imap_sort_query())
+            .unwrap_or_default();
+
+        if query.is_empty() {
+            String::from("ALL")
+        } else {
+            query
+        }
+    }
+
+    pub fn to_imap_sort_criteria(&self) -> Vec<SortCriterion> {
+        let criteria: Vec<SortCriterion> = self
+            .sorters
+            .as_ref()
+            .map(|sorters| {
+                use SearchEmailsQueryOrder::*;
+                use SearchEmailsQuerySorter::*;
+
+                sorters
+                    .iter()
+                    .map(|sorter| match sorter {
+                        Date(Ascending) => SortCriterion::Date,
+                        Date(Descending) => SortCriterion::Reverse(&SortCriterion::Date),
+                        From(Ascending) => SortCriterion::From,
+                        From(Descending) => SortCriterion::Reverse(&SortCriterion::From),
+                        To(Ascending) => SortCriterion::To,
+                        To(Descending) => SortCriterion::Reverse(&SortCriterion::To),
+                        Subject(Ascending) => SortCriterion::Subject,
+                        Subject(Descending) => SortCriterion::Reverse(&SortCriterion::Subject),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if criteria.is_empty() {
+            vec![SortCriterion::Reverse(&SortCriterion::Date)]
+        } else {
+            criteria
+        }
+    }
+}
+
+impl SearchEmailsQueryFilter {
+    // pub fn push_imap_sort_criterion(
+    //     criteria: &mut Vec<SortCriterion>,
+    //     order: &Option<SearchEmailsQueryOrder>,
+    // ) {
+    //     match order.as_ref() {
+    //         None => (),
+    //         Some(SearchEmailsQueryOrder::Ascending) => criteria.push(SortCriterion::Date),
+    //         Some(SearchEmailsQueryOrder::Descending) => {
+    //             criteria.push(SortCriterion::Reverse(&SortCriterion::Date))
+    //         }
+    //     }
+    // }
+
+    pub fn to_imap_sort_query(&self) -> String {
+        let mut query = String::new();
+
         match self {
-            SearchEmailsQuery::And(left, right) => {
-                let left = left.to_imap_search_query();
-                let right = right.to_imap_search_query();
-                format!("{left} {right}")
+            SearchEmailsQueryFilter::And(left, right) => {
+                query.push_str(&left.to_imap_sort_query());
+                query.push(' ');
+                query.push_str(&right.to_imap_sort_query());
             }
-            SearchEmailsQuery::Or(left, right) => {
-                let left = left.to_imap_search_query();
-                let right = right.to_imap_search_query();
-                format!("OR ({left}) ({right})")
+            SearchEmailsQueryFilter::Or(left, right) => {
+                query.push_str("OR (");
+                query.push_str(&left.to_imap_sort_query());
+                query.push_str(") (");
+                query.push_str(&right.to_imap_sort_query());
+                query.push(')');
             }
-            SearchEmailsQuery::Not(filter) => {
-                let filter = filter.to_imap_search_query();
-                format!("NOT ({filter})")
+            SearchEmailsQueryFilter::Not(filter) => {
+                query.push_str("NOT (");
+                query.push_str(&filter.to_imap_sort_query());
+                query.push(')');
             }
-            SearchEmailsQuery::Before(date) => {
-                let date = date.format("%d-%b-%Y");
-                format!("BEFORE {date}")
+            SearchEmailsQueryFilter::Date(date) => {
+                query.push_str("SENTON ");
+                query.push_str(&date.format("%d-%b-%Y").to_string());
             }
-            SearchEmailsQuery::After(date) => {
-                let date = date.format("%d-%b-%Y");
-                format!("SINCE {date}")
+            SearchEmailsQueryFilter::BeforeDate(date) => {
+                query.push_str("SENTBEFORE ");
+                query.push_str(&date.format("%d-%b-%Y").to_string());
             }
-            SearchEmailsQuery::From(addr) => {
-                format!("FROM {addr}")
+            SearchEmailsQueryFilter::AfterDate(date) => {
+                query.push_str("SENTSINCE ");
+                query.push_str(&date.format("%d-%b-%Y").to_string());
             }
-            SearchEmailsQuery::To(addr) => {
-                format!("TO {addr}")
+            SearchEmailsQueryFilter::From(pattern) => {
+                query.push_str("FROM ");
+                query.push_str(pattern);
             }
-            SearchEmailsQuery::Subject(subject) => {
-                format!("SUBJECT {subject}")
+            SearchEmailsQueryFilter::To(pattern) => {
+                query.push_str("TO ");
+                query.push_str(pattern);
             }
-            SearchEmailsQuery::Body(body) => {
-                format!("BODY {body}")
+            SearchEmailsQueryFilter::Subject(pattern) => {
+                query.push_str("SUBJECT ");
+                query.push_str(pattern);
             }
-            SearchEmailsQuery::Keyword(keyword) => {
-                format!("KEYWORD {keyword}")
+            SearchEmailsQueryFilter::Body(pattern) => {
+                query.push_str("BODY ");
+                query.push_str(pattern);
+            }
+            SearchEmailsQueryFilter::Keyword(pattern) => {
+                query.push_str("KEYWORD ");
+                query.push_str(pattern);
             }
         }
+
+        query
     }
 }
 

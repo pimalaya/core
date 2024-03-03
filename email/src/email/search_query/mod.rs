@@ -1,9 +1,12 @@
-use chrono::{DateTime, Local};
+pub mod filter;
+pub(crate) mod parser;
+pub mod sorter;
+
 use chumsky::{error::Rich, Parser};
 use std::str::FromStr;
 use thiserror::Error;
 
-pub(crate) mod parsers;
+use self::{filter::SearchEmailsQueryFilter, sorter::SearchEmailsQuerySorter};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -12,35 +15,16 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub enum SearchEmailsQuery {
-    And(Box<SearchEmailsQuery>, Box<SearchEmailsQuery>),
-    Or(Box<SearchEmailsQuery>, Box<SearchEmailsQuery>),
-    Not(Box<SearchEmailsQuery>),
-    Before(DateTime<Local>),
-    After(DateTime<Local>),
-    From(String),
-    To(String),
-    Subject(String),
-    Body(String),
-    Keyword(String),
+pub struct SearchEmailsQuery {
+    pub filters: Option<SearchEmailsQueryFilter>,
+    pub sorters: Option<Vec<SearchEmailsQuerySorter>>,
 }
-
-// TODO: merge with SearchEmailsQuery
-// #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-// pub enum ListEnvelopesComparator {
-//     Descending(Box<ListEnvelopesComparator>),
-//     SentAt,
-//     ReceivedAt,
-//     From,
-//     To,
-//     Subject,
-// }
 
 impl FromStr for SearchEmailsQuery {
     type Err = Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        parsers::query().parse(s).into_result().map_err(|errs| {
+        parser::query().parse(s).into_result().map_err(|errs| {
             let errs = errs
                 .into_iter()
                 .map(|err| err.clone().into_owned())
