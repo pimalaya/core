@@ -65,6 +65,17 @@ concat-with = "0.2"
 env_logger = "0.10"
 tempfile = "3.3"
 tokio = { version = "1.23", features = ["full"] }
+directory = { git = "https://github.com/stalwartlabs/mail-server.git" }
+imap_stalwart = { package = "imap", git = "https://github.com/stalwartlabs/mail-server.git" }
+jmap = { git = "https://github.com/stalwartlabs/mail-server.git" }
+jmap_proto = { git = "https://github.com/stalwartlabs/mail-server.git" }
+managesieve = { git = "https://github.com/stalwartlabs/mail-server.git"}
+smtp = { git = "https://github.com/stalwartlabs/mail-server.git", features = ["local_delivery"] }
+store = { git = "https://github.com/stalwartlabs/mail-server.git", default-features = false, features = ["sqlite"] }
+utils = { git = "https://github.com/stalwartlabs/mail-server.git" }
+
+[target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
+jemallocator = "0.5.0"
 
 [dependencies]
 advisory-lock = { version = "0.3", optional = true }
