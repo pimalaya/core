@@ -28,15 +28,6 @@ pub enum Error {
 pub(crate) fn filters<'a>(
 ) -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
     recursive(|filter| {
-        let space_or_end = choice((
-            space()
-                .labelled("space between filters")
-                .repeated()
-                .at_least(1),
-            rparen().or_not().ignored().rewind(),
-            end(),
-        ));
-
         let filter = choice((
             date(),
             before_date(),
@@ -50,7 +41,7 @@ pub(crate) fn filters<'a>(
                 .delimited_by(lparen(), rparen())
                 .labelled("(nested filter)"),
         ))
-        .then_ignore(space_or_end);
+        .then_ignore(space().labelled("space between filters").repeated());
 
         let not = not().repeated().foldr(filter, |_, filter| {
             SearchEmailsQueryFilter::Not(Box::new(filter))

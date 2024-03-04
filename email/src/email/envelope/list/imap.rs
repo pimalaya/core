@@ -10,7 +10,7 @@ use crate::{
     imap::ImapContextSync,
     search_query::{
         filter::SearchEmailsQueryFilter,
-        sorter::{SearchEmailsQueryOrder, SearchEmailsQuerySorter},
+        sorter::{SearchEmailsQueryOrder, SearchEmailsQuerySorter, SearchEmailsQuerySorterKind},
         SearchEmailsQuery,
     },
     Result,
@@ -159,21 +159,9 @@ impl SearchEmailsQuery {
             .sorters
             .as_ref()
             .map(|sorters| {
-                use SearchEmailsQueryOrder::*;
-                use SearchEmailsQuerySorter::*;
-
                 sorters
                     .iter()
-                    .map(|sorter| match sorter {
-                        Date(Ascending) => SortCriterion::Date,
-                        Date(Descending) => SortCriterion::Reverse(&SortCriterion::Date),
-                        From(Ascending) => SortCriterion::From,
-                        From(Descending) => SortCriterion::Reverse(&SortCriterion::From),
-                        To(Ascending) => SortCriterion::To,
-                        To(Descending) => SortCriterion::Reverse(&SortCriterion::To),
-                        Subject(Ascending) => SortCriterion::Subject,
-                        Subject(Descending) => SortCriterion::Reverse(&SortCriterion::Subject),
-                    })
+                    .map(|sorter| sorter.to_imap_sort_criterion())
                     .collect()
             })
             .unwrap_or_default();
@@ -187,19 +175,6 @@ impl SearchEmailsQuery {
 }
 
 impl SearchEmailsQueryFilter {
-    // pub fn push_imap_sort_criterion(
-    //     criteria: &mut Vec<SortCriterion>,
-    //     order: &Option<SearchEmailsQueryOrder>,
-    // ) {
-    //     match order.as_ref() {
-    //         None => (),
-    //         Some(SearchEmailsQueryOrder::Ascending) => criteria.push(SortCriterion::Date),
-    //         Some(SearchEmailsQueryOrder::Descending) => {
-    //             criteria.push(SortCriterion::Reverse(&SortCriterion::Date))
-    //         }
-    //     }
-    // }
-
     pub fn to_imap_sort_query(&self) -> String {
         let mut query = String::new();
 
@@ -256,6 +231,25 @@ impl SearchEmailsQueryFilter {
         }
 
         query
+    }
+}
+
+impl SearchEmailsQuerySorter {
+    pub fn to_imap_sort_criterion(&self) -> SortCriterion {
+        use SearchEmailsQueryOrder::*;
+        use SearchEmailsQuerySorterKind::*;
+        use SortCriterion::Reverse;
+
+        match self {
+            SearchEmailsQuerySorter(Date, Ascending) => SortCriterion::Date,
+            SearchEmailsQuerySorter(Date, Descending) => Reverse(&SortCriterion::Date),
+            SearchEmailsQuerySorter(From, Ascending) => SortCriterion::From,
+            SearchEmailsQuerySorter(From, Descending) => Reverse(&SortCriterion::From),
+            SearchEmailsQuerySorter(To, Ascending) => SortCriterion::To,
+            SearchEmailsQuerySorter(To, Descending) => SortCriterion::Reverse(&SortCriterion::To),
+            SearchEmailsQuerySorter(Subject, Ascending) => SortCriterion::Subject,
+            SearchEmailsQuerySorter(Subject, Descending) => Reverse(&SortCriterion::Subject),
+        }
     }
 }
 
