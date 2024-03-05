@@ -1,12 +1,10 @@
 pub mod filter;
-pub(crate) mod parser;
+pub mod parser;
 pub mod sorter;
 
 use std::str::FromStr;
 
-use crate::Error;
-
-use self::{filter::SearchEmailsQueryFilter, sorter::SearchEmailsQuerySorter};
+use self::{filter::SearchEmailsQueryFilter, parser::Error, sorter::SearchEmailsQuerySorter};
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SearchEmailsQuery {

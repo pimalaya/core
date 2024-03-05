@@ -1,0 +1,24 @@
+[package]
+name = "email-testing-server"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "email_testing_server"
+
+[dependencies]
+concat-with = "0.2"
+directory = { git = "https://github.com/stalwartlabs/mail-server.git" }
+env_logger = "0.10"
+imap = { git = "https://github.com/stalwartlabs/mail-server.git" }
+jmap = { git = "https://github.com/stalwartlabs/mail-server.git" }
+jmap_proto = { git = "https://github.com/stalwartlabs/mail-server.git" }
+managesieve = { git = "https://github.com/stalwartlabs/mail-server.git"}
+smtp = { git = "https://github.com/stalwartlabs/mail-server.git", features = ["local_delivery"] }
+store = { git = "https://github.com/stalwartlabs/mail-server.git", default-features = false, features = ["sqlite"] }
+tempfile = "3.3"
+tokio = { version = "1.23", features = ["full"] }
+utils = { git = "https://github.com/stalwartlabs/mail-server.git" }
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+jemallocator = "0.5.0"

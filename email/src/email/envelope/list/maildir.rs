@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chumsky::container::Seq;
 use log::{debug, info, trace, warn};
 use std::{fs, path::Path};
 use thiserror::Error;
@@ -81,6 +80,16 @@ impl SearchEmailsQuery {
     }
 }
 
+fn contains_ignore_ascii_case(haystack: &[u8], needle: &[u8]) -> bool {
+    for window in haystack.windows(needle.len()) {
+        if window.eq_ignore_ascii_case(needle) {
+            return true;
+        }
+    }
+
+    false
+}
+
 impl SearchEmailsQueryFilter {
     pub fn matches_maildir_search_query(&self, envelope: &Envelope, msg_path: &Path) -> bool {
         match self {
@@ -101,27 +110,28 @@ impl SearchEmailsQueryFilter {
             SearchEmailsQueryFilter::BeforeDate(date) => &envelope.date <= date,
             SearchEmailsQueryFilter::AfterDate(date) => &envelope.date > date,
             SearchEmailsQueryFilter::From(pattern) => {
+                let pattern = pattern.as_bytes();
                 if let Some(name) = &envelope.from.name {
-                    if name.contains(pattern) {
+                    if contains_ignore_ascii_case(name.as_bytes(), pattern) {
                         return true;
                     }
                 }
-                envelope.from.addr.contains(pattern)
+                contains_ignore_ascii_case(envelope.from.addr.as_bytes(), pattern)
             }
             SearchEmailsQueryFilter::To(pattern) => {
+                let pattern = pattern.as_bytes();
                 if let Some(name) = &envelope.to.name {
-                    if name.contains(pattern) {
+                    if contains_ignore_ascii_case(name.as_bytes(), pattern) {
                         return true;
                     }
                 }
-                envelope.to.addr.contains(pattern)
+                contains_ignore_ascii_case(envelope.to.addr.as_bytes(), pattern)
             }
-            SearchEmailsQueryFilter::Subject(pattern) => envelope.subject.contains(pattern),
+            SearchEmailsQueryFilter::Subject(pattern) => {
+                contains_ignore_ascii_case(envelope.subject.as_bytes(), pattern.as_bytes())
+            }
             SearchEmailsQueryFilter::Body(pattern) => match fs::read(msg_path) {
-                Ok(contents) => contents
-                    .windows(pattern.as_bytes().len())
-                    .find(|window| window.eq_ignore_ascii_case(pattern.as_bytes()))
-                    .is_some(),
+                Ok(contents) => contains_ignore_ascii_case(&contents, pattern.as_bytes()),
                 Err(err) => {
                     warn!("cannot find message at {msg_path:?}, skipping body filter");
                     trace!("{err:?}");
@@ -129,8 +139,9 @@ impl SearchEmailsQueryFilter {
                 }
             },
             SearchEmailsQueryFilter::Keyword(pattern) => {
+                let pattern = pattern.as_bytes();
                 for flag in envelope.flags.iter() {
-                    if flag.to_string().contains(pattern) {
+                    if contains_ignore_ascii_case(flag.to_string().as_bytes(), pattern) {
                         return true;
                     }
                 }

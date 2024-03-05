@@ -146,12 +146,15 @@ impl SearchEmailsQuery {
             .as_ref()
             .map(|f| f.to_imap_sort_query())
             .unwrap_or_default();
-
-        if query.is_empty() {
+        let query = query.trim();
+        let query = if query.is_empty() {
             String::from("ALL")
         } else {
-            query
-        }
+            query.to_owned()
+        };
+
+        println!("IMAP query: {:?}", query);
+        query
     }
 
     pub fn to_imap_sort_criteria(&self) -> Vec<SortCriterion> {
@@ -176,61 +179,86 @@ impl SearchEmailsQuery {
 
 impl SearchEmailsQueryFilter {
     pub fn to_imap_sort_query(&self) -> String {
-        let mut query = String::new();
-
         match self {
             SearchEmailsQueryFilter::And(left, right) => {
-                query.push_str(&left.to_imap_sort_query());
-                query.push(' ');
-                query.push_str(&right.to_imap_sort_query());
+                let left = left.to_imap_sort_query();
+                let right = right.to_imap_sort_query();
+                format!("{left} {right}")
             }
             SearchEmailsQueryFilter::Or(left, right) => {
-                query.push_str("OR (");
-                query.push_str(&left.to_imap_sort_query());
-                query.push_str(") (");
-                query.push_str(&right.to_imap_sort_query());
-                query.push(')');
+                let (left, left_nested) = match left.as_ref() {
+                    SearchEmailsQueryFilter::And(_, _) => {
+                        (format!("({})", left.to_imap_sort_query()), true)
+                    }
+                    SearchEmailsQueryFilter::Or(_, _) => {
+                        (format!("({})", left.to_imap_sort_query()), true)
+                    }
+                    SearchEmailsQueryFilter::Not(_) => {
+                        (format!("({})", left.to_imap_sort_query()), true)
+                    }
+                    _ => (left.to_imap_sort_query(), false),
+                };
+
+                let (right, right_nested) = match right.as_ref() {
+                    SearchEmailsQueryFilter::And(_, _) => {
+                        (format!("({})", right.to_imap_sort_query()), true)
+                    }
+                    SearchEmailsQueryFilter::Or(_, _) => {
+                        (format!("({})", right.to_imap_sort_query()), true)
+                    }
+                    SearchEmailsQueryFilter::Not(_) => {
+                        (format!("({})", right.to_imap_sort_query()), true)
+                    }
+                    _ => (right.to_imap_sort_query(), false),
+                };
+
+                if left_nested && !right_nested {
+                    format!("OR {right} {left}")
+                } else {
+                    format!("OR {left} {right}")
+                }
             }
             SearchEmailsQueryFilter::Not(filter) => {
-                query.push_str("NOT (");
-                query.push_str(&filter.to_imap_sort_query());
-                query.push(')');
+                let filter = match filter.as_ref() {
+                    SearchEmailsQueryFilter::And(_, _) => {
+                        format!("({})", filter.to_imap_sort_query())
+                    }
+                    SearchEmailsQueryFilter::Or(_, _) => {
+                        format!("({})", filter.to_imap_sort_query())
+                    }
+                    SearchEmailsQueryFilter::Not(_) => {
+                        format!("({})", filter.to_imap_sort_query())
+                    }
+                    _ => filter.to_imap_sort_query(),
+                };
+
+                format!("NOT {filter}")
             }
             SearchEmailsQueryFilter::Date(date) => {
-                query.push_str("SENTON ");
-                query.push_str(&date.format("%d-%b-%Y").to_string());
+                format!("SENTON {}", date.format("%d-%b-%Y"))
             }
             SearchEmailsQueryFilter::BeforeDate(date) => {
-                query.push_str("SENTBEFORE ");
-                query.push_str(&date.format("%d-%b-%Y").to_string());
+                format!("SENTBEFORE {}", date.format("%d-%b-%Y"))
             }
             SearchEmailsQueryFilter::AfterDate(date) => {
-                query.push_str("SENTSINCE ");
-                query.push_str(&date.format("%d-%b-%Y").to_string());
+                format!("SENTSINCE {}", date.format("%d-%b-%Y"))
             }
             SearchEmailsQueryFilter::From(pattern) => {
-                query.push_str("FROM ");
-                query.push_str(pattern);
+                format!("FROM {pattern}")
             }
             SearchEmailsQueryFilter::To(pattern) => {
-                query.push_str("TO ");
-                query.push_str(pattern);
+                format!("TO {pattern}")
             }
             SearchEmailsQueryFilter::Subject(pattern) => {
-                query.push_str("SUBJECT ");
-                query.push_str(pattern);
+                format!("SUBJECT {pattern}")
             }
             SearchEmailsQueryFilter::Body(pattern) => {
-                query.push_str("BODY ");
-                query.push_str(pattern);
+                format!("BODY {pattern}")
             }
             SearchEmailsQueryFilter::Keyword(pattern) => {
-                query.push_str("KEYWORD ");
-                query.push_str(pattern);
+                format!("KEYWORD {pattern}")
             }
         }
-
-        query
     }
 }
 

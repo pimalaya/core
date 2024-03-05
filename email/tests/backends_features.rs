@@ -161,7 +161,7 @@ async fn test_backends_features() {
 
     // test query
 
-    let query = "date:asc";
+    let query = "order by date";
     let expected_msg_ids = ["a", "b", "c"];
 
     let (got, expected) = test_query(&imap, query, expected_msg_ids).await;
@@ -171,7 +171,7 @@ async fn test_backends_features() {
     let (got, expected) = test_query(&notmuch, query, expected_msg_ids).await;
     assert_eq!(got, expected);
 
-    let query = "date:desc";
+    let query = "order by date desc";
     let expected_msg_ids = ["c", "b", "a"];
 
     let (got, expected) = test_query(&imap, query, expected_msg_ids).await;
@@ -201,7 +201,7 @@ async fn test_backends_features() {
     let (got, expected) = test_query(&notmuch, query, expected_msg_ids).await;
     assert_eq!(got, expected);
 
-    let query = "subject:asc a or subject b";
+    let query = "subject a and body a or body b order by subject asc";
     let expected_msg_ids = ["a", "b"];
 
     let (got, expected) = test_query(&imap, query, expected_msg_ids).await;
@@ -217,13 +217,16 @@ async fn test_query(
     query: &str,
     msg_ids: impl IntoIterator<Item = &str>,
 ) -> (Envelopes, Envelopes) {
+    println!("raw query: {:?}", query);
+    let q = query.parse().unwrap();
+    println!("parsed query: {:#?}", q);
     let envelopes = backend
         .list_envelopes(
             INBOX,
             ListEnvelopesOptions {
                 page_size: 0,
                 page: 0,
-                query: Some(query.parse().unwrap()),
+                query: Some(q),
             },
         )
         .await

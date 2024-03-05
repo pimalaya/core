@@ -7,8 +7,6 @@
 use chumsky::prelude::*;
 use thiserror::Error;
 
-use crate::Result;
-
 use super::{
     filter::{self, SearchEmailsQueryFilter},
     sorter::{self, SearchEmailsQuerySorter},
@@ -23,7 +21,9 @@ pub enum Error {
 
 pub(crate) type ParserError<'a> = extra::Err<Rich<'a, char>>;
 
-pub(crate) fn parse_query<'a>(input: impl AsRef<str> + 'a) -> Result<SearchEmailsQuery> {
+pub(crate) fn parse_query<'a>(
+    input: impl AsRef<str> + 'a,
+) -> std::result::Result<SearchEmailsQuery, Error> {
     let input = input.as_ref().trim();
 
     if let Some((filters_input, sorters_input)) = input.rsplit_once("order by") {
@@ -43,7 +43,9 @@ pub(crate) fn parse_query<'a>(input: impl AsRef<str> + 'a) -> Result<SearchEmail
     }
 }
 
-pub(crate) fn parse_filters<'a>(input: impl AsRef<str> + 'a) -> Result<SearchEmailsQueryFilter> {
+pub(crate) fn parse_filters<'a>(
+    input: impl AsRef<str> + 'a,
+) -> std::result::Result<SearchEmailsQueryFilter, Error> {
     let input = input.as_ref().trim();
 
     filter::parser::filters()
@@ -54,13 +56,13 @@ pub(crate) fn parse_filters<'a>(input: impl AsRef<str> + 'a) -> Result<SearchEma
                 .into_iter()
                 .map(|err| err.clone().into_owned())
                 .collect();
-            Error::ParseError(errs, input.to_owned()).into()
+            Error::ParseError(errs, input.to_owned())
         })
 }
 
 pub(crate) fn parse_sorters<'a>(
     input: impl AsRef<str> + 'a,
-) -> Result<Vec<SearchEmailsQuerySorter>> {
+) -> std::result::Result<Vec<SearchEmailsQuerySorter>, Error> {
     let input = input.as_ref().trim();
 
     sorter::parser::sorters()
@@ -71,7 +73,7 @@ pub(crate) fn parse_sorters<'a>(
                 .into_iter()
                 .map(|err| err.clone().into_owned())
                 .collect();
-            Error::ParseError(errs, input.to_owned()).into()
+            Error::ParseError(errs, input.to_owned())
         })
 }
 

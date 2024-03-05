@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "email",
   "email-macros",
+  "email-testing-server",
   "keyring",
   "maildir++",
   "mml",
