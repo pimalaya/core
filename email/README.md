@@ -20,15 +20,8 @@ $ cargo build -p email-lib
 
 ## Testing
 
-Before running the test suite you need to spawn an IMAP server. Here an example with [`docker`](https://www.docker.com/) and [`greenmail`](https://github.com/greenmail-mail-test/greenmail):
-
-```shell-session
-$ docker run -it --rm \
-  -p 3025:3025 -p 3110:3110 -p 3143:3143 -p 3465:3465 -p 3993:3993 -p 3995:3995 \
-  -e GREENMAIL_OPTS='-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled -Dgreenmail.verbose' \
-  greenmail/standalone:2.0.0
-  
-$ cargo test -p email-lib
+```sh
+$ cargo test --all-features -p email-lib
 ```
 
 ## Contributing
