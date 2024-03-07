@@ -4,10 +4,7 @@ use email::{
     backend::{Backend, BackendBuilder},
     envelope::{list::ListEnvelopes, Id},
     flag::{add::AddFlags, Flag},
-    folder::{
-        add::AddFolder, config::FolderConfig, delete::DeleteFolder, expunge::ExpungeFolder,
-        list::ListFolders, purge::PurgeFolder, SENT,
-    },
+    folder::{add::AddFolder, config::FolderConfig, expunge::ExpungeFolder, SENT},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
         ImapContextBuilder, ImapContextSync,
@@ -22,7 +19,7 @@ use mml::MmlCompilerBuilder;
 use secret::Secret;
 use std::{collections::HashMap, sync::Arc};
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_imap_features() {
     env_logger::builder().is_test(true).init();
 
@@ -39,7 +36,7 @@ async fn test_imap_features() {
             host: "localhost".into(),
             port: ports.imap,
             encryption: Some(ImapEncryptionKind::None),
-            login: "bob@localhost".into(),
+            login: "bob".into(),
             auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
             ..Default::default()
         });
@@ -51,11 +48,6 @@ async fn test_imap_features() {
             .unwrap();
 
         // setting up folders
-
-        for folder in imap.list_folders().await.unwrap().iter() {
-            let _ = imap.purge_folder(&folder.name).await;
-            let _ = imap.delete_folder(&folder.name).await;
-        }
 
         imap.add_folder("[Gmail]/Sent").await.unwrap();
         imap.add_folder("Trash").await.unwrap();

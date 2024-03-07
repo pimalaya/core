@@ -20,6 +20,7 @@ pub async fn new<L, R>(
     left_builder: BackendBuilder<L>,
     right_cache_builder: BackendBuilder<MaildirContextBuilder>,
     right_builder: BackendBuilder<R>,
+    pool_size: Option<usize>,
     handler: Option<Arc<SyncEventHandler>>,
     dry_run: bool,
     folder_filter: Option<FolderSyncStrategy>,
@@ -38,7 +39,7 @@ where
         folder_filter,
     );
 
-    let pool_builder = ThreadPoolBuilder::new(pool_ctx_builder);
+    let pool_builder = ThreadPoolBuilder::new(pool_ctx_builder).with_some_size(pool_size);
 
     let pool = pool_builder.build().await?;
 

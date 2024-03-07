@@ -169,8 +169,21 @@ impl<B: ThreadPoolContextBuilder + 'static> ThreadPoolBuilder<B> {
     }
 
     /// Change the thread pool size.
+    pub fn set_some_size(&mut self, size: Option<usize>) {
+        if let Some(size) = size {
+            self.size = size;
+        }
+    }
+
+    /// Change the thread pool size.
     pub fn set_size(&mut self, size: usize) {
-        self.size = size;
+        self.set_some_size(Some(size));
+    }
+
+    /// Change the thread pool size using the builder pattern.
+    pub fn with_some_size(mut self, size: Option<usize>) -> Self {
+        self.set_some_size(size);
+        self
     }
 
     /// Change the thread pool size using the builder pattern.

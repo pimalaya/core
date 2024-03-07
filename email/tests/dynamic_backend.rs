@@ -3,7 +3,7 @@ use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::{
         context::BackendContextBuilder, feature::BackendFeature, macros::BackendContext,
-        mapper::SomeBackendContextBuilderMapper, pool::BackendPool, BackendBuilder,
+        mapper::SomeBackendContextBuilderMapper, Backend, BackendBuilder,
     },
     folder::{list::ListFolders, Folder, FolderKind},
     imap::{
@@ -13,96 +13,100 @@ use email::{
     smtp::{SmtpContextBuilder, SmtpContextSync},
     Result,
 };
+use email_testing_server::with_email_testing_server;
 use secret::Secret;
 use std::sync::Arc;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_dynamic_backend() {
     env_logger::builder().is_test(true).init();
 
-    let account_config = Arc::new(AccountConfig::default());
+    with_email_testing_server(|ports| async move {
+        let account_config = Arc::new(AccountConfig::default());
 
-    let imap_config = Arc::new(ImapConfig {
-        host: "localhost".into(),
-        port: 3143,
-        encryption: Some(ImapEncryptionKind::None),
-        login: "bob@localhost".into(),
-        auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
-        ..Default::default()
-    });
+        let imap_config = Arc::new(ImapConfig {
+            host: "localhost".into(),
+            port: ports.imap,
+            encryption: Some(ImapEncryptionKind::None),
+            login: "bob".into(),
+            auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
+            ..Default::default()
+        });
 
-    // 1. define custom context
+        // 1. define custom context
 
-    #[derive(BackendContext)]
-    struct DynamicContext {
-        imap: Option<ImapContextSync>,
-        smtp: Option<SmtpContextSync>,
-    }
-
-    // 2. implement AsRef for mapping features
-
-    impl AsRef<Option<ImapContextSync>> for DynamicContext {
-        fn as_ref(&self) -> &Option<ImapContextSync> {
-            &self.imap
-        }
-    }
-
-    impl AsRef<Option<SmtpContextSync>> for DynamicContext {
-        fn as_ref(&self) -> &Option<SmtpContextSync> {
-            &self.smtp
-        }
-    }
-
-    // 3. define custom context builder
-
-    #[derive(Clone)]
-    struct DynamicContextBuilder {
-        imap: Option<ImapContextBuilder>,
-        smtp: Option<SmtpContextBuilder>,
-    }
-
-    // 4. implement backend context builder
-
-    #[async_trait]
-    impl BackendContextBuilder for DynamicContextBuilder {
-        type Context = DynamicContext;
-
-        // override the list folders feature using the imap builder
-        fn list_folders(&self) -> Option<BackendFeature<Self::Context, dyn ListFolders>> {
-            self.list_folders_with_some(&self.imap)
+        #[derive(BackendContext)]
+        struct DynamicContext {
+            imap: Option<ImapContextSync>,
+            smtp: Option<SmtpContextSync>,
         }
 
-        async fn build(self) -> Result<Self::Context> {
-            let imap = match self.imap {
-                Some(imap) => Some(imap.build().await?),
-                None => None,
-            };
+        // 2. implement AsRef for mapping features
 
-            let smtp = match self.smtp {
-                Some(smtp) => Some(smtp.build().await?),
-                None => None,
-            };
-
-            Ok(DynamicContext { imap, smtp })
+        impl AsRef<Option<ImapContextSync>> for DynamicContext {
+            fn as_ref(&self) -> &Option<ImapContextSync> {
+                &self.imap
+            }
         }
-    }
 
-    // 5. plug all together
+        impl AsRef<Option<SmtpContextSync>> for DynamicContext {
+            fn as_ref(&self) -> &Option<SmtpContextSync> {
+                &self.smtp
+            }
+        }
 
-    let ctx_builder = DynamicContextBuilder {
-        imap: Some(ImapContextBuilder::new(
-            account_config.clone(),
-            imap_config.clone(),
-        )),
-        smtp: None,
-    };
-    let backend_builder = BackendBuilder::new(account_config.clone(), ctx_builder);
-    let backend: BackendPool<DynamicContext> = backend_builder.build().await.unwrap();
-    let folders = backend.list_folders().await.unwrap();
+        // 3. define custom context builder
 
-    assert!(folders.contains(&Folder {
-        kind: Some(FolderKind::Inbox),
-        name: "INBOX".into(),
-        desc: "".into()
-    }));
+        #[derive(Clone)]
+        struct DynamicContextBuilder {
+            imap: Option<ImapContextBuilder>,
+            smtp: Option<SmtpContextBuilder>,
+        }
+
+        // 4. implement backend context builder
+
+        #[async_trait]
+        impl BackendContextBuilder for DynamicContextBuilder {
+            type Context = DynamicContext;
+
+            // override the list folders feature using the imap builder
+            fn list_folders(&self) -> Option<BackendFeature<Self::Context, dyn ListFolders>> {
+                self.list_folders_with_some(&self.imap)
+            }
+
+            async fn build(self) -> Result<Self::Context> {
+                let imap = match self.imap {
+                    Some(imap) => Some(imap.build().await?),
+                    None => None,
+                };
+
+                let smtp = match self.smtp {
+                    Some(smtp) => Some(smtp.build().await?),
+                    None => None,
+                };
+
+                Ok(DynamicContext { imap, smtp })
+            }
+        }
+
+        // 5. plug all together
+
+        let ctx_builder = DynamicContextBuilder {
+            imap: Some(ImapContextBuilder::new(
+                account_config.clone(),
+                imap_config.clone(),
+            )),
+            smtp: None,
+        };
+        let backend_builder = BackendBuilder::new(account_config.clone(), ctx_builder);
+        let backend: Backend<DynamicContext> = backend_builder.build().await.unwrap();
+        let folders = backend.list_folders().await.unwrap();
+
+        assert!(folders.contains(&Folder {
+            kind: Some(FolderKind::Inbox),
+            name: "INBOX".into(),
+            desc: "".into()
+        }));
+    })
+    .await
 }

@@ -60,6 +60,7 @@ pub struct SyncBuilder<L: BackendContextBuilder, R: BackendContextBuilder> {
     left_builder: BackendBuilder<L>,
     right_builder: BackendBuilder<R>,
     cache_dir: Option<PathBuf>,
+    pool_size: Option<usize>,
     handler: Option<Arc<SyncEventHandler>>,
     dry_run: Option<bool>,
     folder_filter: Option<FolderSyncStrategy>,
@@ -77,6 +78,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             left_builder,
             right_builder,
             cache_dir: None,
+            pool_size: None,
             handler: None,
             dry_run: None,
             folder_filter: Default::default(),
@@ -120,6 +122,24 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
     pub fn get_cache_dir(&self) -> Result<PathBuf> {
         self.find_cache_dir()
             .ok_or(Error::GetCacheDirectoryError.into())
+    }
+
+    pub fn set_some_pool_size(&mut self, size: Option<usize>) {
+        self.pool_size = size;
+    }
+
+    pub fn set_pool_size(&mut self, size: usize) {
+        self.set_some_pool_size(Some(size));
+    }
+
+    pub fn with_some_pool_size(mut self, size: Option<usize>) -> Self {
+        self.set_some_pool_size(size);
+        self
+    }
+
+    pub fn with_pool_size(mut self, size: usize) -> Self {
+        self.set_pool_size(size);
+        self
     }
 
     pub fn set_some_handler<F: Future<Output = Result<()>> + Send + 'static>(
@@ -237,6 +257,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
                 self.left_builder.clone(),
                 self.get_right_cache_builder()?,
                 self.right_builder.clone(),
+                self.pool_size,
                 self.handler.clone(),
                 self.get_dry_run(),
                 self.folder_filter,

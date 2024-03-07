@@ -2,36 +2,43 @@ use directory::core::config::ConfigDirectory;
 use imap::core::{ImapSessionManager, IMAP};
 #[cfg(not(target_env = "msvc"))]
 use jemallocator::Jemalloc;
-use jmap::{api::JmapSessionManager, services::IPC_CHANNEL_BUFFER, JMAP};
-use managesieve::core::ManageSieveSessionManager;
+use jmap::{services::IPC_CHANNEL_BUFFER, JMAP};
+use log::{log_enabled, Level::*};
 use smtp::core::{SmtpSessionManager, SMTP};
 use std::{
     collections::{BTreeMap, HashSet},
     future::Future,
     net::TcpListener,
-    time::Duration,
 };
 use store::config::ConfigStore;
 use tempfile::tempdir;
 use tokio::sync::mpsc;
-use utils::config::{Config, ServerProtocol};
+use utils::{
+    config::{Config, ServerProtocol},
+    enable_tracing,
+};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-/// Spawn a JMAP, IMAP and SMTP servers for testing purpose. Ports are
-/// randomly generated, so multiple servers can be spawned at the same
-/// time.
-///
-/// The code is heavily inspired from the [`main.rs`] of stalwartlabs/mail-server.
-///
-/// [`main.rs`]: https://github.com/stalwartlabs/mail-server/blob/main/crates/main/src/main.rs
-pub async fn with_email_testing_server<F: Future<Output = ()>>(task: impl Fn(Ports) -> F) {
+pub async fn start_email_testing_server() -> (Ports, impl Fn()) {
+    // NOTE: did not find a way to get the current log level
+    let tracing_level = if log_enabled!(Trace) {
+        "trace"
+    } else if log_enabled!(Debug) {
+        "debug"
+    } else if log_enabled!(Info) {
+        "info"
+    } else if log_enabled!(Warn) {
+        "warn"
+    } else {
+        "error"
+    };
+
     let tmp = tempdir().expect("should create a temporary directory");
     let tmp = tmp.path();
-
-    let sqlite_path = tmp.join("stalwart.sqlite").to_string_lossy().to_string();
+    let sqlite_path = tmp.join("database.sqlite").to_string_lossy().to_string();
 
     let ports = Ports::new();
     let imap_bind = format!("[::]:{}", ports.imap);
@@ -39,13 +46,54 @@ pub async fn with_email_testing_server<F: Future<Output = ()>>(task: impl Fn(Por
 
     let mut config = Config {
         keys: BTreeMap::from_iter([
+            ("global.tracing.method".into(), "stdout".into()),
+            ("global.tracing.level".into(), tracing_level.into()),
             ("server.hostname".into(), "localhost".into()),
+            ("server.tls.enable".into(), "false".into()),
             ("server.listener.imap.protocol".into(), "imap".into()),
             ("server.listener.imap.bind.0000".into(), imap_bind),
             ("server.listener.smtp.protocol".into(), "smtp".into()),
             ("server.listener.smtp.bind.0000".into(), smtp_bind),
-            ("directory.memory.disable".into(), "false".into()),
+            ("imap.auth.allow-plain-text".into(), "true".into()),
+            ("imap.protocol.uidplus".into(), "true".into()),
+            ("imap.rate-limit.concurrent".into(), "32".into()),
+            ("imap.rate-limit.requests".into(), "100000/1s".into()),
+            ("queue.outbound.next-hop".into(), "'local'".into()),
+            ("session.ehlo.reject-non-fqdn".into(), "false".into()),
+            ("session.auth.mechanisms".into(), "[plain]".into()),
+            ("session.auth.directory".into(), "'memory'".into()),
+            ("session.auth.allow-plain-text".into(), "true".into()),
+            ("session.rcpt.relay".into(), "true".into()),
+            ("session.rcpt.directory".into(), "'memory'".into()),
             ("directory.memory.type".into(), "memory".into()),
+            ("directory.memory.options.catch-all".into(), "true".into()),
+            ("directory.memory.disable".into(), "false".into()),
+            (
+                "directory.memory.principals.0.type".into(),
+                "individual".into(),
+            ),
+            ("directory.memory.principals.0.name".into(), "alice".into()),
+            (
+                "directory.memory.principals.0.secret".into(),
+                "password".into(),
+            ),
+            (
+                "directory.memory.principals.0.email.0".into(),
+                "alice@localhost".into(),
+            ),
+            (
+                "directory.memory.principals.1.type".into(),
+                "individual".into(),
+            ),
+            ("directory.memory.principals.1.name".into(), "bob".into()),
+            (
+                "directory.memory.principals.1.secret".into(),
+                "password".into(),
+            ),
+            (
+                "directory.memory.principals.1.email.1".into(),
+                "bob@localhost".into(),
+            ),
             ("storage.data".into(), "sqlite".into()),
             ("storage.blob".into(), "sqlite".into()),
             ("storage.fts".into(), "sqlite".into()),
@@ -57,6 +105,16 @@ pub async fn with_email_testing_server<F: Future<Output = ()>>(task: impl Fn(Por
             ("resolver.type".into(), "system".into()),
         ]),
     };
+
+    // Enable tracing
+    enable_tracing(
+        &config,
+        &format!(
+            "Starting Stalwart Mail Server v{}...",
+            env!("CARGO_PKG_VERSION"),
+        ),
+    )
+    .expect("should enable tracing");
 
     // Bind ports and drop privileges
     let mut servers = config
@@ -86,14 +144,6 @@ pub async fn with_email_testing_server<F: Future<Output = ()>>(task: impl Fn(Por
         .parse_directory(&stores, data_store)
         .await
         .expect("directory config should be valid");
-    let schedulers = config
-        .parse_purge_schedules(
-            &stores,
-            config.value("storage.data"),
-            config.value("storage.blob"),
-        )
-        .await
-        .expect("schedulers config should be valid");
 
     // Init servers
     let (delivery_tx, delivery_rx) = mpsc::channel(IPC_CHANNEL_BUFFER);
@@ -117,13 +167,8 @@ pub async fn with_email_testing_server<F: Future<Output = ()>>(task: impl Fn(Por
         .await
         .expect("should be able to init IMAP server");
 
-    jmap.directory
-        .blocked_ips
-        .reload(&config)
-        .expect("should be able to set up JMAP blocked ips");
-
     // Spawn servers
-    let (shutdown_tx, shutdown_rx) = servers.spawn(|server, shutdown_rx| {
+    let (shutdown_tx, _) = servers.spawn(|server, shutdown_rx| {
         match &server.protocol {
             ServerProtocol::Smtp | ServerProtocol::Lmtp => {
                 server.spawn(SmtpSessionManager::new(smtp.clone()), shutdown_rx)
@@ -132,36 +177,48 @@ pub async fn with_email_testing_server<F: Future<Output = ()>>(task: impl Fn(Por
                 unreachable!();
             }
             ServerProtocol::Jmap => {
-                server.spawn(JmapSessionManager::new(jmap.clone()), shutdown_rx)
+                unreachable!();
+                // server.spawn(JmapSessionManager::new(jmap.clone()), shutdown_rx)
             }
             ServerProtocol::Imap => server.spawn(
                 ImapSessionManager::new(jmap.clone(), imap.clone()),
                 shutdown_rx,
             ),
-            ServerProtocol::ManageSieve => server.spawn(
-                ManageSieveSessionManager::new(jmap.clone(), imap.clone()),
-                shutdown_rx,
-            ),
+            ServerProtocol::ManageSieve => {
+                unreachable!();
+                // server.spawn(
+                //     ManageSieveSessionManager::new(jmap.clone(), imap.clone()),
+                //     shutdown_rx,
+                // )
+            }
         };
     });
 
-    // Spawn purge schedulers
-    for scheduler in schedulers {
-        scheduler.spawn(shutdown_rx.clone());
-    }
+    let shutdown = move || {
+        shutdown_tx
+            .send(true)
+            .expect("should send shutdown message to servers")
+    };
 
-    // Execute the task
-    task(ports).await;
-
-    // Stop services
-    shutdown_tx
-        .send(true)
-        .expect("should send shutdown message to servers");
-
-    // Wait for services to finish
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    (ports, shutdown)
 }
 
+/// Spawn a JMAP, IMAP and SMTP servers for testing purpose. Ports are
+/// randomly generated, so multiple servers can be spawned at the same
+/// time.
+///
+/// The code is heavily inspired from the [`main.rs`] of stalwartlabs/mail-server.
+///
+/// [`main.rs`]: https://github.com/stalwartlabs/mail-server/blob/main/crates/main/src/main.rs
+pub async fn with_email_testing_server<F: Future<Output = ()> + Send>(
+    task: impl Fn(Ports) -> F + Send + Sync + 'static,
+) {
+    let (ports, shutdown) = start_email_testing_server().await;
+    task(ports).await;
+    shutdown();
+}
+
+#[derive(Clone, Debug)]
 pub struct Ports {
     pub imap: u16,
     pub jmap: u16,

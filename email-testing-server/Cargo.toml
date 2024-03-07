@@ -9,11 +9,11 @@ name = "email_testing_server"
 [dependencies]
 concat-with = "0.2"
 directory = { git = "https://github.com/stalwartlabs/mail-server.git" }
-env_logger = "0.10"
 imap = { git = "https://github.com/stalwartlabs/mail-server.git" }
 jmap = { git = "https://github.com/stalwartlabs/mail-server.git" }
 jmap_proto = { git = "https://github.com/stalwartlabs/mail-server.git" }
-managesieve = { git = "https://github.com/stalwartlabs/mail-server.git"}
+log = "0.4"
+managesieve = { git = "https://github.com/stalwartlabs/mail-server.git" }
 smtp = { git = "https://github.com/stalwartlabs/mail-server.git", features = ["local_delivery"] }
 store = { git = "https://github.com/stalwartlabs/mail-server.git", default-features = false, features = ["sqlite"] }
 tempfile = "3.3"
