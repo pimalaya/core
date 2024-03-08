@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use log::{debug, info, trace, warn};
+use mail_parser::MessageParser;
 use std::{fs, path::Path};
 use thiserror::Error;
 
@@ -11,6 +12,11 @@ use crate::{
 };
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
+
+#[cfg(test)]
+static USER_TZ: &chrono::Utc = &chrono::Utc;
+#[cfg(not(test))]
+static USER_TZ: &chrono::Local = &chrono::Local;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -106,9 +112,15 @@ impl SearchEmailsQueryFilter {
             SearchEmailsQueryFilter::Not(filter) => {
                 !filter.matches_maildir_search_query(envelope, msg_path)
             }
-            SearchEmailsQueryFilter::Date(date) => &envelope.date <= date,
-            SearchEmailsQueryFilter::BeforeDate(date) => &envelope.date <= date,
-            SearchEmailsQueryFilter::AfterDate(date) => &envelope.date > date,
+            SearchEmailsQueryFilter::Date(date) => {
+                &envelope.date.with_timezone(USER_TZ).date_naive() == date
+            }
+            SearchEmailsQueryFilter::BeforeDate(date) => {
+                &envelope.date.with_timezone(USER_TZ).date_naive() < date
+            }
+            SearchEmailsQueryFilter::AfterDate(date) => {
+                &envelope.date.with_timezone(USER_TZ).date_naive() > date
+            }
             SearchEmailsQueryFilter::From(pattern) => {
                 let pattern = pattern.as_bytes();
                 if let Some(name) = &envelope.from.name {
@@ -131,7 +143,21 @@ impl SearchEmailsQueryFilter {
                 contains_ignore_ascii_case(envelope.subject.as_bytes(), pattern.as_bytes())
             }
             SearchEmailsQueryFilter::Body(pattern) => match fs::read(msg_path) {
-                Ok(contents) => contains_ignore_ascii_case(&contents, pattern.as_bytes()),
+                Ok(contents) => {
+                    if let Some(msg) = MessageParser::new().parse(&contents) {
+                        for plain in msg.text_bodies() {
+                            if contains_ignore_ascii_case(plain.contents(), pattern.as_bytes()) {
+                                return true;
+                            }
+                        }
+                        for html in msg.html_bodies() {
+                            if contains_ignore_ascii_case(html.contents(), pattern.as_bytes()) {
+                                return true;
+                            }
+                        }
+                    }
+                    false
+                }
                 Err(err) => {
                     warn!("cannot find message at {msg_path:?}, skipping body filter");
                     trace!("{err:?}");

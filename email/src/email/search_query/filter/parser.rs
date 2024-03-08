@@ -4,26 +4,12 @@
 //! query, and exposes a [`query`] parser. Parsing is based on the
 //! great lib [`chumsky`].
 
-use chrono::{
-    DateTime, Duration, Local, LocalResult, NaiveDate, NaiveDateTime, NaiveTime, ParseError,
-};
+use chrono::NaiveDate;
 use chumsky::prelude::*;
-use thiserror::Error;
 
 use crate::search_query::parser::ParserError;
 
 use super::SearchEmailsQueryFilter;
-
-/// Error dedicated to search emails query parsing.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse date from list envelopes query")]
-    ParseNaiveDateTimeError(#[source] ParseError),
-    #[error("cannot parse date from list envelopes query: cannot apply local timezone to {0}")]
-    ParseLocalDateTimeError(String),
-    #[error("cannot parse date from list envelopes query: cannot choose between {0} and {1}")]
-    ParseLocalDateTimeAmbiguousError(DateTime<Local>, DateTime<Local>),
-}
 
 pub(crate) fn filters<'a>(
 ) -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
@@ -98,7 +84,7 @@ fn date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'
                 .repeated()
                 .at_least(1),
         )
-        .ignore_then(date_fmt(|dt| dt).labelled("date format after `date`"))
+        .ignore_then(naive_date().labelled("date format after `date`"))
         .map(SearchEmailsQueryFilter::Date)
 }
 
@@ -116,7 +102,7 @@ fn before_date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, Parser
                 .repeated()
                 .at_least(1),
         )
-        .ignore_then(date_fmt(|dt| dt - Duration::days(1)).labelled("pattern after `before`"))
+        .ignore_then(naive_date().labelled("pattern after `before`"))
         .map(SearchEmailsQueryFilter::BeforeDate)
 }
 
@@ -133,7 +119,7 @@ fn after_date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserE
                 .repeated()
                 .at_least(1),
         )
-        .ignore_then(date_fmt(|dt| dt + Duration::days(1)).labelled("pattern after `after`"))
+        .ignore_then(naive_date().labelled("pattern after `after`"))
         .map(SearchEmailsQueryFilter::AfterDate)
 }
 
@@ -216,37 +202,20 @@ fn keyword<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserErro
         .map(SearchEmailsQueryFilter::Keyword)
 }
 
-fn date_fmt<'a>(
-    cb: impl Fn(NaiveDateTime) -> NaiveDateTime + Clone + 'a,
-) -> impl Parser<'a, &'a str, DateTime<Local>, ParserError<'a>> + Clone {
+fn naive_date<'a>() -> impl Parser<'a, &'a str, NaiveDate, ParserError<'a>> + Clone {
     choice((
-        date_with_fmt("%Y-%m-%d", cb.clone()),
-        date_with_fmt("%Y/%m/%d", cb.clone()),
-        date_with_fmt("%d-%m-%Y", cb.clone()),
-        date_with_fmt("%d/%m/%Y", cb.clone()),
+        naive_date_with_fmt("%Y-%m-%d"),
+        naive_date_with_fmt("%Y/%m/%d"),
+        naive_date_with_fmt("%d-%m-%Y"),
+        naive_date_with_fmt("%d/%m/%Y"),
     ))
 }
 
-fn date_with_fmt<'a>(
+fn naive_date_with_fmt<'a>(
     fmt: &'a str,
-    cb: impl Fn(NaiveDateTime) -> NaiveDateTime + Clone + 'a,
-) -> impl Parser<'a, &'a str, DateTime<Local>, ParserError<'a>> + Clone {
+) -> impl Parser<'a, &'a str, NaiveDate, ParserError<'a>> + Clone {
     pattern().try_map(move |ref s, span| {
-        let dt = NaiveDate::parse_from_str(s, fmt)
-            .map(|d| d.and_time(NaiveTime::from_hms_opt(0, 0, 0).unwrap()))
-            .map(|dt| cb(dt))
-            .map(|dt| dt.and_local_timezone(Local));
-
-        let dt = match dt {
-            Err(err) => Err(Error::ParseNaiveDateTimeError(err)),
-            Ok(LocalResult::None) => Err(Error::ParseLocalDateTimeError(s.clone())),
-            Ok(LocalResult::Single(dt)) => Ok(dt),
-            Ok(LocalResult::Ambiguous(dt1, dt2)) => {
-                Err(Error::ParseLocalDateTimeAmbiguousError(dt1, dt2))
-            }
-        };
-
-        dt.map_err(|err| Rich::custom(span, err))
+        NaiveDate::parse_from_str(s, fmt).map_err(|err| Rich::custom(span, err))
     })
 }
 
@@ -304,7 +273,7 @@ fn dquote<'a>() -> impl Parser<'a, &'a str, char, ParserError<'a>> + Clone {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Local, TimeZone};
+    use chrono::NaiveDate;
     use chumsky::prelude::*;
 
     use super::SearchEmailsQueryFilter::*;
@@ -342,9 +311,7 @@ mod tests {
             super::before_date()
                 .parse("before 2024-01-01")
                 .into_result(),
-            Ok(BeforeDate(
-                Local.with_ymd_and_hms(2023, 12, 31, 0, 0, 0).unwrap()
-            ))
+            Ok(BeforeDate(NaiveDate::from_ymd_opt(2023, 12, 31).unwrap()))
         );
     }
 
@@ -352,9 +319,7 @@ mod tests {
     fn after_date() {
         assert_eq!(
             super::after_date().parse("after 2024-01-01").into_result(),
-            Ok(AfterDate(
-                Local.with_ymd_and_hms(2024, 1, 2, 0, 0, 0).unwrap()
-            ))
+            Ok(AfterDate(NaiveDate::from_ymd_opt(2024, 1, 2).unwrap()))
         );
     }
 

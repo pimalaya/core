@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::Duration;
 use log::{debug, info, trace};
 use thiserror::Error;
 
@@ -132,16 +133,22 @@ impl SearchEmailsQueryFilter {
                 query.push_str(")");
             }
             SearchEmailsQueryFilter::Date(date) => {
-                query.push_str("date:@");
-                query.push_str(&date.timestamp().to_string());
+                query.push_str("date:");
+                query.push_str(&date.to_string());
             }
             SearchEmailsQueryFilter::BeforeDate(date) => {
-                query.push_str("date:..@");
-                query.push_str(&date.timestamp().to_string());
+                // notmuch dates are inclusive, so we substract one
+                // day from the before date filter.
+                let date = *date - Duration::days(1);
+                query.push_str("date:..");
+                query.push_str(&date.to_string());
             }
             SearchEmailsQueryFilter::AfterDate(date) => {
-                query.push_str("date:@");
-                query.push_str(&date.timestamp().to_string());
+                // notmuch dates are inclusive, so we add one day to
+                // the after date filter.
+                let date = *date + Duration::days(1);
+                query.push_str("date:");
+                query.push_str(&date.to_string());
                 query.push_str("..");
             }
             SearchEmailsQueryFilter::From(pattern) => {

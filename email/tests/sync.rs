@@ -196,7 +196,7 @@ async fn test_sync() {
 
         let sync_builder = SyncBuilder::new(left_builder.clone(), right_builder.clone())
             .with_cache_dir(tmp.join("cache"))
-            .with_pool_size(2)
+            .with_pool_size(1)
             .with_handler(|evt| async {
                 let mut stack = EVENTS_STACK.lock().await;
                 stack.insert(evt);

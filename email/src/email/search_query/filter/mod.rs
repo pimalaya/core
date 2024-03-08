@@ -1,15 +1,15 @@
 pub mod parser;
 
-use chrono::{DateTime, Local};
+use chrono::NaiveDate;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum SearchEmailsQueryFilter {
     And(Box<SearchEmailsQueryFilter>, Box<SearchEmailsQueryFilter>),
     Or(Box<SearchEmailsQueryFilter>, Box<SearchEmailsQueryFilter>),
     Not(Box<SearchEmailsQueryFilter>),
-    Date(DateTime<Local>),
-    BeforeDate(DateTime<Local>),
-    AfterDate(DateTime<Local>),
+    Date(NaiveDate),
+    BeforeDate(NaiveDate),
+    AfterDate(NaiveDate),
     From(String),
     To(String),
     Subject(String),

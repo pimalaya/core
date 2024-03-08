@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::Duration;
 use imap::extensions::sort::{SortCharset, SortCriterion};
 use log::{debug, info, trace};
 use std::{collections::HashMap, result};
@@ -152,8 +153,6 @@ impl SearchEmailsQuery {
         } else {
             query.to_owned()
         };
-
-        println!("IMAP query: {:?}", query);
         query
     }
 
@@ -186,53 +185,13 @@ impl SearchEmailsQueryFilter {
                 format!("{left} {right}")
             }
             SearchEmailsQueryFilter::Or(left, right) => {
-                let (left, left_nested) = match left.as_ref() {
-                    SearchEmailsQueryFilter::And(_, _) => {
-                        (format!("({})", left.to_imap_sort_query()), true)
-                    }
-                    SearchEmailsQueryFilter::Or(_, _) => {
-                        (format!("({})", left.to_imap_sort_query()), true)
-                    }
-                    SearchEmailsQueryFilter::Not(_) => {
-                        (format!("({})", left.to_imap_sort_query()), true)
-                    }
-                    _ => (left.to_imap_sort_query(), false),
-                };
-
-                let (right, right_nested) = match right.as_ref() {
-                    SearchEmailsQueryFilter::And(_, _) => {
-                        (format!("({})", right.to_imap_sort_query()), true)
-                    }
-                    SearchEmailsQueryFilter::Or(_, _) => {
-                        (format!("({})", right.to_imap_sort_query()), true)
-                    }
-                    SearchEmailsQueryFilter::Not(_) => {
-                        (format!("({})", right.to_imap_sort_query()), true)
-                    }
-                    _ => (right.to_imap_sort_query(), false),
-                };
-
-                if left_nested && !right_nested {
-                    format!("OR {right} {left}")
-                } else {
-                    format!("OR {left} {right}")
-                }
+                let left = left.to_imap_sort_query();
+                let right = right.to_imap_sort_query();
+                format!("OR ({left}) ({right})")
             }
             SearchEmailsQueryFilter::Not(filter) => {
-                let filter = match filter.as_ref() {
-                    SearchEmailsQueryFilter::And(_, _) => {
-                        format!("({})", filter.to_imap_sort_query())
-                    }
-                    SearchEmailsQueryFilter::Or(_, _) => {
-                        format!("({})", filter.to_imap_sort_query())
-                    }
-                    SearchEmailsQueryFilter::Not(_) => {
-                        format!("({})", filter.to_imap_sort_query())
-                    }
-                    _ => filter.to_imap_sort_query(),
-                };
-
-                format!("NOT {filter}")
+                let filter = filter.to_imap_sort_query();
+                format!("NOT ({filter})")
             }
             SearchEmailsQueryFilter::Date(date) => {
                 format!("SENTON {}", date.format("%d-%b-%Y"))
@@ -241,6 +200,9 @@ impl SearchEmailsQueryFilter {
                 format!("SENTBEFORE {}", date.format("%d-%b-%Y"))
             }
             SearchEmailsQueryFilter::AfterDate(date) => {
+                // imap sentsince is inclusive, so we add one day to
+                // the date filter.
+                let date = *date + Duration::days(1);
                 format!("SENTSINCE {}", date.format("%d-%b-%Y"))
             }
             SearchEmailsQueryFilter::From(pattern) => {
