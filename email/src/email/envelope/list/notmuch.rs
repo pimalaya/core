@@ -152,13 +152,15 @@ impl SearchEmailsQueryFilter {
                 query.push_str("..");
             }
             SearchEmailsQueryFilter::From(pattern) => {
-                query.push_str("from:");
+                query.push_str("from:/");
                 query.push_str(pattern);
+                query.push('/');
             }
 
             SearchEmailsQueryFilter::To(pattern) => {
-                query.push_str("to:");
+                query.push_str("to:/");
                 query.push_str(pattern);
+                query.push('/');
             }
             SearchEmailsQueryFilter::Subject(pattern) => {
                 query.push_str("subject:");
@@ -168,9 +170,9 @@ impl SearchEmailsQueryFilter {
                 query.push_str("body:");
                 query.push_str(pattern);
             }
-            SearchEmailsQueryFilter::Keyword(pattern) => {
-                query.push_str("keyword:");
-                query.push_str(pattern);
+            SearchEmailsQueryFilter::Flag(flag) => {
+                query.push_str("tag:");
+                query.push_str(&flag.to_string());
             }
         };
 

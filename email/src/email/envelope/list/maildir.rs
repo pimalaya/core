@@ -164,15 +164,7 @@ impl SearchEmailsQueryFilter {
                     true
                 }
             },
-            SearchEmailsQueryFilter::Keyword(pattern) => {
-                let pattern = pattern.as_bytes();
-                for flag in envelope.flags.iter() {
-                    if contains_ignore_ascii_case(flag.to_string().as_bytes(), pattern) {
-                        return true;
-                    }
-                }
-                false
-            }
+            SearchEmailsQueryFilter::Flag(flag) => envelope.flags.contains(flag),
         }
     }
 }

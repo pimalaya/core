@@ -104,6 +104,36 @@ impl Envelope {
                 }
             };
 
+            match msg.to() {
+                Some(mail_parser::Address::List(addrs))
+                    if !addrs.is_empty() && addrs[0].address.is_some() =>
+                {
+                    let name = addrs[0].name.as_ref().map(|name| name.to_string());
+                    let email = addrs[0]
+                        .address
+                        .as_ref()
+                        .map(|name| name.to_string())
+                        .unwrap();
+                    envelope.to = Address::new(name, email);
+                }
+                Some(mail_parser::Address::Group(groups))
+                    if !groups.is_empty()
+                        && !groups[0].addresses.is_empty()
+                        && groups[0].addresses[0].address.is_some() =>
+                {
+                    let name = groups[0].name.as_ref().map(|name| name.to_string());
+                    let email = groups[0].addresses[0]
+                        .address
+                        .as_ref()
+                        .map(|name| name.to_string())
+                        .unwrap();
+                    envelope.to = Address::new(name, email)
+                }
+                _ => {
+                    debug!("cannot extract envelope recipient to message header, skipping it");
+                }
+            };
+
             envelope.subject = msg.subject().map(ToOwned::to_owned).unwrap_or_default();
 
             match msg.date() {

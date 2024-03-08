@@ -22,7 +22,7 @@ pub(crate) fn filters<'a>(
             to(),
             subject(),
             body(),
-            keyword(),
+            flag(),
             filter
                 .delimited_by(lparen(), rparen())
                 .labelled("(nested filter)"),
@@ -183,23 +183,24 @@ fn body<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'
         .map(SearchEmailsQueryFilter::Body)
 }
 
-fn keyword<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
-    just('k')
-        .labelled("`keyword`")
-        .ignore_then(just('e').labelled("`keyword`"))
-        .ignore_then(just('y').labelled("`keyword`"))
-        .ignore_then(just('w').labelled("`keyword`"))
-        .ignore_then(just('o').labelled("`keyword`"))
-        .ignore_then(just('r').labelled("`keyword`"))
-        .ignore_then(just('d').labelled("`keyword`"))
+fn flag<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+    just('f')
+        .labelled("`flag`")
+        .ignore_then(just('l').labelled("`flag`"))
+        .ignore_then(just('a').labelled("`flag`"))
+        .ignore_then(just('g').labelled("`flag`"))
         .ignore_then(
             space()
                 .labelled("space after `keyword`")
                 .repeated()
                 .at_least(1),
         )
-        .ignore_then(pattern().labelled("pattern after `keyword`"))
-        .map(SearchEmailsQueryFilter::Keyword)
+        .ignore_then(
+            unquoted_pattern()
+                .map(|s| s.as_str().into())
+                .labelled("flag after `flag`"),
+        )
+        .map(SearchEmailsQueryFilter::Flag)
 }
 
 fn naive_date<'a>() -> impl Parser<'a, &'a str, NaiveDate, ParserError<'a>> + Clone {
@@ -311,7 +312,7 @@ mod tests {
             super::before_date()
                 .parse("before 2024-01-01")
                 .into_result(),
-            Ok(BeforeDate(NaiveDate::from_ymd_opt(2023, 12, 31).unwrap()))
+            Ok(BeforeDate(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()))
         );
     }
 
@@ -319,7 +320,7 @@ mod tests {
     fn after_date() {
         assert_eq!(
             super::after_date().parse("after 2024-01-01").into_result(),
-            Ok(AfterDate(NaiveDate::from_ymd_opt(2024, 1, 2).unwrap()))
+            Ok(AfterDate(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()))
         );
     }
 

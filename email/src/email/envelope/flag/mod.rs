@@ -109,6 +109,7 @@ impl FromStr for Flag {
             deleted if deleted.eq_ignore_ascii_case("deleted") => Ok(Flag::Deleted),
             trashed if trashed.eq_ignore_ascii_case("trashed") => Ok(Flag::Deleted),
             draft if draft.eq_ignore_ascii_case("draft") => Ok(Flag::Draft),
+            drafts if drafts.eq_ignore_ascii_case("drafts") => Ok(Flag::Draft),
             unknown => Err(Error::ParseFlagError(unknown.to_string()).into()),
         }
     }

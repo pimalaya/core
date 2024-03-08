@@ -35,7 +35,7 @@ impl AddNotmuchFolder {
 #[async_trait]
 impl AddFolder for AddNotmuchFolder {
     async fn add_folder(&self, folder: &str) -> Result<()> {
-        info!("creating notmuch folder {folder}");
+        info!("creating notmuch folder {folder} via maildir");
 
         let config = &self.ctx.account_config;
         let ctx = self.ctx.lock().await;

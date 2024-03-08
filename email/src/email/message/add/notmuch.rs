@@ -55,7 +55,13 @@ impl AddMessage for AddNotmuchMessage {
         let mdir = mdir_ctx.get_maildir_from_folder_name(&folder)?;
         let id = mdir.store_cur_with_flags(msg, &flags.to_mdir_string())?;
         let msg = mdir.find(&id).unwrap();
+
         let msg = db.index_file(msg.path(), None)?;
+
+        flags
+            .iter()
+            .try_for_each(|flag| msg.add_tag(&flag.to_string()))?;
+
         let id = SingleId::from(msg.id());
 
         db.close()?;

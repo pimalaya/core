@@ -18,7 +18,6 @@ use email::{
 };
 use email_testing_server::start_email_testing_server;
 use mail_builder::MessageBuilder;
-use maildirpp::Maildir;
 use secret::Secret;
 use std::{iter::FromIterator, sync::Arc};
 use tempfile::tempdir;
@@ -96,7 +95,7 @@ async fn test_backends_features() {
             // January, 2024 the 10th at 12:00 (UTC)
             .date(1704884400_i64)
             .message_id("c@localhost")
-            .from("alice@localhost")
+            .from(("Dminic", "dominic@localhost"))
             .to("bob@localhost")
             .subject("C")
             .text_body("C")
@@ -124,9 +123,8 @@ async fn test_backends_features() {
 
     // set up Notmuch
 
-    // let notmuch_db_path = tmp.join("notmuch");
     let notmuch_db_path = mdir_config.root_dir.clone();
-    let notmuch_db = notmuch::Database::create(&notmuch_db_path).unwrap();
+    notmuch::Database::create(&notmuch_db_path).unwrap();
 
     let notmuch_config = Arc::new(NotmuchConfig {
         database_path: Some(notmuch_db_path),
@@ -135,30 +133,21 @@ async fn test_backends_features() {
     });
 
     let notmuch_ctx = NotmuchContextBuilder::new(account_config.clone(), notmuch_config.clone());
-    let notmuch = BackendBuilder::new(account_config.clone(), notmuch_ctx)
+    let notmuch_builder = BackendBuilder::new(account_config.clone(), notmuch_ctx);
+    let notmuch = notmuch_builder
+        .clone()
         .build::<Backend<NotmuchContextSync>>()
         .await
         .unwrap();
 
-    // sync IMAP with Maildir
+    // sync IMAP with Notmuch
 
-    SyncBuilder::new(mdir_builder, imap_builder.clone())
+    SyncBuilder::new(notmuch_builder.clone(), imap_builder.clone())
         .with_cache_dir(tmp.join("sync-cache"))
         .with_pool_size(1)
         .sync()
         .await
         .unwrap();
-
-    // sync Maildir with Notmuch
-
-    for entry in Maildir::from(mdir_config.root_dir.clone()).list_cur() {
-        let entry = entry.unwrap();
-        notmuch_db
-            .index_file(entry.path(), Default::default())
-            .unwrap();
-    }
-
-    notmuch_db.close().unwrap();
 
     // test query
 
@@ -247,6 +236,36 @@ async fn test_backends_features() {
     let (got, expected) = test_query(&notmuch, query, expected_msg_ids).await;
     assert_eq!(got, expected);
 
+    let query = "from Dminic or from bob order by subject";
+    let expected_msg_ids = ["a", "c"];
+
+    let (got, expected) = test_query(&imap, query, expected_msg_ids).await;
+    assert_eq!(got, expected);
+    let (got, expected) = test_query(&mdir, query, expected_msg_ids).await;
+    assert_eq!(got, expected);
+    let (got, expected) = test_query(&notmuch, query, expected_msg_ids).await;
+    assert_eq!(got, expected);
+
+    let query = "not to bob order by subject";
+    let expected_msg_ids = ["a", "b"];
+
+    let (got, expected) = test_query(&imap, query, expected_msg_ids).await;
+    assert_eq!(got, expected);
+    let (got, expected) = test_query(&mdir, query, expected_msg_ids).await;
+    assert_eq!(got, expected);
+    let (got, expected) = test_query(&notmuch, query, expected_msg_ids).await;
+    assert_eq!(got, expected);
+
+    let query = "flag seen order by subject desc";
+    let expected_msg_ids = ["b", "a"];
+
+    let (got, expected) = test_query(&imap, query, expected_msg_ids).await;
+    assert_eq!(got, expected);
+    let (got, expected) = test_query(&mdir, query, expected_msg_ids).await;
+    assert_eq!(got, expected);
+    let (got, expected) = test_query(&notmuch, query, expected_msg_ids).await;
+    assert_eq!(got, expected);
+
     shutdown()
 }
 
@@ -255,13 +274,14 @@ async fn test_query(
     query: &str,
     msg_ids: impl IntoIterator<Item = &str>,
 ) -> (Envelopes, Envelopes) {
+    let query = query.parse().unwrap();
     let envelopes = backend
         .list_envelopes(
             INBOX,
             ListEnvelopesOptions {
                 page_size: 0,
                 page: 0,
-                query: Some(query.parse().unwrap()),
+                query: Some(query),
             },
         )
         .await

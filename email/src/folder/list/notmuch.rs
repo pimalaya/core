@@ -1,9 +1,8 @@
 use async_trait::async_trait;
-use log::{info, trace};
-use std::collections::HashMap;
+use log::info;
 
 use crate::{
-    folder::{Folder, Folders},
+    folder::{Folder, FolderKind, Folders},
     notmuch::NotmuchContextSync,
     Result,
 };
@@ -31,24 +30,24 @@ impl ListNotmuchFolders {
 #[async_trait]
 impl ListFolders for ListNotmuchFolders {
     async fn list_folders(&self) -> Result<Folders> {
-        info!("listing notmuch virtual folders");
+        info!("listing notmuch folders via maildir");
 
-        let mut folders: Folders = self
-            .ctx
-            .account_config
-            .get_folder_aliases()
-            .unwrap_or(&HashMap::default())
-            .iter()
-            .map(|(name, alias)| Folder {
-                kind: None,
-                name: name.into(),
-                desc: alias.into(),
-            })
-            .collect();
+        let ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
+        let mdir_ctx = &ctx.mdir_ctx;
 
-        folders.sort_by(|a, b| b.name.partial_cmp(&a.name).unwrap());
+        let mut folders = Folders::default();
 
-        trace!("notmuch virtual folders: {folders:#?}");
+        folders.push(Folder {
+            kind: Some(FolderKind::Inbox),
+            name: config.get_inbox_folder_alias(),
+            desc: mdir_ctx.root.path().to_string_lossy().to_string(),
+        });
+
+        let subfolders: Vec<Folder> =
+            Folders::from_submaildirs(config, mdir_ctx.root.list_subdirs()).into();
+
+        folders.extend(subfolders);
 
         Ok(folders)
     }

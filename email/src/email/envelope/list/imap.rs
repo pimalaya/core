@@ -217,8 +217,9 @@ impl SearchEmailsQueryFilter {
             SearchEmailsQueryFilter::Body(pattern) => {
                 format!("BODY {pattern}")
             }
-            SearchEmailsQueryFilter::Keyword(pattern) => {
-                format!("KEYWORD {pattern}")
+            SearchEmailsQueryFilter::Flag(flag) => {
+                let flag = flag.to_imap_query_string();
+                format!("KEYWORD {flag}")
             }
         }
     }
