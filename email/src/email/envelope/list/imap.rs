@@ -84,12 +84,14 @@ impl ListEnvelopes for ListImapEnvelopes {
             let filters = query.to_imap_sort_query();
             let sorters = query.to_imap_sort_criteria();
 
-            let uids = ctx
+            let mut uids = ctx
                 .exec(
                     |session| session.uid_sort(&sorters, SortCharset::Utf8, &filters),
                     |err| Error::SearchEnvelopesError(err, folder.clone(), filters.clone()).into(),
                 )
                 .await?;
+
+            apply_pagination(&mut uids, opts.page, opts.page_size)?;
 
             let range = uids.iter().fold(String::new(), |mut range, uid| {
                 if !range.is_empty() {
@@ -130,7 +132,9 @@ impl ListEnvelopes for ListImapEnvelopes {
                 )
                 .await?;
 
-            Envelopes::from_imap_fetches(fetches)
+            let mut envelopes = Envelopes::from_imap_fetches(fetches);
+            envelopes.sort_by(|a, b| b.date.cmp(&a.date));
+            envelopes
         };
 
         debug!("found {} imap envelopes", envelopes.len());
@@ -244,20 +248,40 @@ impl SearchEmailsQuerySorter {
     }
 }
 
+fn apply_pagination(
+    uids: &mut Vec<u32>,
+    page: usize,
+    page_size: usize,
+) -> result::Result<(), Error> {
+    let total = uids.len();
+    let page_cursor = page * page_size;
+    if page_cursor >= total {
+        Err(Error::BuildPageRangeOutOfBoundsError(page + 1))?
+    }
+
+    if page_size == 0 {
+        return Ok(());
+    }
+
+    let page_size = page_size.min(total);
+    *uids = uids[0..page_size].into();
+    Ok(())
+}
+
 /// Builds the IMAP sequence set for the give page, page size and
 /// total size.
-fn build_page_range(page: usize, page_size: usize, size: usize) -> result::Result<String, Error> {
+fn build_page_range(page: usize, page_size: usize, total: usize) -> result::Result<String, Error> {
     let page_cursor = page * page_size;
-    if page_cursor >= size {
+    if page_cursor >= total {
         Err(Error::BuildPageRangeOutOfBoundsError(page + 1))?
     }
 
     let range = if page_size == 0 {
         String::from("1:*")
     } else {
-        let page_size = page_size.min(size);
+        let page_size = page_size.min(total);
         let mut count = 1;
-        let mut cursor = size - (size.min(page_cursor));
+        let mut cursor = total - (total.min(page_cursor));
         let mut range = cursor.to_string();
         while cursor > 1 && count < page_size {
             count += 1;
