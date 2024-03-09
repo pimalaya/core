@@ -1,29 +1,42 @@
-//! # Search emails query sorters parser
+//! # Search emails sorters query parser
 //!
-//! This module contains parsers needed to parse a full search emails
-//! query, and exposes a [`query`] parser. Parsing is based on the
-//! great lib [`chumsky`].
+//! This module contains parsers needed to parse a search emails sort
+//! query string.
+//!
+//! Parsing is based on the great lib [`chumsky`].
 
-use chrono::{DateTime, Local, ParseError};
 use chumsky::prelude::*;
-use thiserror::Error;
 
 use crate::search_query::parser::ParserError;
 
 use super::{SearchEmailsQueryOrder, SearchEmailsQuerySorter, SearchEmailsQuerySorterKind};
 
-/// Error dedicated to search emails query parsing.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse date from list envelopes query")]
-    ParseNaiveDateTimeError(#[source] ParseError),
-    #[error("cannot parse date from list envelopes query: cannot apply local timezone to {0}")]
-    ParseLocalDateTimeError(String),
-    #[error("cannot parse date from list envelopes query: cannot choose between {0} and {1}")]
-    ParseLocalDateTimeAmbiguousError(DateTime<Local>, DateTime<Local>),
-}
-
-pub(crate) fn sorters<'a>(
+/// The emails search sort query string parser.
+///
+/// A sort query string should be composed of a kind (sort key)
+/// followed by an optional order, separated by spaces.
+///
+/// # Kinds
+///
+/// There is actually 4 kinds, as defined in
+/// [`SearchEmailsQuerySorterKind`]:
+///
+/// - `date <order?>`
+/// - `from <order?>`
+/// - `to <order?>`
+/// - `subject <order?>`
+///
+/// # Orders
+///
+/// There is actually 2 orders, as defined in
+/// [`SearchEmailsQueryOrder`]:
+///
+/// - `<kind> asc`
+/// - `<kind> desc`
+///
+/// The order can be omitted. If so, the ascending order is used by
+/// default.
+pub fn sorters<'a>(
 ) -> impl Parser<'a, &'a str, Vec<SearchEmailsQuerySorter>, ParserError<'a>> + Clone {
     choice((date(), from(), to(), subject()))
         .separated_by(

@@ -1,24 +1,25 @@
+//! # Search emails sort query
+//!
+//! This module exposes the [`SearchEmailsQuerySorter`] structure,
+//! which allows you to sort emails. A sort query can be parsed from a
+//! sort query string, see the [`parser`] module for more details.
+
 pub mod parser;
 
+/// The search emails sort query.
+///
+/// The sorter query is composed of a kind (date, from, to, subject)
+/// and an order (ascending, descending).
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub enum SearchEmailsQuerySorterKind {
-    Date,
-    From,
-    To,
-    Subject,
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
-pub enum SearchEmailsQueryOrder {
-    #[default]
-    Ascending,
-    Descending,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub struct SearchEmailsQuerySorter(pub SearchEmailsQuerySorterKind, pub SearchEmailsQueryOrder);
+pub struct SearchEmailsQuerySorter(
+    /// The search emails sorter kind.
+    pub SearchEmailsQuerySorterKind,
+    /// The search emails sorter order.
+    pub SearchEmailsQueryOrder,
+);
 
 impl SearchEmailsQuerySorter {
+    /// Create a new search emails sorter from a kind and an order.
     pub fn new(kind: SearchEmailsQuerySorterKind, order: SearchEmailsQueryOrder) -> Self {
         Self(kind, order)
     }
@@ -44,13 +45,33 @@ impl From<SearchEmailsQuerySorterKind> for SearchEmailsQuerySorter {
     }
 }
 
-// impl SearchEmailsQuerySorter {
-//     pub fn reverse(self) -> Self {
-//         match self {
-//             Self::Date(desc) => Self::Date(!desc),
-//             Self::From(desc) => Self::From(!desc),
-//             Self::To(desc) => Self::To(!desc),
-//             Self::Subject(desc) => Self::Subject(!desc),
-//         }
-//     }
-// }
+/// The search emails sort kind.
+///
+/// Represents the property the sorter should sort emails from.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum SearchEmailsQuerySorterKind {
+    /// Sort emails by message header `Date`.
+    Date,
+
+    /// Sort emails by envelope sender.
+    From,
+
+    /// Sort emails by envelope recipient.
+    To,
+
+    /// Sort emails by message header `Subject`.
+    Subject,
+}
+
+/// The search emails sort order.
+///
+/// Defines in which order emails should be sorted.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+pub enum SearchEmailsQueryOrder {
+    /// Sort emails by ascending order.
+    #[default]
+    Ascending,
+
+    /// Sort emails by descending order.
+    Descending,
+}

@@ -1,8 +1,9 @@
-//! # Search emails query filters parser
+//! # Search emails filters query parser
 //!
-//! This module contains parsers needed to parse a full search emails
-//! query, and exposes a [`query`] parser. Parsing is based on the
-//! great lib [`chumsky`].
+//! This module contains parsers needed to parse a search emails
+//! filter query string.
+//!
+//! Parsing is based on the great lib [`chumsky`].
 
 use chrono::NaiveDate;
 use chumsky::prelude::*;
@@ -11,8 +12,43 @@ use crate::search_query::parser::ParserError;
 
 use super::SearchEmailsQueryFilter;
 
-pub(crate) fn filters<'a>(
-) -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+/// The emails search filter query string parser.
+///
+/// A filter query string should be composed of operators and
+/// conditions separated by spaces. Operators and conditions can be
+/// wrapped into parentheses `(…)`, which change the precedence.
+///
+/// # Operators
+///
+/// There is actually 3 operators, as defined in
+/// [`SearchEmailsQueryFilter`] (ordered by precedence):
+///
+/// - `not <condition>`
+/// - `<condition> and <condition>`
+/// - `<condition> or <condition>`
+///
+/// `not` has the highest priority, then `and` and finally `or`. `a
+/// and b or c` is the same as `(a and b) or c`, but is different from
+/// `a and (b or c)`.
+///
+/// # Conditions
+///
+/// There is actually 8 conditions, as defined in
+/// [`SearchEmailsQueryFilter`]:
+///
+/// - `date <yyyy-mm-dd>`
+/// - `before <yyyy-mm-dd>`
+/// - `after <yyyy-mm-dd>`
+/// - `from <pattern>`
+/// - `to <pattern>`
+/// - `subject <pattern>`
+/// - `body <pattern>`
+/// - `flag <flag>`
+///
+/// `<pattern>` can be quoted using `"` (`subject "foo bar"`) or
+/// unquoted (spaces need to be escaped using back slash: `subject
+/// foo\ bar`).
+pub fn filters<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
     recursive(|filter| {
         let filter = choice((
             date(),
