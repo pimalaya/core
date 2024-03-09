@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added module `email::search_query` containing the `SearchEmailsQuery` struct and parsers.
+- Added workspace `email-testing-server` containing code to spawn an email testing server (IMAP, JMAP and SMTP), based on [mail-server](https://github.com/stalwartlabs/mail-server/blob/main/crates/main/src/main.rs).
+- Added new trait `HasAccountConfig` used by backend features.
+- Added module `email::search_query` containing the `SearchEmailsQuery` struct and parsers. See the API documentation for more details on the search query.
+- Added setters to customize `SyncBuilder` pool size: `set_pool_size`, `set_some_pool_size`, `with_pool_size`, `with_some_pool_size`.
+- Added setters to customize `ThreadPoolBuilder` pool size: `set_size`, `set_some_size`, `with_size`, `with_some_size`.
 
 ### Changed
 
@@ -18,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed watch IMAP envelopes when folder was empty [#179].
+
+### Removed
+
+- Removed need for `docker` to run integration tests [#36].
 
 ## [0.22.3] - 2024-02-25
 
@@ -819,6 +827,7 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#6]: https://todo.sr.ht/~soywod/pimalaya/6
 [#9]: https://todo.sr.ht/~soywod/pimalaya/9
 [#20]: https://todo.sr.ht/~soywod/pimalaya/20
+[#36]: https://todo.sr.ht/~soywod/pimalaya/36
 [#37]: https://todo.sr.ht/~soywod/pimalaya/37
 [#38]: https://todo.sr.ht/~soywod/pimalaya/38
 [#44]: https://todo.sr.ht/~soywod/pimalaya/44

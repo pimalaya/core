@@ -23,7 +23,7 @@ use std::{iter::FromIterator, sync::Arc};
 use tempfile::tempdir;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_backends_features() {
+async fn test_emails_search_query() {
     env_logger::builder().is_test(true).init();
 
     let (ports, shutdown) = start_email_testing_server().await;
