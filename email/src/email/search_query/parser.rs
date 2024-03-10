@@ -1,9 +1,8 @@
 //! # Search emails query string parser
 //!
 //! This module contains parsers needed to parse a full search emails
-//! query string. See [`filter::parser::filters`] for the filter query
-//! string API, and [`sorter::parser::sorters`] for the sort query
-//! string API.
+//! query from a string slice. See [`filter::parser::query`] and
+//! [`sort::parser::query`] for more details.
 //!
 //! Parsing is based on the great lib [`chumsky`].
 
@@ -11,12 +10,12 @@ use chumsky::{error::Rich, extra, Parser};
 use thiserror::Error;
 
 use super::{
-    filter::{self, SearchEmailsQueryFilter},
-    sorter::{self, SearchEmailsQuerySorter},
+    filter::{self, SearchEmailsFilterQuery},
+    sort::{self, SearchEmailsSorter},
     SearchEmailsQuery,
 };
 
-/// Error dedicated to search emails query parsing.
+/// Error dedicated to search emails query string parsing.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse search emails query `{1}`")]
@@ -26,87 +25,78 @@ pub enum Error {
 /// Alias for a rich [`chumsky`] error for better diagnosis.
 pub type ParserError<'a> = extra::Err<Rich<'a, char>>;
 
-/// Search emails full query parser.
+/// Parse the given string slice into a [`SearchEmailsQuery`].
 ///
-/// Parses the given string into a [`SearchEmailsQuery`]. Because of
-/// the recursive nature of [`SearchEmailsQueryFilter`], it is not
-/// possible to directly parse a full query from a string using
+/// Because of the recursive nature of [`SearchEmailsFilterQuery`], it
+/// is not possible to directly parse a full query from a string using
 /// [`chumsky`]. Instead the string is splitted in two, and filters
-/// and sorters are parsed separately using [`parse_filters`] and
-/// [`parse_sorters`].
+/// and sorters are parsed separately.
 ///
-/// A search emails query string can contain only a filter query, or
-/// only a sorter query, or both together. In this last case, the
-/// filter query needs to be defined first, then the sorter
-/// query. They should be separated by the keyword `"order by"`.
+/// A search emails query string can contain a filter query, a sorter
+/// query or both. In this last case, the filter query needs to be
+/// defined first, then the sorter query. They should be separated by
+/// the keyword `"order by"`.
 ///
-/// See [`filter::parser::filters`] for more details on the filter
-/// query string API, and [`sorter::parser::sorters`] for more details
-/// on the sort query API.
+/// See [`filter::parser::query`] for more details on the filter query
+/// string API, and [`sort::parser::query`] for more details on the
+/// sort query API.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use email::search_query::parser::parse;
+/// use email::search_query::SearchEmailsQuery;
+/// use std::str::FromStr;
 ///
 /// pub fn main() {
 ///     // filter only
-///     let query = "subject s and body b";
-///     assert!(parse(query).is_ok());
+///     "subject foo and body bar".parse::<SearchEmailsQuery>().unwrap();
 ///
 ///     // sort only
-///     let query = "order by date desc";
-///     assert!(parse(query).is_ok());
+///     "order by date desc".parse::<SearchEmailsQuery>().unwrap();
 ///
 ///     // filter then sort
-///     let query = "subject s and body b order by date desc";
-///     assert!(parse(query).is_ok());
+///     "subject foo and body bar order by subject".parse::<SearchEmailsQuery>().unwrap();
 /// }
+/// ```
+///
+/// # ABNF
+///
+/// ```abnf,ignore
+/// query = filter-query / "order by" SP sort-query / filter-query SP "order by" SP sort-query
+///
+///
+#[doc = include_str!("./filter/grammar.abnf")]
+///
+///
+#[doc = include_str!("./sort/grammar.abnf")]
 /// ```
 pub fn parse<'a>(input: impl AsRef<str> + 'a) -> Result<SearchEmailsQuery, Error> {
     let input = input.as_ref().trim();
 
     if let Some((filters_input, sorters_input)) = input.rsplit_once("order by") {
         if filters_input.trim().is_empty() {
-            let filters = None;
-            let sorters = parse_sorters(sorters_input).map(Some)?;
-            Ok(SearchEmailsQuery { filters, sorters })
+            let filter = None;
+            let sort = parse_sort(sorters_input).map(Some)?;
+            Ok(SearchEmailsQuery { filter, sort })
         } else {
-            let filters = parse_filters(filters_input).map(Some)?;
-            let sorters = parse_sorters(sorters_input).map(Some)?;
-            Ok(SearchEmailsQuery { filters, sorters })
+            let filter = parse_filter(filters_input).map(Some)?;
+            let sort = parse_sort(sorters_input).map(Some)?;
+            Ok(SearchEmailsQuery { filter, sort })
         }
     } else {
-        let filters = parse_filters(input).map(Some)?;
-        let sorters = None;
-        Ok(SearchEmailsQuery { filters, sorters })
+        let filter = parse_filter(input).map(Some)?;
+        let sort = None;
+        Ok(SearchEmailsQuery { filter, sort })
     }
 }
 
-/// Search emails filters query parser.
+/// Parse the given string into a [`SearchEmailsFilterQuery`].
 ///
-/// Parses the given string into a recursive
-/// [`SearchEmailsQueryFilter`].
-///
-/// If you want to parse a full search query, see [`parse`].
-///
-/// See [`filter::parser::filters`] for more details on the filter
-/// query string API.
-///
-/// # Examples
-///
-/// ```rust
-/// use email::search_query::parser::parse_filters;
-///
-/// pub fn main() {
-///     let query = "subject s and body b";
-///     assert!(parse_filters(query).is_ok());
-/// }
-/// ```
-pub fn parse_filters<'a>(input: impl AsRef<str> + 'a) -> Result<SearchEmailsQueryFilter, Error> {
+/// See [`filter::parser::query`] for more details.
+pub fn parse_filter<'a>(input: impl AsRef<str> + 'a) -> Result<SearchEmailsFilterQuery, Error> {
     let input = input.as_ref().trim();
 
-    filter::parser::filters()
+    filter::parser::query()
         .parse(input)
         .into_result()
         .map_err(|errs| {
@@ -118,32 +108,13 @@ pub fn parse_filters<'a>(input: impl AsRef<str> + 'a) -> Result<SearchEmailsQuer
         })
 }
 
-/// Search emails sorters query parser.
+/// Parse the given string into a list of [`SearchEmailsSorter`].
 ///
-/// Parses the given string into a list of
-/// [`SearchEmailsQuerySorter`].
-///
-/// If you want to parse a full search query, see [`parse`].
-///
-/// See [`sorter::parser::sorters`] for more details on the sort query
-/// string API.
-///
-/// # Examples
-///
-/// ```rust
-/// use email::search_query::parser::parse_sorters;
-///
-/// pub fn main() {
-///     let query = "date desc subject from";
-///     assert!(parse_sorters(query).is_ok());
-/// }
-/// ```
-pub fn parse_sorters<'a>(
-    input: impl AsRef<str> + 'a,
-) -> Result<Vec<SearchEmailsQuerySorter>, Error> {
+/// See [`sort::parser::query`] for more details.
+pub fn parse_sort<'a>(input: impl AsRef<str> + 'a) -> Result<Vec<SearchEmailsSorter>, Error> {
     let input = input.as_ref().trim();
 
-    sorter::parser::sorters()
+    sort::parser::query()
         .parse(input)
         .into_result()
         .map_err(|errs| {
@@ -153,60 +124,4 @@ pub fn parse_sorters<'a>(
                 .collect();
             Error::ParseError(errs, input.to_owned())
         })
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::search_query::{
-        filter::SearchEmailsQueryFilter,
-        sorter::{SearchEmailsQueryOrder::*, SearchEmailsQuerySorterKind::*},
-        SearchEmailsQuery,
-    };
-
-    #[test]
-    fn filters_only() {
-        assert_eq!(
-            super::parse("from f and to t").unwrap(),
-            SearchEmailsQuery {
-                filters: Some(SearchEmailsQueryFilter::And(
-                    Box::new(SearchEmailsQueryFilter::From("f".into())),
-                    Box::new(SearchEmailsQueryFilter::To("t".into()))
-                )),
-                sorters: None,
-            },
-        );
-    }
-
-    #[test]
-    fn sorters_only() {
-        assert_eq!(
-            super::parse("order by from").unwrap(),
-            SearchEmailsQuery {
-                filters: None,
-                sorters: Some(vec![From.into()])
-            },
-        );
-
-        assert_eq!(
-            super::parse("order by from asc subject desc").unwrap(),
-            SearchEmailsQuery {
-                filters: None,
-                sorters: Some(vec![From.into(), (Subject, Descending).into()])
-            },
-        );
-    }
-
-    #[test]
-    fn full() {
-        assert_eq!(
-            super::parse("from f and to t order by from to desc").unwrap(),
-            SearchEmailsQuery {
-                filters: Some(SearchEmailsQueryFilter::And(
-                    Box::new(SearchEmailsQueryFilter::From("f".into())),
-                    Box::new(SearchEmailsQueryFilter::To("t".into()))
-                )),
-                sorters: Some(vec![From.into(), (To, Descending).into()])
-            },
-        );
-    }
 }

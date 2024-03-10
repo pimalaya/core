@@ -1,9 +1,10 @@
 //! # Search emails filter query
 //!
-//! This module exposes the recursive [`SearchEmailsQueryFilter`]
-//! structure, which allows you to filter emails. A filter query can
-//! be parsed from a filter query string, see the [`parser`] module
-//! for more details.
+//! This module exposes [`SearchEmailsFilterQuery`], a structure that
+//! helps you to filter emails.
+//!
+//! The search emails filter query can be parsed from a string, see
+//! the [`parser::query`] module for more details.
 
 pub mod parser;
 
@@ -11,21 +12,21 @@ use chrono::NaiveDate;
 
 use crate::flag::Flag;
 
-/// The search emails query filter.
+/// The search emails filter query.
 ///
 /// The filter query is composed of 3 operators (and, or, not) and 9
 /// conditions (date, before date, after date, from, to, subject, body
 /// and flag).
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub enum SearchEmailsQueryFilter {
+pub enum SearchEmailsFilterQuery {
     /// Filter emails that match the 2 given conditions.
-    And(Box<SearchEmailsQueryFilter>, Box<SearchEmailsQueryFilter>),
+    And(Box<SearchEmailsFilterQuery>, Box<SearchEmailsFilterQuery>),
 
     /// Filter emails that match one of the 2 given conditions.
-    Or(Box<SearchEmailsQueryFilter>, Box<SearchEmailsQueryFilter>),
+    Or(Box<SearchEmailsFilterQuery>, Box<SearchEmailsFilterQuery>),
 
     /// Filter emails that does not match the given condition.
-    Not(Box<SearchEmailsQueryFilter>),
+    Not(Box<SearchEmailsFilterQuery>),
 
     /// Filter emails where the `Date` header of the message matches
     /// the given date.

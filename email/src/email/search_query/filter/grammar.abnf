@@ -1,0 +1,51 @@
+filter-query = filter *(SP filter)
+
+
+filter =  "(" filter ")"
+               ; nested filter
+
+filter =/ and / or / not
+               ; filter operators
+
+filter =/ date / before-date / after-date / from / to / subject / body / flag
+               ; filter conditions
+
+
+and = filter SP "and" SP filter
+
+or  = filter SP "or" SP filter
+
+not = "not" SP filter
+
+
+date        = "date" SP date-pattern
+
+before-date = "before" SP date-pattern
+
+after-date  = "before" SP date-pattern
+
+from        = "from" SP text-pattern
+
+to          = "to" SP text-pattern
+
+subject     = "subject" SP text-pattern
+
+body        = "body" SP text-pattern
+
+flag        = "flag" SP text-pattern
+
+
+date-pattern =  4DIGIT "-" 2DIGIT "-" 2DIGIT
+                     ; date matching "YYYY-MM-dd" format
+
+date-pattern =/ 4DIGIT "/" 2DIGIT "/" 2DIGIT
+                     ; date matching "YYYY/MM/dd" format
+
+date-pattern =/ 2DIGIT "-" 2DIGIT "-" 4DIGIT
+                     ; date matching "dd-MM-YYYY" format
+
+date-pattern =/ 2DIGIT "/" 2DIGIT "/" 4DIGIT
+                     ; date matching "dd/MM/YYYY" format
+
+
+text-pattern = DQUOTE *VCHAR DQUOTE

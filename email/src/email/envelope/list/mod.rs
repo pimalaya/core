@@ -11,9 +11,7 @@ use std::cmp::Ordering;
 
 use crate::{
     email::search_query::SearchEmailsQuery,
-    search_query::sorter::{
-        SearchEmailsQueryOrder, SearchEmailsQuerySorter, SearchEmailsQuerySorterKind,
-    },
+    search_query::sort::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder},
     Result,
 };
 
@@ -33,20 +31,20 @@ pub struct ListEnvelopesOptions {
     pub query: Option<SearchEmailsQuery>,
 }
 
-impl SearchEmailsQuerySorter {
+impl SearchEmailsSorter {
     pub fn cmp_envelopes(&self, a: &Envelope, b: &Envelope) -> Ordering {
-        use SearchEmailsQueryOrder::*;
-        use SearchEmailsQuerySorterKind::*;
+        use SearchEmailsSorterKind::*;
+        use SearchEmailsSorterOrder::*;
 
         match self {
-            SearchEmailsQuerySorter(Date, Ascending) => a.date.cmp(&b.date),
-            SearchEmailsQuerySorter(Date, Descending) => b.date.cmp(&a.date),
-            SearchEmailsQuerySorter(From, Ascending) => a.from.cmp(&b.from),
-            SearchEmailsQuerySorter(From, Descending) => b.from.cmp(&a.from),
-            SearchEmailsQuerySorter(To, Ascending) => a.to.cmp(&b.to),
-            SearchEmailsQuerySorter(To, Descending) => b.to.cmp(&a.to),
-            SearchEmailsQuerySorter(Subject, Ascending) => a.subject.cmp(&b.subject),
-            SearchEmailsQuerySorter(Subject, Descending) => b.subject.cmp(&a.subject),
+            SearchEmailsSorter(Date, Ascending) => a.date.cmp(&b.date),
+            SearchEmailsSorter(Date, Descending) => b.date.cmp(&a.date),
+            SearchEmailsSorter(From, Ascending) => a.from.cmp(&b.from),
+            SearchEmailsSorter(From, Descending) => b.from.cmp(&a.from),
+            SearchEmailsSorter(To, Ascending) => a.to.cmp(&b.to),
+            SearchEmailsSorter(To, Descending) => b.to.cmp(&a.to),
+            SearchEmailsSorter(Subject, Ascending) => a.subject.cmp(&b.subject),
+            SearchEmailsSorter(Subject, Descending) => b.subject.cmp(&a.subject),
         }
     }
 }
@@ -54,7 +52,7 @@ impl SearchEmailsQuerySorter {
 impl ListEnvelopesOptions {
     pub fn sort_envelopes(&self, envelopes: &mut Envelopes) {
         envelopes.sort_by(|a, b| {
-            if let Some(sorters) = self.query.as_ref().and_then(|q| q.sorters.as_ref()) {
+            if let Some(sorters) = self.query.as_ref().and_then(|q| q.sort.as_ref()) {
                 for sorter in sorters {
                     let cmp = sorter.cmp_envelopes(a, b);
                     if cmp.is_ne() {

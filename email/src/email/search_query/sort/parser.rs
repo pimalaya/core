@@ -1,7 +1,7 @@
-//! # Search emails sorters query parser
+//! # Search emails sort query string parser
 //!
 //! This module contains parsers needed to parse a search emails sort
-//! query string.
+//! query from a string slice.
 //!
 //! Parsing is based on the great lib [`chumsky`].
 
@@ -9,7 +9,7 @@ use chumsky::prelude::*;
 
 use crate::search_query::parser::ParserError;
 
-use super::{SearchEmailsQueryOrder, SearchEmailsQuerySorter, SearchEmailsQuerySorterKind};
+use super::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder};
 
 /// The emails search sort query string parser.
 ///
@@ -19,25 +19,30 @@ use super::{SearchEmailsQueryOrder, SearchEmailsQuerySorter, SearchEmailsQuerySo
 /// # Kinds
 ///
 /// There is actually 4 kinds, as defined in
-/// [`SearchEmailsQuerySorterKind`]:
+/// [`SearchEmailsSorterKind`]:
 ///
-/// - `date <order?>`
-/// - `from <order?>`
-/// - `to <order?>`
-/// - `subject <order?>`
+/// - `date [order]`
+/// - `from [order]`
+/// - `to [order]`
+/// - `subject [order]`
+///
+/// The order can be omitted. If so, the ascending order is used by
+/// default.
 ///
 /// # Orders
 ///
 /// There is actually 2 orders, as defined in
-/// [`SearchEmailsQueryOrder`]:
+/// [`SearchEmailsSorterOrder`]:
 ///
 /// - `<kind> asc`
 /// - `<kind> desc`
 ///
-/// The order can be omitted. If so, the ascending order is used by
-/// default.
-pub fn sorters<'a>(
-) -> impl Parser<'a, &'a str, Vec<SearchEmailsQuerySorter>, ParserError<'a>> + Clone {
+/// # ABNF
+///
+/// ```abnf,ignore
+#[doc = include_str!("./grammar.abnf")]
+/// ```
+pub fn query<'a>() -> impl Parser<'a, &'a str, Vec<SearchEmailsSorter>, ParserError<'a>> + Clone {
     choice((date(), from(), to(), subject()))
         .separated_by(
             just(' ')
@@ -48,7 +53,7 @@ pub fn sorters<'a>(
         .collect()
 }
 
-fn date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorter, ParserError<'a>> + Clone {
+fn date<'a>() -> impl Parser<'a, &'a str, SearchEmailsSorter, ParserError<'a>> + Clone {
     choice((
         date_kind()
             .then(
@@ -58,23 +63,22 @@ fn date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorter, ParserError<'
                     .at_least(1)
                     .ignore_then(choice((ascending(), descending()))),
             )
-            .map(SearchEmailsQuerySorter::from),
-        date_kind().map(SearchEmailsQuerySorter::from),
+            .map(SearchEmailsSorter::from),
+        date_kind().map(SearchEmailsSorter::from),
     ))
 }
 
-fn date_kind<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorterKind, ParserError<'a>> + Clone
-{
+fn date_kind<'a>() -> impl Parser<'a, &'a str, SearchEmailsSorterKind, ParserError<'a>> + Clone {
     just('d')
         .labelled("`date`")
         .ignored()
         .then_ignore(just('a').labelled("`date`"))
         .then_ignore(just('t').labelled("`date`"))
         .then_ignore(just('e').labelled("`date`"))
-        .to(SearchEmailsQuerySorterKind::Date)
+        .to(SearchEmailsSorterKind::Date)
 }
 
-fn from<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorter, ParserError<'a>> + Clone {
+fn from<'a>() -> impl Parser<'a, &'a str, SearchEmailsSorter, ParserError<'a>> + Clone {
     choice((
         from_kind()
             .then(
@@ -84,23 +88,22 @@ fn from<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorter, ParserError<'
                     .at_least(1)
                     .ignore_then(choice((ascending(), descending()))),
             )
-            .map(SearchEmailsQuerySorter::from),
-        from_kind().map(SearchEmailsQuerySorter::from),
+            .map(SearchEmailsSorter::from),
+        from_kind().map(SearchEmailsSorter::from),
     ))
 }
 
-fn from_kind<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorterKind, ParserError<'a>> + Clone
-{
+fn from_kind<'a>() -> impl Parser<'a, &'a str, SearchEmailsSorterKind, ParserError<'a>> + Clone {
     just('f')
         .labelled("`from`")
         .ignored()
         .then_ignore(just('r').labelled("`from`"))
         .then_ignore(just('o').labelled("`from`"))
         .then_ignore(just('m').labelled("`from`"))
-        .to(SearchEmailsQuerySorterKind::From)
+        .to(SearchEmailsSorterKind::From)
 }
 
-fn to<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorter, ParserError<'a>> + Clone {
+fn to<'a>() -> impl Parser<'a, &'a str, SearchEmailsSorter, ParserError<'a>> + Clone {
     choice((
         to_kind()
             .then(
@@ -110,20 +113,20 @@ fn to<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorter, ParserError<'a>
                     .at_least(1)
                     .ignore_then(choice((ascending(), descending()))),
             )
-            .map(SearchEmailsQuerySorter::from),
-        to_kind().map(SearchEmailsQuerySorter::from),
+            .map(SearchEmailsSorter::from),
+        to_kind().map(SearchEmailsSorter::from),
     ))
 }
 
-fn to_kind<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorterKind, ParserError<'a>> + Clone {
+fn to_kind<'a>() -> impl Parser<'a, &'a str, SearchEmailsSorterKind, ParserError<'a>> + Clone {
     just('t')
         .labelled("`to`")
         .ignored()
         .then_ignore(just('o').labelled("`to`"))
-        .to(SearchEmailsQuerySorterKind::To)
+        .to(SearchEmailsSorterKind::To)
 }
 
-fn subject<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorter, ParserError<'a>> + Clone {
+fn subject<'a>() -> impl Parser<'a, &'a str, SearchEmailsSorter, ParserError<'a>> + Clone {
     choice((
         subject_kind()
             .then(
@@ -133,13 +136,12 @@ fn subject<'a>() -> impl Parser<'a, &'a str, SearchEmailsQuerySorter, ParserErro
                     .at_least(1)
                     .ignore_then(choice((ascending(), descending()))),
             )
-            .map(SearchEmailsQuerySorter::from),
-        subject_kind().map(SearchEmailsQuerySorter::from),
+            .map(SearchEmailsSorter::from),
+        subject_kind().map(SearchEmailsSorter::from),
     ))
 }
 
-fn subject_kind<'a>(
-) -> impl Parser<'a, &'a str, SearchEmailsQuerySorterKind, ParserError<'a>> + Clone {
+fn subject_kind<'a>() -> impl Parser<'a, &'a str, SearchEmailsSorterKind, ParserError<'a>> + Clone {
     just('s')
         .labelled("`subject`")
         .ignored()
@@ -149,47 +151,45 @@ fn subject_kind<'a>(
         .then_ignore(just('e').labelled("`subject`"))
         .then_ignore(just('c').labelled("`subject`"))
         .then_ignore(just('t').labelled("`subject`"))
-        .to(SearchEmailsQuerySorterKind::Subject)
+        .to(SearchEmailsSorterKind::Subject)
 }
 
-fn ascending<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryOrder, ParserError<'a>> + Clone {
+fn ascending<'a>() -> impl Parser<'a, &'a str, SearchEmailsSorterOrder, ParserError<'a>> + Clone {
     just('a')
         .labelled("`asc`")
         .ignore_then(just('s').labelled("`asc`"))
         .ignore_then(just('c').labelled("`asc`"))
-        .to(SearchEmailsQueryOrder::Ascending)
+        .to(SearchEmailsSorterOrder::Ascending)
 }
 
-fn descending<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryOrder, ParserError<'a>> + Clone {
+fn descending<'a>() -> impl Parser<'a, &'a str, SearchEmailsSorterOrder, ParserError<'a>> + Clone {
     just('d')
         .labelled("`desc`")
         .ignore_then(just('e').labelled("`desc`"))
         .ignore_then(just('s').labelled("`desc`"))
         .ignore_then(just('c').labelled("`desc`"))
-        .to(SearchEmailsQueryOrder::Descending)
+        .to(SearchEmailsSorterOrder::Descending)
 }
 
 #[cfg(test)]
 mod tests {
     use chumsky::prelude::*;
 
-    use super::{
-        SearchEmailsQueryOrder::*, SearchEmailsQuerySorter, SearchEmailsQuerySorterKind::*,
-    };
+    use super::{SearchEmailsSorter, SearchEmailsSorterKind::*, SearchEmailsSorterOrder::*};
 
     #[test]
     fn empty_sorter() {
-        assert_eq!(super::sorters().parse("").into_result(), Ok(vec![]));
+        assert_eq!(super::query().parse("").into_result(), Ok(vec![]));
     }
 
     #[test]
     fn simple_sorters() {
         assert_eq!(
-            super::sorters().parse("date from to").into_result(),
+            super::query().parse("date from to").into_result(),
             Ok(vec![
-                SearchEmailsQuerySorter(Date, Ascending),
-                SearchEmailsQuerySorter(From, Ascending),
-                SearchEmailsQuerySorter(To, Ascending)
+                SearchEmailsSorter(Date, Ascending),
+                SearchEmailsSorter(From, Ascending),
+                SearchEmailsSorter(To, Ascending)
             ])
         );
     }
@@ -197,13 +197,13 @@ mod tests {
     #[test]
     fn mixed_sorters() {
         assert_eq!(
-            super::sorters()
+            super::query()
                 .parse("date asc from subject desc")
                 .into_result(),
             Ok(vec![
-                SearchEmailsQuerySorter(Date, Ascending),
-                SearchEmailsQuerySorter(From, Ascending),
-                SearchEmailsQuerySorter(Subject, Descending)
+                SearchEmailsSorter(Date, Ascending),
+                SearchEmailsSorter(From, Ascending),
+                SearchEmailsSorter(Subject, Descending)
             ])
         );
     }

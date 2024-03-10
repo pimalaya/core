@@ -1,7 +1,7 @@
-//! # Search emails filters query parser
+//! # Search emails filters query string parser
 //!
 //! This module contains parsers needed to parse a search emails
-//! filter query string.
+//! filter query from a string.
 //!
 //! Parsing is based on the great lib [`chumsky`].
 
@@ -10,7 +10,7 @@ use chumsky::prelude::*;
 
 use crate::search_query::parser::ParserError;
 
-use super::SearchEmailsQueryFilter;
+use super::SearchEmailsFilterQuery;
 
 /// The emails search filter query string parser.
 ///
@@ -21,7 +21,7 @@ use super::SearchEmailsQueryFilter;
 /// # Operators
 ///
 /// There is actually 3 operators, as defined in
-/// [`SearchEmailsQueryFilter`] (ordered by precedence):
+/// [`SearchEmailsFilterQuery`] (ordered by precedence):
 ///
 /// - `not <condition>`
 /// - `<condition> and <condition>`
@@ -34,7 +34,7 @@ use super::SearchEmailsQueryFilter;
 /// # Conditions
 ///
 /// There is actually 8 conditions, as defined in
-/// [`SearchEmailsQueryFilter`]:
+/// [`SearchEmailsFilterQuery`]:
 ///
 /// - `date <yyyy-mm-dd>`
 /// - `before <yyyy-mm-dd>`
@@ -48,7 +48,13 @@ use super::SearchEmailsQueryFilter;
 /// `<pattern>` can be quoted using `"` (`subject "foo bar"`) or
 /// unquoted (spaces need to be escaped using back slash: `subject
 /// foo\ bar`).
-pub fn filters<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+///
+/// # ABNF
+///
+/// ```abnf,ignore
+#[doc = include_str!("./grammar.abnf")]
+/// ```
+pub fn query<'a>() -> impl Parser<'a, &'a str, SearchEmailsFilterQuery, ParserError<'a>> + Clone {
     recursive(|filter| {
         let filter = choice((
             date(),
@@ -66,19 +72,19 @@ pub fn filters<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, Parser
         .then_ignore(space().labelled("space between filters").repeated());
 
         let not = not().repeated().foldr(filter, |_, filter| {
-            SearchEmailsQueryFilter::Not(Box::new(filter))
+            SearchEmailsFilterQuery::Not(Box::new(filter))
         });
 
         let and = not
             .clone()
             .foldl(and().then(not).repeated(), |left, (_, right)| {
-                SearchEmailsQueryFilter::And(Box::new(left), Box::new(right))
+                SearchEmailsFilterQuery::And(Box::new(left), Box::new(right))
             });
 
         let or = and
             .clone()
             .foldl(or().then(and).repeated(), |left, (_, right)| {
-                SearchEmailsQueryFilter::Or(Box::new(left), Box::new(right))
+                SearchEmailsFilterQuery::Or(Box::new(left), Box::new(right))
             });
 
         or
@@ -108,7 +114,7 @@ fn or<'a>() -> impl Parser<'a, &'a str, (), ParserError<'a>> + Clone {
         .ignore_then(space().labelled("space after `or`").repeated().at_least(1))
 }
 
-fn date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+fn date<'a>() -> impl Parser<'a, &'a str, SearchEmailsFilterQuery, ParserError<'a>> + Clone {
     just('d')
         .labelled("`date`")
         .ignore_then(just('a').labelled("`date`"))
@@ -121,10 +127,10 @@ fn date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'
                 .at_least(1),
         )
         .ignore_then(naive_date().labelled("date format after `date`"))
-        .map(SearchEmailsQueryFilter::Date)
+        .map(SearchEmailsFilterQuery::Date)
 }
 
-fn before_date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+fn before_date<'a>() -> impl Parser<'a, &'a str, SearchEmailsFilterQuery, ParserError<'a>> + Clone {
     just('b')
         .labelled("`before`")
         .ignore_then(just('e').labelled("`before`"))
@@ -139,10 +145,10 @@ fn before_date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, Parser
                 .at_least(1),
         )
         .ignore_then(naive_date().labelled("pattern after `before`"))
-        .map(SearchEmailsQueryFilter::BeforeDate)
+        .map(SearchEmailsFilterQuery::BeforeDate)
 }
 
-fn after_date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+fn after_date<'a>() -> impl Parser<'a, &'a str, SearchEmailsFilterQuery, ParserError<'a>> + Clone {
     just('a')
         .labelled("`after`")
         .ignore_then(just('f').labelled("`after`"))
@@ -156,10 +162,10 @@ fn after_date<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserE
                 .at_least(1),
         )
         .ignore_then(naive_date().labelled("pattern after `after`"))
-        .map(SearchEmailsQueryFilter::AfterDate)
+        .map(SearchEmailsFilterQuery::AfterDate)
 }
 
-fn from<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+fn from<'a>() -> impl Parser<'a, &'a str, SearchEmailsFilterQuery, ParserError<'a>> + Clone {
     just('f')
         .labelled("`from`")
         .ignore_then(just('r').labelled("`from`"))
@@ -172,19 +178,19 @@ fn from<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'
                 .at_least(1),
         )
         .ignore_then(pattern().labelled("pattern after `from`"))
-        .map(SearchEmailsQueryFilter::From)
+        .map(SearchEmailsFilterQuery::From)
 }
 
-fn to<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+fn to<'a>() -> impl Parser<'a, &'a str, SearchEmailsFilterQuery, ParserError<'a>> + Clone {
     just('t')
         .labelled("`to`")
         .ignore_then(just('o').labelled("`to`"))
         .ignore_then(space().labelled("space after `to`").repeated().at_least(1))
         .ignore_then(pattern().labelled("pattern after `to`"))
-        .map(SearchEmailsQueryFilter::To)
+        .map(SearchEmailsFilterQuery::To)
 }
 
-fn subject<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+fn subject<'a>() -> impl Parser<'a, &'a str, SearchEmailsFilterQuery, ParserError<'a>> + Clone {
     just('s')
         .labelled("`subject`")
         .ignore_then(just('u').labelled("`subject`"))
@@ -200,10 +206,10 @@ fn subject<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserErro
                 .at_least(1),
         )
         .ignore_then(pattern().labelled("pattern after `subject`"))
-        .map(SearchEmailsQueryFilter::Subject)
+        .map(SearchEmailsFilterQuery::Subject)
 }
 
-fn body<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+fn body<'a>() -> impl Parser<'a, &'a str, SearchEmailsFilterQuery, ParserError<'a>> + Clone {
     just('b')
         .labelled("`body`")
         .ignore_then(just('o').labelled("`body`"))
@@ -216,10 +222,10 @@ fn body<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'
                 .at_least(1),
         )
         .ignore_then(pattern().labelled("pattern after `body`"))
-        .map(SearchEmailsQueryFilter::Body)
+        .map(SearchEmailsFilterQuery::Body)
 }
 
-fn flag<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'a>> + Clone {
+fn flag<'a>() -> impl Parser<'a, &'a str, SearchEmailsFilterQuery, ParserError<'a>> + Clone {
     just('f')
         .labelled("`flag`")
         .ignore_then(just('l').labelled("`flag`"))
@@ -236,7 +242,7 @@ fn flag<'a>() -> impl Parser<'a, &'a str, SearchEmailsQueryFilter, ParserError<'
                 .map(|s| s.as_str().into())
                 .labelled("flag after `flag`"),
         )
-        .map(SearchEmailsQueryFilter::Flag)
+        .map(SearchEmailsFilterQuery::Flag)
 }
 
 fn naive_date<'a>() -> impl Parser<'a, &'a str, NaiveDate, ParserError<'a>> + Clone {
@@ -313,7 +319,7 @@ mod tests {
     use chrono::NaiveDate;
     use chumsky::prelude::*;
 
-    use super::SearchEmailsQueryFilter::*;
+    use super::SearchEmailsFilterQuery::*;
 
     #[test]
     fn pattern() {
@@ -376,7 +382,7 @@ mod tests {
     #[test]
     fn filter() {
         assert_eq!(
-            super::filters()
+            super::query()
                 .parse("from f and to t and subject s")
                 .into_result(),
             Ok(And(
@@ -386,7 +392,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::filters()
+            super::query()
                 .parse("subject or or subject and")
                 .into_result(),
             Ok(Or(
@@ -396,7 +402,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::filters()
+            super::query()
                 .parse("from f and (to t and subject s)")
                 .into_result(),
             Ok(And(
@@ -406,7 +412,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::filters()
+            super::query()
                 .parse("from f and to t or subject s")
                 .into_result(),
             Ok(Or(
@@ -416,7 +422,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::filters()
+            super::query()
                 .parse("from f or to t and not subject s")
                 .into_result(),
             Ok(Or(
@@ -429,7 +435,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::filters()
+            super::query()
                 .parse("from f and (to t or subject \"s with parens )\")")
                 .into_result(),
             Ok(And(

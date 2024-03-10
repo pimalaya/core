@@ -1,0 +1,41 @@
+query        = filter-query / sort-query / filter-query SP sort-query
+
+filter-query = filter *(SP filter)
+
+filter = "(" filter ")"
+filter =/ filter-and / filter-or / filter-not
+filter =/ filter-date / filter-before-date / filter-after-date
+filter =/ filter-from / filter-to / filter-subject / filter-body
+filter =/ filter-flag
+
+filter-and = filter SP "and" SP filter
+filter-or = filter SP "or" SP filter
+filter-not = "not" SP filter
+
+filter-date = "date" SP date-pattern
+filter-before-date = "before" SP date-pattern
+filter-after-date = "before" SP date-pattern
+
+date-pattern = date-year "-" date-month "-" date-day
+date-pattern =/ date-year "/" date-month "/" date-day
+date-pattern =/ date-day "-" date-month "-" date-year
+date-pattern =/ date-day "/" date-month "/" date-year
+
+date-year = 4DIGIT
+date-month = 2DIGIT
+date-day = 2DIGIT
+
+filter-from = "from" SP text-pattern
+filter-to = "to" SP text-pattern
+filter-subject = "subject" SP text-pattern
+filter-body = "body" SP text-pattern
+
+filter-flag = "flag" SP text-pattern
+
+text-pattern = DQUOTE *VCHAR DQUOTE
+
+sort-query = "order by" SP sorter *(SP sorter)
+
+sorter = sorter-kind [SP sorter-order]
+sorter-kind = "date" / "from" / "to" / "subject"
+sorter-order = "asc" / "desc"

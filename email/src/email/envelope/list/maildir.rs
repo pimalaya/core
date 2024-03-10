@@ -7,7 +7,7 @@ use thiserror::Error;
 use crate::{
     envelope::Envelope,
     maildir::MaildirContextSync,
-    search_query::{filter::SearchEmailsQueryFilter, SearchEmailsQuery},
+    search_query::{filter::SearchEmailsFilterQuery, SearchEmailsQuery},
     Result,
 };
 
@@ -79,7 +79,7 @@ impl ListEnvelopes for ListMaildirEnvelopes {
 
 impl SearchEmailsQuery {
     pub fn matches_maildir_search_query(&self, envelope: &Envelope, msg_path: &Path) -> bool {
-        self.filters
+        self.filter
             .as_ref()
             .map(|f| f.matches_maildir_search_query(envelope, msg_path))
             .unwrap_or(true)
@@ -96,32 +96,32 @@ fn contains_ignore_ascii_case(haystack: &[u8], needle: &[u8]) -> bool {
     false
 }
 
-impl SearchEmailsQueryFilter {
+impl SearchEmailsFilterQuery {
     pub fn matches_maildir_search_query(&self, envelope: &Envelope, msg_path: &Path) -> bool {
         match self {
-            SearchEmailsQueryFilter::And(left, right) => {
+            SearchEmailsFilterQuery::And(left, right) => {
                 let left = left.matches_maildir_search_query(envelope, msg_path);
                 let right = right.matches_maildir_search_query(envelope, msg_path);
                 left && right
             }
-            SearchEmailsQueryFilter::Or(left, right) => {
+            SearchEmailsFilterQuery::Or(left, right) => {
                 let left = left.matches_maildir_search_query(envelope, msg_path);
                 let right = right.matches_maildir_search_query(envelope, msg_path);
                 left || right
             }
-            SearchEmailsQueryFilter::Not(filter) => {
+            SearchEmailsFilterQuery::Not(filter) => {
                 !filter.matches_maildir_search_query(envelope, msg_path)
             }
-            SearchEmailsQueryFilter::Date(date) => {
+            SearchEmailsFilterQuery::Date(date) => {
                 &envelope.date.with_timezone(USER_TZ).date_naive() == date
             }
-            SearchEmailsQueryFilter::BeforeDate(date) => {
+            SearchEmailsFilterQuery::BeforeDate(date) => {
                 &envelope.date.with_timezone(USER_TZ).date_naive() < date
             }
-            SearchEmailsQueryFilter::AfterDate(date) => {
+            SearchEmailsFilterQuery::AfterDate(date) => {
                 &envelope.date.with_timezone(USER_TZ).date_naive() > date
             }
-            SearchEmailsQueryFilter::From(pattern) => {
+            SearchEmailsFilterQuery::From(pattern) => {
                 let pattern = pattern.as_bytes();
                 if let Some(name) = &envelope.from.name {
                     if contains_ignore_ascii_case(name.as_bytes(), pattern) {
@@ -130,7 +130,7 @@ impl SearchEmailsQueryFilter {
                 }
                 contains_ignore_ascii_case(envelope.from.addr.as_bytes(), pattern)
             }
-            SearchEmailsQueryFilter::To(pattern) => {
+            SearchEmailsFilterQuery::To(pattern) => {
                 let pattern = pattern.as_bytes();
                 if let Some(name) = &envelope.to.name {
                     if contains_ignore_ascii_case(name.as_bytes(), pattern) {
@@ -139,10 +139,10 @@ impl SearchEmailsQueryFilter {
                 }
                 contains_ignore_ascii_case(envelope.to.addr.as_bytes(), pattern)
             }
-            SearchEmailsQueryFilter::Subject(pattern) => {
+            SearchEmailsFilterQuery::Subject(pattern) => {
                 contains_ignore_ascii_case(envelope.subject.as_bytes(), pattern.as_bytes())
             }
-            SearchEmailsQueryFilter::Body(pattern) => match fs::read(msg_path) {
+            SearchEmailsFilterQuery::Body(pattern) => match fs::read(msg_path) {
                 Ok(contents) => {
                     if let Some(msg) = MessageParser::new().parse(&contents) {
                         for plain in msg.text_bodies() {
@@ -164,7 +164,7 @@ impl SearchEmailsQueryFilter {
                     true
                 }
             },
-            SearchEmailsQueryFilter::Flag(flag) => envelope.flags.contains(flag),
+            SearchEmailsFilterQuery::Flag(flag) => envelope.flags.contains(flag),
         }
     }
 }

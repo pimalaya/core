@@ -1,0 +1,7 @@
+sort-query   = sorter *(SP sorter)
+
+sorter       = sorter-kind [SP sorter-order]
+
+sorter-kind  = "date" / "from" / "to" / "subject"
+
+sorter-order = "asc" / "desc"

@@ -10,8 +10,8 @@ use crate::{
     envelope::Envelope,
     imap::ImapContextSync,
     search_query::{
-        filter::SearchEmailsQueryFilter,
-        sorter::{SearchEmailsQueryOrder, SearchEmailsQuerySorter, SearchEmailsQuerySorterKind},
+        filter::SearchEmailsFilterQuery,
+        sort::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder},
         SearchEmailsQuery,
     },
     Result,
@@ -147,7 +147,7 @@ impl ListEnvelopes for ListImapEnvelopes {
 impl SearchEmailsQuery {
     pub fn to_imap_sort_query(&self) -> String {
         let query = self
-            .filters
+            .filter
             .as_ref()
             .map(|f| f.to_imap_sort_query())
             .unwrap_or_default();
@@ -162,7 +162,7 @@ impl SearchEmailsQuery {
 
     pub fn to_imap_sort_criteria(&self) -> Vec<SortCriterion> {
         let criteria: Vec<SortCriterion> = self
-            .sorters
+            .sort
             .as_ref()
             .map(|sorters| {
                 sorters
@@ -180,48 +180,48 @@ impl SearchEmailsQuery {
     }
 }
 
-impl SearchEmailsQueryFilter {
+impl SearchEmailsFilterQuery {
     pub fn to_imap_sort_query(&self) -> String {
         match self {
-            SearchEmailsQueryFilter::And(left, right) => {
+            SearchEmailsFilterQuery::And(left, right) => {
                 let left = left.to_imap_sort_query();
                 let right = right.to_imap_sort_query();
                 format!("{left} {right}")
             }
-            SearchEmailsQueryFilter::Or(left, right) => {
+            SearchEmailsFilterQuery::Or(left, right) => {
                 let left = left.to_imap_sort_query();
                 let right = right.to_imap_sort_query();
                 format!("OR ({left}) ({right})")
             }
-            SearchEmailsQueryFilter::Not(filter) => {
+            SearchEmailsFilterQuery::Not(filter) => {
                 let filter = filter.to_imap_sort_query();
                 format!("NOT ({filter})")
             }
-            SearchEmailsQueryFilter::Date(date) => {
+            SearchEmailsFilterQuery::Date(date) => {
                 format!("SENTON {}", date.format("%d-%b-%Y"))
             }
-            SearchEmailsQueryFilter::BeforeDate(date) => {
+            SearchEmailsFilterQuery::BeforeDate(date) => {
                 format!("SENTBEFORE {}", date.format("%d-%b-%Y"))
             }
-            SearchEmailsQueryFilter::AfterDate(date) => {
+            SearchEmailsFilterQuery::AfterDate(date) => {
                 // imap sentsince is inclusive, so we add one day to
                 // the date filter.
                 let date = *date + Duration::days(1);
                 format!("SENTSINCE {}", date.format("%d-%b-%Y"))
             }
-            SearchEmailsQueryFilter::From(pattern) => {
+            SearchEmailsFilterQuery::From(pattern) => {
                 format!("FROM {pattern}")
             }
-            SearchEmailsQueryFilter::To(pattern) => {
+            SearchEmailsFilterQuery::To(pattern) => {
                 format!("TO {pattern}")
             }
-            SearchEmailsQueryFilter::Subject(pattern) => {
+            SearchEmailsFilterQuery::Subject(pattern) => {
                 format!("SUBJECT {pattern}")
             }
-            SearchEmailsQueryFilter::Body(pattern) => {
+            SearchEmailsFilterQuery::Body(pattern) => {
                 format!("BODY {pattern}")
             }
-            SearchEmailsQueryFilter::Flag(flag) => {
+            SearchEmailsFilterQuery::Flag(flag) => {
                 let flag = flag.to_imap_query_string();
                 format!("KEYWORD {flag}")
             }
@@ -229,21 +229,21 @@ impl SearchEmailsQueryFilter {
     }
 }
 
-impl SearchEmailsQuerySorter {
+impl SearchEmailsSorter {
     pub fn to_imap_sort_criterion(&self) -> SortCriterion {
-        use SearchEmailsQueryOrder::*;
-        use SearchEmailsQuerySorterKind::*;
+        use SearchEmailsSorterKind::*;
+        use SearchEmailsSorterOrder::*;
         use SortCriterion::Reverse;
 
         match self {
-            SearchEmailsQuerySorter(Date, Ascending) => SortCriterion::Date,
-            SearchEmailsQuerySorter(Date, Descending) => Reverse(&SortCriterion::Date),
-            SearchEmailsQuerySorter(From, Ascending) => SortCriterion::From,
-            SearchEmailsQuerySorter(From, Descending) => Reverse(&SortCriterion::From),
-            SearchEmailsQuerySorter(To, Ascending) => SortCriterion::To,
-            SearchEmailsQuerySorter(To, Descending) => SortCriterion::Reverse(&SortCriterion::To),
-            SearchEmailsQuerySorter(Subject, Ascending) => SortCriterion::Subject,
-            SearchEmailsQuerySorter(Subject, Descending) => Reverse(&SortCriterion::Subject),
+            SearchEmailsSorter(Date, Ascending) => SortCriterion::Date,
+            SearchEmailsSorter(Date, Descending) => Reverse(&SortCriterion::Date),
+            SearchEmailsSorter(From, Ascending) => SortCriterion::From,
+            SearchEmailsSorter(From, Descending) => Reverse(&SortCriterion::From),
+            SearchEmailsSorter(To, Ascending) => SortCriterion::To,
+            SearchEmailsSorter(To, Descending) => SortCriterion::Reverse(&SortCriterion::To),
+            SearchEmailsSorter(Subject, Ascending) => SortCriterion::Subject,
+            SearchEmailsSorter(Subject, Descending) => Reverse(&SortCriterion::Subject),
         }
     }
 }

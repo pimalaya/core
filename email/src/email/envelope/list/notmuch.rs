@@ -6,7 +6,7 @@ use thiserror::Error;
 use crate::{
     folder::FolderKind,
     notmuch::NotmuchContextSync,
-    search_query::{filter::SearchEmailsQueryFilter, SearchEmailsQuery},
+    search_query::{filter::SearchEmailsFilterQuery, SearchEmailsQuery},
     Result,
 };
 
@@ -101,49 +101,49 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
 
 impl SearchEmailsQuery {
     pub fn to_notmuch_search_query(&self) -> String {
-        self.filters
+        self.filter
             .as_ref()
             .map(|f| f.to_notmuch_search_query())
             .unwrap_or_default()
     }
 }
 
-impl SearchEmailsQueryFilter {
+impl SearchEmailsFilterQuery {
     pub fn to_notmuch_search_query(&self) -> String {
         let mut query = String::new();
 
         match self {
-            SearchEmailsQueryFilter::And(left, right) => {
+            SearchEmailsFilterQuery::And(left, right) => {
                 query.push_str("(");
                 query.push_str(&left.to_notmuch_search_query());
                 query.push_str(") and (");
                 query.push_str(&right.to_notmuch_search_query());
                 query.push(')');
             }
-            SearchEmailsQueryFilter::Or(left, right) => {
+            SearchEmailsFilterQuery::Or(left, right) => {
                 query.push_str("(");
                 query.push_str(&left.to_notmuch_search_query());
                 query.push_str(") or (");
                 query.push_str(&right.to_notmuch_search_query());
                 query.push(')');
             }
-            SearchEmailsQueryFilter::Not(right) => {
+            SearchEmailsFilterQuery::Not(right) => {
                 query.push_str("not (");
                 query.push_str(&right.to_notmuch_search_query());
                 query.push_str(")");
             }
-            SearchEmailsQueryFilter::Date(date) => {
+            SearchEmailsFilterQuery::Date(date) => {
                 query.push_str("date:");
                 query.push_str(&date.to_string());
             }
-            SearchEmailsQueryFilter::BeforeDate(date) => {
+            SearchEmailsFilterQuery::BeforeDate(date) => {
                 // notmuch dates are inclusive, so we substract one
                 // day from the before date filter.
                 let date = *date - Duration::days(1);
                 query.push_str("date:..");
                 query.push_str(&date.to_string());
             }
-            SearchEmailsQueryFilter::AfterDate(date) => {
+            SearchEmailsFilterQuery::AfterDate(date) => {
                 // notmuch dates are inclusive, so we add one day to
                 // the after date filter.
                 let date = *date + Duration::days(1);
@@ -151,26 +151,26 @@ impl SearchEmailsQueryFilter {
                 query.push_str(&date.to_string());
                 query.push_str("..");
             }
-            SearchEmailsQueryFilter::From(pattern) => {
+            SearchEmailsFilterQuery::From(pattern) => {
                 query.push_str("from:/");
                 query.push_str(pattern);
                 query.push('/');
             }
 
-            SearchEmailsQueryFilter::To(pattern) => {
+            SearchEmailsFilterQuery::To(pattern) => {
                 query.push_str("to:/");
                 query.push_str(pattern);
                 query.push('/');
             }
-            SearchEmailsQueryFilter::Subject(pattern) => {
+            SearchEmailsFilterQuery::Subject(pattern) => {
                 query.push_str("subject:");
                 query.push_str(pattern);
             }
-            SearchEmailsQueryFilter::Body(pattern) => {
+            SearchEmailsFilterQuery::Body(pattern) => {
                 query.push_str("body:");
                 query.push_str(pattern);
             }
-            SearchEmailsQueryFilter::Flag(flag) => {
+            SearchEmailsFilterQuery::Flag(flag) => {
                 query.push_str("tag:");
                 query.push_str(&flag.to_string());
             }

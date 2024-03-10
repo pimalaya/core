@@ -13,7 +13,7 @@ keywords = ["email", "maildir", "imap", "smtp", "sendmail"]
 
 [package.metadata.docs.rs]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
 
 [lib]
 name = "email"
