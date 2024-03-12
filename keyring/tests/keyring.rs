@@ -3,8 +3,8 @@ use keyring::{set_global_service_name, Entry};
 const KEY: &str = "key";
 const VAL: &str = "val";
 
-#[tokio::main]
-async fn main() {
+#[tokio::test]
+async fn test_keyring_entry() {
     env_logger::builder().is_test(true).init();
 
     // set global keyring service name
