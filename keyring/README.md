@@ -1,16 +1,43 @@
 # 🔐 keyring-lib
 
-High-level API for [keyring](https://crates.io/crates/keyring), a cross-platform library to manage secrets.
+Manage credentials using OS-specific keyrings: `Secret Service` on Linux, `Security Framework` on MacOS and `Security Credentials` on Windows.
 
-This library can be seen as a convenient wrapper around [keyring](https://crates.io/crates/keyring):
+This library aims to be a High-level API for [keyring](https://crates.io/crates/keyring), a cross-platform library to manage credentials, and can be seen as a convenient wrapper around it:
 
-- No cargo feature is exposed (this library uses internally the keyring one `linux-secret-service-rt-tokio-crypto-rust`)
-- `secret-service` is included in this library, which prevents [build issues](https://github.com/hwchen/keyring-rs/issues/148).
-- The service name is changed globally instead, using the function `keyring::set_global_service_name`.
-- The entry has a new function `find_secret` that returns a `Result<Option<String>>`.
-- Every functions are logged using the [log](https://crates.io/crates/log) crate.
+- Made the lib async using `tokio`.
+- Simplified cargo features: `tokio` by default, `tokio-openssl`, `async-io` and `async-io-openssl` available.
+- Added the cargo feature `serde` that enables serialization and deserialization of a keyring entry from and to a `String`.
+- Changed the way the service name is declared: instead of declaring it everytime you declare a keyring entry, you just need to declare it once at the beginning of you program, using the function `keyring::set_global_service_name`.
+- Added new function `find_secret` that returns a `Result<Option<String>>`.
+- Enabled logging using the [log](https://crates.io/crates/log) crate.
+- Added keyring cache based on the linux [keyutils](https://man7.org/linux/man-pages/man7/keyutils.7.html) keyring (only works on Linux machines).
 
-See the full [API documentation](https://docs.rs/keyring-lib/latest/keyring/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/keyring/examples).
+See the full [API documentation](https://docs.rs/keyring-lib/latest/keyring/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/keyring/tests).
+
+```rust
+use keyring::{set_global_service_name, KeyringEntry};
+
+#[tokio::main]
+async fn main() {
+    // define the global keyring service name once
+    set_global_service_name("example");
+
+    // create a keyring entry from a key string
+    let entry = KeyringEntry::try_new("key").unwrap();
+
+	// define a secret
+    entry.set_secret("secret").await.unwrap();
+
+	// get a secret
+	entry.get_secret().await.unwrap();
+
+	// find a secret
+	entry.find_secret().await.unwrap();
+
+	// deletea secret
+    entry.delete_secret().await.unwrap();
+}
+```
 
 ## Development
 

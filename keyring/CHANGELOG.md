@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added cache system based on `keyutils` (only on Linux machines).
+
+### Changed
+
+- Renamed `Entry` to `KeyringEntry` in order to be more explicit.
+- Renamed `KeyringEntry::new` to `KeyringEntry::try_new`, as the native entry is now declared once and stored inside `KeyringEntry`.
+- Put (de)serialization of the keyring entry behind the `serde` cargo feature.
+- Moved `get_global_service_name` and `set_global_service_name` to the module `service`.
+
 ## [0.3.2] - 2023-12-31
 
 ### Removed
