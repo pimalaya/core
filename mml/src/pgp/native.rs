@@ -2,13 +2,12 @@
 //!
 //! This module contains the native PGP backend.
 
-#[doc(inline)]
-pub use pgp::native::{SignedPublicKey, SignedSecretKey};
-
-use keyring::Entry;
 use log::debug;
-use secret::Secret;
-use serde::{Deserialize, Serialize};
+pub use pgp::native::{SignedPublicKey, SignedSecretKey};
+use secret::{
+    keyring::{self, KeyringEntry},
+    Secret,
+};
 use shellexpand_utils::shellexpand_path;
 use std::{collections::HashSet, path::PathBuf};
 use thiserror::Error;
@@ -49,13 +48,18 @@ pub enum Error {
 }
 
 /// The native PGP secret key source.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum NativePgpSecretKey {
     #[default]
     None,
 
     /// The native PGP secret key is given as it is (raw).
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     Raw(SignedSecretKey),
 
     /// The native PGP secret key is located at the given path.
@@ -63,7 +67,7 @@ pub enum NativePgpSecretKey {
 
     /// The native PGP secret key is located in the user's global
     /// keyring at the given entry.
-    Keyring(Entry),
+    Keyring(KeyringEntry),
 }
 
 impl NativePgpSecretKey {
@@ -99,11 +103,16 @@ impl NativePgpSecretKey {
 }
 
 /// The native PGP public key resolver.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum NativePgpPublicKeysResolver {
     /// The given email string is associated with the given raw public
     /// key.
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     Raw(String, SignedPublicKey),
 
     /// The public key is resolved using the Web Key Directory
@@ -117,7 +126,12 @@ pub enum NativePgpPublicKeysResolver {
 }
 
 /// The native PGP backend.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct NativePgp {
     /// The secret key of the sender.
     pub secret_key: NativePgpSecretKey,

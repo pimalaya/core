@@ -1,4 +1,4 @@
-//! # PGP module
+//! # PGP
 //!
 //! This module contains available PGP backends: shell commands, GPG
 //! and native.
