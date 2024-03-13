@@ -1,8 +1,36 @@
 # 🔐 secret-lib
 
-Rust library to retrieve secrets from different sources.
+Rust library to retrieve secrets from different sources: from raw string, from shell commands using [process-lib](https://docs.rs/process-lib/latest/process/) or from global keyring using [keyring-lib](https://docs.rs/keyring-lib/latest/keyring/).
 
-See the full [API documentation](https://docs.rs/secret-lib/latest/secret/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/secret/examples).
+See the full [API documentation](https://docs.rs/secret-lib/latest/secret/) and [some examples](https://git.sr.ht/~soywod/pimalaya/tree/master/item/secret/tests).
+
+```rust
+use secret::{keyring, Secret};
+
+#[tokio::main]
+async fn main() {
+    // raw secret
+
+    let mut secret = Secret::new_raw("secret");
+    assert_eq!(secret.get().await.unwrap(), "secret");
+
+    // shell command secret
+
+    let mut secret = Secret::new_cmd("echo 'secret'");
+    assert_eq!(secret.get().await.unwrap(), "secret");
+
+    // keyring secret
+
+    let entry = keyring::KeyringEntry::try_new("key")
+        .unwrap()
+        .try_with_secret("secret")
+        .await
+        .unwrap();
+    let mut secret = Secret::new_keyring_entry(entry);
+    assert_eq!(secret.get().await.unwrap(), "secret");
+}
+
+```
 
 ## Development
 

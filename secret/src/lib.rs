@@ -1,53 +1,65 @@
-//! Rust library to retrieve secrets from different sources.
+//! # Secret
 //!
 //! The core concept of this library is to abstract the concept of
 //! secret. A secret can be retrieved either from a raw string, from a
 //! command or from a keyring entry. The associated structure is
 //! [`Secret`].
 
-#[doc(inline)]
+#[cfg(feature = "keyring")]
 pub use keyring;
-use keyring::Entry;
-#[doc(inline)]
+#[cfg(feature = "keyring")]
+use keyring::KeyringEntry;
+use log::debug;
+#[cfg(feature = "command")]
 pub use process;
+#[cfg(feature = "command")]
 use process::Cmd;
-use serde::{Deserialize, Serialize};
 use std::result;
 use thiserror::Error;
 
+/// The global `Error` enum of the library.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get secret: secret is not defined")]
     GetSecretFromUndefinedError,
+    #[cfg(feature = "command")]
     #[error("cannot get secret from command")]
     GetSecretFromCmd(#[source] process::Error),
+    #[cfg(feature = "command")]
     #[error("cannot get secret from command: output is empty")]
     GetSecretFromCmdEmptyOutputError,
-
-    #[error(transparent)]
-    KeyringError(#[from] keyring::Error),
+    #[cfg(feature = "keyring")]
+    #[error("error while using secret from keyring")]
+    KeyringError(#[source] keyring::Error),
 }
 
+/// The global `Result` alias of the library.
 pub type Result<T> = result::Result<T, Error>;
 
-/// The secret enum.
+/// The secret.
 ///
-/// A secret can be retrieved either from a raw string, from a command
-/// or from a keyring entry.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+/// A secret can be retrieved either from a raw string, from a shell
+/// command or from a keyring entry.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum Secret {
     /// The secret is contained in a raw string, usually not safe to
     /// use and so not recommended.
     Raw(String),
 
     /// The secret is exposed by the given shell command.
-    Cmd(Cmd),
+    #[cfg(feature = "command")]
+    Command(Cmd),
 
     /// The secret is contained in the given user's global keyring at
     /// the given entry.
-    #[serde(rename = "keyring")]
-    KeyringEntry(Entry),
+    #[cfg(feature = "keyring")]
+    #[cfg_attr(feature = "serde", serde(rename = "keyring"))]
+    KeyringEntry(KeyringEntry),
 
     /// The secret is not defined.
     #[default]
@@ -55,19 +67,35 @@ pub enum Secret {
 }
 
 impl Secret {
+    /// Create a new undefined secret.
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     /// Create a new secret from the given raw string.
     pub fn new_raw(raw: impl ToString) -> Self {
         Self::Raw(raw.to_string())
     }
 
     /// Create a new secret from the given shell command.
+    #[cfg(feature = "command")]
     pub fn new_cmd(cmd: impl Into<Cmd>) -> Self {
-        Self::Cmd(cmd.into())
+        Self::Command(cmd.into())
     }
 
     /// Create a new secret from the given keyring entry.
-    pub fn new_keyring_entry(entry: impl Into<Entry>) -> Self {
-        Self::KeyringEntry(entry.into())
+    #[cfg(feature = "keyring")]
+    pub fn new_keyring_entry(entry: KeyringEntry) -> Self {
+        Self::KeyringEntry(entry)
+    }
+
+    /// Try to create a new secret from the given entry.
+    #[cfg(feature = "keyring")]
+    pub fn try_new_keyring_entry(
+        entry: impl TryInto<KeyringEntry, Error = keyring::Error>,
+    ) -> Result<Self> {
+        let entry = entry.try_into().map_err(Error::KeyringError)?;
+        Ok(Self::KeyringEntry(entry))
     }
 
     /// Return `true` if the secret is not defined.
@@ -75,11 +103,12 @@ impl Secret {
         matches!(self, Self::Undefined)
     }
 
-    /// Get the secret value.
+    /// Get the secret.
     pub async fn get(&self) -> Result<String> {
         match self {
             Self::Raw(raw) => Ok(raw.clone()),
-            Self::Cmd(cmd) => Ok(cmd
+            #[cfg(feature = "command")]
+            Self::Command(cmd) => Ok(cmd
                 .run()
                 .await
                 .map_err(Error::GetSecretFromCmd)?
@@ -89,18 +118,22 @@ impl Secret {
                 .next()
                 .ok_or(Error::GetSecretFromCmdEmptyOutputError)?
                 .to_owned()),
-            Self::KeyringEntry(entry) => Ok(entry.get_secret().await?),
+            #[cfg(feature = "keyring")]
+            Self::KeyringEntry(entry) => {
+                Ok(entry.get_secret().await.map_err(Error::KeyringError)?)
+            }
             Self::Undefined => Err(Error::GetSecretFromUndefinedError),
         }
     }
 
     /// Find the secret value.
     ///
-    /// Return [`None`] if no secret is found.
+    /// Return [`None`] if no secret is not found.
     pub async fn find(&self) -> Result<Option<String>> {
         match self {
-            Self::Raw(raw) => Ok(Some(raw.clone())),
-            Self::Cmd(cmd) => Ok(cmd
+            Self::Raw(secret) => Ok(Some(secret.clone())),
+            #[cfg(feature = "command")]
+            Self::Command(cmd) => Ok(cmd
                 .run()
                 .await
                 .map_err(Error::GetSecretFromCmd)?
@@ -109,32 +142,56 @@ impl Secret {
                 .take(1)
                 .next()
                 .map(ToOwned::to_owned)),
-            Self::KeyringEntry(entry) => Ok(entry.find_secret().await?),
-            Self::Undefined => Err(Error::GetSecretFromUndefinedError),
+            #[cfg(feature = "keyring")]
+            Self::KeyringEntry(entry) => {
+                Ok(entry.find_secret().await.map_err(Error::KeyringError)?)
+            }
+            Self::Undefined => Ok(None),
         }
     }
 
-    /// Change the secret value if the source is a keyring entry.
-    pub async fn set_keyring_entry_secret(&self, secret: impl AsRef<str>) -> Result<String> {
-        if let Self::KeyringEntry(entry) = self {
-            entry.set_secret(secret.as_ref()).await?;
+    /// Change the secret.
+    pub async fn set(&mut self, secret: impl AsRef<str>) -> Result<String> {
+        let secret = secret.as_ref();
+
+        match self {
+            Self::Raw(prev) => {
+                *prev = secret.to_owned();
+            }
+            #[cfg(feature = "command")]
+            Self::Command(_) => {
+                debug!("cannot change secret of command variant");
+            }
+            #[cfg(feature = "keyring")]
+            Self::KeyringEntry(entry) => {
+                entry
+                    .set_secret(secret)
+                    .await
+                    .map_err(Error::KeyringError)?;
+            }
+            Self::Undefined => {
+                debug!("cannot change secret of undefined variant");
+            }
         }
 
-        Ok(secret.as_ref().to_string())
+        Ok(secret.to_owned())
     }
 
-    /// Transform an undefined secret into a keyring entry one.
-    pub fn set_keyring_entry_if_undefined(&mut self, entry: impl Into<Entry>) {
-        if self.is_undefined() {
-            *self = Self::new_keyring_entry(entry)
-        }
-    }
-
-    /// Delete the keyring entry secret.
-    pub async fn delete_keyring_entry_secret(&self) -> Result<()> {
-        if let Self::KeyringEntry(entry) = self {
-            entry.delete_secret().await?;
-        }
+    /// Delete the secret.
+    ///
+    /// If the secret uses the keyring entry variant, delete the
+    /// secret from the keyring. Otherwise change self to undefined
+    /// variant.
+    pub async fn delete(&mut self) -> Result<()> {
+        match self {
+            #[cfg(feature = "keyring")]
+            Self::KeyringEntry(entry) => {
+                entry.delete_secret().await.map_err(Error::KeyringError)?;
+            }
+            _ => {
+                *self = Self::Undefined;
+            }
+        };
 
         Ok(())
     }
