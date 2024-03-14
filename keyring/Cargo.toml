@@ -1,7 +1,7 @@
 [package]
 name = "keyring-lib"
-version = "0.3.2"
-description = "High-level API for keyring, a cross-platform library to manage secrets"
+version = "0.4.0"
+description = "High-level API for keyring-rs, a cross-platform library to manage secrets"
 homepage = "https://pimalaya.org/"
 repository = "https://git.sr.ht/~soywod/pimalaya/tree/master/item/keyring/README.md"
 authors = ["soywod <clement.douin@posteo.net>"]
