@@ -1,24 +1,23 @@
-#[cfg(feature = "pgp-commands")]
+use concat_with::concat_line;
+use mml::{
+    pgp::{CmdsPgp, Pgp},
+    MimeInterpreterBuilder, MmlCompilerBuilder,
+};
+use process::Command;
+
 #[tokio::test]
 async fn pgp_cmds() {
-    use concat_with::concat_line;
-    use mml::{
-        pgp::{CmdsPgp, Pgp},
-        MimeInterpreterBuilder, MmlCompilerBuilder,
-    };
-    use process::Cmd;
-
     env_logger::builder().is_test(true).init();
 
     let pgp = Pgp::Cmds(CmdsPgp {
-        encrypt_cmd: Some(Cmd::from(
+        encrypt_cmd: Some(Command::from(
             "gpg --homedir ./tests/gpg-home -eqa <recipients>",
         )),
         encrypt_recipient_fmt: Some(CmdsPgp::default_encrypt_recipient_fmt()),
         encrypt_recipients_sep: Some(CmdsPgp::default_encrypt_recipients_sep()),
-        decrypt_cmd: Some(Cmd::from("gpg --homedir ./tests/gpg-home -dq")),
-        sign_cmd: Some(Cmd::from("gpg --homedir ./tests/gpg-home -saq")),
-        verify_cmd: Some(Cmd::from("gpg --homedir ./tests/gpg-home --verify -q")),
+        decrypt_cmd: Some(Command::from("gpg --homedir ./tests/gpg-home -dq")),
+        sign_cmd: Some(Command::from("gpg --homedir ./tests/gpg-home -saq")),
+        verify_cmd: Some(Command::from("gpg --homedir ./tests/gpg-home --verify -q")),
     });
 
     let mml = concat_line!(

@@ -1,22 +1,21 @@
-#[cfg(feature = "pgp-native")]
+use concat_with::concat_line;
+use mml::{
+    pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
+    MimeInterpreterBuilder, MmlCompilerBuilder,
+};
+use pgp::gen_key_pair;
+use secret::Secret;
+use std::collections::HashMap;
+use tempfile::tempdir;
+use tokio::{
+    fs,
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    net::TcpListener,
+    task,
+};
+
 #[tokio::test]
 async fn pgp_native() {
-    use concat_with::concat_line;
-    use mml::{
-        pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
-        MimeInterpreterBuilder, MmlCompilerBuilder,
-    };
-    use pgp::gen_key_pair;
-    use secret::Secret;
-    use std::collections::HashMap;
-    use tempfile::tempdir;
-    use tokio::{
-        fs,
-        io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-        net::TcpListener,
-        task,
-    };
-
     async fn spawn_fake_key_server(pkeys: HashMap<String, String>) -> String {
         let listener = TcpListener::bind(("localhost", 0)).await.unwrap();
         let port = listener.local_addr().unwrap().port();

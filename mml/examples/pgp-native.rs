@@ -1,24 +1,14 @@
-#[cfg(not(feature = "pgp-native"))]
-fn main() {
-    use std::process::exit;
+use mml::{
+    pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
+    MmlCompilerBuilder,
+};
+use pgp::gen_key_pair;
+use secret::Secret;
+use tempfile::tempdir;
+use tokio::fs;
 
-    eprintln!("Cargo feature pgp-native is missing.");
-    eprintln!("Please re-run the command with --features pgp-native.");
-    exit(-1)
-}
-
-#[cfg(feature = "pgp-native")]
 #[tokio::main]
 async fn main() {
-    use mml::{
-        pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
-        MmlCompilerBuilder,
-    };
-    use pgp::gen_key_pair;
-    use secret::Secret;
-    use tempfile::tempdir;
-    use tokio::fs;
-
     env_logger::builder().is_test(true).init();
 
     let dir = tempdir().unwrap();

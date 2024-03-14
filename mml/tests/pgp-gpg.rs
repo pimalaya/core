@@ -1,13 +1,12 @@
-#[cfg(feature = "pgp-gpg")]
+use concat_with::concat_line;
+use mml::{
+    pgp::{Gpg, Pgp},
+    MimeInterpreterBuilder, MmlCompilerBuilder,
+};
+use std::path::PathBuf;
+
 #[tokio::test]
 async fn pgp_gpg() {
-    use concat_with::concat_line;
-    use mml::{
-        pgp::{Gpg, Pgp},
-        MimeInterpreterBuilder, MmlCompilerBuilder,
-    };
-    use std::path::PathBuf;
-
     env_logger::builder().is_test(true).init();
 
     let pgp = Pgp::Gpg(Gpg {

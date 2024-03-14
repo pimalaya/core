@@ -2,7 +2,7 @@
 //!
 //! This module contains the PGP backend based on shell commands.
 
-use process::Cmd;
+use process::Command;
 use thiserror::Error;
 
 use crate::Result;
@@ -34,7 +34,7 @@ pub struct CmdsPgp {
     /// the recipients the message needs to be encrypted for. See [CmdsPgp::default_encrypt_cmd].
     ///
     /// Defaults to `gpg --encrypt --quiet --armor <recipients>`.
-    pub encrypt_cmd: Option<Cmd>,
+    pub encrypt_cmd: Option<Command>,
 
     /// The PGP encrypt recipient format.
     ///
@@ -54,22 +54,22 @@ pub struct CmdsPgp {
     /// The PGP decrypt command.
     ///
     /// Defaults to `gpg --decrypt --quiet`.
-    pub decrypt_cmd: Option<Cmd>,
+    pub decrypt_cmd: Option<Command>,
 
     /// The PGP sign command.
     ///
     /// Default to `gpg --sign --quiet --armor`.
-    pub sign_cmd: Option<Cmd>,
+    pub sign_cmd: Option<Command>,
 
     /// The PGP verify command.
     ///
     /// Default to `gpg --verify --quiet`.
-    pub verify_cmd: Option<Cmd>,
+    pub verify_cmd: Option<Command>,
 }
 
 impl CmdsPgp {
-    pub fn default_encrypt_cmd() -> Cmd {
-        Cmd::from("gpg --encrypt --quiet --armor <recipients>")
+    pub fn default_encrypt_cmd() -> Command {
+        Command::from("gpg --encrypt --quiet --armor <recipients>")
     }
 
     pub fn default_encrypt_recipient_fmt() -> String {
@@ -80,16 +80,16 @@ impl CmdsPgp {
         String::from(" ")
     }
 
-    pub fn default_decrypt_cmd() -> Cmd {
-        Cmd::from("gpg --decrypt --quiet")
+    pub fn default_decrypt_cmd() -> Command {
+        Command::from("gpg --decrypt --quiet")
     }
 
-    pub fn default_sign_cmd() -> Cmd {
-        Cmd::from("gpg --sign --quiet --armor")
+    pub fn default_sign_cmd() -> Command {
+        Command::from("gpg --sign --quiet --armor")
     }
 
-    pub fn default_verify_cmd() -> Cmd {
-        Cmd::from("gpg --verify --quiet")
+    pub fn default_verify_cmd() -> Command {
+        Command::from("gpg --verify --quiet")
     }
 
     /// Encrypts the given plain bytes using the given recipients.
