@@ -3,7 +3,7 @@
 //! This module contains the configuration specific to the sendmail
 //! sender.
 
-use process::Cmd;
+use process::Command;
 
 /// The sendmail sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -14,5 +14,5 @@ use process::Cmd;
 )]
 pub struct SendmailConfig {
     /// The sendmail command.
-    pub cmd: Cmd,
+    pub cmd: Command,
 }

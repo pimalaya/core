@@ -1,5 +1,5 @@
 use mml::pgp::{CmdsPgp, Pgp};
-use process::Cmd;
+use process::Command;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
@@ -8,12 +8,12 @@ use process::Cmd;
     serde(rename_all = "kebab-case")
 )]
 pub struct CmdsPgpConfig {
-    pub encrypt_cmd: Option<Cmd>,
+    pub encrypt_cmd: Option<Command>,
     pub encrypt_recipient_fmt: Option<String>,
     pub encrypt_recipients_sep: Option<String>,
-    pub decrypt_cmd: Option<Cmd>,
-    pub sign_cmd: Option<Cmd>,
-    pub verify_cmd: Option<Cmd>,
+    pub decrypt_cmd: Option<Command>,
+    pub sign_cmd: Option<Command>,
+    pub verify_cmd: Option<Command>,
 }
 
 impl From<CmdsPgpConfig> for Pgp {

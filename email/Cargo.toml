@@ -63,7 +63,7 @@ pgp-commands = ["pgp", "mml-lib/pgp-commands"]
 pgp-gpg = ["pgp", "mml-lib/pgp-gpg"]
 pgp-native = ["pgp", "keyring-lib", "mml-lib/pgp-native", "dep:pgp-lib"]
 
-derive = ["dep:serde", "serde/derive", "mml-lib/derive", "secret-lib/derive", "keyring-lib/derive"]
+derive = ["dep:serde", "serde/derive", "mml-lib/derive", "secret-lib/derive", "process-lib/derive", "keyring-lib/derive"]
 
 [dev-dependencies]
 concat-with = "0.2"
@@ -87,14 +87,14 @@ hyper = { version = "0.14", optional = true, default-features = false, features 
 hyper-rustls = { version = "0.24", optional = true }
 imap = { version = "=3.0.0-alpha.12", optional = true, default-features = false, features = ["rustls-tls"] }
 imap-proto = { version = "=0.16.3", optional = true }
-keyring-lib = { version = "=0.3.2", optional = true }
+keyring-lib = { version = "=0.4.0", optional = true }
 log = "0.4"
 mail-builder = "0.3"
 mail-parser = "0.9"
 mail-send = { version = "0.4", optional = true }
 maildirpp = { version = "=0.0.2", optional = true }
 md5 = "0.7"
-mml-lib = { version = "=1.0.7", default-features = false, features = ["compiler", "interpreter"] }
+mml-lib = "=1.0.8"
 notify = { version = "6", optional = true, default-features = false, features = ["macos_kqueue"] }
 notify-rust = "4"
 notmuch = { version = "=0.8.0", optional = true }
@@ -103,10 +103,10 @@ once_cell = "1"
 ouroboros = "0.15"
 paste = "1"
 pgp-lib = { version = "=0.1.0", optional = true }
-process-lib = "=0.3.1"
+process-lib = "=0.4.1"
 rayon = { version = "1.6", optional = true }
 regex = "1.5"
-secret-lib = "=0.3.3"
+secret-lib = { version = "=0.4.1" }
 serde = { version = "1", optional = true }
 serde-xml-rs = { version = "0.6", optional = true }
 shellexpand-utils = "=0.2.0"

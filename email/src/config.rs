@@ -13,7 +13,7 @@ pub enum Error {
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
+    serde(rename_all = "kebab-case", deny_unknown_fields)
 )]
 pub struct Config {
     /// The default display name of the user.

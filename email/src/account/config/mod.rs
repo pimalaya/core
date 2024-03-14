@@ -14,7 +14,7 @@ use log::debug;
 use mail_builder::headers::address::{Address, EmailAddress};
 use mml::MimeInterpreterBuilder;
 use notify_rust::Notification;
-use process::Cmd;
+use process::Command;
 use shellexpand_utils::{shellexpand_path, shellexpand_str, try_shellexpand_path};
 use std::{
     collections::HashMap,
@@ -72,7 +72,7 @@ pub trait HasAccountConfig {
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
+    serde(rename_all = "kebab-case", deny_unknown_fields)
 )]
 pub struct AccountConfig {
     /// The name of the user account.
@@ -537,7 +537,7 @@ impl AccountConfig {
     }
 
     /// Find the message pre-send hook.
-    pub fn find_message_pre_send_hook(&self) -> Option<&Cmd> {
+    pub fn find_message_pre_send_hook(&self) -> Option<&Command> {
         self.message
             .as_ref()
             .and_then(|c| c.send.as_ref())

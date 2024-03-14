@@ -29,7 +29,7 @@ async fn test_smtp_features() {
             port: ports.imap,
             encryption: Some(ImapEncryptionKind::None),
             login: "bob".into(),
-            auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_cmd("echo 'password'"))),
+            auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_command("echo 'password'"))),
             ..Default::default()
         });
 

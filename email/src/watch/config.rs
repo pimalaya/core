@@ -1,5 +1,5 @@
 use futures::Future;
-use process::Cmd;
+use process::Command;
 use std::{fmt, ops::Deref, pin::Pin, sync::Arc};
 
 use crate::{envelope::Envelope, Result};
@@ -19,7 +19,7 @@ pub struct WatchHook {
     ///
     /// For now, command is executed without any parameter nor
     /// input. This may change in the future.
-    pub cmd: Option<Cmd>,
+    pub cmd: Option<Command>,
 
     /// Send a system notification using the given
     /// [`notify_rust::Notification`]-like configuration.

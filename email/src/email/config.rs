@@ -3,7 +3,7 @@
 //! This module contains structs related to email configuration. They
 //! are mostly used by [crate::AccountConfig].
 
-use process::Cmd;
+use process::Command;
 
 /// The email text/plain format configuration.
 ///
@@ -45,7 +45,7 @@ pub struct EmailHooks {
     /// The hook called just before sending an email. The system
     /// command should take the raw message as a unique parameter and
     /// returns the modified raw message.
-    pub pre_send: Option<Cmd>,
+    pub pre_send: Option<Command>,
 }
 
 impl EmailHooks {

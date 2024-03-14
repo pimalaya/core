@@ -1,4 +1,4 @@
-use process::Cmd;
+use process::Command;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
@@ -16,5 +16,5 @@ pub struct MessageSendConfig {
     /// The command should take a raw message as standard input
     /// (stdin) and returns the modified raw message to the standard
     /// output (stdout).
-    pub pre_hook: Option<Cmd>,
+    pub pre_hook: Option<Command>,
 }
