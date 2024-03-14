@@ -1,4 +1,4 @@
-//! # process-lib
+//! # Process
 //!
 //! Cross-platform, asynchronous library to run commands in pipelines.
 //!
@@ -15,7 +15,6 @@
 //! of the previous command is send as input of the next one.
 
 use log::{debug, error};
-use serde::{Deserialize, Serialize};
 use std::{
     env, io,
     ops::{Deref, DerefMut},
@@ -62,8 +61,12 @@ pub type Result<T> = result::Result<T, Error>;
 ///
 /// A command can be either a single command or a pipeline of single
 /// commands.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(untagged)
+)]
 pub enum Command {
     /// The single command variant.
     SingleCommand(SingleCommand),
@@ -177,8 +180,12 @@ impl ToString for Command {
 /// The single command structure.
 ///
 /// Represents commands that are composed of one single command.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(from = "String", into = "String")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(from = "String", into = "String")
+)]
 pub struct SingleCommand(String, bool);
 
 impl SingleCommand {
@@ -298,8 +305,12 @@ impl ToString for SingleCommand {
 /// commands. Commands are run in a pipeline, which means the output
 /// of the previous command is piped to the input of the next one, and
 /// so on.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(from = "Vec<String>", into = "Vec<String>")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(from = "Vec<String>", into = "Vec<String>")
+)]
 pub struct Pipeline(Vec<SingleCommand>);
 
 impl Pipeline {
