@@ -56,18 +56,22 @@ impl DerefMut for PasswdConfig {
 
 impl PasswdConfig {
     /// If the current password secret is a keyring entry, delete it.
-    pub async fn reset(&mut self) -> Result<()> {
-        self.delete().await.map_err(Error::DeleteError)?;
+    pub async fn reset(&self) -> Result<()> {
+        self.delete_only_keyring()
+            .await
+            .map_err(Error::DeleteError)?;
         Ok(())
     }
 
     /// Define the password only if it does not exist in the keyring.
-    pub async fn configure(&mut self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
+    pub async fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
         match self.find().await {
             Ok(None) => {
                 debug!("cannot find imap password from keyring, setting it");
                 let passwd = get_passwd().map_err(Error::GetFromUserError)?;
-                self.set(passwd).await.map_err(Error::SetIntoKeyringError)?;
+                self.set_only_keyring(passwd)
+                    .await
+                    .map_err(Error::SetIntoKeyringError)?;
                 Ok(())
             }
             Ok(_) => Ok(()),

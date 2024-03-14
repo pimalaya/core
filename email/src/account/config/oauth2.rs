@@ -137,7 +137,7 @@ impl OAuth2Config {
     /// code grant OAuth 2.0 flow in order to save the acces token and
     /// the refresh token if present.
     pub async fn configure(
-        &mut self,
+        &self,
         get_client_secret: impl Fn() -> io::Result<String>,
     ) -> Result<()> {
         if self.access_token.get().await.is_ok() {
@@ -150,7 +150,9 @@ impl OAuth2Config {
             Ok(None) => {
                 debug!("cannot find oauth2 client secret from keyring, setting it");
                 self.client_secret
-                    .set(get_client_secret().map_err(Error::GetClientSecretFromUserError)?)
+                    .set_only_keyring(
+                        get_client_secret().map_err(Error::GetClientSecretFromUserError)?,
+                    )
                     .await
                     .map_err(Error::SetClientSecretIntoKeyringError)
             }
@@ -194,13 +196,13 @@ impl OAuth2Config {
             .map_err(Error::WaitForRedirectionError)?;
 
         self.access_token
-            .set(access_token)
+            .set_only_keyring(access_token)
             .await
             .map_err(Error::SetAccessTokenError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
-                .set(refresh_token)
+                .set_only_keyring(refresh_token)
                 .await
                 .map_err(Error::SetRefreshTokenError)?;
         }

@@ -188,7 +188,7 @@ impl SmtpAuthConfig {
         Ok(())
     }
 
-    pub async fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
+    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
         let name = name.as_ref();
 
         match self {

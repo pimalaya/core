@@ -53,16 +53,18 @@ pub enum Secret {
 
     /// The secret is exposed by the given shell command.
     #[cfg(feature = "command")]
+    #[cfg_attr(feature = "derive", serde(alias = "cmd"))]
     Command(Cmd),
 
     /// The secret is contained in the given user's global keyring at
     /// the given entry.
     #[cfg(feature = "keyring")]
-    #[cfg_attr(feature = "serde", serde(rename = "keyring"))]
+    #[cfg_attr(feature = "derive", serde(rename = "keyring"))]
     KeyringEntry(KeyringEntry),
 
     /// The secret is not defined.
     #[default]
+    #[cfg_attr(feature = "derive", serde(skip_serializing))]
     Undefined,
 }
 
