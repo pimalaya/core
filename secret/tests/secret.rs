@@ -17,7 +17,7 @@ async fn test_secret_variants() {
 
     // test cmd secret
 
-    let mut secret = Secret::new_cmd("echo 'secret'");
+    let mut secret = Secret::new_command("echo 'secret'");
     assert_eq!(secret.get().await.unwrap(), "secret");
 
     secret.set("secret2").await.unwrap();

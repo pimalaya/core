@@ -13,7 +13,7 @@ use log::debug;
 #[cfg(feature = "command")]
 pub use process;
 #[cfg(feature = "command")]
-use process::Cmd;
+use process::Command;
 use std::result;
 use thiserror::Error;
 
@@ -24,10 +24,10 @@ pub enum Error {
     GetUndefinedSecretError,
     #[cfg(feature = "command")]
     #[error("cannot get secret from command")]
-    GetSecretFromCmd(#[source] process::Error),
+    GetSecretFromCommand(#[source] process::Error),
     #[cfg(feature = "command")]
     #[error("cannot get secret from command: output is empty")]
-    GetSecretFromCmdEmptyOutputError,
+    GetSecretFromCommandEmptyOutputError,
     #[cfg(feature = "keyring")]
     #[error("error while using secret from keyring")]
     KeyringError(#[source] keyring::Error),
@@ -54,7 +54,7 @@ pub enum Secret {
     /// The secret is exposed by the given shell command.
     #[cfg(feature = "command")]
     #[cfg_attr(feature = "derive", serde(alias = "cmd"))]
-    Command(Cmd),
+    Command(Command),
 
     /// The secret is contained in the given user's global keyring at
     /// the given entry.
@@ -81,7 +81,7 @@ impl Secret {
 
     /// Create a new secret from the given shell command.
     #[cfg(feature = "command")]
-    pub fn new_cmd(cmd: impl Into<Cmd>) -> Self {
+    pub fn new_command(cmd: impl Into<Command>) -> Self {
         Self::Command(cmd.into())
     }
 
@@ -117,12 +117,12 @@ impl Secret {
             Self::Command(cmd) => Ok(cmd
                 .run()
                 .await
-                .map_err(Error::GetSecretFromCmd)?
+                .map_err(Error::GetSecretFromCommand)?
                 .to_string_lossy()
                 .lines()
                 .take(1)
                 .next()
-                .ok_or(Error::GetSecretFromCmdEmptyOutputError)?
+                .ok_or(Error::GetSecretFromCommandEmptyOutputError)?
                 .to_owned()),
             #[cfg(feature = "keyring")]
             Self::KeyringEntry(entry) => {
@@ -143,7 +143,7 @@ impl Secret {
             Self::Command(cmd) => Ok(cmd
                 .run()
                 .await
-                .map_err(Error::GetSecretFromCmd)?
+                .map_err(Error::GetSecretFromCommand)?
                 .to_string_lossy()
                 .lines()
                 .take(1)
