@@ -1,6 +1,5 @@
 use futures::Future;
 use process::Cmd;
-use serde::{Deserialize, Serialize};
 use std::{fmt, ops::Deref, pin::Pin, sync::Arc};
 
 use crate::{envelope::Envelope, Result};
@@ -9,8 +8,12 @@ use crate::{envelope::Envelope, Result};
 ///
 /// Each variant represent the action that should be done when a
 /// change occurs.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct WatchHook {
     /// Execute the shell command.
     ///
@@ -27,7 +30,7 @@ pub struct WatchHook {
     /// The watch function cannot be de/serialized. The function
     /// should take a reference to an envelope and return a [`Result`]
     /// of unit.
-    #[serde(skip)]
+    #[cfg_attr(feature = "derive", serde(skip))]
     pub callback: Option<WatchFn>,
 }
 
@@ -89,8 +92,12 @@ impl fmt::Debug for WatchFn {
 ///
 /// The structure tries to match the [`notify_rust::Notification`] API
 /// and may evolve in the future.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct WatchNotifyConfig {
     /// The summary (or the title) of the notification.
     ///

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added cargo feature `derive` to enable/disable (de)serialization of structs using `serde`.
 - Added workspace `email-testing-server` containing code to spawn an email testing server (IMAP, JMAP and SMTP), based on [mail-server](https://github.com/stalwartlabs/mail-server/blob/main/crates/main/src/main.rs).
 - Added new trait `HasAccountConfig` used by backend features.
 - Added module `email::search_query` containing the `SearchEmailsQuery` struct and parsers. See the API documentation for more details on the search query.

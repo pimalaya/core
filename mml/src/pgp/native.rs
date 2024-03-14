@@ -50,7 +50,7 @@ pub enum Error {
 /// The native PGP secret key source.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
-    feature = "serde",
+    feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
@@ -59,7 +59,7 @@ pub enum NativePgpSecretKey {
     None,
 
     /// The native PGP secret key is given as it is (raw).
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "derive", serde(skip))]
     Raw(SignedSecretKey),
 
     /// The native PGP secret key is located at the given path.
@@ -105,14 +105,14 @@ impl NativePgpSecretKey {
 /// The native PGP public key resolver.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(
-    feature = "serde",
+    feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
 pub enum NativePgpPublicKeysResolver {
     /// The given email string is associated with the given raw public
     /// key.
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "derive", serde(skip))]
     Raw(String, SignedPublicKey),
 
     /// The public key is resolved using the Web Key Directory
@@ -128,7 +128,7 @@ pub enum NativePgpPublicKeysResolver {
 /// The native PGP backend.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
-    feature = "serde",
+    feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]

@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error;
 
@@ -10,8 +9,12 @@ pub enum Error {
     GetAccountConfigNotFoundError(String),
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct Config {
     /// The default display name of the user.
     ///

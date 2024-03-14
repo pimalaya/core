@@ -4,8 +4,9 @@
 //! all associated structures related to it.
 
 use imap::ConnectionMode;
-use serde::{de, Deserialize, Deserializer, Serialize};
-use std::{fmt, marker::PhantomData, result};
+use std::fmt;
+#[cfg(feature = "derive")]
+use std::{marker::PhantomData, result};
 use thiserror::Error;
 
 use crate::{
@@ -23,8 +24,12 @@ pub enum Error {
 }
 
 /// The IMAP backend configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct ImapConfig {
     /// The IMAP server host name.
     pub host: String,
@@ -35,7 +40,10 @@ pub struct ImapConfig {
     /// The IMAP encryption protocol to use.
     ///
     /// Supported encryption: SSL/TLS, STARTTLS or none.
-    #[serde(default, deserialize_with = "some_bool_or_kind")]
+    #[cfg_attr(
+        feature = "derive",
+        serde(default, deserialize_with = "some_bool_or_kind")
+    )]
     pub encryption: Option<ImapEncryptionKind>,
 
     /// The IMAP server login.
@@ -48,7 +56,7 @@ pub struct ImapConfig {
     ///
     /// Authentication can be done using password or OAuth 2.0.
     /// See [ImapAuthConfig].
-    #[serde(flatten)]
+    #[cfg_attr(feature = "derive", serde(flatten))]
     pub auth: ImapAuthConfig,
 
     /// The IMAP notify command.
@@ -91,13 +99,17 @@ impl ImapConfig {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum ImapEncryptionKind {
     #[default]
-    #[serde(alias = "ssl")]
+    #[cfg_attr(feature = "derive", serde(alias = "ssl"))]
     Tls,
-    #[serde(alias = "starttls")]
+    #[cfg_attr(feature = "derive", serde(alias = "starttls"))]
     StartTls,
     None,
 }
@@ -135,11 +147,15 @@ impl From<ImapEncryptionKind> for ConnectionMode {
 /// The IMAP authentication configuration.
 ///
 /// Authentication can be done using password or OAuth 2.0.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "lowercase")
+)]
 pub enum ImapAuthConfig {
     /// The password configuration.
-    #[serde(alias = "password")]
+    #[cfg_attr(feature = "derive", serde(alias = "password"))]
     Passwd(PasswdConfig),
 
     /// The OAuth 2.0 configuration.
@@ -168,25 +184,27 @@ impl ImapAuthConfig {
         }
     }
 
-    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) {
+    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
         let name = name.as_ref();
 
         match self {
             Self::Passwd(secret) => {
-                secret.set_keyring_entry_if_undefined(format!("{name}-imap-passwd"));
+                secret.replace_undefined_to_keyring(format!("{name}-imap-passwd"))?;
             }
             Self::OAuth2(config) => {
                 config
                     .client_secret
-                    .set_keyring_entry_if_undefined(format!("{name}-imap-oauth2-client-secret"));
+                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-client-secret"))?;
                 config
                     .access_token
-                    .set_keyring_entry_if_undefined(format!("{name}-imap-oauth2-access-token"));
+                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-access-token"))?;
                 config
                     .refresh_token
-                    .set_keyring_entry_if_undefined(format!("{name}-imap-oauth2-refresh-token"));
+                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-refresh-token"))?;
             }
         }
+
+        Ok(())
     }
 }
 
@@ -194,8 +212,12 @@ impl ImapAuthConfig {
 ///
 /// Options dedicated to the IMAP IDLE mode, which is used to watch
 /// changes.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct ImapWatchConfig {
     /// The IMAP watch timeout.
     ///
@@ -211,15 +233,16 @@ impl ImapWatchConfig {
     }
 }
 
+#[cfg(feature = "derive")]
 fn some_bool_or_kind<'de, D>(
     deserializer: D,
 ) -> result::Result<Option<ImapEncryptionKind>, D::Error>
 where
-    D: Deserializer<'de>,
+    D: serde::Deserializer<'de>,
 {
     struct SomeBoolOrKind(PhantomData<fn() -> Option<ImapEncryptionKind>>);
 
-    impl<'de> de::Visitor<'de> for SomeBoolOrKind {
+    impl<'de> serde::de::Visitor<'de> for SomeBoolOrKind {
         type Value = Option<ImapEncryptionKind>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -228,11 +251,11 @@ where
 
         fn visit_some<D>(self, deserializer: D) -> result::Result<Self::Value, D::Error>
         where
-            D: Deserializer<'de>,
+            D: serde::Deserializer<'de>,
         {
             struct BoolOrKind(PhantomData<fn() -> ImapEncryptionKind>);
 
-            impl<'de> de::Visitor<'de> for BoolOrKind {
+            impl<'de> serde::de::Visitor<'de> for BoolOrKind {
                 type Value = ImapEncryptionKind;
 
                 fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -241,16 +264,16 @@ where
 
                 fn visit_bool<E>(self, v: bool) -> result::Result<Self::Value, E>
                 where
-                    E: de::Error,
+                    E: serde::de::Error,
                 {
                     Ok(v.into())
                 }
 
                 fn visit_str<E>(self, v: &str) -> result::Result<Self::Value, E>
                 where
-                    E: de::Error,
+                    E: serde::de::Error,
                 {
-                    Deserialize::deserialize(de::value::StrDeserializer::new(v))
+                    serde::Deserialize::deserialize(serde::de::value::StrDeserializer::new(v))
                 }
             }
 

@@ -5,8 +5,9 @@
 
 use log::debug;
 use mail_send::Credentials;
-use serde::{de, Deserialize, Deserializer, Serialize};
-use std::{fmt, io, marker::PhantomData, result};
+use std::{fmt, io};
+#[cfg(feature = "derive")]
+use std::{marker::PhantomData, result};
 use thiserror::Error;
 
 use crate::{
@@ -26,8 +27,12 @@ pub enum Error {
 }
 
 /// The SMTP sender configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct SmtpConfig {
     /// The SMTP server host name.
     pub host: String,
@@ -38,7 +43,10 @@ pub struct SmtpConfig {
     /// The SMTP encryption protocol to use.
     ///
     /// Supported encryption: SSL/TLS or STARTTLS.
-    #[serde(default, deserialize_with = "some_bool_or_kind")]
+    #[cfg_attr(
+        feature = "derive",
+        serde(default, deserialize_with = "some_bool_or_kind")
+    )]
     pub encryption: Option<SmtpEncryptionKind>,
 
     /// The SMTP server login.
@@ -51,7 +59,7 @@ pub struct SmtpConfig {
     ///
     /// Authentication can be done using password or OAuth 2.0.
     /// See [SmtpAuthConfig].
-    #[serde(flatten)]
+    #[cfg_attr(feature = "derive", serde(flatten))]
     pub auth: SmtpAuthConfig,
 }
 
@@ -96,13 +104,17 @@ impl SmtpConfig {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum SmtpEncryptionKind {
     #[default]
-    #[serde(alias = "ssl")]
+    #[cfg_attr(feature = "derive", serde(alias = "ssl"))]
     Tls,
-    #[serde(alias = "starttls")]
+    #[cfg_attr(feature = "derive", serde(alias = "starttls"))]
     StartTls,
     None,
 }
@@ -128,11 +140,16 @@ impl From<bool> for SmtpEncryptionKind {
 }
 
 /// The SMTP authentication configuration.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "lowercase")
+)]
+
 pub enum SmtpAuthConfig {
     /// The password authentication mechanism.
-    #[serde(alias = "password")]
+    #[cfg_attr(feature = "derive", serde(alias = "password"))]
     Passwd(PasswdConfig),
 
     /// The OAuth 2.0 authentication mechanism.
@@ -147,7 +164,7 @@ impl Default for SmtpAuthConfig {
 
 impl SmtpAuthConfig {
     /// Resets the OAuth 2.0 authentication tokens.
-    pub async fn reset(&self) -> Result<()> {
+    pub async fn reset(&mut self) -> Result<()> {
         debug!("resetting smtp backend configuration");
 
         if let Self::OAuth2(oauth2) = self {
@@ -159,7 +176,7 @@ impl SmtpAuthConfig {
 
     /// Configures the OAuth 2.0 authentication tokens.
     pub async fn configure(
-        &self,
+        &mut self,
         get_client_secret: impl Fn() -> io::Result<String>,
     ) -> Result<()> {
         debug!("configuring smtp backend");
@@ -171,37 +188,40 @@ impl SmtpAuthConfig {
         Ok(())
     }
 
-    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) {
+    pub async fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
         let name = name.as_ref();
 
         match self {
             SmtpAuthConfig::Passwd(secret) => {
-                secret.set_keyring_entry_if_undefined(format!("{name}-smtp-passwd"));
+                secret.replace_undefined_to_keyring(format!("{name}-smtp-passwd"))?;
             }
             SmtpAuthConfig::OAuth2(config) => {
                 config
                     .client_secret
-                    .set_keyring_entry_if_undefined(format!("{name}-smtp-oauth2-client-secret"));
+                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-client-secret"))?;
                 config
                     .access_token
-                    .set_keyring_entry_if_undefined(format!("{name}-smtp-oauth2-access-token"));
+                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-access-token"))?;
                 config
                     .refresh_token
-                    .set_keyring_entry_if_undefined(format!("{name}-smtp-oauth2-refresh-token"));
+                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-refresh-token"))?;
             }
         }
+
+        Ok(())
     }
 }
 
+#[cfg(feature = "derive")]
 fn some_bool_or_kind<'de, D>(
     deserializer: D,
 ) -> result::Result<Option<SmtpEncryptionKind>, D::Error>
 where
-    D: Deserializer<'de>,
+    D: serde::Deserializer<'de>,
 {
     struct SomeBoolOrKind(PhantomData<fn() -> Option<SmtpEncryptionKind>>);
 
-    impl<'de> de::Visitor<'de> for SomeBoolOrKind {
+    impl<'de> serde::de::Visitor<'de> for SomeBoolOrKind {
         type Value = Option<SmtpEncryptionKind>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -210,11 +230,11 @@ where
 
         fn visit_some<D>(self, deserializer: D) -> result::Result<Self::Value, D::Error>
         where
-            D: Deserializer<'de>,
+            D: serde::Deserializer<'de>,
         {
             struct BoolOrKind(PhantomData<fn() -> SmtpEncryptionKind>);
 
-            impl<'de> de::Visitor<'de> for BoolOrKind {
+            impl<'de> serde::de::Visitor<'de> for BoolOrKind {
                 type Value = SmtpEncryptionKind;
 
                 fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -223,16 +243,16 @@ where
 
                 fn visit_bool<E>(self, v: bool) -> result::Result<Self::Value, E>
                 where
-                    E: de::Error,
+                    E: serde::de::Error,
                 {
                     Ok(v.into())
                 }
 
                 fn visit_str<E>(self, v: &str) -> result::Result<Self::Value, E>
                 where
-                    E: de::Error,
+                    E: serde::de::Error,
                 {
-                    Deserialize::deserialize(de::value::StrDeserializer::new(v))
+                    serde::Deserialize::deserialize(serde::de::value::StrDeserializer::new(v))
                 }
             }
 

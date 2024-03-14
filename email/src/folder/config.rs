@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::list::config::FolderListConfig;
@@ -6,8 +5,12 @@ use super::list::config::FolderListConfig;
 use super::sync::config::FolderSyncConfig;
 
 /// The folder configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct FolderConfig {
     /// Define custom folder aliases.
     ///

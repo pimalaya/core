@@ -9,7 +9,6 @@ pub mod gpg;
 pub mod native;
 
 use mml::pgp::Pgp;
-use serde::{Deserialize, Serialize};
 use std::io;
 
 use crate::Result;
@@ -25,11 +24,18 @@ pub use self::gpg::GpgConfig;
 pub use self::native::NativePgpConfig;
 
 /// The PGP configuration.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "backend")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case", tag = "backend")
+)]
 pub enum PgpConfig {
     #[cfg(feature = "pgp-commands")]
-    #[serde(alias = "cmd", alias = "command", alias = "commands")]
+    #[cfg_attr(
+        feature = "derive",
+        serde(alias = "cmd", alias = "command", alias = "commands")
+    )]
     /// Commands configuration.
     Cmds(CmdsPgpConfig),
 

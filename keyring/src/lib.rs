@@ -1,12 +1,12 @@
 //! # Keyring
 //!
-//! Manage credentials using os-specific keyring: Secret Service on
-//! Linux, Security Framework on MacOS and Security Credentials on
-//! Windows.
+//! Manage credentials using OS-specific keyrings: Secret Service and
+//! keyutils on Linux, Security Framework on MacOS and Security
+//! Credentials on Windows.
 //!
-//! The aim of this library is to provide a convenient
-//! wrapper around [keyring-rs](https://crates.io/crates/keyring), a
-//! cross-platform library to manage keys. The main structure is
+//! The aim of this library is to provide a convenient wrapper around
+//! [keyring-rs](https://crates.io/crates/keyring), a cross-platform
+//! library to manage credentials. The main structure is
 //! [`KeyringEntry`]. Cache is enabled on Linux only, using the kernel
 //! [`keyutils`] keyring.
 
@@ -58,7 +58,7 @@ pub type Result<T> = result::Result<T, Error>;
 /// Linux for cache.
 #[derive(Clone, Debug)]
 #[cfg_attr(
-    feature = "serde",
+    feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
     serde(try_from = "String", into = "String")
 )]

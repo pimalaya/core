@@ -1,16 +1,22 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct FlagSyncConfig {
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub permissions: FlagSyncPermissions,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct FlagSyncPermissions {
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub update: bool,
 }
 

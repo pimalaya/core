@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added cache system based on `keyutils` (only on Linux machines).
-- Added cargo feature `serde` to enable/disable (de)serialization of `KeyringEntry`.
+- Added cargo feature `derive` to enable/disable (de)serialization of `KeyringEntry` using `serde`.
 
 ### Changed
 

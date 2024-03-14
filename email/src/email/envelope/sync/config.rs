@@ -1,18 +1,26 @@
 use chrono::{DateTime, Local};
-use serde::{Deserialize, Serialize};
 
 use crate::envelope::Envelope;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct EnvelopeSyncConfig {
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub filter: EnvelopeSyncFilters,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct EnvelopeSyncFilters {
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub date_range: EnvelopeSyncDateRangeFilter,
 }
 
@@ -23,7 +31,12 @@ impl EnvelopeSyncFilters {
 }
 
 /// The date range synchronization filter.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct EnvelopeSyncDateRangeFilter {
     /// Filter envelopes with a `Date` header more recent than the given
     /// date.

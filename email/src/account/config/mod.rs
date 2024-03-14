@@ -15,7 +15,6 @@ use mail_builder::headers::address::{Address, EmailAddress};
 use mml::MimeInterpreterBuilder;
 use notify_rust::Notification;
 use process::Cmd;
-use serde::{Deserialize, Serialize};
 use shellexpand_utils::{shellexpand_path, shellexpand_str, try_shellexpand_path};
 use std::{
     collections::HashMap,
@@ -69,8 +68,12 @@ pub trait HasAccountConfig {
 /// account. It is the main configuration used by all other
 /// modules. Usually, it serves as a reference for building config
 /// file structure.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct AccountConfig {
     /// The name of the user account.
     ///

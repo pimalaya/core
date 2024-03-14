@@ -3,12 +3,15 @@
 //! This module contains the configuration specific to the Maildir
 //! backend.
 
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// The Maildir backend configuration.
-#[derive(Debug, Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct MaildirConfig {
     /// The Maildir root directory.
     ///

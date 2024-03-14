@@ -28,7 +28,7 @@ pub enum Error {
     JoinError(#[from] JoinError),
 }
 
-/// Result alias dedicated to keyutils cache management.
+/// The `Result` alias dedicated to keyutils cache.
 pub type Result<T> = result::Result<T, Error>;
 
 /// Keyutils cache entry structure.
@@ -40,7 +40,7 @@ pub struct KeyutilsEntry {
     /// The keyutils cache entry key.
     pub key: String,
 
-    /// The atomic reference to the native entry.
+    /// The atomic reference to the native keyutils entry.
     entry: Arc<keyring_native::Entry>,
 }
 

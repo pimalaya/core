@@ -1,8 +1,7 @@
-use keyring::Entry;
+use keyring::KeyringEntry;
 use log::debug;
 use mml::pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
 use secret::Secret;
-use serde::{Deserialize, Serialize};
 use shellexpand_utils::shellexpand_path;
 use std::{io, path::PathBuf};
 use thiserror::Error;
@@ -39,7 +38,12 @@ pub enum Error {
 ///
 /// This configuration is based on the [`pgp`] crate, which provides a
 /// native Rust implementation of the PGP standard.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct NativePgpConfig {
     pub secret_key: NativePgpSecretKey,
     pub secret_key_passphrase: Secret,
@@ -117,7 +121,7 @@ impl NativePgpConfig {
                     .map_err(|err| Error::WritePublicKeyFileError(err, pkey_path))?;
             }
             NativePgpSecretKey::Keyring(skey_entry) => {
-                let pkey_entry = Entry::from(skey_entry.get_key().to_owned() + "-pub");
+                let pkey_entry = KeyringEntry::try_new(skey_entry.key.clone() + "-pub")?;
 
                 skey_entry
                     .set_secret(skey)

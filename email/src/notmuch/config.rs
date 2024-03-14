@@ -4,14 +4,17 @@
 //! backend.
 
 use notmuch::{Database, DatabaseMode};
-use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use crate::Result;
 
 /// The Notmuch backend config.
-#[derive(Debug, Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct NotmuchConfig {
     /// The path to the Notmuch database.
     ///
@@ -19,7 +22,7 @@ pub struct NotmuchConfig {
     /// Notmuch database (usually the root Maildir directory). Path is
     /// shell-expanded, which means environment variables and tilde
     /// `~` are replaced by their values.
-    #[serde(alias = "db-path")]
+    #[cfg_attr(feature = "derive", serde(alias = "db-path"))]
     pub database_path: Option<PathBuf>,
 
     /// Override the default path to the Maildir folder.

@@ -1,21 +1,28 @@
 //! # Folder sync config
 
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct FolderSyncConfig {
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub filter: FolderSyncStrategy,
 
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub permissions: FolderSyncPermissions,
 }
 
 /// The folder synchronization strategy.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum FolderSyncStrategy {
     /// Synchronizes all folders.
     #[default]
@@ -39,13 +46,17 @@ impl FolderSyncStrategy {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct FolderSyncPermissions {
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub create: bool,
 
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub delete: bool,
 }
 

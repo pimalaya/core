@@ -4,10 +4,14 @@
 //! sender.
 
 use process::Cmd;
-use serde::{Deserialize, Serialize};
 
 /// The sendmail sender configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct SendmailConfig {
     /// The sendmail command.
     pub cmd: Cmd,

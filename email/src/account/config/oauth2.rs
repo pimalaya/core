@@ -6,7 +6,6 @@
 use log::debug;
 use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use secret::Secret;
-use serde::{Deserialize, Serialize};
 use std::{io, net::TcpListener, vec};
 use thiserror::Error;
 
@@ -52,8 +51,12 @@ pub enum Error {
 }
 
 /// The OAuth 2.0 configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct OAuth2Config {
     /// Method for presenting an OAuth 2.0 bearer token to a service
     /// for authentication.
@@ -65,7 +68,10 @@ pub struct OAuth2Config {
 
     /// Client password issued to the client during the registration process described by
     /// [Section 2.2](https://datatracker.ietf.org/doc/html/rfc6749#section-2.2).
-    #[serde(default, skip_serializing_if = "Secret::is_undefined")]
+    #[cfg_attr(
+        feature = "derive",
+        serde(default, skip_serializing_if = "Secret::is_undefined")
+    )]
     pub client_secret: Secret,
 
     /// URL of the authorization server's authorization endpoint.
@@ -76,12 +82,18 @@ pub struct OAuth2Config {
 
     /// Access token returned by the token endpoint and used to access
     /// protected resources.
-    #[serde(default, skip_serializing_if = "Secret::is_undefined")]
+    #[cfg_attr(
+        feature = "derive",
+        serde(default, skip_serializing_if = "Secret::is_undefined")
+    )]
     pub access_token: Secret,
 
     /// Refresh token used to obtain a new access token (if supported
     /// by the authorization server).
-    #[serde(default, skip_serializing_if = "Secret::is_undefined")]
+    #[cfg_attr(
+        feature = "derive",
+        serde(default, skip_serializing_if = "Secret::is_undefined")
+    )]
     pub refresh_token: Secret,
 
     /// Enable the [PKCE](https://datatracker.ietf.org/doc/html/rfc7636) protection.
@@ -90,7 +102,7 @@ pub struct OAuth2Config {
     pub pkce: bool,
 
     /// Access token scope(s), as defined by the authorization server.
-    #[serde(flatten)]
+    #[cfg_attr(feature = "derive", serde(flatten))]
     pub scopes: OAuth2Scopes,
 }
 
@@ -107,15 +119,15 @@ impl OAuth2Config {
     /// Resets the three secrets of the OAuth 2.0 configuration.
     pub async fn reset(&self) -> Result<()> {
         self.client_secret
-            .delete_keyring_entry_secret()
+            .delete_only_keyring()
             .await
             .map_err(Error::DeleteClientSecretError)?;
         self.access_token
-            .delete_keyring_entry_secret()
+            .delete_only_keyring()
             .await
             .map_err(Error::DeleteAccessTokenError)?;
         self.refresh_token
-            .delete_keyring_entry_secret()
+            .delete_only_keyring()
             .await
             .map_err(Error::DeleteRefreshTokenError)?;
         Ok(())
@@ -125,7 +137,7 @@ impl OAuth2Config {
     /// code grant OAuth 2.0 flow in order to save the acces token and
     /// the refresh token if present.
     pub async fn configure(
-        &self,
+        &mut self,
         get_client_secret: impl Fn() -> io::Result<String>,
     ) -> Result<()> {
         if self.access_token.get().await.is_ok() {
@@ -138,9 +150,7 @@ impl OAuth2Config {
             Ok(None) => {
                 debug!("cannot find oauth2 client secret from keyring, setting it");
                 self.client_secret
-                    .set_keyring_entry_secret(
-                        get_client_secret().map_err(Error::GetClientSecretFromUserError)?,
-                    )
+                    .set(get_client_secret().map_err(Error::GetClientSecretFromUserError)?)
                     .await
                     .map_err(Error::SetClientSecretIntoKeyringError)
             }
@@ -184,13 +194,13 @@ impl OAuth2Config {
             .map_err(Error::WaitForRedirectionError)?;
 
         self.access_token
-            .set_keyring_entry_secret(access_token)
+            .set(access_token)
             .await
             .map_err(Error::SetAccessTokenError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
-                .set_keyring_entry_secret(refresh_token)
+                .set(refresh_token)
                 .await
                 .map_err(Error::SetRefreshTokenError)?;
         }
@@ -233,13 +243,13 @@ impl OAuth2Config {
             .map_err(Error::RefreshAccessTokenError)?;
 
         self.access_token
-            .set_keyring_entry_secret(&access_token)
+            .set_only_keyring(&access_token)
             .await
             .map_err(Error::SetAccessTokenError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
-                .set_keyring_entry_secret(refresh_token)
+                .set_only_keyring(refresh_token)
                 .await
                 .map_err(Error::SetRefreshTokenError)?;
         }
@@ -259,19 +269,27 @@ impl OAuth2Config {
 
 /// Method for presenting an OAuth 2.0 bearer token to a service for
 /// authentication.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "lowercase")
+)]
 pub enum OAuth2Method {
     #[default]
-    #[serde(alias = "XOAUTH2")]
+    #[cfg_attr(feature = "derive", serde(alias = "XOAUTH2"))]
     XOAuth2,
-    #[serde(alias = "OAUTHBEARER")]
+    #[cfg_attr(feature = "derive", serde(alias = "OAUTHBEARER"))]
     OAuthBearer,
 }
 
 /// Access token scope(s), as defined by the authorization server.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum OAuth2Scopes {
     Scope(String),
     Scopes(Vec<String>),

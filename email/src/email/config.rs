@@ -4,13 +4,17 @@
 //! are mostly used by [crate::AccountConfig].
 
 use process::Cmd;
-use serde::{Deserialize, Serialize};
 
 /// The email text/plain format configuration.
 ///
 /// Represents the email text/plain format as defined in the
 /// [RFC2646](https://www.ietf.org/rfc/rfc2646.txt).
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum EmailTextPlainFormat {
     #[default]
     /// The content should fit its container.
@@ -32,6 +36,11 @@ impl EmailTextPlainFormat {
 /// Represents the email hooks configuration. They can be useful for
 /// doing post and pre processing.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct EmailHooks {
     /// The hook called just before sending an email. The system
     /// command should take the raw message as a unique parameter and

@@ -4,7 +4,6 @@
 
 use log::debug;
 use secret::Secret;
-use serde::{Deserialize, Serialize};
 use std::{
     io,
     ops::{Deref, DerefMut},
@@ -27,9 +26,19 @@ pub enum Error {
 }
 
 /// The password configuration.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct PasswdConfig(#[serde(skip_serializing_if = "Secret::is_undefined")] pub Secret);
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(transparent)
+)]
+pub struct PasswdConfig(
+    #[cfg_attr(
+        feature = "derive",
+        serde(skip_serializing_if = "Secret::is_undefined")
+    )]
+    pub Secret,
+);
 
 impl Deref for PasswdConfig {
     type Target = Secret;
@@ -47,22 +56,18 @@ impl DerefMut for PasswdConfig {
 
 impl PasswdConfig {
     /// If the current password secret is a keyring entry, delete it.
-    pub async fn reset(&self) -> Result<()> {
-        self.delete_keyring_entry_secret()
-            .await
-            .map_err(Error::DeleteError)?;
+    pub async fn reset(&mut self) -> Result<()> {
+        self.delete().await.map_err(Error::DeleteError)?;
         Ok(())
     }
 
     /// Define the password only if it does not exist in the keyring.
-    pub async fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
+    pub async fn configure(&mut self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
         match self.find().await {
             Ok(None) => {
                 debug!("cannot find imap password from keyring, setting it");
                 let passwd = get_passwd().map_err(Error::GetFromUserError)?;
-                self.set_keyring_entry_secret(passwd)
-                    .await
-                    .map_err(Error::SetIntoKeyringError)?;
+                self.set(passwd).await.map_err(Error::SetIntoKeyringError)?;
                 Ok(())
             }
             Ok(_) => Ok(()),

@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "account-sync")]
 use super::sync::config::MessageSyncConfig;
 use super::{
@@ -7,8 +5,12 @@ use super::{
     send::config::MessageSendConfig,
 };
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct MessageConfig {
     /// Configuration dedicated to message reading.
     pub read: Option<MessageReadConfig>,

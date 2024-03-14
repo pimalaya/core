@@ -1,9 +1,11 @@
-use serde::{Deserialize, Serialize};
-
 use crate::email::config::EmailTextPlainFormat;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct MessageReadConfig {
     /// Define visible headers at the top of messages when reading
     /// them.

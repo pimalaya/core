@@ -1,19 +1,25 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct MessageSyncConfig {
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub permissions: MessageSyncPermissions,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct MessageSyncPermissions {
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub create: bool,
 
-    #[serde(default)]
+    #[cfg_attr(feature = "derive", serde(default))]
     pub delete: bool,
 }
 

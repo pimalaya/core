@@ -32,6 +32,8 @@ default = [
   # "pgp-commands",
   # "pgp-gpg",
   # "pgp-native",
+
+  # "derive",
 ]
 
 imap = ["dep:futures", "dep:imap", "dep:imap-proto", "dep:utf7-imap"]
@@ -46,6 +48,7 @@ account-discovery = [
   "dep:hickory-resolver",
   "dep:hyper",
   "dep:hyper-rustls",
+  "dep:serde",
   "dep:serde-xml-rs",
 ]
 account-sync = [
@@ -59,6 +62,8 @@ pgp = []
 pgp-commands = ["pgp", "mml-lib/pgp-commands"]
 pgp-gpg = ["pgp", "mml-lib/pgp-gpg"]
 pgp-native = ["pgp", "keyring-lib", "mml-lib/pgp-native", "dep:pgp-lib"]
+
+derive = ["dep:serde", "serde/derive", "mml-lib/derive", "secret-lib/derive", "keyring-lib/derive"]
 
 [dev-dependencies]
 concat-with = "0.2"
@@ -102,7 +107,7 @@ process-lib = "=0.3.1"
 rayon = { version = "1.6", optional = true }
 regex = "1.5"
 secret-lib = "=0.3.3"
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", optional = true }
 serde-xml-rs = { version = "0.6", optional = true }
 shellexpand-utils = "=0.2.0"
 thiserror = "1"

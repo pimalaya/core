@@ -21,7 +21,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get secret: secret is not defined")]
-    GetSecretFromUndefinedError,
+    GetUndefinedSecretError,
     #[cfg(feature = "command")]
     #[error("cannot get secret from command")]
     GetSecretFromCmd(#[source] process::Error),
@@ -42,7 +42,7 @@ pub type Result<T> = result::Result<T, Error>;
 /// command or from a keyring entry.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
-    feature = "serde",
+    feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
@@ -103,7 +103,11 @@ impl Secret {
         matches!(self, Self::Undefined)
     }
 
-    /// Get the secret.
+    /// Get the secret value.
+    ///
+    /// The command-based secret execute its shell command and returns
+    /// the output, and the keyring-based secret retrieves the value
+    /// from the global keyring using its inner key.
     pub async fn get(&self) -> Result<String> {
         match self {
             Self::Raw(raw) => Ok(raw.clone()),
@@ -122,13 +126,14 @@ impl Secret {
             Self::KeyringEntry(entry) => {
                 Ok(entry.get_secret().await.map_err(Error::KeyringError)?)
             }
-            Self::Undefined => Err(Error::GetSecretFromUndefinedError),
+            Self::Undefined => Err(Error::GetUndefinedSecretError),
         }
     }
 
     /// Find the secret value.
     ///
-    /// Return [`None`] if no secret is not found.
+    /// Like [`get`], but returns [`None`] if the secret value is not
+    /// found or undefined.
     pub async fn find(&self) -> Result<Option<String>> {
         match self {
             Self::Raw(secret) => Ok(Some(secret.clone())),
@@ -150,7 +155,11 @@ impl Secret {
         }
     }
 
-    /// Change the secret.
+    /// Change the secret value.
+    ///
+    /// This is only applicable for raw secrets and keyring-based
+    /// secrets. A secret value cannot be changed for command-base
+    /// secrets, since the value is the output of the command.
     pub async fn set(&mut self, secret: impl AsRef<str>) -> Result<String> {
         let secret = secret.as_ref();
 
@@ -160,7 +169,7 @@ impl Secret {
             }
             #[cfg(feature = "command")]
             Self::Command(_) => {
-                debug!("cannot change secret of command variant");
+                debug!("cannot change value of command-based secret");
             }
             #[cfg(feature = "keyring")]
             Self::KeyringEntry(entry) => {
@@ -170,28 +179,65 @@ impl Secret {
                     .map_err(Error::KeyringError)?;
             }
             Self::Undefined => {
-                debug!("cannot change secret of undefined variant");
+                debug!("cannot change value of undefined secret");
             }
         }
 
         Ok(secret.to_owned())
     }
 
-    /// Delete the secret.
+    /// Change the secret value of the keyring-based secret only.
     ///
-    /// If the secret uses the keyring entry variant, delete the
-    /// secret from the keyring. Otherwise change self to undefined
-    /// variant.
+    /// This function as no effect on other secret variants.
+    #[cfg(feature = "keyring")]
+    pub async fn set_only_keyring(&self, secret: impl AsRef<str>) -> Result<String> {
+        let secret = secret.as_ref();
+
+        if let Self::KeyringEntry(entry) = self {
+            entry
+                .set_secret(secret)
+                .await
+                .map_err(Error::KeyringError)?;
+        }
+
+        Ok(secret.to_owned())
+    }
+
+    /// Replace undefined secret by a keyring-based one.
+    ///
+    /// This function has no effect on other variants.
+    #[cfg(feature = "keyring")]
+    pub fn replace_undefined_to_keyring(
+        &mut self,
+        entry: impl TryInto<KeyringEntry, Error = keyring::Error>,
+    ) -> Result<()> {
+        if self.is_undefined() {
+            *self = Self::try_new_keyring_entry(entry)?
+        }
+
+        Ok(())
+    }
+
+    /// Delete the secret value and make the current secret undefined.
     pub async fn delete(&mut self) -> Result<()> {
-        match self {
-            #[cfg(feature = "keyring")]
-            Self::KeyringEntry(entry) => {
-                entry.delete_secret().await.map_err(Error::KeyringError)?;
-            }
-            _ => {
-                *self = Self::Undefined;
-            }
-        };
+        #[cfg(feature = "keyring")]
+        if let Self::KeyringEntry(entry) = self {
+            entry.delete_secret().await.map_err(Error::KeyringError)?;
+        }
+
+        *self = Self::Undefined;
+
+        Ok(())
+    }
+
+    /// Delete the secret value of keyring-based secrets only.
+    ///
+    /// This function has no effect on other variants.
+    #[cfg(feature = "keyring")]
+    pub async fn delete_only_keyring(&self) -> Result<()> {
+        if let Self::KeyringEntry(entry) = self {
+            entry.delete_secret().await.map_err(Error::KeyringError)?;
+        }
 
         Ok(())
     }

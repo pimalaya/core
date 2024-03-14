@@ -61,6 +61,7 @@ pub mod maildir;
 pub mod notmuch;
 #[cfg(feature = "sendmail")]
 pub mod sendmail;
+#[cfg(feature = "derive")]
 pub(crate) mod serde;
 #[cfg(feature = "smtp")]
 pub mod smtp;
