@@ -7,17 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2024-03-14
+
 ### Added
 
+- Added cargo feature `derive` to enable/disable (de)serialization of the `Secret` structure using `serde`.
 - Added cargo feature `command` to enable/disable `Secret::Command` variant.
 - Added cargo features `keyring-tokio`, `keyring-tokio-openssl`, `keyring-async-io` and `keyring-async-io-openssl` to enable/disable `Secret::Keyring` variant.
-- Added cargo feature `derive` to enable/disable (de)serialization of the `Secret` structure using `serde`.
+- Added function `Secret::set`.
+- Added function `Secret::delete`.
 
 ### Changed
 
 - Renamed `Secret::Cmd` to `Secret::Command` for clarity.
-- Renamed `Secret::set_keyring_entry_if_undefined` to `Secret::set`.
-- Renamed `Secret::delete_keyring_entry_secret` to `Secret::delete`.
+- Renamed `Secret::set_keyring_entry_if_undefined` to `Secret::set_only_keyring`.
+- Renamed `Secret::delete_keyring_entry_secret` to `Secret::delete_only_keyring`.
 
 ## [0.3.3] - 2024-01-12
 
