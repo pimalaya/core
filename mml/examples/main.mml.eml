@@ -8,5 +8,4 @@ This is a plain text part.
 <h1>This is a HTML part.</h1>
 <#/part>
 
-<#part filename=./examples/attachment.png disposition=attachment description="This is an attachment.">
-<#/part>
+<#part filename=./examples/attachment.png disposition=attachment description="This is an attachment."><#/part>

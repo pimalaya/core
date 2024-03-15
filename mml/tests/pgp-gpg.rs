@@ -20,6 +20,7 @@ async fn pgp_gpg() {
         "",
         "<#part type=text/plain encrypt=pgpmime sign=pgpmime>",
         "Encrypted and signed message!",
+        "<#/part>",
     );
 
     let mml_compiler = MmlCompilerBuilder::new()

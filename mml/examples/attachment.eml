@@ -2,9 +2,9 @@ From: alice@localhost
 To: bob@localhost
 Subject: MML with attachment
 
-<#part filename=./examples/attachment.png description="Files can be attached using the filename property.">
+<#part filename=./examples/attachment.png description="Files can be attached using the filename property."><#/part>
 
-<#part filename=./examples/attachment.png name=custom.png description="Filename can be customized with the name property.">
+<#part filename=./examples/attachment.png name=custom.png description="Filename can be customized with the name property."><#/part>
 
 <#part disposition=inline>
 They can also be inlined.

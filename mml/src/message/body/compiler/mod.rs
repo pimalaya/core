@@ -180,12 +180,23 @@ impl<'a> MmlBodyCompiler {
                     .map_err(Error::WriteCompiledPartToVecError)?;
 
                 let signature_bytes = pgp.sign(sender, clear_part_bytes).await?;
+                let signature_bytes =
+                    signature_bytes.into_iter().fold(Vec::new(), |mut part, b| {
+                        if b == b'\n' {
+                            part.push(b'\r');
+                            part.push(b'\n');
+                        } else {
+                            part.push(b);
+                        };
+                        part
+                    });
 
                 let signed_part = MimePart::new(
-                    "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha1\"",
+                    "multipart/signed; protocol=\"application/pgp-signature\"; micalg=\"pgp-sha256\"",
                     vec![
                         clear_part,
-                        MimePart::new("application/pgp-signature", signature_bytes),
+                        MimePart::new("application/pgp-signature", signature_bytes)
+                            .transfer_encoding("7bit"),
                     ],
                 );
 
