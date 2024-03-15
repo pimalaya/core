@@ -31,7 +31,7 @@ pub enum Error {
 /// This enum is used to find the right encryption-capable public
 /// (sub)key.
 #[derive(Debug)]
-enum SignedPublicKeyOrSubkey<'a> {
+pub enum SignedPublicKeyOrSubkey<'a> {
     Key(&'a SignedPublicKey),
     Subkey(&'a SignedPublicSubKey),
 }
@@ -91,12 +91,12 @@ impl PublicKeyTrait for SignedPublicKeyOrSubkey<'_> {
     }
 }
 
-/// Selects primary key or subkey to use for encryption.
+/// Find primary key or subkey to use for encryption.
 ///
 /// First, tries to use subkeys. If none of the subkeys are suitable
 /// for encryption, tries to use primary key. Returns `None` if the
 /// public key cannot be used for encryption.
-fn select_pkey_for_encryption(key: &SignedPublicKey) -> Option<SignedPublicKeyOrSubkey> {
+fn find_pkey_for_encryption(key: &SignedPublicKey) -> Option<SignedPublicKeyOrSubkey> {
     key.public_subkeys
         .iter()
         .find(|subkey| subkey.is_encryption_key())
@@ -120,10 +120,8 @@ pub async fn encrypt(pkeys: Vec<SignedPublicKey>, plain_bytes: Vec<u8>) -> Resul
 
         let msg = Message::new_literal_bytes("", &plain_bytes);
 
-        let pkeys: Vec<SignedPublicKeyOrSubkey> = pkeys
-            .iter()
-            .filter_map(select_pkey_for_encryption)
-            .collect();
+        let pkeys: Vec<SignedPublicKeyOrSubkey> =
+            pkeys.iter().filter_map(find_pkey_for_encryption).collect();
         let pkeys_refs: Vec<&SignedPublicKeyOrSubkey> = pkeys.iter().collect();
 
         let encrypted_bytes = msg
