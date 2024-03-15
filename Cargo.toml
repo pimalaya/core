@@ -17,7 +17,14 @@ members = [
 
 [patch.crates-io]
 chumsky = { git = "https://github.com/zesterer/chumsky.git", rev = "6837537" }
+email = { path = "./email" }
 email-macros = { path = "./email-macros" }
 keyring-lib = { path = "./keyring" }
+maildirpp = { path = "./maildir++" }
 mml-lib = { path = "./mml" }
+oauth2-lib = { path = "./oauth2" }
+pgp-lib = { path = "./pgp" }
+process-lib = { path = "./process" }
 secret-lib = { path = "./secret" }
+shellexpand-utils = { path = "./shellexpand-utils" }
+time-lib = { path = "./time" }

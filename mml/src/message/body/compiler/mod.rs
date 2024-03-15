@@ -117,11 +117,24 @@ impl<'a> MmlBodyCompiler {
                     .map_err(Error::WriteCompiledPartToVecError)?;
 
                 let encrypted_part_bytes = pgp.encrypt(recipients, clear_part_bytes).await?;
+                let encrypted_part_bytes =
+                    encrypted_part_bytes
+                        .into_iter()
+                        .fold(Vec::new(), |mut part, b| {
+                            if b == b'\n' {
+                                part.push(b'\r');
+                                part.push(b'\n');
+                            } else {
+                                part.push(b);
+                            };
+                            part
+                        });
                 let encrypted_part = MimePart::new(
                     "multipart/encrypted; protocol=\"application/pgp-encrypted\"",
                     vec![
                         MimePart::new("application/pgp-encrypted", "Version: 1"),
-                        MimePart::new("application/octet-stream", encrypted_part_bytes),
+                        MimePart::new("application/octet-stream", encrypted_part_bytes)
+                            .transfer_encoding("7bit"),
                     ],
                 );
 
