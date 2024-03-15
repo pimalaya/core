@@ -97,20 +97,14 @@ impl PublicKeyTrait for SignedPublicKeyOrSubkey<'_> {
 /// for encryption, tries to use primary key. Returns `None` if the
 /// public key cannot be used for encryption.
 fn find_pkey_for_encryption(key: &SignedPublicKey) -> Option<SignedPublicKeyOrSubkey> {
-    key.public_subkeys
-        .iter()
-        .find(|subkey| subkey.is_encryption_key())
-        .map_or_else(
-            move || {
-                // No usable subkey found, try primary key
-                if key.is_encryption_key() {
-                    Some(SignedPublicKeyOrSubkey::Key(key))
-                } else {
-                    None
-                }
-            },
-            |subkey| Some(SignedPublicKeyOrSubkey::Subkey(subkey)),
-        )
+    if key.is_encryption_key() {
+        Some(SignedPublicKeyOrSubkey::Key(key))
+    } else {
+        key.public_subkeys
+            .iter()
+            .find(|subkey| subkey.is_encryption_key())
+            .map(SignedPublicKeyOrSubkey::Subkey)
+    }
 }
 
 /// Encrypts given bytes using the given list of public keys.

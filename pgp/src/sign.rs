@@ -136,20 +136,14 @@ impl<'a> SecretKeyTrait for SignedSecretKeyOrSubkey<'a> {
 /// for signing, tries to use primary key. Returns `None` if the
 /// public key cannot be used for signing.
 fn find_skey_for_signing(key: &SignedSecretKey) -> Option<SignedSecretKeyOrSubkey> {
-    key.secret_subkeys
-        .iter()
-        .find(|subkey| subkey.is_signing_key())
-        .map_or_else(
-            move || {
-                // No usable subkey found, try primary key
-                if key.is_signing_key() {
-                    Some(SignedSecretKeyOrSubkey::Key(key))
-                } else {
-                    None
-                }
-            },
-            |subkey| Some(SignedSecretKeyOrSubkey::Subkey(subkey)),
-        )
+    if key.is_signing_key() {
+        Some(SignedSecretKeyOrSubkey::Key(key))
+    } else {
+        key.secret_subkeys
+            .iter()
+            .find(|subkey| subkey.is_signing_key())
+            .map(SignedSecretKeyOrSubkey::Subkey)
+    }
 }
 
 /// Signs given bytes using the given private key and its passphrase.
@@ -164,7 +158,7 @@ pub async fn sign(
         let skey = find_skey_for_signing(&skey).ok_or(Error::FindSignedSecretKeyForSigningError)?;
 
         let msg = Message::new_literal_bytes("", &plain_bytes)
-            .sign(&skey, || passphrase, HashAlgorithm::SHA1)
+            .sign(&skey, || passphrase, HashAlgorithm::SHA2_256)
             .map_err(Error::SignMessageError)?;
 
         let signature_bytes = msg

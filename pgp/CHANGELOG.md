@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Changed hash algorithm from `sha1` to `sha256`.
+
+### Fixed
+
+- Fixed wrong secret key taken for signing.
+
 ## [0.1.0] - 2023-08-27
 
 ### Added

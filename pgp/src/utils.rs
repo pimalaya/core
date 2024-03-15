@@ -74,7 +74,7 @@ pub async fn gen_key_pair(
             .primary_user_id(email)
             .passphrase(passphrase.clone())
             .preferred_symmetric_algorithms(smallvec![SymmetricKeyAlgorithm::AES256])
-            .preferred_hash_algorithms(smallvec![HashAlgorithm::SHA2_512])
+            .preferred_hash_algorithms(smallvec![HashAlgorithm::SHA2_256])
             .preferred_compression_algorithms(smallvec![CompressionAlgorithm::ZLIB])
             .subkey(
                 SubkeyParamsBuilder::default()
