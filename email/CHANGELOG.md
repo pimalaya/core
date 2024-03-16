@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed watch IMAP envelopes when folder was empty [#179].
+- Fixed wrong recipient in reply template of mailing list messages [#187].
 
 ### Removed
 
@@ -851,3 +852,4 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#158]: https://todo.sr.ht/~soywod/pimalaya/158
 [#172]: https://todo.sr.ht/~soywod/pimalaya/172
 [#179]: https://todo.sr.ht/~soywod/pimalaya/179
+[#187]: https://todo.sr.ht/~soywod/pimalaya/187

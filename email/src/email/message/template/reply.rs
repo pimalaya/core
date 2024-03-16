@@ -24,6 +24,12 @@ use super::Error;
 static PREFIXLESS_SUBJECT_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new("(?i:\\s*re\\s*:\\s*)*(.*)").unwrap());
 
+/// Regex used to detect if an email address is a noreply one.
+///
+/// Matches usual names like `no_reply`, `noreply`, but also
+/// `do-not.reply`.
+static NO_REPLY: Lazy<Regex> = Lazy::new(|| Regex::new("(?i:not?[_\\-\\.]?reply)").unwrap());
+
 /// Trim out prefix(es) from the given subject.
 fn prefixless_subject(subject: &str) -> &str {
     let cap = PREFIXLESS_SUBJECT_REGEX
@@ -176,40 +182,77 @@ impl<'a> ReplyTplBuilder<'a> {
 
         // To
 
-        let recipients = if address::equal(sender, to) {
-            // when replying to an email received by a mailing list
-            if address::is_empty(reply_to) {
-                to.clone()
-            } else {
-                reply_to.clone()
-            }
-        } else if address::equal(
-            from,
-            &HeaderValue::Address(mail_parser::Address::List(vec![me.clone()])),
-        ) {
-            // when replying to one of your own email
+        let i_am_the_sender = {
+            let me = &HeaderValue::Address(mail_parser::Address::List(vec![me.clone()]));
+            address::equal(from, me)
+        };
+
+        let i_am_a_main_recipient = address::contains(to, &me.address);
+
+        let recipients = if i_am_the_sender {
             to.clone()
-        } else if address::is_empty(reply_to) {
+        } else if !i_am_a_main_recipient {
+            if !address::is_empty(reply_to) {
+                reply_to.clone()
+            } else {
+                to.clone()
+            }
+        } else if !address::is_empty(reply_to) {
+            reply_to.clone()
+        } else if !address::is_empty(from) {
             from.clone()
         } else {
-            reply_to.clone()
+            sender.clone()
         };
 
         builder = builder.to(address::into(recipients.clone()));
 
         // Cc
 
-        if self.reply_all {
-            builder = builder.cc({
-                let cc = parsed.header("Cc").unwrap_or(&HeaderValue::Empty);
-                let mut addresses = Vec::new();
+        let cc = {
+            let mut addresses = Vec::new();
 
-                if let HeaderValue::Address(mail_parser::Address::List(addrs)) = to {
-                    for a in addrs {
-                        if a.address != me.address
-                            && !address::contains(from, &a.address)
-                            && !address::contains(&recipients, &a.address)
-                        {
+            if !i_am_a_main_recipient && address::is_empty(&reply_to) {
+                if !address::is_empty(&from) {
+                    if let HeaderValue::Address(mail_parser::Address::List(addrs)) = &from {
+                        for a in addrs {
+                            if a.address == me.address {
+                                continue;
+                            }
+
+                            if address::contains(&recipients, &a.address) {
+                                continue;
+                            }
+
+                            if let Some(addr) = &a.address {
+                                if NO_REPLY.is_match(addr) {
+                                    continue;
+                                }
+                            }
+
+                            addresses.push(Address::new_address(
+                                a.name.clone(),
+                                a.address.clone().unwrap(),
+                            ));
+                        }
+                    }
+                } else {
+                    if let HeaderValue::Address(mail_parser::Address::List(addrs)) = &sender {
+                        for a in addrs {
+                            if a.address == me.address {
+                                continue;
+                            }
+
+                            if address::contains(&recipients, &a.address) {
+                                continue;
+                            }
+
+                            if let Some(addr) = &a.address {
+                                if NO_REPLY.is_match(addr) {
+                                    continue;
+                                }
+                            }
+
                             addresses.push(Address::new_address(
                                 a.name.clone(),
                                 a.address.clone().unwrap(),
@@ -217,23 +260,56 @@ impl<'a> ReplyTplBuilder<'a> {
                         }
                     }
                 }
+            }
+
+            if self.reply_all {
+                let cc = parsed.header("Cc").unwrap_or(&HeaderValue::Empty);
 
                 if let HeaderValue::Address(mail_parser::Address::List(addrs)) = cc {
                     for a in addrs {
-                        if a.address != me.address
-                            && !address::contains(from, &a.address)
-                            && !address::contains(&recipients, &a.address)
-                        {
-                            addresses.push(Address::new_address(
-                                a.name.clone(),
-                                a.address.clone().unwrap(),
-                            ));
+                        if a.address == me.address {
+                            continue;
                         }
+
+                        if address::contains(&reply_to, &a.address) {
+                            continue;
+                        }
+
+                        if address::contains(&from, &a.address) {
+                            continue;
+                        }
+
+                        if address::contains(&sender, &a.address) {
+                            continue;
+                        }
+
+                        if address::contains(&recipients, &a.address) {
+                            continue;
+                        }
+
+                        if let Some(addr) = &a.address {
+                            if NO_REPLY.is_match(addr) {
+                                continue;
+                            }
+                        }
+
+                        addresses.push(Address::new_address(
+                            a.name.clone(),
+                            a.address.clone().unwrap(),
+                        ));
                     }
                 }
+            }
 
-                Address::new_list(addresses)
-            });
+            if addresses.is_empty() {
+                None
+            } else {
+                Some(Address::new_list(addresses))
+            }
+        };
+
+        if let Some(cc) = cc {
+            builder = builder.cc(cc);
         }
 
         // Subject

@@ -569,18 +569,75 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn to_reply_tpl_builder_from_mailing_list() {
+    async fn reply_to_self() {
         let config = AccountConfig {
-            email: "to@localhost".into(),
+            email: "me@localhost".into(),
             ..AccountConfig::default()
         };
 
-        let email = Message::from(concat_line!(
+        let msg = Message::from(concat_line!(
             "Content-Type: text/plain",
-            "Sender: mlist@localhost",
-            "From: from@localhost",
-            "To: mlist@localhost",
-            "Cc: from@localhost,cc@localhost,cc2@localhost",
+            "From: me@localhost",
+            "To: to@localhost, to2@localhost",
+            "Cc: cc@localhost, cc2@localhost, dot-not-reply@localhost",
+            "Bcc: bcc@localhost",
+            "Subject: Re: subject",
+            "",
+            "Hello from myself!",
+            "",
+            "-- ",
+            "Regards,",
+        ));
+
+        let tpl = msg.to_reply_tpl_builder(&config).build().await.unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: me@localhost",
+            "To: to@localhost, to2@localhost",
+            "Subject: Re: subject",
+            "",
+            "",
+            "",
+            "> Hello from myself!",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+
+        let tpl = msg
+            .to_reply_tpl_builder(&config)
+            .with_reply_all(true)
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: me@localhost",
+            "To: to@localhost, to2@localhost",
+            "Cc: cc@localhost, cc2@localhost",
+            "Subject: Re: subject",
+            "",
+            "",
+            "",
+            "> Hello from myself!",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[tokio::test]
+    async fn reply_mailing_list_using_sender() {
+        let config = AccountConfig {
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        };
+
+        let msg = Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "Sender: sender@localhost",
+            "To: mlist@localhost,other@localhost",
+            "Cc: sender@localhost, cc@localhost, cc2@localhost, noreply@localhost",
             "Bcc: bcc@localhost",
             "Subject: Re: subject",
             "",
@@ -590,11 +647,153 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_reply_tpl_builder(&config).build().await.unwrap();
+        let tpl = msg.to_reply_tpl_builder(&config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
-            "From: to@localhost",
-            "To: mlist@localhost",
+            "From: me@localhost",
+            "To: mlist@localhost, other@localhost",
+            "Cc: sender@localhost",
+            "Subject: Re: subject",
+            "",
+            "",
+            "",
+            "> Hello from mailing list!",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+
+        let tpl = msg
+            .to_reply_tpl_builder(&config)
+            .with_reply_all(true)
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: me@localhost",
+            "To: mlist@localhost, other@localhost",
+            "Cc: sender@localhost, cc@localhost, cc2@localhost",
+            "Subject: Re: subject",
+            "",
+            "",
+            "",
+            "> Hello from mailing list!",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[tokio::test]
+    async fn reply_mailing_list_using_from() {
+        let config = AccountConfig {
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        };
+
+        let msg = Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "Sender: sender@localhost",
+            "From: from@localhost",
+            "To: mlist@localhost,other@localhost",
+            "Cc: from@localhost, cc@localhost, cc2@localhost, noreply@localhost",
+            "Bcc: bcc@localhost",
+            "Subject: Re: subject",
+            "",
+            "Hello from mailing list!",
+            "",
+            "-- ",
+            "Regards,",
+        ));
+
+        let tpl = msg.to_reply_tpl_builder(&config).build().await.unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: me@localhost",
+            "To: mlist@localhost, other@localhost",
+            "Cc: from@localhost",
+            "Subject: Re: subject",
+            "",
+            "",
+            "",
+            "> Hello from mailing list!",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+
+        let tpl = msg
+            .to_reply_tpl_builder(&config)
+            .with_reply_all(true)
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: me@localhost",
+            "To: mlist@localhost, other@localhost",
+            "Cc: from@localhost, cc@localhost, cc2@localhost",
+            "Subject: Re: subject",
+            "",
+            "",
+            "",
+            "> Hello from mailing list!",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[tokio::test]
+    async fn reply_mailing_list_using_reply_to() {
+        let config = AccountConfig {
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        };
+
+        let msg = Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: from@localhost",
+            "Sender: sender@localhost",
+            "Reply-To: reply-to@localhost",
+            "To: mlist@localhost,other@localhost",
+            "Cc: from@localhost, cc@localhost, cc2@localhost, noreply@localhost",
+            "Bcc: bcc@localhost",
+            "Subject: Re: subject",
+            "",
+            "Hello from mailing list!",
+            "",
+            "-- ",
+            "Regards,",
+        ));
+
+        let tpl = msg.to_reply_tpl_builder(&config).build().await.unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: me@localhost",
+            "To: reply-to@localhost",
+            "Subject: Re: subject",
+            "",
+            "",
+            "",
+            "> Hello from mailing list!",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+
+        let tpl = msg
+            .to_reply_tpl_builder(&config)
+            .with_reply_all(true)
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "From: me@localhost",
+            "To: reply-to@localhost",
+            "Cc: cc@localhost, cc2@localhost",
             "Subject: Re: subject",
             "",
             "",
@@ -754,7 +953,7 @@ mod tests {
         let expected_tpl = concat_line!(
             "From: to@localhost",
             "To: from@localhost",
-            "Cc: to2@localhost, cc@localhost, cc2@localhost",
+            "Cc: cc@localhost, cc2@localhost",
             "Subject: Re: subject",
             "",
             "",
@@ -800,7 +999,7 @@ mod tests {
             "From: to@localhost",
             "To: from2@localhost",
             "In-Reply-To: <id@localhost>",
-            "Cc: to2@localhost, cc@localhost, cc2@localhost",
+            "Cc: cc@localhost, cc2@localhost",
             "Subject: Re: subject",
             "",
             "",
