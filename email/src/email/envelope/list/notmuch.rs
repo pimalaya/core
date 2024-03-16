@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::Duration;
+use chrono::TimeDelta;
 use log::{debug, info, trace};
 use thiserror::Error;
 
@@ -139,14 +139,14 @@ impl SearchEmailsFilterQuery {
             SearchEmailsFilterQuery::BeforeDate(date) => {
                 // notmuch dates are inclusive, so we substract one
                 // day from the before date filter.
-                let date = *date - Duration::days(1);
+                let date = *date - TimeDelta::try_days(1).unwrap();
                 query.push_str("date:..");
                 query.push_str(&date.to_string());
             }
             SearchEmailsFilterQuery::AfterDate(date) => {
                 // notmuch dates are inclusive, so we add one day to
                 // the after date filter.
-                let date = *date + Duration::days(1);
+                let date = *date + TimeDelta::try_days(1).unwrap();
                 query.push_str("date:");
                 query.push_str(&date.to_string());
                 query.push_str("..");

@@ -16,6 +16,7 @@ members = [
 ]
 
 [patch.crates-io]
+# waiting for alpha 7
 chumsky = { git = "https://github.com/zesterer/chumsky.git", rev = "6837537" }
 email-lib = { path = "./email" }
 email-macros = { path = "./email-macros" }

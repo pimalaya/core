@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::Duration;
+use chrono::TimeDelta;
 use imap::extensions::sort::{SortCharset, SortCriterion};
 use log::{debug, info, trace};
 use std::{collections::HashMap, result};
@@ -206,7 +206,7 @@ impl SearchEmailsFilterQuery {
             SearchEmailsFilterQuery::AfterDate(date) => {
                 // imap sentsince is inclusive, so we add one day to
                 // the date filter.
-                let date = *date + Duration::days(1);
+                let date = *date + TimeDelta::try_days(1).unwrap();
                 format!("SENTSINCE {}", date.format("%d-%b-%Y"))
             }
             SearchEmailsFilterQuery::From(pattern) => {
