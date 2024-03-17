@@ -34,10 +34,9 @@ use crate::{
     Result,
 };
 
-#[doc(inline)]
-pub use self::{
+use self::{
     attachment::Attachment,
-    template::{ForwardTplBuilder, NewTplBuilder, ReplyTplBuilder},
+    template::{forward::ForwardTplBuilder, new::NewTplBuilder, reply::ReplyTplBuilder},
 };
 
 /// Errors related to email messages.

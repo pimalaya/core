@@ -3,6 +3,8 @@
 //! The main structure of this module is the [ReplyTplBuilder], which
 //! helps you to build template in order to reply to a message.
 
+pub mod config;
+
 use log::debug;
 use mail_builder::{
     headers::{address::Address, raw::Raw},

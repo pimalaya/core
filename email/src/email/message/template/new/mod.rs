@@ -3,6 +3,8 @@
 //! The main structure of this module is the [NewTplBuilder], which
 //! helps you to build template in order to compose a new message.
 
+pub mod config;
+
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,

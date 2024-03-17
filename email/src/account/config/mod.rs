@@ -34,6 +34,7 @@ use crate::{
     flag::config::FlagConfig,
     folder::{config::FolderConfig, FolderKind, DRAFTS, INBOX, SENT, TRASH},
     message::config::MessageConfig,
+    template::{self, config::TemplateConfig},
     Result,
 };
 
@@ -118,6 +119,9 @@ pub struct AccountConfig {
 
     /// The message configuration.
     pub message: Option<MessageConfig>,
+
+    /// The message configuration.
+    pub template: Option<TemplateConfig>,
 
     /// The account synchronization configuration.
     #[cfg(feature = "account-sync")]
@@ -586,6 +590,76 @@ impl AccountConfig {
             .and_then(|c| c.list.as_ref())
             .and_then(|c| c.datetime_local_tz)
             .unwrap_or_default()
+    }
+
+    pub fn get_new_tpl_signature_placement(&self) -> template::new::config::SignaturePlacement {
+        self.template
+            .as_ref()
+            .and_then(|c| c.new.as_ref())
+            .and_then(|c| c.signature_placement.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn get_reply_tpl_signature_placement(&self) -> template::reply::config::SignaturePlacement {
+        self.template
+            .as_ref()
+            .and_then(|c| c.reply.as_ref())
+            .and_then(|c| c.signature_placement.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn get_reply_tpl_quote_placement(&self) -> template::reply::config::QuotePlacement {
+        self.template
+            .as_ref()
+            .and_then(|c| c.reply.as_ref())
+            .and_then(|c| c.quote_placement.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn get_reply_tpl_quote_headline(&self, envelope: &Envelope) -> String {
+        let fmt = self
+            .template
+            .as_ref()
+            .and_then(|c| c.reply.as_ref())
+            .and_then(|c| c.quote_headline_fmt.clone())
+            .unwrap_or_else(|| String::from("On {date}, {sender} wrote:\n"));
+
+        let date = &envelope.date.to_string();
+        let sender = envelope.from.name.as_ref().unwrap_or(&envelope.from.addr);
+
+        fmt.replace("{date}", date).replace("{sender}", sender)
+    }
+
+    pub fn get_forward_tpl_signature_placement(
+        &self,
+    ) -> template::forward::config::SignaturePlacement {
+        self.template
+            .as_ref()
+            .and_then(|c| c.forward.as_ref())
+            .and_then(|c| c.signature_placement.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn get_forward_tpl_quote_placement(&self) -> template::forward::config::QuotePlacement {
+        self.template
+            .as_ref()
+            .and_then(|c| c.forward.as_ref())
+            .and_then(|c| c.quote_placement.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn get_forward_tpl_quote_headline(&self, envelope: &Envelope) -> String {
+        let fmt = self
+            .template
+            .as_ref()
+            .and_then(|c| c.forward.as_ref())
+            .and_then(|c| c.quote_headline_fmt.clone())
+            .unwrap_or_else(|| String::from("--- FORWARDED MESSAGE ---\n"));
+
+        let date = &envelope.date.to_string();
+        let sender = envelope.from.name.as_ref().unwrap_or(&envelope.from.addr);
+
+        fmt.replace("{date}", date).replace("{sender}", sender)
     }
 }
 

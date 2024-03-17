@@ -42,6 +42,7 @@ impl AccountSyncBuilder {
             envelope: right_builder.account_config.envelope.clone(),
             flag: right_builder.account_config.flag.clone(),
             message: right_builder.account_config.message.clone(),
+            template: right_builder.account_config.template.clone(),
             sync: None,
             #[cfg(feature = "pgp")]
             pgp: right_builder.account_config.pgp.clone(),

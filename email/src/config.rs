@@ -83,6 +83,7 @@ impl Config {
             envelope: account_config.envelope.clone(),
             flag: account_config.flag.clone(),
             message: account_config.message.clone(),
+            template: account_config.template.clone(),
             #[cfg(feature = "account-sync")]
             sync: account_config.sync.clone(),
             #[cfg(feature = "pgp")]
