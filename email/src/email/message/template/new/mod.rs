@@ -10,18 +10,21 @@ use mail_builder::{
     MessageBuilder,
 };
 use mml::MimeInterpreterBuilder;
+use std::sync::Arc;
 
 use crate::{account::config::AccountConfig, Result};
 
 use super::Error;
 
-/// The message new template builder.
+use self::config::NewTemplateSignaturePlacement;
+
+/// The new template builder.
 ///
 /// This builder helps you to create a template in order to compose a
 /// new message from scratch.
-pub struct NewTplBuilder<'a> {
+pub struct NewTplBuilder {
     /// Account configuration reference.
-    config: &'a AccountConfig,
+    config: Arc<AccountConfig>,
 
     /// Additional headers to add at the top of the template.
     headers: Vec<(String, String)>,
@@ -29,20 +32,29 @@ pub struct NewTplBuilder<'a> {
     /// Default body to put in the template.
     body: String,
 
+    /// Override the placement of the signature.
+    ///
+    /// Uses the signature placement from the account configuration if
+    /// this one is `None`.
+    signature_placement: Option<NewTemplateSignaturePlacement>,
+
     /// Template interpreter instance.
     pub interpreter: MimeInterpreterBuilder,
 }
 
-impl<'a> NewTplBuilder<'a> {
+impl NewTplBuilder {
     /// Creates a new template builder from an account configuration.
-    pub fn new(config: &'a AccountConfig) -> Self {
+    pub fn new(config: Arc<AccountConfig>) -> Self {
+        let interpreter = config
+            .generate_tpl_interpreter()
+            .with_show_only_headers(config.get_message_write_headers());
+
         Self {
             config,
             headers: Vec::new(),
             body: String::new(),
-            interpreter: config
-                .generate_tpl_interpreter()
-                .with_show_only_headers(config.get_message_write_headers()),
+            signature_placement: None,
+            interpreter,
         }
     }
 
@@ -86,6 +98,37 @@ impl<'a> NewTplBuilder<'a> {
         self
     }
 
+    /// Set some signature placement.
+    pub fn set_some_signature_placement(
+        &mut self,
+        placement: Option<impl Into<NewTemplateSignaturePlacement>>,
+    ) {
+        self.signature_placement = placement.map(Into::into);
+    }
+
+    /// Set the signature placement.
+    pub fn set_signature_placement(&mut self, placement: impl Into<NewTemplateSignaturePlacement>) {
+        self.set_some_signature_placement(Some(placement));
+    }
+
+    /// Set some signature placement, using the builder pattern.
+    pub fn with_some_signature_placement(
+        mut self,
+        placement: Option<impl Into<NewTemplateSignaturePlacement>>,
+    ) -> Self {
+        self.set_some_signature_placement(placement);
+        self
+    }
+
+    /// Set the signature placement, using the builder pattern.
+    pub fn with_signature_placement(
+        mut self,
+        placement: impl Into<NewTemplateSignaturePlacement>,
+    ) -> Self {
+        self.set_signature_placement(placement);
+        self
+    }
+
     /// Sets the template interpreter following the builder pattern.
     pub fn with_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.interpreter = interpreter;
@@ -94,8 +137,13 @@ impl<'a> NewTplBuilder<'a> {
 
     /// Builds the final new message template.
     pub async fn build(self) -> Result<String> {
+        let sig = self.config.find_full_signature();
+        let sig_placement = self
+            .signature_placement
+            .unwrap_or_else(|| self.config.get_new_tpl_signature_placement());
+
         let mut builder = MessageBuilder::new()
-            .from(self.config.clone())
+            .from(self.config.as_ref())
             .to(Vec::<Address>::new())
             .subject("")
             .text_body({
@@ -106,13 +154,21 @@ impl<'a> NewTplBuilder<'a> {
                     lines.push('\n');
                 }
 
-                if let Some(ref signature) = self.config.find_full_signature()? {
-                    lines.push_str("\n\n");
-                    lines.push_str(signature);
+                if sig_placement.is_inline() {
+                    if let Some(ref sig) = sig {
+                        lines.push_str("\n\n");
+                        lines.push_str(sig);
+                    }
                 }
 
                 lines
             });
+
+        if sig_placement.is_attached() {
+            if let Some(sig) = sig {
+                builder = builder.attachment("text/plain", "signature.txt", sig)
+            }
+        }
 
         for (key, val) in self.headers {
             builder = builder.header(key, Raw::new(val));

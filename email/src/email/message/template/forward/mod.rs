@@ -13,6 +13,7 @@ use mail_builder::{
 use mml::MimeInterpreterBuilder;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::Arc;
 
 use crate::{account::config::AccountConfig, message::Message, Result};
 
@@ -46,7 +47,7 @@ fn prefixless_subject(subject: &str) -> &str {
 /// an existing message.
 pub struct ForwardTplBuilder<'a> {
     /// Reference to the current account configuration.
-    config: &'a AccountConfig,
+    config: Arc<AccountConfig>,
 
     /// Reference to the original message.
     msg: &'a Message<'a>,
@@ -67,19 +68,24 @@ pub struct ForwardTplBuilder<'a> {
 impl<'a> ForwardTplBuilder<'a> {
     /// Creates a forward template builder from an account
     /// configuration and a message references.
-    pub fn new(msg: &'a Message, config: &'a AccountConfig) -> Self {
+
+    pub fn new(msg: &'a Message, config: Arc<AccountConfig>) -> Self {
+        let interpreter = config
+            .generate_tpl_interpreter()
+            .with_show_only_headers(config.get_message_write_headers());
+
+        let thread_interpreter = config
+            .generate_tpl_interpreter()
+            .with_show_only_headers(["Date", "From", "To", "Cc", "Subject"])
+            .with_save_attachments(true);
+
         Self {
             config,
             msg,
             headers: Vec::new(),
             body: String::new(),
-            interpreter: config
-                .generate_tpl_interpreter()
-                .with_show_only_headers(config.get_message_write_headers()),
-            thread_interpreter: config
-                .generate_tpl_interpreter()
-                .with_show_only_headers(["Date", "From", "To", "Cc", "Subject"])
-                .with_save_attachments(true),
+            interpreter,
+            thread_interpreter,
         }
     }
 
@@ -143,7 +149,7 @@ impl<'a> ForwardTplBuilder<'a> {
 
         // From
 
-        builder = builder.from(self.config.clone());
+        builder = builder.from(self.config.as_ref());
 
         // To
 
@@ -174,7 +180,7 @@ impl<'a> ForwardTplBuilder<'a> {
                 lines.push('\n');
             }
 
-            if let Some(ref signature) = self.config.find_full_signature()? {
+            if let Some(ref signature) = self.config.find_full_signature() {
                 lines.push('\n');
                 lines.push_str(signature);
                 lines.push('\n');

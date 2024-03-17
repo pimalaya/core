@@ -12,6 +12,7 @@ pub mod pgp;
 use dirs::data_dir;
 use log::debug;
 use mail_builder::headers::address::{Address, EmailAddress};
+use mail_parser::Address::*;
 use mml::MimeInterpreterBuilder;
 use notify_rust::Notification;
 use process::Command;
@@ -29,12 +30,18 @@ use thiserror::Error;
 #[cfg(feature = "account-sync")]
 use crate::account::sync::config::SyncConfig;
 use crate::{
+    date::from_mail_parser_to_chrono_datetime,
     email::config::EmailTextPlainFormat,
     envelope::config::EnvelopeConfig,
     flag::config::FlagConfig,
     folder::{config::FolderConfig, FolderKind, DRAFTS, INBOX, SENT, TRASH},
     message::config::MessageConfig,
-    template::{self, config::TemplateConfig},
+    template::{
+        self,
+        config::TemplateConfig,
+        new::config::NewTemplateSignaturePlacement,
+        reply::config::{ReplyTemplateQuotePlacement, ReplyTemplateSignaturePlacement},
+    },
     Result,
 };
 
@@ -133,8 +140,11 @@ pub struct AccountConfig {
 }
 
 impl AccountConfig {
-    /// Find the full signature, including the delimiter.
-    pub fn find_full_signature(&self) -> Result<Option<String>> {
+    /// Get the signature, including the delimiter.
+    ///
+    /// Uses the default delimiter `-- \n` in case no delimiter has
+    /// been defined. Return `None` if no signature has been defined.
+    pub fn find_full_signature(&self) -> Option<String> {
         let delim = self
             .signature_delim
             .as_deref()
@@ -153,7 +163,7 @@ impl AccountConfig {
             format!("{}{}", delim, signature.trim())
         });
 
-        Ok(signature)
+        signature
     }
 
     /// Get then expand the downloads directory path.
@@ -592,7 +602,8 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    pub fn get_new_tpl_signature_placement(&self) -> template::new::config::SignaturePlacement {
+    /// Get the new template signature placement.
+    pub fn get_new_tpl_signature_placement(&self) -> NewTemplateSignaturePlacement {
         self.template
             .as_ref()
             .and_then(|c| c.new.as_ref())
@@ -600,7 +611,7 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    pub fn get_reply_tpl_signature_placement(&self) -> template::reply::config::SignaturePlacement {
+    pub fn get_reply_tpl_signature_placement(&self) -> ReplyTemplateSignaturePlacement {
         self.template
             .as_ref()
             .and_then(|c| c.reply.as_ref())
@@ -608,7 +619,7 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    pub fn get_reply_tpl_quote_placement(&self) -> template::reply::config::QuotePlacement {
+    pub fn get_reply_tpl_quote_placement(&self) -> ReplyTemplateQuotePlacement {
         self.template
             .as_ref()
             .and_then(|c| c.reply.as_ref())
@@ -616,23 +627,80 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    pub fn get_reply_tpl_quote_headline(&self, envelope: &Envelope) -> String {
+    pub fn get_reply_tpl_quote_headline(&self, msg: &mail_parser::Message) -> Option<String> {
+        let date = from_mail_parser_to_chrono_datetime(msg.date()?)?;
+
+        let senders = match (msg.from(), msg.sender()) {
+            (Some(List(a)), _) if !a.is_empty() => {
+                a.iter().fold(String::new(), |mut senders, sender| {
+                    if let Some(name) = sender.name() {
+                        if !senders.is_empty() {
+                            senders.push_str(", ");
+                        }
+                        senders.push_str(name);
+                    } else if let Some(addr) = sender.address() {
+                        if !senders.is_empty() {
+                            senders.push_str(", ");
+                        }
+                        senders.push_str(addr);
+                    }
+                    senders
+                })
+            }
+            (Some(Group(g)), _) if !g.is_empty() => {
+                g.iter().fold(String::new(), |mut senders, sender| {
+                    if let Some(ref name) = sender.name {
+                        if !senders.is_empty() {
+                            senders.push_str(", ");
+                        }
+                        senders.push_str(name);
+                    }
+                    senders
+                })
+            }
+            (_, Some(List(a))) if !a.is_empty() => {
+                a.iter().fold(String::new(), |mut senders, sender| {
+                    if let Some(name) = sender.name() {
+                        if !senders.is_empty() {
+                            senders.push_str(", ");
+                        }
+                        senders.push_str(name);
+                    } else if let Some(addr) = sender.address() {
+                        if !senders.is_empty() {
+                            senders.push_str(", ");
+                        }
+                        senders.push_str(addr);
+                    }
+                    senders
+                })
+            }
+            (_, Some(Group(g))) if !g.is_empty() => {
+                g.iter().fold(String::new(), |mut senders, sender| {
+                    if let Some(ref name) = sender.name {
+                        if !senders.is_empty() {
+                            senders.push_str(", ");
+                        }
+                        senders.push_str(name);
+                    }
+                    senders
+                })
+            }
+            _ => String::new(),
+        };
+
         let fmt = self
             .template
             .as_ref()
             .and_then(|c| c.reply.as_ref())
             .and_then(|c| c.quote_headline_fmt.clone())
-            .unwrap_or_else(|| String::from("On {date}, {sender} wrote:\n"));
+            .unwrap_or_else(|| String::from("On %d/%m/%Y %H:%M, {senders} wrote:\n"));
 
-        let date = &envelope.date.to_string();
-        let sender = envelope.from.name.as_ref().unwrap_or(&envelope.from.addr);
-
-        fmt.replace("{date}", date).replace("{sender}", sender)
+        Some(date.format(&fmt.replace("{senders}", &senders)).to_string())
     }
 
     pub fn get_forward_tpl_signature_placement(
         &self,
-    ) -> template::forward::config::SignaturePlacement {
+    ) -> template::forward::config::ForwardTemplateSignaturePlacement {
         self.template
             .as_ref()
             .and_then(|c| c.forward.as_ref())
@@ -640,7 +708,9 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    pub fn get_forward_tpl_quote_placement(&self) -> template::forward::config::QuotePlacement {
+    pub fn get_forward_tpl_quote_placement(
+        &self,
+    ) -> template::forward::config::ForwardTemplateQuotePlacement {
         self.template
             .as_ref()
             .and_then(|c| c.forward.as_ref())
@@ -663,11 +733,11 @@ impl AccountConfig {
     }
 }
 
-impl<'a> From<AccountConfig> for Address<'a> {
-    fn from(val: AccountConfig) -> Self {
+impl<'a> From<&'a AccountConfig> for Address<'a> {
+    fn from(config: &'a AccountConfig) -> Self {
         Address::Address(EmailAddress {
-            name: val.display_name.map(Into::into),
-            email: val.email.into(),
+            name: config.display_name.as_ref().map(Into::into),
+            email: config.email.as_str().into(),
         })
     }
 }

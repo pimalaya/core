@@ -26,7 +26,7 @@ use mail_parser::{MessageParser, MimeHeaders};
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
-use std::{borrow::Cow, fmt::Debug, io, path::PathBuf};
+use std::{borrow::Cow, fmt::Debug, io, path::PathBuf, sync::Arc};
 use thiserror::Error;
 
 use crate::{
@@ -137,7 +137,7 @@ impl Message<'_> {
     }
 
     /// Creates a new template builder from an account configuration.
-    pub fn new_tpl_builder(config: &AccountConfig) -> NewTplBuilder {
+    pub fn new_tpl_builder(config: Arc<AccountConfig>) -> NewTplBuilder {
         NewTplBuilder::new(config)
     }
 
@@ -162,7 +162,7 @@ impl Message<'_> {
     ///
     /// The fact to return a template builder makes it easier to
     /// customize the final template from the outside.
-    pub fn to_reply_tpl_builder<'a>(&'a self, config: &'a AccountConfig) -> ReplyTplBuilder {
+    pub fn to_reply_tpl_builder(&self, config: Arc<AccountConfig>) -> ReplyTplBuilder {
         ReplyTplBuilder::new(self, config)
     }
 
@@ -170,7 +170,7 @@ impl Message<'_> {
     ///
     /// The fact to return a template builder makes it easier to
     /// customize the final template from the outside.
-    pub fn to_forward_tpl_builder<'a>(&'a self, config: &'a AccountConfig) -> ForwardTplBuilder {
+    pub fn to_forward_tpl_builder(&self, config: Arc<AccountConfig>) -> ForwardTplBuilder {
         ForwardTplBuilder::new(self, config)
     }
 }
@@ -315,6 +315,7 @@ impl TryFrom<Vec<MailEntry>> for Messages {
 #[cfg(test)]
 mod tests {
     use concat_with::concat_line;
+    use std::sync::Arc;
 
     use crate::{
         account::config::AccountConfig,
@@ -323,13 +324,13 @@ mod tests {
 
     #[tokio::test]
     async fn new_tpl_builder() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             display_name: Some("From".into()),
             email: "from@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
-        let tpl = Message::new_tpl_builder(&config).build().await.unwrap();
+        let tpl = Message::new_tpl_builder(config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: From <from@localhost>",
@@ -345,13 +346,13 @@ mod tests {
 
     #[tokio::test]
     async fn new_tpl_builder_with_signature() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "from@localhost".into(),
             signature: Some("Regards,".into()),
             ..AccountConfig::default()
-        };
+        });
 
-        let tpl = Message::new_tpl_builder(&config).build().await.unwrap();
+        let tpl = Message::new_tpl_builder(config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: from@localhost",
@@ -530,10 +531,10 @@ mod tests {
 
     #[tokio::test]
     async fn to_reply_tpl_builder() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -550,7 +551,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_reply_tpl_builder(&config).build().await.unwrap();
+        let tpl = email.to_reply_tpl_builder(config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -569,10 +570,10 @@ mod tests {
 
     #[tokio::test]
     async fn reply_to_self() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "me@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
         let msg = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -588,7 +589,11 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = msg.to_reply_tpl_builder(&config).build().await.unwrap();
+        let tpl = msg
+            .to_reply_tpl_builder(config.clone())
+            .build()
+            .await
+            .unwrap();
 
         let expected_tpl = concat_line!(
             "From: me@localhost",
@@ -604,7 +609,7 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
 
         let tpl = msg
-            .to_reply_tpl_builder(&config)
+            .to_reply_tpl_builder(config)
             .with_reply_all(true)
             .build()
             .await
@@ -627,10 +632,10 @@ mod tests {
 
     #[tokio::test]
     async fn reply_mailing_list_using_sender() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "me@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
         let msg = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -646,7 +651,11 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = msg.to_reply_tpl_builder(&config).build().await.unwrap();
+        let tpl = msg
+            .to_reply_tpl_builder(config.clone())
+            .build()
+            .await
+            .unwrap();
 
         let expected_tpl = concat_line!(
             "From: me@localhost",
@@ -663,7 +672,7 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
 
         let tpl = msg
-            .to_reply_tpl_builder(&config)
+            .to_reply_tpl_builder(config)
             .with_reply_all(true)
             .build()
             .await
@@ -686,10 +695,10 @@ mod tests {
 
     #[tokio::test]
     async fn reply_mailing_list_using_from() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "me@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
         let msg = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -706,7 +715,11 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = msg.to_reply_tpl_builder(&config).build().await.unwrap();
+        let tpl = msg
+            .to_reply_tpl_builder(config.clone())
+            .build()
+            .await
+            .unwrap();
 
         let expected_tpl = concat_line!(
             "From: me@localhost",
@@ -723,7 +736,7 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
 
         let tpl = msg
-            .to_reply_tpl_builder(&config)
+            .to_reply_tpl_builder(config)
             .with_reply_all(true)
             .build()
             .await
@@ -746,10 +759,10 @@ mod tests {
 
     #[tokio::test]
     async fn reply_mailing_list_using_reply_to() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "me@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
         let msg = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -767,7 +780,11 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = msg.to_reply_tpl_builder(&config).build().await.unwrap();
+        let tpl = msg
+            .to_reply_tpl_builder(config.clone())
+            .build()
+            .await
+            .unwrap();
 
         let expected_tpl = concat_line!(
             "From: me@localhost",
@@ -783,7 +800,7 @@ mod tests {
         assert_eq!(tpl, expected_tpl);
 
         let tpl = msg
-            .to_reply_tpl_builder(&config)
+            .to_reply_tpl_builder(config)
             .with_reply_all(true)
             .build()
             .await
@@ -806,10 +823,10 @@ mod tests {
 
     #[tokio::test]
     async fn to_reply_tpl_builder_when_from_is_sender() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -826,7 +843,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_reply_tpl_builder(&config).build().await.unwrap();
+        let tpl = email.to_reply_tpl_builder(config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -844,10 +861,10 @@ mod tests {
 
     #[tokio::test]
     async fn to_reply_tpl_builder_with_reply_to() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -865,7 +882,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_reply_tpl_builder(&config).build().await.unwrap();
+        let tpl = email.to_reply_tpl_builder(config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -884,11 +901,11 @@ mod tests {
 
     #[tokio::test]
     async fn to_reply_tpl_builder_with_signature() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "to@localhost".into(),
             signature: Some("Cordialement,\n".into()),
             ..AccountConfig::default()
-        };
+        });
 
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -902,7 +919,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_reply_tpl_builder(&config).build().await.unwrap();
+        let tpl = email.to_reply_tpl_builder(config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -923,10 +940,10 @@ mod tests {
 
     #[tokio::test]
     async fn to_reply_all_tpl_builder() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -943,7 +960,7 @@ mod tests {
         ));
 
         let tpl = email
-            .to_reply_tpl_builder(&config)
+            .to_reply_tpl_builder(config)
             .with_reply_all(true)
             .build()
             .await
@@ -966,10 +983,10 @@ mod tests {
 
     #[tokio::test]
     async fn to_reply_all_tpl_builder_with_reply_to() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -988,7 +1005,7 @@ mod tests {
         ));
 
         let tpl = email
-            .to_reply_tpl_builder(&config)
+            .to_reply_tpl_builder(config)
             .with_reply_all(true)
             .build()
             .await
@@ -1012,10 +1029,10 @@ mod tests {
 
     #[tokio::test]
     async fn to_forward_tpl_builder() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "to@localhost".into(),
             ..AccountConfig::default()
-        };
+        });
 
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -1031,7 +1048,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_forward_tpl_builder(&config).build().await.unwrap();
+        let tpl = email.to_forward_tpl_builder(config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",
@@ -1058,11 +1075,11 @@ mod tests {
 
     #[tokio::test]
     async fn to_forward_tpl_builder_with_date_and_signature() {
-        let config = AccountConfig {
+        let config = Arc::new(AccountConfig {
             email: "to@localhost".into(),
             signature: Some("Cordialement,".into()),
             ..AccountConfig::default()
-        };
+        });
 
         let email = Message::from(concat_line!(
             "Content-Type: text/plain",
@@ -1079,7 +1096,7 @@ mod tests {
             "Regards,",
         ));
 
-        let tpl = email.to_forward_tpl_builder(&config).build().await.unwrap();
+        let tpl = email.to_forward_tpl_builder(config).build().await.unwrap();
 
         let expected_tpl = concat_line!(
             "From: to@localhost",

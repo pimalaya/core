@@ -12,6 +12,7 @@
 //! synchronization.
 
 pub mod config;
+pub mod date;
 pub mod envelope;
 pub mod message;
 pub mod search_query;

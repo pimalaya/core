@@ -14,8 +14,11 @@ use mail_parser::{Addr, HeaderValue};
 use mml::MimeInterpreterBuilder;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::Arc;
 
 use crate::{account::config::AccountConfig, email::address, message::Message, Result};
+
+use self::config::{ReplyTemplateQuotePlacement, ReplyTemplateSignaturePlacement};
 
 use super::Error;
 
@@ -53,7 +56,7 @@ fn prefixless_subject(subject: &str) -> &str {
 /// an existing message.
 pub struct ReplyTplBuilder<'a> {
     /// Reference to the current account configuration.
-    config: &'a AccountConfig,
+    config: Arc<AccountConfig>,
 
     /// Reference to the original message.
     msg: &'a Message<'a>,
@@ -67,6 +70,18 @@ pub struct ReplyTplBuilder<'a> {
     /// Should reply to all.
     reply_all: bool,
 
+    /// Override the placement of the signature.
+    ///
+    /// Uses the signature placement from the account configuration if
+    /// this one is `None`.
+    signature_placement: Option<ReplyTemplateSignaturePlacement>,
+
+    /// Override the placement of the quote.
+    ///
+    /// Uses the quote placement from the account configuration if
+    /// this one is `None`.
+    quote_placement: Option<ReplyTemplateQuotePlacement>,
+
     /// Template interpreter instance.
     pub interpreter: MimeInterpreterBuilder,
 
@@ -77,21 +92,27 @@ pub struct ReplyTplBuilder<'a> {
 impl<'a> ReplyTplBuilder<'a> {
     /// Creates a reply template builder from an account configuration
     /// and a message references.
-    pub fn new(msg: &'a Message, config: &'a AccountConfig) -> Self {
+    pub fn new(msg: &'a Message, config: Arc<AccountConfig>) -> Self {
+        let interpreter = config
+            .generate_tpl_interpreter()
+            .with_show_only_headers(config.get_message_write_headers());
+
+        let thread_interpreter = config
+            .generate_tpl_interpreter()
+            .with_hide_all_headers()
+            .with_show_plain_texts_signature(false)
+            .with_show_attachments(false);
+
         Self {
             config,
             msg,
             headers: Vec::new(),
             body: String::new(),
-            interpreter: config
-                .generate_tpl_interpreter()
-                .with_show_only_headers(config.get_message_write_headers()),
-            thread_interpreter: config
-                .generate_tpl_interpreter()
-                .with_hide_all_headers()
-                .with_show_plain_texts_signature(false)
-                .with_show_attachments(false),
             reply_all: false,
+            signature_placement: None,
+            quote_placement: None,
+            interpreter,
+            thread_interpreter,
         }
     }
 
@@ -135,6 +156,71 @@ impl<'a> ReplyTplBuilder<'a> {
         self
     }
 
+    /// Set some signature placement.
+    pub fn set_some_signature_placement(
+        &mut self,
+        placement: Option<impl Into<ReplyTemplateSignaturePlacement>>,
+    ) {
+        self.signature_placement = placement.map(Into::into);
+    }
+
+    /// Set the signature placement.
+    pub fn set_signature_placement(
+        &mut self,
+        placement: impl Into<ReplyTemplateSignaturePlacement>,
+    ) {
+        self.set_some_signature_placement(Some(placement));
+    }
+
+    /// Set some signature placement, using the builder pattern.
+    pub fn with_some_signature_placement(
+        mut self,
+        placement: Option<impl Into<ReplyTemplateSignaturePlacement>>,
+    ) -> Self {
+        self.set_some_signature_placement(placement);
+        self
+    }
+
+    /// Set the signature placement, using the builder pattern.
+    pub fn with_signature_placement(
+        mut self,
+        placement: impl Into<ReplyTemplateSignaturePlacement>,
+    ) -> Self {
+        self.set_signature_placement(placement);
+        self
+    }
+
+    /// Set some quote placement.
+    pub fn set_some_quote_placement(
+        &mut self,
+        placement: Option<impl Into<ReplyTemplateQuotePlacement>>,
+    ) {
+        self.quote_placement = placement.map(Into::into);
+    }
+
+    /// Set the quote placement.
+    pub fn set_quote_placement(&mut self, placement: impl Into<ReplyTemplateQuotePlacement>) {
+        self.set_some_quote_placement(Some(placement));
+    }
+
+    /// Set some quote placement, using the builder pattern.
+    pub fn with_some_quote_placement(
+        mut self,
+        placement: Option<impl Into<ReplyTemplateQuotePlacement>>,
+    ) -> Self {
+        self.set_some_quote_placement(placement);
+        self
+    }
+
+    /// Set the quote placement, using the builder pattern.
+    pub fn with_quote_placement(
+        mut self,
+        placement: impl Into<ReplyTemplateQuotePlacement>,
+    ) -> Self {
+        self.set_quote_placement(placement);
+        self
+    }
+
     /// Sets the template interpreter following the builder pattern.
     pub fn with_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.interpreter = interpreter;
@@ -166,6 +252,15 @@ impl<'a> ReplyTplBuilder<'a> {
         let to = parsed.header("To").unwrap_or(&HeaderValue::Empty);
         let reply_to = parsed.header("Reply-To").unwrap_or(&HeaderValue::Empty);
 
+        let sig = self.config.find_full_signature();
+        let sig_placement = self
+            .signature_placement
+            .unwrap_or_else(|| self.config.get_reply_tpl_signature_placement());
+        let quote_placement = self
+            .quote_placement
+            .unwrap_or_else(|| self.config.get_reply_tpl_quote_placement());
+        let quote_headline = self.config.get_reply_tpl_quote_headline(parsed);
+
         // In-Reply-To
 
         match parsed.header("Message-ID") {
@@ -180,7 +275,7 @@ impl<'a> ReplyTplBuilder<'a> {
 
         // From
 
-        builder = builder.from(self.config.clone());
+        builder = builder.from(self.config.as_ref());
 
         // To
 
@@ -333,11 +428,6 @@ impl<'a> ReplyTplBuilder<'a> {
         builder = builder.text_body({
             let mut lines = String::from("\n\n");
 
-            if !self.body.is_empty() {
-                lines.push_str(&self.body);
-                lines.push('\n');
-            }
-
             let body = self
                 .thread_interpreter
                 .build()
@@ -345,22 +435,63 @@ impl<'a> ReplyTplBuilder<'a> {
                 .await
                 .map_err(Error::InterpretMessageAsThreadTemplateError)?;
 
-            for line in body.trim().lines() {
-                lines.push('>');
-                if !line.starts_with('>') {
-                    lines.push(' ')
+            if quote_placement.is_above_reply() {
+                if let Some(ref headline) = quote_headline {
+                    lines.push_str(headline);
                 }
-                lines.push_str(line);
+
+                for line in body.trim().lines() {
+                    lines.push('>');
+                    if !line.starts_with('>') {
+                        lines.push(' ')
+                    }
+                    lines.push_str(line);
+                    lines.push('\n');
+                }
+            }
+
+            if !self.body.is_empty() {
+                lines.push_str(&self.body);
                 lines.push('\n');
             }
 
-            if let Some(ref signature) = self.config.find_full_signature()? {
-                lines.push('\n');
-                lines.push_str(signature);
+            if sig_placement.is_above_quote() {
+                if let Some(ref sig) = sig {
+                    lines.push('\n');
+                    lines.push_str(sig);
+                }
+            }
+
+            if quote_placement.is_below_reply() {
+                if let Some(ref headline) = quote_headline {
+                    lines.push_str(headline);
+                }
+
+                for line in body.trim().lines() {
+                    lines.push('>');
+                    if !line.starts_with('>') {
+                        lines.push(' ')
+                    }
+                    lines.push_str(line);
+                    lines.push('\n');
+                }
+            }
+
+            if sig_placement.is_below_quote() {
+                if let Some(ref sig) = sig {
+                    lines.push('\n');
+                    lines.push_str(sig);
+                }
             }
 
             lines.trim_end().to_owned()
         });
+
+        if sig_placement.is_attached() {
+            if let Some(sig) = sig {
+                builder = builder.attachment("text/plain", "signature.txt", sig)
+            }
+        }
 
         let tpl = self
             .interpreter
