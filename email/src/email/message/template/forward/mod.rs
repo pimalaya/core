@@ -17,6 +17,8 @@ use std::sync::Arc;
 
 use crate::{account::config::AccountConfig, message::Message, Result};
 
+use self::config::{ForwardTemplateQuotePlacement, ForwardTemplateSignaturePlacement};
+
 use super::Error;
 
 /// Regex used to trim out prefix(es) from a subject.
@@ -58,6 +60,18 @@ pub struct ForwardTplBuilder<'a> {
     /// Default body to put in the template.
     body: String,
 
+    /// Override the placement of the signature.
+    ///
+    /// Uses the signature placement from the account configuration if
+    /// this one is `None`.
+    signature_placement: Option<ForwardTemplateSignaturePlacement>,
+
+    /// Override the placement of the quote.
+    ///
+    /// Uses the quote placement from the account configuration if
+    /// this one is `None`.
+    quote_placement: Option<ForwardTemplateQuotePlacement>,
+
     /// Template interpreter instance.
     pub interpreter: MimeInterpreterBuilder,
 
@@ -84,6 +98,8 @@ impl<'a> ForwardTplBuilder<'a> {
             msg,
             headers: Vec::new(),
             body: String::new(),
+            signature_placement: None,
+            quote_placement: None,
             interpreter,
             thread_interpreter,
         }
@@ -129,6 +145,71 @@ impl<'a> ForwardTplBuilder<'a> {
         self
     }
 
+    /// Set some signature placement.
+    pub fn set_some_signature_placement(
+        &mut self,
+        placement: Option<impl Into<ForwardTemplateSignaturePlacement>>,
+    ) {
+        self.signature_placement = placement.map(Into::into);
+    }
+
+    /// Set the signature placement.
+    pub fn set_signature_placement(
+        &mut self,
+        placement: impl Into<ForwardTemplateSignaturePlacement>,
+    ) {
+        self.set_some_signature_placement(Some(placement));
+    }
+
+    /// Set some signature placement, using the builder pattern.
+    pub fn with_some_signature_placement(
+        mut self,
+        placement: Option<impl Into<ForwardTemplateSignaturePlacement>>,
+    ) -> Self {
+        self.set_some_signature_placement(placement);
+        self
+    }
+
+    /// Set the signature placement, using the builder pattern.
+    pub fn with_signature_placement(
+        mut self,
+        placement: impl Into<ForwardTemplateSignaturePlacement>,
+    ) -> Self {
+        self.set_signature_placement(placement);
+        self
+    }
+
+    /// Set some quote placement.
+    pub fn set_some_quote_placement(
+        &mut self,
+        placement: Option<impl Into<ForwardTemplateQuotePlacement>>,
+    ) {
+        self.quote_placement = placement.map(Into::into);
+    }
+
+    /// Set the quote placement.
+    pub fn set_quote_placement(&mut self, placement: impl Into<ForwardTemplateQuotePlacement>) {
+        self.set_some_quote_placement(Some(placement));
+    }
+
+    /// Set some quote placement, using the builder pattern.
+    pub fn with_some_quote_placement(
+        mut self,
+        placement: Option<impl Into<ForwardTemplateQuotePlacement>>,
+    ) -> Self {
+        self.set_some_quote_placement(placement);
+        self
+    }
+
+    /// Set the quote placement, using the builder pattern.
+    pub fn with_quote_placement(
+        mut self,
+        placement: impl Into<ForwardTemplateQuotePlacement>,
+    ) -> Self {
+        self.set_quote_placement(placement);
+        self
+    }
+
     /// Sets the template interpreter following the builder pattern.
     pub fn with_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.interpreter = interpreter;
@@ -171,6 +252,15 @@ impl<'a> ForwardTplBuilder<'a> {
 
         // Body
 
+        let sig = self.config.find_full_signature();
+        let sig_placement = self
+            .signature_placement
+            .unwrap_or_else(|| self.config.get_forward_tpl_signature_placement());
+        let quote_placement = self
+            .quote_placement
+            .unwrap_or_else(|| self.config.get_forward_tpl_quote_placement());
+        let quote_headline = self.config.get_forward_tpl_quote_headline();
+
         builder = builder.text_body({
             let mut lines = String::from("\n");
 
@@ -180,25 +270,44 @@ impl<'a> ForwardTplBuilder<'a> {
                 lines.push('\n');
             }
 
-            if let Some(ref signature) = self.config.find_full_signature() {
-                lines.push('\n');
-                lines.push_str(signature);
-                lines.push('\n');
+            if sig_placement.is_inline() {
+                if let Some(ref sig) = sig {
+                    lines.push('\n');
+                    lines.push_str(sig);
+                    lines.push('\n');
+                }
             }
 
-            lines.push_str("\n-------- Forwarded Message --------\n");
-
-            lines.push_str(
-                &self
-                    .thread_interpreter
-                    .build()
-                    .from_msg(parsed)
-                    .await
-                    .map_err(Error::InterpretMessageAsThreadTemplateError)?,
-            );
+            if quote_placement.is_inline() {
+                lines.push('\n');
+                lines.push_str(&quote_headline);
+                lines.push_str(
+                    &self
+                        .thread_interpreter
+                        .build()
+                        .from_msg(parsed)
+                        .await
+                        .map_err(Error::InterpretMessageAsThreadTemplateError)?,
+                );
+            }
 
             lines.trim_end().to_owned()
         });
+
+        if sig_placement.is_attached() {
+            if let Some(sig) = sig {
+                builder = builder.attachment("text/plain", "signature.txt", sig)
+            }
+        }
+
+        if quote_placement.is_attached() {
+            let file_name = parsed.message_id().unwrap_or("message");
+            builder = builder.attachment(
+                "message/rfc822",
+                format!("{file_name}.eml"),
+                parsed.raw_message(),
+            )
+        }
 
         let tpl = self
             .interpreter

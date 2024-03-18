@@ -39,6 +39,7 @@ use crate::{
     template::{
         self,
         config::TemplateConfig,
+        forward::config::ForwardTemplateQuotePlacement,
         new::config::NewTemplateSignaturePlacement,
         reply::config::{ReplyTemplateQuotePlacement, ReplyTemplateSignaturePlacement},
     },
@@ -708,9 +709,7 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    pub fn get_forward_tpl_quote_placement(
-        &self,
-    ) -> template::forward::config::ForwardTemplateQuotePlacement {
+    pub fn get_forward_tpl_quote_placement(&self) -> ForwardTemplateQuotePlacement {
         self.template
             .as_ref()
             .and_then(|c| c.forward.as_ref())
@@ -718,18 +717,12 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    pub fn get_forward_tpl_quote_headline(&self, envelope: &Envelope) -> String {
-        let fmt = self
-            .template
+    pub fn get_forward_tpl_quote_headline(&self) -> String {
+        self.template
             .as_ref()
             .and_then(|c| c.forward.as_ref())
-            .and_then(|c| c.quote_headline_fmt.clone())
-            .unwrap_or_else(|| String::from("--- FORWARDED MESSAGE ---\n"));
-
-        let date = &envelope.date.to_string();
-        let sender = envelope.from.name.as_ref().unwrap_or(&envelope.from.addr);
-
-        fmt.replace("{date}", date).replace("{sender}", sender)
+            .and_then(|c| c.quote_headline.clone())
+            .unwrap_or_else(|| String::from("-------- Forwarded Message --------\n"))
     }
 }
 

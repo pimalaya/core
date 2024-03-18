@@ -7,7 +7,7 @@
 pub struct ForwardTemplateConfig {
     pub signature_placement: Option<ForwardTemplateSignaturePlacement>,
     pub quote_placement: Option<ForwardTemplateQuotePlacement>,
-    pub quote_headline_fmt: Option<String>,
+    pub quote_headline: Option<String>,
     pub quote_headers: Option<Vec<String>>,
 }
 
