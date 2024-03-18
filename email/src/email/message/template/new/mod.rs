@@ -1,7 +1,8 @@
-//! Module dedicated to email message new template.
+//! # New template
 //!
-//! The main structure of this module is the [NewTplBuilder], which
-//! helps you to build template in order to compose a new message.
+//! The main structure of this module is the [`NewTemplateBuilder`],
+//! which helps you to build template in order to compose a new
+//! message from scratch.
 
 pub mod config;
 
@@ -22,7 +23,7 @@ use self::config::NewTemplateSignaturePlacement;
 ///
 /// This builder helps you to create a template in order to compose a
 /// new message from scratch.
-pub struct NewTplBuilder {
+pub struct NewTemplateBuilder {
     /// Account configuration reference.
     config: Arc<AccountConfig>,
 
@@ -42,7 +43,7 @@ pub struct NewTplBuilder {
     pub interpreter: MimeInterpreterBuilder,
 }
 
-impl NewTplBuilder {
+impl NewTemplateBuilder {
     /// Creates a new template builder from an account configuration.
     pub fn new(config: Arc<AccountConfig>) -> Self {
         let interpreter = config
@@ -219,7 +220,7 @@ mod tests {
             config::TemplateConfig,
             new::{
                 config::{NewTemplateConfig, NewTemplateSignaturePlacement},
-                NewTplBuilder,
+                NewTemplateBuilder,
             },
             Template,
         },
@@ -234,7 +235,7 @@ mod tests {
         });
 
         assert_eq!(
-            NewTplBuilder::new(config).build().await.unwrap(),
+            NewTemplateBuilder::new(config).build().await.unwrap(),
             Template::new_with_cursor(
                 concat_line!("From: Me <me@localhost>", "To: ", "Subject: ", "", "", ""),
                 4,
@@ -252,7 +253,7 @@ mod tests {
         });
 
         assert_eq!(
-            NewTplBuilder::new(config.clone())
+            NewTemplateBuilder::new(config.clone())
                 .with_headers([("In-Reply-To", ""), ("Cc", "")])
                 .build()
                 .await
@@ -283,7 +284,7 @@ mod tests {
         });
 
         assert_eq!(
-            NewTplBuilder::new(config.clone())
+            NewTemplateBuilder::new(config.clone())
                 .with_body("Hello, world!")
                 .build()
                 .await
@@ -303,7 +304,7 @@ mod tests {
         );
 
         assert_eq!(
-            NewTplBuilder::new(config.clone())
+            NewTemplateBuilder::new(config.clone())
                 .with_body("Hello\n,\nworld!")
                 .build()
                 .await
@@ -325,7 +326,7 @@ mod tests {
         );
 
         assert_eq!(
-            NewTplBuilder::new(config.clone())
+            NewTemplateBuilder::new(config.clone())
                 .with_body("Hello\n,\nworld!\n")
                 .build()
                 .await
@@ -347,7 +348,7 @@ mod tests {
         );
 
         assert_eq!(
-            NewTplBuilder::new(config)
+            NewTemplateBuilder::new(config)
                 .with_body("Hello\n,\nworld!\n\n\n")
                 .build()
                 .await
@@ -379,7 +380,10 @@ mod tests {
         });
 
         assert_eq!(
-            NewTplBuilder::new(config.clone()).build().await.unwrap(),
+            NewTemplateBuilder::new(config.clone())
+                .build()
+                .await
+                .unwrap(),
             Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
@@ -398,7 +402,7 @@ mod tests {
         );
 
         assert_eq!(
-            NewTplBuilder::new(config.clone())
+            NewTemplateBuilder::new(config.clone())
                 // force to hide the signature just for this builder
                 .with_signature_placement(NewTemplateSignaturePlacement::Nowhere)
                 .build()
@@ -426,7 +430,10 @@ mod tests {
         });
 
         assert_eq!(
-            NewTplBuilder::new(config.clone()).build().await.unwrap(),
+            NewTemplateBuilder::new(config.clone())
+                .build()
+                .await
+                .unwrap(),
             Template::new_with_cursor(
                 concat_line!("From: Me <me@localhost>", "To: ", "Subject: ", "", "", ""),
                 4,
@@ -435,7 +442,7 @@ mod tests {
         );
 
         assert_eq!(
-            NewTplBuilder::new(config)
+            NewTemplateBuilder::new(config)
                 // force to show the signature just for this builder
                 .with_signature_placement(NewTemplateSignaturePlacement::Inline)
                 .build()
@@ -470,7 +477,7 @@ mod tests {
         });
 
         assert_eq!(
-            NewTplBuilder::new(config.clone())
+            NewTemplateBuilder::new(config.clone())
                 .with_body("Hello, world!")
                 .build()
                 .await
@@ -493,7 +500,7 @@ mod tests {
         );
 
         assert_eq!(
-            NewTplBuilder::new(config.clone())
+            NewTemplateBuilder::new(config.clone())
                 .with_body("\n\nHello, world!\n\n\n\n")
                 .build()
                 .await

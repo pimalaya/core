@@ -36,7 +36,7 @@ use crate::{
 
 use self::{
     attachment::Attachment,
-    template::{forward::ForwardTplBuilder, new::NewTplBuilder, reply::ReplyTplBuilder},
+    template::{forward::ForwardTplBuilder, new::NewTemplateBuilder, reply::ReplyTplBuilder},
 };
 
 /// Errors related to email messages.
@@ -137,8 +137,8 @@ impl Message<'_> {
     }
 
     /// Creates a new template builder from an account configuration.
-    pub fn new_tpl_builder(config: Arc<AccountConfig>) -> NewTplBuilder {
-        NewTplBuilder::new(config)
+    pub fn new_tpl_builder(config: Arc<AccountConfig>) -> NewTemplateBuilder {
+        NewTemplateBuilder::new(config)
     }
 
     /// Turns the current message into a read.
