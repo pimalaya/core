@@ -320,6 +320,7 @@ mod tests {
     use crate::{
         account::config::AccountConfig,
         message::{config::MessageConfig, get::config::MessageReadConfig, Message},
+        template::Template,
     };
 
     #[tokio::test]
@@ -332,13 +333,17 @@ mod tests {
 
         let tpl = Message::new_tpl_builder(config).build().await.unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: From <from@localhost>",
-            "To: ",
-            "Subject: ",
-            "",
-            "",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: From <from@localhost>",
+                "To: ",
+                "Subject: ",
+                "",
+                "",
+                "",
+            ),
+            4,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -354,16 +359,20 @@ mod tests {
 
         let tpl = Message::new_tpl_builder(config).build().await.unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: from@localhost",
-            "To: ",
-            "Subject: ",
-            "",
-            "",
-            "",
-            "-- ",
-            "Regards,",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: from@localhost",
+                "To: ",
+                "Subject: ",
+                "",
+                "",
+                "",
+                "-- ",
+                "Regards,",
+                "",
+            ),
+            4,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -553,16 +562,20 @@ mod tests {
 
         let tpl = email.to_reply_tpl_builder(config).build().await.unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: to@localhost",
-            "To: from@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello,",
-            "> World!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: to@localhost",
+                "To: from@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello,",
+                "> World!",
+                "",
+            ),
+            4,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -595,15 +608,19 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: me@localhost",
-            "To: to@localhost, to2@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello from myself!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: to@localhost, to2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from myself!",
+                "",
+            ),
+            4,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -615,16 +632,20 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: me@localhost",
-            "To: to@localhost, to2@localhost",
-            "Cc: cc@localhost, cc2@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello from myself!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: to@localhost, to2@localhost",
+                "Cc: cc@localhost, cc2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from myself!",
+                "",
+            ),
+            5,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -657,16 +678,20 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: me@localhost",
-            "To: mlist@localhost, other@localhost",
-            "Cc: sender@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello from mailing list!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: mlist@localhost, other@localhost",
+                "Cc: sender@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+                "",
+            ),
+            5,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -678,16 +703,20 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: me@localhost",
-            "To: mlist@localhost, other@localhost",
-            "Cc: sender@localhost, cc@localhost, cc2@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello from mailing list!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: mlist@localhost, other@localhost",
+                "Cc: sender@localhost, cc@localhost, cc2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+                "",
+            ),
+            5,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -721,16 +750,20 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: me@localhost",
-            "To: mlist@localhost, other@localhost",
-            "Cc: from@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello from mailing list!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: mlist@localhost, other@localhost",
+                "Cc: from@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+                "",
+            ),
+            5,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -742,16 +775,20 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: me@localhost",
-            "To: mlist@localhost, other@localhost",
-            "Cc: from@localhost, cc@localhost, cc2@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello from mailing list!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: mlist@localhost, other@localhost",
+                "Cc: from@localhost, cc@localhost, cc2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+                "",
+            ),
+            5,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -786,15 +823,19 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: me@localhost",
-            "To: reply-to@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello from mailing list!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: reply-to@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+                "",
+            ),
+            4,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -806,16 +847,20 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: me@localhost",
-            "To: reply-to@localhost",
-            "Cc: cc@localhost, cc2@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello from mailing list!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: reply-to@localhost",
+                "Cc: cc@localhost, cc2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+                "",
+            ),
+            5,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -845,15 +890,19 @@ mod tests {
 
         let tpl = email.to_reply_tpl_builder(config).build().await.unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: to@localhost",
-            "To: from@localhost, from2@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello back!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: to@localhost",
+                "To: from@localhost, from2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello back!",
+                "",
+            ),
+            4,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -884,16 +933,20 @@ mod tests {
 
         let tpl = email.to_reply_tpl_builder(config).build().await.unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: to@localhost",
-            "To: from2@localhost",
-            "In-Reply-To: <id@localhost>",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: to@localhost",
+                "To: from2@localhost",
+                "In-Reply-To: <id@localhost>",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello!",
+                "",
+            ),
+            5,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -921,18 +974,22 @@ mod tests {
 
         let tpl = email.to_reply_tpl_builder(config).build().await.unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: to@localhost",
-            "To: from@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello!",
-            "",
-            "-- ",
-            "Cordialement,",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: to@localhost",
+                "To: from@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello!",
+                "",
+                "-- ",
+                "Cordialement,",
+                "",
+            ),
+            4,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -966,16 +1023,20 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: to@localhost",
-            "To: from@localhost",
-            "Cc: cc@localhost, cc2@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: to@localhost",
+                "To: from@localhost",
+                "Cc: cc@localhost, cc2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello!",
+                "",
+            ),
+            5,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -1011,17 +1072,21 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: to@localhost",
-            "To: from2@localhost",
-            "In-Reply-To: <id@localhost>",
-            "Cc: cc@localhost, cc2@localhost",
-            "Subject: Re: subject",
-            "",
-            "",
-            "",
-            "> Hello!",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: to@localhost",
+                "To: from2@localhost",
+                "In-Reply-To: <id@localhost>",
+                "Cc: cc@localhost, cc2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello!",
+                "",
+            ),
+            6,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -1050,24 +1115,28 @@ mod tests {
 
         let tpl = email.to_forward_tpl_builder(config).build().await.unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: to@localhost",
-            "To: ",
-            "Subject: Fwd: subject",
-            "",
-            "",
-            "",
-            "-------- Forwarded Message --------",
-            "From: from@localhost",
-            "To: to@localhost, to2@localhost",
-            "Cc: cc@localhost, cc2@localhost",
-            "Subject: subject",
-            "",
-            "Hello!",
-            "",
-            "-- ",
-            "Regards,",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: to@localhost",
+                "To: ",
+                "Subject: Fwd: subject",
+                "",
+                "",
+                "",
+                "-------- Forwarded Message --------",
+                "From: from@localhost",
+                "To: to@localhost, to2@localhost",
+                "Cc: cc@localhost, cc2@localhost",
+                "Subject: subject",
+                "",
+                "Hello!",
+                "",
+                "-- ",
+                "Regards,",
+                "",
+            ),
+            4,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -1098,28 +1167,32 @@ mod tests {
 
         let tpl = email.to_forward_tpl_builder(config).build().await.unwrap();
 
-        let expected_tpl = concat_line!(
-            "From: to@localhost",
-            "To: ",
-            "Subject: Fwd: subject",
-            "",
-            "",
-            "",
-            "-- ",
-            "Cordialement,",
-            "",
-            "-------- Forwarded Message --------",
-            "Date: Thu, 10 Nov 2022 14:26:33 +0000",
-            "From: from@localhost",
-            "To: to@localhost, to2@localhost",
-            "Cc: cc@localhost, cc2@localhost",
-            "Subject: subject",
-            "",
-            "Hello!",
-            "",
-            "-- ",
-            "Regards,",
-            "",
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: to@localhost",
+                "To: ",
+                "Subject: Fwd: subject",
+                "",
+                "",
+                "",
+                "-- ",
+                "Cordialement,",
+                "",
+                "-------- Forwarded Message --------",
+                "Date: Thu, 10 Nov 2022 14:26:33 +0000",
+                "From: from@localhost",
+                "To: to@localhost, to2@localhost",
+                "Cc: cc@localhost, cc2@localhost",
+                "Subject: subject",
+                "",
+                "Hello!",
+                "",
+                "-- ",
+                "Regards,",
+                "",
+            ),
+            4,
+            0,
         );
 
         assert_eq!(tpl, expected_tpl);

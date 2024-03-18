@@ -19,7 +19,7 @@ use crate::{account::config::AccountConfig, message::Message, Result};
 
 use self::config::{ForwardTemplateQuotePlacement, ForwardTemplateSignaturePlacement};
 
-use super::Error;
+use super::{Error, Template};
 
 /// Regex used to trim out prefix(es) from a subject.
 ///
@@ -224,17 +224,21 @@ impl<'a> ForwardTplBuilder<'a> {
     }
 
     /// Builds the final forward message template.
-    pub async fn build(self) -> Result<String> {
+    pub async fn build(self) -> Result<Template> {
+        let mut cursor = 0;
+
         let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
 
         // From
 
         builder = builder.from(self.config.as_ref());
+        cursor += 1;
 
         // To
 
         builder = builder.to(Vec::<Address>::new());
+        cursor += 1;
 
         // Subject
 
@@ -243,11 +247,13 @@ impl<'a> ForwardTplBuilder<'a> {
         let subject = prefixless_subject(parsed.subject().unwrap_or_default());
 
         builder = builder.subject(prefix + subject);
+        cursor += 1;
 
         // Additional headers
 
         for (key, val) in self.headers {
             builder = builder.header(key, Raw::new(val));
+            cursor += 1;
         }
 
         // Body
@@ -263,9 +269,11 @@ impl<'a> ForwardTplBuilder<'a> {
 
         builder = builder.text_body({
             let mut lines = String::from("\n");
+            cursor += 1;
 
             if !self.body.is_empty() {
                 lines.push('\n');
+                cursor += 1;
                 lines.push_str(&self.body);
                 lines.push('\n');
             }
@@ -316,7 +324,7 @@ impl<'a> ForwardTplBuilder<'a> {
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
-        Ok(tpl)
+        Ok(Template::new(tpl))
     }
 }
 

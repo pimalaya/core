@@ -20,7 +20,7 @@ use crate::{account::config::AccountConfig, email::address, message::Message, Re
 
 use self::config::{ReplyTemplateQuotePlacement, ReplyTemplateSignaturePlacement};
 
-use super::Error;
+use super::{Error, Template};
 
 /// Regex used to trim out prefix(es) from a subject.
 ///
@@ -241,7 +241,9 @@ impl<'a> ReplyTplBuilder<'a> {
     }
 
     /// Builds the final reply message template.
-    pub async fn build(self) -> Result<String> {
+    pub async fn build(self) -> Result<Template> {
+        let mut cursor = 0;
+
         let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
 
@@ -266,9 +268,11 @@ impl<'a> ReplyTplBuilder<'a> {
         match parsed.header("Message-ID") {
             Some(HeaderValue::Text(message_id)) => {
                 builder = builder.in_reply_to(vec![message_id.clone()]);
+                cursor += 1;
             }
             Some(HeaderValue::TextList(message_id)) => {
                 builder = builder.in_reply_to(message_id.clone());
+                cursor += 1;
             }
             _ => (),
         }
@@ -276,6 +280,7 @@ impl<'a> ReplyTplBuilder<'a> {
         // From
 
         builder = builder.from(self.config.as_ref());
+        cursor += 1;
 
         // To
 
@@ -303,6 +308,7 @@ impl<'a> ReplyTplBuilder<'a> {
         };
 
         builder = builder.to(address::into(recipients.clone()));
+        cursor += 1;
 
         // Cc
 
@@ -407,6 +413,7 @@ impl<'a> ReplyTplBuilder<'a> {
 
         if let Some(cc) = cc {
             builder = builder.cc(cc);
+            cursor += 1;
         }
 
         // Subject
@@ -416,17 +423,20 @@ impl<'a> ReplyTplBuilder<'a> {
         let subject = prefixless_subject(parsed.subject().unwrap_or_default());
 
         builder = builder.subject(prefix + subject);
+        cursor += 1;
 
         // Additional headers
 
         for (key, val) in self.headers {
             builder = builder.header(key, Raw::new(val));
+            cursor += 1;
         }
 
         // Body
 
         builder = builder.text_body({
             let mut lines = String::from("\n\n");
+            cursor += 2;
 
             let body = self
                 .thread_interpreter
@@ -438,9 +448,11 @@ impl<'a> ReplyTplBuilder<'a> {
             if quote_placement.is_above_reply() {
                 if let Some(ref headline) = quote_headline {
                     lines.push_str(headline);
+                    cursor += headline.lines().count();
                 }
 
                 for line in body.trim().lines() {
+                    cursor += 1;
                     lines.push('>');
                     if !line.starts_with('>') {
                         lines.push(' ')
@@ -500,7 +512,7 @@ impl<'a> ReplyTplBuilder<'a> {
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
-        Ok(tpl)
+        Ok(Template::new(tpl))
     }
 }
 

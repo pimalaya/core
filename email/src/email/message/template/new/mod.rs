@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use crate::{account::config::AccountConfig, Result};
 
-use super::Error;
+use super::{Error, Template};
 
 use self::config::NewTemplateSignaturePlacement;
 
@@ -136,42 +136,65 @@ impl NewTplBuilder {
     }
 
     /// Builds the final new message template.
-    pub async fn build(self) -> Result<String> {
+    pub async fn build(self) -> Result<Template> {
+        let mut cursor_x = 0;
+        let mut cursor_y = 0;
+
         let sig = self.config.find_full_signature();
         let sig_placement = self
             .signature_placement
             .unwrap_or_else(|| self.config.get_new_tpl_signature_placement());
 
-        let mut builder = MessageBuilder::new()
-            .from(self.config.as_ref())
-            .to(Vec::<Address>::new())
-            .subject("")
-            .text_body({
-                let mut lines = String::new();
+        let mut builder = MessageBuilder::new();
 
-                if !self.body.is_empty() {
-                    lines.push_str(&self.body);
-                    lines.push('\n');
-                }
+        builder = builder.from(self.config.as_ref());
+        cursor_x += 1;
 
-                if sig_placement.is_inline() {
-                    if let Some(ref sig) = sig {
-                        lines.push_str("\n\n");
-                        lines.push_str(sig);
+        builder = builder.to(Vec::<Address>::new());
+        cursor_x += 1;
+
+        builder = builder.subject("");
+        cursor_x += 1;
+
+        for (key, val) in self.headers {
+            builder = builder.header(key, Raw::new(val));
+            cursor_x += 1;
+        }
+
+        builder = builder.text_body({
+            let mut lines = String::new();
+            cursor_x += 1;
+
+            let body = self.body.trim();
+            if !body.is_empty() {
+                lines.push_str(body);
+                match body.rsplit_once('\n') {
+                    Some((left, right)) => {
+                        cursor_x += left.trim().lines().count();
+                        cursor_y += right.len();
+                    }
+                    None => {
+                        cursor_y += body.len();
                     }
                 }
+            }
 
-                lines
-            });
+            lines.push('\n');
+
+            if sig_placement.is_inline() {
+                if let Some(ref sig) = sig {
+                    lines.push_str("\n");
+                    lines.push_str(sig);
+                }
+            }
+
+            lines
+        });
 
         if sig_placement.is_attached() {
             if let Some(sig) = sig {
                 builder = builder.attachment("text/plain", "signature.txt", sig)
             }
-        }
-
-        for (key, val) in self.headers {
-            builder = builder.header(key, Raw::new(val));
         }
 
         let tpl = self
@@ -181,6 +204,315 @@ impl NewTplBuilder {
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
-        Ok(tpl)
+        Ok(Template::new_with_cursor(tpl, cursor_x, cursor_y))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use concat_with::concat_line;
+    use std::sync::Arc;
+
+    use crate::{
+        account::config::AccountConfig,
+        template::{
+            config::TemplateConfig,
+            new::{
+                config::{NewTemplateConfig, NewTemplateSignaturePlacement},
+                NewTplBuilder,
+            },
+            Template,
+        },
+    };
+
+    #[tokio::test]
+    async fn default() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        });
+
+        assert_eq!(
+            NewTplBuilder::new(config).build().await.unwrap(),
+            Template::new_with_cursor(
+                concat_line!("From: Me <me@localhost>", "To: ", "Subject: ", "", "", ""),
+                4,
+                0,
+            ),
+        );
+    }
+
+    #[tokio::test]
+    async fn with_headers() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        });
+
+        assert_eq!(
+            NewTplBuilder::new(config.clone())
+                .with_headers([("In-Reply-To", ""), ("Cc", "")])
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "In-Reply-To: ",
+                    "Cc: ",
+                    "Subject: ",
+                    "",
+                    "",
+                    "",
+                ),
+                6,
+                0,
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn with_body() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        });
+
+        assert_eq!(
+            NewTplBuilder::new(config.clone())
+                .with_body("Hello, world!")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "Hello, world!",
+                    "",
+                ),
+                4,
+                13,
+            )
+        );
+
+        assert_eq!(
+            NewTplBuilder::new(config.clone())
+                .with_body("Hello\n,\nworld!")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "Hello",
+                    ",",
+                    "world!",
+                    "",
+                ),
+                6,
+                6,
+            )
+        );
+
+        assert_eq!(
+            NewTplBuilder::new(config.clone())
+                .with_body("Hello\n,\nworld!\n")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "Hello",
+                    ",",
+                    "world!",
+                    "",
+                ),
+                6,
+                6,
+            )
+        );
+
+        assert_eq!(
+            NewTplBuilder::new(config)
+                .with_body("Hello\n,\nworld!\n\n\n")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "Hello",
+                    ",",
+                    "world!",
+                    "",
+                ),
+                6,
+                6,
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn with_signature() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            signature: Some("signature".into()),
+            ..AccountConfig::default()
+        });
+
+        assert_eq!(
+            NewTplBuilder::new(config.clone()).build().await.unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "",
+                    "",
+                    "-- ",
+                    "signature",
+                    "",
+                ),
+                4,
+                0,
+            )
+        );
+
+        assert_eq!(
+            NewTplBuilder::new(config.clone())
+                // force to hide the signature just for this builder
+                .with_signature_placement(NewTemplateSignaturePlacement::Nowhere)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!("From: Me <me@localhost>", "To: ", "Subject: ", "", "", ""),
+                4,
+                0,
+            )
+        );
+
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            signature_delim: Some("~~ \n\n".into()),
+            signature: Some("signature\n\n\n".into()),
+            template: Some(TemplateConfig {
+                new: Some(NewTemplateConfig {
+                    signature_placement: Some(NewTemplateSignaturePlacement::Nowhere),
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+
+        assert_eq!(
+            NewTplBuilder::new(config.clone()).build().await.unwrap(),
+            Template::new_with_cursor(
+                concat_line!("From: Me <me@localhost>", "To: ", "Subject: ", "", "", ""),
+                4,
+                0,
+            )
+        );
+
+        assert_eq!(
+            NewTplBuilder::new(config)
+                // force to show the signature just for this builder
+                .with_signature_placement(NewTemplateSignaturePlacement::Inline)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "",
+                    "",
+                    "~~ ",
+                    "",
+                    "signature",
+                    "",
+                ),
+                4,
+                0,
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn with_body_and_signature() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            signature: Some("signature".into()),
+            ..AccountConfig::default()
+        });
+
+        assert_eq!(
+            NewTplBuilder::new(config.clone())
+                .with_body("Hello, world!")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "Hello, world!",
+                    "",
+                    "-- ",
+                    "signature",
+                    "",
+                ),
+                4,
+                13,
+            )
+        );
+
+        assert_eq!(
+            NewTplBuilder::new(config.clone())
+                .with_body("\n\nHello, world!\n\n\n\n")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "Hello, world!",
+                    "",
+                    "-- ",
+                    "signature",
+                    "",
+                ),
+                4,
+                13,
+            )
+        );
     }
 }
