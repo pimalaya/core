@@ -36,7 +36,7 @@ use crate::{
 
 use self::{
     attachment::Attachment,
-    template::{forward::ForwardTplBuilder, new::NewTemplateBuilder, reply::ReplyTplBuilder},
+    template::{forward::ForwardTplBuilder, new::NewTemplateBuilder, reply::ReplyTemplateBuilder},
 };
 
 /// Errors related to email messages.
@@ -162,8 +162,8 @@ impl Message<'_> {
     ///
     /// The fact to return a template builder makes it easier to
     /// customize the final template from the outside.
-    pub fn to_reply_tpl_builder(&self, config: Arc<AccountConfig>) -> ReplyTplBuilder {
-        ReplyTplBuilder::new(self, config)
+    pub fn to_reply_tpl_builder(&self, config: Arc<AccountConfig>) -> ReplyTemplateBuilder {
+        ReplyTemplateBuilder::new(self, config)
     }
 
     /// Turns the current message into a forward template builder.
@@ -322,61 +322,6 @@ mod tests {
         message::{config::MessageConfig, get::config::MessageReadConfig, Message},
         template::Template,
     };
-
-    #[tokio::test]
-    async fn new_tpl_builder() {
-        let config = Arc::new(AccountConfig {
-            display_name: Some("From".into()),
-            email: "from@localhost".into(),
-            ..AccountConfig::default()
-        });
-
-        let tpl = Message::new_tpl_builder(config).build().await.unwrap();
-
-        let expected_tpl = Template::new_with_cursor(
-            concat_line!(
-                "From: From <from@localhost>",
-                "To: ",
-                "Subject: ",
-                "",
-                "",
-                "",
-            ),
-            4,
-            0,
-        );
-
-        assert_eq!(tpl, expected_tpl);
-    }
-
-    #[tokio::test]
-    async fn new_tpl_builder_with_signature() {
-        let config = Arc::new(AccountConfig {
-            email: "from@localhost".into(),
-            signature: Some("Regards,".into()),
-            ..AccountConfig::default()
-        });
-
-        let tpl = Message::new_tpl_builder(config).build().await.unwrap();
-
-        let expected_tpl = Template::new_with_cursor(
-            concat_line!(
-                "From: from@localhost",
-                "To: ",
-                "Subject: ",
-                "",
-                "",
-                "",
-                "-- ",
-                "Regards,",
-                "",
-            ),
-            4,
-            0,
-        );
-
-        assert_eq!(tpl, expected_tpl);
-    }
 
     #[tokio::test]
     async fn to_read_tpl() {

@@ -1,7 +1,7 @@
-//! Module dedicated to email message reply template.
+//! # Reply template
 //!
-//! The main structure of this module is the [ReplyTplBuilder], which
-//! helps you to build template in order to reply to a message.
+//! The main structure of this module is the [`ReplyTemplateBuilder`],
+//! which helps you to build template in order to reply to a message.
 
 pub mod config;
 
@@ -18,16 +18,15 @@ use std::sync::Arc;
 
 use crate::{account::config::AccountConfig, email::address, message::Message, Result};
 
-use self::config::{ReplyTemplateQuotePlacement, ReplyTemplateSignaturePlacement};
+use self::config::{ReplyTemplatePostingStyle, ReplyTemplateSigningStyle};
 
-use super::{Error, Template};
+use super::{Error, Template, TemplateBody, TemplateCursor};
 
 /// Regex used to trim out prefix(es) from a subject.
 ///
 /// Everything starting by "Re:" (case and whitespace insensitive) is
 /// considered a prefix.
-static PREFIXLESS_SUBJECT_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new("(?i:\\s*re\\s*:\\s*)*(.*)").unwrap());
+static SUBJECT: Lazy<Regex> = Lazy::new(|| Regex::new("(?i:\\s*re\\s*:\\s*)*(.*)").unwrap());
 
 /// Regex used to detect if an email address is a noreply one.
 ///
@@ -37,11 +36,7 @@ static NO_REPLY: Lazy<Regex> = Lazy::new(|| Regex::new("(?i:not?[_\\-\\.]?reply)
 
 /// Trim out prefix(es) from the given subject.
 fn prefixless_subject(subject: &str) -> &str {
-    let cap = PREFIXLESS_SUBJECT_REGEX
-        .captures(subject)
-        .and_then(|cap| cap.get(1));
-
-    match cap {
+    match SUBJECT.captures(subject).and_then(|cap| cap.get(1)) {
         Some(prefixless_subject) => prefixless_subject.as_str(),
         None => {
             debug!("cannot remove prefix from subject {subject:?}");
@@ -54,7 +49,7 @@ fn prefixless_subject(subject: &str) -> &str {
 ///
 /// This builder helps you to create a template in order to reply to
 /// an existing message.
-pub struct ReplyTplBuilder<'a> {
+pub struct ReplyTemplateBuilder<'a> {
     /// Reference to the current account configuration.
     config: Arc<AccountConfig>,
 
@@ -70,17 +65,17 @@ pub struct ReplyTplBuilder<'a> {
     /// Should reply to all.
     reply_all: bool,
 
+    /// Override the reply posting style.
+    ///
+    /// Uses the posting style from the account configuration if this
+    /// one is `None`.
+    posting_style: Option<ReplyTemplatePostingStyle>,
+
     /// Override the placement of the signature.
     ///
     /// Uses the signature placement from the account configuration if
     /// this one is `None`.
-    signature_placement: Option<ReplyTemplateSignaturePlacement>,
-
-    /// Override the placement of the quote.
-    ///
-    /// Uses the quote placement from the account configuration if
-    /// this one is `None`.
-    quote_placement: Option<ReplyTemplateQuotePlacement>,
+    signing_style: Option<ReplyTemplateSigningStyle>,
 
     /// Template interpreter instance.
     pub interpreter: MimeInterpreterBuilder,
@@ -89,7 +84,7 @@ pub struct ReplyTplBuilder<'a> {
     pub thread_interpreter: MimeInterpreterBuilder,
 }
 
-impl<'a> ReplyTplBuilder<'a> {
+impl<'a> ReplyTemplateBuilder<'a> {
     /// Creates a reply template builder from an account configuration
     /// and a message references.
     pub fn new(msg: &'a Message, config: Arc<AccountConfig>) -> Self {
@@ -109,8 +104,8 @@ impl<'a> ReplyTplBuilder<'a> {
             headers: Vec::new(),
             body: String::new(),
             reply_all: false,
-            signature_placement: None,
-            quote_placement: None,
+            posting_style: None,
+            signing_style: None,
             interpreter,
             thread_interpreter,
         }
@@ -157,67 +152,55 @@ impl<'a> ReplyTplBuilder<'a> {
     }
 
     /// Set some signature placement.
-    pub fn set_some_signature_placement(
+    pub fn set_some_signing_style(
         &mut self,
-        placement: Option<impl Into<ReplyTemplateSignaturePlacement>>,
+        placement: Option<impl Into<ReplyTemplateSigningStyle>>,
     ) {
-        self.signature_placement = placement.map(Into::into);
+        self.signing_style = placement.map(Into::into);
     }
 
     /// Set the signature placement.
-    pub fn set_signature_placement(
-        &mut self,
-        placement: impl Into<ReplyTemplateSignaturePlacement>,
-    ) {
-        self.set_some_signature_placement(Some(placement));
+    pub fn set_signing_style(&mut self, placement: impl Into<ReplyTemplateSigningStyle>) {
+        self.set_some_signing_style(Some(placement));
     }
 
     /// Set some signature placement, using the builder pattern.
-    pub fn with_some_signature_placement(
+    pub fn with_some_signing_style(
         mut self,
-        placement: Option<impl Into<ReplyTemplateSignaturePlacement>>,
+        placement: Option<impl Into<ReplyTemplateSigningStyle>>,
     ) -> Self {
-        self.set_some_signature_placement(placement);
+        self.set_some_signing_style(placement);
         self
     }
 
     /// Set the signature placement, using the builder pattern.
-    pub fn with_signature_placement(
-        mut self,
-        placement: impl Into<ReplyTemplateSignaturePlacement>,
-    ) -> Self {
-        self.set_signature_placement(placement);
+    pub fn with_signing_style(mut self, placement: impl Into<ReplyTemplateSigningStyle>) -> Self {
+        self.set_signing_style(placement);
         self
     }
 
-    /// Set some quote placement.
-    pub fn set_some_quote_placement(
-        &mut self,
-        placement: Option<impl Into<ReplyTemplateQuotePlacement>>,
-    ) {
-        self.quote_placement = placement.map(Into::into);
+    /// Set some posting style.
+    pub fn set_some_posting_style(&mut self, style: Option<impl Into<ReplyTemplatePostingStyle>>) {
+        self.posting_style = style.map(Into::into);
     }
 
-    /// Set the quote placement.
-    pub fn set_quote_placement(&mut self, placement: impl Into<ReplyTemplateQuotePlacement>) {
-        self.set_some_quote_placement(Some(placement));
+    /// Set the posting style.
+    pub fn set_posting_style(&mut self, style: impl Into<ReplyTemplatePostingStyle>) {
+        self.set_some_posting_style(Some(style));
     }
 
-    /// Set some quote placement, using the builder pattern.
-    pub fn with_some_quote_placement(
+    /// Set some posting style, using the builder pattern.
+    pub fn with_some_posting_style(
         mut self,
-        placement: Option<impl Into<ReplyTemplateQuotePlacement>>,
+        style: Option<impl Into<ReplyTemplatePostingStyle>>,
     ) -> Self {
-        self.set_some_quote_placement(placement);
+        self.set_some_posting_style(style);
         self
     }
 
-    /// Set the quote placement, using the builder pattern.
-    pub fn with_quote_placement(
-        mut self,
-        placement: impl Into<ReplyTemplateQuotePlacement>,
-    ) -> Self {
-        self.set_quote_placement(placement);
+    /// Set the posting style, using the builder pattern.
+    pub fn with_posting_style(mut self, style: impl Into<ReplyTemplatePostingStyle>) -> Self {
+        self.set_posting_style(style);
         self
     }
 
@@ -242,7 +225,7 @@ impl<'a> ReplyTplBuilder<'a> {
 
     /// Builds the final reply message template.
     pub async fn build(self) -> Result<Template> {
-        let mut cursor = 0;
+        let mut cursor = TemplateCursor::default();
 
         let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
@@ -256,11 +239,11 @@ impl<'a> ReplyTplBuilder<'a> {
 
         let sig = self.config.find_full_signature();
         let sig_placement = self
-            .signature_placement
+            .signing_style
             .unwrap_or_else(|| self.config.get_reply_tpl_signature_placement());
-        let quote_placement = self
-            .quote_placement
-            .unwrap_or_else(|| self.config.get_reply_tpl_quote_placement());
+        let posting_style = self
+            .posting_style
+            .unwrap_or_else(|| self.config.get_reply_tpl_posting_style());
         let quote_headline = self.config.get_reply_tpl_quote_headline(parsed);
 
         // In-Reply-To
@@ -268,11 +251,11 @@ impl<'a> ReplyTplBuilder<'a> {
         match parsed.header("Message-ID") {
             Some(HeaderValue::Text(message_id)) => {
                 builder = builder.in_reply_to(vec![message_id.clone()]);
-                cursor += 1;
+                cursor.row += 1;
             }
             Some(HeaderValue::TextList(message_id)) => {
                 builder = builder.in_reply_to(message_id.clone());
-                cursor += 1;
+                cursor.row += 1;
             }
             _ => (),
         }
@@ -280,7 +263,7 @@ impl<'a> ReplyTplBuilder<'a> {
         // From
 
         builder = builder.from(self.config.as_ref());
-        cursor += 1;
+        cursor.row += 1;
 
         // To
 
@@ -308,7 +291,7 @@ impl<'a> ReplyTplBuilder<'a> {
         };
 
         builder = builder.to(address::into(recipients.clone()));
-        cursor += 1;
+        cursor.row += 1;
 
         // Cc
 
@@ -413,7 +396,7 @@ impl<'a> ReplyTplBuilder<'a> {
 
         if let Some(cc) = cc {
             builder = builder.cc(cc);
-            cursor += 1;
+            cursor.row += 1;
         }
 
         // Subject
@@ -423,101 +406,381 @@ impl<'a> ReplyTplBuilder<'a> {
         let subject = prefixless_subject(parsed.subject().unwrap_or_default());
 
         builder = builder.subject(prefix + subject);
-        cursor += 1;
+        cursor.row += 1;
 
         // Additional headers
 
         for (key, val) in self.headers {
             builder = builder.header(key, Raw::new(val));
-            cursor += 1;
+            cursor.row += 1;
         }
 
         // Body
 
         builder = builder.text_body({
-            let mut lines = String::from("\n\n");
-            cursor += 2;
+            let mut body = TemplateBody::new(cursor);
 
-            let body = self
+            let reply_body = self
                 .thread_interpreter
                 .build()
                 .from_msg(parsed)
                 .await
                 .map_err(Error::InterpretMessageAsThreadTemplateError)?;
+            let reply_body = reply_body.trim();
 
-            if quote_placement.is_above_reply() {
+            if posting_style.is_bottom() && !reply_body.is_empty() {
                 if let Some(ref headline) = quote_headline {
-                    lines.push_str(headline);
-                    cursor += headline.lines().count();
+                    body.push_str(headline);
+                    // body.cursor.row += headline.lines().count() + 1;
                 }
 
-                for line in body.trim().lines() {
-                    cursor += 1;
-                    lines.push('>');
+                for line in reply_body.lines() {
+                    body.push('>');
                     if !line.starts_with('>') {
-                        lines.push(' ')
+                        body.push(' ')
                     }
-                    lines.push_str(line);
-                    lines.push('\n');
+                    body.push_str(line);
+                    body.push('\n');
+                    // body.cursor.row += 1;
                 }
+
+                // drop last line feed
+                body.pop();
+                // body.cursor.row -= 1;
+
+                body.flush();
             }
 
-            if !self.body.is_empty() {
-                lines.push_str(&self.body);
-                lines.push('\n');
-            }
+            body.push_str(&self.body);
+            body.flush();
+            body.cursor.lock();
 
             if sig_placement.is_above_quote() {
                 if let Some(ref sig) = sig {
-                    lines.push('\n');
-                    lines.push_str(sig);
+                    body.push_str(sig);
+                    body.flush();
                 }
             }
 
-            if quote_placement.is_below_reply() {
+            if posting_style.is_top() && !reply_body.is_empty() {
                 if let Some(ref headline) = quote_headline {
-                    lines.push_str(headline);
+                    body.push_str(headline);
                 }
 
-                for line in body.trim().lines() {
-                    lines.push('>');
+                for line in reply_body.lines() {
+                    body.push('>');
                     if !line.starts_with('>') {
-                        lines.push(' ')
+                        body.push(' ')
                     }
-                    lines.push_str(line);
-                    lines.push('\n');
+                    body.push_str(line);
+                    body.push('\n');
                 }
+
+                // drop last line feed
+                body.pop();
+
+                body.flush();
             }
 
             if sig_placement.is_below_quote() {
                 if let Some(ref sig) = sig {
-                    lines.push('\n');
-                    lines.push_str(sig);
+                    body.push_str(sig);
+                    body.flush();
                 }
             }
 
-            lines.trim_end().to_owned()
+            cursor = body.cursor.clone();
+            body
         });
 
-        if sig_placement.is_attached() {
+        if sig_placement.is_attachment() {
             if let Some(sig) = sig {
                 builder = builder.attachment("text/plain", "signature.txt", sig)
             }
         }
 
-        let tpl = self
+        let content = self
             .interpreter
             .build()
             .from_msg_builder(builder)
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
-        Ok(Template::new(tpl))
+        Ok(Template::new_with_cursor_v2(content, cursor))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use concat_with::concat_line;
+    use std::sync::Arc;
+
+    use crate::{
+        account::config::AccountConfig,
+        message::Message,
+        template::{
+            reply::{
+                config::{ReplyTemplatePostingStyle, ReplyTemplateSigningStyle},
+                ReplyTemplateBuilder,
+            },
+            Template,
+        },
+    };
+
+    #[tokio::test]
+    async fn default() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "",
+            "",
+        ));
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "", // cursor here
+                ),
+                (4, 0),
+            ),
+        );
+    }
+
+    #[tokio::test]
+    async fn with_body() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
+        ));
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "", // cursor here
+                    "",
+                    "> Hello, world!",
+                ),
+                (4, 0),
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // with single line body
+                .with_body("Hello, back!")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "Hello, back!", // cursor here
+                    "",
+                    "> Hello, world!",
+                ),
+                4,
+                12,
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // with multi lines body
+                .with_body("\n\nHello\n,\nworld!\n\n!")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "",
+                    "",
+                    "Hello",
+                    ",",
+                    "world!",
+                    "",
+                    "!", // cursor here
+                    "",
+                    "> Hello, world!",
+                ),
+                10,
+                1,
+            ),
+        );
+    }
+
+    #[tokio::test]
+    async fn with_signature() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            signature: Some("signature".into()),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
+        ));
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "", // cursor here
+                    "",
+                    "> Hello, world!",
+                    "",
+                    "-- ",
+                    "signature",
+                ),
+                4,
+                0,
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // force signature above quote
+                .with_signing_style(ReplyTemplateSigningStyle::AboveQuote)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "", // cursor here
+                    "",
+                    "-- ",
+                    "signature",
+                    "",
+                    "> Hello, world!",
+                ),
+                4,
+                0,
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // force signature to hide
+                .with_signing_style(ReplyTemplateSigningStyle::Hidden)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "", // cursor here
+                    "",
+                    "> Hello, world!",
+                ),
+                4,
+                0,
+            ),
+        );
+    }
+
+    #[tokio::test]
+    async fn with_quote() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
+        ));
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // force the bottom-posting style
+                .with_posting_style(ReplyTemplatePostingStyle::Bottom)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "> Hello, world!",
+                    "",
+                    "", // cursor here
+                ),
+                (6, 0),
+            ),
+        );
+    }
+
     #[test]
     fn prefixless_subject() {
         assert_eq!(super::prefixless_subject("Hello, world!"), "Hello, world!");

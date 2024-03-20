@@ -278,8 +278,7 @@ impl MimeInterpreter {
 
         let mml_body = mime_body_interpreter.interpret_msg(msg).await?;
 
-        mml.push_str(mml_body.trim_end());
-        mml.push('\n');
+        mml.push_str(&mml_body);
 
         Ok(mml)
     }

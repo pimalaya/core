@@ -40,8 +40,8 @@ use crate::{
         self,
         config::TemplateConfig,
         forward::config::ForwardTemplateQuotePlacement,
-        new::config::NewTemplateSignaturePlacement,
-        reply::config::{ReplyTemplateQuotePlacement, ReplyTemplateSignaturePlacement},
+        new::config::NewTemplateSignatureStyle,
+        reply::config::{ReplyTemplatePostingStyle, ReplyTemplateSigningStyle},
     },
     Result,
 };
@@ -604,27 +604,27 @@ impl AccountConfig {
     }
 
     /// Get the new template signature placement.
-    pub fn get_new_tpl_signature_placement(&self) -> NewTemplateSignaturePlacement {
+    pub fn get_new_template_signature_style(&self) -> NewTemplateSignatureStyle {
         self.template
             .as_ref()
             .and_then(|c| c.new.as_ref())
-            .and_then(|c| c.signature_placement.clone())
+            .and_then(|c| c.signature_style.clone())
             .unwrap_or_default()
     }
 
-    pub fn get_reply_tpl_signature_placement(&self) -> ReplyTemplateSignaturePlacement {
+    pub fn get_reply_tpl_signature_placement(&self) -> ReplyTemplateSigningStyle {
         self.template
             .as_ref()
             .and_then(|c| c.reply.as_ref())
-            .and_then(|c| c.signature_placement.clone())
+            .and_then(|c| c.signing_style.clone())
             .unwrap_or_default()
     }
 
-    pub fn get_reply_tpl_quote_placement(&self) -> ReplyTemplateQuotePlacement {
+    pub fn get_reply_tpl_posting_style(&self) -> ReplyTemplatePostingStyle {
         self.template
             .as_ref()
             .and_then(|c| c.reply.as_ref())
-            .and_then(|c| c.quote_placement.clone())
+            .and_then(|c| c.posting_style.clone())
             .unwrap_or_default()
     }
 

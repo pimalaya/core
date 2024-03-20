@@ -5,8 +5,8 @@
     serde(rename_all = "kebab-case")
 )]
 pub struct ReplyTemplateConfig {
-    pub signature_placement: Option<ReplyTemplateSignaturePlacement>,
-    pub quote_placement: Option<ReplyTemplateQuotePlacement>,
+    pub posting_style: Option<ReplyTemplatePostingStyle>,
+    pub signing_style: Option<ReplyTemplateSigningStyle>,
     pub quote_headline_fmt: Option<String>,
 }
 
@@ -16,29 +16,24 @@ pub struct ReplyTemplateConfig {
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
-pub enum ReplyTemplateSignaturePlacement {
-    AboveQuote,
+pub enum ReplyTemplatePostingStyle {
     #[default]
-    BelowQuote,
-    Attached,
-    Nowhere,
+    Top,
+    Bottom,
+    Interleaved,
 }
 
-impl ReplyTemplateSignaturePlacement {
-    pub fn is_above_quote(&self) -> bool {
-        matches!(self, Self::AboveQuote)
+impl ReplyTemplatePostingStyle {
+    pub fn is_top(&self) -> bool {
+        matches!(self, Self::Top)
     }
 
-    pub fn is_below_quote(&self) -> bool {
-        matches!(self, Self::BelowQuote)
+    pub fn is_bottom(&self) -> bool {
+        matches!(self, Self::Bottom)
     }
 
-    pub fn is_attached(&self) -> bool {
-        matches!(self, Self::Attached)
-    }
-
-    pub fn is_nowhere(&self) -> bool {
-        matches!(self, Self::Nowhere)
+    pub fn is_interleaved(&self) -> bool {
+        matches!(self, Self::Interleaved)
     }
 }
 
@@ -48,23 +43,28 @@ impl ReplyTemplateSignaturePlacement {
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
-pub enum ReplyTemplateQuotePlacement {
-    AboveReply,
+pub enum ReplyTemplateSigningStyle {
+    AboveQuote,
     #[default]
-    BelowReply,
-    Nowhere,
+    BelowQuote,
+    Attachment,
+    Hidden,
 }
 
-impl ReplyTemplateQuotePlacement {
-    pub fn is_above_reply(&self) -> bool {
-        matches!(self, Self::AboveReply)
+impl ReplyTemplateSigningStyle {
+    pub fn is_above_quote(&self) -> bool {
+        matches!(self, Self::AboveQuote)
     }
 
-    pub fn is_below_reply(&self) -> bool {
-        matches!(self, Self::BelowReply)
+    pub fn is_below_quote(&self) -> bool {
+        matches!(self, Self::BelowQuote)
     }
 
-    pub fn is_nowhere(&self) -> bool {
-        matches!(self, Self::Nowhere)
+    pub fn is_attachment(&self) -> bool {
+        matches!(self, Self::Attachment)
+    }
+
+    pub fn is_hidden(&self) -> bool {
+        matches!(self, Self::Hidden)
     }
 }

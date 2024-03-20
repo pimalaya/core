@@ -15,9 +15,9 @@ use std::sync::Arc;
 
 use crate::{account::config::AccountConfig, Result};
 
-use super::{Error, Template};
+use super::{Error, Template, TemplateBody, TemplateCursor};
 
-use self::config::NewTemplateSignaturePlacement;
+use self::config::NewTemplateSignatureStyle;
 
 /// The new template builder.
 ///
@@ -37,7 +37,7 @@ pub struct NewTemplateBuilder {
     ///
     /// Uses the signature placement from the account configuration if
     /// this one is `None`.
-    signature_placement: Option<NewTemplateSignaturePlacement>,
+    signature_style: Option<NewTemplateSignatureStyle>,
 
     /// Template interpreter instance.
     pub interpreter: MimeInterpreterBuilder,
@@ -54,7 +54,7 @@ impl NewTemplateBuilder {
             config,
             headers: Vec::new(),
             body: String::new(),
-            signature_placement: None,
+            signature_style: None,
             interpreter,
         }
     }
@@ -102,30 +102,27 @@ impl NewTemplateBuilder {
     /// Set some signature placement.
     pub fn set_some_signature_placement(
         &mut self,
-        placement: Option<impl Into<NewTemplateSignaturePlacement>>,
+        placement: Option<impl Into<NewTemplateSignatureStyle>>,
     ) {
-        self.signature_placement = placement.map(Into::into);
+        self.signature_style = placement.map(Into::into);
     }
 
     /// Set the signature placement.
-    pub fn set_signature_placement(&mut self, placement: impl Into<NewTemplateSignaturePlacement>) {
+    pub fn set_signature_placement(&mut self, placement: impl Into<NewTemplateSignatureStyle>) {
         self.set_some_signature_placement(Some(placement));
     }
 
     /// Set some signature placement, using the builder pattern.
     pub fn with_some_signature_placement(
         mut self,
-        placement: Option<impl Into<NewTemplateSignaturePlacement>>,
+        placement: Option<impl Into<NewTemplateSignatureStyle>>,
     ) -> Self {
         self.set_some_signature_placement(placement);
         self
     }
 
     /// Set the signature placement, using the builder pattern.
-    pub fn with_signature_placement(
-        mut self,
-        placement: impl Into<NewTemplateSignaturePlacement>,
-    ) -> Self {
+    pub fn with_signature_style(mut self, placement: impl Into<NewTemplateSignatureStyle>) -> Self {
         self.set_signature_placement(placement);
         self
     }
@@ -138,74 +135,60 @@ impl NewTemplateBuilder {
 
     /// Builds the final new message template.
     pub async fn build(self) -> Result<Template> {
-        let mut cursor_x = 0;
-        let mut cursor_y = 0;
-
         let sig = self.config.find_full_signature();
-        let sig_placement = self
-            .signature_placement
-            .unwrap_or_else(|| self.config.get_new_tpl_signature_placement());
+        let sig_style = self
+            .signature_style
+            .unwrap_or_else(|| self.config.get_new_template_signature_style());
 
-        let mut builder = MessageBuilder::new();
+        let mut msg = MessageBuilder::default();
+        let mut cursor = TemplateCursor::default();
 
-        builder = builder.from(self.config.as_ref());
-        cursor_x += 1;
+        msg = msg.from(self.config.as_ref());
+        cursor.row += 1;
 
-        builder = builder.to(Vec::<Address>::new());
-        cursor_x += 1;
+        msg = msg.to(Vec::<Address>::new());
+        cursor.row += 1;
 
-        builder = builder.subject("");
-        cursor_x += 1;
+        msg = msg.subject("");
+        cursor.row += 1;
 
         for (key, val) in self.headers {
-            builder = builder.header(key, Raw::new(val));
-            cursor_x += 1;
+            msg = msg.header(key, Raw::new(val));
+            cursor.row += 1;
         }
 
-        builder = builder.text_body({
-            let mut lines = String::new();
-            cursor_x += 1;
+        msg = msg.text_body({
+            let mut body = TemplateBody::new(cursor);
 
-            let body = self.body.trim();
-            if !body.is_empty() {
-                lines.push_str(body);
-                match body.rsplit_once('\n') {
-                    Some((left, right)) => {
-                        cursor_x += left.trim().lines().count();
-                        cursor_y += right.len();
-                    }
-                    None => {
-                        cursor_y += body.len();
-                    }
-                }
-            }
+            body.push_str(&self.body);
+            body.flush();
+            body.cursor.lock();
 
-            lines.push('\n');
-
-            if sig_placement.is_inline() {
+            if sig_style.is_inlined() {
                 if let Some(ref sig) = sig {
-                    lines.push_str("\n");
-                    lines.push_str(sig);
+                    body.push_str(&sig);
+                    body.flush();
                 }
             }
 
-            lines
+            cursor = body.cursor.clone();
+            body
         });
 
-        if sig_placement.is_attached() {
+        if sig_style.is_attached() {
             if let Some(sig) = sig {
-                builder = builder.attachment("text/plain", "signature.txt", sig)
+                msg = msg.attachment("text/plain", "signature.txt", sig)
             }
         }
 
-        let tpl = self
+        let content = self
             .interpreter
             .build()
-            .from_msg_builder(builder)
+            .from_msg_builder(msg)
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
-        Ok(Template::new_with_cursor(tpl, cursor_x, cursor_y))
+        Ok(Template::new_with_cursor_v2(content, cursor))
     }
 }
 
@@ -219,7 +202,7 @@ mod tests {
         template::{
             config::TemplateConfig,
             new::{
-                config::{NewTemplateConfig, NewTemplateSignaturePlacement},
+                config::{NewTemplateConfig, NewTemplateSignatureStyle},
                 NewTemplateBuilder,
             },
             Template,
@@ -236,10 +219,15 @@ mod tests {
 
         assert_eq!(
             NewTemplateBuilder::new(config).build().await.unwrap(),
-            Template::new_with_cursor(
-                concat_line!("From: Me <me@localhost>", "To: ", "Subject: ", "", "", ""),
-                4,
-                0,
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "", // cursor here
+                ),
+                (4, 0),
             ),
         );
     }
@@ -258,7 +246,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor(
+            Template::new_with_cursor_v2(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: ",
@@ -266,11 +254,9 @@ mod tests {
                     "Cc: ",
                     "Subject: ",
                     "",
-                    "",
-                    "",
+                    "", // cursor here
                 ),
-                6,
-                0,
+                (6, 0),
             )
         );
     }
@@ -285,6 +271,7 @@ mod tests {
 
         assert_eq!(
             NewTemplateBuilder::new(config.clone())
+                // with single line body
                 .with_body("Hello, world!")
                 .build()
                 .await
@@ -295,8 +282,7 @@ mod tests {
                     "To: ",
                     "Subject: ",
                     "",
-                    "Hello, world!",
-                    "",
+                    "Hello, world!", // cursor here
                 ),
                 4,
                 13,
@@ -305,7 +291,8 @@ mod tests {
 
         assert_eq!(
             NewTemplateBuilder::new(config.clone())
-                .with_body("Hello\n,\nworld!")
+                // with multi lines body
+                .with_body("\n\nHello\n,\nworld!\n\n!")
                 .build()
                 .await
                 .unwrap(),
@@ -315,57 +302,16 @@ mod tests {
                     "To: ",
                     "Subject: ",
                     "",
-                    "Hello",
-                    ",",
-                    "world!",
                     "",
-                ),
-                6,
-                6,
-            )
-        );
-
-        assert_eq!(
-            NewTemplateBuilder::new(config.clone())
-                .with_body("Hello\n,\nworld!\n")
-                .build()
-                .await
-                .unwrap(),
-            Template::new_with_cursor(
-                concat_line!(
-                    "From: Me <me@localhost>",
-                    "To: ",
-                    "Subject: ",
                     "",
                     "Hello",
                     ",",
                     "world!",
                     "",
+                    "!", // cursor here
                 ),
-                6,
-                6,
-            )
-        );
-
-        assert_eq!(
-            NewTemplateBuilder::new(config)
-                .with_body("Hello\n,\nworld!\n\n\n")
-                .build()
-                .await
-                .unwrap(),
-            Template::new_with_cursor(
-                concat_line!(
-                    "From: Me <me@localhost>",
-                    "To: ",
-                    "Subject: ",
-                    "",
-                    "Hello",
-                    ",",
-                    "world!",
-                    "",
-                ),
-                6,
-                6,
+                10,
+                1,
             )
         );
     }
@@ -390,11 +336,10 @@ mod tests {
                     "To: ",
                     "Subject: ",
                     "",
-                    "",
+                    "", // cursor here
                     "",
                     "-- ",
                     "signature",
-                    "",
                 ),
                 4,
                 0,
@@ -404,12 +349,18 @@ mod tests {
         assert_eq!(
             NewTemplateBuilder::new(config.clone())
                 // force to hide the signature just for this builder
-                .with_signature_placement(NewTemplateSignaturePlacement::Nowhere)
+                .with_signature_style(NewTemplateSignatureStyle::Hidden)
                 .build()
                 .await
                 .unwrap(),
             Template::new_with_cursor(
-                concat_line!("From: Me <me@localhost>", "To: ", "Subject: ", "", "", ""),
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "", // cursor here
+                ),
                 4,
                 0,
             )
@@ -422,7 +373,7 @@ mod tests {
             signature: Some("signature\n\n\n".into()),
             template: Some(TemplateConfig {
                 new: Some(NewTemplateConfig {
-                    signature_placement: Some(NewTemplateSignaturePlacement::Nowhere),
+                    signature_style: Some(NewTemplateSignatureStyle::Hidden),
                 }),
                 ..Default::default()
             }),
@@ -435,7 +386,13 @@ mod tests {
                 .await
                 .unwrap(),
             Template::new_with_cursor(
-                concat_line!("From: Me <me@localhost>", "To: ", "Subject: ", "", "", ""),
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: ",
+                    "",
+                    "", // cursor here
+                ),
                 4,
                 0,
             )
@@ -444,7 +401,7 @@ mod tests {
         assert_eq!(
             NewTemplateBuilder::new(config)
                 // force to show the signature just for this builder
-                .with_signature_placement(NewTemplateSignaturePlacement::Inline)
+                .with_signature_style(NewTemplateSignatureStyle::Inlined)
                 .build()
                 .await
                 .unwrap(),
@@ -454,12 +411,11 @@ mod tests {
                     "To: ",
                     "Subject: ",
                     "",
-                    "",
+                    "", // cursor here
                     "",
                     "~~ ",
                     "",
                     "signature",
-                    "",
                 ),
                 4,
                 0,
@@ -488,11 +444,10 @@ mod tests {
                     "To: ",
                     "Subject: ",
                     "",
-                    "Hello, world!",
+                    "Hello, world!", // cursor here
                     "",
                     "-- ",
                     "signature",
-                    "",
                 ),
                 4,
                 13,
@@ -501,7 +456,7 @@ mod tests {
 
         assert_eq!(
             NewTemplateBuilder::new(config.clone())
-                .with_body("\n\nHello, world!\n\n\n\n")
+                .with_body("\n\nHello,\n\nworld\n\n!")
                 .build()
                 .await
                 .unwrap(),
@@ -511,14 +466,19 @@ mod tests {
                     "To: ",
                     "Subject: ",
                     "",
-                    "Hello, world!",
+                    "",
+                    "",
+                    "Hello,",
+                    "",
+                    "world",
+                    "",
+                    "!", // cursor
                     "",
                     "-- ",
                     "signature",
-                    "",
                 ),
-                4,
-                13,
+                10,
+                1,
             )
         );
     }
