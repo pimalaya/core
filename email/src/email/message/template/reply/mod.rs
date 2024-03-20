@@ -428,10 +428,9 @@ impl<'a> ReplyTemplateBuilder<'a> {
                 .map_err(Error::InterpretMessageAsThreadTemplateError)?;
             let reply_body = reply_body.trim();
 
-            if posting_style.is_bottom() && !reply_body.is_empty() {
+            if !reply_body.is_empty() && posting_style.is_bottom() {
                 if let Some(ref headline) = quote_headline {
                     body.push_str(headline);
-                    // body.cursor.row += headline.lines().count() + 1;
                 }
 
                 for line in reply_body.lines() {
@@ -441,19 +440,23 @@ impl<'a> ReplyTemplateBuilder<'a> {
                     }
                     body.push_str(line);
                     body.push('\n');
-                    // body.cursor.row += 1;
                 }
 
                 // drop last line feed
                 body.pop();
-                // body.cursor.row -= 1;
-
                 body.flush();
             }
 
-            body.push_str(&self.body);
-            body.flush();
-            body.cursor.lock();
+            if posting_style.is_interleaved() {
+                if !self.body.is_empty() {
+                    body.push_str(&self.body);
+                    body.flush();
+                }
+            } else {
+                body.push_str(&self.body);
+                body.flush();
+                body.cursor.lock();
+            }
 
             if sig_placement.is_above_quote() {
                 if let Some(ref sig) = sig {
@@ -462,12 +465,17 @@ impl<'a> ReplyTemplateBuilder<'a> {
                 }
             }
 
-            if posting_style.is_top() && !reply_body.is_empty() {
-                if let Some(ref headline) = quote_headline {
-                    body.push_str(headline);
+            if !reply_body.is_empty() && !posting_style.is_bottom() {
+                if posting_style.is_top() {
+                    if let Some(ref headline) = quote_headline {
+                        body.push_str(headline);
+                    }
                 }
 
+                let mut lines_count = 0;
                 for line in reply_body.lines() {
+                    lines_count += 1;
+
                     body.push('>');
                     if !line.starts_with('>') {
                         body.push(' ')
@@ -478,8 +486,12 @@ impl<'a> ReplyTemplateBuilder<'a> {
 
                 // drop last line feed
                 body.pop();
-
                 body.flush();
+
+                if posting_style.is_interleaved() {
+                    body.cursor.row -= lines_count - 1;
+                    body.cursor.col = 0;
+                }
             }
 
             if sig_placement.is_below_quote() {
@@ -779,6 +791,121 @@ mod tests {
                 (6, 0),
             ),
         );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // force the bottom-posting style with body
+                .with_posting_style(ReplyTemplatePostingStyle::Bottom)
+                .with_body("Hello, back!")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "> Hello, world!",
+                    "",
+                    "Hello, back!", // cursor here
+                ),
+                (6, 12),
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // force the interleaved posting style
+                .with_posting_style(ReplyTemplatePostingStyle::Interleaved)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "> Hello, world!", // cursor here
+                ),
+                (4, 0),
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // force the interleaved posting style with body
+                .with_posting_style(ReplyTemplatePostingStyle::Interleaved)
+                .with_body("Hello, back!")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "Hello, back!",
+                    "",
+                    "> Hello, world!", // cursor here
+                ),
+                (6, 0),
+            ),
+        );
+    }
+
+    #[tokio::test]
+    async fn with_body_and_signature() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            signature: Some("signature".into()),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
+        ));
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "", // cursor here
+                    "",
+                    "> Hello, world!",
+                    "",
+                    "-- ",
+                    "signature"
+                ),
+                (4, 0),
+            ),
+        );
+    }
+
+    #[tokio::test]
+    async fn with_body_and_quote() {
+        // TODO
+    }
+
+    #[tokio::test]
+    async fn with_body_signature_and_quote() {
+        // TODO
     }
 
     #[test]

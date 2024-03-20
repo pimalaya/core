@@ -139,14 +139,6 @@ impl TemplateBody {
         }
     }
 
-    pub fn push_str(&mut self, str: impl AsRef<str>) {
-        self.buffer.push_str(str.as_ref());
-    }
-
-    pub fn push(&mut self, c: char) {
-        self.buffer.push(c);
-    }
-
     pub fn flush(&mut self) {
         let mut buffer = String::new();
 
