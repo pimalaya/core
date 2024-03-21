@@ -35,6 +35,7 @@ pub enum Error {
     serde(rename_all = "kebab-case")
 )]
 pub struct Template {
+    #[cfg_attr(feature = "derive", serde(rename = "template"))]
     pub content: String,
     pub cursor: TemplateCursor,
 }
@@ -71,6 +72,12 @@ impl DerefMut for Template {
     }
 }
 
+impl From<String> for Template {
+    fn from(s: String) -> Self {
+        Self::new(s)
+    }
+}
+
 #[derive(Clone, Debug, Default, Eq)]
 #[cfg_attr(
     feature = "derive",
@@ -80,6 +87,8 @@ impl DerefMut for Template {
 pub struct TemplateCursor {
     pub row: usize,
     pub col: usize,
+
+    #[cfg_attr(feature = "derive", serde(skip))]
     locked: bool,
 }
 
