@@ -521,8 +521,7 @@ mod tests {
                 "> World!",
                 "",
             ),
-            4,
-            0,
+            (4, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -566,8 +565,7 @@ mod tests {
                 "> Hello from myself!",
                 "",
             ),
-            4,
-            0,
+            (4, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -591,8 +589,7 @@ mod tests {
                 "> Hello from myself!",
                 "",
             ),
-            5,
-            0,
+            (5, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -637,8 +634,7 @@ mod tests {
                 "> Hello from mailing list!",
                 "",
             ),
-            5,
-            0,
+            (5, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -662,8 +658,7 @@ mod tests {
                 "> Hello from mailing list!",
                 "",
             ),
-            5,
-            0,
+            (5, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -709,8 +704,7 @@ mod tests {
                 "> Hello from mailing list!",
                 "",
             ),
-            5,
-            0,
+            (5, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -734,8 +728,7 @@ mod tests {
                 "> Hello from mailing list!",
                 "",
             ),
-            5,
-            0,
+            (5, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -781,8 +774,7 @@ mod tests {
                 "> Hello from mailing list!",
                 "",
             ),
-            4,
-            0,
+            (4, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -806,8 +798,7 @@ mod tests {
                 "> Hello from mailing list!",
                 "",
             ),
-            5,
-            0,
+            (5, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -848,8 +839,7 @@ mod tests {
                 "> Hello back!",
                 "",
             ),
-            4,
-            0,
+            (4, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -892,8 +882,7 @@ mod tests {
                 "> Hello!",
                 "",
             ),
-            5,
-            0,
+            (5, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -935,8 +924,7 @@ mod tests {
                 "Cordialement,",
                 "",
             ),
-            4,
-            0,
+            (4, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -982,8 +970,7 @@ mod tests {
                 "> Hello!",
                 "",
             ),
-            5,
-            0,
+            (5, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -1032,8 +1019,7 @@ mod tests {
                 "> Hello!",
                 "",
             ),
-            6,
-            0,
+            (6, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -1082,8 +1068,7 @@ mod tests {
                 "Regards,",
                 "",
             ),
-            4,
-            0,
+            (4, 0),
         );
 
         assert_eq!(tpl, expected_tpl);
@@ -1138,8 +1123,7 @@ mod tests {
                 "Regards,",
                 "",
             ),
-            4,
-            0,
+            (4, 0),
         );
 
         assert_eq!(tpl, expected_tpl);

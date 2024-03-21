@@ -187,7 +187,7 @@ impl NewTemplateBuilder {
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
-        Ok(Template::new_with_cursor_v2(content, cursor))
+        Ok(Template::new_with_cursor(content, cursor))
     }
 }
 
@@ -218,7 +218,7 @@ mod tests {
 
         assert_eq!(
             NewTemplateBuilder::new(config).build().await.unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: ",
@@ -245,7 +245,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: ",
@@ -283,8 +283,7 @@ mod tests {
                     "",
                     "Hello, world!", // cursor here
                 ),
-                4,
-                13,
+                (4, 13),
             )
         );
 
@@ -309,8 +308,7 @@ mod tests {
                     "",
                     "!", // cursor here
                 ),
-                10,
-                1,
+                (10, 1),
             )
         );
     }
@@ -340,8 +338,7 @@ mod tests {
                     "-- ",
                     "signature",
                 ),
-                4,
-                0,
+                (4, 0),
             )
         );
 
@@ -360,8 +357,7 @@ mod tests {
                     "",
                     "", // cursor here
                 ),
-                4,
-                0,
+                (4, 0),
             )
         );
 
@@ -392,8 +388,7 @@ mod tests {
                     "",
                     "", // cursor here
                 ),
-                4,
-                0,
+                (4, 0),
             )
         );
 
@@ -416,8 +411,7 @@ mod tests {
                     "",
                     "signature",
                 ),
-                4,
-                0,
+                (4, 0),
             )
         );
     }
@@ -448,8 +442,7 @@ mod tests {
                     "-- ",
                     "signature",
                 ),
-                4,
-                13,
+                (4, 13),
             )
         );
 
@@ -476,8 +469,7 @@ mod tests {
                     "-- ",
                     "signature",
                 ),
-                10,
-                1,
+                (10, 1),
             )
         );
     }

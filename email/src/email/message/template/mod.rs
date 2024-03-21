@@ -41,16 +41,10 @@ pub struct Template {
 
 impl Template {
     pub fn new(content: impl ToString) -> Self {
-        Self::new_with_cursor_v2(content, TemplateCursor::default())
+        Self::new_with_cursor(content, TemplateCursor::default())
     }
 
-    pub fn new_with_cursor(content: impl ToString, row: usize, col: usize) -> Self {
-        let content = content.to_string();
-        let cursor = TemplateCursor::new(row, col);
-        Self { content, cursor }
-    }
-
-    pub fn new_with_cursor_v2(content: impl ToString, cursor: impl Into<TemplateCursor>) -> Self {
+    pub fn new_with_cursor(content: impl ToString, cursor: impl Into<TemplateCursor>) -> Self {
         let content = content.to_string();
         let cursor = cursor.into();
         Self { content, cursor }

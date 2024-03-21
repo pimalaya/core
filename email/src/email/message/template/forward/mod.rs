@@ -309,7 +309,7 @@ impl<'a> ForwardTemplateBuilder<'a> {
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
-        Ok(Template::new_with_cursor_v2(content, cursor))
+        Ok(Template::new_with_cursor(content, cursor))
     }
 }
 
@@ -345,7 +345,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: ",
@@ -389,7 +389,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: ",

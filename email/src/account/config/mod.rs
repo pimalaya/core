@@ -37,9 +37,8 @@ use crate::{
     folder::{config::FolderConfig, FolderKind, DRAFTS, INBOX, SENT, TRASH},
     message::config::MessageConfig,
     template::{
-        self,
         config::TemplateConfig,
-        forward::config::ForwardTemplatePostingStyle,
+        forward::config::{ForwardTemplatePostingStyle, ForwardTemplateSignatureStyle},
         new::config::NewTemplateSignatureStyle,
         reply::config::{ReplyTemplatePostingStyle, ReplyTemplateSignatureStyle},
     },
@@ -699,9 +698,7 @@ impl AccountConfig {
         Some(date.format(&fmt.replace("{senders}", &senders)).to_string())
     }
 
-    pub fn get_forward_template_signature_style(
-        &self,
-    ) -> template::forward::config::ForwardTemplateSignatureStyle {
+    pub fn get_forward_template_signature_style(&self) -> ForwardTemplateSignatureStyle {
         self.template
             .as_ref()
             .and_then(|c| c.forward.as_ref())

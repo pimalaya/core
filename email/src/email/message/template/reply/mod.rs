@@ -524,7 +524,7 @@ impl<'a> ReplyTemplateBuilder<'a> {
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
-        Ok(Template::new_with_cursor_v2(content, cursor))
+        Ok(Template::new_with_cursor(content, cursor))
     }
 }
 
@@ -568,7 +568,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -604,7 +604,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -635,8 +635,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                4,
-                12,
+                (4, 12),
             ),
         );
 
@@ -663,8 +662,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                10,
-                1,
+                (10, 1),
             ),
         );
     }
@@ -706,8 +704,7 @@ mod tests {
                     "-- ",
                     "signature",
                 ),
-                4,
-                0,
+                (4, 0),
             ),
         );
 
@@ -731,8 +728,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                4,
-                0,
+                (4, 0),
             ),
         );
 
@@ -753,8 +749,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                4,
-                0,
+                (4, 0),
             ),
         );
     }
@@ -784,7 +779,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -805,7 +800,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -842,7 +837,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -866,7 +861,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -892,7 +887,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -918,7 +913,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -967,7 +962,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -993,7 +988,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -1016,7 +1011,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -1040,7 +1035,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -1080,7 +1075,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -1103,7 +1098,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
@@ -1148,7 +1143,7 @@ mod tests {
                 .build()
                 .await
                 .unwrap(),
-            Template::new_with_cursor_v2(
+            Template::new_with_cursor(
                 concat_line!(
                     "From: Me <me@localhost>",
                     "To: sender@localhost",
