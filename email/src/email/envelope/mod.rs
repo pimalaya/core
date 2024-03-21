@@ -20,7 +20,7 @@ pub mod notmuch;
 pub mod sync;
 pub mod watch;
 
-use chrono::{DateTime, FixedOffset, Local, TimeZone};
+use chrono::{DateTime, FixedOffset, Local};
 use log::debug;
 use std::{
     hash::{Hash, Hasher},
@@ -28,7 +28,9 @@ use std::{
     vec,
 };
 
-use crate::{account::config::AccountConfig, message::Message};
+use crate::{
+    account::config::AccountConfig, date::from_mail_parser_to_chrono_datetime, message::Message,
+};
 
 #[doc(inline)]
 pub use self::{
@@ -179,32 +181,10 @@ impl Envelope {
     /// Transform a [`mail_parser::DateTime`] into a fixed offset [`chrono::DateTime`]
     /// and add it to the current envelope.
     pub fn set_date(&mut self, date: &mail_parser::DateTime) {
-        self.date = {
-            let tz_secs = (date.tz_hour as i32) * 3600 + (date.tz_minute as i32) * 60;
-            let tz_sign = if date.tz_before_gmt { -1 } else { 1 };
-
-            let tz = match FixedOffset::east_opt(tz_sign * tz_secs) {
-                Some(tz) => tz,
-                None => {
-                    debug!("invalid timezone seconds {tz_secs}, falling back to 0");
-                    FixedOffset::east_opt(0).unwrap()
-                }
-            };
-
-            tz.with_ymd_and_hms(
-                date.year as i32,
-                date.month as u32,
-                date.day as u32,
-                date.hour as u32,
-                date.minute as u32,
-                date.second as u32,
-            )
-            .earliest()
-            .unwrap_or_else(|| {
-                debug!("cannot parse envelope date {date}, skipping it");
-                DateTime::default()
-            })
-        }
+        self.date = from_mail_parser_to_chrono_datetime(date).unwrap_or_else(|| {
+            debug!("cannot parse envelope date {date}, skipping it");
+            DateTime::default()
+        });
     }
 
     /// Format the envelope date according to the datetime format and

@@ -15,10 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added module `email::search_query` containing the `SearchEmailsQuery` struct and parsers. See the API documentation for more details on the search query.
 - Added setters to customize `SyncBuilder` pool size: `set_pool_size`, `set_some_pool_size`, `with_pool_size`, `with_some_pool_size`.
 - Added setters to customize `ThreadPoolBuilder` pool size: `set_size`, `set_some_size`, `with_size`, `with_some_size`.
+- Added `template::Template` that holds the template content and the cursor position.
+- Added `template::new::NewTemplateSignatureStyle`.
+- Added `template::reply::{ReplyTemplateSignatureStyle, ReplyTemplatePostingStyle}`.
+- Added `template::forward::{ForwardTemplateSignatureStyle, ForwardTemplatePostingStyle}`.
+- Added `AccountConfig::get_new_template_signature_style() -> NewTemplateSignatureStyle`.
+- Added `AccountConfig::get_reply_template_signature_style() -> ReplyTemplateSignatureStyle`.
+- Added `AccountConfig::get_reply_template_posting_style() -> ReplyTemplatePostingStyle`.
+- Added `AccountConfig::get_reply_template_quote_headline() -> Option<String>`.
+- Added `AccountConfig::get_forward_template_signature_style() -> ForwardTemplateSignatureStyle`.
+- Added `AccountConfig::get_forward_template_posting_style() -> ForwardTemplatePostingStyle`.
+- Added `AccountConfig::get_forward_template_quote_headline() -> Option<String>`.
 
 ### Changed
 
 - `ListEnvelopes` takes now a `ListEnvelopesOptions` composed of `page: usize`, `page_size: usize` and `query: Option<SearchEmailsQuery>`.
+- Changed `AccountConfig::find_full_signature` signature to `Option<String>` (removed unused `Result`).
+- Renamed `NewTplBuilder` into `NewTemplateBuilder`.
+- Renamed `ReplyTplBuilder` into `ReplyTemplateBuilder`.
+- Renamed `ForwardTplBuilder` into `ForwardTemplateBuilder`.
+- Changed return type of `{New,Reply,Forward}TemplateBuilder::build`: they now return the new `Template` struct that holds the template content and the cursor position.
+- Changed `config` param type of `{New,Reply,Forward}TemplateBuilder::new`: they take now a `Arc<AccountConfig>` instead of `&AccountConfig`.
+- Added `set_posting_style`, `set_some_posting_style`, `with_posting_style`, `with_some_posting_style` to `{Reply,Forward}TemplateBuilder::new`
+- Added `set_signature_style`, `set_some_signature_style`, `with_signature_style`, `with_some_signature_style` to `{New,Reply,Forward}TemplateBuilder::new`
 
 ### Fixed
 

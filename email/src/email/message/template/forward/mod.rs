@@ -137,65 +137,59 @@ impl<'a> ForwardTemplateBuilder<'a> {
         self
     }
 
-    /// Set some signature placement.
-    pub fn set_some_signature_placement(
+    /// Set some forward posting style.
+    pub fn set_some_posting_style(
         &mut self,
-        placement: Option<impl Into<ForwardTemplateSignatureStyle>>,
+        style: Option<impl Into<ForwardTemplatePostingStyle>>,
     ) {
-        self.signature_style = placement.map(Into::into);
+        self.posting_style = style.map(Into::into);
     }
 
-    /// Set the signature placement.
-    pub fn set_signature_placement(&mut self, placement: impl Into<ForwardTemplateSignatureStyle>) {
-        self.set_some_signature_placement(Some(placement));
+    /// Set the forward posting style.
+    pub fn set_posting_style(&mut self, style: impl Into<ForwardTemplatePostingStyle>) {
+        self.set_some_posting_style(Some(style));
     }
 
-    /// Set some signature placement, using the builder pattern.
-    pub fn with_some_signature_placement(
+    /// Set some forward posting style, using the builder pattern.
+    pub fn with_some_posting_style(
         mut self,
-        placement: Option<impl Into<ForwardTemplateSignatureStyle>>,
+        style: Option<impl Into<ForwardTemplatePostingStyle>>,
     ) -> Self {
-        self.set_some_signature_placement(placement);
+        self.set_some_posting_style(style);
         self
     }
 
-    /// Set the signature placement, using the builder pattern.
-    pub fn with_signature_placement(
-        mut self,
-        placement: impl Into<ForwardTemplateSignatureStyle>,
-    ) -> Self {
-        self.set_signature_placement(placement);
+    /// Set the forward posting style, using the builder pattern.
+    pub fn with_posting_style(mut self, style: impl Into<ForwardTemplatePostingStyle>) -> Self {
+        self.set_posting_style(style);
         self
     }
 
-    /// Set some quote placement.
-    pub fn set_some_quote_placement(
+    /// Set the signature style.
+    pub fn set_signature_style(&mut self, style: impl Into<ForwardTemplateSignatureStyle>) {
+        self.set_some_signature_style(Some(style));
+    }
+
+    /// Set some signature style.
+    pub fn set_some_signature_style(
         &mut self,
-        placement: Option<impl Into<ForwardTemplatePostingStyle>>,
+        style: Option<impl Into<ForwardTemplateSignatureStyle>>,
     ) {
-        self.posting_style = placement.map(Into::into);
+        self.signature_style = style.map(Into::into);
     }
 
-    /// Set the quote placement.
-    pub fn set_quote_placement(&mut self, placement: impl Into<ForwardTemplatePostingStyle>) {
-        self.set_some_quote_placement(Some(placement));
-    }
-
-    /// Set some quote placement, using the builder pattern.
-    pub fn with_some_quote_placement(
+    /// Set some signature style, using the builder pattern.
+    pub fn with_some_signature_style(
         mut self,
-        placement: Option<impl Into<ForwardTemplatePostingStyle>>,
+        style: Option<impl Into<ForwardTemplateSignatureStyle>>,
     ) -> Self {
-        self.set_some_quote_placement(placement);
+        self.set_some_signature_style(style);
         self
     }
 
-    /// Set the quote placement, using the builder pattern.
-    pub fn with_quote_placement(
-        mut self,
-        placement: impl Into<ForwardTemplatePostingStyle>,
-    ) -> Self {
-        self.set_quote_placement(placement);
+    /// Set the signature style, using the builder pattern.
+    pub fn with_signature_style(mut self, style: impl Into<ForwardTemplateSignatureStyle>) -> Self {
+        self.set_signature_style(style);
         self
     }
 
