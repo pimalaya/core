@@ -36,7 +36,9 @@ use crate::{
 
 use self::{
     attachment::Attachment,
-    template::{forward::ForwardTplBuilder, new::NewTemplateBuilder, reply::ReplyTemplateBuilder},
+    template::{
+        forward::ForwardTemplateBuilder, new::NewTemplateBuilder, reply::ReplyTemplateBuilder,
+    },
 };
 
 /// Errors related to email messages.
@@ -170,8 +172,8 @@ impl Message<'_> {
     ///
     /// The fact to return a template builder makes it easier to
     /// customize the final template from the outside.
-    pub fn to_forward_tpl_builder(&self, config: Arc<AccountConfig>) -> ForwardTplBuilder {
-        ForwardTplBuilder::new(self, config)
+    pub fn to_forward_tpl_builder(&self, config: Arc<AccountConfig>) -> ForwardTemplateBuilder {
+        ForwardTemplateBuilder::new(self, config)
     }
 }
 

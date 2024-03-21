@@ -1,11 +1,11 @@
-//! Module dedicated to email message forward template.
+//! # Forward template
 //!
-//! The main structure of this module is the [ForwardTplBuilder],
-//! which helps you to build template in order to forward a message.
+//! The main structure of this module is the
+//! [`ForwardTemplateBuilder`], which helps you to build template in
+//! order to forward a message.
 
 pub mod config;
 
-use log::debug;
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
@@ -17,29 +17,21 @@ use std::sync::Arc;
 
 use crate::{account::config::AccountConfig, message::Message, Result};
 
-use self::config::{ForwardTemplateQuotePlacement, ForwardTemplateSignaturePlacement};
+use self::config::{ForwardTemplatePostingStyle, ForwardTemplateSignatureStyle};
 
-use super::{Error, Template};
+use super::{Error, Template, TemplateBody, TemplateCursor};
 
 /// Regex used to trim out prefix(es) from a subject.
 ///
 /// Everything starting by "Fwd:" (case and whitespace insensitive) is
 /// considered a prefix.
-static PREFIXLESS_SUBJECT_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new("(?i:\\s*fwd\\s*:\\s*)*(.*)").unwrap());
+static SUBJECT: Lazy<Regex> = Lazy::new(|| Regex::new("(?i:\\s*fwd\\s*:\\s*)*(.*)").unwrap());
 
 /// Trim out prefix(es) from the given subject.
-fn prefixless_subject(subject: &str) -> &str {
-    let cap = PREFIXLESS_SUBJECT_REGEX
-        .captures(subject)
-        .and_then(|cap| cap.get(1));
-
-    match cap {
-        Some(prefixless_subject) => prefixless_subject.as_str(),
-        None => {
-            debug!("cannot remove prefix from subject {subject:?}");
-            subject
-        }
+fn trim_prefix(subject: &str) -> &str {
+    match SUBJECT.captures(subject).and_then(|cap| cap.get(1)) {
+        Some(subject) => subject.as_str(),
+        None => subject,
     }
 }
 
@@ -47,7 +39,7 @@ fn prefixless_subject(subject: &str) -> &str {
 ///
 /// This builder helps you to create a template in order to reply to
 /// an existing message.
-pub struct ForwardTplBuilder<'a> {
+pub struct ForwardTemplateBuilder<'a> {
     /// Reference to the current account configuration.
     config: Arc<AccountConfig>,
 
@@ -60,17 +52,17 @@ pub struct ForwardTplBuilder<'a> {
     /// Default body to put in the template.
     body: String,
 
-    /// Override the placement of the signature.
-    ///
-    /// Uses the signature placement from the account configuration if
-    /// this one is `None`.
-    signature_placement: Option<ForwardTemplateSignaturePlacement>,
-
     /// Override the placement of the quote.
     ///
     /// Uses the quote placement from the account configuration if
     /// this one is `None`.
-    quote_placement: Option<ForwardTemplateQuotePlacement>,
+    posting_style: Option<ForwardTemplatePostingStyle>,
+
+    /// Override the placement of the signature.
+    ///
+    /// Uses the signature placement from the account configuration if
+    /// this one is `None`.
+    signature_style: Option<ForwardTemplateSignatureStyle>,
 
     /// Template interpreter instance.
     pub interpreter: MimeInterpreterBuilder,
@@ -79,7 +71,7 @@ pub struct ForwardTplBuilder<'a> {
     pub thread_interpreter: MimeInterpreterBuilder,
 }
 
-impl<'a> ForwardTplBuilder<'a> {
+impl<'a> ForwardTemplateBuilder<'a> {
     /// Creates a forward template builder from an account
     /// configuration and a message references.
 
@@ -98,8 +90,8 @@ impl<'a> ForwardTplBuilder<'a> {
             msg,
             headers: Vec::new(),
             body: String::new(),
-            signature_placement: None,
-            quote_placement: None,
+            signature_style: None,
+            posting_style: None,
             interpreter,
             thread_interpreter,
         }
@@ -148,23 +140,20 @@ impl<'a> ForwardTplBuilder<'a> {
     /// Set some signature placement.
     pub fn set_some_signature_placement(
         &mut self,
-        placement: Option<impl Into<ForwardTemplateSignaturePlacement>>,
+        placement: Option<impl Into<ForwardTemplateSignatureStyle>>,
     ) {
-        self.signature_placement = placement.map(Into::into);
+        self.signature_style = placement.map(Into::into);
     }
 
     /// Set the signature placement.
-    pub fn set_signature_placement(
-        &mut self,
-        placement: impl Into<ForwardTemplateSignaturePlacement>,
-    ) {
+    pub fn set_signature_placement(&mut self, placement: impl Into<ForwardTemplateSignatureStyle>) {
         self.set_some_signature_placement(Some(placement));
     }
 
     /// Set some signature placement, using the builder pattern.
     pub fn with_some_signature_placement(
         mut self,
-        placement: Option<impl Into<ForwardTemplateSignaturePlacement>>,
+        placement: Option<impl Into<ForwardTemplateSignatureStyle>>,
     ) -> Self {
         self.set_some_signature_placement(placement);
         self
@@ -173,7 +162,7 @@ impl<'a> ForwardTplBuilder<'a> {
     /// Set the signature placement, using the builder pattern.
     pub fn with_signature_placement(
         mut self,
-        placement: impl Into<ForwardTemplateSignaturePlacement>,
+        placement: impl Into<ForwardTemplateSignatureStyle>,
     ) -> Self {
         self.set_signature_placement(placement);
         self
@@ -182,20 +171,20 @@ impl<'a> ForwardTplBuilder<'a> {
     /// Set some quote placement.
     pub fn set_some_quote_placement(
         &mut self,
-        placement: Option<impl Into<ForwardTemplateQuotePlacement>>,
+        placement: Option<impl Into<ForwardTemplatePostingStyle>>,
     ) {
-        self.quote_placement = placement.map(Into::into);
+        self.posting_style = placement.map(Into::into);
     }
 
     /// Set the quote placement.
-    pub fn set_quote_placement(&mut self, placement: impl Into<ForwardTemplateQuotePlacement>) {
+    pub fn set_quote_placement(&mut self, placement: impl Into<ForwardTemplatePostingStyle>) {
         self.set_some_quote_placement(Some(placement));
     }
 
     /// Set some quote placement, using the builder pattern.
     pub fn with_some_quote_placement(
         mut self,
-        placement: Option<impl Into<ForwardTemplateQuotePlacement>>,
+        placement: Option<impl Into<ForwardTemplatePostingStyle>>,
     ) -> Self {
         self.set_some_quote_placement(placement);
         self
@@ -204,7 +193,7 @@ impl<'a> ForwardTplBuilder<'a> {
     /// Set the quote placement, using the builder pattern.
     pub fn with_quote_placement(
         mut self,
-        placement: impl Into<ForwardTemplateQuotePlacement>,
+        placement: impl Into<ForwardTemplatePostingStyle>,
     ) -> Self {
         self.set_quote_placement(placement);
         self
@@ -225,7 +214,7 @@ impl<'a> ForwardTplBuilder<'a> {
 
     /// Builds the final forward message template.
     pub async fn build(self) -> Result<Template> {
-        let mut cursor = 0;
+        let mut cursor = TemplateCursor::default();
 
         let parsed = self.msg.parsed()?;
         let mut builder = MessageBuilder::new();
@@ -233,82 +222,78 @@ impl<'a> ForwardTplBuilder<'a> {
         // From
 
         builder = builder.from(self.config.as_ref());
-        cursor += 1;
+        cursor.row += 1;
 
         // To
 
         builder = builder.to(Vec::<Address>::new());
-        cursor += 1;
+        cursor.row += 1;
 
         // Subject
 
         // TODO: make this customizable?
         let prefix = String::from("Fwd: ");
-        let subject = prefixless_subject(parsed.subject().unwrap_or_default());
+        let subject = trim_prefix(parsed.subject().unwrap_or_default());
 
         builder = builder.subject(prefix + subject);
-        cursor += 1;
+        cursor.row += 1;
 
         // Additional headers
 
         for (key, val) in self.headers {
             builder = builder.header(key, Raw::new(val));
-            cursor += 1;
+            cursor.row += 1;
         }
 
         // Body
 
         let sig = self.config.find_full_signature();
-        let sig_placement = self
-            .signature_placement
-            .unwrap_or_else(|| self.config.get_forward_tpl_signature_placement());
-        let quote_placement = self
-            .quote_placement
-            .unwrap_or_else(|| self.config.get_forward_tpl_quote_placement());
-        let quote_headline = self.config.get_forward_tpl_quote_headline();
+        let sig_style = self
+            .signature_style
+            .unwrap_or_else(|| self.config.get_forward_template_signature_style());
+        let posting_style = self
+            .posting_style
+            .unwrap_or_else(|| self.config.get_forward_template_posting_style());
+        let quote_headline = self.config.get_forward_template_quote_headline();
 
         builder = builder.text_body({
-            let mut lines = String::from("\n");
-            cursor += 1;
+            let mut body = TemplateBody::new(cursor);
 
-            if !self.body.is_empty() {
-                lines.push('\n');
-                cursor += 1;
-                lines.push_str(&self.body);
-                lines.push('\n');
-            }
+            body.push_str(&self.body);
+            body.flush();
+            body.cursor.lock();
 
-            if sig_placement.is_inline() {
+            if sig_style.is_inlined() {
                 if let Some(ref sig) = sig {
-                    lines.push('\n');
-                    lines.push_str(sig);
-                    lines.push('\n');
+                    body.push_str(sig);
+                    body.flush();
                 }
             }
 
-            if quote_placement.is_inline() {
-                lines.push('\n');
-                lines.push_str(&quote_headline);
-                lines.push_str(
-                    &self
-                        .thread_interpreter
+            if posting_style.is_top() {
+                body.push_str(&quote_headline);
+                body.push_str(
+                    self.thread_interpreter
                         .build()
                         .from_msg(parsed)
                         .await
-                        .map_err(Error::InterpretMessageAsThreadTemplateError)?,
+                        .map_err(Error::InterpretMessageAsThreadTemplateError)?
+                        .trim(),
                 );
+                body.flush()
             }
 
-            lines.trim_end().to_owned()
+            cursor = body.cursor.clone();
+            body
         });
 
-        if sig_placement.is_attached() {
+        if sig_style.is_attached() {
             if let Some(sig) = sig {
                 builder = builder.attachment("text/plain", "signature.txt", sig)
             }
         }
 
-        if quote_placement.is_attached() {
+        if posting_style.is_attached() {
             let file_name = parsed.message_id().unwrap_or("message");
             builder = builder.attachment(
                 "message/rfc822",
@@ -317,36 +302,124 @@ impl<'a> ForwardTplBuilder<'a> {
             )
         }
 
-        let tpl = self
+        let content = self
             .interpreter
             .build()
             .from_msg_builder(builder)
             .await
             .map_err(Error::InterpretMessageAsTemplateError)?;
 
-        Ok(Template::new(tpl))
+        Ok(Template::new_with_cursor_v2(content, cursor))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use concat_with::concat_line;
+    use std::sync::Arc;
+
+    use crate::{account::config::AccountConfig, message::Message, template::Template};
+
+    use super::ForwardTemplateBuilder;
+
+    #[tokio::test]
+    async fn default() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
+        ));
+
+        assert_eq!(
+            ForwardTemplateBuilder::new(msg, config)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: Fwd: subject",
+                    "",
+                    "", // cursor here
+                    "",
+                    "-------- Forwarded Message --------",
+                    "From: sender@localhost",
+                    "To: me@localhost",
+                    "Subject: subject",
+                    "",
+                    "Hello, world!",
+                ),
+                (4, 0),
+            ),
+        );
+    }
+
+    #[tokio::test]
+    async fn with_signature() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            signature: Some("signature".into()),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
+        ));
+
+        assert_eq!(
+            ForwardTemplateBuilder::new(msg, config)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: ",
+                    "Subject: Fwd: subject",
+                    "",
+                    "", // cursor here
+                    "",
+                    "-- ",
+                    "signature",
+                    "",
+                    "-------- Forwarded Message --------",
+                    "From: sender@localhost",
+                    "To: me@localhost",
+                    "Subject: subject",
+                    "",
+                    "Hello, world!",
+                ),
+                (4, 0),
+            ),
+        );
+    }
+
     #[test]
-    fn prefixless_subject() {
-        assert_eq!(super::prefixless_subject("Hello, world!"), "Hello, world!");
+    fn trim_subject_prefix() {
+        assert_eq!(super::trim_prefix("Hello, world!"), "Hello, world!");
+        assert_eq!(super::trim_prefix("fwd:Hello, world!"), "Hello, world!");
+        assert_eq!(super::trim_prefix("Fwd   :Hello, world!"), "Hello, world!");
+        assert_eq!(super::trim_prefix("fWd:   Hello, world!"), "Hello, world!");
         assert_eq!(
-            super::prefixless_subject("fwd:Hello, world!"),
-            "Hello, world!"
-        );
-        assert_eq!(
-            super::prefixless_subject("Fwd   :Hello, world!"),
-            "Hello, world!"
-        );
-        assert_eq!(
-            super::prefixless_subject("fWd:   Hello, world!"),
-            "Hello, world!"
-        );
-        assert_eq!(
-            super::prefixless_subject("  FWD:  fwd  :Hello, world!"),
+            super::trim_prefix("  FWD:  fwd  :Hello, world!"),
             "Hello, world!"
         );
     }

@@ -39,9 +39,9 @@ use crate::{
     template::{
         self,
         config::TemplateConfig,
-        forward::config::ForwardTemplateQuotePlacement,
+        forward::config::ForwardTemplatePostingStyle,
         new::config::NewTemplateSignatureStyle,
-        reply::config::{ReplyTemplatePostingStyle, ReplyTemplateSigningStyle},
+        reply::config::{ReplyTemplatePostingStyle, ReplyTemplateSignatureStyle},
     },
     Result,
 };
@@ -612,15 +612,15 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    pub fn get_reply_tpl_signature_placement(&self) -> ReplyTemplateSigningStyle {
+    pub fn get_reply_template_signature_style(&self) -> ReplyTemplateSignatureStyle {
         self.template
             .as_ref()
             .and_then(|c| c.reply.as_ref())
-            .and_then(|c| c.signing_style.clone())
+            .and_then(|c| c.signature_style.clone())
             .unwrap_or_default()
     }
 
-    pub fn get_reply_tpl_posting_style(&self) -> ReplyTemplatePostingStyle {
+    pub fn get_reply_template_posting_style(&self) -> ReplyTemplatePostingStyle {
         self.template
             .as_ref()
             .and_then(|c| c.reply.as_ref())
@@ -628,7 +628,7 @@ impl AccountConfig {
             .unwrap_or_default()
     }
 
-    pub fn get_reply_tpl_quote_headline(&self, msg: &mail_parser::Message) -> Option<String> {
+    pub fn get_reply_template_quote_headline(&self, msg: &mail_parser::Message) -> Option<String> {
         let date = from_mail_parser_to_chrono_datetime(msg.date()?)?;
 
         let senders = match (msg.from(), msg.sender()) {
@@ -699,25 +699,25 @@ impl AccountConfig {
         Some(date.format(&fmt.replace("{senders}", &senders)).to_string())
     }
 
-    pub fn get_forward_tpl_signature_placement(
+    pub fn get_forward_template_signature_style(
         &self,
-    ) -> template::forward::config::ForwardTemplateSignaturePlacement {
+    ) -> template::forward::config::ForwardTemplateSignatureStyle {
         self.template
             .as_ref()
             .and_then(|c| c.forward.as_ref())
-            .and_then(|c| c.signature_placement.clone())
+            .and_then(|c| c.signature_style.clone())
             .unwrap_or_default()
     }
 
-    pub fn get_forward_tpl_quote_placement(&self) -> ForwardTemplateQuotePlacement {
+    pub fn get_forward_template_posting_style(&self) -> ForwardTemplatePostingStyle {
         self.template
             .as_ref()
             .and_then(|c| c.forward.as_ref())
-            .and_then(|c| c.quote_placement.clone())
+            .and_then(|c| c.posting_style.clone())
             .unwrap_or_default()
     }
 
-    pub fn get_forward_tpl_quote_headline(&self) -> String {
+    pub fn get_forward_template_quote_headline(&self) -> String {
         self.template
             .as_ref()
             .and_then(|c| c.forward.as_ref())

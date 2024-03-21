@@ -5,7 +5,6 @@
 
 pub mod config;
 
-use log::debug;
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
@@ -18,7 +17,7 @@ use std::sync::Arc;
 
 use crate::{account::config::AccountConfig, email::address, message::Message, Result};
 
-use self::config::{ReplyTemplatePostingStyle, ReplyTemplateSigningStyle};
+use self::config::{ReplyTemplatePostingStyle, ReplyTemplateSignatureStyle};
 
 use super::{Error, Template, TemplateBody, TemplateCursor};
 
@@ -35,13 +34,10 @@ static SUBJECT: Lazy<Regex> = Lazy::new(|| Regex::new("(?i:\\s*re\\s*:\\s*)*(.*)
 static NO_REPLY: Lazy<Regex> = Lazy::new(|| Regex::new("(?i:not?[_\\-\\.]?reply)").unwrap());
 
 /// Trim out prefix(es) from the given subject.
-fn prefixless_subject(subject: &str) -> &str {
+fn trim_prefix(subject: &str) -> &str {
     match SUBJECT.captures(subject).and_then(|cap| cap.get(1)) {
-        Some(prefixless_subject) => prefixless_subject.as_str(),
-        None => {
-            debug!("cannot remove prefix from subject {subject:?}");
-            subject
-        }
+        Some(subject) => subject.as_str(),
+        None => subject,
     }
 }
 
@@ -71,11 +67,11 @@ pub struct ReplyTemplateBuilder<'a> {
     /// one is `None`.
     posting_style: Option<ReplyTemplatePostingStyle>,
 
-    /// Override the placement of the signature.
+    /// Override the signature style.
     ///
-    /// Uses the signature placement from the account configuration if
+    /// Uses the signature style from the account configuration if
     /// this one is `None`.
-    signing_style: Option<ReplyTemplateSigningStyle>,
+    signature_style: Option<ReplyTemplateSignatureStyle>,
 
     /// Template interpreter instance.
     pub interpreter: MimeInterpreterBuilder,
@@ -105,7 +101,7 @@ impl<'a> ReplyTemplateBuilder<'a> {
             body: String::new(),
             reply_all: false,
             posting_style: None,
-            signing_style: None,
+            signature_style: None,
             interpreter,
             thread_interpreter,
         }
@@ -151,34 +147,6 @@ impl<'a> ReplyTemplateBuilder<'a> {
         self
     }
 
-    /// Set some signature placement.
-    pub fn set_some_signing_style(
-        &mut self,
-        placement: Option<impl Into<ReplyTemplateSigningStyle>>,
-    ) {
-        self.signing_style = placement.map(Into::into);
-    }
-
-    /// Set the signature placement.
-    pub fn set_signing_style(&mut self, placement: impl Into<ReplyTemplateSigningStyle>) {
-        self.set_some_signing_style(Some(placement));
-    }
-
-    /// Set some signature placement, using the builder pattern.
-    pub fn with_some_signing_style(
-        mut self,
-        placement: Option<impl Into<ReplyTemplateSigningStyle>>,
-    ) -> Self {
-        self.set_some_signing_style(placement);
-        self
-    }
-
-    /// Set the signature placement, using the builder pattern.
-    pub fn with_signing_style(mut self, placement: impl Into<ReplyTemplateSigningStyle>) -> Self {
-        self.set_signing_style(placement);
-        self
-    }
-
     /// Set some posting style.
     pub fn set_some_posting_style(&mut self, style: Option<impl Into<ReplyTemplatePostingStyle>>) {
         self.posting_style = style.map(Into::into);
@@ -204,26 +172,54 @@ impl<'a> ReplyTemplateBuilder<'a> {
         self
     }
 
-    /// Sets the template interpreter following the builder pattern.
+    /// Set some signature style.
+    pub fn set_some_signature_style(
+        &mut self,
+        style: Option<impl Into<ReplyTemplateSignatureStyle>>,
+    ) {
+        self.signature_style = style.map(Into::into);
+    }
+
+    /// Set the signature style.
+    pub fn set_signature_style(&mut self, style: impl Into<ReplyTemplateSignatureStyle>) {
+        self.set_some_signature_style(Some(style));
+    }
+
+    /// Set some signature style, using the builder pattern.
+    pub fn with_some_signature_style(
+        mut self,
+        style: Option<impl Into<ReplyTemplateSignatureStyle>>,
+    ) -> Self {
+        self.set_some_signature_style(style);
+        self
+    }
+
+    /// Set the signature style, using the builder pattern.
+    pub fn with_signature_style(mut self, style: impl Into<ReplyTemplateSignatureStyle>) -> Self {
+        self.set_signature_style(style);
+        self
+    }
+
+    /// Set the template interpreter following the builder pattern.
     pub fn with_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.interpreter = interpreter;
         self
     }
 
-    /// Sets the template thread interpreter following the builder
+    /// Set the template thread interpreter following the builder
     /// pattern.
     pub fn with_thread_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.thread_interpreter = interpreter;
         self
     }
 
-    /// Sets the reply all flag following the builder pattern.
+    /// Set the reply all flag following the builder pattern.
     pub fn with_reply_all(mut self, all: bool) -> Self {
         self.reply_all = all;
         self
     }
 
-    /// Builds the final reply message template.
+    /// Build the final reply message template.
     pub async fn build(self) -> Result<Template> {
         let mut cursor = TemplateCursor::default();
 
@@ -238,13 +234,13 @@ impl<'a> ReplyTemplateBuilder<'a> {
         let reply_to = parsed.header("Reply-To").unwrap_or(&HeaderValue::Empty);
 
         let sig = self.config.find_full_signature();
-        let sig_placement = self
-            .signing_style
-            .unwrap_or_else(|| self.config.get_reply_tpl_signature_placement());
+        let sig_style = self
+            .signature_style
+            .unwrap_or_else(|| self.config.get_reply_template_signature_style());
         let posting_style = self
             .posting_style
-            .unwrap_or_else(|| self.config.get_reply_tpl_posting_style());
-        let quote_headline = self.config.get_reply_tpl_quote_headline(parsed);
+            .unwrap_or_else(|| self.config.get_reply_template_posting_style());
+        let quote_headline = self.config.get_reply_template_quote_headline(parsed);
 
         // In-Reply-To
 
@@ -403,7 +399,7 @@ impl<'a> ReplyTemplateBuilder<'a> {
 
         // TODO: make this customizable?
         let prefix = String::from("Re: ");
-        let subject = prefixless_subject(parsed.subject().unwrap_or_default());
+        let subject = trim_prefix(parsed.subject().unwrap_or_default());
 
         builder = builder.subject(prefix + subject);
         cursor.row += 1;
@@ -429,8 +425,8 @@ impl<'a> ReplyTemplateBuilder<'a> {
             let reply_body = reply_body.trim();
 
             if !reply_body.is_empty() && posting_style.is_bottom() {
-                if let Some(ref headline) = quote_headline {
-                    body.push_str(headline);
+                if let Some(ref hline) = quote_headline {
+                    body.push_str(hline);
                 }
 
                 for line in reply_body.lines() {
@@ -447,18 +443,25 @@ impl<'a> ReplyTemplateBuilder<'a> {
                 body.flush();
             }
 
+            // when interleaved posting style, only push non-empty
+            // body and do not lock the cursor (it must be locked at
+            // the beginning of the quote)
             if posting_style.is_interleaved() {
                 if !self.body.is_empty() {
                     body.push_str(&self.body);
                     body.flush();
                 }
-            } else {
+            }
+            // when bottom or top posting style, push the body and
+            // lock the cursor at the end of it
+            else {
                 body.push_str(&self.body);
                 body.flush();
                 body.cursor.lock();
             }
 
-            if sig_placement.is_above_quote() {
+            // NOTE: hide this block for interleaved posting style?
+            if sig_style.is_above_quote() {
                 if let Some(ref sig) = sig {
                     body.push_str(sig);
                     body.flush();
@@ -467,8 +470,8 @@ impl<'a> ReplyTemplateBuilder<'a> {
 
             if !reply_body.is_empty() && !posting_style.is_bottom() {
                 if posting_style.is_top() {
-                    if let Some(ref headline) = quote_headline {
-                        body.push_str(headline);
+                    if let Some(ref hline) = quote_headline {
+                        body.push_str(hline);
                     }
                 }
 
@@ -488,13 +491,16 @@ impl<'a> ReplyTemplateBuilder<'a> {
                 body.pop();
                 body.flush();
 
+                // if interleaved posting style, put the cursor at the
+                // beginning of the quote instead of leaving it at the
+                // end
                 if posting_style.is_interleaved() {
                     body.cursor.row -= lines_count - 1;
                     body.cursor.col = 0;
                 }
             }
 
-            if sig_placement.is_below_quote() {
+            if sig_style.is_below_quote() {
                 if let Some(ref sig) = sig {
                     body.push_str(sig);
                     body.flush();
@@ -505,7 +511,7 @@ impl<'a> ReplyTemplateBuilder<'a> {
             body
         });
 
-        if sig_placement.is_attachment() {
+        if sig_style.is_attached() {
             if let Some(sig) = sig {
                 builder = builder.attachment("text/plain", "signature.txt", sig)
             }
@@ -532,7 +538,7 @@ mod tests {
         message::Message,
         template::{
             reply::{
-                config::{ReplyTemplatePostingStyle, ReplyTemplateSigningStyle},
+                config::{ReplyTemplatePostingStyle, ReplyTemplateSignatureStyle},
                 ReplyTemplateBuilder,
             },
             Template,
@@ -708,7 +714,7 @@ mod tests {
         assert_eq!(
             ReplyTemplateBuilder::new(msg, config.clone())
                 // force signature above quote
-                .with_signing_style(ReplyTemplateSigningStyle::AboveQuote)
+                .with_signature_style(ReplyTemplateSignatureStyle::AboveQuote)
                 .build()
                 .await
                 .unwrap(),
@@ -732,8 +738,8 @@ mod tests {
 
         assert_eq!(
             ReplyTemplateBuilder::new(msg, config.clone())
-                // force signature to hide
-                .with_signing_style(ReplyTemplateSigningStyle::Hidden)
+                // force signature hidden
+                .with_signature_style(ReplyTemplateSignatureStyle::Hidden)
                 .build()
                 .await
                 .unwrap(),
@@ -794,28 +800,6 @@ mod tests {
 
         assert_eq!(
             ReplyTemplateBuilder::new(msg, config.clone())
-                // force the bottom-posting style with body
-                .with_posting_style(ReplyTemplatePostingStyle::Bottom)
-                .with_body("Hello, back!")
-                .build()
-                .await
-                .unwrap(),
-            Template::new_with_cursor_v2(
-                concat_line!(
-                    "From: Me <me@localhost>",
-                    "To: sender@localhost",
-                    "Subject: Re: subject",
-                    "",
-                    "> Hello, world!",
-                    "",
-                    "Hello, back!", // cursor here
-                ),
-                (6, 12),
-            ),
-        );
-
-        assert_eq!(
-            ReplyTemplateBuilder::new(msg, config.clone())
                 // force the interleaved posting style
                 .with_posting_style(ReplyTemplatePostingStyle::Interleaved)
                 .build()
@@ -830,28 +814,6 @@ mod tests {
                     "> Hello, world!", // cursor here
                 ),
                 (4, 0),
-            ),
-        );
-
-        assert_eq!(
-            ReplyTemplateBuilder::new(msg, config.clone())
-                // force the interleaved posting style with body
-                .with_posting_style(ReplyTemplatePostingStyle::Interleaved)
-                .with_body("Hello, back!")
-                .build()
-                .await
-                .unwrap(),
-            Template::new_with_cursor_v2(
-                concat_line!(
-                    "From: Me <me@localhost>",
-                    "To: sender@localhost",
-                    "Subject: Re: subject",
-                    "",
-                    "Hello, back!",
-                    "",
-                    "> Hello, world!", // cursor here
-                ),
-                (6, 0),
             ),
         );
     }
@@ -896,35 +858,322 @@ mod tests {
                 (4, 0),
             ),
         );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // with single line body
+                .with_body("Hello, back!")
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "Hello, back!", // cursor here
+                    "",
+                    "> Hello, world!",
+                    "",
+                    "-- ",
+                    "signature"
+                ),
+                (4, 12),
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // with single line body
+                .with_body("Hello, back!")
+                // force signature above quote
+                .with_signature_style(ReplyTemplateSignatureStyle::AboveQuote)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "Hello, back!", // cursor here
+                    "",
+                    "-- ",
+                    "signature",
+                    "",
+                    "> Hello, world!",
+                ),
+                (4, 12),
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // with multi lines body
+                .with_body("\n\nHello\n,\nworld!\n\n!")
+                // force signature hidden
+                .with_signature_style(ReplyTemplateSignatureStyle::Hidden)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "",
+                    "",
+                    "Hello",
+                    ",",
+                    "world!",
+                    "",
+                    "!", // cursor here
+                    "",
+                    "> Hello, world!",
+                ),
+                (10, 1),
+            ),
+        );
+    }
+
+    #[tokio::test]
+    async fn with_signature_and_quote() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            signature: Some("signature".into()),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
+        ));
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // force signature above quote
+                .with_signature_style(ReplyTemplateSignatureStyle::AboveQuote)
+                // force bottom-posting style
+                .with_posting_style(ReplyTemplatePostingStyle::Bottom)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "> Hello, world!",
+                    "",
+                    "", // cursor here
+                    "",
+                    "-- ",
+                    "signature",
+                ),
+                (6, 0),
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // force signature hidden
+                .with_signature_style(ReplyTemplateSignatureStyle::Hidden)
+                // force bottom-posting style
+                .with_posting_style(ReplyTemplatePostingStyle::Bottom)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "> Hello, world!",
+                    "",
+                    "", // cursor here
+                ),
+                (6, 0),
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // force signature above quote
+                .with_signature_style(ReplyTemplateSignatureStyle::AboveQuote)
+                // force interleaved posting style
+                .with_posting_style(ReplyTemplatePostingStyle::Interleaved)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "-- ",
+                    "signature",
+                    "",
+                    "> Hello, world!", // cursor here
+                ),
+                (7, 0),
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // force signature hidden
+                .with_signature_style(ReplyTemplateSignatureStyle::Hidden)
+                // force interleaved posting style
+                .with_posting_style(ReplyTemplatePostingStyle::Interleaved)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "> Hello, world!", // cursor here
+                ),
+                (4, 0),
+            ),
+        );
     }
 
     #[tokio::test]
     async fn with_body_and_quote() {
-        // TODO
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
+        ));
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // with single line body
+                .with_body("Hello, back!")
+                // force the bottom-posting style with body
+                .with_posting_style(ReplyTemplatePostingStyle::Bottom)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "> Hello, world!",
+                    "",
+                    "Hello, back!", // cursor here
+                ),
+                (6, 12),
+            ),
+        );
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // with single line body
+                .with_body("Hello, back!")
+                // force the interleaved posting style with body
+                .with_posting_style(ReplyTemplatePostingStyle::Interleaved)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "Hello, back!",
+                    "",
+                    "> Hello, world!", // cursor here
+                ),
+                (6, 0),
+            ),
+        );
     }
 
     #[tokio::test]
     async fn with_body_signature_and_quote() {
-        // TODO
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            signature: Some("signature".into()),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "Hello, world!",
+            "",
+        ));
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config.clone())
+                // with single line body
+                .with_body("Hello, back!")
+                // force signature above quote
+                .with_signature_style(ReplyTemplateSignatureStyle::AboveQuote)
+                // force interleaved posting style
+                .with_posting_style(ReplyTemplatePostingStyle::Interleaved)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor_v2(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "Hello, back!",
+                    "",
+                    "-- ",
+                    "signature",
+                    "",
+                    "> Hello, world!", // cursor here
+                ),
+                (9, 0),
+            ),
+        );
     }
 
     #[test]
-    fn prefixless_subject() {
-        assert_eq!(super::prefixless_subject("Hello, world!"), "Hello, world!");
+    fn trim_subject_prefix() {
+        assert_eq!(super::trim_prefix("Hello, world!"), "Hello, world!");
+        assert_eq!(super::trim_prefix("re:Hello, world!"), "Hello, world!");
+        assert_eq!(super::trim_prefix("Re   :Hello, world!"), "Hello, world!");
+        assert_eq!(super::trim_prefix("rE:   Hello, world!"), "Hello, world!");
         assert_eq!(
-            super::prefixless_subject("re:Hello, world!"),
-            "Hello, world!"
-        );
-        assert_eq!(
-            super::prefixless_subject("Re   :Hello, world!"),
-            "Hello, world!"
-        );
-        assert_eq!(
-            super::prefixless_subject("rE:   Hello, world!"),
-            "Hello, world!"
-        );
-        assert_eq!(
-            super::prefixless_subject("  RE:  re  :Hello, world!"),
+            super::trim_prefix("  RE:  re  :Hello, world!"),
             "Hello, world!"
         );
     }

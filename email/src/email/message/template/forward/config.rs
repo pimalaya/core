@@ -5,8 +5,8 @@
     serde(rename_all = "kebab-case")
 )]
 pub struct ForwardTemplateConfig {
-    pub signature_placement: Option<ForwardTemplateSignaturePlacement>,
-    pub quote_placement: Option<ForwardTemplateQuotePlacement>,
+    pub posting_style: Option<ForwardTemplatePostingStyle>,
+    pub signature_style: Option<ForwardTemplateSignatureStyle>,
     pub quote_headline: Option<String>,
     pub quote_headers: Option<Vec<String>>,
 }
@@ -17,24 +17,19 @@ pub struct ForwardTemplateConfig {
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
-pub enum ForwardTemplateSignaturePlacement {
+pub enum ForwardTemplatePostingStyle {
     #[default]
-    Inline,
+    Top,
     Attached,
-    Nowhere,
 }
 
-impl ForwardTemplateSignaturePlacement {
-    pub fn is_inline(&self) -> bool {
-        matches!(self, Self::Inline)
+impl ForwardTemplatePostingStyle {
+    pub fn is_top(&self) -> bool {
+        matches!(self, Self::Top)
     }
 
     pub fn is_attached(&self) -> bool {
         matches!(self, Self::Attached)
-    }
-
-    pub fn is_nowhere(&self) -> bool {
-        matches!(self, Self::Nowhere)
     }
 }
 
@@ -44,18 +39,23 @@ impl ForwardTemplateSignaturePlacement {
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
-pub enum ForwardTemplateQuotePlacement {
+pub enum ForwardTemplateSignatureStyle {
     #[default]
-    Inline,
+    Inlined,
     Attached,
+    Nowhere,
 }
 
-impl ForwardTemplateQuotePlacement {
-    pub fn is_inline(&self) -> bool {
-        matches!(self, Self::Inline)
+impl ForwardTemplateSignatureStyle {
+    pub fn is_inlined(&self) -> bool {
+        matches!(self, Self::Inlined)
     }
 
     pub fn is_attached(&self) -> bool {
         matches!(self, Self::Attached)
+    }
+
+    pub fn is_nowhere(&self) -> bool {
+        matches!(self, Self::Nowhere)
     }
 }

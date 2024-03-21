@@ -9,20 +9,6 @@ use super::{
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
-pub enum SignaturePlacement {
-    AboveQuote,
-    #[default]
-    BelowQuote,
-    Attached,
-    Nowhere,
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-#[cfg_attr(
-    feature = "derive",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
-)]
 pub struct TemplateConfig {
     /// Configuration dedicated to new templates.
     pub new: Option<NewTemplateConfig>,

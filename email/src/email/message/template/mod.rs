@@ -153,7 +153,13 @@ impl TemplateBody {
         if !self.cursor.is_locked() {
             match buffer.rsplit_once('\n') {
                 Some((left, right)) => {
-                    self.cursor.row += left.lines().count() + 1;
+                    // NOTE: left.lines().count() does not distinguish
+                    // "hello" from "hello\n" (returns 1)
+                    let left_lines_count = left
+                        .chars()
+                        .fold(1, |count, c| count + if c == '\n' { 1 } else { 0 });
+
+                    self.cursor.row += left_lines_count;
                     self.cursor.col = right.len();
                 }
                 None => {

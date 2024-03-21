@@ -33,9 +33,9 @@ pub struct NewTemplateBuilder {
     /// Default body to put in the template.
     body: String,
 
-    /// Override the placement of the signature.
+    /// Override the style of the signature.
     ///
-    /// Uses the signature placement from the account configuration if
+    /// Uses the signature style from the account configuration if
     /// this one is `None`.
     signature_style: Option<NewTemplateSignatureStyle>,
 
@@ -44,7 +44,7 @@ pub struct NewTemplateBuilder {
 }
 
 impl NewTemplateBuilder {
-    /// Creates a new template builder from an account configuration.
+    /// Create a new template builder from an account configuration.
     pub fn new(config: Arc<AccountConfig>) -> Self {
         let interpreter = config
             .generate_tpl_interpreter()
@@ -59,8 +59,7 @@ impl NewTemplateBuilder {
         }
     }
 
-    /// Sets additional template headers following the builder
-    /// pattern.
+    /// Set additional template headers following the builder pattern.
     pub fn with_headers(
         mut self,
         headers: impl IntoIterator<Item = (impl ToString, impl ToString)>,
@@ -73,7 +72,7 @@ impl NewTemplateBuilder {
         self
     }
 
-    /// Sets some additional template headers following the builder
+    /// Set some additional template headers following the builder
     /// pattern.
     pub fn with_some_headers(
         mut self,
@@ -99,41 +98,41 @@ impl NewTemplateBuilder {
         self
     }
 
-    /// Set some signature placement.
-    pub fn set_some_signature_placement(
+    /// Set some signature style.
+    pub fn set_some_signature_style(
         &mut self,
-        placement: Option<impl Into<NewTemplateSignatureStyle>>,
+        style: Option<impl Into<NewTemplateSignatureStyle>>,
     ) {
-        self.signature_style = placement.map(Into::into);
+        self.signature_style = style.map(Into::into);
     }
 
-    /// Set the signature placement.
-    pub fn set_signature_placement(&mut self, placement: impl Into<NewTemplateSignatureStyle>) {
-        self.set_some_signature_placement(Some(placement));
+    /// Set the signature style.
+    pub fn set_signature_style(&mut self, style: impl Into<NewTemplateSignatureStyle>) {
+        self.set_some_signature_style(Some(style));
     }
 
-    /// Set some signature placement, using the builder pattern.
-    pub fn with_some_signature_placement(
+    /// Set some signature style, using the builder pattern.
+    pub fn with_some_signature_style(
         mut self,
-        placement: Option<impl Into<NewTemplateSignatureStyle>>,
+        style: Option<impl Into<NewTemplateSignatureStyle>>,
     ) -> Self {
-        self.set_some_signature_placement(placement);
+        self.set_some_signature_style(style);
         self
     }
 
-    /// Set the signature placement, using the builder pattern.
-    pub fn with_signature_style(mut self, placement: impl Into<NewTemplateSignatureStyle>) -> Self {
-        self.set_signature_placement(placement);
+    /// Set the signature style, using the builder pattern.
+    pub fn with_signature_style(mut self, style: impl Into<NewTemplateSignatureStyle>) -> Self {
+        self.set_signature_style(style);
         self
     }
 
-    /// Sets the template interpreter following the builder pattern.
+    /// Set the template interpreter following the builder pattern.
     pub fn with_interpreter(mut self, interpreter: MimeInterpreterBuilder) -> Self {
         self.interpreter = interpreter;
         self
     }
 
-    /// Builds the final new message template.
+    /// Build the final new message template.
     pub async fn build(self) -> Result<Template> {
         let sig = self.config.find_full_signature();
         let sig_style = self

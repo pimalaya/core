@@ -6,7 +6,7 @@
 )]
 pub struct ReplyTemplateConfig {
     pub posting_style: Option<ReplyTemplatePostingStyle>,
-    pub signing_style: Option<ReplyTemplateSigningStyle>,
+    pub signature_style: Option<ReplyTemplateSignatureStyle>,
     pub quote_headline_fmt: Option<String>,
 }
 
@@ -43,15 +43,15 @@ impl ReplyTemplatePostingStyle {
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
-pub enum ReplyTemplateSigningStyle {
+pub enum ReplyTemplateSignatureStyle {
     AboveQuote,
     #[default]
     BelowQuote,
-    Attachment,
+    Attached,
     Hidden,
 }
 
-impl ReplyTemplateSigningStyle {
+impl ReplyTemplateSignatureStyle {
     pub fn is_above_quote(&self) -> bool {
         matches!(self, Self::AboveQuote)
     }
@@ -60,8 +60,8 @@ impl ReplyTemplateSigningStyle {
         matches!(self, Self::BelowQuote)
     }
 
-    pub fn is_attachment(&self) -> bool {
-        matches!(self, Self::Attachment)
+    pub fn is_attached(&self) -> bool {
+        matches!(self, Self::Attached)
     }
 
     pub fn is_hidden(&self) -> bool {
