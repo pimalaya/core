@@ -35,7 +35,6 @@ pub enum Error {
     serde(rename_all = "kebab-case")
 )]
 pub struct Template {
-    #[cfg_attr(feature = "derive", serde(rename = "template"))]
     pub content: String,
     pub cursor: TemplateCursor,
 }
@@ -78,7 +77,7 @@ impl From<String> for Template {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq)]
+#[derive(Clone, Debug, Eq)]
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
@@ -107,6 +106,16 @@ impl TemplateCursor {
 
     pub fn is_locked(&self) -> bool {
         self.locked
+    }
+}
+
+impl Default for TemplateCursor {
+    fn default() -> Self {
+        Self {
+            row: 1,
+            col: 0,
+            locked: false,
+        }
     }
 }
 

@@ -576,7 +576,7 @@ mod tests {
                     "",
                     "", // cursor here
                 ),
-                (4, 0),
+                (5, 0),
             ),
         );
     }
@@ -614,7 +614,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                (4, 0),
+                (5, 0),
             ),
         );
 
@@ -635,7 +635,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                (4, 12),
+                (5, 12),
             ),
         );
 
@@ -662,7 +662,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                (10, 1),
+                (11, 1),
             ),
         );
     }
@@ -704,7 +704,7 @@ mod tests {
                     "-- ",
                     "signature",
                 ),
-                (4, 0),
+                (5, 0),
             ),
         );
 
@@ -728,7 +728,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                (4, 0),
+                (5, 0),
             ),
         );
 
@@ -749,7 +749,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                (4, 0),
+                (5, 0),
             ),
         );
     }
@@ -789,7 +789,7 @@ mod tests {
                     "",
                     "", // cursor here
                 ),
-                (6, 0),
+                (7, 0),
             ),
         );
 
@@ -808,7 +808,7 @@ mod tests {
                     "",
                     "> Hello, world!", // cursor here
                 ),
-                (4, 0),
+                (5, 0),
             ),
         );
     }
@@ -850,7 +850,7 @@ mod tests {
                     "-- ",
                     "signature"
                 ),
-                (4, 0),
+                (5, 0),
             ),
         );
 
@@ -874,7 +874,7 @@ mod tests {
                     "-- ",
                     "signature"
                 ),
-                (4, 12),
+                (5, 12),
             ),
         );
 
@@ -900,7 +900,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                (4, 12),
+                (5, 12),
             ),
         );
 
@@ -929,7 +929,7 @@ mod tests {
                     "",
                     "> Hello, world!",
                 ),
-                (10, 1),
+                (11, 1),
             ),
         );
     }
@@ -975,7 +975,7 @@ mod tests {
                     "-- ",
                     "signature",
                 ),
-                (6, 0),
+                (7, 0),
             ),
         );
 
@@ -998,7 +998,7 @@ mod tests {
                     "",
                     "", // cursor here
                 ),
-                (6, 0),
+                (7, 0),
             ),
         );
 
@@ -1022,7 +1022,7 @@ mod tests {
                     "",
                     "> Hello, world!", // cursor here
                 ),
-                (7, 0),
+                (8, 0),
             ),
         );
 
@@ -1043,7 +1043,7 @@ mod tests {
                     "",
                     "> Hello, world!", // cursor here
                 ),
-                (4, 0),
+                (5, 0),
             ),
         );
     }
@@ -1085,7 +1085,7 @@ mod tests {
                     "",
                     "Hello, back!", // cursor here
                 ),
-                (6, 12),
+                (7, 12),
             ),
         );
 
@@ -1108,7 +1108,7 @@ mod tests {
                     "",
                     "> Hello, world!", // cursor here
                 ),
-                (6, 0),
+                (7, 0),
             ),
         );
     }
@@ -1156,7 +1156,7 @@ mod tests {
                     "",
                     "> Hello, world!", // cursor here
                 ),
-                (9, 0),
+                (10, 0),
             ),
         );
     }
