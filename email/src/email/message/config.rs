@@ -1,8 +1,8 @@
 #[cfg(feature = "account-sync")]
 use super::sync::config::MessageSyncConfig;
 use super::{
-    add::config::MessageWriteConfig, get::config::MessageReadConfig,
-    send::config::MessageSendConfig,
+    add::config::MessageWriteConfig, delete::config::DeleteMessageConfig,
+    get::config::MessageReadConfig, send::config::MessageSendConfig,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -20,6 +20,9 @@ pub struct MessageConfig {
 
     /// Configuration dedicated to message sending.
     pub send: Option<MessageSendConfig>,
+
+    /// Configuration dedicated to message deletion.
+    pub delete: Option<DeleteMessageConfig>,
 
     #[cfg(feature = "account-sync")]
     /// Configuration dedicated to message sending.

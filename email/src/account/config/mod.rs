@@ -470,6 +470,22 @@ impl AccountConfig {
         self.get_folder_alias(TRASH)
     }
 
+    /// Return `true` if the given folder matches the Trash folder.
+    pub fn is_trash_folder(&self, folder: &str) -> bool {
+        self.get_folder_alias(folder) == self.get_trash_folder_alias()
+    }
+
+    /// Return `true` if the delete message style matches the
+    /// flag-based message deletion style.
+    pub fn is_delete_message_style_flag(&self) -> bool {
+        self.message
+            .as_ref()
+            .and_then(|c| c.delete.as_ref())
+            .and_then(|c| c.style.as_ref())
+            .filter(|c| c.is_flag())
+            .is_some()
+    }
+
     /// Get all folder aliases.
     pub fn get_folder_aliases(&self) -> Option<&HashMap<String, String>> {
         self.folder.as_ref().and_then(|c| c.aliases.as_ref())

@@ -43,7 +43,7 @@ pub enum ForwardTemplateSignatureStyle {
     #[default]
     Inlined,
     Attached,
-    Nowhere,
+    Hidden,
 }
 
 impl ForwardTemplateSignatureStyle {
@@ -55,7 +55,7 @@ impl ForwardTemplateSignatureStyle {
         matches!(self, Self::Attached)
     }
 
-    pub fn is_nowhere(&self) -> bool {
-        matches!(self, Self::Nowhere)
+    pub fn is_hidden(&self) -> bool {
+        matches!(self, Self::Hidden)
     }
 }

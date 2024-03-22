@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `AccountConfig::get_forward_template_signature_style() -> ForwardTemplateSignatureStyle`.
 - Added `AccountConfig::get_forward_template_posting_style() -> ForwardTemplatePostingStyle`.
 - Added `AccountConfig::get_forward_template_quote_headline() -> Option<String>`.
+- Added `MessageConfig::delete` of type `Option<DeleteMessageConfig>` in order to configure deletion style (folder-based or flag-based) [#169].
 
 ### Changed
 
@@ -38,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `config` param type of `{New,Reply,Forward}TemplateBuilder::new`: they take now a `Arc<AccountConfig>` instead of `&AccountConfig`.
 - Added `set_posting_style`, `set_some_posting_style`, `with_posting_style`, `with_some_posting_style` to `{Reply,Forward}TemplateBuilder::new`
 - Added `set_signature_style`, `set_some_signature_style`, `with_signature_style`, `with_some_signature_style` to `{New,Reply,Forward}TemplateBuilder::new`
+- Changed `DefaultDeleteMessages` behaviour: if the message deletion style matches the flag-based one, add the Deleted flag, otherwise move to Trash.
 
 ### Fixed
 
@@ -869,6 +871,7 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#110]: https://todo.sr.ht/~soywod/pimalaya/110
 [#152]: https://todo.sr.ht/~soywod/pimalaya/152
 [#158]: https://todo.sr.ht/~soywod/pimalaya/158
+[#169]: https://todo.sr.ht/~soywod/pimalaya/169
 [#172]: https://todo.sr.ht/~soywod/pimalaya/172
 [#179]: https://todo.sr.ht/~soywod/pimalaya/179
 [#187]: https://todo.sr.ht/~soywod/pimalaya/187

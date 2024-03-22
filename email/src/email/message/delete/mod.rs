@@ -1,3 +1,4 @@
+pub mod config;
 #[cfg(feature = "imap")]
 pub mod imap;
 #[cfg(feature = "maildir")]
@@ -11,40 +12,40 @@ use crate::{
     account::config::HasAccountConfig,
     envelope::Id,
     flag::{add::AddFlags, Flag},
+    folder::TRASH,
     Result,
 };
 
 use super::r#move::MoveMessages;
 
-/// Delete messages backend feature.
+/// Backend feature to delete message(s).
 #[async_trait]
 pub trait DeleteMessages: Send + Sync {
-    /// Delete emails from the given folder to the given folder
-    /// matching the given id.
+    /// Delete messages from the given folder matching the given
+    /// envelope id(s).
     ///
     /// This function should not definitely delete messages. Instead,
-    /// if the message is in the Trash folder, it should add the
-    /// [`Flag::Deleted`](crate::email::Flag). Otherwise it should
-    /// move the message to the Trash folder. Only
-    /// [`ExpungeFolder`](crate::folder::ExpungeFolder) can definitely
-    /// delete messages.
+    /// if the message is in the Trash folder or if the delete message
+    /// style matches the flag-based one, it should add the
+    /// Deleted. Otherwise it should move the message to the Trash
+    /// folder. Only [`ExpungeFolder`](crate::folder::ExpungeFolder)
+    /// can definitely delete messages.
     async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()>;
 }
 
-/// Default delete messages backend feature.
+/// Default backend feature to delete message(s).
 ///
 /// This trait implements a default delete messages based on move
 /// messages and add flags feature.
 #[async_trait]
 pub trait DefaultDeleteMessages: Send + Sync + HasAccountConfig + MoveMessages + AddFlags {
     async fn default_delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
-        let account_config = self.account_config();
-        let trash_folder = account_config.get_trash_folder_alias();
+        let config = self.account_config();
 
-        if account_config.get_folder_alias(folder) == trash_folder {
+        if config.is_trash_folder(folder) || config.is_delete_message_style_flag() {
             self.add_flag(folder, id, Flag::Deleted).await
         } else {
-            self.move_messages(folder, &trash_folder, id).await
+            self.move_messages(folder, TRASH, id).await
         }
     }
 }

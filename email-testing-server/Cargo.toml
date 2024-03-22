@@ -8,17 +8,17 @@ name = "email_testing_server"
 
 [dependencies]
 concat-with = "0.2"
-directory = { git = "https://github.com/stalwartlabs/mail-server.git" }
-imap = { git = "https://github.com/stalwartlabs/mail-server.git" }
-jmap = { git = "https://github.com/stalwartlabs/mail-server.git" }
-jmap_proto = { git = "https://github.com/stalwartlabs/mail-server.git" }
+directory = { git = "https://github.com/stalwartlabs/mail-server.git", rev = "310ce493149a0e073cab667bea2b5bb230ff3b22" }
+imap = { git = "https://github.com/stalwartlabs/mail-server.git", rev = "310ce493149a0e073cab667bea2b5bb230ff3b22" }
+jmap = { git = "https://github.com/stalwartlabs/mail-server.git", rev = "310ce493149a0e073cab667bea2b5bb230ff3b22" }
+jmap_proto = { git = "https://github.com/stalwartlabs/mail-server.git", rev = "310ce493149a0e073cab667bea2b5bb230ff3b22" }
 log = "0.4"
-managesieve = { git = "https://github.com/stalwartlabs/mail-server.git" }
-smtp = { git = "https://github.com/stalwartlabs/mail-server.git", features = ["local_delivery"] }
-store = { git = "https://github.com/stalwartlabs/mail-server.git", default-features = false, features = ["sqlite"] }
+managesieve = { git = "https://github.com/stalwartlabs/mail-server.git", rev = "310ce493149a0e073cab667bea2b5bb230ff3b22" }
+smtp = { git = "https://github.com/stalwartlabs/mail-server.git", features = ["local_delivery"], rev = "310ce493149a0e073cab667bea2b5bb230ff3b22" }
+store = { git = "https://github.com/stalwartlabs/mail-server.git", default-features = false, features = ["sqlite"], rev = "310ce493149a0e073cab667bea2b5bb230ff3b22" }
 tempfile = "3.3"
 tokio = { version = "1.23", features = ["full"] }
-utils = { git = "https://github.com/stalwartlabs/mail-server.git" }
+utils = { git = "https://github.com/stalwartlabs/mail-server.git", rev = "310ce493149a0e073cab667bea2b5bb230ff3b22" }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = "0.5.0"

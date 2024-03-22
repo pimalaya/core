@@ -102,7 +102,6 @@ async fn test_maildir_features() {
         "To: bob@localhost",
         "",
         "Plain message!",
-        "",
     );
 
     assert_eq!(tpl, expected_tpl);

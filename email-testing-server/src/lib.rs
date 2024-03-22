@@ -69,7 +69,7 @@ pub async fn start_email_testing_server() -> (Ports, impl Fn()) {
             ("directory.memory.options.catch-all".into(), "true".into()),
             ("directory.memory.disable".into(), "false".into()),
             (
-                "directory.memory.principals.0.type".into(),
+                "directory.memory.principals.0.class".into(),
                 "individual".into(),
             ),
             ("directory.memory.principals.0.name".into(), "alice".into()),
@@ -82,7 +82,7 @@ pub async fn start_email_testing_server() -> (Ports, impl Fn()) {
                 "alice@localhost".into(),
             ),
             (
-                "directory.memory.principals.1.type".into(),
+                "directory.memory.principals.1.class".into(),
                 "individual".into(),
             ),
             ("directory.memory.principals.1.name".into(), "bob".into()),
