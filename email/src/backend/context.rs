@@ -17,7 +17,7 @@ use crate::{
     },
     message::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
-        peek::PeekMessages, r#move::MoveMessages, send::SendMessage,
+        peek::PeekMessages, r#move::MoveMessages, remove::RemoveMessages, send::SendMessage,
     },
     Result,
 };
@@ -72,6 +72,7 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     feature!(CopyMessages);
     feature!(MoveMessages);
     feature!(DeleteMessages);
+    feature!(RemoveMessages);
 
     /// Build the final context used by the backend.
     async fn build(self) -> Result<Self::Context>;

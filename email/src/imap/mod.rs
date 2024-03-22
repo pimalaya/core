@@ -37,6 +37,7 @@ use crate::{
         get::{imap::GetImapMessages, GetMessages},
         peek::{imap::PeekImapMessages, PeekMessages},
         r#move::{imap::MoveImapMessages, MoveMessages},
+        remove::{imap::RemoveImapMessages, RemoveMessages},
     },
     Result,
 };
@@ -246,6 +247,10 @@ impl BackendContextBuilder for ImapContextBuilder {
 
     fn delete_messages(&self) -> Option<BackendFeature<Self::Context, dyn DeleteMessages>> {
         Some(Arc::new(DeleteImapMessages::some_new_boxed))
+    }
+
+    fn remove_messages(&self) -> Option<BackendFeature<Self::Context, dyn RemoveMessages>> {
+        Some(Arc::new(RemoveImapMessages::some_new_boxed))
     }
 
     async fn build(self) -> Result<Self::Context> {

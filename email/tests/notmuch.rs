@@ -124,7 +124,6 @@ async fn test_notmuch_features() {
         "To: bob@localhost",
         "",
         "Plain message!",
-        "",
     );
 
     assert_eq!(tpl, expected_tpl);
@@ -149,7 +148,6 @@ async fn test_notmuch_features() {
         "To: bob@localhost",
         "",
         "Plain message custom!",
-        "",
     );
 
     assert_eq!(tpl, expected_tpl);

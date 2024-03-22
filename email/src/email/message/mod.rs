@@ -14,6 +14,7 @@ pub mod delete;
 pub mod get;
 pub mod r#move;
 pub mod peek;
+pub mod remove;
 pub mod send;
 #[cfg(feature = "account-sync")]
 pub mod sync;

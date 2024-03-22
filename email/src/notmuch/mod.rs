@@ -36,6 +36,7 @@ use crate::{
         get::{notmuch::GetNotmuchMessages, GetMessages},
         peek::{notmuch::PeekNotmuchMessages, PeekMessages},
         r#move::{notmuch::MoveNotmuchMessages, MoveMessages},
+        remove::{notmuch::RemoveNotmuchMessages, RemoveMessages},
     },
     Result,
 };
@@ -207,6 +208,10 @@ impl BackendContextBuilder for NotmuchContextBuilder {
 
     fn delete_messages(&self) -> Option<BackendFeature<Self::Context, dyn DeleteMessages>> {
         Some(Arc::new(DeleteNotmuchMessages::some_new_boxed))
+    }
+
+    fn remove_messages(&self) -> Option<BackendFeature<Self::Context, dyn RemoveMessages>> {
+        Some(Arc::new(RemoveNotmuchMessages::some_new_boxed))
     }
 
     async fn build(self) -> Result<Self::Context> {

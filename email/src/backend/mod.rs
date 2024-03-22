@@ -75,7 +75,8 @@ use crate::{
     },
     message::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
-        peek::PeekMessages, r#move::MoveMessages, send::SendMessage, Messages,
+        peek::PeekMessages, r#move::MoveMessages, remove::RemoveMessages, send::SendMessage,
+        Messages,
     },
     Result,
 };
@@ -128,6 +129,8 @@ pub enum Error {
     MoveMessagesNotAvailableError,
     #[error("cannot delete messages: feature not available")]
     DeleteMessagesNotAvailableError,
+    #[error("cannot remove messages: feature not available")]
+    RemoveMessagesNotAvailableError,
 }
 
 /// The basic backend implementation.
@@ -186,6 +189,8 @@ where
     pub move_messages: Option<BackendFeature<C, dyn MoveMessages>>,
     /// The delete messages backend feature.
     pub delete_messages: Option<BackendFeature<C, dyn DeleteMessages>>,
+    /// The delete messages backend feature.
+    pub remove_messages: Option<BackendFeature<C, dyn RemoveMessages>>,
 }
 
 impl<C: BackendContext> HasAccountConfig for Backend<C> {
@@ -415,6 +420,18 @@ impl<C: BackendContext> DeleteMessages for Backend<C> {
     }
 }
 
+#[async_trait]
+impl<C: BackendContext> RemoveMessages for Backend<C> {
+    async fn remove_messages(&self, folder: &str, id: &Id) -> Result<()> {
+        self.remove_messages
+            .as_ref()
+            .and_then(|feature| feature(&self.context))
+            .ok_or(Error::RemoveMessagesNotAvailableError)?
+            .remove_messages(folder, id)
+            .await
+    }
+}
+
 /// Macro for defining [`BackendBuilder`] feature getter and setters.
 macro_rules! feature_accessors {
     ($feat:ty) => {
@@ -530,6 +547,8 @@ where
     pub move_messages: BackendFeatureSource<CB::Context, dyn MoveMessages>,
     /// The delete messages backend builder feature.
     pub delete_messages: BackendFeatureSource<CB::Context, dyn DeleteMessages>,
+    /// The remove messages backend builder feature.
+    pub remove_messages: BackendFeatureSource<CB::Context, dyn RemoveMessages>,
 }
 
 impl<CB> BackendBuilder<CB>
@@ -568,6 +587,7 @@ where
             copy_messages: BackendFeatureSource::Context,
             move_messages: BackendFeatureSource::Context,
             delete_messages: BackendFeatureSource::Context,
+            remove_messages: BackendFeatureSource::Context,
         }
     }
 
@@ -597,6 +617,7 @@ where
     feature_accessors!(CopyMessages);
     feature_accessors!(MoveMessages);
     feature_accessors!(DeleteMessages);
+    feature_accessors!(RemoveMessages);
 
     /// Build the final backend.
     ///
@@ -669,6 +690,7 @@ where
         let copy_messages = self.get_copy_messages();
         let move_messages = self.get_move_messages();
         let delete_messages = self.get_delete_messages();
+        let remove_messages = self.get_remove_messages();
 
         Ok(Backend {
             account_config: self.account_config,
@@ -695,6 +717,7 @@ where
             copy_messages,
             move_messages,
             delete_messages,
+            remove_messages,
         })
     }
 }
@@ -732,6 +755,7 @@ where
             copy_messages: self.copy_messages.clone(),
             move_messages: self.move_messages.clone(),
             delete_messages: self.delete_messages.clone(),
+            remove_messages: self.remove_messages.clone(),
         }
     }
 }

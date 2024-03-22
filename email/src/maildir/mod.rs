@@ -38,6 +38,7 @@ use crate::{
         get::{maildir::GetMaildirMessages, GetMessages},
         peek::{maildir::PeekMaildirMessages, PeekMessages},
         r#move::{maildir::MoveMaildirMessages, MoveMessages},
+        remove::{maildir::RemoveMaildirMessages, RemoveMessages},
     },
     Result,
 };
@@ -220,6 +221,10 @@ impl BackendContextBuilder for MaildirContextBuilder {
 
     fn delete_messages(&self) -> Option<BackendFeature<Self::Context, dyn DeleteMessages>> {
         Some(Arc::new(DeleteMaildirMessages::some_new_boxed))
+    }
+
+    fn remove_messages(&self) -> Option<BackendFeature<Self::Context, dyn RemoveMessages>> {
+        Some(Arc::new(RemoveMaildirMessages::some_new_boxed))
     }
 
     async fn build(self) -> Result<Self::Context> {
