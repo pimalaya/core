@@ -1,7 +1,7 @@
 pub mod config;
 
 use async_trait::async_trait;
-use log::{debug, info};
+use log::{debug, info, warn};
 use mail_parser::{Addr, Address, HeaderName, HeaderValue, Message, MessageParser};
 use mail_send::{
     smtp::message::{Address as SmtpAddress, IntoMessage, Message as SmtpMessage},
@@ -57,6 +57,7 @@ pub struct SmtpContext {
 
 impl SmtpContext {
     pub async fn send(&mut self, msg: &[u8]) -> Result<()> {
+        let mut retry = SmtpRetryState::default();
         let buffer: Vec<u8>;
 
         let mut msg = MessageParser::new().parse(msg).unwrap_or_else(|| {
@@ -80,37 +81,59 @@ impl SmtpContext {
             }
         };
 
-        match &self.smtp_config.auth {
-            SmtpAuthConfig::Passwd(_) => {
-                self.client
-                    .send(into_smtp_msg(msg)?)
-                    .await
-                    .map_err(Error::SendMessageError)?;
-                Ok(())
-            }
-            SmtpAuthConfig::OAuth2(oauth2_config) => {
-                match self.client.send(into_smtp_msg(msg.clone())?).await {
-                    Ok(()) => Ok(()),
-                    Err(mail_send::Error::AuthenticationFailed(_)) => {
-                        oauth2_config.refresh_access_token().await?;
-                        self.client_builder = self
-                            .client_builder
-                            .clone()
-                            .credentials(self.smtp_config.credentials().await?);
+        loop {
+            // FIXME: cannot clone the final message
+            match self.client.send(into_smtp_msg(msg.clone())?).await {
+                Ok(res) => {
+                    break Ok(res);
+                }
+                Err(err) if retry.is_empty() => {
+                    warn!("cannot send SMTP message after 3 attempts, aborting");
+                    break Err(Error::SendMessageError(err))?;
+                }
+                Err(err) => match err {
+                    mail_send::Error::AuthenticationFailed(_) => match &self.smtp_config.auth {
+                        SmtpAuthConfig::Passwd(_) => {
+                            break Err(Error::SendMessageError(err))?;
+                        }
+                        SmtpAuthConfig::OAuth2(_) if retry.oauth2_access_token_refreshed => {
+                            break Err(Error::SendMessageError(err))?;
+                        }
+                        SmtpAuthConfig::OAuth2(oauth2_config) => {
+                            oauth2_config.refresh_access_token().await?;
+                            retry.set_oauth2_access_token_refreshed();
+
+                            self.client_builder = self
+                                .client_builder
+                                .clone()
+                                .credentials(self.smtp_config.credentials().await?);
+                            self.client = if self.smtp_config.is_encryption_enabled() {
+                                build_tls_client(&self.client_builder).await
+                            } else {
+                                build_tcp_client(&self.client_builder).await
+                            }?;
+
+                            continue;
+                        }
+                    },
+                    mail_send::Error::Timeout | mail_send::Error::Io(_) => {
+                        let count = retry.decrement();
+                        warn!("cannot send smtp message: {err}, retrying ({count})");
+
                         self.client = if self.smtp_config.is_encryption_enabled() {
                             build_tls_client(&self.client_builder).await
                         } else {
                             build_tcp_client(&self.client_builder).await
                         }?;
 
-                        self.client
-                            .send(into_smtp_msg(msg)?)
-                            .await
-                            .map_err(Error::SendMessageError)?;
-                        Ok(())
+                        continue;
                     }
-                    Err(err) => Err(Error::SendMessageError(err).into()),
-                }
+                    _ => {
+                        let count = retry.decrement();
+                        warn!("cannot send smtp message: {err}, retrying ({count})");
+                        continue;
+                    }
+                },
             }
         }
     }
@@ -236,6 +259,39 @@ impl CheckUp for CheckUpSmtp {
     async fn check_up(&self) -> Result<()> {
         let mut ctx = self.ctx.lock().await;
         ctx.noop().await
+    }
+}
+
+struct SmtpRetryState {
+    pub count: usize,
+    pub oauth2_access_token_refreshed: bool,
+}
+
+impl SmtpRetryState {
+    fn decrement(&mut self) -> usize {
+        if self.count > 0 {
+            self.count -= 1
+        }
+
+        self.count
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.count == 0
+    }
+
+    fn set_oauth2_access_token_refreshed(&mut self) {
+        self.count = 3;
+        self.oauth2_access_token_refreshed = true;
+    }
+}
+
+impl Default for SmtpRetryState {
+    fn default() -> Self {
+        Self {
+            count: 3,
+            oauth2_access_token_refreshed: false,
+        }
     }
 }
 
