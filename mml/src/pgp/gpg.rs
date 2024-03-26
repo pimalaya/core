@@ -56,6 +56,8 @@ impl Gpg {
                 .map_err(|err| Error::SetHomeDirError(err, path.clone()))?;
         }
 
+        ctx.set_armor(true);
+
         Ok(ctx)
     }
 

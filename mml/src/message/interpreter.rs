@@ -336,7 +336,6 @@ mod tests {
             "Content-Transfer-Encoding: 7bit",
             "",
             "Hello, world!",
-            "",
         );
 
         assert_eq!(mml, expected_mml);
@@ -356,7 +355,6 @@ mod tests {
             "Subject: subject",
             "",
             "Hello, world!",
-            "",
         );
 
         assert_eq!(mml, expected_mml);
@@ -376,7 +374,6 @@ mod tests {
             "Subject: subject",
             "",
             "Hello, world!",
-            "",
         );
 
         assert_eq!(mml, expected_mml);
@@ -391,7 +388,7 @@ mod tests {
             .await
             .unwrap();
 
-        let expected_mml = concat_line!("Hello, world!", "");
+        let expected_mml = concat_line!("Hello, world!");
 
         assert_eq!(mml, expected_mml);
     }
@@ -419,7 +416,6 @@ mod tests {
             "Subject: subject",
             "",
             "<#!part>Should be escaped.<#!/part>",
-            "",
         );
 
         assert_eq!(mml, expected_mml);

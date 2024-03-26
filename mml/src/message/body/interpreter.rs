@@ -4,7 +4,7 @@
 
 use async_recursion::async_recursion;
 #[allow(unused_imports)]
-use log::{debug, warn};
+use log::{debug, trace, warn};
 use mail_builder::MessageBuilder;
 use mail_parser::{Message, MessageParser, MessagePart, MimeHeaders, PartType};
 use nanohtml2text::html2text;
@@ -495,7 +495,7 @@ impl MimeBodyInterpreter {
                     Ok(ref clear_part) => tpl.push_str(clear_part),
                     Err(err) => {
                         debug!("cannot decrypt email part using pgp: {err}");
-                        debug!("{err:?}");
+                        trace!("{err:?}");
                     }
                 }
             }
@@ -507,7 +507,7 @@ impl MimeBodyInterpreter {
                     }
                     Err(err) => {
                         debug!("cannot verify email part using pgp: {err}");
-                        debug!("{err:?}");
+                        trace!("{err:?}");
                     }
                 }
 

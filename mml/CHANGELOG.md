@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Removed `.trim()` when interpreting MML string.
+
+### Fixed
+
+- Fixed `gpg` backend that was not using armored content.
+
 ## [1.0.8] - 2024-03-14
 
 ### Changed
