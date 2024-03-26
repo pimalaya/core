@@ -82,7 +82,7 @@ impl SmtpContext {
         };
 
         loop {
-            // FIXME: cannot clone the final message
+            // NOTE: cannot clone the final message
             match self.client.send(into_smtp_msg(msg.clone())?).await {
                 Ok(res) => {
                     break Ok(res);
@@ -117,8 +117,8 @@ impl SmtpContext {
                         }
                     },
                     mail_send::Error::Timeout | mail_send::Error::Io(_) => {
-                        let count = retry.decrement();
-                        warn!("cannot send smtp message: {err}, retrying ({count})");
+                        let count = 3 - retry.decrement();
+                        warn!("cannot send smtp message: {err}, attempt ({count})");
 
                         self.client = if self.smtp_config.is_encryption_enabled() {
                             build_tls_client(&self.client_builder).await
@@ -128,10 +128,8 @@ impl SmtpContext {
 
                         continue;
                     }
-                    _ => {
-                        let count = retry.decrement();
-                        warn!("cannot send smtp message: {err}, retrying ({count})");
-                        continue;
+                    err => {
+                        break Err(Error::SendMessageError(err))?;
                     }
                 },
             }

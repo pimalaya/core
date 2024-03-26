@@ -112,9 +112,12 @@ impl ImapContext {
                                 continue;
                             }
                         }
-                    } else {
-                        let count = retry.decrement();
-                        warn!("cannot exec imap action: {err}, retrying ({count})");
+                    }
+                    // TODO: find a way to better identify timeout
+                    // errors.
+                    else {
+                        let count = 3 - retry.decrement();
+                        warn!("cannot exec imap action: {err}, attempt ({count})");
                         continue;
                     }
                 }
@@ -303,9 +306,11 @@ impl BackendContextBuilder for ImapContextBuilder {
                             }
                         }
                     }
+                    // TODO: find a way to better identify timeout
+                    // errors.
                     _ => {
-                        let count = retry.decrement();
-                        warn!("cannot build imap session: {err}, retrying ({count})");
+                        let count = 3 - retry.decrement();
+                        warn!("cannot build imap session: {err}, attempt ({count})");
                         continue;
                     }
                 },

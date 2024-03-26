@@ -13,7 +13,7 @@ keywords = ["pim", "pomodoro", "time", "management", "technique"]
 
 [package.metadata.docs.rs]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
 
 [lib]
 name = "time"
