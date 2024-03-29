@@ -2,7 +2,7 @@ use futures::Future;
 use process::Command;
 use std::{fmt, ops::Deref, pin::Pin, sync::Arc};
 
-use crate::{envelope::Envelope, Result};
+use crate::envelope::Envelope;
 
 /// Watch hook configuration.
 ///
@@ -55,12 +55,14 @@ pub struct WatchFn(
     // Added to that there is a new function that can take the complexity of
     // pinning and arcing away.
     #[allow(clippy::type_complexity)]
-    Arc<dyn Fn(&Envelope) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + Sync>,
+    Arc<
+        dyn Fn(&Envelope) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send>> + Send + Sync,
+    >,
 );
 
 impl WatchFn {
     /// Create a new watch function.
-    pub fn new<F: Future<Output = Result<()>> + Send + 'static>(
+    pub fn new<F: Future<Output = crate::Result<()>> + Send + 'static>(
         f: impl Fn(&Envelope) -> F + Send + Sync + 'static,
     ) -> Self {
         Self(Arc::new(move |envelope| Box::pin(f(envelope))))
@@ -74,8 +76,9 @@ impl Default for WatchFn {
 }
 
 impl Deref for WatchFn {
-    type Target =
-        Arc<dyn Fn(&Envelope) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + Sync>;
+    type Target = Arc<
+        dyn Fn(&Envelope) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send>> + Send + Sync,
+    >;
 
     fn deref(&self) -> &Self::Target {
         &self.0
