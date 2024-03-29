@@ -2,52 +2,15 @@
 //! [RFC6749](https://datatracker.ietf.org/doc/html/rfc6749#section-1.3.1)
 
 use oauth2::{
-    basic::{BasicClient, BasicErrorResponseType},
-    url::{self, Url},
-    AuthorizationCode, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RequestTokenError, Scope,
-    StandardErrorResponse, TokenResponse,
+    basic::BasicClient, url::Url, AuthorizationCode, CsrfToken, PkceCodeChallenge,
+    PkceCodeVerifier, Scope, TokenResponse,
 };
-use std::io;
-use thiserror::Error;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpListener,
 };
 
-use super::Result;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot build auth url")]
-    BuildAuthUrlError(#[source] oauth2::url::ParseError),
-    #[error("cannot build token url")]
-    BuildTokenUrlError(#[source] oauth2::url::ParseError),
-    #[error("cannot build revocation url")]
-    BuildRevocationUrlError(#[source] oauth2::url::ParseError),
-    #[error("cannot build redirect url")]
-    BuildRedirectUrlError(#[source] oauth2::url::ParseError),
-    #[error("cannot bind redirect server")]
-    BindRedirectServerError(String, u16, #[source] io::Error),
-    #[error("cannot accept redirect server connections")]
-    AcceptRedirectServerError(#[source] io::Error),
-    #[error("invalid state {0}: expected {1}")]
-    InvalidStateError(String, String),
-    #[error("missing redirect url from {0}")]
-    MissingRedirectUrlError(String),
-    #[error("cannot parse redirect url {1}")]
-    ParseRedirectUrlError(#[source] url::ParseError, String),
-    #[error("cannot find code from redirect url {0}")]
-    FindCodeInRedirectUrlError(Url),
-    #[error("cannot find state from redirect url {0}")]
-    FindStateInRedirectUrlError(Url),
-    #[error("cannot exchange code for an access token and a refresh token")]
-    ExchangeCodeError(
-        RequestTokenError<
-            oauth2::reqwest::Error<reqwest::Error>,
-            StandardErrorResponse<BasicErrorResponseType>,
-        >,
-    ),
-}
+use crate::{Error, Result};
 
 /// OAuth 2.0 Authorization Code Grant flow builder.
 ///
@@ -159,10 +122,10 @@ impl AuthorizationCodeGrant {
             let state = CsrfToken::new(state.into_owned());
 
             if state.secret() != csrf_state.secret() {
-                return Ok(Err(Error::InvalidStateError(
+                return Err(Error::InvalidStateError(
                     state.secret().to_owned(),
                     csrf_state.secret().to_owned(),
-                ))?);
+                ));
             }
 
             let (_, code) = redirect_url

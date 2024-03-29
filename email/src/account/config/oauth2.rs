@@ -15,18 +15,18 @@ use crate::Result;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot create oauth2 client")]
-    InitClientError(#[source] oauth::v2_0::Error),
+    InitClientError(#[source] oauth::Error),
     #[error("cannot create oauth2 client")]
-    BuildClientError(#[source] oauth::v2_0::Error),
+    BuildClientError(#[source] oauth::Error),
     #[error("cannot wait for oauth2 redirection error")]
-    WaitForRedirectionError(#[source] oauth::v2_0::Error),
+    WaitForRedirectionError(#[source] oauth::Error),
 
     #[error("cannot get oauth2 access token from global keyring")]
     GetAccessTokenError(#[source] secret::Error),
     #[error("cannot set oauth2 access token")]
     SetAccessTokenError(#[source] secret::Error),
     #[error("cannot refresh oauth2 access token")]
-    RefreshAccessTokenError(#[source] oauth::v2_0::Error),
+    RefreshAccessTokenError(#[source] oauth::Error),
     #[error("cannot delete oauth2 access token from global keyring")]
     DeleteAccessTokenError(#[source] secret::Error),
 

@@ -2,19 +2,8 @@
 //! URLs.
 
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
-use thiserror::Error;
 
-use super::Result;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot build auth url")]
-    BuildAuthUrlError(#[source] oauth2::url::ParseError),
-    #[error("cannot build token url")]
-    BuildTokenUrlError(#[source] oauth2::url::ParseError),
-    #[error("cannot build redirect url")]
-    BuildRedirectUrlError(#[source] oauth2::url::ParseError),
-}
+use crate::{Error, Result};
 
 /// Client builder, used by other flows to send requests and build
 /// URLs.

@@ -1,24 +1,9 @@
 //! Refresh Access Token flow helper, as defined in the
 //! [RFC6749](https://datatracker.ietf.org/doc/html/rfc6749#section-6)
 
-use oauth2::{
-    basic::{BasicClient, BasicErrorResponseType},
-    RefreshToken, RequestTokenError, StandardErrorResponse, TokenResponse,
-};
-use thiserror::Error;
+use oauth2::{basic::BasicClient, RefreshToken, TokenResponse};
 
-use super::Result;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot refresh access token using the refresh token")]
-    RefreshAccessTokenError(
-        RequestTokenError<
-            oauth2::reqwest::Error<reqwest::Error>,
-            StandardErrorResponse<BasicErrorResponseType>,
-        >,
-    ),
-}
+use crate::{Error, Result};
 
 /// OAuth 2.0 Refresh Access Token flow builder. The builder is empty
 /// for now but scopes will be added in the future. This flow exchange
