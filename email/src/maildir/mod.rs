@@ -1,4 +1,5 @@
 pub mod config;
+pub mod error;
 
 use async_trait::async_trait;
 use log::info;
@@ -40,7 +41,6 @@ use crate::{
         r#move::{maildir::MoveMaildirMessages, MoveMessages},
         remove::{maildir::RemoveMaildirMessages, RemoveMessages},
     },
-    Result,
 };
 
 use self::config::MaildirConfig;
@@ -62,7 +62,7 @@ pub struct MaildirContext {
 
 impl MaildirContext {
     /// Create a maildir instance from a folder name.
-    pub fn get_maildir_from_folder_name(&self, folder: &str) -> Result<Maildir> {
+    pub fn get_maildir_from_folder_name(&self, folder: &str) -> Result<Maildir, error::Error> {
         // If the folder matches to the inbox folder kind, create a
         // maildir instance from the root folder.
         if FolderKind::matches_inbox(folder) {
@@ -227,7 +227,7 @@ impl BackendContextBuilder for MaildirContextBuilder {
         Some(Arc::new(RemoveMaildirMessages::some_new_boxed))
     }
 
-    async fn build(self) -> Result<Self::Context> {
+    async fn build(self) -> crate::Result<Self::Context> {
         info!("building new maildir context");
 
         let path = shellexpand_path(&self.mdir_config.root_dir);
@@ -270,14 +270,13 @@ impl CheckUpMaildir {
 
 #[async_trait]
 impl CheckUp for CheckUpMaildir {
-    async fn check_up(&self) -> Result<()> {
+    async fn check_up(&self) -> crate::Result<()> {
         let ctx = self.ctx.lock().await;
 
         ctx.root
             .list_cur()
-            .into_iter()
-            .map(|e| e.map(|_| ()))
-            .collect::<maildirpp::Result<()>>()?;
+            .try_for_each(|e| e.map(|_| ()))
+            .map_err(error::Error::CheckingUpMaildirFailed)?;
 
         Ok(())
     }
