@@ -9,7 +9,7 @@ use super::{Flags, RemoveFlags};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot remove flags {3} to envelope(s) {2} from folder {1}")]
-    RemoveFlagsError(#[source] maildirpp::Error, String, String, Flags),
+    RemoveFlagsMaildirError(#[source] maildirpp::Error, String, String, Flags),
 }
 
 #[derive(Clone)]
@@ -42,7 +42,12 @@ impl RemoveFlags for RemoveMaildirFlags {
         id.iter().try_for_each(|ref id| {
             mdir.remove_flags(id, &flags.to_mdir_string())
                 .map_err(|err| {
-                    Error::RemoveFlagsError(err, folder.to_owned(), id.to_string(), flags.clone())
+                    Error::RemoveFlagsMaildirError(
+                        err,
+                        folder.to_owned(),
+                        id.to_string(),
+                        flags.clone(),
+                    )
                 })
         })?;
 

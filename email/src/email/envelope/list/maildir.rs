@@ -21,7 +21,7 @@ static USER_TZ: &chrono::Local = &chrono::Local;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot list maildir envelopes from {0}: page {1} out of bounds")]
-    GetEnvelopesOutOfBoundsError(String, usize),
+    GetEnvelopesOutOfBoundsMaildirError(String, usize),
 }
 
 #[derive(Clone)]
@@ -58,9 +58,11 @@ impl ListEnvelopes for ListMaildirEnvelopes {
         let page_begin = opts.page * opts.page_size;
         debug!("page begin: {}", page_begin);
         if page_begin > envelopes.len() {
-            return Err(
-                Error::GetEnvelopesOutOfBoundsError(folder.to_owned(), page_begin + 1).into(),
-            );
+            return Err(Error::GetEnvelopesOutOfBoundsMaildirError(
+                folder.to_owned(),
+                page_begin + 1,
+            )
+            .into());
         }
 
         let page_end = envelopes.len().min(if opts.page_size == 0 {

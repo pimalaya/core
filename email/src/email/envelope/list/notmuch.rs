@@ -15,9 +15,9 @@ use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot list notmuch envelopes from {0}: page {1} out of bounds")]
-    GetEnvelopesOutOfBoundsError(String, usize),
+    GetEnvelopesOutOfBoundsNotmuchError(String, usize),
     #[error("cannot list notmuch envelopes from {0}: invalid query {1}")]
-    SearchMessagesInvalidQuery(#[source] notmuch::Error, String, String),
+    SearchMessagesInvalidQueryNotmuch(#[source] notmuch::Error, String, String),
 }
 
 #[derive(Clone)]
@@ -66,7 +66,7 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
         let query_builder = db.create_query(&final_query)?;
 
         let msgs = query_builder.search_messages().map_err(|err| {
-            Error::SearchMessagesInvalidQuery(err, folder.to_owned(), final_query.clone())
+            Error::SearchMessagesInvalidQueryNotmuch(err, folder.to_owned(), final_query.clone())
         })?;
 
         let mut envelopes = Envelopes::from_notmuch_msgs(msgs);
@@ -78,7 +78,7 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
         let page_begin = opts.page * opts.page_size;
 
         if page_begin > envelopes.len() {
-            return Err(Error::GetEnvelopesOutOfBoundsError(
+            return Err(Error::GetEnvelopesOutOfBoundsNotmuchError(
                 folder.to_owned(),
                 page_begin + 1,
             ))?;

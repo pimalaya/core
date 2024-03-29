@@ -10,7 +10,7 @@ use super::{Envelope, GetEnvelope};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot find maildir envelope {1} from folder {0}")]
-    GetEnvelopeError(PathBuf, Id),
+    GetEnvelopeMaildirError(PathBuf, Id),
 }
 
 #[derive(Clone)]
@@ -40,10 +40,10 @@ impl GetEnvelope for GetMaildirEnvelope {
         let session = self.ctx.lock().await;
         let mdir = session.get_maildir_from_folder_name(folder)?;
 
-        let envelope: Envelope = Envelope::from_mdir_entry(
-            mdir.find(&id.to_string())
-                .ok_or_else(|| Error::GetEnvelopeError(mdir.path().to_owned(), id.clone()))?,
-        );
+        let envelope: Envelope =
+            Envelope::from_mdir_entry(mdir.find(&id.to_string()).ok_or_else(|| {
+                Error::GetEnvelopeMaildirError(mdir.path().to_owned(), id.clone())
+            })?);
         trace!("maildir envelope: {envelope:#?}");
 
         Ok(envelope)

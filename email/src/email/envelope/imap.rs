@@ -14,7 +14,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get uid of imap envelope {0}: uid is missing")]
-    GetUidMissingError(u32),
+    GetUidMissingImapError(u32),
     #[error("cannot get missing envelope {0}")]
     GetEnvelopeMissingError(u32),
 }
@@ -52,7 +52,7 @@ impl Envelope {
 
         let id = fetch
             .uid
-            .ok_or(Error::GetUidMissingError(fetch.message))?
+            .ok_or(Error::GetUidMissingImapError(fetch.message))?
             .to_string();
 
         let flags = Flags::from_imap_fetch(fetch);

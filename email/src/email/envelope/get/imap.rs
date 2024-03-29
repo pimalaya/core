@@ -14,11 +14,11 @@ use super::{Envelope, GetEnvelope};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot fetch imap envelopes {2} from folder {1}")]
-    FetchEnvolpesError(#[source] imap::Error, String, Id),
+    FetchEnvolpesImapError(#[source] imap::Error, String, Id),
     #[error("cannot find imap envelope {1} from folder {0}")]
-    GetFirstEnvelopeError(String, Id),
+    GetFirstEnvelopeImapError(String, Id),
 }
 
 #[derive(Clone, Debug)]
@@ -54,20 +54,20 @@ impl GetEnvelope for GetImapEnvelope {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 
         let fetches = ctx
             .exec(
                 |session| session.uid_fetch(id.to_string(), LIST_ENVELOPES_QUERY),
-                |err| Error::FetchEnvolpesError(err, folder.clone(), id.clone()).into(),
+                |err| Error::FetchEnvolpesImapError(err, folder.clone(), id.clone()).into(),
             )
             .await?;
 
         let fetch = fetches
             .get(0)
-            .ok_or_else(|| Error::GetFirstEnvelopeError(folder.clone(), id.clone()))?;
+            .ok_or_else(|| Error::GetFirstEnvelopeImapError(folder.clone(), id.clone()))?;
 
         let envelope = Envelope::from_imap_fetch(fetch)?;
         debug!("imap envelope: {envelope:#?}");

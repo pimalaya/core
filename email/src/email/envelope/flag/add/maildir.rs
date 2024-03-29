@@ -9,7 +9,7 @@ use super::{AddFlags, Flags};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot add maildir flags {3} to envelope(s) {2} from folder {1}")]
-    AddFlagsError(#[source] maildirpp::Error, String, String, Flags),
+    AddFlagsMaildirError(#[source] maildirpp::Error, String, String, Flags),
 }
 
 #[derive(Clone)]
@@ -41,7 +41,7 @@ impl AddFlags for AddMaildirFlags {
 
         id.iter().try_for_each(|ref id| {
             mdir.add_flags(id, &flags.to_mdir_string()).map_err(|err| {
-                Error::AddFlagsError(err, folder.to_owned(), id.to_string(), flags.clone())
+                Error::AddFlagsMaildirError(err, folder.to_owned(), id.to_string(), flags.clone())
             })
         })?;
 

@@ -9,7 +9,7 @@ use super::{Envelope, GetEnvelope};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot find notmuch envelope {1} from folder {0}")]
-    FindEnvelopeEmptyError(String, Id),
+    FindEnvelopeEmptyNotmuchError(String, Id),
 }
 
 #[derive(Clone)]
@@ -39,10 +39,10 @@ impl GetEnvelope for GetNotmuchEnvelope {
         let ctx = self.ctx.lock().await;
         let db = ctx.open_db()?;
 
-        let envelope = Envelope::from_notmuch_msg(
-            db.find_message(&id.to_string())?
-                .ok_or_else(|| Error::FindEnvelopeEmptyError(folder.to_owned(), id.clone()))?,
-        );
+        let envelope =
+            Envelope::from_notmuch_msg(db.find_message(&id.to_string())?.ok_or_else(|| {
+                Error::FindEnvelopeEmptyNotmuchError(folder.to_owned(), id.clone())
+            })?);
         trace!("notmuch envelope: {envelope:#?}");
 
         db.close()?;

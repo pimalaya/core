@@ -10,9 +10,9 @@ use super::{AddFlags, Flags};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot add imap flags {3} to envelope(s) {2} from folder {1}")]
-    AddFlagError(#[source] imap::Error, String, Id, Flags),
+    AddFlagImapError(#[source] imap::Error, String, Id, Flags),
 }
 
 #[derive(Clone, Debug)]
@@ -48,7 +48,7 @@ impl AddFlags for AddImapFlags {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 
@@ -57,7 +57,7 @@ impl AddFlags for AddImapFlags {
                 let query = format!("+FLAGS ({})", flags.to_imap_query_string());
                 session.uid_store(id.join(","), query)
             },
-            |err| Error::AddFlagError(err, folder.clone(), id.clone(), flags.clone()).into(),
+            |err| Error::AddFlagImapError(err, folder.clone(), id.clone(), flags.clone()).into(),
         )
         .await?;
 

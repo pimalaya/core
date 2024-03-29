@@ -10,9 +10,9 @@ use super::{Flags, RemoveFlags};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot remove flags {3} to envelope(s) {2} from folder {1}")]
-    RemoveFlagError(#[source] imap::Error, String, Id, Flags),
+    RemoveFlagImapError(#[source] imap::Error, String, Id, Flags),
 }
 
 #[derive(Clone, Debug)]
@@ -48,7 +48,7 @@ impl RemoveFlags for RemoveImapFlags {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 
@@ -57,7 +57,7 @@ impl RemoveFlags for RemoveImapFlags {
                 let query = format!("-FLAGS ({})", flags.to_imap_query_string());
                 session.uid_store(id.join(","), query)
             },
-            |err| Error::RemoveFlagError(err, folder.clone(), id.clone(), flags.clone()).into(),
+            |err| Error::RemoveFlagImapError(err, folder.clone(), id.clone(), flags.clone()).into(),
         )
         .await?;
 

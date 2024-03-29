@@ -16,11 +16,11 @@ use super::WatchEnvelopes;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot examine imap folder {1}")]
-    ExamineFolderError(#[source] imap::Error, String),
+    ExamineFolderImapError(#[source] imap::Error, String),
     #[error("cannot run imap idle mode")]
-    RunIdleModeError(#[source] imap::Error),
+    RunIdleModeImapError(#[source] imap::Error),
     #[error("cannot list all imap envelopes of folder {1}")]
-    ListAllEnvelopesError(#[source] imap::Error, String),
+    ListAllEnvelopesImapError(#[source] imap::Error, String),
 }
 
 #[derive(Clone, Debug)]
@@ -58,7 +58,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
         let envelopes_count = ctx
             .exec(
                 |session| session.examine(&folder_encoded),
-                |err| Error::ExamineFolderError(err, folder.clone()).into(),
+                |err| Error::ExamineFolderImapError(err, folder.clone()).into(),
             )
             .await?
             .exists;
@@ -69,7 +69,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
             let fetches = ctx
                 .exec(
                     |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
-                    |err| Error::ListAllEnvelopesError(err, folder.clone()).into(),
+                    |err| Error::ListAllEnvelopesImapError(err, folder.clone()).into(),
                 )
                 .await?;
             Envelopes::from_imap_fetches(fetches)
@@ -92,7 +92,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
 
                     idle.wait_while(stop_on_any)
                 },
-                |err| Error::RunIdleModeError(err).into(),
+                |err| Error::RunIdleModeImapError(err).into(),
             )
             .await?;
 
@@ -101,7 +101,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
             let fetches = ctx
                 .exec(
                     |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
-                    |err| Error::ListAllEnvelopesError(err, folder.clone()).into(),
+                    |err| Error::ListAllEnvelopesImapError(err, folder.clone()).into(),
                 )
                 .await?;
             let next_envelopes = Envelopes::from_imap_fetches(fetches);

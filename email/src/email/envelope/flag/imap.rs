@@ -14,7 +14,7 @@ use super::{Flag, Flags};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse imap flag {0}")]
-    ParseFlagError(String),
+    ParseFlagImapError(String),
 }
 
 impl Flag {
@@ -25,7 +25,7 @@ impl Flag {
             imap::types::Flag::Flagged => Ok(Flag::Flagged),
             imap::types::Flag::Deleted => Ok(Flag::Deleted),
             imap::types::Flag::Draft => Ok(Flag::Draft),
-            unknown => Err(Error::ParseFlagError(unknown.to_string()).into()),
+            unknown => Err(Error::ParseFlagImapError(unknown.to_string()).into()),
         }
     }
 

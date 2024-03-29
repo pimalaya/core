@@ -9,7 +9,7 @@ use super::{Flags, SetFlags};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot set flags {3} to envelope(s) {2} from folder {1}")]
-    SetFlagsError(#[source] maildirpp::Error, String, String, Flags),
+    SetFlagsMaildirError(#[source] maildirpp::Error, String, String, Flags),
 }
 
 #[derive(Clone)]
@@ -41,7 +41,7 @@ impl SetFlags for SetMaildirFlags {
 
         id.iter().try_for_each(|ref id| {
             mdir.set_flags(id, &flags.to_mdir_string()).map_err(|err| {
-                Error::SetFlagsError(err, folder.to_owned(), id.to_string(), flags.clone())
+                Error::SetFlagsMaildirError(err, folder.to_owned(), id.to_string(), flags.clone())
             })
         })?;
 

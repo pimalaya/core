@@ -27,13 +27,13 @@ pub const LIST_ENVELOPES_QUERY: &str = "(UID FLAGS ENVELOPE)";
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot list imap envelopes {2} from folder {1}")]
-    ListEnvelopesError(#[source] imap::Error, String, String),
+    ListEnvelopesImapError(#[source] imap::Error, String, String),
     #[error("cannot search imap envelopes from folder {1} with query {2}")]
-    SearchEnvelopesError(#[source] imap::Error, String, String),
+    SearchEnvelopesImapError(#[source] imap::Error, String, String),
     #[error("cannot list imap envelopes: page {0} out of bounds")]
-    BuildPageRangeOutOfBoundsError(usize),
+    BuildPageRangeOutOfBoundsImapError(usize),
 }
 
 #[derive(Clone, Debug)]
@@ -70,7 +70,7 @@ impl ListEnvelopes for ListImapEnvelopes {
         let folder_size = ctx
             .exec(
                 |session| session.select(&folder_encoded),
-                |err| Error::SelectFolderError(err, folder.clone()).into(),
+                |err| Error::SelectFolderImapError(err, folder.clone()).into(),
             )
             .await?
             .exists as usize;
@@ -87,7 +87,9 @@ impl ListEnvelopes for ListImapEnvelopes {
             let mut uids = ctx
                 .exec(
                     |session| session.uid_sort(&sorters, SortCharset::Utf8, &filters),
-                    |err| Error::SearchEnvelopesError(err, folder.clone(), filters.clone()).into(),
+                    |err| {
+                        Error::SearchEnvelopesImapError(err, folder.clone(), filters.clone()).into()
+                    },
                 )
                 .await?;
 
@@ -104,7 +106,7 @@ impl ListEnvelopes for ListImapEnvelopes {
             let fetches = ctx
                 .exec(
                     |session| session.uid_fetch(&range, LIST_ENVELOPES_QUERY),
-                    |err| Error::ListEnvelopesError(err, folder.clone(), range.clone()).into(),
+                    |err| Error::ListEnvelopesImapError(err, folder.clone(), range.clone()).into(),
                 )
                 .await?;
 
@@ -128,7 +130,7 @@ impl ListEnvelopes for ListImapEnvelopes {
             let fetches = ctx
                 .exec(
                     |session| session.fetch(&range, LIST_ENVELOPES_QUERY),
-                    |err| Error::ListEnvelopesError(err, folder.clone(), range.clone()).into(),
+                    |err| Error::ListEnvelopesImapError(err, folder.clone(), range.clone()).into(),
                 )
                 .await?;
 
@@ -256,7 +258,7 @@ fn apply_pagination(
     let total = uids.len();
     let page_cursor = page * page_size;
     if page_cursor >= total {
-        Err(Error::BuildPageRangeOutOfBoundsError(page + 1))?
+        Err(Error::BuildPageRangeOutOfBoundsImapError(page + 1))?
     }
 
     if page_size == 0 {
@@ -273,7 +275,7 @@ fn apply_pagination(
 fn build_page_range(page: usize, page_size: usize, total: usize) -> result::Result<String, Error> {
     let page_cursor = page * page_size;
     if page_cursor >= total {
-        Err(Error::BuildPageRangeOutOfBoundsError(page + 1))?
+        Err(Error::BuildPageRangeOutOfBoundsImapError(page + 1))?
     }
 
     let range = if page_size == 0 {
@@ -307,13 +309,13 @@ mod tests {
         // page * page_size = size
         assert!(matches!(
             super::build_page_range(1, 5, 5).unwrap_err(),
-            super::Error::BuildPageRangeOutOfBoundsError(2),
+            super::Error::BuildPageRangeOutOfBoundsImapError(2),
         ));
 
         // page * page_size > size
         assert!(matches!(
             super::build_page_range(2, 5, 5).unwrap_err(),
-            super::Error::BuildPageRangeOutOfBoundsError(3),
+            super::Error::BuildPageRangeOutOfBoundsImapError(3),
         ));
     }
 

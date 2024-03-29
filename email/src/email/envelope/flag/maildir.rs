@@ -14,7 +14,7 @@ use super::{Flag, Flags};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse maildir flag char {0}")]
-    ParseFlagError(char),
+    ParseFlagMaildirError(char),
 }
 
 impl Flag {
@@ -25,7 +25,7 @@ impl Flag {
             't' | 'T' => Ok(Flag::Deleted),
             'd' | 'D' => Ok(Flag::Draft),
             'f' | 'F' => Ok(Flag::Flagged),
-            unknown => Err(Error::ParseFlagError(unknown).into()),
+            unknown => Err(Error::ParseFlagMaildirError(unknown).into()),
         }
     }
 
