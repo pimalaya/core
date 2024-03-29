@@ -298,7 +298,7 @@ impl Maildir {
         Ok(())
     }
 
-    /// Copies a message from the current maildir to the targetted maildir.
+    /// Copies a message from the current maildir to the targeted maildir.
     pub fn copy_to(&self, id: &str, target: &Maildir) -> Result<()> {
         let entry = self
             .find(id)
@@ -318,7 +318,7 @@ impl Maildir {
         Ok(())
     }
 
-    /// Moves a message from the current maildir to the targetted maildir.
+    /// Moves a message from the current maildir to the targeted maildir.
     pub fn move_to(&self, id: &str, target: &Maildir) -> Result<()> {
         let entry = self
             .find(id)
@@ -423,7 +423,7 @@ impl Maildir {
         }
     }
 
-    /// Creates all neccessary directories if they don't exist yet. It is the library user's
+    /// Creates all necessary directories if they don't exist yet. It is the library user's
     /// responsibility to call this before using `store_new`.
     pub fn create_dirs(&self) -> Result<()> {
         let mut path = self.path.clone();
@@ -436,7 +436,7 @@ impl Maildir {
     }
 
     /// Stores the given message data as a new message file in the Maildir `new` folder. Does not
-    /// create the neccessary directories, so if in doubt call `create_dirs` before using
+    /// create the necessary directories, so if in doubt call `create_dirs` before using
     /// `store_new`.
     /// Returns the Id of the inserted message on success.
     pub fn store_new(&self, data: &[u8]) -> Result<String> {
