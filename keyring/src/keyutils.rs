@@ -7,29 +7,10 @@
 
 use keyring_native::keyutils::KeyutilsCredential;
 use log::debug;
-use std::{result, sync::Arc};
-use thiserror::Error;
-use tokio::task::{self, JoinError};
+use std::sync::Arc;
+use tokio::task;
 
-use crate::get_global_service_name;
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot build keyutils credentials using key {1}")]
-    BuildCredentialsError(#[source] keyring_native::Error, String),
-    #[error("cannot find secret from keyutils matching `{1}`")]
-    FindSecretError(#[source] keyring_native::Error, String),
-    #[error("cannot set secret from keyutils matching `{1}`")]
-    SetSecretError(#[source] keyring_native::Error, String),
-    #[error("cannot delete secret from keyutils matching `{1}`")]
-    DeleteSecretError(#[source] keyring_native::Error, String),
-
-    #[error(transparent)]
-    JoinError(#[from] JoinError),
-}
-
-/// The `Result` alias dedicated to keyutils cache.
-pub type Result<T> = result::Result<T, Error>;
+use crate::{get_global_service_name, Error, Result};
 
 /// Keyutils cache entry structure.
 ///

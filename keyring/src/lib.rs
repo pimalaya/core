@@ -10,46 +10,22 @@
 //! [`KeyringEntry`]. Cache is enabled on Linux only, using the kernel
 //! [`keyutils`] keyring.
 
+pub mod error;
 #[cfg(target_os = "linux")]
 mod keyutils;
 mod service;
 
+pub use error::*;
 pub use keyring_native as native;
 use log::{debug, trace};
-use std::{result, sync::Arc};
-use thiserror::Error;
-use tokio::task::{self, JoinError};
+use std::sync::Arc;
+use tokio::task;
 
 #[cfg(target_os = "linux")]
 #[doc(inline)]
 pub use keyutils::KeyutilsEntry;
 #[doc(inline)]
 pub use service::{get_global_service_name, set_global_service_name};
-
-/// The global `Error` enum of the library.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot build keyring entry using key `{1}`")]
-    BuildEntryError(#[source] keyring_native::Error, String),
-    #[error("cannot get secret from keyring matching `{1}`")]
-    GetSecretError(#[source] keyring_native::Error, String),
-    #[error("cannot find secret from keyring matching `{1}`")]
-    FindSecretError(#[source] keyring_native::Error, String),
-    #[error("cannot set secret from keyring matching `{1}`")]
-    SetSecretError(#[source] keyring_native::Error, String),
-    #[error("cannot delete secret from keyring matching `{1}`")]
-    DeleteSecretError(#[source] keyring_native::Error, String),
-
-    #[cfg(target_os = "linux")]
-    #[error("error while using linux keyutils cache")]
-    KeyutilsError(#[source] keyutils::Error),
-
-    #[error(transparent)]
-    JoinError(#[from] JoinError),
-}
-
-/// The global `Result` alias of the library.
-pub type Result<T> = result::Result<T, Error>;
 
 /// The keyring entry.
 ///
@@ -158,10 +134,7 @@ impl KeyringEntry {
         debug!("setting keyring secret for key `{key}`");
 
         #[cfg(target_os = "linux")]
-        self.cache_entry
-            .set_secret(&secret)
-            .await
-            .map_err(Error::KeyutilsError)?;
+        self.cache_entry.set_secret(&secret).await?;
 
         let entry = self.entry.clone();
         task::spawn_blocking(move || entry.set_password(&secret))
@@ -185,10 +158,7 @@ impl KeyringEntry {
         debug!("deleting keyring secret for key `{key}`");
 
         #[cfg(target_os = "linux")]
-        self.cache_entry
-            .delete_secret()
-            .await
-            .map_err(Error::KeyutilsError)?;
+        self.cache_entry.delete_secret().await?;
 
         let entry = self.entry.clone();
         task::spawn_blocking(move || entry.delete_password())
@@ -210,7 +180,7 @@ impl TryFrom<String> for KeyringEntry {
             Err(err) => Err(Error::BuildEntryError(err, key.clone())),
         }?;
 
-        let cache_entry = KeyutilsEntry::try_new(&key).map_err(Error::KeyutilsError)?;
+        let cache_entry = KeyutilsEntry::try_new(&key)?;
 
         Ok(Self {
             key,
