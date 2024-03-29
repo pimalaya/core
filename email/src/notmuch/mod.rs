@@ -1,4 +1,5 @@
 pub mod config;
+pub mod error;
 
 use async_trait::async_trait;
 use log::info;
@@ -6,7 +7,6 @@ use maildirpp::Maildir;
 use notmuch::{Database, DatabaseMode};
 use shellexpand_utils::shellexpand_path;
 use std::{ops::Deref, sync::Arc};
-use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::{
@@ -38,16 +38,9 @@ use crate::{
         r#move::{notmuch::MoveNotmuchMessages, MoveMessages},
         remove::{notmuch::RemoveNotmuchMessages, RemoveMessages},
     },
-    Result,
 };
 
 use self::config::NotmuchConfig;
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot open notmuch database")]
-    OpenDatabaseError(#[source] notmuch::Error),
-}
 
 /// The Notmuch backend context.
 ///
@@ -68,7 +61,7 @@ pub struct NotmuchContext {
 }
 
 impl NotmuchContext {
-    pub fn open_db(&self) -> Result<Database> {
+    pub fn open_db(&self) -> Result<Database, error::Error> {
         let db_path = self
             .notmuch_config
             .database_path
@@ -79,7 +72,7 @@ impl NotmuchContext {
         let profile = self.notmuch_config.find_profile();
 
         let db = Database::open_with_config(db_path, db_mode, config_path, profile)
-            .map_err(Error::OpenDatabaseError)?;
+            .map_err(error::Error::OpenDatabase)?;
 
         Ok(db)
     }
@@ -214,7 +207,7 @@ impl BackendContextBuilder for NotmuchContextBuilder {
         Some(Arc::new(RemoveNotmuchMessages::some_new_boxed))
     }
 
-    async fn build(self) -> Result<Self::Context> {
+    async fn build(self) -> crate::Result<Self::Context> {
         info!("building new notmuch context");
 
         let root = Maildir::from(self.notmuch_config.get_maildir_path()?);
@@ -264,12 +257,15 @@ impl CheckUpNotmuch {
 
 #[async_trait]
 impl CheckUp for CheckUpNotmuch {
-    async fn check_up(&self) -> Result<()> {
+    async fn check_up(&self) -> crate::Result<()> {
         let ctx = self.ctx.lock().await;
 
         let db = ctx.open_db()?;
-        db.create_query("*")?.count_messages()?;
-        db.close()?;
+        db.create_query("*")
+            .map_err(error::Error::CreatingQueryFailed)?
+            .count_messages()
+            .map_err(error::Error::QueryFailed)?;
+        db.close().map_err(error::Error::ClosingFailed)?;
 
         Ok(())
     }
