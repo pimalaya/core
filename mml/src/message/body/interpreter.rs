@@ -98,7 +98,7 @@ pub struct MimeBodyInterpreter {
     /// content) is automatically created at the given
     /// filename. Directory can be customized via
     /// `save_attachments_dir`. This option is particularly useful
-    /// when transfering an email with its attachments.
+    /// when transferring an email with its attachments.
     save_attachments: bool,
 
     /// Saves attachments to the given directory instead of the

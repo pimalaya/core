@@ -67,7 +67,7 @@ pub enum Error {
 
     #[error("cannot parse MIME message")]
     ParseMimeMessageError,
-    #[error("cannot save attachement at {1}")]
+    #[error("cannot save attachment at {1}")]
     WriteAttachmentError(#[source] io::Error, PathBuf),
     #[error("cannot build email")]
     WriteMessageError(#[source] io::Error),
