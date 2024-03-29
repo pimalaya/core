@@ -10,9 +10,9 @@ use super::ExpungeFolder;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("maildir: cannot list current folder from {1}")]
-    ListCurrentFolderError(#[source] maildirpp::Error, PathBuf),
+    ListCurrentFolderMaildirError(#[source] maildirpp::Error, PathBuf),
     #[error("maildir: cannot delete message {2} from folder {1}")]
-    DeleteMessageError(#[source] maildirpp::Error, PathBuf, String),
+    DeleteMessageMaildirError(#[source] maildirpp::Error, PathBuf, String),
 }
 
 pub struct ExpungeMaildirFolder {
@@ -44,7 +44,7 @@ impl ExpungeFolder for ExpungeMaildirFolder {
         let entries = mdir
             .list_cur()
             .collect::<maildirpp::Result<Vec<_>>>()
-            .map_err(|err| Error::ListCurrentFolderError(err, mdir.path().to_owned()))?;
+            .map_err(|err| Error::ListCurrentFolderMaildirError(err, mdir.path().to_owned()))?;
         entries
             .iter()
             .filter_map(|entry| {
@@ -56,7 +56,7 @@ impl ExpungeFolder for ExpungeMaildirFolder {
             })
             .try_for_each(|id| {
                 mdir.delete(id).map_err(|err| {
-                    Error::DeleteMessageError(err, mdir.path().to_owned(), id.to_owned())
+                    Error::DeleteMessageMaildirError(err, mdir.path().to_owned(), id.to_owned())
                 })
             })?;
 

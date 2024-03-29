@@ -81,8 +81,11 @@ impl SmtpConfig {
     pub async fn credentials(&self) -> Result<Credentials<String>, Error> {
         Ok(match &self.auth {
             SmtpAuthConfig::Passwd(passwd) => {
-                let passwd = passwd.get().await.map_err(Error::GetPasswdError)?;
-                let passwd = passwd.lines().next().ok_or(Error::GetPasswdEmptyError)?;
+                let passwd = passwd.get().await.map_err(Error::GetPasswdSmtpError)?;
+                let passwd = passwd
+                    .lines()
+                    .next()
+                    .ok_or(Error::GetPasswdEmptySmtpError)?;
                 Credentials::new(self.login.clone(), passwd.to_owned())
             }
             SmtpAuthConfig::OAuth2(oauth2) => {

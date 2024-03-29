@@ -10,11 +10,11 @@ use super::MoveMessages;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot find notmuch envelope {1} from {0}")]
-    FindEnvelopeEmptyError(String, String),
+    FindEnvelopeEmptyNotmuchError(String, String),
     #[error("cannot get notmuch message filename from {0}")]
-    GetMessageFilenameError(PathBuf),
+    GetMessageFilenameNotmuchError(PathBuf),
     #[error("cannot move notmuch message {3} from {1} to {2}")]
-    MoveMessageError(#[source] maildirpp::Error, String, String, String),
+    MoveMessageNotmuchError(#[source] notmuch::Error, String, String, String),
 }
 
 #[derive(Clone)]

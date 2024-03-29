@@ -15,7 +15,7 @@ use super::AddFolder;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot create maildir folder structure at {1}")]
-    CreateFolderStructureError(#[source] maildirpp::Error, PathBuf),
+    CreateFolderStructureMaildirError(#[source] maildirpp::Error, PathBuf),
 }
 
 pub struct AddMaildirFolder {
@@ -54,7 +54,7 @@ impl AddFolder for AddMaildirFolder {
 
         Maildir::from(path.clone())
             .create_dirs()
-            .map_err(|err| Error::CreateFolderStructureError(err, path))?;
+            .map_err(|err| Error::CreateFolderStructureMaildirError(err, path))?;
 
         Ok(())
     }

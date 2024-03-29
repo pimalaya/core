@@ -79,15 +79,15 @@ impl SmtpContext {
                 }
                 Err(err) if retry.is_empty() => {
                     warn!("cannot send SMTP message after 3 attempts, aborting");
-                    break Err(Error::SendMessageError(err))?;
+                    break Err(Error::SendMessageSmtpError(err))?;
                 }
                 Err(err) => match err {
                     mail_send::Error::AuthenticationFailed(_) => match &self.smtp_config.auth {
                         SmtpAuthConfig::Passwd(_) => {
-                            break Err(Error::SendMessageError(err))?;
+                            break Err(Error::SendMessageSmtpError(err))?;
                         }
                         SmtpAuthConfig::OAuth2(_) if retry.oauth2_access_token_refreshed => {
-                            break Err(Error::SendMessageError(err))?;
+                            break Err(Error::SendMessageSmtpError(err))?;
                         }
                         SmtpAuthConfig::OAuth2(oauth2_config) => {
                             oauth2_config
@@ -122,7 +122,7 @@ impl SmtpContext {
                         continue;
                     }
                     err => {
-                        break Err(Error::SendMessageError(err))?;
+                        break Err(Error::SendMessageSmtpError(err))?;
                     }
                 },
             }
@@ -302,7 +302,7 @@ pub async fn build_client(
         (SmtpAuthConfig::OAuth2(oauth2_config), false) => {
             match Ok(build_tcp_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
-                Err(Error::ConnectTcpError(mail_send::Error::AuthenticationFailed(_))) => {
+                Err(Error::ConnectTcpSmtpError(mail_send::Error::AuthenticationFailed(_))) => {
                     oauth2_config
                         .refresh_access_token()
                         .await
@@ -317,7 +317,7 @@ pub async fn build_client(
         (SmtpAuthConfig::OAuth2(oauth2_config), true) => {
             match Ok(build_tls_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
-                Err(Error::ConnectTlsError(mail_send::Error::AuthenticationFailed(_))) => {
+                Err(Error::ConnectTlsSmtpError(mail_send::Error::AuthenticationFailed(_))) => {
                     oauth2_config
                         .refresh_access_token()
                         .await
@@ -337,7 +337,7 @@ pub async fn build_tcp_client(
 ) -> Result<SmtpClientStream, Error> {
     match client_builder.connect_plain().await {
         Ok(client) => Ok(SmtpClientStream::Tcp(client)),
-        Err(err) => Err(Error::ConnectTcpError(err)),
+        Err(err) => Err(Error::ConnectTcpSmtpError(err)),
     }
 }
 
@@ -346,7 +346,7 @@ pub async fn build_tls_client(
 ) -> Result<SmtpClientStream, Error> {
     match client_builder.connect().await {
         Ok(client) => Ok(SmtpClientStream::Tls(client)),
-        Err(err) => Err(Error::ConnectTlsError(err)),
+        Err(err) => Err(Error::ConnectTlsSmtpError(err)),
     }
 }
 

@@ -16,11 +16,11 @@ use super::CopyMessages;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot find notmuch envelope {1} from {0}")]
-    FindEnvelopeEmptyError(String, String),
+    FindEnvelopeEmptyNotmuchError(String, String),
     #[error("cannot get notmuch message filename from {0}")]
-    GetMessageFilenameError(PathBuf),
+    GetMessageFilenameNotmuchError(PathBuf),
     #[error("cannot copy notmuch message {3} from {1} to {2}")]
-    CopyMessageError(#[source] maildirpp::Error, String, String, String),
+    CopyMessageNotmuchError(#[source] notmuch::Error, String, String, String),
 }
 
 #[derive(Clone)]

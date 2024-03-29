@@ -22,7 +22,7 @@ pub enum Error {
     #[error("cannot save password into global keyring")]
     SetIntoKeyringError(#[source] secret::Error),
     #[error("cannot delete password from global keyring")]
-    DeleteError(#[source] secret::Error),
+    DeletePasswordFromKeyringError(#[source] secret::Error),
 }
 
 /// The password configuration.
@@ -59,7 +59,7 @@ impl PasswdConfig {
     pub async fn reset(&self) -> Result<()> {
         self.delete_only_keyring()
             .await
-            .map_err(Error::DeleteError)?;
+            .map_err(Error::DeletePasswordFromKeyringError)?;
         Ok(())
     }
 

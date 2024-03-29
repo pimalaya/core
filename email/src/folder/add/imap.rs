@@ -10,7 +10,7 @@ use super::AddFolder;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot create imap folder {1}")]
-    CreateFolderError(#[source] imap::Error, String),
+    CreateFolderImapError(#[source] imap::Error, String),
 }
 
 #[derive(Clone, Debug)]
@@ -46,7 +46,7 @@ impl AddFolder for AddImapFolder {
 
         ctx.exec(
             |session| session.create(&folder_encoded),
-            |err| Error::CreateFolderError(err, folder.clone()).into(),
+            |err| Error::CreateFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 

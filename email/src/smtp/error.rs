@@ -7,15 +7,15 @@ pub enum Error {
     #[error("cannot send message without a recipient")]
     SendMessageMissingRecipientError,
     #[error("cannot send message")]
-    SendMessageError(#[source] mail_send::Error),
+    SendMessageSmtpError(#[source] mail_send::Error),
     #[error("cannot connect to smtp server using tcp")]
-    ConnectTcpError(#[source] mail_send::Error),
+    ConnectTcpSmtpError(#[source] mail_send::Error),
     #[error("cannot connect to smtp server using tls")]
-    ConnectTlsError(#[source] mail_send::Error),
+    ConnectTlsSmtpError(#[source] mail_send::Error),
     #[error("cannot get smtp password")]
-    GetPasswdError(#[source] secret::Error),
+    GetPasswdSmtpError(#[source] secret::Error),
     #[error("cannot get smtp password: password is empty")]
-    GetPasswdEmptyError,
+    GetPasswdEmptySmtpError,
     #[error("cannot get access token")]
     AccessTokenWasNotAvailable,
     #[error("cannot refresh access token")]

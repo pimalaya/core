@@ -294,8 +294,8 @@ impl<'a> ReplyTemplateBuilder<'a> {
         let cc = {
             let mut addresses = Vec::new();
 
-            if !i_am_a_main_recipient && address::is_empty(&reply_to) {
-                if !address::is_empty(&from) {
+            if !i_am_a_main_recipient && address::is_empty(reply_to) {
+                if !address::is_empty(from) {
                     if let HeaderValue::Address(mail_parser::Address::List(addrs)) = &from {
                         for a in addrs {
                             if a.address == me.address {

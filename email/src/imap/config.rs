@@ -18,9 +18,9 @@ use crate::{
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get imap password from global keyring")]
-    GetPasswdError(#[source] secret::Error),
+    GetPasswdImapError(#[source] secret::Error),
     #[error("cannot get imap password: password is empty")]
-    GetPasswdEmptyError,
+    GetPasswdEmptyImapError,
 }
 
 /// The IMAP backend configuration.
@@ -176,8 +176,11 @@ impl ImapAuthConfig {
     pub async fn build_credentials(&self) -> Result<String> {
         match self {
             ImapAuthConfig::Passwd(passwd) => {
-                let passwd = passwd.get().await.map_err(Error::GetPasswdError)?;
-                let passwd = passwd.lines().next().ok_or(Error::GetPasswdEmptyError)?;
+                let passwd = passwd.get().await.map_err(Error::GetPasswdImapError)?;
+                let passwd = passwd
+                    .lines()
+                    .next()
+                    .ok_or(Error::GetPasswdEmptyImapError)?;
                 Ok(passwd.to_owned())
             }
             ImapAuthConfig::OAuth2(oauth2) => Ok(oauth2.access_token().await?),

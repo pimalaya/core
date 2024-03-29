@@ -10,7 +10,7 @@ use super::DeleteFolder;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot delete imap folder {1}")]
-    DeleteFolderError(#[source] imap::Error, String),
+    DeleteFolderImapError(#[source] imap::Error, String),
 }
 
 #[derive(Debug)]
@@ -46,7 +46,7 @@ impl DeleteFolder for DeleteImapFolder {
 
         ctx.exec(
             |session| session.delete(&folder_encoded),
-            |err| Error::DeleteFolderError(err, folder.clone()).into(),
+            |err| Error::DeleteFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 

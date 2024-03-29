@@ -72,7 +72,7 @@ impl NotmuchContext {
         let profile = self.notmuch_config.find_profile();
 
         let db = Database::open_with_config(db_path, db_mode, config_path, profile)
-            .map_err(error::Error::OpenDatabase)?;
+            .map_err(error::Error::OpenNotmuchDatabase)?;
 
         Ok(db)
     }
@@ -262,10 +262,10 @@ impl CheckUp for CheckUpNotmuch {
 
         let db = ctx.open_db()?;
         db.create_query("*")
-            .map_err(error::Error::CreatingQueryFailed)?
+            .map_err(error::Error::CreatingQueryNotmuchFailed)?
             .count_messages()
-            .map_err(error::Error::QueryFailed)?;
-        db.close().map_err(error::Error::ClosingFailed)?;
+            .map_err(error::Error::QueryNotmuchFailed)?;
+        db.close().map_err(error::Error::ClosingNotmuchFailed)?;
 
         Ok(())
     }

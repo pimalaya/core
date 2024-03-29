@@ -15,36 +15,36 @@ use crate::Result;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot create oauth2 client")]
-    InitClientError(#[source] oauth::Error),
+    InitOauthClientError(#[source] oauth::Error),
     #[error("cannot create oauth2 client")]
-    BuildClientError(#[source] oauth::Error),
+    BuildOauthClientError(#[source] oauth::Error),
     #[error("cannot wait for oauth2 redirection error")]
-    WaitForRedirectionError(#[source] oauth::Error),
+    WaitForOauthRedirectionError(#[source] oauth::Error),
 
     #[error("cannot get oauth2 access token from global keyring")]
-    GetAccessTokenError(#[source] secret::Error),
+    GetAccessTokenOauthError(#[source] secret::Error),
     #[error("cannot set oauth2 access token")]
-    SetAccessTokenError(#[source] secret::Error),
+    SetAccessTokenOauthError(#[source] secret::Error),
     #[error("cannot refresh oauth2 access token")]
-    RefreshAccessTokenError(#[source] oauth::Error),
+    RefreshAccessTokenOauthError(#[source] oauth::Error),
     #[error("cannot delete oauth2 access token from global keyring")]
-    DeleteAccessTokenError(#[source] secret::Error),
+    DeleteAccessTokenOauthError(#[source] secret::Error),
 
     #[error("cannot get oauth2 refresh token")]
-    GetRefreshTokenError(#[source] secret::Error),
+    GetRefreshTokenOauthError(#[source] secret::Error),
     #[error("cannot set oauth2 refresh token")]
-    SetRefreshTokenError(#[source] secret::Error),
+    SetRefreshTokenOauthError(#[source] secret::Error),
     #[error("cannot delete oauth2 refresh token from global keyring")]
-    DeleteRefreshTokenError(#[source] secret::Error),
+    DeleteRefreshTokenOauthError(#[source] secret::Error),
 
     #[error("cannot get oauth2 client secret from user")]
-    GetClientSecretFromUserError(#[source] io::Error),
+    GetClientSecretFromUserOauthError(#[source] io::Error),
     #[error("cannot get oauth2 client secret from global keyring")]
-    GetClientSecretFromKeyringError(#[source] secret::Error),
+    GetClientSecretFromKeyringOauthError(#[source] secret::Error),
     #[error("cannot save oauth2 client secret into global keyring")]
-    SetClientSecretIntoKeyringError(#[source] secret::Error),
+    SetClientSecretIntoKeyringOauthError(#[source] secret::Error),
     #[error("cannot delete oauth2 client secret from global keyring")]
-    DeleteClientSecretError(#[source] secret::Error),
+    DeleteClientSecretOauthError(#[source] secret::Error),
 
     #[error("cannot get available port")]
     GetAvailablePortError,
@@ -121,15 +121,15 @@ impl OAuth2Config {
         self.client_secret
             .delete_only_keyring()
             .await
-            .map_err(Error::DeleteClientSecretError)?;
+            .map_err(Error::DeleteClientSecretOauthError)?;
         self.access_token
             .delete_only_keyring()
             .await
-            .map_err(Error::DeleteAccessTokenError)?;
+            .map_err(Error::DeleteAccessTokenOauthError)?;
         self.refresh_token
             .delete_only_keyring()
             .await
-            .map_err(Error::DeleteRefreshTokenError)?;
+            .map_err(Error::DeleteRefreshTokenOauthError)?;
         Ok(())
     }
 
@@ -151,13 +151,13 @@ impl OAuth2Config {
                 debug!("cannot find oauth2 client secret from keyring, setting it");
                 self.client_secret
                     .set_only_keyring(
-                        get_client_secret().map_err(Error::GetClientSecretFromUserError)?,
+                        get_client_secret().map_err(Error::GetClientSecretFromUserOauthError)?,
                     )
                     .await
-                    .map_err(Error::SetClientSecretIntoKeyringError)
+                    .map_err(Error::SetClientSecretIntoKeyringOauthError)
             }
             Ok(Some(client_secret)) => Ok(client_secret),
-            Err(err) => Err(Error::GetClientSecretFromKeyringError(err)),
+            Err(err) => Err(Error::GetClientSecretFromKeyringOauthError(err)),
         }?;
 
         let client = Client::new(
@@ -166,11 +166,11 @@ impl OAuth2Config {
             self.auth_url.clone(),
             self.token_url.clone(),
         )
-        .map_err(Error::InitClientError)?
+        .map_err(Error::InitOauthClientError)?
         .with_redirect_host(OAuth2Config::LOCALHOST.to_owned())
         .with_redirect_port(redirect_port)
         .build()
-        .map_err(Error::BuildClientError)?;
+        .map_err(Error::BuildOauthClientError)?;
 
         let mut auth_code_grant = AuthorizationCodeGrant::new()
             .with_redirect_host(OAuth2Config::LOCALHOST.to_owned())
@@ -193,18 +193,18 @@ impl OAuth2Config {
         let (access_token, refresh_token) = auth_code_grant
             .wait_for_redirection(&client, csrf_token)
             .await
-            .map_err(Error::WaitForRedirectionError)?;
+            .map_err(Error::WaitForOauthRedirectionError)?;
 
         self.access_token
             .set_only_keyring(access_token)
             .await
-            .map_err(Error::SetAccessTokenError)?;
+            .map_err(Error::SetAccessTokenOauthError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
                 .set_only_keyring(refresh_token)
                 .await
-                .map_err(Error::SetRefreshTokenError)?;
+                .map_err(Error::SetRefreshTokenOauthError)?;
         }
 
         Ok(())
@@ -219,7 +219,7 @@ impl OAuth2Config {
             .client_secret
             .get()
             .await
-            .map_err(Error::GetClientSecretFromKeyringError)?;
+            .map_err(Error::GetClientSecretFromKeyringOauthError)?;
 
         let client = Client::new(
             self.client_id.clone(),
@@ -227,33 +227,33 @@ impl OAuth2Config {
             self.auth_url.clone(),
             self.token_url.clone(),
         )
-        .map_err(Error::InitClientError)?
+        .map_err(Error::InitOauthClientError)?
         .with_redirect_host(OAuth2Config::LOCALHOST.to_owned())
         .with_redirect_port(redirect_port)
         .build()
-        .map_err(Error::BuildClientError)?;
+        .map_err(Error::BuildOauthClientError)?;
 
         let refresh_token = self
             .refresh_token
             .get()
             .await
-            .map_err(Error::GetRefreshTokenError)?;
+            .map_err(Error::GetRefreshTokenOauthError)?;
 
         let (access_token, refresh_token) = RefreshAccessToken::new()
             .refresh_access_token(&client, refresh_token)
             .await
-            .map_err(Error::RefreshAccessTokenError)?;
+            .map_err(Error::RefreshAccessTokenOauthError)?;
 
         self.access_token
             .set_only_keyring(&access_token)
             .await
-            .map_err(Error::SetAccessTokenError)?;
+            .map_err(Error::SetAccessTokenOauthError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
                 .set_only_keyring(refresh_token)
                 .await
-                .map_err(Error::SetRefreshTokenError)?;
+                .map_err(Error::SetRefreshTokenOauthError)?;
         }
 
         Ok(access_token)
@@ -265,7 +265,7 @@ impl OAuth2Config {
         self.access_token
             .get()
             .await
-            .map_err(|err| Error::GetAccessTokenError(err).into())
+            .map_err(|err| Error::GetAccessTokenOauthError(err).into())
     }
 }
 

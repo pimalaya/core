@@ -48,15 +48,15 @@ use self::config::{ImapAuthConfig, ImapConfig};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot authenticate to imap server")]
-    AuthenticateError(#[source] imap::Error),
+    AuthenticateImapError(#[source] imap::Error),
     #[error("cannot get imap password from global keyring")]
-    GetPasswdError(#[source] secret::Error),
+    GetPasswdImapError(#[source] secret::Error),
     #[error("cannot get imap password: password is empty")]
-    GetPasswdEmptyError,
+    GetPasswdEmptyImapError,
     #[error("cannot login to imap server")]
-    LoginError(#[source] imap::Error),
+    LoginImapError(#[source] imap::Error),
     #[error("cannot connect to imap server")]
-    ConnectError(#[source] imap::Error),
+    ConnectImapError(#[source] imap::Error),
 }
 
 /// The IMAP backend context.
@@ -292,7 +292,7 @@ impl BackendContextBuilder for ImapContextBuilder {
                     break Err(err);
                 }
                 Err(err) => match err.downcast_ref::<Error>() {
-                    Some(Error::AuthenticateError(e)) if is_authentication_failed(e) => {
+                    Some(Error::AuthenticateImapError(e)) if is_authentication_failed(e) => {
                         match &self.imap_config.auth {
                             ImapAuthConfig::Passwd(_) => {
                                 break Err(err);
@@ -469,15 +469,15 @@ pub async fn build_session(
                 None => passwd
                     .get()
                     .await
-                    .map_err(Error::GetPasswdError)?
+                    .map_err(Error::GetPasswdImapError)?
                     .lines()
                     .next()
-                    .ok_or(Error::GetPasswdEmptyError)?
+                    .ok_or(Error::GetPasswdEmptyImapError)?
                     .to_owned(),
             };
             build_client(imap_config)?
                 .login(&imap_config.login, passwd)
-                .map_err(|res| Error::LoginError(res.0))
+                .map_err(|res| Error::LoginImapError(res.0))
         }
         ImapAuthConfig::OAuth2(oauth2_config) => {
             let access_token = match credentials {
@@ -490,7 +490,7 @@ pub async fn build_session(
                     let xoauth2 = XOAuth2::new(imap_config.login.clone(), access_token);
                     build_client(imap_config)?
                         .authenticate("XOAUTH2", &xoauth2)
-                        .map_err(|(err, _client)| Error::AuthenticateError(err))
+                        .map_err(|(err, _client)| Error::AuthenticateImapError(err))
                 }
                 OAuth2Method::OAuthBearer => {
                     debug!("creating session using oauthbearer");
@@ -502,7 +502,7 @@ pub async fn build_session(
                     );
                     build_client(imap_config)?
                         .authenticate("OAUTHBEARER", &bearer)
-                        .map_err(|(err, _client)| Error::AuthenticateError(err))
+                        .map_err(|(err, _client)| Error::AuthenticateImapError(err))
                 }
             }
         }
@@ -523,7 +523,7 @@ fn build_client(imap_config: &ImapConfig) -> Result<Client<Box<dyn ImapConnectio
         client_builder = client_builder.danger_skip_tls_verify(true);
     }
 
-    let client = client_builder.connect().map_err(Error::ConnectError)?;
+    let client = client_builder.connect().map_err(Error::ConnectImapError)?;
 
     Ok(client)
 }

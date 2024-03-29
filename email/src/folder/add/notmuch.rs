@@ -11,7 +11,7 @@ use super::AddFolder;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot create notmuch folder structure at {1}")]
-    CreateFolderStructureError(#[source] maildirpp::Error, PathBuf),
+    CreateFolderStructureNotmuchError(#[source] maildirpp::Error, PathBuf),
 }
 
 pub struct AddNotmuchFolder {
@@ -45,13 +45,13 @@ impl AddFolder for AddNotmuchFolder {
             mdir_ctx.root.path().to_owned()
         } else {
             let folder = config.get_folder_alias(folder);
-            let folder = maildir::encode_folder(folder);
+            let folder = maildir::encode_folder(folder); //TODO: Is this right under the notmuch backend?
             mdir_ctx.root.path().join(format!(".{}", folder))
         };
 
         Maildir::from(path.clone())
             .create_dirs()
-            .map_err(|err| Error::CreateFolderStructureError(err, path))?;
+            .map_err(|err| Error::CreateFolderStructureNotmuchError(err, path))?;
 
         Ok(())
     }

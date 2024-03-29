@@ -9,7 +9,7 @@ use super::RemoveMessages;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot remove maildir message(s) {2} from folder {1}")]
-    RemoveError(#[source] maildirpp::Error, String, String),
+    RemoveMaildirMessageError(#[source] maildirpp::Error, String, String),
 }
 
 #[derive(Clone)]
@@ -40,8 +40,9 @@ impl RemoveMessages for RemoveMaildirMessages {
         let mdir = ctx.get_maildir_from_folder_name(folder)?;
 
         id.iter().try_for_each(|ref id| {
-            mdir.delete(id)
-                .map_err(|err| Error::RemoveError(err, folder.to_owned(), id.to_string()))
+            mdir.delete(id).map_err(|err| {
+                Error::RemoveMaildirMessageError(err, folder.to_owned(), id.to_string())
+            })
         })?;
 
         Ok(())

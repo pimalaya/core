@@ -10,9 +10,9 @@ use super::CopyMessages;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot copy imap messages {3} from folder {1} to folder {2}")]
-    CopyMessagesError(#[source] imap::Error, String, String, Id),
+    CopyMessagesImapError(#[source] imap::Error, String, String, Id),
 }
 
 #[derive(Clone, Debug)]
@@ -52,15 +52,20 @@ impl CopyMessages for CopyImapMessages {
 
         ctx.exec(
             |session| session.select(&from_folder_encoded),
-            |err| Error::SelectFolderError(err, from_folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, from_folder.clone()).into(),
         )
         .await?;
 
         ctx.exec(
             |session| session.uid_copy(id.join(","), &to_folder_encoded),
             |err| {
-                Error::CopyMessagesError(err, from_folder.clone(), to_folder.clone(), id.clone())
-                    .into()
+                Error::CopyMessagesImapError(
+                    err,
+                    from_folder.clone(),
+                    to_folder.clone(),
+                    id.clone(),
+                )
+                .into()
             },
         )
         .await?;

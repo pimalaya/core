@@ -13,9 +13,9 @@ const PEEK_MESSAGES_QUERY: &str = "BODY.PEEK[]";
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot peek imap messages {2} from folder {1}")]
-    PeekMessagesError(#[source] imap::Error, String, Id),
+    PeekMessagesImapError(#[source] imap::Error, String, Id),
 }
 
 #[derive(Clone, Debug)]
@@ -51,14 +51,14 @@ impl PeekMessages for PeekImapMessages {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 
         let fetches = ctx
             .exec(
                 |session| session.uid_fetch(id.join(","), PEEK_MESSAGES_QUERY),
-                |err| Error::PeekMessagesError(err, folder.clone(), id.clone()).into(),
+                |err| Error::PeekMessagesImapError(err, folder.clone(), id.clone()).into(),
             )
             .await?;
 

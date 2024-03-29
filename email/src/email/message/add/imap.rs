@@ -11,11 +11,11 @@ use super::{AddMessage, Flags};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot add imap message to folder {1} with flags {2}")]
-    AppendRawMessageWithFlagsError(#[source] imap::Error, String, Flags),
+    AppendRawMessageWithFlagsImapError(#[source] imap::Error, String, Flags),
     #[error("cannot get added imap message uid from range {0}")]
-    GetAddedMessageUidFromRangeError(String),
+    GetAddedMessageUidFromRangeImapError(String),
     #[error("cannot get added imap message uid: extension UIDPLUS may be missing on the server")]
-    GetAddedMessageUidError,
+    GetAddedMessageUidImapError,
 }
 
 #[derive(Clone, Debug)]
@@ -63,7 +63,8 @@ impl AddMessage for AddImapMessage {
                         .finish()
                 },
                 |err| {
-                    Error::AppendRawMessageWithFlagsError(err, folder.clone(), flags.clone()).into()
+                    Error::AppendRawMessageWithFlagsImapError(err, folder.clone(), flags.clone())
+                        .into()
                 },
             )
             .await?;
@@ -72,7 +73,7 @@ impl AddMessage for AddImapMessage {
             Some(mut uids) if uids.len() == 1 => match uids.get_mut(0).unwrap() {
                 UidSetMember::Uid(uid) => anyhow::Ok(*uid),
                 UidSetMember::UidRange(uids) => Ok(uids.next().ok_or_else(|| {
-                    Error::GetAddedMessageUidFromRangeError(uids.fold(
+                    Error::GetAddedMessageUidFromRangeImapError(uids.fold(
                         String::new(),
                         |range, uid| {
                             if range.is_empty() {
@@ -86,7 +87,7 @@ impl AddMessage for AddImapMessage {
             },
             _ => {
                 // TODO: manage other cases
-                Err(Error::GetAddedMessageUidError.into())
+                Err(Error::GetAddedMessageUidImapError.into())
             }
         }?;
         debug!("added imap message uid: {uid}");

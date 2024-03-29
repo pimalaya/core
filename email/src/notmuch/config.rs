@@ -51,7 +51,7 @@ impl NotmuchConfig {
             None::<PathBuf>,
             None,
         )
-        .map_err(Error::OpenDatabase)?
+        .map_err(Error::OpenNotmuchDatabase)?
         .path()
         .to_owned())
     }

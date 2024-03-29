@@ -165,7 +165,7 @@ impl NewTemplateBuilder {
 
             if sig_style.is_inlined() {
                 if let Some(ref sig) = sig {
-                    body.push_str(&sig);
+                    body.push_str(sig);
                     body.flush();
                 }
             }

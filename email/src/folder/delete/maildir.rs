@@ -14,7 +14,7 @@ use super::DeleteFolder;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot delete maildir folder {1}")]
-    DeleteFolderError(#[source] io::Error, PathBuf),
+    DeleteFolderMaildirError(#[source] io::Error, PathBuf),
 }
 
 pub struct DeleteMaildirFolder {
@@ -49,7 +49,7 @@ impl DeleteFolder for DeleteMaildirFolder {
             ctx.root.path().join(format!(".{}", folder))
         };
 
-        fs::remove_dir_all(&path).map_err(|err| Error::DeleteFolderError(err, path))?;
+        fs::remove_dir_all(&path).map_err(|err| Error::DeleteFolderMaildirError(err, path))?;
 
         Ok(())
     }

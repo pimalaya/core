@@ -59,11 +59,11 @@ pub enum Error {
     #[error("cannot parse download file name from {0}")]
     ParseDownloadFileNameError(PathBuf),
     #[error("cannot get sync directory from XDG_DATA_HOME")]
-    GetXdgDataDirError,
+    GetXdgDataDirSyncError,
     #[error("cannot create sync directories")]
-    CreateXdgDataDirsError(#[source] io::Error),
+    CreateXdgDataDirsSyncError(#[source] io::Error),
     #[error("cannot get file name from path {0}")]
-    GetFileNameFromPathError(PathBuf),
+    GetFileNameFromPathSyncError(PathBuf),
 }
 
 pub trait HasAccountConfig {
@@ -192,7 +192,7 @@ impl AccountConfig {
 
         let file_name = path
             .file_name()
-            .ok_or_else(|| Error::GetFileNameFromPathError(path.to_owned()))?;
+            .ok_or_else(|| Error::GetFileNameFromPathSyncError(path.to_owned()))?;
 
         let final_path = self.get_downloads_dir().join(file_name);
 
@@ -240,19 +240,19 @@ impl AccountConfig {
             Some(dir) => {
                 let sync_dir = shellexpand_path(dir);
                 if !sync_dir.is_dir() {
-                    fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsError)?;
+                    fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsSyncError)?;
                 }
                 Ok(sync_dir)
             }
             None => {
                 debug!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/pimalaya/email/sync");
                 let sync_dir = data_dir()
-                    .ok_or(Error::GetXdgDataDirError)?
+                    .ok_or(Error::GetXdgDataDirSyncError)?
                     .join("pimalaya")
                     .join("email")
                     .join("sync")
                     .join(self.name.clone() + "-cache");
-                fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsError)?;
+                fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsSyncError)?;
                 Ok(sync_dir)
             }
         }

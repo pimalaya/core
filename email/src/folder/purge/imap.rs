@@ -14,11 +14,11 @@ use super::PurgeFolder;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot add imap flag deleted to all envelopes in folder {1}")]
-    AddDeletedFlagError(#[source] imap::Error, String),
+    AddDeletedFlagImapError(#[source] imap::Error, String),
     #[error("cannot expunge imap folder {1}")]
-    ExpungeFolderError(#[source] imap::Error, String),
+    ExpungeFolderImapError(#[source] imap::Error, String),
 }
 
 #[derive(Debug)]
@@ -57,7 +57,7 @@ impl PurgeFolder for PurgeImapFolder {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 
@@ -65,13 +65,13 @@ impl PurgeFolder for PurgeImapFolder {
             |session| {
                 session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query_string()))
             },
-            |err| Error::AddDeletedFlagError(err, folder.clone()).into(),
+            |err| Error::AddDeletedFlagImapError(err, folder.clone()).into(),
         )
         .await?;
 
         ctx.exec(
             |session| session.expunge(),
-            |err| Error::ExpungeFolderError(err, folder.clone()).into(),
+            |err| Error::ExpungeFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 

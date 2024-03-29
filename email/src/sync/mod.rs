@@ -43,14 +43,13 @@ use self::report::SyncReport;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot open sync lock file")]
-    OpenLockFileError(#[source] io::Error, PathBuf),
+    OpenLockFileSyncError(#[source] io::Error, PathBuf),
     #[error("cannot lock sync file")]
-    LockFileError(#[source] FileLockError, PathBuf),
+    LockFileSyncError(#[source] FileLockError, PathBuf),
     #[error("cannot unlock sync file")]
-    UnlockFileError(#[source] FileLockError, PathBuf),
-
+    UnlockFileSyncError(#[source] FileLockError, PathBuf),
     #[error("cannot get sync cache directory")]
-    GetCacheDirectoryError,
+    GetCacheDirectorySyncError,
 }
 
 /// The synchronization builder.
@@ -121,7 +120,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
 
     pub fn get_cache_dir(&self) -> Result<PathBuf> {
         self.find_cache_dir()
-            .ok_or(Error::GetCacheDirectoryError.into())
+            .ok_or(Error::GetCacheDirectorySyncError.into())
     }
 
     pub fn set_some_pool_size(&mut self, size: Option<usize>) {
@@ -246,10 +245,10 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             .write(true)
             .truncate(true)
             .open(&lock_file_path)
-            .map_err(|err| Error::OpenLockFileError(err, lock_file_path.clone()))?;
+            .map_err(|err| Error::OpenLockFileSyncError(err, lock_file_path.clone()))?;
         lock_file
             .try_lock(FileLockMode::Exclusive)
-            .map_err(|err| Error::LockFileError(err, lock_file_path.clone()))?;
+            .map_err(|err| Error::LockFileSyncError(err, lock_file_path.clone()))?;
 
         let pool = Arc::new(
             pool::new(
@@ -277,7 +276,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         debug!("unlocking sync file");
         lock_file
             .unlock()
-            .map_err(|err| Error::UnlockFileError(err, lock_file_path))?;
+            .map_err(|err| Error::UnlockFileSyncError(err, lock_file_path))?;
 
         Ok(report)
     }

@@ -9,7 +9,7 @@ use super::CopyMessages;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot copy maildir messages {3} from folder {1} to folder {2}")]
-    CopyMessagesError(#[source] maildirpp::Error, String, String, String),
+    CopyMessagesMaildirError(#[source] maildirpp::Error, String, String, String),
 }
 
 #[derive(Clone)]
@@ -42,7 +42,7 @@ impl CopyMessages for CopyMaildirMessages {
 
         id.iter().try_for_each(|id| {
             from_mdir.copy_to(id, &to_mdir).map_err(|err| {
-                Error::CopyMessagesError(
+                Error::CopyMessagesMaildirError(
                     err,
                     from_folder.to_owned(),
                     to_folder.to_owned(),

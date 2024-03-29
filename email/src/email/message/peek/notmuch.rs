@@ -10,7 +10,7 @@ use super::{Messages, PeekMessages};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot find notmuch envelope {1} from folder {0}")]
-    FindEnvelopeEmptyError(String, String),
+    FindEnvelopeEmptyNotmuchError(String, String),
 }
 
 #[derive(Clone)]
@@ -46,7 +46,7 @@ impl PeekMessages for PeekNotmuchMessages {
                 let path = db
                     .find_message(id)?
                     .ok_or_else(|| {
-                        Error::FindEnvelopeEmptyError(folder.to_owned(), id.to_string())
+                        Error::FindEnvelopeEmptyNotmuchError(folder.to_owned(), id.to_string())
                     })?
                     .filename()
                     .to_owned();

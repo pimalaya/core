@@ -9,7 +9,7 @@ use super::{AddMessage, Flags};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot add maildir message to folder {1} with flags {2}")]
-    StoreWithFlagsError(#[source] maildirpp::Error, String, Flags),
+    StoreWithFlagsMaildirError(#[source] maildirpp::Error, String, Flags),
 }
 
 #[derive(Clone)]
@@ -46,7 +46,9 @@ impl AddMessage for AddMaildirMessage {
 
         let id = mdir
             .store_cur_with_flags(raw_msg, &flags.to_mdir_string())
-            .map_err(|err| Error::StoreWithFlagsError(err, folder.to_owned(), flags.clone()))?;
+            .map_err(|err| {
+                Error::StoreWithFlagsMaildirError(err, folder.to_owned(), flags.clone())
+            })?;
 
         Ok(SingleId::from(id))
     }

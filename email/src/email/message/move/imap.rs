@@ -10,9 +10,9 @@ use super::MoveMessages;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot move imap messages {3} from folder {1} to folder {2}")]
-    MoveMessagesError(#[source] imap::Error, String, String, Id),
+    MoveMessagesImapError(#[source] imap::Error, String, String, Id),
 }
 
 #[derive(Clone, Debug)]
@@ -52,15 +52,20 @@ impl MoveMessages for MoveImapMessages {
 
         ctx.exec(
             |session| session.select(&from_folder_encoded),
-            |err| Error::SelectFolderError(err, from_folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, from_folder.clone()).into(),
         )
         .await?;
 
         ctx.exec(
             |session| session.uid_mv(id.join(","), &to_folder_encoded),
             |err| {
-                Error::MoveMessagesError(err, from_folder.clone(), to_folder.clone(), id.clone())
-                    .into()
+                Error::MoveMessagesImapError(
+                    err,
+                    from_folder.clone(),
+                    to_folder.clone(),
+                    id.clone(),
+                )
+                .into()
             },
         )
         .await?;

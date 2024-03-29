@@ -10,9 +10,9 @@ use super::RemoveMessages;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot add deleted flag to imap message(s) {2} from folder {1}")]
-    AddDeletedFlagError(#[source] imap::Error, String, Id),
+    AddDeletedFlagImapError(#[source] imap::Error, String, Id),
 }
 
 #[derive(Clone)]
@@ -48,7 +48,7 @@ impl RemoveMessages for RemoveImapMessages {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 
@@ -57,7 +57,7 @@ impl RemoveMessages for RemoveImapMessages {
                 let query = format!("+FLAGS ({})", Flag::Deleted.to_imap_query_string());
                 session.uid_store(id.join(","), query)
             },
-            |err| Error::AddDeletedFlagError(err, folder.clone(), id.clone()).into(),
+            |err| Error::AddDeletedFlagImapError(err, folder.clone(), id.clone()).into(),
         )
         .await?;
 

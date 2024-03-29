@@ -13,9 +13,9 @@ const GET_MESSAGES_QUERY: &str = "BODY[]";
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot get imap messages {2} from folder {1}")]
-    GetMessagesError(#[source] imap::Error, String, Id),
+    GetMessagesImapError(#[source] imap::Error, String, Id),
 }
 
 #[derive(Clone, Debug)]
@@ -51,14 +51,14 @@ impl GetMessages for GetImapMessages {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 
         let fetches = ctx
             .exec(
                 |session| session.uid_fetch(id.join(","), GET_MESSAGES_QUERY),
-                |err| Error::GetMessagesError(err, folder.clone(), id.clone()).into(),
+                |err| Error::GetMessagesImapError(err, folder.clone(), id.clone()).into(),
             )
             .await?;
 

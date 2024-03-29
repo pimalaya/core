@@ -10,9 +10,9 @@ use super::ExpungeFolder;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot select imap folder {1}")]
-    SelectFolderError(#[source] imap::Error, String),
+    SelectFolderImapError(#[source] imap::Error, String),
     #[error("cannot expunge imap folder {1}")]
-    ExpungeFolderError(#[source] imap::Error, String),
+    ExpungeFolderImapError(#[source] imap::Error, String),
 }
 
 #[derive(Debug)]
@@ -48,13 +48,13 @@ impl ExpungeFolder for ExpungeImapFolder {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 
         ctx.exec(
             |session| session.expunge(),
-            |err| Error::ExpungeFolderError(err, folder.clone()).into(),
+            |err| Error::ExpungeFolderImapError(err, folder.clone()).into(),
         )
         .await?;
 

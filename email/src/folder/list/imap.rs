@@ -9,7 +9,7 @@ use super::{Folders, ListFolders};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot list imap folders")]
-    ListFoldersError(#[source] imap::Error),
+    ListFoldersImapError(#[source] imap::Error),
 }
 
 #[derive(Debug, Clone)]
@@ -42,7 +42,7 @@ impl ListFolders for ListImapFolders {
         let names = ctx
             .exec(
                 |session| session.list(Some(""), Some("*")),
-                |err| Error::ListFoldersError(err).into(),
+                |err| Error::ListFoldersImapError(err).into(),
             )
             .await?;
 

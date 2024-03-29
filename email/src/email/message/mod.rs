@@ -56,7 +56,7 @@ pub enum Error {
     ParseEmailFromEmptyEntriesError,
 
     #[error(transparent)]
-    ConfigError(#[from] account::config::Error),
+    AcountConfigError(#[from] account::config::Error),
     #[error("cannot decrypt encrypted email part")]
     DecryptEmailPartError(#[source] process::Error),
     #[error("cannot verify signed email part")]

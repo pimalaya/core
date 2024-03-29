@@ -9,7 +9,7 @@ use super::MoveMessages;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot move messages {3} from maildir folder {1} to folder {2}")]
-    MoveMessagesError(#[source] maildirpp::Error, String, String, String),
+    MoveMessagesMaildirError(#[source] maildirpp::Error, String, String, String),
 }
 
 #[derive(Clone)]
@@ -42,7 +42,7 @@ impl MoveMessages for MoveMaildirMessages {
 
         id.iter().try_for_each(|id| {
             from_mdir.move_to(id, &to_mdir).map_err(|err| {
-                Error::MoveMessagesError(
+                Error::MoveMessagesMaildirError(
                     err,
                     from_folder.to_owned(),
                     to_folder.to_owned(),

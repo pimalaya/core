@@ -16,7 +16,7 @@ use super::config::AutoConfig;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot get autoconfig from {0}: {1}")]
-    GetConfigError(Uri, StatusCode),
+    GetAutoConfigError(Uri, StatusCode),
 }
 
 /// Simple HTTP client using rustls connector.
@@ -50,7 +50,7 @@ impl HttpClient {
         if !status.is_success() {
             let err = String::from_utf8_lossy(&body);
             trace!("{err}");
-            return Err(Error::GetConfigError(uri.clone(), status).into());
+            return Err(Error::GetAutoConfigError(uri.clone(), status).into());
         }
 
         let config = serde_xml_rs::from_reader(body.as_ref())?;

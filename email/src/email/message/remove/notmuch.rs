@@ -9,7 +9,7 @@ use super::RemoveMessages;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot remove notmuch message(s) {2} from folder {1}")]
-    RemoveError(#[source] notmuch::Error, String, Id),
+    RemoveNotmuchMessageError(#[source] notmuch::Error, String, Id),
 }
 
 #[derive(Clone)]
@@ -54,8 +54,9 @@ impl RemoveMessages for RemoveNotmuchMessages {
         let msgs = query_builder.search_messages()?;
 
         for msg in msgs {
-            db.remove_message(msg.filename())
-                .map_err(|err| Error::RemoveError(err, folder.to_owned(), id.clone()))?
+            db.remove_message(msg.filename()).map_err(|err| {
+                Error::RemoveNotmuchMessageError(err, folder.to_owned(), id.clone())
+            })?
         }
 
         db.close()?;
