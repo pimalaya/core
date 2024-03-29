@@ -1,3 +1,6 @@
+pub mod error;
+pub use error::*;
+
 use gethostname::gethostname;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
@@ -5,14 +8,13 @@ use std::os::unix::fs::MetadataExt;
 use std::os::windows::fs::MetadataExt;
 use std::{
     fs::{self, File, OpenOptions, ReadDir},
-    io::{self, prelude::*, BufReader, ErrorKind},
+    io::{self, BufRead, BufReader, ErrorKind, Write},
     ops::Deref,
     path::{Path, PathBuf},
-    process, result,
+    process,
     sync::atomic::{AtomicUsize, Ordering},
-    time::{self, SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH},
 };
-use thiserror::Error;
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -20,25 +22,6 @@ static COUNTER: AtomicUsize = AtomicUsize::new(0);
 const INFORMATIONAL_SUFFIX_SEPARATOR: &str = ":";
 #[cfg(windows)]
 const INFORMATIONAL_SUFFIX_SEPARATOR: &str = ";";
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot find email {0}")]
-    FindEmailError(String),
-    #[error("cannot get invalid file name from email {0}")]
-    GetEmailFileNameError(String),
-    #[error("cannot copy email to the same path {0}")]
-    CopyEmailSamePathError(PathBuf),
-    #[error("cannot get subfolder name")]
-    GetSubfolderNameError,
-
-    #[error(transparent)]
-    IoError(#[from] io::Error),
-    #[error(transparent)]
-    SystemTimeError(#[from] time::SystemTimeError),
-}
-
-pub type Result<T> = result::Result<T, Error>;
 
 /// This struct represents a single email message inside
 /// the maildir. Creation of the struct does not automatically
