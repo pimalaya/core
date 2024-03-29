@@ -1,17 +1,7 @@
 use log::{debug, warn};
-use std::{
-    env::VarError,
-    path::{Path, PathBuf},
-};
-use thiserror::Error;
+use std::path::{Path, PathBuf};
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot convert path {0:?} to string")]
-    ConvertPathToStrError(PathBuf),
-    #[error("cannot shell expand string {1}")]
-    ExpandStrError(#[source] shellexpand::LookupError<VarError>, String),
-}
+use crate::error::Error;
 
 pub fn try_path(path: impl AsRef<Path>) -> Result<PathBuf, Error> {
     let path = path.as_ref();
@@ -37,6 +27,7 @@ pub fn path(path: impl AsRef<Path>) -> PathBuf {
             debug!("{err:?}");
             PathBuf::from(path)
         }
+        _ => panic!("this should be impossible!"),
     }
 }
 

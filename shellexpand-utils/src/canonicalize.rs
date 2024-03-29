@@ -1,15 +1,7 @@
 use log::debug;
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
-use thiserror::Error;
+use std::path::{Path, PathBuf};
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot canonicalize path {1:?}")]
-    CanonicalizePathError(#[source] io::Error, PathBuf),
-}
+use crate::error::Error;
 
 pub fn try_path(path: impl AsRef<Path>) -> Result<PathBuf, Error> {
     let path = path.as_ref();

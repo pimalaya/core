@@ -2,19 +2,12 @@ use std::{
     path::{Path, PathBuf},
     result,
 };
-use thiserror::Error;
+
+use error::Error;
 
 pub mod canonicalize;
+pub mod error;
 pub mod expand;
-
-/// The global `Error` enum of the library.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error(transparent)]
-    ExpandError(#[from] expand::Error),
-    #[error(transparent)]
-    CanonicalizeError(#[from] canonicalize::Error),
-}
 
 /// The global `Result` alias of the library.
 pub type Result<T> = result::Result<T, Error>;
