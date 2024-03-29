@@ -8,23 +8,14 @@ use mail_send::Credentials;
 use std::{fmt, io};
 #[cfg(feature = "derive")]
 use std::{marker::PhantomData, result};
-use thiserror::Error;
 
 use crate::{
     account::config::{
         oauth2::{OAuth2Config, OAuth2Method},
         passwd::PasswdConfig,
     },
-    Result,
+    smtp::error::Error,
 };
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot get smtp password")]
-    GetPasswdError(#[source] secret::Error),
-    #[error("cannot get smtp password: password is empty")]
-    GetPasswdEmptyError,
-}
 
 /// The SMTP sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -87,19 +78,26 @@ impl SmtpConfig {
     /// The result depends on the [`SmtpAuthConfig`]: if password mode
     /// then creates credentials from login/password, if OAuth 2.0
     /// then creates credentials from access token.
-    pub async fn credentials(&self) -> Result<Credentials<String>> {
+    pub async fn credentials(&self) -> Result<Credentials<String>, Error> {
         Ok(match &self.auth {
             SmtpAuthConfig::Passwd(passwd) => {
                 let passwd = passwd.get().await.map_err(Error::GetPasswdError)?;
                 let passwd = passwd.lines().next().ok_or(Error::GetPasswdEmptyError)?;
                 Credentials::new(self.login.clone(), passwd.to_owned())
             }
-            SmtpAuthConfig::OAuth2(oauth2) => match oauth2.method {
-                OAuth2Method::XOAuth2 => {
-                    Credentials::new_xoauth2(self.login.clone(), oauth2.access_token().await?)
+            SmtpAuthConfig::OAuth2(oauth2) => {
+                let access_token = oauth2
+                    .access_token()
+                    .await
+                    .map_err(|_| Error::AccessTokenWasNotAvailable)?;
+
+                match oauth2.method {
+                    OAuth2Method::XOAuth2 => {
+                        Credentials::new_xoauth2(self.login.clone(), access_token)
+                    }
+                    OAuth2Method::OAuthBearer => Credentials::new_oauth(access_token),
                 }
-                OAuth2Method::OAuthBearer => Credentials::new_oauth(oauth2.access_token().await?),
-            },
+            }
         })
     }
 }
@@ -164,11 +162,14 @@ impl Default for SmtpAuthConfig {
 
 impl SmtpAuthConfig {
     /// Resets the OAuth 2.0 authentication tokens.
-    pub async fn reset(&mut self) -> Result<()> {
+    pub async fn reset(&mut self) -> Result<(), Error> {
         debug!("resetting smtp backend configuration");
 
         if let Self::OAuth2(oauth2) = self {
-            oauth2.reset().await?;
+            oauth2
+                .reset()
+                .await
+                .map_err(|_| Error::ResettingOAuthFailed)?;
         }
 
         Ok(())
@@ -178,33 +179,44 @@ impl SmtpAuthConfig {
     pub async fn configure(
         &mut self,
         get_client_secret: impl Fn() -> io::Result<String>,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         debug!("configuring smtp backend");
 
         if let Self::OAuth2(oauth2) = self {
-            oauth2.configure(get_client_secret).await?;
+            oauth2
+                .configure(get_client_secret)
+                .await
+                .map_err(|_| Error::ConfiguringOAuthFailed)?;
         }
 
         Ok(())
     }
 
-    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
+    pub fn replace_undefined_keyring_entries(
+        &mut self,
+        name: impl AsRef<str>,
+    ) -> Result<(), Error> {
         let name = name.as_ref();
 
         match self {
             SmtpAuthConfig::Passwd(secret) => {
-                secret.replace_undefined_to_keyring(format!("{name}-smtp-passwd"))?;
+                secret
+                    .replace_undefined_to_keyring(format!("{name}-smtp-passwd"))
+                    .map_err(Error::ReplacingKeyringFailed)?;
             }
             SmtpAuthConfig::OAuth2(config) => {
                 config
                     .client_secret
-                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-client-secret"))?;
+                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-client-secret"))
+                    .map_err(Error::ReplacingKeyringFailed)?;
                 config
                     .access_token
-                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-access-token"))?;
+                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-access-token"))
+                    .map_err(Error::ReplacingKeyringFailed)?;
                 config
                     .refresh_token
-                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-refresh-token"))?;
+                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-refresh-token"))
+                    .map_err(Error::ReplacingKeyringFailed)?;
             }
         }
 

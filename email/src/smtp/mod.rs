@@ -1,6 +1,8 @@
 pub mod config;
+pub mod error;
 
 use async_trait::async_trait;
+use futures::TryFutureExt;
 use log::{debug, info, warn};
 use mail_parser::{Addr, Address, HeaderName, HeaderValue, Message, MessageParser};
 use mail_send::{
@@ -8,7 +10,6 @@ use mail_send::{
     SmtpClientBuilder,
 };
 use std::{collections::HashSet, sync::Arc};
-use thiserror::Error;
 use tokio::{net::TcpStream, sync::Mutex};
 use tokio_rustls::client::TlsStream;
 
@@ -19,24 +20,13 @@ use crate::{
         feature::{BackendFeature, CheckUp},
     },
     message::send::{smtp::SendSmtpMessage, SendMessage},
-    Result,
 };
 
-use self::config::{SmtpAuthConfig, SmtpConfig};
+use self::{
+    config::{SmtpAuthConfig, SmtpConfig},
+    error::Error,
+};
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot send message without a sender")]
-    SendMessageMissingSenderError,
-    #[error("cannot send message without a recipient")]
-    SendMessageMissingRecipientError,
-    #[error("cannot send message")]
-    SendMessageError(#[source] mail_send::Error),
-    #[error("cannot connect to smtp server using tcp")]
-    ConnectTcpError(#[source] mail_send::Error),
-    #[error("cannot connect to smtp server using tls")]
-    ConnectTlsError(#[source] mail_send::Error),
-}
 /// The SMTP backend context.
 ///
 /// This context is unsync, which means it cannot be shared between
@@ -56,7 +46,7 @@ pub struct SmtpContext {
 }
 
 impl SmtpContext {
-    pub async fn send(&mut self, msg: &[u8]) -> Result<()> {
+    pub async fn send(&mut self, msg: &[u8]) -> Result<(), Error> {
         let mut retry = SmtpRetryState::default();
         let buffer: Vec<u8>;
 
@@ -100,7 +90,10 @@ impl SmtpContext {
                             break Err(Error::SendMessageError(err))?;
                         }
                         SmtpAuthConfig::OAuth2(oauth2_config) => {
-                            oauth2_config.refresh_access_token().await?;
+                            oauth2_config
+                                .refresh_access_token()
+                                .await
+                                .map_err(|_| Error::RefreshingAccessTokenFailed)?;
                             retry.set_oauth2_access_token_refreshed();
 
                             self.client_builder = self
@@ -136,8 +129,8 @@ impl SmtpContext {
         }
     }
 
-    pub async fn noop(&mut self) -> Result<()> {
-        Ok(self.client.noop().await?)
+    pub async fn noop(&mut self) -> Result<(), Error> {
+        self.client.noop().await
     }
 }
 
@@ -185,7 +178,7 @@ impl BackendContextBuilder for SmtpContextBuilder {
     /// The SMTP client is created at this moment. If the client
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new client is created.
-    async fn build(self) -> Result<Self::Context> {
+    async fn build(self) -> crate::Result<Self::Context> {
         info!("building new smtp context");
 
         let mut client_builder =
@@ -223,12 +216,12 @@ impl SmtpClientStream {
         }
     }
 
-    pub async fn noop(&mut self) -> mail_send::Result<()> {
+    pub async fn noop(&mut self) -> Result<(), Error> {
         // TODO: replace by noop() as soon as PR merged:
         // <https://github.com/stalwartlabs/mail-send/pull/29>
         match self {
-            Self::Tcp(client) => client.rset().await,
-            Self::Tls(client) => client.rset().await,
+            Self::Tcp(client) => client.rset().map_err(Error::MailSendNoOpFailed).await,
+            Self::Tls(client) => client.rset().map_err(Error::MailSendNoOpFailed).await,
         }
     }
 }
@@ -254,9 +247,9 @@ impl CheckUpSmtp {
 
 #[async_trait]
 impl CheckUp for CheckUpSmtp {
-    async fn check_up(&self) -> Result<()> {
+    async fn check_up(&self) -> crate::Result<()> {
         let mut ctx = self.ctx.lock().await;
-        ctx.noop().await
+        Ok(ctx.noop().await?)
     }
 }
 
@@ -296,7 +289,7 @@ impl Default for SmtpRetryState {
 pub async fn build_client(
     smtp_config: &SmtpConfig,
     mut client_builder: mail_send::SmtpClientBuilder<String>,
-) -> Result<(mail_send::SmtpClientBuilder<String>, SmtpClientStream)> {
+) -> Result<(mail_send::SmtpClientBuilder<String>, SmtpClientStream), Error> {
     match (&smtp_config.auth, smtp_config.is_encryption_enabled()) {
         (SmtpAuthConfig::Passwd(_), false) => {
             let client = build_tcp_client(&client_builder).await?;
@@ -310,24 +303,30 @@ pub async fn build_client(
             match Ok(build_tcp_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
                 Err(Error::ConnectTcpError(mail_send::Error::AuthenticationFailed(_))) => {
-                    oauth2_config.refresh_access_token().await?;
+                    oauth2_config
+                        .refresh_access_token()
+                        .await
+                        .map_err(|_| Error::RefreshingAccessTokenFailed)?;
                     client_builder = client_builder.credentials(smtp_config.credentials().await?);
                     let client = build_tcp_client(&client_builder).await?;
                     Ok((client_builder, client))
                 }
-                Err(err) => Err(err.into()),
+                Err(err) => Err(err),
             }
         }
         (SmtpAuthConfig::OAuth2(oauth2_config), true) => {
             match Ok(build_tls_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
                 Err(Error::ConnectTlsError(mail_send::Error::AuthenticationFailed(_))) => {
-                    oauth2_config.refresh_access_token().await?;
+                    oauth2_config
+                        .refresh_access_token()
+                        .await
+                        .map_err(|_| Error::RefreshingAccessTokenFailed)?;
                     client_builder = client_builder.credentials(smtp_config.credentials().await?);
                     let client = build_tls_client(&client_builder).await?;
                     Ok((client_builder, client))
                 }
-                Err(err) => Err(err.into()),
+                Err(err) => Err(err),
             }
         }
     }
@@ -335,19 +334,19 @@ pub async fn build_client(
 
 pub async fn build_tcp_client(
     client_builder: &mail_send::SmtpClientBuilder<String>,
-) -> Result<SmtpClientStream> {
+) -> Result<SmtpClientStream, Error> {
     match client_builder.connect_plain().await {
         Ok(client) => Ok(SmtpClientStream::Tcp(client)),
-        Err(err) => Err(Error::ConnectTcpError(err).into()),
+        Err(err) => Err(Error::ConnectTcpError(err)),
     }
 }
 
 pub async fn build_tls_client(
     client_builder: &mail_send::SmtpClientBuilder<String>,
-) -> Result<SmtpClientStream> {
+) -> Result<SmtpClientStream, Error> {
     match client_builder.connect().await {
         Ok(client) => Ok(SmtpClientStream::Tls(client)),
-        Err(err) => Err(Error::ConnectTlsError(err).into()),
+        Err(err) => Err(Error::ConnectTlsError(err)),
     }
 }
 
@@ -356,7 +355,7 @@ pub async fn build_tls_client(
 ///
 /// This function returns an error if no sender or no recipient is
 /// found in the original message.
-fn into_smtp_msg(msg: Message<'_>) -> Result<SmtpMessage<'_>> {
+fn into_smtp_msg(msg: Message<'_>) -> Result<SmtpMessage<'_>, Error> {
     let mut mail_from = None;
     let mut rcpt_to = HashSet::new();
 
@@ -399,7 +398,7 @@ fn into_smtp_msg(msg: Message<'_>) -> Result<SmtpMessage<'_>> {
     }
 
     if rcpt_to.is_empty() {
-        return Err(Error::SendMessageMissingRecipientError.into());
+        return Err(Error::SendMessageMissingRecipientError);
     }
 
     let msg = SmtpMessage {
