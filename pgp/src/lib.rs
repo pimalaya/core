@@ -2,6 +2,7 @@
 
 pub mod decrypt;
 pub mod encrypt;
+pub mod error;
 pub mod hkp;
 pub mod http;
 pub mod sign;
@@ -11,9 +12,9 @@ pub mod wkd;
 
 pub(crate) mod client;
 
+pub use error::*;
 #[doc(inline)]
 pub use pgp_native as native;
-use tokio::task::JoinError;
 
 #[doc(inline)]
 pub use self::{
@@ -26,30 +27,3 @@ pub use self::{
     },
     verify::verify,
 };
-
-/// The global [`Error`] enum of the library.
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    ConfigError(#[from] utils::Error),
-
-    #[error(transparent)]
-    EncryptError(#[from] encrypt::Error),
-    #[error(transparent)]
-    DecryptError(#[from] decrypt::Error),
-    #[error(transparent)]
-    SignError(#[from] sign::Error),
-    #[error(transparent)]
-    VerifyError(#[from] verify::Error),
-
-    #[error(transparent)]
-    WkdError(#[from] wkd::Error),
-    #[error(transparent)]
-    HttpError(#[from] http::Error),
-
-    #[error(transparent)]
-    JoinError(#[from] JoinError),
-}
-
-/// The global [`Result`] alias of the library.
-pub type Result<T> = std::result::Result<T, Error>;

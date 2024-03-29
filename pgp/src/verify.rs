@@ -4,17 +4,9 @@
 //! associated [`Error`]s.
 
 use pgp_native::{SignedPublicKey, StandaloneSignature};
-use thiserror::Error;
 use tokio::task;
 
-use crate::Result;
-
-/// Errors related to PGP verification.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot verify pgp signature")]
-    VerifySignatureError(#[source] pgp_native::errors::Error),
-}
+use crate::{Error, Result};
 
 /// Verifies given standalone signature using the given public key.
 pub async fn verify(

@@ -4,30 +4,14 @@
 //! given emails by contacting key servers.
 
 use futures::{stream, StreamExt};
-use hyper::{client::HttpConnector, http::uri::InvalidUri, Client, Uri};
+use hyper::{client::HttpConnector, Client, Uri};
 use hyper_rustls::HttpsConnector;
 use log::{debug, warn};
 use pgp_native::{Deserializable, SignedPublicKey};
 use std::{io::Cursor, sync::Arc};
-use thiserror::Error;
 use tokio::task;
 
-use crate::{client, hkp, Result};
-
-/// Errors related to HTTP.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse uri {1}")]
-    ParseUriError(#[source] InvalidUri, String),
-    #[error("cannot parse body from {1}")]
-    ParseBodyError(#[source] hyper::Error, Uri),
-    #[error("cannot parse response from {1}")]
-    FetchResponseError(#[source] hyper::Error, Uri),
-    #[error("cannot parse pgp public key from {1}")]
-    ParsePublicKeyError(#[source] pgp_native::errors::Error, Uri),
-    #[error("cannot find pgp public key for email {0}")]
-    FindPublicKeyError(String),
-}
+use crate::{client, hkp, Error, Result};
 
 /// Calls the given key server in order to get the public key
 /// belonging to the given email address.
@@ -54,7 +38,7 @@ async fn fetch(
 
     let body = hyper::body::to_bytes(res.into_body())
         .await
-        .map_err(|err| Error::ParseBodyError(err, uri.clone()))?;
+        .map_err(|err| Error::ParseBodyWithUriError(err, uri.clone()))?;
 
     let cursor = Cursor::new(&*body);
     let (pkey, _) = SignedPublicKey::from_armor_single(cursor)
@@ -88,7 +72,7 @@ async fn get(
         }
     }
 
-    Ok(Err(Error::FindPublicKeyError(email.to_owned()))?)
+    Err(Error::FindPublicKeyError(email.to_owned()))
 }
 
 /// Gets public key associated to the given email.

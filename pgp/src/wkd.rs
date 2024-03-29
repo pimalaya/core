@@ -19,32 +19,10 @@ use hyper_rustls::HttpsConnector;
 use log::debug;
 use pgp_native::{Deserializable, SignedPublicKey};
 use sha1::{Digest, Sha1};
-use std::{fmt, path};
-use thiserror::Error;
+use std::fmt;
 use tokio::task;
 
-use crate::{client, Result};
-
-/// Errors related to WKD.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse email address {0}")]
-    ParseEmailAddressError(String),
-    #[error("cannot parse url {1}")]
-    ParseUrlError(#[source] url::ParseError, String),
-    #[error("cannot parse uri {1}")]
-    ParseUriError(#[source] hyper::http::uri::InvalidUri, String),
-    #[error("cannot parse path {1}")]
-    ParseFilePathError(path::StripPrefixError, url::Url),
-    #[error("cannot parse response")]
-    ParseResponseError(#[source] hyper::Error),
-    #[error("cannot parse response: too many redirect")]
-    RedirectOverflowError,
-    #[error("cannot parse body")]
-    ParseBodyError(#[source] hyper::Error),
-    #[error("cannot parse certificate")]
-    ParseCertError(#[source] pgp_native::errors::Error),
-}
+use crate::{client, Error, Result};
 
 struct EmailAddress {
     pub local_part: String,
@@ -71,7 +49,7 @@ impl EmailAddress {
         let email_address = email_address.as_ref();
         let v: Vec<&str> = email_address.split('@').collect();
         if v.len() != 2 {
-            return Ok(Err(Error::ParseEmailAddressError(email_address.into()))?);
+            return Err(Error::ParseEmailAddressError(email_address.into()));
         };
 
         // Convert domain to lowercase without tailoring, i.e. without
@@ -198,7 +176,7 @@ async fn get_following_redirects(
     let response = client.get(url).await;
 
     if depth < 0 {
-        return Ok(Err(Error::RedirectOverflowError)?);
+        return Err(Error::RedirectOverflowError);
     }
 
     if let Ok(ref resp) = response {
@@ -214,7 +192,7 @@ async fn get_following_redirects(
         }
     }
 
-    Ok(response.map_err(Error::ParseResponseError)?)
+    response.map_err(Error::ParseResponseError)
 }
 
 /// Retrieves the Certs that contain userids with a given email

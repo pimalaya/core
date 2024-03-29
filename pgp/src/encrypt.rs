@@ -10,21 +10,9 @@ use pgp_native::{
 };
 use rand::{thread_rng, CryptoRng, Rng};
 use std::io;
-use thiserror::Error;
 use tokio::task;
 
-use crate::Result;
-
-/// Errors related to PGP encryption.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot encrypt message using pgp")]
-    EncryptMessageError(#[source] pgp_native::errors::Error),
-    #[error("cannot export encrypted pgp message as armored string")]
-    ExportEncryptedMessageToArmorError(#[source] pgp_native::errors::Error),
-    #[error("cannot compress pgp message")]
-    CompressMessageError(#[source] pgp_native::errors::Error),
-}
+use crate::{Error, Result};
 
 /// Wrapper around [`pgp`] public key types.
 ///

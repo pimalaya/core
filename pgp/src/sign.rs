@@ -10,21 +10,9 @@ use pgp_native::{
 };
 use rand::{CryptoRng, Rng};
 use std::io;
-use thiserror::Error;
 use tokio::task;
 
-use crate::Result;
-
-/// Errors related to PGP signing.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot find pgp secret key for signing message")]
-    FindSignedSecretKeyForSigningError,
-    #[error("cannot sign pgp message")]
-    SignMessageError(#[source] pgp_native::errors::Error),
-    #[error("cannot export signed pgp message as armored string")]
-    ExportSignedMessageToArmoredBytesError(#[source] pgp_native::errors::Error),
-}
+use crate::{Error, Result};
 
 #[derive(Debug)]
 enum PublicKeyOrSubkey {

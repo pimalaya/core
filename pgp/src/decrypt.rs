@@ -5,27 +5,9 @@
 
 use pgp_native::{Deserializable, Message, SignedSecretKey};
 use std::io::Cursor;
-use thiserror::Error;
 use tokio::task;
 
-use crate::Result;
-
-/// Errors related to PGP decryption.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot import armored pgp message")]
-    ImportMessageFromArmorError(#[source] pgp_native::errors::Error),
-    #[error("cannot decrypt pgp message")]
-    DecryptMessageError(#[source] pgp_native::errors::Error),
-    #[error("cannot decompress pgp message")]
-    DecompressMessageError(#[source] pgp_native::errors::Error),
-    #[error("cannot get pgp message content")]
-    GetMessageContentError(#[source] pgp_native::errors::Error),
-    #[error("cannot get empty pgp message content")]
-    GetMessageContentEmptyError,
-    #[error("cannot get empty pgp message")]
-    GetMessageEmptyError,
-}
+use crate::{Error, Result};
 
 /// Decrypts bytes using the given secret key and its passphrase.
 pub async fn decrypt(
@@ -84,9 +66,7 @@ mod tests {
             .unwrap_err();
         assert!(matches!(
             carl_msg,
-            crate::Error::DecryptError(super::Error::DecryptMessageError(
-                pgp_native::errors::Error::MissingKey
-            )),
+            super::Error::DecryptMessageError(pgp_native::errors::Error::MissingKey),
         ));
     }
 }
