@@ -3,22 +3,8 @@
 //! This module contains the PGP backend based on shell commands.
 
 use process::Command;
-use thiserror::Error;
 
-use crate::Result;
-
-/// Errors dedicated to PGP shell commands.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot encrypt data using commands")]
-    EncryptError(#[source] process::Error),
-    #[error("cannot decrypt data using commands")]
-    DecryptError(#[source] process::Error),
-    #[error("cannot sign data using commands")]
-    SignError(#[source] process::Error),
-    #[error("cannot verify data using commands")]
-    VerifyError(#[source] process::Error),
-}
+use crate::{Error, Result};
 
 /// The shell commands PGP backend.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -124,7 +110,7 @@ impl CmdsPgp {
             .replace("<recipients>", recipients_str)
             .run_with(plain_bytes)
             .await
-            .map_err(Error::EncryptError)?;
+            .map_err(Error::EncryptCommandError)?;
 
         Ok(res.into())
     }
@@ -137,7 +123,7 @@ impl CmdsPgp {
             .unwrap_or_else(Self::default_decrypt_cmd)
             .run_with(encrypted_bytes)
             .await
-            .map_err(Error::DecryptError)?;
+            .map_err(Error::DecryptCommandError)?;
 
         Ok(res.into())
     }
@@ -150,7 +136,7 @@ impl CmdsPgp {
             .unwrap_or_else(Self::default_sign_cmd)
             .run_with(plain_bytes)
             .await
-            .map_err(Error::SignError)?;
+            .map_err(Error::SignCommandError)?;
 
         Ok(res.into())
     }
@@ -162,7 +148,7 @@ impl CmdsPgp {
             .unwrap_or_else(Self::default_verify_cmd)
             .run_with(signature_bytes)
             .await
-            .map_err(Error::VerifyError)?;
+            .map_err(Error::VerifyCommandError)?;
 
         Ok(())
     }

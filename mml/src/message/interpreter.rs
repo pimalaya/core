@@ -4,25 +4,16 @@
 
 use mail_builder::MessageBuilder;
 use mail_parser::{Message, MessageParser};
-use std::{io, path::PathBuf};
-use thiserror::Error;
+use std::path::PathBuf;
 
 #[cfg(feature = "pgp")]
 use crate::pgp::Pgp;
 use crate::{
     message::{FilterParts, MimeBodyInterpreter},
-    Result,
+    Error, Result,
 };
 
 use super::header;
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse raw email")]
-    ParseRawEmailError,
-    #[error("cannot build email")]
-    BuildEmailError(#[source] io::Error),
-}
 
 /// Filters headers to show in the interpreted message.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

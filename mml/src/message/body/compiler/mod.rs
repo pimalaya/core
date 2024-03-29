@@ -13,12 +13,11 @@ use mail_builder::{
     MessageBuilder,
 };
 use shellexpand_utils::shellexpand_path;
-use std::{ffi::OsStr, fs, io, ops::Deref, path::PathBuf};
-use thiserror::Error;
+use std::{ffi::OsStr, fs, ops::Deref};
 
 #[cfg(feature = "pgp")]
 use crate::pgp::Pgp;
-use crate::Result;
+use crate::{Error, Result};
 
 use super::{
     ALTERNATIVE, ATTACHMENT, DISPOSITION, ENCODING, ENCODING_7BIT, ENCODING_8BIT, ENCODING_BASE64,
@@ -30,20 +29,6 @@ use super::{
 use super::{ENCRYPT, PGP_MIME, SIGN};
 
 use self::{parsers::prelude::*, tokens::Part};
-
-/// Errors dedicated to MML → MIME message body compilation.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse MML body")]
-    ParseMmlError(Vec<chumsky::error::Rich<'static, char>>, String),
-    #[error("cannot compile template")]
-    WriteCompiledPartToVecError(#[source] io::Error),
-    #[error("cannot read attachment at {1:?}")]
-    ReadAttachmentError(#[source] io::Error, PathBuf),
-    #[cfg(feature = "pgp")]
-    #[error("cannot sign part using pgp: missing sender")]
-    PgpSignMissingSenderError,
-}
 
 /// MML → MIME message body compiler.
 ///
@@ -382,10 +367,7 @@ impl<'a> MmlBodyCompiler {
             Ok(self.compile_parts(parts.to_owned()).await?)
         } else {
             let errs = res.errors().map(|err| err.clone().into_owned()).collect();
-            Err(crate::Error::CompileMmlBodyError(Error::ParseMmlError(
-                errs,
-                mml_body.to_owned(),
-            )))
+            Err(Error::ParseMmlError(errs, mml_body.to_owned()))
         }
     }
 }

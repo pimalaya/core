@@ -8,32 +8,16 @@ use log::{debug, trace, warn};
 use mail_builder::MessageBuilder;
 use mail_parser::{Message, MessageParser, MessagePart, MimeHeaders, PartType};
 use nanohtml2text::html2text;
-use std::{env, fs, io, path::PathBuf};
-use thiserror::Error;
+use std::{env, fs, path::PathBuf};
 
 #[cfg(feature = "pgp")]
 use crate::pgp::Pgp;
-use crate::Result;
+use crate::{Error, Result};
 
 use super::{
     MULTIPART_BEGIN, MULTIPART_BEGIN_ESCAPED, MULTIPART_END, MULTIPART_END_ESCAPED, PART_BEGIN,
     PART_BEGIN_ESCAPED, PART_END, PART_END_ESCAPED,
 };
-
-/// Errors dedicated to MIME → MML message body interpretation.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse MIME message")]
-    ParseMimeMessageError,
-    #[error("cannot save attachement at {1}")]
-    WriteAttachmentError(#[source] io::Error, PathBuf),
-    #[error("cannot build email")]
-    WriteMessageError(#[source] io::Error),
-    #[error("cannot parse pgp decrypted part")]
-    ParsePgpDecryptedPartError,
-    #[error("cannot decrypt part using pgp: missing recipient")]
-    PgpDecryptMissingRecipientError,
-}
 
 /// Filters parts to show by MIME type.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

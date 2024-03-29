@@ -4,27 +4,10 @@
 
 use mail_builder::{headers::text::Text, MessageBuilder};
 use mail_parser::{Message, MessageParser};
-use std::io;
-use thiserror::Error;
 
 #[cfg(feature = "pgp")]
 use crate::{message::header, pgp::Pgp};
-use crate::{message::MmlBodyCompiler, Result};
-
-/// Errors dedicated to MML → MIME message compilation.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse template")]
-    ParseMessageError,
-    #[error("cannot parse MML message: empty body")]
-    ParseMmlEmptyBodyError,
-    #[error("cannot parse MML message: empty body content")]
-    ParseMmlEmptyBodyContentError,
-    #[error("cannot compile MML message to vec")]
-    CompileMmlMessageToVecError(#[source] io::Error),
-    #[error("cannot compile MML message to string")]
-    CompileMmlMessageToStringError(#[source] io::Error),
-}
+use crate::{message::MmlBodyCompiler, Error, Result};
 
 /// MML → MIME message compiler builder.
 ///
@@ -154,18 +137,16 @@ impl<'a> MmlCompileResult<'a> {
 
     /// Return the final MIME message as a [Vec].
     pub fn into_vec(self) -> Result<Vec<u8>> {
-        Ok(self
-            .mime_msg_builder
+        self.mime_msg_builder
             .write_to_vec()
-            .map_err(Error::CompileMmlMessageToVecError)?)
+            .map_err(Error::CompileMmlMessageToVecError)
     }
 
     /// Return the final MIME message as a [String].
     pub fn into_string(self) -> Result<String> {
-        Ok(self
-            .mime_msg_builder
+        self.mime_msg_builder
             .write_to_string()
-            .map_err(Error::CompileMmlMessageToStringError)?)
+            .map_err(Error::CompileMmlMessageToStringError)
     }
 }
 

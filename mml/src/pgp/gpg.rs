@@ -5,28 +5,8 @@
 use gpgme::{Context, Protocol};
 use log::{debug, trace};
 use std::path::PathBuf;
-use thiserror::Error;
 
-use crate::Result;
-
-/// Errors dedicated to GPG.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot get gpg context")]
-    GetContextError(#[source] gpgme::Error),
-    #[error("cannot get gpg home dir path from {0}")]
-    GetHomeDirPathError(PathBuf),
-    #[error("cannot set gpg home dir at {1}")]
-    SetHomeDirError(#[source] gpgme::Error, PathBuf),
-    #[error("cannot encrypt data using gpg")]
-    EncryptError(#[source] gpgme::Error),
-    #[error("cannot decrypt data using gpg")]
-    DecryptError(#[source] gpgme::Error),
-    #[error("cannot sign data using gpg")]
-    SignError(#[source] gpgme::Error),
-    #[error("cannot verify data using gpg")]
-    VerifyError(#[source] gpgme::Error),
-}
+use crate::{Error, Result};
 
 /// The GPG PGP backend.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -88,7 +68,7 @@ impl Gpg {
         let mut encrypted_bytes = Vec::new();
         let res = ctx
             .encrypt(keys.iter(), plain_bytes, &mut encrypted_bytes)
-            .map_err(Error::EncryptError)?;
+            .map_err(Error::EncryptGpgError)?;
         trace!("encrypt result: {res:#?}");
 
         let recipients_count = res.invalid_recipients().count();
@@ -107,7 +87,7 @@ impl Gpg {
         let mut plain_bytes = Vec::new();
         let res = ctx
             .decrypt(&mut encrypted_bytes, &mut plain_bytes)
-            .map_err(Error::DecryptError)?;
+            .map_err(Error::DecryptGpgError)?;
         trace!("decrypt result: {res:#?}");
 
         Ok(plain_bytes)
@@ -120,7 +100,7 @@ impl Gpg {
         let mut signed_bytes = Vec::new();
         let res = ctx
             .sign_clear(&mut plain_bytes, &mut signed_bytes)
-            .map_err(Error::SignError)?;
+            .map_err(Error::SignGpgError)?;
         trace!("sign result: {res:#?}");
 
         Ok(signed_bytes)
@@ -132,7 +112,7 @@ impl Gpg {
 
         let res = ctx
             .verify_opaque(signature_bytes, signed_bytes)
-            .map_err(Error::SignError)?;
+            .map_err(Error::SignGpgError)?;
         trace!("verify result: {res:#?}");
 
         Ok(())

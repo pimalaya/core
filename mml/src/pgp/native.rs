@@ -4,48 +4,11 @@
 
 use log::debug;
 pub use pgp::native::{SignedPublicKey, SignedSecretKey};
-use secret::{
-    keyring::{self, KeyringEntry},
-    Secret,
-};
+use secret::{keyring::KeyringEntry, Secret};
 use shellexpand_utils::shellexpand_path;
 use std::{collections::HashSet, path::PathBuf};
-use thiserror::Error;
 
-use crate::Result;
-
-/// Errors dedicated to native PGP backend.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot get pgp secret key from keyring")]
-    GetSecretKeyFromKeyringError(keyring::Error),
-    #[error("cannot read pgp secret key from keyring")]
-    ReadSecretKeyFromKeyringError(pgp::Error),
-    #[error("cannot read pgp secret key from path {1}")]
-    ReadSecretKeyFromPathError(pgp::Error, PathBuf),
-
-    #[error("cannot get pgp secret key passphrase from keyring")]
-    GetSecretKeyPassphraseFromKeyringError(#[source] secret::Error),
-    #[error("cannot get pgp secret key from keyring")]
-    GetPgpSecretKeyFromKeyringError(#[source] keyring::Error),
-
-    #[error("cannot get native pgp secret key of {0}")]
-    GetNativePgpSecretKeyNoneError(String),
-    #[error("cannot find native pgp public key of {0}")]
-    FindPgpPublicKeyError(String),
-    #[error("cannot encrypt data using native pgp")]
-    EncryptNativePgpError(#[source] pgp::Error),
-    #[error("cannot decrypt data using native pgp")]
-    DecryptNativePgpError(#[source] pgp::Error),
-    #[error("cannot sign data using native pgp")]
-    SignNativePgpError(#[source] pgp::Error),
-    #[error("cannot read native pgp signature")]
-    ReadNativePgpSignatureError(#[source] pgp::Error),
-    #[error("cannot verify native pgp signature")]
-    VerifyNativePgpSignatureError(#[source] pgp::Error),
-    #[error("cannot read native pgp secret key")]
-    ReadNativePgpSecretKeyError(#[source] pgp::Error),
-}
+use crate::{Error, Result};
 
 /// The native PGP secret key source.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
