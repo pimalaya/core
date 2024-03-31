@@ -16,18 +16,34 @@ pub struct MessageSyncConfig {
     serde(rename_all = "kebab-case")
 )]
 pub struct MessageSyncPermissions {
-    #[cfg_attr(feature = "derive", serde(default))]
+    #[cfg_attr(
+        feature = "derive",
+        serde(default = "MessageSyncPermissions::default_create")
+    )]
     pub create: bool,
 
-    #[cfg_attr(feature = "derive", serde(default))]
+    #[cfg_attr(
+        feature = "derive",
+        serde(default = "MessageSyncPermissions::default_delete")
+    )]
     pub delete: bool,
+}
+
+impl MessageSyncPermissions {
+    pub fn default_create() -> bool {
+        true
+    }
+
+    pub fn default_delete() -> bool {
+        true
+    }
 }
 
 impl Default for MessageSyncPermissions {
     fn default() -> Self {
         Self {
-            create: true,
-            delete: true,
+            create: Self::default_create(),
+            delete: Self::default_delete(),
         }
     }
 }

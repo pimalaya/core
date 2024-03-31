@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed watch IMAP envelopes when folder was empty [#179].
 - Fixed wrong recipient in reply template of mailing list messages [#187].
 - Fixed timeout errors for IMAP and SMTP. Every action is now retried 3 times before aborting [#174].
+- Fixed `serde` default sync permissions for folders, flags and messages.
 
 ### Removed
 

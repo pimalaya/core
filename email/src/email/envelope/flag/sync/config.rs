@@ -16,12 +16,23 @@ pub struct FlagSyncConfig {
     serde(rename_all = "kebab-case")
 )]
 pub struct FlagSyncPermissions {
-    #[cfg_attr(feature = "derive", serde(default))]
+    #[cfg_attr(
+        feature = "derive",
+        serde(default = "FlagSyncPermissions::default_update")
+    )]
     pub update: bool,
+}
+
+impl FlagSyncPermissions {
+    pub fn default_update() -> bool {
+        true
+    }
 }
 
 impl Default for FlagSyncPermissions {
     fn default() -> Self {
-        Self { update: true }
+        Self {
+            update: Self::default_update(),
+        }
     }
 }

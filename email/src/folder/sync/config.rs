@@ -53,18 +53,34 @@ impl FolderSyncStrategy {
     serde(rename_all = "kebab-case")
 )]
 pub struct FolderSyncPermissions {
-    #[cfg_attr(feature = "derive", serde(default))]
+    #[cfg_attr(
+        feature = "derive",
+        serde(default = "FolderSyncPermissions::default_create")
+    )]
     pub create: bool,
 
-    #[cfg_attr(feature = "derive", serde(default))]
+    #[cfg_attr(
+        feature = "derive",
+        serde(default = "FolderSyncPermissions::default_delete")
+    )]
     pub delete: bool,
+}
+
+impl FolderSyncPermissions {
+    pub fn default_create() -> bool {
+        true
+    }
+
+    pub fn default_delete() -> bool {
+        true
+    }
 }
 
 impl Default for FolderSyncPermissions {
     fn default() -> Self {
         Self {
-            create: true,
-            delete: true,
+            create: Self::default_create(),
+            delete: Self::default_delete(),
         }
     }
 }
