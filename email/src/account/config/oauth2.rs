@@ -7,48 +7,8 @@ use log::debug;
 use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use secret::Secret;
 use std::{io, net::TcpListener, vec};
-use thiserror::Error;
 
-use crate::Result;
-
-/// Errors related to OAuth 2.0 configuration.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot create oauth2 client")]
-    InitOauthClientError(#[source] oauth::Error),
-    #[error("cannot create oauth2 client")]
-    BuildOauthClientError(#[source] oauth::Error),
-    #[error("cannot wait for oauth2 redirection error")]
-    WaitForOauthRedirectionError(#[source] oauth::Error),
-
-    #[error("cannot get oauth2 access token from global keyring")]
-    GetAccessTokenOauthError(#[source] secret::Error),
-    #[error("cannot set oauth2 access token")]
-    SetAccessTokenOauthError(#[source] secret::Error),
-    #[error("cannot refresh oauth2 access token")]
-    RefreshAccessTokenOauthError(#[source] oauth::Error),
-    #[error("cannot delete oauth2 access token from global keyring")]
-    DeleteAccessTokenOauthError(#[source] secret::Error),
-
-    #[error("cannot get oauth2 refresh token")]
-    GetRefreshTokenOauthError(#[source] secret::Error),
-    #[error("cannot set oauth2 refresh token")]
-    SetRefreshTokenOauthError(#[source] secret::Error),
-    #[error("cannot delete oauth2 refresh token from global keyring")]
-    DeleteRefreshTokenOauthError(#[source] secret::Error),
-
-    #[error("cannot get oauth2 client secret from user")]
-    GetClientSecretFromUserOauthError(#[source] io::Error),
-    #[error("cannot get oauth2 client secret from global keyring")]
-    GetClientSecretFromKeyringOauthError(#[source] secret::Error),
-    #[error("cannot save oauth2 client secret into global keyring")]
-    SetClientSecretIntoKeyringOauthError(#[source] secret::Error),
-    #[error("cannot delete oauth2 client secret from global keyring")]
-    DeleteClientSecretOauthError(#[source] secret::Error),
-
-    #[error("cannot get available port")]
-    GetAvailablePortError,
-}
+use crate::account::error::Error;
 
 /// The OAuth 2.0 configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -110,14 +70,14 @@ impl OAuth2Config {
     pub const LOCALHOST: &'static str = "localhost";
 
     /// Return the first available port on [`LOCALHOST`].
-    pub fn get_first_available_port() -> Result<u16> {
+    pub fn get_first_available_port() -> Result<u16, Error> {
         (49_152..65_535)
             .find(|port| TcpListener::bind((OAuth2Config::LOCALHOST, *port)).is_ok())
             .ok_or(Error::GetAvailablePortError.into())
     }
 
     /// Resets the three secrets of the OAuth 2.0 configuration.
-    pub async fn reset(&self) -> Result<()> {
+    pub async fn reset(&self) -> Result<(), Error> {
         self.client_secret
             .delete_only_keyring()
             .await
@@ -139,7 +99,7 @@ impl OAuth2Config {
     pub async fn configure(
         &self,
         get_client_secret: impl Fn() -> io::Result<String>,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         if self.access_token.get().await.is_ok() {
             return Ok(());
         }
@@ -212,7 +172,7 @@ impl OAuth2Config {
 
     /// Runs the refresh access token OAuth 2.0 flow by exchanging a
     /// refresh token with a new pair of access/refresh token.
-    pub async fn refresh_access_token(&self) -> Result<String> {
+    pub async fn refresh_access_token(&self) -> Result<String, Error> {
         let redirect_port = OAuth2Config::get_first_available_port()?;
 
         let client_secret = self
@@ -261,7 +221,7 @@ impl OAuth2Config {
 
     /// Returns the access token if existing, otherwise returns an
     /// error.
-    pub async fn access_token(&self) -> Result<String> {
+    pub async fn access_token(&self) -> Result<String, Error> {
         self.access_token
             .get()
             .await

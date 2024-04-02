@@ -12,24 +12,12 @@ use log::{debug, trace};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{cmp::Ordering, ops::Deref};
-use thiserror::Error;
 
-use crate::Result;
+use crate::account::error::Error;
 
 /// Regular expression used to extract the URI of a mailconf TXT
 /// record.
 static MAILCONF_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^mailconf=(https://\S+)$").unwrap());
-
-/// Errors related to account DNS discovery.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot find any MX record at {0}")]
-    GetMxRecordNotFoundError(String),
-    #[error("cannot find any mailconf TXT record at {0}")]
-    GetMailconfTxtRecordNotFoundError(String),
-    #[error("cannot find any SRV record at {0}")]
-    GetSrvRecordNotFoundError(String),
-}
 
 /// Sortable wrapper around a MX record.
 ///
@@ -124,11 +112,12 @@ impl DnsClient {
 
     /// Get the first mailconf URI of TXT records from the given
     /// domain.
-    pub async fn get_mailconf_txt_uri(&self, domain: &str) -> Result<Uri> {
+    pub async fn get_mailconf_txt_uri(&self, domain: &str) -> Result<Uri, Error> {
         let records: Vec<String> = self
             .resolver
             .txt_lookup(domain)
-            .await?
+            .await
+            .map_err(Error::TXTLookUpFailure)?
             .into_iter()
             .map(|record| record.to_string())
             .collect();
@@ -152,11 +141,12 @@ impl DnsClient {
     }
 
     /// Get the first MX exchange domain from a given domain.
-    pub async fn get_mx_domain(&self, domain: &str) -> Result<String> {
+    pub async fn get_mx_domain(&self, domain: &str) -> Result<String, Error> {
         let mut records: Vec<MxRecord> = self
             .resolver
             .mx_lookup(domain)
-            .await?
+            .await
+            .map_err(Error::MXLookUpFailure)?
             .into_iter()
             .map(MxRecord::new)
             .collect();
@@ -179,13 +169,14 @@ impl DnsClient {
     }
 
     /// Get the first SRV record from a given domain and subdomain.
-    async fn get_srv(&self, domain: &str, subdomain: &str) -> Result<SRV> {
+    async fn get_srv(&self, domain: &str, subdomain: &str) -> Result<SRV, Error> {
         let domain = format!("_{subdomain}._tcp.{domain}");
 
         let mut records: Vec<SrvRecord> = self
             .resolver
             .srv_lookup(&domain)
-            .await?
+            .await
+            .map_err(Error::SRVLookUpFailure)?
             .into_iter()
             .filter(|record| !record.target().is_root())
             .map(SrvRecord::new)
@@ -208,17 +199,17 @@ impl DnsClient {
     }
 
     /// Get the first IMAP SRV record from a given domain.
-    pub async fn get_imap_srv(&self, domain: &str) -> Result<SRV> {
+    pub async fn get_imap_srv(&self, domain: &str) -> Result<SRV, Error> {
         self.get_srv(domain, "imap").await
     }
 
     /// Get the first IMAPS SRV record from a given domain.
-    pub async fn get_imaps_srv(&self, domain: &str) -> Result<SRV> {
+    pub async fn get_imaps_srv(&self, domain: &str) -> Result<SRV, Error> {
         self.get_srv(domain, "imaps").await
     }
 
     /// Get the first SMTP(S) SRV record from a given domain.
-    pub async fn get_submission_srv(&self, domain: &str) -> Result<SRV> {
+    pub async fn get_submission_srv(&self, domain: &str) -> Result<SRV, Error> {
         self.get_srv(domain, "submission").await
     }
 }

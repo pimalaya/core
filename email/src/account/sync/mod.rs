@@ -11,10 +11,10 @@ pub mod config;
 use std::sync::Arc;
 
 use crate::{
+    account::error::Error,
     backend::{context::BackendContextBuilder, BackendBuilder},
     maildir::{config::MaildirConfig, MaildirContextBuilder},
     sync::SyncBuilder,
-    Result,
 };
 
 use super::config::AccountConfig;
@@ -30,7 +30,7 @@ impl AccountSyncBuilder {
     /// Try to create a new account synchronization builder.
     pub fn try_new<R: BackendContextBuilder + 'static>(
         right_builder: BackendBuilder<R>,
-    ) -> Result<SyncBuilder<MaildirContextBuilder, R>> {
+    ) -> Result<SyncBuilder<MaildirContextBuilder, R>, Error> {
         let account_config = Arc::new(AccountConfig {
             name: right_builder.account_config.name.clone() + "-cache",
             email: right_builder.account_config.email.clone(),

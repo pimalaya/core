@@ -25,11 +25,11 @@ use std::{
     path::{Path, PathBuf},
     vec,
 };
-use thiserror::Error;
 
 #[cfg(feature = "account-sync")]
 use crate::account::sync::config::SyncConfig;
 use crate::{
+    account::error::Error,
     date::from_mail_parser_to_chrono_datetime,
     email::config::EmailTextPlainFormat,
     envelope::config::EnvelopeConfig,
@@ -42,7 +42,6 @@ use crate::{
         new::config::NewTemplateSignatureStyle,
         reply::config::{ReplyTemplatePostingStyle, ReplyTemplateSignatureStyle},
     },
-    Result,
 };
 
 use crate::{envelope::Envelope, watch::config::WatchHook};
@@ -52,19 +51,6 @@ use self::pgp::PgpConfig;
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
 pub const DEFAULT_SIGNATURE_DELIM: &str = "-- \n";
-
-/// Errors related to account configuration.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse download file name from {0}")]
-    ParseDownloadFileNameError(PathBuf),
-    #[error("cannot get sync directory from XDG_DATA_HOME")]
-    GetXdgDataDirSyncError,
-    #[error("cannot create sync directories")]
-    CreateXdgDataDirsSyncError(#[source] io::Error),
-    #[error("cannot get file name from path {0}")]
-    GetFileNameFromPathSyncError(PathBuf),
-}
 
 pub trait HasAccountConfig {
     fn account_config(&self) -> &AccountConfig;
@@ -187,7 +173,7 @@ impl AccountConfig {
     /// Then, a suffix may be added to the final path if it already
     /// exists on the filesystem in order to prevent any overriding or
     /// data loss.
-    pub fn get_download_file_path(&self, path: impl AsRef<Path>) -> Result<PathBuf> {
+    pub fn get_download_file_path(&self, path: impl AsRef<Path>) -> Result<PathBuf, Error> {
         let path = path.as_ref();
 
         let file_name = path
@@ -235,7 +221,7 @@ impl AccountConfig {
     /// Get the synchronization directory if exist, otherwise create
     /// it.
     #[cfg(feature = "account-sync")]
-    pub fn get_sync_dir(&self) -> Result<PathBuf> {
+    pub fn get_sync_dir(&self) -> Result<PathBuf, Error> {
         match self.sync.as_ref().and_then(|c| c.dir.as_ref()) {
             Some(dir) => {
                 let sync_dir = shellexpand_path(dir);
@@ -757,7 +743,7 @@ impl<'a> From<&'a AccountConfig> for Address<'a> {
 pub(crate) fn rename_file_if_duplicate(
     origin_file_path: &Path,
     is_file: impl Fn(&PathBuf, u8) -> bool,
-) -> Result<PathBuf> {
+) -> Result<PathBuf, Error> {
     let mut count = 0;
 
     let mut file_path = origin_file_path.to_owned();

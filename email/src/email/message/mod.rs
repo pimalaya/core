@@ -28,12 +28,8 @@ use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
 use std::{borrow::Cow, fmt::Debug, io, path::PathBuf, sync::Arc};
-use thiserror::Error;
 
-use crate::{
-    account::{self, config::AccountConfig},
-    Result,
-};
+use crate::{account::config::AccountConfig, Result};
 
 use self::{
     attachment::Attachment,
@@ -43,7 +39,7 @@ use self::{
 };
 
 /// Errors related to email messages.
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("cannot parse email")]
     ParseEmailError,
@@ -56,7 +52,7 @@ pub enum Error {
     ParseEmailFromEmptyEntriesError,
 
     #[error(transparent)]
-    AcountConfigError(#[from] account::config::Error),
+    AcountError(#[from] crate::account::error::Error),
     #[error("cannot decrypt encrypted email part")]
     DecryptEmailPartError(#[source] process::Error),
     #[error("cannot verify signed email part")]
@@ -70,7 +66,7 @@ pub enum Error {
     #[error("cannot parse encrypted part of multipart")]
     WriteEncryptedPartBodyError(#[source] io::Error),
     #[error("cannot write encrypted part to temporary file")]
-    DecryptPartError(#[source] account::config::Error),
+    DecryptPartError(#[source] crate::account::error::Error),
 
     #[error("cannot interpret email as template")]
     InterpretEmailAsTplError(#[source] mml::Error),

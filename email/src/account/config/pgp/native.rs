@@ -3,36 +3,10 @@ use log::debug;
 use mml::pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
 use secret::Secret;
 use shellexpand_utils::shellexpand_path;
-use std::{io, path::PathBuf};
-use thiserror::Error;
+use std::io;
 use tokio::fs;
 
-use crate::Result;
-
-/// Errors related to PGP configuration.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot delete pgp key from keyring")]
-    DeletePgpKeyFromKeyringError(#[source] keyring::Error),
-    #[error("cannot delete pgp key at {1}")]
-    DeletePgpKeyAtPathError(#[source] io::Error, PathBuf),
-    #[error("cannot generate pgp key pair for {1}")]
-    GeneratePgpKeyPairError(#[source] pgp::Error, String),
-    #[error("cannot export secret key to armored string")]
-    ExportSecretKeyToArmoredStringError(#[source] pgp::native::errors::Error),
-    #[error("cannot export public key to armored string")]
-    ExportPublicKeyToArmoredStringError(#[source] pgp::native::errors::Error),
-    #[error("cannot write secret key file at {1}")]
-    WriteSecretKeyFileError(#[source] io::Error, PathBuf),
-    #[error("cannot write public key file at {1}")]
-    WritePublicKeyFileError(#[source] io::Error, PathBuf),
-    #[error("cannot set secret key to keyring")]
-    SetSecretKeyToKeyringError(#[source] keyring::Error),
-    #[error("cannot set public key to keyring")]
-    SetPublicKeyToKeyringError(#[source] keyring::Error),
-    #[error("cannot get secret key password")]
-    GetPgpSecretKeyPasswdError(#[source] io::Error),
-}
+use crate::account::error::Error;
 
 /// The native PGP configuration.
 ///
@@ -64,7 +38,7 @@ impl NativePgpConfig {
     }
 
     /// Deletes secret and public keys.
-    pub async fn reset(&self) -> Result<()> {
+    pub async fn reset(&self) -> Result<(), Error> {
         match &self.secret_key {
             NativePgpSecretKey::None => (),
             NativePgpSecretKey::Raw(..) => (),
@@ -92,7 +66,7 @@ impl NativePgpConfig {
         &self,
         email: impl ToString,
         passwd: impl Fn() -> io::Result<String>,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         let email = email.to_string();
         let passwd = passwd().map_err(Error::GetPgpSecretKeyPasswdError)?;
 

@@ -10,3 +10,5 @@ pub mod config;
 pub mod discover;
 #[cfg(feature = "account-sync")]
 pub mod sync;
+
+pub mod error;
