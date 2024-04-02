@@ -1,13 +1,8 @@
+pub mod error;
+
 use std::{collections::HashMap, path::PathBuf};
-use thiserror::Error;
 
-use crate::{account::config::AccountConfig, Result};
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot get configuration of account {0}")]
-    GetAccountConfigNotFoundError(String),
-}
+use crate::{account::config::AccountConfig, config::error::Error};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
@@ -48,7 +43,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn account(&self, name: impl AsRef<str>) -> Result<AccountConfig> {
+    pub fn account(&self, name: impl AsRef<str>) -> Result<AccountConfig, Error> {
         let name = name.as_ref();
 
         let account_config = self
