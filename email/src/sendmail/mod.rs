@@ -11,7 +11,6 @@ use crate::{
         feature::{BackendFeature, CheckUp},
     },
     message::send::{sendmail::SendSendmailMessage, SendMessage},
-    Result,
 };
 
 use self::config::SendmailConfig;
@@ -70,7 +69,7 @@ impl BackendContextBuilder for SendmailContextBuilder {
     /// The SENDMAIL session is created at this moment. If the session
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new session is created.
-    async fn build(self) -> Result<Self::Context> {
+    async fn build(self) -> crate::Result<Self::Context> {
         info!("building new sendmail context");
 
         Ok(SendmailContextSync {
@@ -101,7 +100,7 @@ impl CheckUpSendmail {
 
 #[async_trait]
 impl CheckUp for CheckUpSendmail {
-    async fn check_up(&self) -> Result<()> {
+    async fn check_up(&self) -> crate::Result<()> {
         self.ctx.sendmail_config.cmd.run().await?;
         Ok(())
     }

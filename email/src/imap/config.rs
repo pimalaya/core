@@ -7,21 +7,13 @@ use imap::ConnectionMode;
 use std::fmt;
 #[cfg(feature = "derive")]
 use std::{marker::PhantomData, result};
-use thiserror::Error;
 
 use crate::{
     account::config::{oauth2::OAuth2Config, passwd::PasswdConfig},
-    Result,
+    imap::error::Error,
 };
 
 /// Errors related to the IMAP backend configuration.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot get imap password from global keyring")]
-    GetPasswdImapError(#[source] secret::Error),
-    #[error("cannot get imap password: password is empty")]
-    GetPasswdEmptyImapError,
-}
 
 /// The IMAP backend configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -89,7 +81,7 @@ impl ImapConfig {
     ///
     /// Authentication credentials can be either a password or an
     /// OAuth 2.0 access token.
-    pub async fn build_credentials(&self) -> Result<String> {
+    pub async fn build_credentials(&self) -> Result<String, Error> {
         self.auth.build_credentials().await
     }
 
@@ -173,7 +165,7 @@ impl ImapAuthConfig {
     ///
     /// Authentication credentials can be either a password or an
     /// OAuth 2.0 access token.
-    pub async fn build_credentials(&self) -> Result<String> {
+    pub async fn build_credentials(&self) -> Result<String, Error> {
         match self {
             ImapAuthConfig::Passwd(passwd) => {
                 let passwd = passwd.get().await.map_err(Error::GetPasswdImapError)?;
@@ -183,27 +175,38 @@ impl ImapAuthConfig {
                     .ok_or(Error::GetPasswdEmptyImapError)?;
                 Ok(passwd.to_owned())
             }
-            ImapAuthConfig::OAuth2(oauth2) => Ok(oauth2.access_token().await?),
+            ImapAuthConfig::OAuth2(oauth2) => Ok(oauth2
+                .access_token()
+                .await
+                .map_err(Error::AccessTokenNotAvailable)?),
         }
     }
 
-    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
+    pub fn replace_undefined_keyring_entries(
+        &mut self,
+        name: impl AsRef<str>,
+    ) -> Result<(), Error> {
         let name = name.as_ref();
 
         match self {
             Self::Passwd(secret) => {
-                secret.replace_undefined_to_keyring(format!("{name}-imap-passwd"))?;
+                secret
+                    .replace_undefined_to_keyring(format!("{name}-imap-passwd"))
+                    .map_err(Error::ReplacingUnidentifiedFailed)?;
             }
             Self::OAuth2(config) => {
                 config
                     .client_secret
-                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-client-secret"))?;
+                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-client-secret"))
+                    .map_err(Error::ReplacingUnidentifiedFailed)?;
                 config
                     .access_token
-                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-access-token"))?;
+                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-access-token"))
+                    .map_err(Error::ReplacingUnidentifiedFailed)?;
                 config
                     .refresh_token
-                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-refresh-token"))?;
+                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-refresh-token"))
+                    .map_err(Error::ReplacingUnidentifiedFailed)?;
             }
         }
 

@@ -1,10 +1,10 @@
 pub mod config;
+pub mod error;
 
 use async_trait::async_trait;
 use imap::{Authenticator, Client, ImapConnection, Session, TlsKind};
 use log::{debug, info, log_enabled, warn, Level};
 use std::{ops::Deref, sync::Arc};
-use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::{
@@ -30,6 +30,7 @@ use crate::{
         list::{imap::ListImapFolders, ListFolders},
         purge::{imap::PurgeImapFolder, PurgeFolder},
     },
+    imap::error::Error,
     message::{
         add::{imap::AddImapMessage, AddMessage},
         copy::{imap::CopyImapMessages, CopyMessages},
@@ -43,21 +44,6 @@ use crate::{
 };
 
 use self::config::{ImapAuthConfig, ImapConfig};
-
-/// Errors related to the IMAP backend.
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot authenticate to imap server")]
-    AuthenticateImapError(#[source] imap::Error),
-    #[error("cannot get imap password from global keyring")]
-    GetPasswdImapError(#[source] secret::Error),
-    #[error("cannot get imap password: password is empty")]
-    GetPasswdEmptyImapError,
-    #[error("cannot login to imap server")]
-    LoginImapError(#[source] imap::Error),
-    #[error("cannot connect to imap server")]
-    ConnectImapError(#[source] imap::Error),
-}
 
 /// The IMAP backend context.
 ///
