@@ -1,26 +1,14 @@
 use async_trait::async_trait;
 use log::{debug, info, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use std::{collections::HashMap, path::PathBuf, sync::mpsc};
-use thiserror::Error;
+use std::{collections::HashMap, sync::mpsc};
 
 use crate::{
     envelope::{Envelope, Envelopes},
     maildir::MaildirContextSync,
-    Result,
 };
 
 use super::WatchEnvelopes;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("maildir: cannot get subfolder from {1}")]
-    GetSubfolderMaildirError(#[source] maildirpp::Error, PathBuf),
-    #[error("maildir: cannot parse subfolder {1} from {0}")]
-    ParseSubfolderMaildirError(PathBuf, PathBuf),
-    #[error("cannot create maildir {1} folder structure")]
-    InitFolderMaildirError(#[source] maildirpp::Error, PathBuf),
-}
 
 pub struct WatchMaildirEnvelopes {
     ctx: MaildirContextSync,
@@ -42,7 +30,7 @@ impl WatchMaildirEnvelopes {
 
 #[async_trait]
 impl WatchEnvelopes for WatchMaildirEnvelopes {
-    async fn watch_envelopes(&self, folder: &str) -> Result<()> {
+    async fn watch_envelopes(&self, folder: &str) -> crate::Result<()> {
         info!("maildir: watching folder {folder} for email changes");
 
         let session = self.ctx.lock().await;

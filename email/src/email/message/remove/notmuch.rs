@@ -1,16 +1,9 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use thiserror::Error;
 
-use crate::{envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync, Result};
+use crate::{email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync};
 
 use super::RemoveMessages;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot remove notmuch message(s) {2} from folder {1}")]
-    RemoveNotmuchMessageError(#[source] notmuch::Error, String, Id),
-}
 
 #[derive(Clone)]
 pub struct RemoveNotmuchMessages {
@@ -33,7 +26,7 @@ impl RemoveNotmuchMessages {
 
 #[async_trait]
 impl RemoveMessages for RemoveNotmuchMessages {
-    async fn remove_messages(&self, folder: &str, id: &Id) -> Result<()> {
+    async fn remove_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
         info!("removing notmuch message(s) {id} from folder {folder}");
 
         let config = &self.ctx.account_config;

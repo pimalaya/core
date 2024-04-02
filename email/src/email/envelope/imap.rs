@@ -8,22 +8,13 @@ use imap::{
     types::{Fetch, Fetches},
 };
 use log::debug;
-use std::{io, ops::Deref, str::FromStr};
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot get uid of imap envelope {0}: uid is missing")]
-    GetUidMissingImapError(u32),
-    #[error("cannot get missing envelope {0}")]
-    GetEnvelopeMissingError(u32),
-}
+use std::{ops::Deref, str::FromStr};
 
 use crate::{
+    email::error::Error,
     envelope::{Envelope, Envelopes},
     flag::Flags,
     message::Message,
-    Result,
 };
 
 impl Envelopes {
@@ -43,7 +34,7 @@ impl Envelopes {
 }
 
 impl Envelope {
-    pub fn from_imap_fetch(fetch: &Fetch) -> Result<Self> {
+    pub fn from_imap_fetch(fetch: &Fetch) -> Result<Self, Error> {
         let mut msg = Vec::new();
 
         let envelope = fetch
@@ -169,9 +160,9 @@ impl<'a> FromIterator<SortCriterion<'a>> for SortCriteria<'a> {
 }
 
 impl FromStr for SortCriteria<'_> {
-    type Err = crate::Error;
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self> {
+    fn from_str(s: &str) -> Result<Self, Error> {
         s.split_whitespace()
             .map(|s| match s.trim() {
                 "arrival:asc" | "arrival" => Ok(SortCriterion::Arrival),
@@ -188,11 +179,8 @@ impl FromStr for SortCriteria<'_> {
                 "subject:desc" => Ok(SortCriterion::Reverse(&SortCriterion::Subject)),
                 "to:asc" | "to" => Ok(SortCriterion::To),
                 "to:desc" => Ok(SortCriterion::Reverse(&SortCriterion::To)),
-                _ => Ok(Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    s.to_owned(),
-                ))?),
+                _ => Err(Error::InvalidInput(s.to_owned()))?,
             })
-            .collect::<Result<_>>()
+            .collect::<Result<_, _>>()
     }
 }

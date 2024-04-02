@@ -1,24 +1,15 @@
 use async_trait::async_trait;
 use chrono::TimeDelta;
 use log::{debug, info, trace};
-use thiserror::Error;
 
 use crate::{
+    email::error::Error,
     folder::FolderKind,
     notmuch::NotmuchContextSync,
     search_query::{filter::SearchEmailsFilterQuery, SearchEmailsQuery},
-    Result,
 };
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot list notmuch envelopes from {0}: page {1} out of bounds")]
-    GetEnvelopesOutOfBoundsNotmuchError(String, usize),
-    #[error("cannot list notmuch envelopes from {0}: invalid query {1}")]
-    SearchMessagesInvalidQueryNotmuch(#[source] notmuch::Error, String, String),
-}
 
 #[derive(Clone)]
 pub struct ListNotmuchEnvelopes {
@@ -41,7 +32,11 @@ impl ListNotmuchEnvelopes {
 
 #[async_trait]
 impl ListEnvelopes for ListNotmuchEnvelopes {
-    async fn list_envelopes(&self, folder: &str, opts: ListEnvelopesOptions) -> Result<Envelopes> {
+    async fn list_envelopes(
+        &self,
+        folder: &str,
+        opts: ListEnvelopesOptions,
+    ) -> crate::Result<Envelopes> {
         info!("listing notmuch envelopes from folder {folder}");
 
         let ctx = self.ctx.lock().await;

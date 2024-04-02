@@ -1,16 +1,9 @@
 use async_trait::async_trait;
 use log::info;
-use thiserror::Error;
 
-use crate::{envelope::SingleId, maildir::MaildirContextSync, Result};
+use crate::{email::error::Error, envelope::SingleId, maildir::MaildirContextSync};
 
 use super::{AddMessage, Flags};
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot add maildir message to folder {1} with flags {2}")]
-    StoreWithFlagsMaildirError(#[source] maildirpp::Error, String, Flags),
-}
 
 #[derive(Clone)]
 pub struct AddMaildirMessage {
@@ -38,7 +31,7 @@ impl AddMessage for AddMaildirMessage {
         folder: &str,
         raw_msg: &[u8],
         flags: &Flags,
-    ) -> Result<SingleId> {
+    ) -> crate::Result<SingleId> {
         info!("adding maildir message to folder {folder} with flags {flags}");
 
         let ctx = self.ctx.lock().await;

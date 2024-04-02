@@ -1,16 +1,9 @@
 use async_trait::async_trait;
 use log::info;
-use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirContextSync, Result};
+use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync};
 
 use super::MoveMessages;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot move messages {3} from maildir folder {1} to folder {2}")]
-    MoveMessagesMaildirError(#[source] maildirpp::Error, String, String, String),
-}
 
 #[derive(Clone)]
 pub struct MoveMaildirMessages {
@@ -33,7 +26,12 @@ impl MoveMaildirMessages {
 
 #[async_trait]
 impl MoveMessages for MoveMaildirMessages {
-    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+    async fn move_messages(
+        &self,
+        from_folder: &str,
+        to_folder: &str,
+        id: &Id,
+    ) -> crate::Result<()> {
         info!("moving maildir messages {id} from folder {from_folder} to folder {to_folder}");
 
         let ctx = self.ctx.lock().await;

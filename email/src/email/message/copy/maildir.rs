@@ -1,16 +1,9 @@
 use async_trait::async_trait;
 use log::info;
-use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirContextSync, Result};
+use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync};
 
 use super::CopyMessages;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot copy maildir messages {3} from folder {1} to folder {2}")]
-    CopyMessagesMaildirError(#[source] maildirpp::Error, String, String, String),
-}
 
 #[derive(Clone)]
 pub struct CopyMaildirMessages {
@@ -33,7 +26,12 @@ impl CopyMaildirMessages {
 
 #[async_trait]
 impl CopyMessages for CopyMaildirMessages {
-    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+    async fn copy_messages(
+        &self,
+        from_folder: &str,
+        to_folder: &str,
+        id: &Id,
+    ) -> crate::Result<()> {
         info!("copying maildir messages {id} from folder {from_folder} to folder {to_folder}");
 
         let ctx = self.ctx.lock().await;

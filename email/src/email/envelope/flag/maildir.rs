@@ -3,22 +3,14 @@
 //! This module contains flag-related mapping functions from the
 //! [maildirpp] crate types.
 
-use log::debug;
-use maildirpp::MailEntry;
-use thiserror::Error;
-
-use crate::Result;
+use crate::email::error::Error;
 
 use super::{Flag, Flags};
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse maildir flag char {0}")]
-    ParseFlagMaildirError(char),
-}
+use log::debug;
+use maildirpp::MailEntry;
 
 impl Flag {
-    pub fn try_from_mdir_char(c: char) -> Result<Self> {
+    pub fn try_from_mdir_char(c: char) -> Result<Self, Error> {
         match c {
             'r' | 'R' => Ok(Flag::Answered),
             's' | 'S' => Ok(Flag::Seen),

@@ -15,11 +15,11 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::sync::Arc;
 
-use crate::{account::config::AccountConfig, message::Message, Result};
+use crate::{account::config::AccountConfig, email::error::Error, message::Message};
 
 use self::config::{ForwardTemplatePostingStyle, ForwardTemplateSignatureStyle};
 
-use super::{Error, Template, TemplateBody, TemplateCursor};
+use super::{Template, TemplateBody, TemplateCursor};
 
 /// Regex used to trim out prefix(es) from a subject.
 ///
@@ -207,7 +207,7 @@ impl<'a> ForwardTemplateBuilder<'a> {
     }
 
     /// Builds the final forward message template.
-    pub async fn build(self) -> Result<Template> {
+    pub async fn build(self) -> Result<Template, Error> {
         let mut cursor = TemplateCursor::default();
 
         let parsed = self.msg.parsed()?;

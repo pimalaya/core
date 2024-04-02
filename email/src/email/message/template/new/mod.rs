@@ -13,9 +13,9 @@ use mail_builder::{
 use mml::MimeInterpreterBuilder;
 use std::sync::Arc;
 
-use crate::{account::config::AccountConfig, Result};
+use crate::{account::config::AccountConfig, email::error::Error};
 
-use super::{Error, Template, TemplateBody, TemplateCursor};
+use super::{Template, TemplateBody, TemplateCursor};
 
 use self::config::NewTemplateSignatureStyle;
 
@@ -133,7 +133,7 @@ impl NewTemplateBuilder {
     }
 
     /// Build the final new message template.
-    pub async fn build(self) -> Result<Template> {
+    pub async fn build(self) -> Result<Template, Error> {
         let sig = self.config.find_full_signature();
         let sig_style = self
             .signature_style

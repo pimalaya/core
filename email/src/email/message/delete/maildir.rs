@@ -9,7 +9,6 @@ use crate::{
     },
     maildir::MaildirContextSync,
     message::r#move::{maildir::MoveMaildirMessages, MoveMessages},
-    Result,
 };
 
 use super::{DefaultDeleteMessages, DeleteMessages};
@@ -45,7 +44,12 @@ impl HasAccountConfig for DeleteMaildirMessages {
 
 #[async_trait]
 impl MoveMessages for DeleteMaildirMessages {
-    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+    async fn move_messages(
+        &self,
+        from_folder: &str,
+        to_folder: &str,
+        id: &Id,
+    ) -> crate::Result<()> {
         self.move_messages
             .move_messages(from_folder, to_folder, id)
             .await
@@ -54,7 +58,7 @@ impl MoveMessages for DeleteMaildirMessages {
 
 #[async_trait]
 impl AddFlags for DeleteMaildirMessages {
-    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
         self.add_flags.add_flags(folder, id, flags).await
     }
 }

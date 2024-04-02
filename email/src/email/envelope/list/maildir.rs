@@ -2,13 +2,12 @@ use async_trait::async_trait;
 use log::{debug, info, trace, warn};
 use mail_parser::MessageParser;
 use std::{fs, path::Path};
-use thiserror::Error;
 
 use crate::{
+    email::error::Error,
     envelope::Envelope,
     maildir::MaildirContextSync,
     search_query::{filter::SearchEmailsFilterQuery, SearchEmailsQuery},
-    Result,
 };
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
@@ -17,12 +16,6 @@ use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 static USER_TZ: &chrono::Utc = &chrono::Utc;
 #[cfg(not(test))]
 static USER_TZ: &chrono::Local = &chrono::Local;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot list maildir envelopes from {0}: page {1} out of bounds")]
-    GetEnvelopesOutOfBoundsMaildirError(String, usize),
-}
 
 #[derive(Clone)]
 pub struct ListMaildirEnvelopes {
@@ -45,7 +38,11 @@ impl ListMaildirEnvelopes {
 
 #[async_trait]
 impl ListEnvelopes for ListMaildirEnvelopes {
-    async fn list_envelopes(&self, folder: &str, opts: ListEnvelopesOptions) -> Result<Envelopes> {
+    async fn list_envelopes(
+        &self,
+        folder: &str,
+        opts: ListEnvelopesOptions,
+    ) -> crate::Result<Envelopes> {
         info!("listing maildir envelopes from folder {folder}");
 
         let ctx = self.ctx.lock().await;

@@ -2,26 +2,15 @@ use async_trait::async_trait;
 use imap::extensions::idle::stop_on_any;
 use log::{debug, info};
 use std::{collections::HashMap, time::Duration};
-use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{
+    email::error::Error,
     envelope::{list::imap::LIST_ENVELOPES_QUERY, Envelope, Envelopes},
     imap::ImapContextSync,
-    Result,
 };
 
 use super::WatchEnvelopes;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot examine imap folder {1}")]
-    ExamineFolderImapError(#[source] imap::Error, String),
-    #[error("cannot run imap idle mode")]
-    RunIdleModeImapError(#[source] imap::Error),
-    #[error("cannot list all imap envelopes of folder {1}")]
-    ListAllEnvelopesImapError(#[source] imap::Error, String),
-}
 
 #[derive(Clone, Debug)]
 pub struct WatchImapEnvelopes {
@@ -44,7 +33,7 @@ impl WatchImapEnvelopes {
 
 #[async_trait]
 impl WatchEnvelopes for WatchImapEnvelopes {
-    async fn watch_envelopes(&self, folder: &str) -> Result<()> {
+    async fn watch_envelopes(&self, folder: &str) -> crate::Result<()> {
         info!("watching imap folder {folder} for envelope changes");
 
         let config = &self.ctx.account_config;

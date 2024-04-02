@@ -27,9 +27,9 @@ use mail_parser::{MessageParser, MimeHeaders};
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
-use std::{borrow::Cow, fmt::Debug, io, path::PathBuf, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
-use crate::{account::config::AccountConfig, Result};
+use crate::{account::config::AccountConfig, email::error::Error};
 
 use self::{
     attachment::Attachment,
@@ -37,43 +37,6 @@ use self::{
         forward::ForwardTemplateBuilder, new::NewTemplateBuilder, reply::ReplyTemplateBuilder,
     },
 };
-
-/// Errors related to email messages.
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("cannot parse email")]
-    ParseEmailError,
-    #[error("cannot parse email: raw email is empty")]
-    ParseEmailEmptyRawError,
-    #[error("cannot delete local draft at {1}")]
-    DeleteLocalDraftError(#[source] io::Error, PathBuf),
-
-    #[error("cannot parse email: empty entries")]
-    ParseEmailFromEmptyEntriesError,
-
-    #[error(transparent)]
-    AcountError(#[from] crate::account::error::Error),
-    #[error("cannot decrypt encrypted email part")]
-    DecryptEmailPartError(#[source] process::Error),
-    #[error("cannot verify signed email part")]
-    VerifyEmailPartError(#[source] process::Error),
-
-    // TODO: sort me
-    #[error("cannot get content type of multipart")]
-    GetMultipartContentTypeError,
-    #[error("cannot find encrypted part of multipart")]
-    GetEncryptedPartMultipartError,
-    #[error("cannot parse encrypted part of multipart")]
-    WriteEncryptedPartBodyError(#[source] io::Error),
-    #[error("cannot write encrypted part to temporary file")]
-    DecryptPartError(#[source] crate::account::error::Error),
-
-    #[error("cannot interpret email as template")]
-    InterpretEmailAsTplError(#[source] mml::Error),
-
-    #[error("cannot parse email message")]
-    ParseEmailMessageError,
-}
 
 /// The raw message wrapper.
 enum RawMessage<'a> {
@@ -104,7 +67,7 @@ impl Message<'_> {
     }
 
     /// Returns the parsed version of the message.
-    pub fn parsed(&self) -> Result<&mail_parser::Message> {
+    pub fn parsed(&self) -> Result<&mail_parser::Message, Error> {
         let msg = self
             .borrow_parsed()
             .as_ref()
@@ -113,12 +76,12 @@ impl Message<'_> {
     }
 
     /// Returns the raw version of the message.
-    pub fn raw(&self) -> Result<&[u8]> {
+    pub fn raw(&self) -> Result<&[u8], Error> {
         self.parsed().map(|parsed| parsed.raw_message())
     }
 
     /// Returns the list of message attachment.
-    pub fn attachments(&self) -> Result<Vec<Attachment>> {
+    pub fn attachments(&self) -> Result<Vec<Attachment>, Error> {
         Ok(self
             .parsed()?
             .attachments()
@@ -145,7 +108,7 @@ impl Message<'_> {
         &self,
         config: &AccountConfig,
         with_interpreter: impl Fn(MimeInterpreterBuilder) -> MimeInterpreterBuilder,
-    ) -> Result<String> {
+    ) -> Result<String, Error> {
         let interpreter = config
             .generate_tpl_interpreter()
             .with_show_only_headers(config.get_message_read_headers());
@@ -279,9 +242,9 @@ impl From<Vec<Vec<u8>>> for Messages {
 
 #[cfg(feature = "imap")]
 impl TryFrom<Fetches> for Messages {
-    type Error = crate::Error;
+    type Error = Error;
 
-    fn try_from(fetches: Fetches) -> Result<Self> {
+    fn try_from(fetches: Fetches) -> Result<Self, Error> {
         if fetches.is_empty() {
             Err(Error::ParseEmailFromEmptyEntriesError.into())
         } else {
@@ -296,9 +259,9 @@ impl TryFrom<Fetches> for Messages {
 
 #[cfg(feature = "maildir")]
 impl TryFrom<Vec<MailEntry>> for Messages {
-    type Error = crate::Error;
+    type Error = Error;
 
-    fn try_from(entries: Vec<MailEntry>) -> Result<Self> {
+    fn try_from(entries: Vec<MailEntry>) -> Result<Self, Error> {
         if entries.is_empty() {
             Err(Error::ParseEmailFromEmptyEntriesError.into())
         } else {

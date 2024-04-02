@@ -7,7 +7,7 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 
-use crate::{envelope::Id, Result};
+use crate::envelope::Id;
 
 /// Backend feature to remove message(s).
 #[async_trait]
@@ -17,5 +17,5 @@ pub trait RemoveMessages: Send + Sync {
     ///
     /// This function definitely remove message(s). If you are looking
     /// for its soft version, see [`super::delete::DeleteMessages`].
-    async fn remove_messages(&self, folder: &str, id: &Id) -> Result<()>;
+    async fn remove_messages(&self, folder: &str, id: &Id) -> crate::Result<()>;
 }

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::info;
 
-use crate::{smtp::SmtpContextSync, Result};
+use crate::smtp::SmtpContextSync;
 
 use super::SendMessage;
 
@@ -26,7 +26,7 @@ impl SendSmtpMessage {
 
 #[async_trait]
 impl SendMessage for SendSmtpMessage {
-    async fn send_message(&self, msg: &[u8]) -> Result<()> {
+    async fn send_message(&self, msg: &[u8]) -> crate::Result<()> {
         info!("sending smtp message");
 
         let mut ctx = self.ctx.lock().await;

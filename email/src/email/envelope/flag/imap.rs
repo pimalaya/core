@@ -5,20 +5,13 @@
 
 use imap::{self, types::Fetch};
 use log::debug;
-use thiserror::Error;
 
-use crate::Result;
+use crate::email::error::Error;
 
 use super::{Flag, Flags};
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse imap flag {0}")]
-    ParseFlagImapError(String),
-}
-
 impl Flag {
-    pub fn try_from_imap_flag(imap_flag: &imap::types::Flag) -> Result<Self> {
+    pub fn try_from_imap_flag(imap_flag: &imap::types::Flag) -> Result<Self, Error> {
         match imap_flag {
             imap::types::Flag::Seen => Ok(Flag::Seen),
             imap::types::Flag::Answered => Ok(Flag::Answered),

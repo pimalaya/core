@@ -1,17 +1,10 @@
 use async_trait::async_trait;
 use log::{debug, info};
 use mail_parser::MessageParser;
-use thiserror::Error;
 
-use crate::{sendmail::SendmailContextSync, Result};
+use crate::{email::error::Error, sendmail::SendmailContextSync};
 
 use super::SendMessage;
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot run sendmail command")]
-    RunSendmailCommandError(#[source] process::Error),
-}
 
 #[derive(Clone)]
 pub struct SendSendmailMessage {
@@ -34,7 +27,7 @@ impl SendSendmailMessage {
 
 #[async_trait]
 impl SendMessage for SendSendmailMessage {
-    async fn send_message(&self, msg: &[u8]) -> Result<()> {
+    async fn send_message(&self, msg: &[u8]) -> crate::Result<()> {
         info!("sending sendmail message");
 
         let buffer: Vec<u8>;

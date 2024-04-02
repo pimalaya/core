@@ -3,7 +3,7 @@ use log::info;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::{envelope::SingleId, notmuch::NotmuchContextSync, Result};
+use crate::{envelope::SingleId, notmuch::NotmuchContextSync};
 
 use super::{AddMessage, Flags};
 
@@ -36,7 +36,7 @@ impl AddMessage for AddNotmuchMessage {
         folder: &str,
         msg: &[u8],
         flags: &Flags,
-    ) -> Result<SingleId> {
+    ) -> crate::Result<SingleId> {
         info!("adding notmuch message to folder {folder} with flags {flags}");
 
         let ctx = self.ctx.lock().await;

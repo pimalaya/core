@@ -1,27 +1,15 @@
 use async_trait::async_trait;
 use log::info;
-use std::{fs, path::PathBuf};
-use thiserror::Error;
+use std::fs;
 
 use crate::{
     envelope::Id,
     flag::{Flag, Flags},
     folder::FolderKind,
     notmuch::NotmuchContextSync,
-    Result,
 };
 
 use super::CopyMessages;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot find notmuch envelope {1} from {0}")]
-    FindEnvelopeEmptyNotmuchError(String, String),
-    #[error("cannot get notmuch message filename from {0}")]
-    GetMessageFilenameNotmuchError(PathBuf),
-    #[error("cannot copy notmuch message {3} from {1} to {2}")]
-    CopyMessageNotmuchError(#[source] notmuch::Error, String, String, String),
-}
 
 #[derive(Clone)]
 pub struct CopyNotmuchMessages {
@@ -44,7 +32,12 @@ impl CopyNotmuchMessages {
 
 #[async_trait]
 impl CopyMessages for CopyNotmuchMessages {
-    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+    async fn copy_messages(
+        &self,
+        from_folder: &str,
+        to_folder: &str,
+        id: &Id,
+    ) -> crate::Result<()> {
         info!("copying notmuch messages {id} from folder {from_folder} to folder {to_folder}");
 
         let config = &self.ctx.account_config;

@@ -1,21 +1,9 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use std::path::PathBuf;
-use thiserror::Error;
 
-use crate::{envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync, Result};
+use crate::{envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync};
 
 use super::MoveMessages;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot find notmuch envelope {1} from {0}")]
-    FindEnvelopeEmptyNotmuchError(String, String),
-    #[error("cannot get notmuch message filename from {0}")]
-    GetMessageFilenameNotmuchError(PathBuf),
-    #[error("cannot move notmuch message {3} from {1} to {2}")]
-    MoveMessageNotmuchError(#[source] notmuch::Error, String, String, String),
-}
 
 #[derive(Clone)]
 pub struct MoveNotmuchMessages {
@@ -38,7 +26,12 @@ impl MoveNotmuchMessages {
 
 #[async_trait]
 impl MoveMessages for MoveNotmuchMessages {
-    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> Result<()> {
+    async fn move_messages(
+        &self,
+        from_folder: &str,
+        to_folder: &str,
+        id: &Id,
+    ) -> crate::Result<()> {
         info!("moving notmuch messages {id} from folder {from_folder} to folder {to_folder}");
 
         let config = &self.ctx.account_config;

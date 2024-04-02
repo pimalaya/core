@@ -1,22 +1,11 @@
 use async_trait::async_trait;
 use imap_proto::UidSetMember;
 use log::{debug, info};
-use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::SingleId, imap::ImapContextSync, Result};
+use crate::{email::error::Error, envelope::SingleId, imap::ImapContextSync};
 
 use super::{AddMessage, Flags};
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot add imap message to folder {1} with flags {2}")]
-    AppendRawMessageWithFlagsImapError(#[source] imap::Error, String, Flags),
-    #[error("cannot get added imap message uid from range {0}")]
-    GetAddedMessageUidFromRangeImapError(String),
-    #[error("cannot get added imap message uid: extension UIDPLUS may be missing on the server")]
-    GetAddedMessageUidImapError,
-}
 
 #[derive(Clone, Debug)]
 pub struct AddImapMessage {
@@ -44,7 +33,7 @@ impl AddMessage for AddImapMessage {
         folder: &str,
         raw_msg: &[u8],
         flags: &Flags,
-    ) -> Result<SingleId> {
+    ) -> crate::Result<SingleId> {
         info!("adding imap message to folder {folder} with flags {flags}");
 
         let mut ctx = self.ctx.lock().await;

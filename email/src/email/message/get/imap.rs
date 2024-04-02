@@ -1,22 +1,13 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::Id, imap::ImapContextSync, Result};
+use crate::{email::error::Error, envelope::Id, imap::ImapContextSync};
 
 use super::{GetMessages, Messages};
 
 /// The IMAP query needed to retrieve messages.
 const GET_MESSAGES_QUERY: &str = "BODY[]";
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot select imap folder {1}")]
-    SelectFolderImapError(#[source] imap::Error, String),
-    #[error("cannot get imap messages {2} from folder {1}")]
-    GetMessagesImapError(#[source] imap::Error, String, Id),
-}
 
 #[derive(Clone, Debug)]
 pub struct GetImapMessages {
@@ -39,7 +30,7 @@ impl GetImapMessages {
 
 #[async_trait]
 impl GetMessages for GetImapMessages {
-    async fn get_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+    async fn get_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
         info!("getting messages {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;

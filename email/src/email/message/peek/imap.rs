@@ -1,22 +1,13 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::Id, imap::ImapContextSync, Result};
+use crate::{email::error::Error, envelope::Id, imap::ImapContextSync};
 
 use super::{Messages, PeekMessages};
 
 /// The IMAP query needed to retrieve messages.
 const PEEK_MESSAGES_QUERY: &str = "BODY.PEEK[]";
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot select imap folder {1}")]
-    SelectFolderImapError(#[source] imap::Error, String),
-    #[error("cannot peek imap messages {2} from folder {1}")]
-    PeekMessagesImapError(#[source] imap::Error, String, Id),
-}
 
 #[derive(Clone, Debug)]
 pub struct PeekImapMessages {
@@ -39,7 +30,7 @@ impl PeekImapMessages {
 
 #[async_trait]
 impl PeekMessages for PeekImapMessages {
-    async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
         info!("peeking imap messages {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;

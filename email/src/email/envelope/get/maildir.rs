@@ -1,17 +1,9 @@
 use async_trait::async_trait;
 use log::{info, trace};
-use std::path::PathBuf;
-use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirContextSync, Result};
+use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync};
 
 use super::{Envelope, GetEnvelope};
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot find maildir envelope {1} from folder {0}")]
-    GetEnvelopeMaildirError(PathBuf, Id),
-}
 
 #[derive(Clone)]
 pub struct GetMaildirEnvelope {
@@ -34,7 +26,7 @@ impl GetMaildirEnvelope {
 
 #[async_trait]
 impl GetEnvelope for GetMaildirEnvelope {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> Result<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &Id) -> crate::Result<Envelope> {
         info!("getting maildir envelope {id} from folder {folder}");
 
         let session = self.ctx.lock().await;

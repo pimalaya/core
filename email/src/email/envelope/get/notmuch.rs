@@ -1,16 +1,9 @@
 use async_trait::async_trait;
 use log::{info, trace};
-use thiserror::Error;
 
-use crate::{envelope::Id, notmuch::NotmuchContextSync, Result};
+use crate::{email::error::Error, envelope::Id, notmuch::NotmuchContextSync};
 
 use super::{Envelope, GetEnvelope};
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot find notmuch envelope {1} from folder {0}")]
-    FindEnvelopeEmptyNotmuchError(String, Id),
-}
 
 #[derive(Clone)]
 pub struct GetNotmuchEnvelope {
@@ -33,7 +26,7 @@ impl GetNotmuchEnvelope {
 
 #[async_trait]
 impl GetEnvelope for GetNotmuchEnvelope {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> Result<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &Id) -> crate::Result<Envelope> {
         info!("getting notmuch envelope {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;
@@ -41,7 +34,7 @@ impl GetEnvelope for GetNotmuchEnvelope {
 
         let envelope =
             Envelope::from_notmuch_msg(db.find_message(&id.to_string())?.ok_or_else(|| {
-                Error::FindEnvelopeEmptyNotmuchError(folder.to_owned(), id.clone())
+                Error::FindEnvelopeEmptyNotmuchError(folder.to_owned(), id.to_string())
             })?);
         trace!("notmuch envelope: {envelope:#?}");
 

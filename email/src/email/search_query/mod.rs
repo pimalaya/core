@@ -21,7 +21,9 @@ pub mod sort;
 
 use std::str::FromStr;
 
-use self::{filter::SearchEmailsFilterQuery, parser::Error, sort::SearchEmailsSortQuery};
+use crate::email::error::Error;
+
+use self::{filter::SearchEmailsFilterQuery, sort::SearchEmailsSortQuery};
 
 /// The search emails query structure.
 ///

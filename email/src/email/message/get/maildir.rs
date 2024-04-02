@@ -8,7 +8,6 @@ use crate::{
     },
     maildir::MaildirContextSync,
     message::peek::{maildir::PeekMaildirMessages, PeekMessages},
-    Result,
 };
 
 use super::{DefaultGetMessages, GetMessages, Messages};
@@ -38,14 +37,14 @@ impl GetMaildirMessages {
 
 #[async_trait]
 impl PeekMessages for GetMaildirMessages {
-    async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
         self.peek_messages.peek_messages(folder, id).await
     }
 }
 
 #[async_trait]
 impl AddFlags for GetMaildirMessages {
-    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
         self.add_flags.add_flags(folder, id, flags).await
     }
 }

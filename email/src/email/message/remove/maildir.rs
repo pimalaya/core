@@ -1,16 +1,9 @@
 use async_trait::async_trait;
 use log::info;
-use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirContextSync, Result};
+use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync};
 
 use super::RemoveMessages;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot remove maildir message(s) {2} from folder {1}")]
-    RemoveMaildirMessageError(#[source] maildirpp::Error, String, String),
-}
 
 #[derive(Clone)]
 pub struct RemoveMaildirMessages {
@@ -33,7 +26,7 @@ impl RemoveMaildirMessages {
 
 #[async_trait]
 impl RemoveMessages for RemoveMaildirMessages {
-    async fn remove_messages(&self, folder: &str, id: &Id) -> Result<()> {
+    async fn remove_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
         info!("removing maildir message(s) {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;

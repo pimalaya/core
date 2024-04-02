@@ -14,6 +14,7 @@
 pub mod config;
 pub mod date;
 pub mod envelope;
+pub mod error;
 pub mod message;
 pub mod search_query;
 #[cfg(feature = "account-sync")]

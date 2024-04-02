@@ -1,25 +1,14 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{
+    email::error::Error,
     envelope::{list::imap::LIST_ENVELOPES_QUERY, Id},
     imap::ImapContextSync,
-    Result,
 };
 
 use super::{Envelope, GetEnvelope};
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot select imap folder {1}")]
-    SelectFolderImapError(#[source] imap::Error, String),
-    #[error("cannot fetch imap envelopes {2} from folder {1}")]
-    FetchEnvolpesImapError(#[source] imap::Error, String, Id),
-    #[error("cannot find imap envelope {1} from folder {0}")]
-    GetFirstEnvelopeImapError(String, Id),
-}
 
 #[derive(Clone, Debug)]
 pub struct GetImapEnvelope {
@@ -42,7 +31,7 @@ impl GetImapEnvelope {
 
 #[async_trait]
 impl GetEnvelope for GetImapEnvelope {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> Result<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &Id) -> crate::Result<Envelope> {
         info!("getting imap envelope {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;

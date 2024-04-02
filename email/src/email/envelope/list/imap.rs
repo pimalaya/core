@@ -3,10 +3,10 @@ use chrono::TimeDelta;
 use imap::extensions::sort::{SortCharset, SortCriterion};
 use log::{debug, info, trace};
 use std::{collections::HashMap, result};
-use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{
+    email::error::Error,
     envelope::Envelope,
     imap::ImapContextSync,
     search_query::{
@@ -14,7 +14,6 @@ use crate::{
         sort::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder},
         SearchEmailsQuery,
     },
-    Result,
 };
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
@@ -23,18 +22,6 @@ use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 /// [envelope]: UID, flags and headers (Message-ID, From, To, Subject,
 /// Date).
 pub const LIST_ENVELOPES_QUERY: &str = "(UID FLAGS ENVELOPE)";
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot select imap folder {1}")]
-    SelectFolderImapError(#[source] imap::Error, String),
-    #[error("cannot list imap envelopes {2} from folder {1}")]
-    ListEnvelopesImapError(#[source] imap::Error, String, String),
-    #[error("cannot search imap envelopes from folder {1} with query {2}")]
-    SearchEnvelopesImapError(#[source] imap::Error, String, String),
-    #[error("cannot list imap envelopes: page {0} out of bounds")]
-    BuildPageRangeOutOfBoundsImapError(usize),
-}
 
 #[derive(Clone, Debug)]
 pub struct ListImapEnvelopes {
@@ -57,7 +44,11 @@ impl ListImapEnvelopes {
 
 #[async_trait]
 impl ListEnvelopes for ListImapEnvelopes {
-    async fn list_envelopes(&self, folder: &str, opts: ListEnvelopesOptions) -> Result<Envelopes> {
+    async fn list_envelopes(
+        &self,
+        folder: &str,
+        opts: ListEnvelopesOptions,
+    ) -> crate::Result<Envelopes> {
         info!("listing imap envelopes from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;

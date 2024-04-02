@@ -8,7 +8,6 @@ use crate::{
     },
     message::peek::{notmuch::PeekNotmuchMessages, PeekMessages},
     notmuch::NotmuchContextSync,
-    Result,
 };
 
 use super::{DefaultGetMessages, GetMessages, Messages};
@@ -38,14 +37,14 @@ impl GetNotmuchMessages {
 
 #[async_trait]
 impl PeekMessages for GetNotmuchMessages {
-    async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
         self.peek_messages.peek_messages(folder, id).await
     }
 }
 
 #[async_trait]
 impl AddFlags for GetNotmuchMessages {
-    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
         self.add_flags.add_flags(folder, id, flags).await
     }
 }

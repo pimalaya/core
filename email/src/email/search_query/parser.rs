@@ -7,20 +7,14 @@
 //! Parsing is based on the great lib [`chumsky`].
 
 use chumsky::{error::Rich, extra, Parser};
-use thiserror::Error;
+
+use crate::email::error::Error;
 
 use super::{
     filter::{self, SearchEmailsFilterQuery},
     sort::{self, SearchEmailsSorter},
     SearchEmailsQuery,
 };
-
-/// Error dedicated to search emails query string parsing.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse search emails query `{1}`")]
-    ParseError(Vec<Rich<'static, char>>, String),
-}
 
 /// Alias for a rich [`chumsky`] error for better diagnosis.
 pub type ParserError<'a> = extra::Err<Rich<'a, char>>;

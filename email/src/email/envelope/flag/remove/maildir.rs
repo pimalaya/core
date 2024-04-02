@@ -1,16 +1,9 @@
 use async_trait::async_trait;
 use log::info;
-use thiserror::Error;
 
-use crate::{envelope::Id, maildir::MaildirContextSync, Result};
+use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync};
 
 use super::{Flags, RemoveFlags};
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot remove flags {3} to envelope(s) {2} from folder {1}")]
-    RemoveFlagsMaildirError(#[source] maildirpp::Error, String, String, Flags),
-}
 
 #[derive(Clone)]
 pub struct RemoveMaildirFlags {
@@ -33,7 +26,7 @@ impl RemoveMaildirFlags {
 
 #[async_trait]
 impl RemoveFlags for RemoveMaildirFlags {
-    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
         info!("removing maildir flag(s) {flags} to envelope {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;

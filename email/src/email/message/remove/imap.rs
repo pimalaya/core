@@ -1,19 +1,10 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::Id, flag::Flag, imap::ImapContextSync, Result};
+use crate::{email::error::Error, envelope::Id, flag::Flag, imap::ImapContextSync};
 
 use super::RemoveMessages;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot select imap folder {1}")]
-    SelectFolderImapError(#[source] imap::Error, String),
-    #[error("cannot add deleted flag to imap message(s) {2} from folder {1}")]
-    AddDeletedFlagImapError(#[source] imap::Error, String, Id),
-}
 
 #[derive(Clone)]
 pub struct RemoveImapMessages {
@@ -36,7 +27,7 @@ impl RemoveImapMessages {
 
 #[async_trait]
 impl RemoveMessages for RemoveImapMessages {
-    async fn remove_messages(&self, folder: &str, id: &Id) -> Result<()> {
+    async fn remove_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
         info!("removing imap messages {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;

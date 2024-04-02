@@ -15,11 +15,16 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::sync::Arc;
 
-use crate::{account::config::AccountConfig, email::address, message::Message, Result};
+use crate::{
+    account::config::AccountConfig,
+    email::{address, error::Error},
+    message::Message,
+    Result,
+};
 
 use self::config::{ReplyTemplatePostingStyle, ReplyTemplateSignatureStyle};
 
-use super::{Error, Template, TemplateBody, TemplateCursor};
+use super::{Template, TemplateBody, TemplateCursor};
 
 /// Regex used to trim out prefix(es) from a subject.
 ///
@@ -318,28 +323,26 @@ impl<'a> ReplyTemplateBuilder<'a> {
                             ));
                         }
                     }
-                } else {
-                    if let HeaderValue::Address(mail_parser::Address::List(addrs)) = &sender {
-                        for a in addrs {
-                            if a.address == me.address {
-                                continue;
-                            }
-
-                            if address::contains(&recipients, &a.address) {
-                                continue;
-                            }
-
-                            if let Some(addr) = &a.address {
-                                if NO_REPLY.is_match(addr) {
-                                    continue;
-                                }
-                            }
-
-                            addresses.push(Address::new_address(
-                                a.name.clone(),
-                                a.address.clone().unwrap(),
-                            ));
+                } else if let HeaderValue::Address(mail_parser::Address::List(addrs)) = &sender {
+                    for a in addrs {
+                        if a.address == me.address {
+                            continue;
                         }
+
+                        if address::contains(&recipients, &a.address) {
+                            continue;
+                        }
+
+                        if let Some(addr) = &a.address {
+                            if NO_REPLY.is_match(addr) {
+                                continue;
+                            }
+                        }
+
+                        addresses.push(Address::new_address(
+                            a.name.clone(),
+                            a.address.clone().unwrap(),
+                        ));
                     }
                 }
             }

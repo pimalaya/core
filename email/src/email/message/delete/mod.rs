@@ -13,7 +13,6 @@ use crate::{
     envelope::Id,
     flag::{add::AddFlags, Flag},
     folder::TRASH,
-    Result,
 };
 
 use super::r#move::MoveMessages;
@@ -30,7 +29,7 @@ pub trait DeleteMessages: Send + Sync {
     /// Deleted. Otherwise it should move the message to the Trash
     /// folder. Only [`ExpungeFolder`](crate::folder::ExpungeFolder)
     /// can definitely delete messages.
-    async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()>;
+    async fn delete_messages(&self, folder: &str, id: &Id) -> crate::Result<()>;
 }
 
 /// Default backend feature to delete message(s).
@@ -39,7 +38,7 @@ pub trait DeleteMessages: Send + Sync {
 /// messages and add flags feature.
 #[async_trait]
 pub trait DefaultDeleteMessages: Send + Sync + HasAccountConfig + MoveMessages + AddFlags {
-    async fn default_delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
+    async fn default_delete_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
         let config = self.account_config();
 
         if config.is_trash_folder(folder) || config.is_delete_message_style_flag() {
@@ -52,7 +51,7 @@ pub trait DefaultDeleteMessages: Send + Sync + HasAccountConfig + MoveMessages +
 
 #[async_trait]
 impl<T: DefaultDeleteMessages> DeleteMessages for T {
-    async fn delete_messages(&self, folder: &str, id: &Id) -> Result<()> {
+    async fn delete_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
         self.default_delete_messages(folder, id).await
     }
 }

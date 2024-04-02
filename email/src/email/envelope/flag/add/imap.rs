@@ -1,19 +1,10 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::Id, imap::ImapContextSync};
+use crate::{email::error::Error, envelope::Id, imap::ImapContextSync};
 
 use super::{AddFlags, Flags};
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot select imap folder {1}")]
-    SelectFolderImapError(#[source] imap::Error, String),
-    #[error("cannot add imap flags {3} to envelope(s) {2} from folder {1}")]
-    AddFlagImapError(#[source] imap::Error, String, Id, Flags),
-}
 
 #[derive(Clone, Debug)]
 pub struct AddImapFlags {

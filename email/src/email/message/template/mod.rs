@@ -17,16 +17,6 @@ pub use mml::{
     message::{FilterHeaders, FilterParts},
     MimeInterpreter,
 };
-use thiserror::Error;
-
-/// Errors related to email message templates.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot interpret message as template")]
-    InterpretMessageAsTemplateError(#[source] mml::Error),
-    #[error("cannot interpret message as thread template")]
-    InterpretMessageAsThreadTemplateError(#[source] mml::Error),
-}
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(

@@ -24,20 +24,12 @@ use std::{
     ops::{Deref, DerefMut},
     str::FromStr,
 };
-use thiserror::Error;
 
-use crate::Result;
+use crate::email::error::Error;
 
 #[cfg(feature = "account-sync")]
 #[doc(inline)]
 pub use self::sync::sync;
-
-/// Errors related to email envelope flags.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse flag {0}")]
-    ParseFlagError(String),
-}
 
 /// The email envelope flag.
 ///
@@ -98,9 +90,9 @@ impl From<&str> for Flag {
 /// Parse a flag from a string. If the string does not match any of
 /// the existing variant, it returns an error.
 impl FromStr for Flag {
-    type Err = crate::Error;
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self> {
+    fn from_str(s: &str) -> Result<Self, Error> {
         match s.trim() {
             seen if seen.eq_ignore_ascii_case("seen") => Ok(Flag::Seen),
             answered if answered.eq_ignore_ascii_case("answered") => Ok(Flag::Answered),
@@ -117,9 +109,9 @@ impl FromStr for Flag {
 
 /// Alias for [`FromStr`].
 impl TryFrom<String> for Flag {
-    type Error = crate::Error;
+    type Error = Error;
 
-    fn try_from(value: String) -> Result<Self> {
+    fn try_from(value: String) -> Result<Self, Error> {
         value.parse()
     }
 }
@@ -201,13 +193,13 @@ impl From<String> for Flags {
 }
 
 impl FromStr for Flags {
-    type Err = crate::Error;
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self> {
+    fn from_str(s: &str) -> Result<Self, Error> {
         Ok(Flags(
             s.split_whitespace()
                 .map(|flag| flag.parse())
-                .collect::<Result<_>>()?,
+                .collect::<Result<_, _>>()?,
         ))
     }
 }

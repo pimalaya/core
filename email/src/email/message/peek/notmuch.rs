@@ -1,17 +1,10 @@
 use async_trait::async_trait;
 use log::info;
 use std::fs;
-use thiserror::Error;
 
-use crate::{envelope::Id, notmuch::NotmuchContextSync, Result};
+use crate::{email::error::Error, envelope::Id, notmuch::NotmuchContextSync};
 
 use super::{Messages, PeekMessages};
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot find notmuch envelope {1} from folder {0}")]
-    FindEnvelopeEmptyNotmuchError(String, String),
-}
 
 #[derive(Clone)]
 pub struct PeekNotmuchMessages {
@@ -34,7 +27,7 @@ impl PeekNotmuchMessages {
 
 #[async_trait]
 impl PeekMessages for PeekNotmuchMessages {
-    async fn peek_messages(&self, folder: &str, id: &Id) -> Result<Messages> {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
         info!("peeking notmuch messages {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;
@@ -42,18 +35,18 @@ impl PeekMessages for PeekNotmuchMessages {
 
         let msgs: Messages = id
             .iter()
-            .map(|id| {
+            .map(|ids| {
                 let path = db
-                    .find_message(id)?
+                    .find_message(ids)?
                     .ok_or_else(|| {
-                        Error::FindEnvelopeEmptyNotmuchError(folder.to_owned(), id.to_string())
+                        Error::FindEnvelopeEmptyNotmuchError(folder.to_owned(), ids.to_owned())
                     })?
                     .filename()
                     .to_owned();
                 let msg = fs::read(path)?;
                 Ok(msg)
             })
-            .collect::<Result<Vec<_>>>()?
+            .collect::<crate::Result<Vec<_>>>()?
             .into();
 
         db.close()?;
