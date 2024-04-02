@@ -12,10 +12,10 @@
 //!
 //! Finally, the [`sync`] module contains everything needed to
 //! synchronize a remote folder with a local one.
-
 pub mod add;
 pub mod config;
 pub mod delete;
+pub mod error;
 pub mod expunge;
 #[cfg(feature = "imap")]
 pub mod imap;
@@ -32,17 +32,11 @@ use std::{
     ops::{Deref, DerefMut},
     str::FromStr,
 };
-use thiserror::Error;
 
 #[cfg(feature = "account-sync")]
 pub(crate) use sync::sync;
 
-/// Errors dedicated to folder management.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot parse folder kind {0}")]
-    ParseFolderKindError(String),
-}
+use crate::folder::error::Error;
 
 pub const INBOX: &str = "INBOX";
 pub const SENT: &str = "Sent";

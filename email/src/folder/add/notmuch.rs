@@ -1,18 +1,14 @@
 use async_trait::async_trait;
 use log::info;
 use maildirpp::Maildir;
-use std::path::PathBuf;
-use thiserror::Error;
 
-use crate::{folder::FolderKind, maildir, notmuch::NotmuchContextSync, Result};
+use crate::{
+    folder::{error::Error, FolderKind},
+    maildir,
+    notmuch::NotmuchContextSync,
+};
 
 use super::AddFolder;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot create notmuch folder structure at {1}")]
-    CreateFolderStructureNotmuchError(#[source] maildirpp::Error, PathBuf),
-}
 
 pub struct AddNotmuchFolder {
     ctx: NotmuchContextSync,
@@ -34,7 +30,7 @@ impl AddNotmuchFolder {
 
 #[async_trait]
 impl AddFolder for AddNotmuchFolder {
-    async fn add_folder(&self, folder: &str) -> Result<()> {
+    async fn add_folder(&self, folder: &str) -> crate::Result<()> {
         info!("creating notmuch folder {folder} via maildir");
 
         let config = &self.ctx.account_config;

@@ -1,16 +1,9 @@
 use async_trait::async_trait;
 use log::info;
-use thiserror::Error;
 
-use crate::{imap::ImapContextSync, Result};
+use crate::{folder::error::Error, imap::ImapContextSync};
 
 use super::{Folders, ListFolders};
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot list imap folders")]
-    ListFoldersImapError(#[source] imap::Error),
-}
 
 #[derive(Debug, Clone)]
 pub struct ListImapFolders {
@@ -33,7 +26,7 @@ impl ListImapFolders {
 
 #[async_trait]
 impl ListFolders for ListImapFolders {
-    async fn list_folders(&self) -> Result<Folders> {
+    async fn list_folders(&self) -> crate::Result<Folders> {
         info!("listing imap folders");
 
         let config = &self.ctx.account_config;

@@ -1,19 +1,10 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapContextSync, Result};
+use crate::{folder::error::Error, imap::ImapContextSync};
 
 use super::ExpungeFolder;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot select imap folder {1}")]
-    SelectFolderImapError(#[source] imap::Error, String),
-    #[error("cannot expunge imap folder {1}")]
-    ExpungeFolderImapError(#[source] imap::Error, String),
-}
 
 #[derive(Debug)]
 pub struct ExpungeImapFolder {
@@ -36,7 +27,7 @@ impl ExpungeImapFolder {
 
 #[async_trait]
 impl ExpungeFolder for ExpungeImapFolder {
-    async fn expunge_folder(&self, folder: &str) -> Result<()> {
+    async fn expunge_folder(&self, folder: &str) -> crate::Result<()> {
         info!("expunging imap folder {folder}");
 
         let mut ctx = self.ctx.lock().await;

@@ -3,7 +3,7 @@ use log::{debug, info};
 use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{envelope::Id, imap::ImapContextSync, Result};
+use crate::{envelope::Id, imap::ImapContextSync};
 
 use super::{AddFlags, Flags};
 
@@ -36,7 +36,7 @@ impl AddImapFlags {
 
 #[async_trait]
 impl AddFlags for AddImapFlags {
-    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> Result<()> {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
         info!("adding imap flag(s) {flags} to envelope {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;

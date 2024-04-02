@@ -4,10 +4,11 @@
 //! two backends. The main structure of this module is
 //! [`SyncBuilder`].
 
+pub mod error;
 pub mod pool;
 pub mod report;
 
-use advisory_lock::{AdvisoryFileLock, FileLockError, FileLockMode};
+use advisory_lock::{AdvisoryFileLock, FileLockMode};
 use dirs::cache_dir;
 use log::{debug, trace};
 use std::{
@@ -15,12 +16,10 @@ use std::{
     env, fmt,
     fs::OpenOptions,
     future::Future,
-    io,
     path::PathBuf,
     pin::Pin,
     sync::Arc,
 };
-use thiserror::Error;
 
 use crate::{
     backend::{context::BackendContextBuilder, BackendBuilder},
@@ -34,23 +33,10 @@ use crate::{
         },
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder},
-    Result,
+    sync::error::Error,
 };
 
 use self::report::SyncReport;
-
-/// Errors related to synchronization.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("cannot open sync lock file")]
-    OpenLockFileSyncError(#[source] io::Error, PathBuf),
-    #[error("cannot lock sync file")]
-    LockFileSyncError(#[source] FileLockError, PathBuf),
-    #[error("cannot unlock sync file")]
-    UnlockFileSyncError(#[source] FileLockError, PathBuf),
-    #[error("cannot get sync cache directory")]
-    GetCacheDirectorySyncError,
-}
 
 /// The synchronization builder.
 #[derive(Clone)]
@@ -118,7 +104,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
             .or_else(|| self.find_default_cache_dir())
     }
 
-    pub fn get_cache_dir(&self) -> Result<PathBuf> {
+    pub fn get_cache_dir(&self) -> Result<PathBuf, Error> {
         self.find_cache_dir()
             .ok_or(Error::GetCacheDirectorySyncError.into())
     }
@@ -141,7 +127,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         self
     }
 
-    pub fn set_some_handler<F: Future<Output = Result<()>> + Send + 'static>(
+    pub fn set_some_handler<F: Future<Output = Result<(), Error>> + Send + 'static>(
         &mut self,
         handler: Option<impl Fn(SyncEvent) -> F + Send + Sync + 'static>,
     ) {
@@ -151,14 +137,14 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         };
     }
 
-    pub fn set_handler<F: Future<Output = Result<()>> + Send + 'static>(
+    pub fn set_handler<F: Future<Output = Result<(), Error>> + Send + 'static>(
         &mut self,
         handler: impl Fn(SyncEvent) -> F + Send + Sync + 'static,
     ) {
         self.set_some_handler(Some(handler));
     }
 
-    pub fn with_some_handler<F: Future<Output = Result<()>> + Send + 'static>(
+    pub fn with_some_handler<F: Future<Output = Result<(), Error>> + Send + 'static>(
         mut self,
         handler: Option<impl Fn(SyncEvent) -> F + Send + Sync + 'static>,
     ) -> Self {
@@ -166,7 +152,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         self
     }
 
-    pub fn with_handler<F: Future<Output = Result<()>> + Send + 'static>(
+    pub fn with_handler<F: Future<Output = Result<(), Error>> + Send + 'static>(
         mut self,
         handler: impl Fn(SyncEvent) -> F + Send + Sync + 'static,
     ) -> Self {
@@ -217,7 +203,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         self
     }
 
-    pub fn get_left_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
+    pub fn get_left_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>, Error> {
         let left_config = self.left_builder.account_config.clone();
         let root_dir = self.get_cache_dir()?.join(&left_config.name);
         let ctx =
@@ -226,7 +212,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         Ok(left_cache_builder)
     }
 
-    pub fn get_right_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
+    pub fn get_right_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>, Error> {
         let right_config = self.right_builder.account_config.clone();
         let root_dir = self.get_cache_dir()?.join(&right_config.name);
         let ctx =
@@ -235,7 +221,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         Ok(right_cache_builder)
     }
 
-    pub async fn sync(self) -> Result<SyncReport> {
+    pub async fn sync(self) -> crate::Result<SyncReport> {
         let lock_file_name = format!("pimalaya-email-sync.{}.lock", self.id);
         let lock_file_path = env::temp_dir().join(lock_file_name);
 
@@ -284,7 +270,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
 
 /// The synchronization async event handler.
 pub type SyncEventHandler =
-    dyn Fn(SyncEvent) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + Sync;
+    dyn Fn(SyncEvent) -> Pin<Box<dyn Future<Output = Result<(), Error>> + Send>> + Send + Sync;
 
 /// The synchronization event.
 ///

@@ -1,22 +1,13 @@
 use async_trait::async_trait;
 use log::info;
 use maildirpp::Maildir;
-use std::path::PathBuf;
-use thiserror::Error;
 
 use crate::{
-    folder::FolderKind,
+    folder::{error::Error, FolderKind},
     maildir::{self, MaildirContextSync},
-    Result,
 };
 
 use super::AddFolder;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot create maildir folder structure at {1}")]
-    CreateFolderStructureMaildirError(#[source] maildirpp::Error, PathBuf),
-}
 
 pub struct AddMaildirFolder {
     ctx: MaildirContextSync,
@@ -38,7 +29,7 @@ impl AddMaildirFolder {
 
 #[async_trait]
 impl AddFolder for AddMaildirFolder {
-    async fn add_folder(&self, folder: &str) -> Result<()> {
+    async fn add_folder(&self, folder: &str) -> crate::Result<()> {
         info!("creating maildir folder {folder}");
 
         let ctx = self.ctx.lock().await;
@@ -54,7 +45,7 @@ impl AddFolder for AddMaildirFolder {
 
         Maildir::from(path.clone())
             .create_dirs()
-            .map_err(|err| Error::CreateFolderStructureMaildirError(err, path))?;
+            .map_err(|e| Error::CreateFolderStructureMaildirError(e, path))?;
 
         Ok(())
     }

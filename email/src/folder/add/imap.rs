@@ -1,17 +1,10 @@
 use async_trait::async_trait;
 use log::{debug, info};
-use thiserror::Error;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{imap::ImapContextSync, Result};
+use crate::{folder::error::Error, imap::ImapContextSync};
 
 use super::AddFolder;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot create imap folder {1}")]
-    CreateFolderImapError(#[source] imap::Error, String),
-}
 
 #[derive(Clone, Debug)]
 pub struct AddImapFolder {
@@ -34,7 +27,7 @@ impl AddImapFolder {
 
 #[async_trait]
 impl AddFolder for AddImapFolder {
-    async fn add_folder(&self, folder: &str) -> Result<()> {
+    async fn add_folder(&self, folder: &str) -> crate::Result<()> {
         info!("creating imap folder {folder}");
 
         let mut ctx = self.ctx.lock().await;

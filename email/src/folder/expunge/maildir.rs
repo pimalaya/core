@@ -1,19 +1,9 @@
 use async_trait::async_trait;
 use log::info;
-use std::path::PathBuf;
-use thiserror::Error;
 
-use crate::{maildir::MaildirContextSync, Result};
+use crate::{folder::error::Error, maildir::MaildirContextSync};
 
 use super::ExpungeFolder;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("maildir: cannot list current folder from {1}")]
-    ListCurrentFolderMaildirError(#[source] maildirpp::Error, PathBuf),
-    #[error("maildir: cannot delete message {2} from folder {1}")]
-    DeleteMessageMaildirError(#[source] maildirpp::Error, PathBuf, String),
-}
 
 pub struct ExpungeMaildirFolder {
     ctx: MaildirContextSync,
@@ -35,7 +25,7 @@ impl ExpungeMaildirFolder {
 
 #[async_trait]
 impl ExpungeFolder for ExpungeMaildirFolder {
-    async fn expunge_folder(&self, folder: &str) -> Result<()> {
+    async fn expunge_folder(&self, folder: &str) -> crate::Result<()> {
         info!("expunging maildir folder {folder}");
 
         let ctx = self.ctx.lock().await;

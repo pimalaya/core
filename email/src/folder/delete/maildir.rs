@@ -1,21 +1,13 @@
 use async_trait::async_trait;
 use log::info;
-use std::{fs, io, path::PathBuf};
-use thiserror::Error;
+use std::fs;
 
 use crate::{
-    folder::FolderKind,
+    folder::{error::Error, FolderKind},
     maildir::{self, MaildirContextSync},
-    Result,
 };
 
 use super::DeleteFolder;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot delete maildir folder {1}")]
-    DeleteFolderMaildirError(#[source] io::Error, PathBuf),
-}
 
 pub struct DeleteMaildirFolder {
     ctx: MaildirContextSync,
@@ -37,7 +29,7 @@ impl DeleteMaildirFolder {
 
 #[async_trait]
 impl DeleteFolder for DeleteMaildirFolder {
-    async fn delete_folder(&self, folder: &str) -> Result<()> {
+    async fn delete_folder(&self, folder: &str) -> crate::Result<()> {
         info!("deleting maildir folder {folder}");
 
         let ctx = self.ctx.lock().await;
