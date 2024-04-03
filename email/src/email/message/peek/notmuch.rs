@@ -37,19 +37,20 @@ impl PeekMessages for PeekNotmuchMessages {
             .iter()
             .map(|ids| {
                 let path = db
-                    .find_message(ids)?
+                    .find_message(ids)
+                    .map_err(Error::NotMuchFailure)?
                     .ok_or_else(|| {
                         Error::FindEnvelopeEmptyNotmuchError(folder.to_owned(), ids.to_owned())
                     })?
                     .filename()
                     .to_owned();
-                let msg = fs::read(path)?;
+                let msg = fs::read(path).map_err(Error::FileReadFailure)?;
                 Ok(msg)
             })
             .collect::<crate::Result<Vec<_>>>()?
             .into();
 
-        db.close()?;
+        db.close().map_err(Error::NotMuchFailure)?;
 
         Ok(msgs)
     }

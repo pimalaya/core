@@ -2,6 +2,7 @@ use chumsky::error::Rich;
 use std::io;
 use std::path::PathBuf;
 use thiserror::Error;
+use tokio::task::JoinError;
 
 use crate::envelope::Id;
 use crate::flag::Flags;
@@ -136,4 +137,28 @@ pub enum Error {
     AddFlagImapError(#[source] imap::Error, String, Id, Flags),
     #[error("invalid input: {0}")]
     InvalidInput(String),
+    #[error("failed to get envelopes: {0}")]
+    FailedToGetEnvelopes(JoinError),
+    #[error("notmuch failed: {0}")]
+    NotMuchFailure(notmuch::Error),
+    #[error("process failed: {0}")]
+    ProcessFailure(process::error::Error),
+    #[error("maildir failed: {0}")]
+    MaildirppFailure(maildirpp::Error),
+    #[error("could not watch: {0}")]
+    NotifyFailure(notify::Error),
+    #[error("could not watch: {0}")]
+    FileReadFailure(io::Error),
+}
+
+impl crate::EmailError for Error {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl From<Error> for Box<dyn crate::EmailError> {
+    fn from(value: Error) -> Self {
+        Box::new(value)
+    }
 }

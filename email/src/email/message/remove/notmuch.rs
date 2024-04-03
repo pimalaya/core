@@ -43,8 +43,10 @@ impl RemoveMessages for RemoveNotmuchMessages {
         let query = [folder_query, mid_query].join(" and ");
         debug!("notmuch query: {query:?}");
 
-        let query_builder = db.create_query(&query)?;
-        let msgs = query_builder.search_messages()?;
+        let query_builder = db.create_query(&query).map_err(Error::NotMuchFailure)?;
+        let msgs = query_builder
+            .search_messages()
+            .map_err(Error::NotMuchFailure)?;
 
         for msg in msgs {
             db.remove_message(msg.filename()).map_err(|err| {
@@ -52,7 +54,7 @@ impl RemoveMessages for RemoveNotmuchMessages {
             })?
         }
 
-        db.close()?;
+        db.close().map_err(Error::NotMuchFailure)?;
 
         Ok(())
     }

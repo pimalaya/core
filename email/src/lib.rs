@@ -52,6 +52,7 @@ pub mod account;
 pub mod backend;
 pub mod config;
 pub mod email;
+pub mod error;
 pub mod folder;
 #[cfg(feature = "imap")]
 pub mod imap;
@@ -69,21 +70,7 @@ pub mod smtp;
 pub mod sync;
 pub mod thread_pool;
 pub mod watch;
+pub use error::*;
 
 #[doc(inline)]
 pub use email::{envelope::flag, message::template, *};
-
-/// The global `Error` alias of the library.
-///
-/// Downcasting should suffice in most cases; since usecases for precise
-/// error variant identification in `email-lib` should be rare.
-/// While suitable for most libraries, using one error per module in
-/// a large library like `email-lib` complicates communication due to
-/// differences in errors.
-pub type Error = anyhow::Error;
-
-/// The global `Result` alias of the library.
-///
-/// Refer to the `Error` documentation for an explanation
-/// about the choice of using `anyhow` crate on the library level.
-pub type Result<T> = anyhow::Result<T>;

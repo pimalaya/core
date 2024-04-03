@@ -11,3 +11,15 @@ pub enum Error {
     #[error("cannot close notmuch database")]
     ClosingNotmuchFailed(#[source] notmuch::Error),
 }
+
+impl crate::EmailError for Error {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl From<Error> for Box<dyn crate::EmailError> {
+    fn from(value: Error) -> Self {
+        Box::new(value)
+    }
+}

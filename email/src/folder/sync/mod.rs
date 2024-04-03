@@ -15,6 +15,7 @@ use tokio::task::JoinHandle;
 
 use crate::{
     backend::context::BackendContextBuilder,
+    folder::error::Error,
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
     thread_pool::ThreadPool,
 };
@@ -166,12 +167,14 @@ where
             .await
     });
 
-    let (left_cached_folders, left_folders, right_cached_folders, right_folders) = tokio::try_join!(
-        left_cached_folders,
-        left_folders,
-        right_cached_folders,
-        right_folders
-    )?;
+    let (left_cached_folders, left_folders, right_cached_folders, right_folders) =
+        tokio::try_join!(
+            left_cached_folders,
+            left_folders,
+            right_cached_folders,
+            right_folders
+        )
+        .map_err(Error::FolderTasksFailed)?;
 
     pool.exec(|ctx| async move { SyncEvent::ListedAllFolders.emit(&ctx.handler).await })
         .await;

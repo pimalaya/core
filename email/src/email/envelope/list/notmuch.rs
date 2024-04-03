@@ -58,7 +58,9 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
             }
         }
 
-        let query_builder = db.create_query(&final_query)?;
+        let query_builder = db
+            .create_query(&final_query)
+            .map_err(Error::NotMuchFailure)?;
 
         let msgs = query_builder.search_messages().map_err(|err| {
             Error::SearchMessagesInvalidQueryNotmuch(err, folder.to_owned(), final_query.clone())
@@ -88,7 +90,7 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
         opts.sort_envelopes(&mut envelopes);
         *envelopes = envelopes[page_begin..page_end].into();
 
-        db.close()?;
+        db.close().map_err(Error::NotMuchFailure)?;
 
         Ok(envelopes)
     }

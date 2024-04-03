@@ -214,9 +214,11 @@ where
         )>| async {
             let task = async {
                 let (folder, envelopes) = patch?;
-                let (lc, l, rc, r) = envelopes?;
+                let (lc, l, rc, r) = envelopes.map_err(|e| Error::FailedToGetEnvelopes(e))?;
                 let patch = patch::build(&folder, lc?, l?, rc?, r?);
-                Ok::<(String, HashSet<Vec<EmailSyncHunk>>), crate::Error>((folder, patch))
+                Ok::<(String, HashSet<Vec<EmailSyncHunk>>), Box<dyn crate::EmailError>>((
+                    folder, patch,
+                ))
             };
             match task.await {
                 Ok(patch) => Some(patch),

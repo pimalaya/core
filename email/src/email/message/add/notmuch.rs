@@ -3,7 +3,7 @@ use log::info;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::{envelope::SingleId, notmuch::NotmuchContextSync};
+use crate::{email::error::Error, envelope::SingleId, notmuch::NotmuchContextSync};
 
 use super::{AddMessage, Flags};
 
@@ -53,18 +53,23 @@ impl AddMessage for AddNotmuchMessage {
         };
 
         let mdir = mdir_ctx.get_maildir_from_folder_name(&folder)?;
-        let id = mdir.store_cur_with_flags(msg, &flags.to_mdir_string())?;
+        let id = mdir
+            .store_cur_with_flags(msg, &flags.to_mdir_string())
+            .map_err(Error::MaildirppFailure)?;
         let msg = mdir.find(&id).unwrap();
 
-        let msg = db.index_file(msg.path(), None)?;
+        let msg = db
+            .index_file(msg.path(), None)
+            .map_err(Error::NotMuchFailure)?;
 
         flags
             .iter()
-            .try_for_each(|flag| msg.add_tag(&flag.to_string()))?;
+            .try_for_each(|flag| msg.add_tag(&flag.to_string()))
+            .map_err(Error::NotMuchFailure)?;
 
         let id = SingleId::from(msg.id());
 
-        db.close()?;
+        db.close().map_err(Error::NotMuchFailure)?;
 
         Ok(id)
     }

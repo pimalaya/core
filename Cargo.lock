@@ -1673,7 +1673,6 @@ name = "email-lib"
 version = "0.22.3"
 dependencies = [
  "advisory-lock",
- "anyhow",
  "async-trait",
  "chrono",
  "chumsky",

@@ -100,3 +100,15 @@ pub enum Error {
     #[error("cannot parse email {0}: {1}")]
     ParsingEmailAddress(String, #[source] email_address::Error),
 }
+
+impl crate::EmailError for Error {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl From<Error> for Box<dyn crate::EmailError> {
+    fn from(value: Error) -> Self {
+        Box::new(value)
+    }
+}

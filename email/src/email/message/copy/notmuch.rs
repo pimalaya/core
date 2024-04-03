@@ -3,6 +3,7 @@ use log::info;
 use std::fs;
 
 use crate::{
+    email::error::Error,
     envelope::Id,
     flag::{Flag, Flags},
     folder::FolderKind,
@@ -56,15 +57,20 @@ impl CopyMessages for CopyNotmuchMessages {
         };
         let mid_query = format!("mid:\"/^({})$/\"", id.join("|"));
         let query = [folder_query, mid_query].join(" and ");
-        let query_builder = db.create_query(&query)?;
-        let msgs = query_builder.search_messages()?;
+        let query_builder = db.create_query(&query).map_err(Error::NotMuchFailure)?;
+        let msgs = query_builder
+            .search_messages()
+            .map_err(Error::NotMuchFailure)?;
 
         for msg in msgs {
             let flags = Flags::from_iter([Flag::Seen]).to_mdir_string();
-            let content = fs::read(msg.filename())?;
-            let mdir_id = mdir.store_cur_with_flags(&content, &flags)?;
+            let content = fs::read(msg.filename()).map_err(Error::FileReadFailure)?;
+            let mdir_id = mdir
+                .store_cur_with_flags(&content, &flags)
+                .map_err(Error::MaildirppFailure)?;
             let mdir_entry = mdir.find(&mdir_id).unwrap();
-            db.index_file(mdir_entry.path(), None)?;
+            db.index_file(mdir_entry.path(), None)
+                .map_err(Error::NotMuchFailure)?;
         }
 
         Ok(())

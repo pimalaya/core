@@ -9,5 +9,5 @@ use super::hunk::EmailSyncHunk;
 #[derive(Debug, Default)]
 pub struct EmailSyncReport {
     /// The list of processed hunks associated with an optional error.
-    pub patch: Vec<(EmailSyncHunk, Option<crate::Error>)>,
+    pub patch: Vec<(EmailSyncHunk, Option<Box<dyn crate::EmailError>>)>,
 }

@@ -43,3 +43,15 @@ pub enum Error {
     #[error("cannot remove messages: feature not available, or backend configuration for this functionality is not set")]
     RemoveMessagesNotAvailableError,
 }
+
+impl crate::EmailError for Error {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl From<Error> for Box<dyn crate::EmailError> {
+    fn from(value: Error) -> Self {
+        Box::new(value)
+    }
+}

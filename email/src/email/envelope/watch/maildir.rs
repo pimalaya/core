@@ -4,6 +4,7 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::{collections::HashMap, sync::mpsc};
 
 use crate::{
+    email::error::Error,
     envelope::{Envelope, Envelopes},
     maildir::MaildirContextSync,
 };
@@ -42,8 +43,11 @@ impl WatchEnvelopes for WatchMaildirEnvelopes {
             HashMap::from_iter(envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
         let (tx, rx) = mpsc::channel();
-        let mut watcher = RecommendedWatcher::new(tx, Default::default())?;
-        watcher.watch(mdir.path(), RecursiveMode::Recursive)?;
+        let mut watcher =
+            RecommendedWatcher::new(tx, Default::default()).map_err(Error::NotifyFailure)?;
+        watcher
+            .watch(mdir.path(), RecursiveMode::Recursive)
+            .map_err(Error::NotifyFailure)?;
         debug!("watching maildir folder {folder:?}…");
 
         for res in rx {

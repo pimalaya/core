@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::{debug, info};
 
-use crate::{envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync};
+use crate::{email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync};
 
 use super::MoveMessages;
 
@@ -51,8 +51,10 @@ impl MoveMessages for MoveNotmuchMessages {
         };
         let mid_query = format!("mid:\"/^({})$/\"", id.join("|"));
         let query = [folder_query, mid_query].join(" and ");
-        let query_builder = db.create_query(&query)?;
-        let msgs = query_builder.search_messages()?;
+        let query_builder = db.create_query(&query).map_err(Error::NotMuchFailure)?;
+        let msgs = query_builder
+            .search_messages()
+            .map_err(Error::NotMuchFailure)?;
 
         for msg in msgs {
             let mdir_id = mdir_from.list_cur().find_map(|entry| {
@@ -71,10 +73,14 @@ impl MoveMessages for MoveNotmuchMessages {
                     break;
                 }
                 Some(mdir_id) => {
-                    mdir_from.move_to(mdir_id, &mdir_to)?;
-                    msg.reindex(db.default_indexopts()?)?;
+                    mdir_from
+                        .move_to(mdir_id, &mdir_to)
+                        .map_err(Error::MaildirppFailure)?;
+                    msg.reindex(db.default_indexopts().map_err(Error::NotMuchFailure)?)
+                        .map_err(Error::NotMuchFailure)?;
                     let mdir_entry = mdir_to.find(mdir_id).unwrap();
-                    db.index_file(mdir_entry.path(), None)?;
+                    db.index_file(mdir_entry.path(), None)
+                        .map_err(Error::NotMuchFailure)?;
                 }
             }
         }

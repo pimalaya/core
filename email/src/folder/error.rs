@@ -1,6 +1,7 @@
 use std::{io, path::PathBuf};
 
 use thiserror::Error;
+use tokio::task::JoinError;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot create imap folder {1}")]
@@ -29,4 +30,18 @@ pub enum Error {
     ListFoldersImapError(#[source] imap::Error),
     #[error("cannot get uid of imap folder {0}: uid is missing")]
     GetUidMissingImapError(u32),
+    #[error("cannot gather folders: {0}")]
+    FolderTasksFailed(JoinError),
+}
+
+impl crate::EmailError for Error {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl From<Error> for Box<dyn crate::EmailError> {
+    fn from(value: Error) -> Self {
+        Box::new(value)
+    }
 }

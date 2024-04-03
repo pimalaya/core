@@ -32,13 +32,16 @@ impl GetEnvelope for GetNotmuchEnvelope {
         let ctx = self.ctx.lock().await;
         let db = ctx.open_db()?;
 
-        let envelope =
-            Envelope::from_notmuch_msg(db.find_message(&id.to_string())?.ok_or_else(|| {
-                Error::FindEnvelopeEmptyNotmuchError(folder.to_owned(), id.to_string())
-            })?);
+        let envelope = Envelope::from_notmuch_msg(
+            db.find_message(&id.to_string())
+                .map_err(Error::NotMuchFailure)?
+                .ok_or_else(|| {
+                    Error::FindEnvelopeEmptyNotmuchError(folder.to_owned(), id.to_string())
+                })?,
+        );
         trace!("notmuch envelope: {envelope:#?}");
 
-        db.close()?;
+        db.close().map_err(Error::NotMuchFailure)?;
 
         Ok(envelope)
     }

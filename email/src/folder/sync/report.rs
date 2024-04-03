@@ -2,8 +2,6 @@
 //!
 //! The core structure of this module is the [`FolderSyncReport`].
 
-use crate::Error;
-
 use super::hunk::{FolderSyncHunk, FoldersName};
 
 /// The folder synchronization report.
@@ -14,5 +12,5 @@ pub struct FolderSyncReport {
 
     /// The list of processed hunks associated with an optional
     /// error. Hunks that could not be processed are ignored.
-    pub patch: Vec<(FolderSyncHunk, Option<Error>)>,
+    pub patch: Vec<(FolderSyncHunk, Option<Box<dyn crate::EmailError>>)>,
 }

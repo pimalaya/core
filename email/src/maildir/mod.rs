@@ -14,6 +14,7 @@ use crate::{
         context::{BackendContext, BackendContextBuilder},
         feature::{BackendFeature, CheckUp},
     },
+    email::error::Error,
     envelope::{
         get::{maildir::GetMaildirEnvelope, GetEnvelope},
         list::{maildir::ListMaildirEnvelopes, ListEnvelopes},
@@ -233,7 +234,7 @@ impl BackendContextBuilder for MaildirContextBuilder {
         let path = shellexpand_path(&self.mdir_config.root_dir);
 
         let root = Maildir::from(path);
-        root.create_dirs()?;
+        root.create_dirs().map_err(Error::MaildirppFailure)?;
 
         let ctx = MaildirContext {
             account_config: self.account_config.clone(),

@@ -60,7 +60,7 @@ impl AddMessage for AddImapMessage {
 
         let uid = match appended.uids {
             Some(mut uids) if uids.len() == 1 => match uids.get_mut(0).unwrap() {
-                UidSetMember::Uid(uid) => anyhow::Ok(*uid),
+                UidSetMember::Uid(uid) => Ok::<_, Error>(*uid),
                 UidSetMember::UidRange(uids) => Ok(uids.next().ok_or_else(|| {
                     Error::GetAddedMessageUidFromRangeImapError(uids.fold(
                         String::new(),

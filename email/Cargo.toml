@@ -74,7 +74,6 @@ tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]
 advisory-lock = { version = "0.3", optional = true }
-anyhow = "1"
 async-trait = "0.1"
 chrono = "0.4"
 convert_case = "0.5"

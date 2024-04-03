@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::{debug, info};
 
-use crate::{envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync};
+use crate::{email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync};
 
 use super::{Flags, SetFlags};
 
@@ -43,18 +43,21 @@ impl SetFlags for SetNotmuchFlags {
         let query = [folder_query, mid_query].join(" and ");
         debug!("notmuch query: {query:?}");
 
-        let query_builder = db.create_query(&query)?;
-        let msgs = query_builder.search_messages()?;
+        let query_builder = db.create_query(&query).map_err(Error::NotMuchFailure)?;
+        let msgs = query_builder
+            .search_messages()
+            .map_err(Error::NotMuchFailure)?;
 
         for msg in msgs {
-            msg.remove_all_tags()?;
+            msg.remove_all_tags().map_err(Error::NotMuchFailure)?;
 
             for flag in flags.iter() {
-                msg.add_tag(&flag.to_string())?;
+                msg.add_tag(&flag.to_string())
+                    .map_err(Error::NotMuchFailure)?;
             }
         }
 
-        db.close()?;
+        db.close().map_err(Error::NotMuchFailure)?;
 
         Ok(())
     }
