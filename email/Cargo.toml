@@ -22,7 +22,7 @@ name = "email"
 default = [
   "imap",
   "maildir",
-  "notmuch",
+  # "notmuch",
   "smtp",
   "sendmail",
 

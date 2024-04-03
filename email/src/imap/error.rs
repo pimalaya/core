@@ -1,4 +1,7 @@
 use thiserror::Error;
+
+use crate::account;
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot authenticate to imap server")]
@@ -7,6 +10,10 @@ pub enum Error {
     GetPasswdImapError(#[source] secret::Error),
     #[error("cannot get imap password: password is empty")]
     GetPasswdEmptyImapError,
+    #[error("cannot reset imap password")]
+    ResetPasswordError(#[source] account::error::Error),
+    #[error("cannot reset oauth secrets")]
+    ResetOAuthSecretsError(#[source] account::error::Error),
     #[error("cannot login to imap server")]
     LoginImapError(#[source] imap::Error),
     #[error("cannot connect to imap server")]

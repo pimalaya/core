@@ -161,6 +161,18 @@ impl Default for ImapAuthConfig {
 }
 
 impl ImapAuthConfig {
+    /// Reset IMAP secrets (password or OAuth 2.0 tokens).
+    pub async fn reset(&self) -> Result<(), Error> {
+        match self {
+            ImapAuthConfig::Passwd(config) => {
+                config.reset().await.map_err(Error::ResetPasswordError)
+            }
+            ImapAuthConfig::OAuth2(config) => {
+                config.reset().await.map_err(Error::ResetOAuthSecretsError)
+            }
+        }
+    }
+
     /// Builds authentication credentials.
     ///
     /// Authentication credentials can be either a password or an
