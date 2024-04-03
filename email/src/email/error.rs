@@ -19,6 +19,7 @@ pub enum Error {
     InterpretMessageAsThreadTemplateError(#[source] mml::Error),
     #[error("cannot run sendmail command")]
     RunSendmailCommandError(#[source] process::Error),
+    #[cfg(feature = "notmuch")]
     #[error("cannot remove notmuch message(s) {2} from folder {1}")]
     RemoveNotmuchMessageError(#[source] notmuch::Error, String, Id),
     #[error("cannot remove maildir message(s) {2} from folder {1}")]
@@ -27,6 +28,7 @@ pub enum Error {
     AddDeletedFlagImapError(#[source] imap::Error, String, Id),
     #[error("cannot peek imap messages {2} from folder {1}")]
     PeekMessagesImapError(#[source] imap::Error, String, Id),
+    #[cfg(feature = "notmuch")]
     #[error("cannot move notmuch message {3} from {1} to {2}")]
     MoveMessageNotmuchError(#[source] notmuch::Error, String, String, String),
     #[error("cannot move messages {3} from maildir folder {1} to folder {2}")]
@@ -65,6 +67,7 @@ pub enum Error {
     GetMessagesImapError(#[source] imap::Error, String, Id),
     #[error("cannot get notmuch message filename from {0}")]
     GetMessageFilenameNotmuchError(PathBuf),
+    #[cfg(feature = "notmuch")]
     #[error("cannot copy notmuch message {3} from {1} to {2}")]
     CopyMessageNotmuchError(#[source] notmuch::Error, String, String, String),
     #[error("cannot copy maildir messages {3} from folder {1} to folder {2}")]
@@ -93,6 +96,7 @@ pub enum Error {
     ListAllEnvelopesImapError(#[source] imap::Error, String),
     #[error("cannot list notmuch envelopes from {0}: page {1} out of bounds")]
     GetEnvelopesOutOfBoundsNotmuchError(String, usize),
+    #[cfg(feature = "notmuch")]
     #[error("cannot list notmuch envelopes from {0}: invalid query {1}")]
     SearchMessagesInvalidQueryNotmuch(#[source] notmuch::Error, String, String),
     #[error("cannot list maildir envelopes from {0}: page {1} out of bounds")]
@@ -139,6 +143,7 @@ pub enum Error {
     InvalidInput(String),
     #[error("failed to get envelopes: {0}")]
     FailedToGetEnvelopes(JoinError),
+    #[cfg(feature = "notmuch")]
     #[error("notmuch failed: {0}")]
     NotMuchFailure(notmuch::Error),
     #[error("process failed: {0}")]
