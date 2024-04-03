@@ -19,7 +19,6 @@ use crate::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
         peek::PeekMessages, r#move::MoveMessages, send::SendMessage,
     },
-    Result,
 };
 
 use super::context::BackendContext;
@@ -31,7 +30,7 @@ use super::context::BackendContext;
 #[async_trait]
 pub trait CheckUp: Send + Sync {
     /// Define how the no operation should be executed.
-    async fn check_up(&self) -> Result<()> {
+    async fn check_up(&self) -> crate::Result<()> {
         Ok(())
     }
 }
@@ -146,5 +145,5 @@ pub trait AsyncTryIntoBackendFeatures<B>
 where
     B: BackendFeatures,
 {
-    async fn try_into_backend(self) -> Result<B>;
+    async fn try_into_backend(self) -> crate::Result<B>;
 }
