@@ -182,6 +182,13 @@ impl ImapContextBuilder {
     }
 }
 
+#[cfg(feature = "account-sync")]
+impl crate::sync::hash::SyncHash for ImapContextBuilder {
+    fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
+        self.imap_config.sync_hash(state);
+    }
+}
+
 #[async_trait]
 impl BackendContextBuilder for ImapContextBuilder {
     type Context = ImapContextSync;

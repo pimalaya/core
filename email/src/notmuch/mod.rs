@@ -6,7 +6,7 @@ use log::info;
 use maildirpp::Maildir;
 use notmuch::{Database, DatabaseMode};
 use shellexpand_utils::shellexpand_path;
-use std::{ops::Deref, sync::Arc};
+use std::{hash::Hash, ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -123,6 +123,15 @@ impl NotmuchContextBuilder {
     }
 }
 
+#[cfg(feature = "account-sync")]
+impl crate::sync::hash::SyncHash for NotmuchContextBuilder {
+    fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
+        if let Ok(path) = self.notmuch_config.try_get_maildir_path() {
+            path.hash(state);
+        }
+    }
+}
+
 #[async_trait]
 impl BackendContextBuilder for NotmuchContextBuilder {
     type Context = NotmuchContextSync;
@@ -210,7 +219,7 @@ impl BackendContextBuilder for NotmuchContextBuilder {
     async fn build(self) -> crate::Result<Self::Context> {
         info!("building new notmuch context");
 
-        let root = Maildir::from(self.notmuch_config.get_maildir_path()?);
+        let root = Maildir::from(self.notmuch_config.try_get_maildir_path()?);
 
         let maildir_config = Arc::new(MaildirConfig {
             root_dir: root.path().to_owned(),
@@ -270,54 +279,3 @@ impl CheckUp for CheckUpNotmuch {
         Ok(())
     }
 }
-
-// #[async_trait]
-// impl Backend for NotmuchBackend {
-//     async fn search_envelopes(
-//         &mut self,
-//         folder: &str,
-//         query: &str,
-//         _sort: &str,
-//         page_size: usize,
-//         page: usize,
-//     ) -> Result<Envelopes> {
-//         info!("searching notmuch envelopes from folder {folder}");
-
-//         let folder_query = self
-//             .account_config
-//             .find_folder_alias(folder.as_ref())?
-//             .unwrap_or_else(|| format!("folder:{folder:?}"));
-//         let query = if query.is_empty() {
-//             folder_query
-//         } else {
-//             folder_query + " and " + query.as_ref()
-//         };
-//         debug!("notmuch query: {query}");
-
-//         let envelopes = self._search_envelopes(&query, page_size, page)?;
-
-//         Ok(envelopes)
-//     }
-
-//     async fn delete_emails(&mut self, _folder: &str, internal_ids: Vec<&str>) -> Result<()> {
-//         info!(
-//             "deleting notmuch emails by internal ids {ids}",
-//             ids = internal_ids.join(", ")
-//         );
-
-//         let db = self.open_db()?;
-
-//         internal_ids.iter().try_for_each(|internal_id| {
-//             let path = db
-//                 .find_message(&internal_id)
-//                 .map_err(Error::FindEmailError)?
-//                 .ok_or_else(|| Error::FindMsgEmptyError)?
-//                 .filename()
-//                 .to_owned();
-//             db.remove_message(path).map_err(Error::DelMsgError)
-//         })?;
-
-//         Self::close_db(db)?;
-//         Ok(())
-//     }
-// }

@@ -211,39 +211,6 @@ impl AccountConfig {
         }
     }
 
-    /// Return `true` if the synchronization is enabled AND if the
-    /// sync directory exists.
-    #[cfg(feature = "account-sync")]
-    pub fn is_sync_usable(&self) -> bool {
-        self.is_sync_enabled() && self.does_sync_dir_exist()
-    }
-
-    /// Get the synchronization directory if exist, otherwise create
-    /// it.
-    #[cfg(feature = "account-sync")]
-    pub fn get_sync_dir(&self) -> Result<PathBuf, Error> {
-        match self.sync.as_ref().and_then(|c| c.dir.as_ref()) {
-            Some(dir) => {
-                let sync_dir = shellexpand_path(dir);
-                if !sync_dir.is_dir() {
-                    fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsSyncError)?;
-                }
-                Ok(sync_dir)
-            }
-            None => {
-                debug!("sync dir not set or invalid, falling back to $XDG_DATA_HOME/pimalaya/email/sync");
-                let sync_dir = data_dir()
-                    .ok_or(Error::GetXdgDataDirSyncError)?
-                    .join("pimalaya")
-                    .join("email")
-                    .join("sync")
-                    .join(self.name.clone() + "-cache");
-                fs::create_dir_all(&sync_dir).map_err(Error::CreateXdgDataDirsSyncError)?;
-                Ok(sync_dir)
-            }
-        }
-    }
-
     #[cfg(feature = "account-sync")]
     pub fn matches_envelope_sync_filters(&self, envelope: &Envelope) -> bool {
         self.envelope

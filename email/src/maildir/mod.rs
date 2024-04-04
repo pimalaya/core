@@ -147,6 +147,13 @@ impl MaildirContextBuilder {
     }
 }
 
+#[cfg(feature = "account-sync")]
+impl crate::sync::hash::SyncHash for MaildirContextBuilder {
+    fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
+        self.mdir_config.sync_hash(state);
+    }
+}
+
 #[async_trait]
 impl BackendContextBuilder for MaildirContextBuilder {
     type Context = MaildirContextSync;

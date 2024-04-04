@@ -633,6 +633,44 @@ where
 }
 
 #[async_trait]
+impl<CB> Clone for BackendBuilder<CB>
+where
+    CB: BackendContextBuilder,
+{
+    fn clone(&self) -> Self {
+        Self {
+            account_config: self.account_config.clone(),
+            ctx_builder: self.ctx_builder.clone(),
+
+            check_up: self.check_up.clone(),
+
+            add_folder: self.add_folder.clone(),
+            list_folders: self.list_folders.clone(),
+            expunge_folder: self.expunge_folder.clone(),
+            purge_folder: self.purge_folder.clone(),
+            delete_folder: self.delete_folder.clone(),
+
+            get_envelope: self.get_envelope.clone(),
+            list_envelopes: self.list_envelopes.clone(),
+            watch_envelopes: self.watch_envelopes.clone(),
+
+            add_flags: self.add_flags.clone(),
+            set_flags: self.set_flags.clone(),
+            remove_flags: self.remove_flags.clone(),
+
+            add_message: self.add_message.clone(),
+            send_message: self.send_message.clone(),
+            peek_messages: self.peek_messages.clone(),
+            get_messages: self.get_messages.clone(),
+            copy_messages: self.copy_messages.clone(),
+            move_messages: self.move_messages.clone(),
+            delete_messages: self.delete_messages.clone(),
+            remove_messages: self.remove_messages.clone(),
+        }
+    }
+}
+
+#[async_trait]
 impl<CB> AsyncTryIntoBackendFeatures<Backend<CB::Context>> for BackendBuilder<CB>
 where
     CB: BackendContextBuilder,
@@ -691,40 +729,12 @@ where
     }
 }
 
-#[async_trait]
-impl<CB> Clone for BackendBuilder<CB>
+#[cfg(feature = "account-sync")]
+impl<CB> crate::sync::hash::SyncHash for BackendBuilder<CB>
 where
-    CB: BackendContextBuilder,
+    CB: BackendContextBuilder + crate::sync::hash::SyncHash,
 {
-    fn clone(&self) -> Self {
-        Self {
-            account_config: self.account_config.clone(),
-            ctx_builder: self.ctx_builder.clone(),
-
-            check_up: self.check_up.clone(),
-
-            add_folder: self.add_folder.clone(),
-            list_folders: self.list_folders.clone(),
-            expunge_folder: self.expunge_folder.clone(),
-            purge_folder: self.purge_folder.clone(),
-            delete_folder: self.delete_folder.clone(),
-
-            get_envelope: self.get_envelope.clone(),
-            list_envelopes: self.list_envelopes.clone(),
-            watch_envelopes: self.watch_envelopes.clone(),
-
-            add_flags: self.add_flags.clone(),
-            set_flags: self.set_flags.clone(),
-            remove_flags: self.remove_flags.clone(),
-
-            add_message: self.add_message.clone(),
-            send_message: self.send_message.clone(),
-            peek_messages: self.peek_messages.clone(),
-            get_messages: self.get_messages.clone(),
-            copy_messages: self.copy_messages.clone(),
-            move_messages: self.move_messages.clone(),
-            delete_messages: self.delete_messages.clone(),
-            remove_messages: self.remove_messages.clone(),
-        }
+    fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
+        self.ctx_builder.sync_hash(state)
     }
 }

@@ -1695,7 +1695,6 @@ dependencies = [
  "mail-parser 0.9.3",
  "mail-send",
  "maildirpp 0.0.2",
- "md5",
  "mml-lib",
  "notify",
  "notify-rust",

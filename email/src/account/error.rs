@@ -9,8 +9,8 @@ pub enum Error {
     ParseDownloadFileNameError(PathBuf),
     #[error("cannot get sync directory from XDG_DATA_HOME")]
     GetXdgDataDirSyncError,
-    #[error("cannot create sync directories")]
-    CreateXdgDataDirsSyncError(#[source] io::Error),
+    #[error("cannot get invalid or missing synchronization directory {1}")]
+    GetSyncDirInvalidError(#[source] shellexpand_utils::error::Error, PathBuf),
     #[error("cannot get file name from path {0}")]
     GetFileNameFromPathSyncError(PathBuf),
     #[error("cannot create oauth2 client")]

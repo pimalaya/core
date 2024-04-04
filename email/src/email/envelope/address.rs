@@ -3,7 +3,7 @@
 //! This core concept of this module is the [Address] structure, which
 //! represents an email envelope address.
 
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 /// The email envelope address.
 ///
@@ -16,7 +16,7 @@ pub struct Address {
 }
 
 impl Hash for Address {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.addr.hash(state);
     }
 }

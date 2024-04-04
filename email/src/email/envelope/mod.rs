@@ -23,7 +23,7 @@ pub mod watch;
 use chrono::{DateTime, FixedOffset, Local};
 use log::debug;
 use std::{
-    hash::{Hash, Hasher},
+    hash::{DefaultHasher, Hash, Hasher},
     ops::{Deref, DerefMut},
     vec,
 };
@@ -150,8 +150,9 @@ impl Envelope {
                 // messages without Message-ID to still being
                 // synchronized.
                 .unwrap_or_else(|| {
-                    let date_hash = md5::compute(envelope.date.to_string());
-                    format!("<{date_hash:x}@generated>")
+                    let mut hasher = DefaultHasher::new();
+                    envelope.date.to_string().hash(&mut hasher);
+                    format!("<{:x}@generated>", hasher.finish())
                 });
         } else {
             debug!("cannot parse message header, skipping it");

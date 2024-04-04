@@ -5,17 +5,20 @@
 //! [`SyncBuilder`].
 
 pub mod error;
+pub mod hash;
 pub mod pool;
 pub mod report;
 
 use advisory_lock::{AdvisoryFileLock, FileLockMode};
-use dirs::cache_dir;
+use dirs::{cache_dir, runtime_dir};
 use log::{debug, trace};
+use once_cell::sync::Lazy;
 use std::{
     collections::{BTreeMap, BTreeSet},
     env, fmt,
-    fs::OpenOptions,
+    fs::{self, OpenOptions},
     future::Future,
+    hash::{DefaultHasher, Hash, Hasher},
     path::PathBuf,
     pin::Pin,
     sync::Arc,
@@ -36,14 +39,25 @@ use crate::{
     sync::error::Error,
 };
 
-use self::report::SyncReport;
+use self::{hash::SyncHash, report::SyncReport};
+
+static RUNTIME_DIR: Lazy<PathBuf> = Lazy::new(|| {
+    let dir = runtime_dir()
+        .unwrap_or_else(env::temp_dir)
+        .join("pimalaya")
+        .join("email")
+        .join("sync");
+    fs::create_dir_all(&dir).expect(&format!("should create runtime directory {dir:?}"));
+    dir
+});
 
 /// The synchronization builder.
 #[derive(Clone)]
-pub struct SyncBuilder<L: BackendContextBuilder, R: BackendContextBuilder> {
-    id: String,
+pub struct SyncBuilder<L: BackendContextBuilder + SyncHash, R: BackendContextBuilder + SyncHash> {
     left_builder: BackendBuilder<L>,
+    left_hash: String,
     right_builder: BackendBuilder<R>,
+    right_hash: String,
     cache_dir: Option<PathBuf>,
     pool_size: Option<usize>,
     handler: Option<Arc<SyncEventHandler>>,
@@ -51,17 +65,27 @@ pub struct SyncBuilder<L: BackendContextBuilder, R: BackendContextBuilder> {
     folder_filter: Option<FolderSyncStrategy>,
 }
 
-impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> SyncBuilder<L, R> {
+impl<L, R> SyncBuilder<L, R>
+where
+    L: BackendContextBuilder + SyncHash + 'static,
+    R: BackendContextBuilder + SyncHash + 'static,
+{
     /// Create a new synchronization builder using the two given
     /// backend builders.
     pub fn new(left_builder: BackendBuilder<L>, right_builder: BackendBuilder<R>) -> Self {
-        let id = left_builder.account_config.name.clone() + &right_builder.account_config.name;
-        let id = format!("{:x}", md5::compute(id));
+        let mut left_hasher = DefaultHasher::new();
+        left_builder.sync_hash(&mut left_hasher);
+        let left_hash = format!("{:x}", left_hasher.finish());
+
+        let mut right_hasher = DefaultHasher::new();
+        right_builder.sync_hash(&mut right_hasher);
+        let right_hash = format!("{:x}", right_hasher.finish());
 
         Self {
-            id,
             left_builder,
+            left_hash,
             right_builder,
+            right_hash,
             cache_dir: None,
             pool_size: None,
             handler: None,
@@ -86,27 +110,6 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
     pub fn with_cache_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.set_cache_dir(dir);
         self
-    }
-
-    pub fn find_default_cache_dir(&self) -> Option<PathBuf> {
-        cache_dir().map(|dir| {
-            dir.join("pimalaya")
-                .join("email")
-                .join("sync")
-                .join(&self.id)
-        })
-    }
-
-    pub fn find_cache_dir(&self) -> Option<PathBuf> {
-        self.cache_dir
-            .as_ref()
-            .cloned()
-            .or_else(|| self.find_default_cache_dir())
-    }
-
-    pub fn get_cache_dir(&self) -> Result<PathBuf, Error> {
-        self.find_cache_dir()
-            .ok_or(Error::GetCacheDirectorySyncError.into())
     }
 
     pub fn set_some_pool_size(&mut self, size: Option<usize>) {
@@ -203,9 +206,25 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
         self
     }
 
+    pub fn find_default_cache_dir(&self) -> Option<PathBuf> {
+        cache_dir().map(|dir| dir.join("pimalaya").join("email").join("sync"))
+    }
+
+    pub fn find_cache_dir(&self) -> Option<PathBuf> {
+        self.cache_dir
+            .as_ref()
+            .cloned()
+            .or_else(|| self.find_default_cache_dir())
+    }
+
+    pub fn get_cache_dir(&self) -> Result<PathBuf, Error> {
+        self.find_cache_dir()
+            .ok_or(Error::GetCacheDirectorySyncError.into())
+    }
+
     pub fn get_left_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>, Error> {
         let left_config = self.left_builder.account_config.clone();
-        let root_dir = self.get_cache_dir()?.join(&left_config.name);
+        let root_dir = self.get_cache_dir()?.join(&self.left_hash);
         let ctx =
             MaildirContextBuilder::new(left_config.clone(), Arc::new(MaildirConfig { root_dir }));
         let left_cache_builder = BackendBuilder::new(left_config, ctx);
@@ -214,7 +233,7 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
 
     pub fn get_right_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>, Error> {
         let right_config = self.right_builder.account_config.clone();
-        let root_dir = self.get_cache_dir()?.join(&right_config.name);
+        let root_dir = self.get_cache_dir()?.join(&self.right_hash);
         let ctx =
             MaildirContextBuilder::new(right_config.clone(), Arc::new(MaildirConfig { root_dir }));
         let right_cache_builder = BackendBuilder::new(right_config, ctx);
@@ -222,19 +241,29 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
     }
 
     pub async fn sync(self) -> crate::Result<SyncReport> {
-        let lock_file_name = format!("pimalaya-email-sync.{}.lock", self.id);
-        let lock_file_path = env::temp_dir().join(lock_file_name);
-
-        debug!("locking sync file {lock_file_path:?}");
-        let lock_file = OpenOptions::new()
+        let left_lock_file_path = RUNTIME_DIR.join(format!("{}.lock", self.left_hash));
+        debug!("locking left sync file {left_lock_file_path:?}");
+        let left_lock_file = OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
-            .open(&lock_file_path)
-            .map_err(|err| Error::OpenLockFileSyncError(err, lock_file_path.clone()))?;
-        lock_file
+            .open(&left_lock_file_path)
+            .map_err(|err| Error::OpenLockFileSyncError(err, left_lock_file_path.clone()))?;
+        left_lock_file
             .try_lock(FileLockMode::Exclusive)
-            .map_err(|err| Error::LockFileSyncError(err, lock_file_path.clone()))?;
+            .map_err(|err| Error::LockFileSyncError(err, left_lock_file_path.clone()))?;
+
+        let right_lock_file_path = RUNTIME_DIR.join(format!("{}.lock", self.right_hash));
+        debug!("locking right sync file {right_lock_file_path:?}");
+        let right_lock_file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&right_lock_file_path)
+            .map_err(|err| Error::OpenLockFileSyncError(err, right_lock_file_path.clone()))?;
+        right_lock_file
+            .try_lock(FileLockMode::Exclusive)
+            .map_err(|err| Error::LockFileSyncError(err, right_lock_file_path.clone()))?;
 
         let pool = Arc::new(
             pool::new(
@@ -259,10 +288,13 @@ impl<L: BackendContextBuilder + 'static, R: BackendContextBuilder + 'static> Syn
 
         Arc::into_inner(pool).unwrap().close().await;
 
-        debug!("unlocking sync file");
-        lock_file
+        debug!("unlocking sync files");
+        left_lock_file
             .unlock()
-            .map_err(|err| Error::UnlockFileSyncError(err, lock_file_path))?;
+            .map_err(|err| Error::UnlockFileSyncError(err, left_lock_file_path))?;
+        right_lock_file
+            .unlock()
+            .map_err(|err| Error::UnlockFileSyncError(err, right_lock_file_path))?;
 
         Ok(report)
     }

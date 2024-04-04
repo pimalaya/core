@@ -56,22 +56,22 @@ impl NotmuchConfig {
         .to_owned())
     }
 
-    /// Get the reference to the Notmuch database path.
-    pub fn get_database_path(&self) -> Result<PathBuf, Error> {
+    /// Try to get the reference to the Notmuch database path.
+    pub fn try_get_database_path(&self) -> Result<PathBuf, Error> {
         match self.database_path.as_ref() {
             Some(path) => Ok(path.to_owned()),
             None => Self::get_default_database_path(),
         }
     }
 
-    /// Get the reference to the Maildir path.
+    /// Try to get the reference to the Maildir path.
     ///
-    /// Try the `maildir_path` first, otherwise falls back to
+    /// Tries `maildir_path` first, otherwise falls back to
     /// `database_path`.
-    pub fn get_maildir_path(&self) -> Result<PathBuf, Error> {
+    pub fn try_get_maildir_path(&self) -> Result<PathBuf, Error> {
         match self.maildir_path.as_ref() {
             Some(path) => Ok(path.to_owned()),
-            None => self.get_database_path(),
+            None => self.try_get_database_path(),
         }
     }
 

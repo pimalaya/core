@@ -4,7 +4,7 @@
 //! all associated structures related to it.
 
 use imap::ConnectionMode;
-use std::fmt;
+use std::{fmt, hash::Hash};
 #[cfg(feature = "derive")]
 use std::{marker::PhantomData, result};
 
@@ -88,6 +88,14 @@ impl ImapConfig {
     /// Find the IMAP watch timeout.
     pub fn find_watch_timeout(&self) -> Option<u64> {
         self.watch.as_ref().and_then(|c| c.find_timeout())
+    }
+}
+
+#[cfg(feature = "account-sync")]
+impl crate::sync::hash::SyncHash for ImapConfig {
+    fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
+        self.host.hash(state);
+        self.login.hash(state);
     }
 }
 
