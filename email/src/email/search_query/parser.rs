@@ -8,9 +8,8 @@
 
 use chumsky::{error::Rich, extra, Parser};
 
-use crate::email::error::Error;
-
 use super::{
+    error::Error,
     filter::{self, SearchEmailsFilterQuery},
     sort::{self, SearchEmailsSorter},
     SearchEmailsQuery,

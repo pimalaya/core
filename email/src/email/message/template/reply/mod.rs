@@ -19,7 +19,6 @@ use crate::{
     account::config::AccountConfig,
     email::{address, error::Error},
     message::Message,
-    Result,
 };
 
 use self::config::{ReplyTemplatePostingStyle, ReplyTemplateSignatureStyle};
@@ -225,7 +224,7 @@ impl<'a> ReplyTemplateBuilder<'a> {
     }
 
     /// Build the final reply message template.
-    pub async fn build(self) -> Result<Template> {
+    pub async fn build(self) -> Result<Template, Error> {
         let mut cursor = TemplateCursor::default();
 
         let parsed = self.msg.parsed()?;

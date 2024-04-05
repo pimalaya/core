@@ -5,12 +5,15 @@ use std::{io, path::PathBuf};
 /// Errors related to account configuration.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("cannot parse download file name from {0}")]
-    ParseDownloadFileNameError(PathBuf),
+    #[cfg(feature = "account-sync")]
     #[error("cannot get sync directory from XDG_DATA_HOME")]
     GetXdgDataDirSyncError,
+    #[cfg(feature = "account-sync")]
     #[error("cannot get invalid or missing synchronization directory {1}")]
     GetSyncDirInvalidError(#[source] shellexpand_utils::error::Error, PathBuf),
+
+    #[error("cannot parse download file name from {0}")]
+    ParseDownloadFileNameError(PathBuf),
     #[error("cannot get file name from path {0}")]
     GetFileNameFromPathSyncError(PathBuf),
     #[error("cannot create oauth2 client")]
@@ -116,6 +119,10 @@ pub enum Error {
     #[cfg(feature = "account-discovery")]
     #[error("cannot parse email {0}: {1}")]
     ParsingEmailAddress(String, #[source] email_address::Error),
+
+    #[cfg(feature = "account-sync")]
+    #[error("cannot create sync cache backend builder")]
+    CreateSyncCacheBackendBuilderError(#[source] crate::backend::error::Error),
 }
 
 impl crate::EmailError for Error {

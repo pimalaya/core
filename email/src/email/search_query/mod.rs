@@ -15,13 +15,13 @@
 #![doc = include_str!("../../../examples/search_emails_query.rs")]
 //! ```
 
+pub mod error;
 pub mod filter;
 pub mod parser;
 pub mod sort;
 
+use error::Error;
 use std::str::FromStr;
-
-use crate::email::error::Error;
 
 use self::{filter::SearchEmailsFilterQuery, sort::SearchEmailsSortQuery};
 

@@ -58,8 +58,12 @@ pub mod macros {
 
 use async_trait::async_trait;
 use paste::paste;
+#[cfg(feature = "account-sync")]
+use std::hash::DefaultHasher;
 use std::sync::Arc;
 
+#[cfg(feature = "account-sync")]
+use crate::sync::hash::SyncHash;
 use crate::{
     account::config::{AccountConfig, HasAccountConfig},
     backend::error::Error,
@@ -472,7 +476,7 @@ where
     /// The account configuration.
     pub account_config: Arc<AccountConfig>,
     /// The backend context builder.
-    ctx_builder: CB,
+    pub ctx_builder: CB,
 
     /// The noop backend builder feature.
     pub check_up: BackendFeatureSource<CB::Context, dyn CheckUp>,
@@ -730,11 +734,11 @@ where
 }
 
 #[cfg(feature = "account-sync")]
-impl<CB> crate::sync::hash::SyncHash for BackendBuilder<CB>
+impl<CB> SyncHash for BackendBuilder<CB>
 where
-    CB: BackendContextBuilder + crate::sync::hash::SyncHash,
+    CB: BackendContextBuilder + SyncHash,
 {
-    fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
+    fn sync_hash(&self, state: &mut DefaultHasher) {
         self.ctx_builder.sync_hash(state)
     }
 }
