@@ -5,10 +5,15 @@
 #![doc = include_str!("../../examples/gmail.rs")]
 //! ```
 
-pub mod authorization_code_grant;
-pub mod client;
-pub mod refresh_access_token;
+mod authorization_code_grant;
+mod client;
+mod error;
+mod refresh_access_token;
 
-pub use authorization_code_grant::AuthorizationCodeGrant;
-pub use client::Client;
-pub use refresh_access_token::RefreshAccessToken;
+#[doc(inline)]
+pub use self::{
+    authorization_code_grant::AuthorizationCodeGrant,
+    client::Client,
+    error::{Error, Result},
+    refresh_access_token::RefreshAccessToken,
+};

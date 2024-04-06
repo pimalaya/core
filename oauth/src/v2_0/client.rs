@@ -3,7 +3,7 @@
 
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 
-use crate::{Error, Result};
+use super::{Error, Result};
 
 /// Client builder, used by other flows to send requests and build
 /// URLs.

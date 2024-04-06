@@ -3,7 +3,7 @@
 
 use oauth2::{basic::BasicClient, RefreshToken, TokenResponse};
 
-use crate::{Error, Result};
+use super::{Error, Result};
 
 /// OAuth 2.0 Refresh Access Token flow builder. The builder is empty
 /// for now but scopes will be added in the future. This flow exchange

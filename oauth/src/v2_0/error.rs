@@ -1,9 +1,12 @@
-use std::io;
-
 use oauth2::{basic::BasicErrorResponseType, RequestTokenError, StandardErrorResponse};
+use std::{io, result};
 use thiserror::Error;
 use url::Url;
 
+/// The global `Result` alias of the module.
+pub type Result<T> = result::Result<T, Error>;
+
+/// The global `Error` enum of the module.
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("cannot build auth url")]
@@ -47,5 +50,3 @@ pub enum Error {
         >,
     ),
 }
-
-pub type Result<T> = std::result::Result<T, Error>;

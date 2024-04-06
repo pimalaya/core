@@ -10,7 +10,7 @@ use tokio::{
     net::TcpListener,
 };
 
-use crate::{Error, Result};
+use super::{Error, Result};
 
 /// OAuth 2.0 Authorization Code Grant flow builder.
 ///

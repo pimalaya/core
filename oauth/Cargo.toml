@@ -13,18 +13,18 @@ keywords = ["oauth", "oauth2", "authorization", "xoauth2", "oauthbearer"]
 
 [package.metadata.docs.rs]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
 
 [lib]
 name = "oauth"
 
 [dev-dependencies]
-tokio = { version = "1.23", default-features = false, features = ["macros", "rt"] }
+tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]
 log = "0.4"
 oauth2 = "4.3"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
 thiserror = "1"
-tokio = { version = "1.23", default-features = false, features = ["io-util", "net"] }
+tokio = { version = "1.23", default-features = false, features = ["io-util", "net", "rt-multi-thread"] }
 url = "2.3"
