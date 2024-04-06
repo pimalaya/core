@@ -1,6 +1,10 @@
 use std::{io, path::PathBuf, result, time};
-
 use thiserror::Error;
+
+/// The global `Result` alias of the library.
+pub type Result<T> = result::Result<T, Error>;
+
+/// The global `Error` enum of the library.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot find email {0}")]
@@ -17,5 +21,3 @@ pub enum Error {
     #[error(transparent)]
     SystemTimeError(#[from] time::SystemTimeError),
 }
-
-pub type Result<T> = result::Result<T, Error>;

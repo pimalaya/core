@@ -1,5 +1,4 @@
-pub mod error;
-pub use error::*;
+mod error;
 
 use gethostname::gethostname;
 #[cfg(unix)]
@@ -15,6 +14,9 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
+
+#[doc(inline)]
+pub use crate::error::{Error, Result};
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
