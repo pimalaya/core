@@ -1,4 +1,7 @@
-use std::{env::VarError, io, path::PathBuf};
+use std::{env::VarError, io, path::PathBuf, result};
+
+/// The global `Result` alias of the library.
+pub type Result<T> = result::Result<T, Error>;
 
 /// The global `Error` enum of the library.
 #[derive(Debug, thiserror::Error)]

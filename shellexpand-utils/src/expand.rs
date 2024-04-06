@@ -1,9 +1,9 @@
 use log::{debug, warn};
 use std::path::{Path, PathBuf};
 
-use crate::error::Error;
+use crate::{Error, Result};
 
-pub fn try_path(path: impl AsRef<Path>) -> Result<PathBuf, Error> {
+pub fn try_path(path: impl AsRef<Path>) -> Result<PathBuf> {
     let path = path.as_ref();
     let path_str = path
         .to_str()
@@ -31,7 +31,7 @@ pub fn path(path: impl AsRef<Path>) -> PathBuf {
     }
 }
 
-pub fn try_str(str: impl AsRef<str>) -> Result<String, Error> {
+pub fn try_str(str: impl AsRef<str>) -> Result<String> {
     let str = str.as_ref();
     let expanded_cow =
         shellexpand::full(str).map_err(|err| Error::ExpandStrError(err, str.to_owned()))?;

@@ -1,16 +1,10 @@
-use std::{
-    path::{Path, PathBuf},
-    result,
-};
-
-use error::Error;
-
 pub mod canonicalize;
-pub mod error;
+mod error;
 pub mod expand;
 
-/// The global `Result` alias of the library.
-pub type Result<T> = result::Result<T, Error>;
+use std::path::{Path, PathBuf};
+
+pub use error::{Error, Result};
 
 pub fn try_shellexpand_path(path: impl AsRef<Path>) -> Result<PathBuf> {
     let path = expand::try_path(path)?;

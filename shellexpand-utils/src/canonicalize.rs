@@ -1,9 +1,9 @@
 use log::debug;
 use std::path::{Path, PathBuf};
 
-use crate::error::Error;
+use crate::{Error, Result};
 
-pub fn try_path(path: impl AsRef<Path>) -> Result<PathBuf, Error> {
+pub fn try_path(path: impl AsRef<Path>) -> Result<PathBuf> {
     let path = path.as_ref();
     let canonicalized_path = path
         .canonicalize()
