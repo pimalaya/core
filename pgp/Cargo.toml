@@ -1,6 +1,6 @@
 [package]
 name = "pgp-lib"
-version = "0.1.0"
+version = "0.2.0"
 description = "Rust library to deal with PGP operations"
 homepage = "https://pimalaya.org/"
 documentation = "https://docs.rs/pgp-lib/latest/pgp/"
