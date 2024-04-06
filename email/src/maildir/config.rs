@@ -3,6 +3,7 @@
 //! This module contains the configuration specific to the Maildir
 //! backend.
 
+use shellexpand_utils::shellexpand_path;
 use std::{hash::Hash, path::PathBuf};
 
 /// The Maildir backend configuration.
@@ -25,6 +26,6 @@ pub struct MaildirConfig {
 #[cfg(feature = "account-sync")]
 impl crate::sync::hash::SyncHash for MaildirConfig {
     fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
-        self.root_dir.hash(state);
+        shellexpand_path(&self.root_dir).hash(state);
     }
 }
