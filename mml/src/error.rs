@@ -1,10 +1,13 @@
-use std::{io, path::PathBuf};
-
 #[cfg(feature = "pgp-native")]
 use secret::keyring;
+use std::{io, path::PathBuf, result};
+use thiserror::Error;
+
+/// The global `Result` alias of the library.
+pub type Result<T> = result::Result<T, Error>;
 
 /// The global `Error` enum of the library.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot parse MML body")]
     ParseMmlError(Vec<chumsky::error::Rich<'static, char>>, String),
@@ -136,6 +139,3 @@ pub enum Error {
     #[error("cannot verify data using gpg")]
     VerifyGpgError(#[source] gpgme::Error),
 }
-
-/// The global `Result` alias of the library.
-pub type Result<T> = std::result::Result<T, Error>;

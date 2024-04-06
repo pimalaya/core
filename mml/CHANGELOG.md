@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Removed `.trim()` when interpreting MML string.
+- Moved `Error` and `Result` into a dedicated `error` module. They are still re-exported at the root level to match the previous API.
 
 ### Fixed
 

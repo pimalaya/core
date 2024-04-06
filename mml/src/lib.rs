@@ -26,15 +26,16 @@
 
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-pub mod error;
-pub use error::*;
+mod error;
 pub mod message;
 #[cfg(feature = "pgp")]
 pub mod pgp;
 
+#[doc(inline)]
+pub use crate::error::{Error, Result};
 #[cfg(feature = "interpreter")]
 #[doc(inline)]
-pub use self::message::{MimeInterpreter, MimeInterpreterBuilder};
+pub use crate::message::{MimeInterpreter, MimeInterpreterBuilder};
 #[cfg(feature = "compiler")]
 #[doc(inline)]
-pub use self::message::{MmlCompileResult, MmlCompiler, MmlCompilerBuilder};
+pub use crate::message::{MmlCompileResult, MmlCompiler, MmlCompilerBuilder};
