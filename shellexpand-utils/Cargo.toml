@@ -1,6 +1,6 @@
 [package]
 name = "shellexpand-utils"
-version = "0.2.0"
+version = "0.2.1"
 description = "Rust utils for the shellexpand crate"
 homepage = "https://pimalaya.org/"
 documentation = "https://docs.rs/shellexpand-utils/latest/shellexpand_utils/"
