@@ -1,6 +1,9 @@
 use std::result;
-
 use thiserror::Error;
+
+/// The global `Result` alias of the library.
+pub type Result<T> = result::Result<T, Error>;
+
 /// The global `Error` enum of the library.
 #[derive(Debug, Error)]
 pub enum Error {
@@ -16,6 +19,3 @@ pub enum Error {
     #[error("error while using secret from keyring")]
     KeyringError(#[source] keyring::Error),
 }
-
-/// The global `Result` alias of the library.
-pub type Result<T> = result::Result<T, Error>;

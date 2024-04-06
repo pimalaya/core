@@ -5,6 +5,8 @@
 //! command or from a keyring entry. The associated structure is
 //! [`Secret`].
 
+mod error;
+
 #[cfg(feature = "keyring")]
 pub use keyring;
 #[cfg(feature = "keyring")]
@@ -14,8 +16,8 @@ use log::debug;
 pub use process;
 #[cfg(feature = "command")]
 use process::Command;
-pub mod error;
-pub use error::*;
+
+pub use error::{Error, Result};
 
 /// The secret.
 ///
