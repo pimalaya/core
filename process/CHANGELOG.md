@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Moved `Error` and `Result` into a dedicated `error` module. They are still re-exported at the root level to match the previous API.
+
 ## [0.4.1] - 2024-03-14
 
 ### Added
