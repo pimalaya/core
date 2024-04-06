@@ -10,12 +10,14 @@
 //! [`KeyringEntry`]. Cache is enabled on Linux only, using the kernel
 //! [`keyutils`] keyring.
 
-pub mod error;
+mod error;
 #[cfg(target_os = "linux")]
 mod keyutils;
 mod service;
 
-pub use error::*;
+#[doc(inline)]
+pub use error::{Error, Result};
+
 pub use keyring_native as native;
 use log::{debug, trace};
 use std::sync::Arc;

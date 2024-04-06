@@ -1,7 +1,9 @@
 use std::result;
-
 use thiserror::Error;
 use tokio::task::JoinError;
+
+/// The global `Result` alias of the library.
+pub type Result<T> = result::Result<T, Error>;
 
 /// The global `Error` enum of the library.
 #[derive(Debug, Error)]
@@ -18,9 +20,7 @@ pub enum Error {
     DeleteSecretError(#[source] keyring_native::Error, String),
     #[error("cannot build keyutils credentials using key {1}")]
     BuildCredentialsError(#[source] keyring_native::Error, String),
+
     #[error(transparent)]
     JoinError(#[from] JoinError),
 }
-
-/// The global `Result` alias of the library.
-pub type Result<T> = result::Result<T, Error>;

@@ -14,8 +14,7 @@
 //! 3. Commands can be executed in a pipeline, which means the output
 //! of the previous command is send as input of the next one.
 
-pub mod error;
-pub use error::*;
+mod error;
 
 use log::debug;
 use std::{
@@ -24,6 +23,8 @@ use std::{
     process::Stdio,
 };
 use tokio::{io::AsyncWriteExt, process::Command as TokioCommand};
+
+pub use error::{Error, Result};
 
 fn new_tokio_cmd() -> TokioCommand {
     let windows = cfg!(target_os = "windows")

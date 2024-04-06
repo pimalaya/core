@@ -1,5 +1,4 @@
 use std::{io, result, string::FromUtf8Error};
-
 use thiserror::Error;
 
 /// The global `Result` alias of the library.
