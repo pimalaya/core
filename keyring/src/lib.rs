@@ -15,9 +15,6 @@ mod error;
 mod keyutils;
 mod service;
 
-#[doc(inline)]
-pub use error::{Error, Result};
-
 pub use keyring_native as native;
 use log::{debug, trace};
 use std::sync::Arc;
@@ -25,9 +22,12 @@ use tokio::task;
 
 #[cfg(target_os = "linux")]
 #[doc(inline)]
-pub use keyutils::KeyutilsEntry;
+pub use crate::keyutils::KeyutilsEntry;
 #[doc(inline)]
-pub use service::{get_global_service_name, set_global_service_name};
+pub use crate::{
+    error::{Error, Result},
+    service::{get_global_service_name, set_global_service_name},
+};
 
 /// The keyring entry.
 ///

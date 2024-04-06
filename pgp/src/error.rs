@@ -1,17 +1,17 @@
+use hyper::Uri;
+use pgp_native::{SecretKeyParamsBuilderError, SubkeyParamsBuilderError};
 use std::{
     io,
     path::{self, PathBuf},
+    result,
 };
-
-use hyper::Uri;
-use pgp_native::{SecretKeyParamsBuilderError, SubkeyParamsBuilderError};
 use thiserror::Error;
 use tokio::task::JoinError;
 
-/// The global [`Result`] alias of the library.
-pub type Result<T> = std::result::Result<T, Error>;
+/// The global `Result` alias of the library.
+pub type Result<T> = result::Result<T, Error>;
 
-/// Errors related to PGP decryption.
+/// The global `Error` enum of the library.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot import armored pgp message")]
@@ -27,8 +27,6 @@ pub enum Error {
     #[error("cannot get empty pgp message")]
     GetMessageEmptyError,
 
-    #[error(transparent)]
-    JoinError(#[from] JoinError),
     #[error("cannot find pgp secret key for signing message")]
     FindSignedSecretKeyForSigningError,
     #[error("cannot sign pgp message")]
@@ -98,4 +96,7 @@ pub enum Error {
     ParseBodyError(#[source] hyper::Error),
     #[error("cannot parse certificate")]
     ParseCertError(#[source] pgp_native::errors::Error),
+
+    #[error(transparent)]
+    JoinError(#[from] JoinError),
 }

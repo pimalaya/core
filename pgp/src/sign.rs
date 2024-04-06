@@ -15,13 +15,13 @@ use tokio::task;
 use crate::{Error, Result};
 
 #[derive(Debug)]
-enum PublicKeyOrSubkey {
+pub enum PublicKeyOrSubkey {
     Key(PublicKey),
     Subkey(PublicSubkey),
 }
 
 #[derive(Debug)]
-enum SignedSecretKeyOrSubkey<'a> {
+pub enum SignedSecretKeyOrSubkey<'a> {
     Key(&'a SignedSecretKey),
     Subkey(&'a SignedSecretSubKey),
 }

@@ -17,7 +17,8 @@ pub use process;
 #[cfg(feature = "command")]
 use process::Command;
 
-pub use error::{Error, Result};
+#[doc(inline)]
+pub use crate::error::{Error, Result};
 
 /// The secret.
 ///

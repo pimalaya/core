@@ -24,7 +24,8 @@ use std::{
 };
 use tokio::{io::AsyncWriteExt, process::Command as TokioCommand};
 
-pub use error::{Error, Result};
+#[doc(inline)]
+pub use crate::error::{Error, Result};
 
 fn new_tokio_cmd() -> TokioCommand {
     let windows = cfg!(target_os = "windows")

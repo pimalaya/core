@@ -4,7 +4,8 @@ pub mod expand;
 
 use std::path::{Path, PathBuf};
 
-pub use error::{Error, Result};
+#[doc(inline)]
+pub use crate::error::{Error, Result};
 
 pub fn try_shellexpand_path(path: impl AsRef<Path>) -> Result<PathBuf> {
     let path = expand::try_path(path)?;

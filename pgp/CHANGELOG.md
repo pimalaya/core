@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Changed hash algorithm from `sha1` to `sha256`.
+- Moved `Error` and `Result` into a dedicated `error` module. They are still re-exported at the root level to match the previous API.
+- Exposed publicly `sign::{PublicKeyOrSubkey, SignedSecretKeyOrSubkey}`.
 
 ### Fixed
 
