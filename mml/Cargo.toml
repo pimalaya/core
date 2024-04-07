@@ -1,6 +1,6 @@
 [package]
 name = "mml-lib"
-version = "1.0.9"
+version = "1.0.10"
 description = "Rust implementation of the Emacs MIME message Meta Language (MML)"
 homepage = "https://pimalaya.org/"
 documentation = "https://docs.rs/mml-lib/latest/mml/"

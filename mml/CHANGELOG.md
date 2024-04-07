@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.10] - 2024-04-07
+
+### Fixed
+
+- Bumped `chumsky@1.0.0-alpha.7` that fixes wrong diagnosis labels.
+
 ## [1.0.9] - 2024-04-06
 
 ### Changed
