@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refactored the whole error system, see <https://docs.rs/email-lib/0.23.0/email/>.
 - `ListEnvelopes` takes now a `ListEnvelopesOptions` composed of `page: usize`, `page_size: usize` and `query: Option<SearchEmailsQuery>`.
 - Changed `AccountConfig::find_full_signature` signature to `Option<String>` (removed unused `Result`).
 - Renamed `NewTplBuilder` into `NewTemplateBuilder`.
