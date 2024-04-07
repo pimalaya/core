@@ -61,7 +61,7 @@ thiserror = "1"
 tree_magic_mini = { version = "3", optional = true }
 
 [target.'cfg(unix)'.dependencies]
-chumsky = { version = "=1.0.0-alpha.6", optional = true, features = ["label"] }
+chumsky = { version = "=1.0.0-alpha.7", optional = true, features = ["label"] }
 
 [target.'cfg(windows)'.dependencies]
-chumsky = { version = "=1.0.0-alpha.6", optional = true, default-features = false, features = ["std", "label"] }
+chumsky = { version = "=1.0.0-alpha.7", optional = true, default-features = false, features = ["std", "label"] }

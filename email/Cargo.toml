@@ -116,7 +116,7 @@ urlencoding = "2.1"
 utf7-imap = { version = "=0.3.2", optional = true }
 
 [target.'cfg(unix)'.dependencies]
-chumsky = { version = "=1.0.0-alpha.6", features = ["label"] }
+chumsky = { version = "=1.0.0-alpha.7", features = ["label"] }
 
 [target.'cfg(windows)'.dependencies]
-chumsky = { version = "=1.0.0-alpha.6", default-features = false, features = ["std", "label"] }
+chumsky = { version = "=1.0.0-alpha.7", default-features = false, features = ["std", "label"] }

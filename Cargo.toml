@@ -27,6 +27,3 @@ process-lib = { path = "./process" }
 secret-lib = { path = "./secret" }
 shellexpand-utils = { path = "./shellexpand-utils" }
 time-lib = { path = "./time" }
-
-# waiting for alpha 7
-chumsky = { git = "https://github.com/zesterer/chumsky.git", rev = "6837537" }
