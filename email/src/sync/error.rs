@@ -1,29 +1,29 @@
-use std::{io, path::PathBuf};
-
 use advisory_lock::FileLockError;
+use std::{io, path::PathBuf, result};
 use thiserror::Error;
 
-/// Errors related to synchronization.
+use crate::{email, folder, thread_pool};
+
+/// The global `Result` alias of the module.
+pub type Result<T> = result::Result<T, Error>;
+
+/// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot open sync lock file")]
-    OpenLockFileSyncError(#[source] io::Error, PathBuf),
-    #[error("cannot lock sync file")]
-    LockFileSyncError(#[source] FileLockError, PathBuf),
-    #[error("cannot unlock sync file")]
-    UnlockFileSyncError(#[source] FileLockError, PathBuf),
+    #[error("cannot open sync lock file at {1}")]
+    OpenLockFileError(#[source] io::Error, PathBuf),
+    #[error("cannot lock sync file at {1}")]
+    LockFileError(#[source] FileLockError, PathBuf),
+    #[error("cannot unlock sync file at {1}")]
+    UnlockFileError(#[source] FileLockError, PathBuf),
     #[error("cannot get sync cache directory")]
     GetCacheDirectorySyncError,
-}
-
-impl crate::EmailError for Error {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl From<Error> for Box<dyn crate::EmailError> {
-    fn from(value: Error) -> Self {
-        Box::new(value)
-    }
+    #[error("cannot build sync thread pool")]
+    BuildThreadPoolError(#[source] thread_pool::Error),
+    #[error("cannot sync folders")]
+    SyncFoldersError(#[source] folder::Error),
+    #[error("cannot expunge folders after sync")]
+    ExpungeFoldersError(#[source] folder::Error),
+    #[error("cannot sync emails")]
+    SyncEmailsError(#[source] email::Error),
 }

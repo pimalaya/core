@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::info;
 use std::fs;
 
-use crate::{email::error::Error, envelope::Id, notmuch::NotmuchContextSync};
+use crate::{email::error::Error, envelope::Id, notmuch::NotmuchContextSync, AnyResult};
 
 use super::{Messages, PeekMessages};
 
@@ -27,7 +27,7 @@ impl PeekNotmuchMessages {
 
 #[async_trait]
 impl PeekMessages for PeekNotmuchMessages {
-    async fn peek_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         info!("peeking notmuch messages {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;
@@ -47,7 +47,7 @@ impl PeekMessages for PeekNotmuchMessages {
                 let msg = fs::read(path).map_err(Error::FileReadFailure)?;
                 Ok(msg)
             })
-            .collect::<crate::Result<Vec<_>>>()?
+            .collect::<AnyResult<Vec<_>>>()?
             .into();
 
         db.close().map_err(Error::NotMuchFailure)?;

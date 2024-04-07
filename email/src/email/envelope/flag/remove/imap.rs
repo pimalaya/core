@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::Id, imap::ImapContextSync};
+use crate::{email::error::Error, envelope::Id, imap::ImapContextSync, AnyResult};
 
 use super::{Flags, RemoveFlags};
 
@@ -27,7 +27,7 @@ impl RemoveImapFlags {
 
 #[async_trait]
 impl RemoveFlags for RemoveImapFlags {
-    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         info!("removing imap flag(s) {flags} to envelope {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -39,7 +39,7 @@ impl RemoveFlags for RemoveImapFlags {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()),
         )
         .await?;
 
@@ -48,7 +48,7 @@ impl RemoveFlags for RemoveImapFlags {
                 let query = format!("-FLAGS ({})", flags.to_imap_query_string());
                 session.uid_store(id.join(","), query)
             },
-            |err| Error::RemoveFlagImapError(err, folder.clone(), id.clone(), flags.clone()).into(),
+            |err| Error::RemoveFlagImapError(err, folder.clone(), id.clone(), flags.clone()),
         )
         .await?;
 

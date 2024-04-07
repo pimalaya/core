@@ -4,7 +4,7 @@
 //! two backends. The main structure of this module is
 //! [`SyncBuilder`].
 
-pub mod error;
+mod error;
 pub mod hash;
 pub mod pool;
 pub mod report;
@@ -36,9 +36,10 @@ use crate::{
         },
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder},
-    sync::error::Error,
 };
 
+#[doc(inline)]
+pub use self::error::{Error, Result};
 use self::{hash::SyncHash, report::SyncReport};
 
 static RUNTIME_DIR: Lazy<PathBuf> = Lazy::new(|| {
@@ -130,7 +131,7 @@ where
         self
     }
 
-    pub fn set_some_handler<F: Future<Output = Result<(), Error>> + Send + 'static>(
+    pub fn set_some_handler<F: Future<Output = Result<()>> + Send + 'static>(
         &mut self,
         handler: Option<impl Fn(SyncEvent) -> F + Send + Sync + 'static>,
     ) {
@@ -140,14 +141,14 @@ where
         };
     }
 
-    pub fn set_handler<F: Future<Output = Result<(), Error>> + Send + 'static>(
+    pub fn set_handler<F: Future<Output = Result<()>> + Send + 'static>(
         &mut self,
         handler: impl Fn(SyncEvent) -> F + Send + Sync + 'static,
     ) {
         self.set_some_handler(Some(handler));
     }
 
-    pub fn with_some_handler<F: Future<Output = Result<(), Error>> + Send + 'static>(
+    pub fn with_some_handler<F: Future<Output = Result<()>> + Send + 'static>(
         mut self,
         handler: Option<impl Fn(SyncEvent) -> F + Send + Sync + 'static>,
     ) -> Self {
@@ -155,7 +156,7 @@ where
         self
     }
 
-    pub fn with_handler<F: Future<Output = Result<(), Error>> + Send + 'static>(
+    pub fn with_handler<F: Future<Output = Result<()>> + Send + 'static>(
         mut self,
         handler: impl Fn(SyncEvent) -> F + Send + Sync + 'static,
     ) -> Self {
@@ -217,12 +218,12 @@ where
             .or_else(|| self.find_default_cache_dir())
     }
 
-    pub fn get_cache_dir(&self) -> Result<PathBuf, Error> {
+    pub fn get_cache_dir(&self) -> Result<PathBuf> {
         self.find_cache_dir()
             .ok_or(Error::GetCacheDirectorySyncError.into())
     }
 
-    pub fn get_left_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>, Error> {
+    pub fn get_left_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
         let left_config = self.left_builder.account_config.clone();
         let root_dir = self.get_cache_dir()?.join(&self.left_hash);
         let ctx =
@@ -231,7 +232,7 @@ where
         Ok(left_cache_builder)
     }
 
-    pub fn get_right_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>, Error> {
+    pub fn get_right_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
         let right_config = self.right_builder.account_config.clone();
         let root_dir = self.get_cache_dir()?.join(&self.right_hash);
         let ctx =
@@ -240,7 +241,7 @@ where
         Ok(right_cache_builder)
     }
 
-    pub async fn sync(self) -> crate::Result<SyncReport> {
+    pub async fn sync(self) -> Result<SyncReport> {
         let left_lock_file_path = RUNTIME_DIR.join(format!("{}.lock", self.left_hash));
         debug!("locking left sync file {left_lock_file_path:?}");
         let left_lock_file = OpenOptions::new()
@@ -248,10 +249,10 @@ where
             .write(true)
             .truncate(true)
             .open(&left_lock_file_path)
-            .map_err(|err| Error::OpenLockFileSyncError(err, left_lock_file_path.clone()))?;
+            .map_err(|err| Error::OpenLockFileError(err, left_lock_file_path.clone()))?;
         left_lock_file
             .try_lock(FileLockMode::Exclusive)
-            .map_err(|err| Error::LockFileSyncError(err, left_lock_file_path.clone()))?;
+            .map_err(|err| Error::LockFileError(err, left_lock_file_path.clone()))?;
 
         let right_lock_file_path = RUNTIME_DIR.join(format!("{}.lock", self.right_hash));
         debug!("locking right sync file {right_lock_file_path:?}");
@@ -260,10 +261,10 @@ where
             .write(true)
             .truncate(true)
             .open(&right_lock_file_path)
-            .map_err(|err| Error::OpenLockFileSyncError(err, right_lock_file_path.clone()))?;
+            .map_err(|err| Error::OpenLockFileError(err, right_lock_file_path.clone()))?;
         right_lock_file
             .try_lock(FileLockMode::Exclusive)
-            .map_err(|err| Error::LockFileSyncError(err, right_lock_file_path.clone()))?;
+            .map_err(|err| Error::LockFileError(err, right_lock_file_path.clone()))?;
 
         let pool = Arc::new(
             pool::new(
@@ -281,8 +282,12 @@ where
 
         let mut report = SyncReport::default();
 
-        report.folder = folder::sync::<L, R>(pool.clone()).await?;
-        report.email = email::sync::<L, R>(pool.clone(), &report.folder.names).await?;
+        report.folder = folder::sync::<L, R>(pool.clone())
+            .await
+            .map_err(Error::SyncFoldersError)?;
+        report.email = email::sync::<L, R>(pool.clone(), &report.folder.names)
+            .await
+            .map_err(Error::SyncEmailsError)?;
 
         folder::sync::expunge::<L, R>(pool.clone(), &report.folder.names).await;
 
@@ -291,10 +296,10 @@ where
         debug!("unlocking sync files");
         left_lock_file
             .unlock()
-            .map_err(|err| Error::UnlockFileSyncError(err, left_lock_file_path))?;
+            .map_err(|err| Error::UnlockFileError(err, left_lock_file_path))?;
         right_lock_file
             .unlock()
-            .map_err(|err| Error::UnlockFileSyncError(err, right_lock_file_path))?;
+            .map_err(|err| Error::UnlockFileError(err, right_lock_file_path))?;
 
         Ok(report)
     }
@@ -302,7 +307,7 @@ where
 
 /// The synchronization async event handler.
 pub type SyncEventHandler =
-    dyn Fn(SyncEvent) -> Pin<Box<dyn Future<Output = Result<(), Error>> + Send>> + Send + Sync;
+    dyn Fn(SyncEvent) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + Sync;
 
 /// The synchronization event.
 ///

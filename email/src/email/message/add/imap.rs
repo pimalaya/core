@@ -3,7 +3,7 @@ use imap_proto::UidSetMember;
 use log::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::SingleId, imap::ImapContextSync};
+use crate::{email::error::Error, envelope::SingleId, imap::ImapContextSync, AnyResult};
 
 use super::{AddMessage, Flags};
 
@@ -33,7 +33,7 @@ impl AddMessage for AddImapMessage {
         folder: &str,
         raw_msg: &[u8],
         flags: &Flags,
-    ) -> crate::Result<SingleId> {
+    ) -> AnyResult<SingleId> {
         info!("adding imap message to folder {folder} with flags {flags}");
 
         let mut ctx = self.ctx.lock().await;
@@ -51,10 +51,7 @@ impl AddMessage for AddImapMessage {
                         .flags(flags.to_imap_flags_vec())
                         .finish()
                 },
-                |err| {
-                    Error::AppendRawMessageWithFlagsImapError(err, folder.clone(), flags.clone())
-                        .into()
-                },
+                |err| Error::AppendRawMessageWithFlagsImapError(err, folder.clone(), flags.clone()),
             )
             .await?;
 
@@ -76,7 +73,7 @@ impl AddMessage for AddImapMessage {
             },
             _ => {
                 // TODO: manage other cases
-                Err(Error::GetAddedMessageUidImapError.into())
+                Err(Error::GetAddedMessageUidImapError)
             }
         }?;
         debug!("added imap message uid: {uid}");

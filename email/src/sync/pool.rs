@@ -9,9 +9,12 @@ use crate::{
     folder::sync::config::FolderSyncStrategy,
     maildir::{MaildirContextBuilder, MaildirContextSync},
     thread_pool::{ThreadPool, ThreadPoolBuilder, ThreadPoolContext, ThreadPoolContextBuilder},
+    AnyResult,
 };
 
 use super::SyncEventHandler;
+#[doc(inline)]
+pub use super::{Error, Result};
 
 /// Create a new thread pool dedicated to synchronization.
 pub async fn new<L, R>(
@@ -23,7 +26,7 @@ pub async fn new<L, R>(
     handler: Option<Arc<SyncEventHandler>>,
     dry_run: bool,
     folder_filter: Option<FolderSyncStrategy>,
-) -> crate::Result<ThreadPool<SyncPoolContext<L::Context, R::Context>>>
+) -> Result<ThreadPool<SyncPoolContext<L::Context, R::Context>>>
 where
     L: BackendContextBuilder + 'static,
     R: BackendContextBuilder + 'static,
@@ -40,7 +43,10 @@ where
 
     let pool_builder = ThreadPoolBuilder::new(pool_ctx_builder).with_some_size(pool_size);
 
-    let pool = pool_builder.build().await?;
+    let pool = pool_builder
+        .build()
+        .await
+        .map_err(Error::BuildThreadPoolError)?;
 
     Ok(pool)
 }
@@ -94,7 +100,7 @@ where
 {
     type Context = SyncPoolContext<L::Context, R::Context>;
 
-    async fn build(self) -> crate::Result<Self::Context> {
+    async fn build(self) -> AnyResult<Self::Context> {
         let (left_cache, left, right_cache, right) = tokio::try_join!(
             self.left_cache_builder.build(),
             self.left_builder.build(),

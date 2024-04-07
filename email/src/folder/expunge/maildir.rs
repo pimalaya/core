@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::info;
 
-use crate::{folder::error::Error, maildir::MaildirContextSync};
+use crate::{folder::error::Error, maildir::MaildirContextSync, AnyResult};
 
 use super::ExpungeFolder;
 
@@ -25,7 +25,7 @@ impl ExpungeMaildirFolder {
 
 #[async_trait]
 impl ExpungeFolder for ExpungeMaildirFolder {
-    async fn expunge_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn expunge_folder(&self, folder: &str) -> AnyResult<()> {
         info!("expunging maildir folder {folder}");
 
         let ctx = self.ctx.lock().await;

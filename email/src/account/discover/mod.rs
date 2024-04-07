@@ -32,13 +32,12 @@ use hyper::Uri;
 use log::{debug, trace};
 use std::str::FromStr;
 
-use crate::account::{
-    discover::config::{
-        AuthenticationType, EmailProvider, EmailProviderProperty, SecurityType, Server,
-        ServerProperty, ServerType,
-    },
-    error::Error,
+use super::discover::config::{
+    AuthenticationType, EmailProvider, EmailProviderProperty, SecurityType, Server, ServerProperty,
+    ServerType,
 };
+#[doc(inline)]
+pub use super::{Error, Result};
 
 use self::{config::AutoConfig, dns::DnsClient, http::HttpClient};
 
@@ -46,7 +45,7 @@ use self::{config::AutoConfig, dns::DnsClient, http::HttpClient};
 /// ISP locations then DNS, as described in the Mozilla [wiki].
 ///
 /// [wiki]: https://wiki.mozilla.org/Thunderbird:Autoconfiguration#Implementation
-pub async fn from_addr(addr: impl AsRef<str>) -> Result<AutoConfig, Error> {
+pub async fn from_addr(addr: impl AsRef<str>) -> Result<AutoConfig> {
     let addr = EmailAddress::from_str(addr.as_ref())
         .map_err(|e| Error::ParsingEmailAddress(addr.as_ref().to_string(), e))?;
     let http = HttpClient::new();
@@ -68,7 +67,7 @@ pub async fn from_addr(addr: impl AsRef<str>) -> Result<AutoConfig, Error> {
 /// locations.
 ///
 /// [wiki]: https://wiki.mozilla.org/Thunderbird:Autoconfiguration#Implementation
-async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig, Error> {
+async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> {
     let from_main_isps = [
         from_plain_main_isp(http, addr).boxed(),
         from_secure_main_isp(http, addr).boxed(),
@@ -99,23 +98,19 @@ async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig,
 
 /// Discover configuration associated to a given email address using
 /// plain main ISP location (http).
-async fn from_plain_main_isp(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig, Error> {
+async fn from_plain_main_isp(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> {
     from_main_isp(http, "http", addr).await
 }
 
 /// Discover configuration associated to a given email address using
 /// secure main ISP location (https).
-async fn from_secure_main_isp(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig, Error> {
+async fn from_secure_main_isp(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> {
     from_main_isp(http, "https", addr).await
 }
 
 /// Discover configuration associated to a given email address using
 /// main ISP location.
-async fn from_main_isp(
-    http: &HttpClient,
-    scheme: &str,
-    addr: &EmailAddress,
-) -> Result<AutoConfig, Error> {
+async fn from_main_isp(http: &HttpClient, scheme: &str, addr: &EmailAddress) -> Result<AutoConfig> {
     let domain = addr.domain().trim_matches('.');
     let uri_str =
         format!("{scheme}://autoconfig.{domain}/mail/config-v1.1.xml?emailaddress={addr}");
@@ -130,23 +125,19 @@ async fn from_main_isp(
 
 /// Discover configuration associated to a given email address using
 /// plain alternative ISP location (http).
-async fn from_plain_alt_isp(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig, Error> {
+async fn from_plain_alt_isp(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> {
     from_alt_isp(http, "http", addr).await
 }
 
 /// Discover configuration associated to a given email address using
 /// secure alternative ISP location (https).
-async fn from_secure_alt_isp(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig, Error> {
+async fn from_secure_alt_isp(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> {
     from_alt_isp(http, "https", addr).await
 }
 
 /// Discover configuration associated to a given email address using
 /// alternative ISP location.
-async fn from_alt_isp(
-    http: &HttpClient,
-    scheme: &str,
-    addr: &EmailAddress,
-) -> Result<AutoConfig, Error> {
+async fn from_alt_isp(http: &HttpClient, scheme: &str, addr: &EmailAddress) -> Result<AutoConfig> {
     let domain = addr.domain().trim_matches('.');
     let uri_str = format!("{scheme}://{domain}/.well-known/autoconfig/mail/config-v1.1.xml");
     let uri = Uri::from_str(&uri_str).unwrap();
@@ -160,7 +151,7 @@ async fn from_alt_isp(
 
 /// Discover configuration associated to a given email address using
 /// Thunderbird ISPDB.
-async fn from_ispdb(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig, Error> {
+async fn from_ispdb(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> {
     let domain = addr.domain().trim_matches('.');
     let uri_str = format!("https://autoconfig.thunderbird.net/v1.1/{domain}");
     let uri = Uri::from_str(&uri_str).unwrap();
@@ -177,7 +168,7 @@ async fn from_ispdb(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig
 ///
 /// Inspect first MX records, then TXT records, and finally SRV
 /// records.
-async fn from_dns(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig, Error> {
+async fn from_dns(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> {
     let domain = addr.domain().trim_matches('.');
     let dns = DnsClient::new();
 
@@ -204,7 +195,7 @@ async fn from_dns_mx(
     http: &HttpClient,
     dns: &DnsClient,
     addr: &EmailAddress,
-) -> Result<AutoConfig, Error> {
+) -> Result<AutoConfig> {
     let local_part = addr.local_part();
     let domain = dns.get_mx_domain(addr.domain()).await?;
     let domain = domain.trim_matches('.');
@@ -222,11 +213,7 @@ async fn from_dns_mx(
 
 /// Discover configuration associated to a given email address using
 /// TXT DNS records.
-async fn from_dns_txt(
-    http: &HttpClient,
-    dns: &DnsClient,
-    domain: &str,
-) -> Result<AutoConfig, Error> {
+async fn from_dns_txt(http: &HttpClient, dns: &DnsClient, domain: &str) -> Result<AutoConfig> {
     let uri = dns.get_mailconf_txt_uri(domain).await?;
 
     let config = http.get_config(uri).await?;
@@ -238,7 +225,7 @@ async fn from_dns_txt(
 
 /// Discover configuration associated to a given email address using
 /// SRV DNS records.
-async fn from_dns_srv(dns: &DnsClient, domain: &str) -> Result<AutoConfig, Error> {
+async fn from_dns_srv(dns: &DnsClient, domain: &str) -> Result<AutoConfig> {
     let mut config = AutoConfig {
         version: String::from("1.1"),
         email_provider: EmailProvider {

@@ -7,8 +7,10 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 
+use crate::AnyResult;
+
 #[async_trait]
 pub trait AddFolder: Send + Sync {
     /// Create the given folder.
-    async fn add_folder(&self, folder: &str) -> crate::Result<()>;
+    async fn add_folder(&self, folder: &str) -> AnyResult<()>;
 }

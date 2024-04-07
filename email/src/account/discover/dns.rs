@@ -13,7 +13,8 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{cmp::Ordering, ops::Deref};
 
-use crate::account::error::Error;
+#[doc(inline)]
+pub use super::{Error, Result};
 
 /// Regular expression used to extract the URI of a mailconf TXT
 /// record.
@@ -112,7 +113,7 @@ impl DnsClient {
 
     /// Get the first mailconf URI of TXT records from the given
     /// domain.
-    pub async fn get_mailconf_txt_uri(&self, domain: &str) -> Result<Uri, Error> {
+    pub async fn get_mailconf_txt_uri(&self, domain: &str) -> Result<Uri> {
         let records: Vec<String> = self
             .resolver
             .txt_lookup(domain)
@@ -141,7 +142,7 @@ impl DnsClient {
     }
 
     /// Get the first MX exchange domain from a given domain.
-    pub async fn get_mx_domain(&self, domain: &str) -> Result<String, Error> {
+    pub async fn get_mx_domain(&self, domain: &str) -> Result<String> {
         let mut records: Vec<MxRecord> = self
             .resolver
             .mx_lookup(domain)
@@ -169,7 +170,7 @@ impl DnsClient {
     }
 
     /// Get the first SRV record from a given domain and subdomain.
-    async fn get_srv(&self, domain: &str, subdomain: &str) -> Result<SRV, Error> {
+    async fn get_srv(&self, domain: &str, subdomain: &str) -> Result<SRV> {
         let domain = format!("_{subdomain}._tcp.{domain}");
 
         let mut records: Vec<SrvRecord> = self
@@ -199,17 +200,17 @@ impl DnsClient {
     }
 
     /// Get the first IMAP SRV record from a given domain.
-    pub async fn get_imap_srv(&self, domain: &str) -> Result<SRV, Error> {
+    pub async fn get_imap_srv(&self, domain: &str) -> Result<SRV> {
         self.get_srv(domain, "imap").await
     }
 
     /// Get the first IMAPS SRV record from a given domain.
-    pub async fn get_imaps_srv(&self, domain: &str) -> Result<SRV, Error> {
+    pub async fn get_imaps_srv(&self, domain: &str) -> Result<SRV> {
         self.get_srv(domain, "imaps").await
     }
 
     /// Get the first SMTP(S) SRV record from a given domain.
-    pub async fn get_submission_srv(&self, domain: &str) -> Result<SRV, Error> {
+    pub async fn get_submission_srv(&self, domain: &str) -> Result<SRV> {
         self.get_srv(domain, "submission").await
     }
 }

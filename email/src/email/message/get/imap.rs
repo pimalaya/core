@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::Id, imap::ImapContextSync};
+use crate::{email::error::Error, envelope::Id, imap::ImapContextSync, AnyResult};
 
 use super::{GetMessages, Messages};
 
@@ -30,7 +30,7 @@ impl GetImapMessages {
 
 #[async_trait]
 impl GetMessages for GetImapMessages {
-    async fn get_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
+    async fn get_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         info!("getting messages {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -42,14 +42,14 @@ impl GetMessages for GetImapMessages {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()),
         )
         .await?;
 
         let fetches = ctx
             .exec(
                 |session| session.uid_fetch(id.join(","), GET_MESSAGES_QUERY),
-                |err| Error::GetMessagesImapError(err, folder.clone(), id.clone()).into(),
+                |err| Error::GetMessagesImapError(err, folder.clone(), id.clone()),
             )
             .await?;
 

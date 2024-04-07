@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::Id, imap::ImapContextSync};
+use crate::{email::error::Error, envelope::Id, imap::ImapContextSync, AnyResult};
 
 use super::{Messages, PeekMessages};
 
@@ -30,7 +30,7 @@ impl PeekImapMessages {
 
 #[async_trait]
 impl PeekMessages for PeekImapMessages {
-    async fn peek_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         info!("peeking imap messages {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -42,14 +42,14 @@ impl PeekMessages for PeekImapMessages {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()),
         )
         .await?;
 
         let fetches = ctx
             .exec(
                 |session| session.uid_fetch(id.join(","), PEEK_MESSAGES_QUERY),
-                |err| Error::PeekMessagesImapError(err, folder.clone(), id.clone()).into(),
+                |err| Error::PeekMessagesImapError(err, folder.clone(), id.clone()),
             )
             .await?;
 

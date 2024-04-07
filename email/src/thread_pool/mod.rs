@@ -10,6 +10,8 @@
 //! [`ThreadPoolContextBuilder::Context`] and returns a future. The
 //! easiest way to build a pool is to use the [`ThreadPoolBuilder`].
 
+mod error;
+
 use async_trait::async_trait;
 use futures::{lock::Mutex, stream::FuturesUnordered, Future, StreamExt};
 use log::debug;
@@ -20,7 +22,10 @@ use std::{
 };
 use tokio::{sync::mpsc, task::JoinHandle};
 
-use crate::Result;
+use crate::AnyResult;
+
+#[doc(inline)]
+pub use self::error::{Error, Result};
 
 /// The thread pool task.
 pub type ThreadPoolTask<C> =
@@ -205,8 +210,8 @@ impl<B: ThreadPoolContextBuilder + 'static> ThreadPoolBuilder<B> {
 
         let mut threads = Vec::with_capacity(self.size);
         for (i, ctx) in ctxs.into_iter().enumerate() {
-            let ctx = ctx??;
             let thread_id = i + 1;
+            let ctx = ctx?.map_err(|err| Error::BuildContextError(err, thread_id, self.size))?;
             let rx = rx.clone();
 
             threads.push(tokio::spawn(async move {
@@ -248,7 +253,7 @@ pub trait ThreadPoolContextBuilder: Clone + Send + Sync {
     type Context: ThreadPoolContext;
 
     /// Build the thread pool context.
-    async fn build(self) -> Result<Self::Context>;
+    async fn build(self) -> AnyResult<Self::Context>;
 }
 
 pub trait ThreadPoolContext: Send + Sync {

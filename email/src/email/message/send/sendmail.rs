@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use mail_parser::MessageParser;
 
-use crate::{email::error::Error, sendmail::SendmailContextSync};
+use crate::{email::error::Error, sendmail::SendmailContextSync, AnyResult};
 
 use super::SendMessage;
 
@@ -27,7 +27,7 @@ impl SendSendmailMessage {
 
 #[async_trait]
 impl SendMessage for SendSendmailMessage {
-    async fn send_message(&self, msg: &[u8]) -> crate::Result<()> {
+    async fn send_message(&self, msg: &[u8]) -> AnyResult<()> {
         info!("sending sendmail message");
 
         let buffer: Vec<u8>;

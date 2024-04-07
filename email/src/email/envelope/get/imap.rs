@@ -6,6 +6,7 @@ use crate::{
     email::error::Error,
     envelope::{list::imap::LIST_ENVELOPES_QUERY, Id},
     imap::ImapContextSync,
+    AnyResult,
 };
 
 use super::{Envelope, GetEnvelope};
@@ -31,7 +32,7 @@ impl GetImapEnvelope {
 
 #[async_trait]
 impl GetEnvelope for GetImapEnvelope {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> crate::Result<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &Id) -> AnyResult<Envelope> {
         info!("getting imap envelope {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -43,14 +44,14 @@ impl GetEnvelope for GetImapEnvelope {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()),
         )
         .await?;
 
         let fetches = ctx
             .exec(
                 |session| session.uid_fetch(id.to_string(), LIST_ENVELOPES_QUERY),
-                |err| Error::FetchEnvolpesImapError(err, folder.clone(), id.clone()).into(),
+                |err| Error::FetchEnvolpesImapError(err, folder.clone(), id.clone()),
             )
             .await?;
 

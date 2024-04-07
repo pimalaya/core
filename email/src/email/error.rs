@@ -1,13 +1,15 @@
 use chumsky::error::Rich;
-use std::io;
-use std::path::PathBuf;
+use std::{any::Any, io, path::PathBuf, result};
 use thiserror::Error;
 use tokio::task::JoinError;
 
-use crate::envelope::Id;
-use crate::flag::Flags;
+use crate::{envelope::Id, flag::Flags, AnyBoxedError, AnyError};
 
-#[derive(Error, Debug)]
+/// The global `Result` alias of the module.
+pub type Result<T> = result::Result<T, Error>;
+
+/// The global `Error` enum of the module.
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot find message associated to envelope {0}")]
     FindMessageError(String),
@@ -46,7 +48,7 @@ pub enum Error {
     #[error("could not parse: {0}")]
     ChumskyError(String),
     #[error(transparent)]
-    AcountError(#[from] crate::account::error::Error),
+    AcountError(#[from] crate::account::Error),
     #[error("cannot decrypt encrypted email part")]
     DecryptEmailPartError(#[source] process::Error),
     #[error("cannot verify signed email part")]
@@ -58,7 +60,7 @@ pub enum Error {
     #[error("cannot parse encrypted part of multipart")]
     WriteEncryptedPartBodyError(#[source] io::Error),
     #[error("cannot write encrypted part to temporary file")]
-    DecryptPartError(#[source] crate::account::error::Error),
+    DecryptPartError(#[source] crate::account::Error),
     #[error("cannot interpret email as template")]
     InterpretEmailAsTplError(#[source] mml::Error),
     #[error("cannot parse email message")]
@@ -147,23 +149,32 @@ pub enum Error {
     #[error("notmuch failed: {0}")]
     NotMuchFailure(notmuch::Error),
     #[error("process failed: {0}")]
-    ProcessFailure(process::error::Error),
+    ProcessFailure(process::Error),
     #[error("maildir failed: {0}")]
     MaildirppFailure(maildirpp::Error),
     #[error("could not watch: {0}")]
     NotifyFailure(notify::Error),
     #[error("could not watch: {0}")]
     FileReadFailure(io::Error),
+
+    #[error("cannot list envelopes from left sync cache")]
+    ListLeftEnvelopesCachedError(#[source] AnyBoxedError),
+    #[error("cannot list envelopes from left sync backend")]
+    ListLeftEnvelopesError(#[source] AnyBoxedError),
+    #[error("cannot list envelopes from right sync cache")]
+    ListRightEnvelopesCachedError(#[source] AnyBoxedError),
+    #[error("cannot list envelopes from right sync backend")]
+    ListRightEnvelopesError(#[source] AnyBoxedError),
 }
 
-impl crate::EmailError for Error {
-    fn as_any(&self) -> &dyn std::any::Any {
+impl AnyError for Error {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-impl From<Error> for Box<dyn crate::EmailError> {
-    fn from(value: Error) -> Self {
-        Box::new(value)
+impl From<Error> for AnyBoxedError {
+    fn from(err: Error) -> Self {
+        Box::new(err)
     }
 }

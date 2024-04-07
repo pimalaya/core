@@ -14,14 +14,17 @@
 pub mod config;
 pub mod date;
 pub mod envelope;
-pub mod error;
+mod error;
 pub mod message;
 pub mod search_query;
 #[cfg(feature = "account-sync")]
 pub mod sync;
 pub mod utils;
 
-#[doc(inline)]
-pub use self::utils::*;
 #[cfg(feature = "account-sync")]
 pub(crate) use sync::sync;
+#[doc(inline)]
+pub use {
+    self::utils::*,
+    error::{Error, Result},
+};

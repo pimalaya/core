@@ -1,34 +1,41 @@
 #[cfg(feature = "account-discovery")]
 use hyper::{StatusCode, Uri};
-use std::{io, path::PathBuf};
+use std::{io, path::PathBuf, result};
+use thiserror::Error;
 
-/// Errors related to account configuration.
-#[derive(Debug, thiserror::Error)]
+/// The global `Result` alias of the module.
+pub type Result<T> = result::Result<T, Error>;
+
+/// The global `Error` enum of the module.
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot get configuration of account {0}")]
+    GetAccountConfigNotFoundError(String),
+
     #[cfg(feature = "account-sync")]
     #[error("cannot get sync directory from XDG_DATA_HOME")]
     GetXdgDataDirSyncError,
     #[cfg(feature = "account-sync")]
     #[error("cannot get invalid or missing synchronization directory {1}")]
-    GetSyncDirInvalidError(#[source] shellexpand_utils::error::Error, PathBuf),
+    GetSyncDirInvalidError(#[source] shellexpand_utils::Error, PathBuf),
 
     #[error("cannot parse download file name from {0}")]
     ParseDownloadFileNameError(PathBuf),
     #[error("cannot get file name from path {0}")]
     GetFileNameFromPathSyncError(PathBuf),
     #[error("cannot create oauth2 client")]
-    InitOauthClientError(#[source] oauth::Error),
+    InitOauthClientError(#[source] oauth::v2_0::Error),
     #[error("cannot create oauth2 client")]
-    BuildOauthClientError(#[source] oauth::Error),
+    BuildOauthClientError(#[source] oauth::v2_0::Error),
     #[error("cannot wait for oauth2 redirection error")]
-    WaitForOauthRedirectionError(#[source] oauth::Error),
+    WaitForOauthRedirectionError(#[source] oauth::v2_0::Error),
 
     #[error("cannot get oauth2 access token from global keyring")]
     GetAccessTokenOauthError(#[source] secret::Error),
     #[error("cannot set oauth2 access token")]
     SetAccessTokenOauthError(#[source] secret::Error),
     #[error("cannot refresh oauth2 access token")]
-    RefreshAccessTokenOauthError(#[source] oauth::Error),
+    RefreshAccessTokenOauthError(#[source] oauth::v2_0::Error),
     #[error("cannot delete oauth2 access token from global keyring")]
     DeleteAccessTokenOauthError(#[source] secret::Error),
 
@@ -78,6 +85,9 @@ pub enum Error {
     #[error("cannot write public key file at {1}")]
     WritePublicKeyFileError(#[source] io::Error, PathBuf),
     #[cfg(feature = "pgp-native")]
+    #[error("cannot get public key from keyring")]
+    GetPublicKeyFromKeyringError(#[source] keyring::Error),
+    #[cfg(feature = "pgp-native")]
     #[error("cannot set secret key to keyring")]
     SetSecretKeyToKeyringError(#[source] keyring::Error),
     #[cfg(feature = "pgp-native")]
@@ -119,20 +129,4 @@ pub enum Error {
     #[cfg(feature = "account-discovery")]
     #[error("cannot parse email {0}: {1}")]
     ParsingEmailAddress(String, #[source] email_address::Error),
-
-    #[cfg(feature = "account-sync")]
-    #[error("cannot create sync cache backend builder")]
-    CreateSyncCacheBackendBuilderError(#[source] crate::backend::error::Error),
-}
-
-impl crate::EmailError for Error {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl From<Error> for Box<dyn crate::EmailError> {
-    fn from(value: Error) -> Self {
-        Box::new(value)
-    }
 }

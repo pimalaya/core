@@ -8,7 +8,9 @@
 pub mod config;
 #[cfg(feature = "account-discovery")]
 pub mod discover;
+mod error;
 #[cfg(feature = "account-sync")]
 pub mod sync;
 
-pub mod error;
+#[doc(inline)]
+pub use self::error::{Error, Result};

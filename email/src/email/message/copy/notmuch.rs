@@ -8,6 +8,7 @@ use crate::{
     flag::{Flag, Flags},
     folder::FolderKind,
     notmuch::NotmuchContextSync,
+    AnyResult,
 };
 
 use super::CopyMessages;
@@ -33,12 +34,7 @@ impl CopyNotmuchMessages {
 
 #[async_trait]
 impl CopyMessages for CopyNotmuchMessages {
-    async fn copy_messages(
-        &self,
-        from_folder: &str,
-        to_folder: &str,
-        id: &Id,
-    ) -> crate::Result<()> {
+    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> AnyResult<()> {
         info!("copying notmuch messages {id} from folder {from_folder} to folder {to_folder}");
 
         let config = &self.ctx.account_config;

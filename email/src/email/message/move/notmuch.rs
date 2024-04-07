@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use log::{debug, info};
 
-use crate::{email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync};
+use crate::{
+    email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync, AnyResult,
+};
 
 use super::MoveMessages;
 
@@ -26,12 +28,7 @@ impl MoveNotmuchMessages {
 
 #[async_trait]
 impl MoveMessages for MoveNotmuchMessages {
-    async fn move_messages(
-        &self,
-        from_folder: &str,
-        to_folder: &str,
-        id: &Id,
-    ) -> crate::Result<()> {
+    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> AnyResult<()> {
         info!("moving notmuch messages {id} from folder {from_folder} to folder {to_folder}");
 
         let config = &self.ctx.account_config;

@@ -1485,16 +1485,7 @@ version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3aa72a6f96ea37bbc5aa912f6788242832f75369bdfdadcb0e38423f100059"
 dependencies = [
- "dirs-sys 0.3.7",
-]
-
-[[package]]
-name = "dirs"
-version = "5.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
-dependencies = [
- "dirs-sys 0.4.1",
+ "dirs-sys",
 ]
 
 [[package]]
@@ -1516,18 +1507,6 @@ dependencies = [
  "libc",
  "redox_users",
  "winapi",
-]
-
-[[package]]
-name = "dirs-sys"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "520f05a5cbd335fae5a99ff7a6ab8627577660ee5cfd6a94a6a929b52ff0321c"
-dependencies = [
- "libc",
- "option-ext",
- "redox_users",
- "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -1678,7 +1657,7 @@ dependencies = [
  "chumsky",
  "concat-with",
  "convert_case",
- "dirs 4.0.0",
+ "dirs",
  "email-macros",
  "email-testing-server",
  "email_address",
@@ -2579,7 +2558,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.6",
  "tokio",
  "tower-service",
  "tracing",
@@ -2661,7 +2640,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core",
 ]
 
 [[package]]
@@ -3062,7 +3041,7 @@ dependencies = [
 
 [[package]]
 name = "keyring-lib"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "env_logger",
  "keyring",
@@ -3552,7 +3531,7 @@ dependencies = [
 
 [[package]]
 name = "mml-lib"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "async-recursion",
  "chumsky",
@@ -3817,7 +3796,7 @@ dependencies = [
 
 [[package]]
 name = "oauth-lib"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "log",
  "oauth2",
@@ -4051,12 +4030,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
 ]
-
-[[package]]
-name = "option-ext"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "ordered-float"
@@ -4340,7 +4313,7 @@ dependencies = [
 
 [[package]]
 name = "pgp-lib"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-recursion",
  "concat-with",
@@ -4635,7 +4608,7 @@ dependencies = [
 
 [[package]]
 name = "process-lib"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "env_logger",
  "log",
@@ -5357,7 +5330,7 @@ dependencies = [
 
 [[package]]
 name = "secret-lib"
-version = "0.4.1"
+version = "0.4.3"
 dependencies = [
  "env_logger",
  "keyring-lib",
@@ -5641,13 +5614,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da03fa3b94cc19e3ebfc88c4229c49d8f08cdbd1228870a45f0ffdf84988e14b"
 dependencies = [
  "bstr",
- "dirs 5.0.1",
+ "dirs",
  "os_str_bytes",
 ]
 
 [[package]]
 name = "shellexpand-utils"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "log",
  "shellexpand",
@@ -6922,7 +6895,7 @@ version = "0.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca229916c5ee38c2f2bc1e9d8f04df975b4bd93f9955dc69fabb5d91270045c9"
 dependencies = [
- "windows-core 0.51.1",
+ "windows-core",
  "windows-targets 0.48.5",
 ]
 
@@ -6933,15 +6906,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f8cf84f35d2db49a46868f947758c7a1138116f7fac3bc844f43ade1292e64"
 dependencies = [
  "windows-targets 0.48.5",
-]
-
-[[package]]
-name = "windows-core"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
-dependencies = [
- "windows-targets 0.52.4",
 ]
 
 [[package]]

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::Id, flag::Flag, imap::ImapContextSync};
+use crate::{email::error::Error, envelope::Id, flag::Flag, imap::ImapContextSync, AnyResult};
 
 use super::RemoveMessages;
 
@@ -27,7 +27,7 @@ impl RemoveImapMessages {
 
 #[async_trait]
 impl RemoveMessages for RemoveImapMessages {
-    async fn remove_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
+    async fn remove_messages(&self, folder: &str, id: &Id) -> AnyResult<()> {
         info!("removing imap messages {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -39,7 +39,7 @@ impl RemoveMessages for RemoveImapMessages {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()),
         )
         .await?;
 
@@ -48,7 +48,7 @@ impl RemoveMessages for RemoveImapMessages {
                 let query = format!("+FLAGS ({})", Flag::Deleted.to_imap_query_string());
                 session.uid_store(id.join(","), query)
             },
-            |err| Error::AddDeletedFlagImapError(err, folder.clone(), id.clone()).into(),
+            |err| Error::AddDeletedFlagImapError(err, folder.clone(), id.clone()),
         )
         .await?;
 

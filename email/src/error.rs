@@ -1,42 +1,39 @@
+use std::{any::Any, error, result};
 use tokio::task::JoinError;
 
-/// The global `Result` alias of the library.
+/// The global any `Result` alias of the library.
 ///
-/// Refer to the `Error` documentation for an explanation
-/// about the choice of using `anyhow` crate on the library level.
-pub type Result<T> = std::result::Result<T, Box<dyn EmailError + 'static>>;
+/// The difference with [`Result`] is that it takes a dynamic error
+/// `Box<dyn AnyError>`.
+pub type AnyResult<T> = result::Result<T, AnyBoxedError>;
 
-/// The global `Error` trait of the library.
+/// The global, dowcastable any `Error` trait of the library.
 ///
-/// Downcasting should suffice in most cases; since usecases for precise
-/// error variant identification in `email-lib` should be rare.
-/// While suitable for most libraries, using one error per module in
-/// a large library like `email-lib` complicates communication due to
-/// differences in errors.
-pub trait EmailError: Send + Sync + std::error::Error + std::any::Any {
-    fn as_any(&self) -> &dyn std::any::Any;
+/// This trait is used instead of [`Error`] when an error that is not
+/// known at compilation time cannot be placed in a generic due to
+/// object-safe trait constraint. The main use case is for backend
+/// features.
+pub trait AnyError: error::Error + Any + Send + Sync {
+    fn as_any(&self) -> &dyn Any;
 }
 
-impl EmailError for JoinError {
-    fn as_any(&self) -> &dyn std::any::Any {
+impl AnyError for JoinError {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-impl From<JoinError> for Box<dyn EmailError> {
-    fn from(value: JoinError) -> Self {
-        Box::new(value)
+/// The global any boxed `Error` alias of the module.
+pub type AnyBoxedError = Box<dyn AnyError + 'static>;
+
+impl error::Error for AnyBoxedError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        self.as_ref().source()
     }
 }
 
-impl EmailError for process::error::Error {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl From<process::error::Error> for Box<dyn EmailError> {
-    fn from(value: process::error::Error) -> Self {
-        Box::new(value)
+impl From<JoinError> for AnyBoxedError {
+    fn from(err: JoinError) -> Self {
+        Box::new(err)
     }
 }

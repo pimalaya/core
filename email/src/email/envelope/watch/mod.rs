@@ -1,19 +1,19 @@
 pub mod config;
-
+#[cfg(feature = "imap")]
 pub mod imap;
-
+#[cfg(feature = "maildir")]
 pub mod maildir;
 
 use async_trait::async_trait;
 use log::debug;
 use std::collections::HashMap;
 
-use crate::{account::config::AccountConfig, envelope::Envelope, Result};
+use crate::{account::config::AccountConfig, envelope::Envelope, AnyResult};
 
 #[async_trait]
 pub trait WatchEnvelopes: Send + Sync {
     /// Watch the given folder for envelopes changes.
-    async fn watch_envelopes(&self, folder: &str) -> Result<()>;
+    async fn watch_envelopes(&self, folder: &str) -> AnyResult<()>;
 
     async fn exec_hooks(
         &self,

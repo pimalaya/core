@@ -6,7 +6,8 @@ use shellexpand_utils::shellexpand_path;
 use std::io;
 use tokio::fs;
 
-use crate::account::error::Error;
+#[doc(inline)]
+pub use super::{Error, Result};
 
 /// The native PGP configuration.
 ///
@@ -38,7 +39,7 @@ impl NativePgpConfig {
     }
 
     /// Deletes secret and public keys.
-    pub async fn reset(&self) -> Result<(), Error> {
+    pub async fn reset(&self) -> Result<()> {
         match &self.secret_key {
             NativePgpSecretKey::None => (),
             NativePgpSecretKey::Raw(..) => (),
@@ -66,7 +67,7 @@ impl NativePgpConfig {
         &self,
         email: impl ToString,
         passwd: impl Fn() -> io::Result<String>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let email = email.to_string();
         let passwd = passwd().map_err(Error::GetPgpSecretKeyPasswdError)?;
 
@@ -95,7 +96,8 @@ impl NativePgpConfig {
                     .map_err(|err| Error::WritePublicKeyFileError(err, pkey_path))?;
             }
             NativePgpSecretKey::Keyring(skey_entry) => {
-                let pkey_entry = KeyringEntry::try_new(skey_entry.key.clone() + "-pub")?;
+                let pkey_entry = KeyringEntry::try_new(skey_entry.key.clone() + "-pub")
+                    .map_err(Error::GetPublicKeyFromKeyringError)?;
 
                 skey_entry
                     .set_secret(skey)

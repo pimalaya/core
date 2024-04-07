@@ -1,5 +1,6 @@
 use std::{any::Any, result};
 use thiserror::Error;
+use tokio::task::JoinError;
 
 use crate::{AnyBoxedError, AnyError};
 
@@ -9,14 +10,11 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot open notmuch database")]
-    OpenDatabaseError(#[source] notmuch::Error),
-    #[error("cannot create notmuch query")]
-    CreateQueryError(#[source] notmuch::Error),
-    #[error("cannot execute notmuch query")]
-    ExecuteQueryError(#[source] notmuch::Error),
-    #[error("cannot close notmuch database")]
-    CloseDatabaseError(#[source] notmuch::Error),
+    #[error("cannot build thread pool context for thread {1}/{2}")]
+    BuildContextError(#[source] AnyBoxedError, usize, usize),
+
+    #[error(transparent)]
+    JoinError(#[from] JoinError),
 }
 
 impl AnyError for Error {

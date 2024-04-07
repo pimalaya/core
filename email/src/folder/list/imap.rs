@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::info;
 
-use crate::{folder::error::Error, imap::ImapContextSync};
+use crate::{folder::error::Error, imap::ImapContextSync, AnyResult};
 
 use super::{Folders, ListFolders};
 
@@ -26,7 +26,7 @@ impl ListImapFolders {
 
 #[async_trait]
 impl ListFolders for ListImapFolders {
-    async fn list_folders(&self) -> crate::Result<Folders> {
+    async fn list_folders(&self) -> AnyResult<Folders> {
         info!("listing imap folders");
 
         let config = &self.ctx.account_config;
@@ -35,7 +35,7 @@ impl ListFolders for ListImapFolders {
         let names = ctx
             .exec(
                 |session| session.list(Some(""), Some("*")),
-                |err| Error::ListFoldersImapError(err).into(),
+                |err| Error::ListFoldersImapError(err),
             )
             .await?;
 

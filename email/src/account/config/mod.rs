@@ -26,13 +26,10 @@ use std::{
     vec,
 };
 
-#[cfg(feature = "account-sync")]
-use crate::account::sync::config::SyncConfig;
 use crate::{
-    account::error::Error,
     date::from_mail_parser_to_chrono_datetime,
     email::config::EmailTextPlainFormat,
-    envelope::config::EnvelopeConfig,
+    envelope::{config::EnvelopeConfig, Envelope},
     flag::config::FlagConfig,
     folder::{config::FolderConfig, FolderKind, DRAFTS, INBOX, SENT, TRASH},
     message::config::MessageConfig,
@@ -42,9 +39,13 @@ use crate::{
         new::config::NewTemplateSignatureStyle,
         reply::config::{ReplyTemplatePostingStyle, ReplyTemplateSignatureStyle},
     },
+    watch::config::WatchHook,
 };
 
-use crate::{envelope::Envelope, watch::config::WatchHook};
+#[cfg(feature = "account-sync")]
+use super::sync::config::SyncConfig;
+#[doc(inline)]
+pub use super::{Error, Result};
 
 #[cfg(feature = "pgp")]
 use self::pgp::PgpConfig;
@@ -173,7 +174,7 @@ impl AccountConfig {
     /// Then, a suffix may be added to the final path if it already
     /// exists on the filesystem in order to prevent any overriding or
     /// data loss.
-    pub fn get_download_file_path(&self, path: impl AsRef<Path>) -> Result<PathBuf, Error> {
+    pub fn get_download_file_path(&self, path: impl AsRef<Path>) -> Result<PathBuf> {
         let path = path.as_ref();
 
         let file_name = path
@@ -710,7 +711,7 @@ impl<'a> From<&'a AccountConfig> for Address<'a> {
 pub(crate) fn rename_file_if_duplicate(
     origin_file_path: &Path,
     is_file: impl Fn(&PathBuf, u8) -> bool,
-) -> Result<PathBuf, Error> {
+) -> Result<PathBuf> {
     let mut count = 0;
 
     let mut file_path = origin_file_path.to_owned();

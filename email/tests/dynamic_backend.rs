@@ -11,7 +11,7 @@ use email::{
         ImapContextBuilder, ImapContextSync,
     },
     smtp::{SmtpContextBuilder, SmtpContextSync},
-    Result,
+    AnyResult,
 };
 use email_testing_server::with_email_testing_server;
 use secret::Secret;
@@ -74,7 +74,7 @@ async fn test_dynamic_backend() {
                 self.list_folders_with_some(&self.imap)
             }
 
-            async fn build(self) -> Result<Self::Context> {
+            async fn build(self) -> AnyResult<Self::Context> {
                 let imap = match self.imap {
                     Some(imap) => Some(imap.build().await?),
                     None => None,

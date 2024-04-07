@@ -9,14 +9,8 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot open notmuch database")]
-    OpenDatabaseError(#[source] notmuch::Error),
-    #[error("cannot create notmuch query")]
-    CreateQueryError(#[source] notmuch::Error),
-    #[error("cannot execute notmuch query")]
-    ExecuteQueryError(#[source] notmuch::Error),
-    #[error("cannot close notmuch database")]
-    CloseDatabaseError(#[source] notmuch::Error),
+    #[error("cannot execute sendmail command")]
+    ExecuteCommandError(#[source] process::Error),
 }
 
 impl AnyError for Error {

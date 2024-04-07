@@ -12,7 +12,7 @@ use std::cmp::Ordering;
 use crate::{
     email::search_query::SearchEmailsQuery,
     search_query::sort::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder},
-    Result,
+    AnyResult,
 };
 
 use super::{Envelope, Envelopes};
@@ -21,7 +21,11 @@ use super::{Envelope, Envelopes};
 pub trait ListEnvelopes: Send + Sync {
     /// List all available envelopes from the given folder matching
     /// the given pagination.
-    async fn list_envelopes(&self, folder: &str, opts: ListEnvelopesOptions) -> Result<Envelopes>;
+    async fn list_envelopes(
+        &self,
+        folder: &str,
+        opts: ListEnvelopesOptions,
+    ) -> AnyResult<Envelopes>;
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

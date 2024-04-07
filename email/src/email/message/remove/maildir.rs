@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::info;
 
-use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync};
+use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync, AnyResult};
 
 use super::RemoveMessages;
 
@@ -26,7 +26,7 @@ impl RemoveMaildirMessages {
 
 #[async_trait]
 impl RemoveMessages for RemoveMaildirMessages {
-    async fn remove_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
+    async fn remove_messages(&self, folder: &str, id: &Id) -> AnyResult<()> {
         info!("removing maildir message(s) {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;

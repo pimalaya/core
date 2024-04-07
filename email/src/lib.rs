@@ -52,7 +52,7 @@ pub mod account;
 pub mod backend;
 pub mod config;
 pub mod email;
-pub mod error;
+mod error;
 pub mod folder;
 #[cfg(feature = "imap")]
 pub mod imap;
@@ -70,7 +70,9 @@ pub mod smtp;
 pub mod sync;
 pub mod thread_pool;
 pub mod watch;
-pub use error::*;
 
 #[doc(inline)]
-pub use email::{envelope::flag, message::template, *};
+pub use crate::{
+    email::{envelope::flag, message::template, *},
+    error::{AnyBoxedError, AnyError, AnyResult},
+};

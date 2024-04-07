@@ -1,4 +1,5 @@
 pub mod config;
+mod error;
 
 use async_trait::async_trait;
 use log::info;
@@ -11,9 +12,12 @@ use crate::{
         feature::{BackendFeature, CheckUp},
     },
     message::send::{sendmail::SendSendmailMessage, SendMessage},
+    AnyResult,
 };
 
 use self::config::SendmailConfig;
+#[doc(inline)]
+pub use self::error::{Error, Result};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SendmailContext {
@@ -69,7 +73,7 @@ impl BackendContextBuilder for SendmailContextBuilder {
     /// The SENDMAIL session is created at this moment. If the session
     /// cannot be created using the OAuth 2.0 authentication, the
     /// access token is refreshed first then a new session is created.
-    async fn build(self) -> crate::Result<Self::Context> {
+    async fn build(self) -> AnyResult<Self::Context> {
         info!("building new sendmail context");
 
         Ok(SendmailContextSync {
@@ -100,8 +104,13 @@ impl CheckUpSendmail {
 
 #[async_trait]
 impl CheckUp for CheckUpSendmail {
-    async fn check_up(&self) -> crate::Result<()> {
-        self.ctx.sendmail_config.cmd.run().await?;
+    async fn check_up(&self) -> AnyResult<()> {
+        self.ctx
+            .sendmail_config
+            .cmd
+            .run()
+            .await
+            .map_err(Error::ExecuteCommandError)?;
         Ok(())
     }
 }

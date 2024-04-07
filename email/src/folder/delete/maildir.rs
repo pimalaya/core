@@ -5,6 +5,7 @@ use std::fs;
 use crate::{
     folder::{error::Error, FolderKind},
     maildir::{self, MaildirContextSync},
+    AnyResult,
 };
 
 use super::DeleteFolder;
@@ -29,7 +30,7 @@ impl DeleteMaildirFolder {
 
 #[async_trait]
 impl DeleteFolder for DeleteMaildirFolder {
-    async fn delete_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn delete_folder(&self, folder: &str) -> AnyResult<()> {
         info!("deleting maildir folder {folder}");
 
         let ctx = self.ctx.lock().await;

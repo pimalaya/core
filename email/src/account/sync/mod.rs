@@ -9,11 +9,13 @@
 pub mod config;
 
 use crate::{
-    account::error::Error,
     backend::{context::BackendContextBuilder, BackendBuilder},
     maildir::MaildirContextBuilder,
     sync::{hash::SyncHash, SyncBuilder},
 };
+
+#[doc(inline)]
+pub use super::{Error, Result};
 
 /// The account synchronization builder.
 ///
@@ -26,7 +28,7 @@ impl AccountSyncBuilder {
     /// Try to create a new account synchronization builder.
     pub fn try_new<R: BackendContextBuilder + SyncHash + 'static>(
         right_builder: BackendBuilder<R>,
-    ) -> Result<SyncBuilder<MaildirContextBuilder, R>, Error> {
+    ) -> Result<SyncBuilder<MaildirContextBuilder, R>> {
         let left_ctx_builder = right_builder
             .ctx_builder
             .try_to_sync_cache_builder(&right_builder.account_config)?;

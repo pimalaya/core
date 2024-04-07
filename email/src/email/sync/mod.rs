@@ -13,17 +13,19 @@ use std::{
     string::String,
     sync::Arc,
 };
-use tokio::task::{JoinError, JoinHandle};
 
 use crate::{
     backend::context::BackendContextBuilder,
-    email::error::Error,
     envelope::{get::GetEnvelope, list::ListEnvelopes, Envelope, Id},
     flag::{add::AddFlags, set::SetFlags, Flag},
     message::{add::AddMessage, peek::PeekMessages},
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
     thread_pool::ThreadPool,
+    AnyBoxedError,
 };
+
+#[doc(inline)]
+pub use super::{Error, Result};
 
 use self::{hunk::EmailSyncHunk, report::EmailSyncReport};
 
@@ -32,7 +34,7 @@ use self::{hunk::EmailSyncHunk, report::EmailSyncReport};
 pub(crate) async fn sync<L, R>(
     pool: Arc<ThreadPool<SyncPoolContext<L::Context, R::Context>>>,
     folders: &HashSet<String>,
-) -> crate::Result<EmailSyncReport>
+) -> Result<EmailSyncReport>
 where
     L: BackendContextBuilder + 'static,
     R: BackendContextBuilder + 'static,
@@ -42,151 +44,147 @@ where
     let patch = FuturesUnordered::from_iter(folders.iter().map(|folder| {
         let pool_ref = pool.clone();
         let folder_ref = folder.clone();
-        let left_cached_envelopes: JoinHandle<crate::Result<HashMap<String, Envelope>>> =
-            tokio::spawn(async move {
-                pool_ref
-                    .exec(|ctx| async move {
-                        let backend = &ctx.left_cache;
-                        let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
-                            ctx.left_cache
-                                .list_envelopes(&folder_ref, Default::default())
-                                .await
-                                .or_else(|err| {
-                                    if ctx.dry_run {
-                                        Ok(Default::default())
-                                    } else {
-                                        Err(err)
-                                    }
-                                })?
-                                .into_iter()
-                                .filter_map(|e| {
-                                    if backend.account_config.matches_envelope_sync_filters(&e) {
-                                        Some((e.message_id.clone(), e))
-                                    } else {
-                                        None
-                                    }
-                                }),
-                        );
+        let left_cached_envelopes = tokio::spawn(async move {
+            pool_ref
+                .exec(|ctx| async move {
+                    let backend = &ctx.left_cache;
+                    let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
+                        ctx.left_cache
+                            .list_envelopes(&folder_ref, Default::default())
+                            .await
+                            .or_else(|err| {
+                                if ctx.dry_run {
+                                    Ok(Default::default())
+                                } else {
+                                    Err(Error::ListLeftEnvelopesCachedError(err))
+                                }
+                            })?
+                            .into_iter()
+                            .filter_map(|e| {
+                                if backend.account_config.matches_envelope_sync_filters(&e) {
+                                    Some((e.message_id.clone(), e))
+                                } else {
+                                    None
+                                }
+                            }),
+                    );
 
-                        SyncEvent::ListedLeftCachedEnvelopes(folder_ref.clone(), envelopes.len())
-                            .emit(&ctx.handler)
-                            .await;
+                    SyncEvent::ListedLeftCachedEnvelopes(folder_ref.clone(), envelopes.len())
+                        .emit(&ctx.handler)
+                        .await;
 
-                        Ok(envelopes)
-                    })
-                    .await
-            });
-
-        let pool_ref = pool.clone();
-        let folder_ref = folder.clone();
-        let left_envelopes: JoinHandle<crate::Result<HashMap<String, Envelope>>> =
-            tokio::spawn(async move {
-                pool_ref
-                    .exec(|ctx| async move {
-                        let backend = &ctx.left;
-                        let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
-                            backend
-                                .list_envelopes(&folder_ref, Default::default())
-                                .await
-                                .or_else(|err| {
-                                    if ctx.dry_run {
-                                        Ok(Default::default())
-                                    } else {
-                                        Err(err)
-                                    }
-                                })?
-                                .into_iter()
-                                .filter_map(|e| {
-                                    if backend.account_config.matches_envelope_sync_filters(&e) {
-                                        Some((e.message_id.clone(), e))
-                                    } else {
-                                        None
-                                    }
-                                }),
-                        );
-
-                        SyncEvent::ListedLeftEnvelopes(folder_ref.clone(), envelopes.len())
-                            .emit(&ctx.handler)
-                            .await;
-
-                        Ok(envelopes)
-                    })
-                    .await
-            });
+                    Result::Ok(envelopes)
+                })
+                .await
+        });
 
         let pool_ref = pool.clone();
         let folder_ref = folder.clone();
-        let right_cached_envelopes: JoinHandle<crate::Result<HashMap<String, Envelope>>> =
-            tokio::spawn(async move {
-                pool_ref
-                    .exec(|ctx| async move {
-                        let backend = &ctx.right_cache;
-                        let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
-                            backend
-                                .list_envelopes(&folder_ref, Default::default())
-                                .await
-                                .or_else(|err| {
-                                    if ctx.dry_run {
-                                        Ok(Default::default())
-                                    } else {
-                                        Err(err)
-                                    }
-                                })?
-                                .into_iter()
-                                .filter_map(|e| {
-                                    if backend.account_config.matches_envelope_sync_filters(&e) {
-                                        Some((e.message_id.clone(), e))
-                                    } else {
-                                        None
-                                    }
-                                }),
-                        );
+        let left_envelopes = tokio::spawn(async move {
+            pool_ref
+                .exec(|ctx| async move {
+                    let backend = &ctx.left;
+                    let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
+                        backend
+                            .list_envelopes(&folder_ref, Default::default())
+                            .await
+                            .or_else(|err| {
+                                if ctx.dry_run {
+                                    Ok(Default::default())
+                                } else {
+                                    Err(Error::ListLeftEnvelopesError(err))
+                                }
+                            })?
+                            .into_iter()
+                            .filter_map(|e| {
+                                if backend.account_config.matches_envelope_sync_filters(&e) {
+                                    Some((e.message_id.clone(), e))
+                                } else {
+                                    None
+                                }
+                            }),
+                    );
 
-                        SyncEvent::ListedRightCachedEnvelopes(folder_ref.clone(), envelopes.len())
-                            .emit(&ctx.handler)
-                            .await;
+                    SyncEvent::ListedLeftEnvelopes(folder_ref.clone(), envelopes.len())
+                        .emit(&ctx.handler)
+                        .await;
 
-                        Ok(envelopes)
-                    })
-                    .await
-            });
+                    Result::Ok(envelopes)
+                })
+                .await
+        });
 
         let pool_ref = pool.clone();
         let folder_ref = folder.clone();
-        let right_envelopes: JoinHandle<crate::Result<HashMap<String, Envelope>>> =
-            tokio::spawn(async move {
-                pool_ref
-                    .exec(|ctx| async move {
-                        let backend = &ctx.right;
-                        let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
-                            backend
-                                .list_envelopes(&folder_ref, Default::default())
-                                .await
-                                .or_else(|err| {
-                                    if ctx.dry_run {
-                                        Ok(Default::default())
-                                    } else {
-                                        Err(err)
-                                    }
-                                })?
-                                .into_iter()
-                                .filter_map(|e| {
-                                    if backend.account_config.matches_envelope_sync_filters(&e) {
-                                        Some((e.message_id.clone(), e))
-                                    } else {
-                                        None
-                                    }
-                                }),
-                        );
+        let right_cached_envelopes = tokio::spawn(async move {
+            pool_ref
+                .exec(|ctx| async move {
+                    let backend = &ctx.right_cache;
+                    let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
+                        backend
+                            .list_envelopes(&folder_ref, Default::default())
+                            .await
+                            .or_else(|err| {
+                                if ctx.dry_run {
+                                    Ok(Default::default())
+                                } else {
+                                    Err(Error::ListRightEnvelopesCachedError(err))
+                                }
+                            })?
+                            .into_iter()
+                            .filter_map(|e| {
+                                if backend.account_config.matches_envelope_sync_filters(&e) {
+                                    Some((e.message_id.clone(), e))
+                                } else {
+                                    None
+                                }
+                            }),
+                    );
 
-                        SyncEvent::ListedRightEnvelopes(folder_ref.clone(), envelopes.len())
-                            .emit(&ctx.handler)
-                            .await;
+                    SyncEvent::ListedRightCachedEnvelopes(folder_ref.clone(), envelopes.len())
+                        .emit(&ctx.handler)
+                        .await;
 
-                        Result::Ok(envelopes)
-                    })
-                    .await
-            });
+                    Result::Ok(envelopes)
+                })
+                .await
+        });
+
+        let pool_ref = pool.clone();
+        let folder_ref = folder.clone();
+        let right_envelopes = tokio::spawn(async move {
+            pool_ref
+                .exec(|ctx| async move {
+                    let backend = &ctx.right;
+                    let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
+                        backend
+                            .list_envelopes(&folder_ref, Default::default())
+                            .await
+                            .or_else(|err| {
+                                if ctx.dry_run {
+                                    Ok(Default::default())
+                                } else {
+                                    Err(Error::ListRightEnvelopesError(err))
+                                }
+                            })?
+                            .into_iter()
+                            .filter_map(|e| {
+                                if backend.account_config.matches_envelope_sync_filters(&e) {
+                                    Some((e.message_id.clone(), e))
+                                } else {
+                                    None
+                                }
+                            }),
+                    );
+
+                    SyncEvent::ListedRightEnvelopes(folder_ref.clone(), envelopes.len())
+                        .emit(&ctx.handler)
+                        .await;
+
+                    Result::Ok(envelopes)
+                })
+                .await
+        });
 
         async move {
             let envelopes = tokio::try_join!(
@@ -196,40 +194,25 @@ where
                 right_envelopes
             );
 
-            Ok((folder.clone(), envelopes))
+            Result::Ok((folder.clone(), envelopes))
         }
     }))
-    .filter_map(
-        |patch: crate::Result<(
-            String,
-            Result<
-                (
-                    crate::Result<HashMap<String, Envelope>>,
-                    crate::Result<HashMap<String, Envelope>>,
-                    crate::Result<HashMap<String, Envelope>>,
-                    crate::Result<HashMap<String, Envelope>>,
-                ),
-                JoinError,
-            >,
-        )>| async {
-            let task = async {
-                let (folder, envelopes) = patch?;
-                let (lc, l, rc, r) = envelopes.map_err(|e| Error::FailedToGetEnvelopes(e))?;
-                let patch = patch::build(&folder, lc?, l?, rc?, r?);
-                Ok::<(String, HashSet<Vec<EmailSyncHunk>>), Box<dyn crate::EmailError>>((
-                    folder, patch,
-                ))
-            };
-            match task.await {
-                Ok(patch) => Some(patch),
-                Err(err) => {
-                    debug!("cannot generate email patch: {err}");
-                    trace!("{err:?}");
-                    None
-                }
+    .filter_map(|patch| async {
+        let task = async {
+            let (folder, envelopes) = patch?;
+            let (lc, l, rc, r) = envelopes.map_err(|e| Error::FailedToGetEnvelopes(e))?;
+            let patch = patch::build(&folder, lc?, l?, rc?, r?);
+            Ok::<(String, HashSet<Vec<EmailSyncHunk>>), AnyBoxedError>((folder, patch))
+        };
+        match task.await {
+            Ok(patch) => Some(patch),
+            Err(err) => {
+                debug!("cannot generate email patch: {err}");
+                trace!("{err:?}");
+                None
             }
-        },
-    )
+        }
+    })
     .fold(BTreeMap::new(), |mut patch, (folder, p)| async {
         patch.insert(folder, p.into_iter().flatten().collect::<BTreeSet<_>>());
         patch

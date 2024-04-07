@@ -1,5 +1,5 @@
 pub mod config;
-pub mod error;
+mod error;
 
 use async_trait::async_trait;
 use log::info;
@@ -14,7 +14,6 @@ use crate::{
         context::{BackendContext, BackendContextBuilder},
         feature::{BackendFeature, CheckUp},
     },
-    email::error::Error,
     envelope::{
         get::{maildir::GetMaildirEnvelope, GetEnvelope},
         list::{maildir::ListMaildirEnvelopes, ListEnvelopes},
@@ -32,7 +31,6 @@ use crate::{
         list::{maildir::ListMaildirFolders, ListFolders},
         FolderKind,
     },
-    maildir,
     message::{
         add::{maildir::AddMaildirMessage, AddMessage},
         copy::{maildir::CopyMaildirMessages, CopyMessages},
@@ -42,9 +40,12 @@ use crate::{
         r#move::{maildir::MoveMaildirMessages, MoveMessages},
         remove::{maildir::RemoveMaildirMessages, RemoveMessages},
     },
+    AnyResult,
 };
 
 use self::config::MaildirConfig;
+#[doc(inline)]
+pub use self::error::{Error, Result};
 
 /// The Maildir backend context.
 ///
@@ -63,7 +64,7 @@ pub struct MaildirContext {
 
 impl MaildirContext {
     /// Create a maildir instance from a folder name.
-    pub fn get_maildir_from_folder_name(&self, folder: &str) -> Result<Maildir, error::Error> {
+    pub fn get_maildir_from_folder_name(&self, folder: &str) -> Result<Maildir> {
         // If the folder matches to the inbox folder kind, create a
         // maildir instance from the root folder.
         if FolderKind::matches_inbox(folder) {
@@ -95,7 +96,7 @@ impl MaildirContext {
                 // as described in the [spec].
                 //
                 // [spec]: http://www.courier-mta.org/imap/README.maildirquota.html
-                let folder = maildir::encode_folder(&folder);
+                let folder = self::encode_folder(&folder);
                 try_shellexpand_path(self.root.path().join(format!(".{}", folder)))
             })
             .map(Maildir::from)
@@ -235,13 +236,14 @@ impl BackendContextBuilder for MaildirContextBuilder {
         Some(Arc::new(RemoveMaildirMessages::some_new_boxed))
     }
 
-    async fn build(self) -> crate::Result<Self::Context> {
+    async fn build(self) -> AnyResult<Self::Context> {
         info!("building new maildir context");
 
         let path = shellexpand_path(&self.mdir_config.root_dir);
 
         let root = Maildir::from(path);
-        root.create_dirs().map_err(Error::MaildirppFailure)?;
+        root.create_dirs()
+            .map_err(|err| Error::CreateFolderStructureError(err, root.path().to_owned()))?;
 
         let ctx = MaildirContext {
             account_config: self.account_config.clone(),
@@ -278,7 +280,7 @@ impl CheckUpMaildir {
 
 #[async_trait]
 impl CheckUp for CheckUpMaildir {
-    async fn check_up(&self) -> crate::Result<()> {
+    async fn check_up(&self) -> AnyResult<()> {
         let ctx = self.ctx.lock().await;
 
         ctx.root

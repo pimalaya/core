@@ -1,10 +1,11 @@
 use std::{env::VarError, io, path::PathBuf, result};
+use thiserror::Error;
 
 /// The global `Result` alias of the library.
 pub type Result<T> = result::Result<T, Error>;
 
 /// The global `Error` enum of the library.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot convert path {0:?} to string")]
     ConvertPathToStrError(PathBuf),

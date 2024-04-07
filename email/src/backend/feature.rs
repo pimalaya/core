@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-use super::context::BackendContext;
+use super::{context::BackendContext, AnyResult};
 
 /// Backend builder feature for checking up configuration and context
 /// integrity.
@@ -30,7 +30,7 @@ use super::context::BackendContext;
 #[async_trait]
 pub trait CheckUp: Send + Sync {
     /// Define how the no operation should be executed.
-    async fn check_up(&self) -> crate::Result<()> {
+    async fn check_up(&self) -> AnyResult<()> {
         Ok(())
     }
 }
@@ -145,5 +145,5 @@ pub trait AsyncTryIntoBackendFeatures<B>
 where
     B: BackendFeatures,
 {
-    async fn try_into_backend(self) -> crate::Result<B>;
+    async fn try_into_backend(self) -> AnyResult<B>;
 }

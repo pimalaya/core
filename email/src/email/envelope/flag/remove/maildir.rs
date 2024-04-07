@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::info;
 
-use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync};
+use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync, AnyResult};
 
 use super::{Flags, RemoveFlags};
 
@@ -26,7 +26,7 @@ impl RemoveMaildirFlags {
 
 #[async_trait]
 impl RemoveFlags for RemoveMaildirFlags {
-    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         info!("removing maildir flag(s) {flags} to envelope {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;

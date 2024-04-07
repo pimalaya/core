@@ -15,7 +15,7 @@
 pub mod add;
 pub mod config;
 pub mod delete;
-pub mod error;
+mod error;
 pub mod expunge;
 #[cfg(feature = "imap")]
 pub mod imap;
@@ -36,7 +36,8 @@ use std::{
 #[cfg(feature = "account-sync")]
 pub(crate) use sync::sync;
 
-use crate::folder::error::Error;
+#[doc(inline)]
+pub use self::error::{Error, Result};
 
 pub const INBOX: &str = "INBOX";
 pub const SENT: &str = "Sent";
@@ -168,7 +169,7 @@ impl FolderKind {
 impl FromStr for FolderKind {
     type Err = Error;
 
-    fn from_str(kind: &str) -> Result<Self, Self::Err> {
+    fn from_str(kind: &str) -> Result<Self> {
         match kind {
             kind if kind.eq_ignore_ascii_case(INBOX) => Ok(Self::Inbox),
             kind if kind.eq_ignore_ascii_case(SENT) => Ok(Self::Sent),

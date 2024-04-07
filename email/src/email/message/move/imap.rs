@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::Id, imap::ImapContextSync};
+use crate::{email::error::Error, envelope::Id, imap::ImapContextSync, AnyResult};
 
 use super::MoveMessages;
 
@@ -27,12 +27,7 @@ impl MoveImapMessages {
 
 #[async_trait]
 impl MoveMessages for MoveImapMessages {
-    async fn move_messages(
-        &self,
-        from_folder: &str,
-        to_folder: &str,
-        id: &Id,
-    ) -> crate::Result<()> {
+    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> AnyResult<()> {
         info!("moving imap messages {id} from folder {from_folder} to folder {to_folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -48,7 +43,7 @@ impl MoveMessages for MoveImapMessages {
 
         ctx.exec(
             |session| session.select(&from_folder_encoded),
-            |err| Error::SelectFolderImapError(err, from_folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, from_folder.clone()),
         )
         .await?;
 
@@ -61,7 +56,6 @@ impl MoveMessages for MoveImapMessages {
                     to_folder.clone(),
                     id.clone(),
                 )
-                .into()
             },
         )
         .await?;

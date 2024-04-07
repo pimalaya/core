@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::{info, trace};
 
-use crate::{email::error::Error, envelope::Id, notmuch::NotmuchContextSync};
+use crate::{email::error::Error, envelope::Id, notmuch::NotmuchContextSync, AnyResult};
 
 use super::{Envelope, GetEnvelope};
 
@@ -26,7 +26,7 @@ impl GetNotmuchEnvelope {
 
 #[async_trait]
 impl GetEnvelope for GetNotmuchEnvelope {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> crate::Result<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &Id) -> AnyResult<Envelope> {
         info!("getting notmuch envelope {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;

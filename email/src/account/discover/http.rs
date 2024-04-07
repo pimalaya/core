@@ -7,9 +7,9 @@ use hyper::{body::to_bytes, client::HttpConnector, Client, Uri};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use log::trace;
 
-use crate::account::error::Error;
-
 use super::config::AutoConfig;
+#[doc(inline)]
+pub use super::{Error, Result};
 
 /// Simple HTTP client using rustls connector.
 pub struct HttpClient {
@@ -32,7 +32,7 @@ impl HttpClient {
 
     /// Send a GET request to the given URI and try to parse response
     /// as autoconfig.
-    pub async fn get_config(&self, uri: Uri) -> Result<AutoConfig, Error> {
+    pub async fn get_config(&self, uri: Uri) -> Result<AutoConfig> {
         let res = self
             .client
             .get(uri.clone())

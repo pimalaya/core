@@ -9,7 +9,8 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::account::error::Error;
+#[doc(inline)]
+pub use super::{Error, Result};
 
 /// The password configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -42,7 +43,7 @@ impl DerefMut for PasswdConfig {
 
 impl PasswdConfig {
     /// If the current password secret is a keyring entry, delete it.
-    pub async fn reset(&self) -> Result<(), Error> {
+    pub async fn reset(&self) -> Result<()> {
         self.delete_only_keyring()
             .await
             .map_err(Error::DeletePasswordFromKeyringError)?;
@@ -50,10 +51,7 @@ impl PasswdConfig {
     }
 
     /// Define the password only if it does not exist in the keyring.
-    pub async fn configure(
-        &self,
-        get_passwd: impl Fn() -> io::Result<String>,
-    ) -> Result<(), Error> {
+    pub async fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
         match self.find().await {
             Ok(None) => {
                 debug!("cannot find imap password from keyring, setting it");

@@ -7,6 +7,7 @@ use crate::{
     folder::FolderKind,
     notmuch::NotmuchContextSync,
     search_query::{filter::SearchEmailsFilterQuery, SearchEmailsQuery},
+    AnyResult,
 };
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
@@ -36,7 +37,7 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
         &self,
         folder: &str,
         opts: ListEnvelopesOptions,
-    ) -> crate::Result<Envelopes> {
+    ) -> AnyResult<Envelopes> {
         info!("listing notmuch envelopes from folder {folder}");
 
         let ctx = self.ctx.lock().await;

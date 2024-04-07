@@ -4,6 +4,7 @@ use log::info;
 use crate::{
     folder::{Folder, FolderKind, Folders},
     maildir::MaildirContextSync,
+    AnyResult,
 };
 
 use super::ListFolders;
@@ -28,7 +29,7 @@ impl ListMaildirFolders {
 
 #[async_trait]
 impl ListFolders for ListMaildirFolders {
-    async fn list_folders(&self) -> crate::Result<Folders> {
+    async fn list_folders(&self) -> AnyResult<Folders> {
         info!("listing maildir folders");
 
         let ctx = self.ctx.lock().await;

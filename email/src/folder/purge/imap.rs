@@ -6,6 +6,7 @@ use crate::{
     flag::{Flag, Flags},
     folder::error::Error,
     imap::ImapContextSync,
+    AnyResult,
 };
 
 use super::PurgeFolder;
@@ -31,7 +32,7 @@ impl PurgeImapFolder {
 
 #[async_trait]
 impl PurgeFolder for PurgeImapFolder {
-    async fn purge_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn purge_folder(&self, folder: &str) -> AnyResult<()> {
         info!("purging imap folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -46,7 +47,7 @@ impl PurgeFolder for PurgeImapFolder {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()),
         )
         .await?;
 
@@ -54,13 +55,13 @@ impl PurgeFolder for PurgeImapFolder {
             |session| {
                 session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query_string()))
             },
-            |err| Error::AddDeletedFlagImapError(err, folder.clone()).into(),
+            |err| Error::AddDeletedFlagImapError(err, folder.clone()),
         )
         .await?;
 
         ctx.exec(
             |session| session.expunge(),
-            |err| Error::ExpungeFolderImapError(err, folder.clone()).into(),
+            |err| Error::ExpungeFolderImapError(err, folder.clone()),
         )
         .await?;
 

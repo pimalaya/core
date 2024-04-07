@@ -8,6 +8,7 @@ use crate::{
     envelope::Envelope,
     maildir::MaildirContextSync,
     search_query::{filter::SearchEmailsFilterQuery, SearchEmailsQuery},
+    AnyResult,
 };
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
@@ -42,7 +43,7 @@ impl ListEnvelopes for ListMaildirEnvelopes {
         &self,
         folder: &str,
         opts: ListEnvelopesOptions,
-    ) -> crate::Result<Envelopes> {
+    ) -> AnyResult<Envelopes> {
         info!("listing maildir envelopes from folder {folder}");
 
         let ctx = self.ctx.lock().await;

@@ -14,6 +14,7 @@ use crate::{
         sort::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder},
         SearchEmailsQuery,
     },
+    AnyResult,
 };
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
@@ -48,7 +49,7 @@ impl ListEnvelopes for ListImapEnvelopes {
         &self,
         folder: &str,
         opts: ListEnvelopesOptions,
-    ) -> crate::Result<Envelopes> {
+    ) -> AnyResult<Envelopes> {
         info!("listing imap envelopes from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -61,7 +62,7 @@ impl ListEnvelopes for ListImapEnvelopes {
         let folder_size = ctx
             .exec(
                 |session| session.select(&folder_encoded),
-                |err| Error::SelectFolderImapError(err, folder.clone()).into(),
+                |err| Error::SelectFolderImapError(err, folder.clone()),
             )
             .await?
             .exists as usize;
@@ -78,9 +79,7 @@ impl ListEnvelopes for ListImapEnvelopes {
             let mut uids = ctx
                 .exec(
                     |session| session.uid_sort(&sorters, SortCharset::Utf8, &filters),
-                    |err| {
-                        Error::SearchEnvelopesImapError(err, folder.clone(), filters.clone()).into()
-                    },
+                    |err| Error::SearchEnvelopesImapError(err, folder.clone(), filters.clone()),
                 )
                 .await?;
 
@@ -97,7 +96,7 @@ impl ListEnvelopes for ListImapEnvelopes {
             let fetches = ctx
                 .exec(
                     |session| session.uid_fetch(&range, LIST_ENVELOPES_QUERY),
-                    |err| Error::ListEnvelopesImapError(err, folder.clone(), range.clone()).into(),
+                    |err| Error::ListEnvelopesImapError(err, folder.clone(), range.clone()),
                 )
                 .await?;
 
@@ -121,7 +120,7 @@ impl ListEnvelopes for ListImapEnvelopes {
             let fetches = ctx
                 .exec(
                     |session| session.fetch(&range, LIST_ENVELOPES_QUERY),
-                    |err| Error::ListEnvelopesImapError(err, folder.clone(), range.clone()).into(),
+                    |err| Error::ListEnvelopesImapError(err, folder.clone(), range.clone()),
                 )
                 .await?;
 

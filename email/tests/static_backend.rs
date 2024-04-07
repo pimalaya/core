@@ -15,7 +15,7 @@ use email::{
         config::{SmtpAuthConfig, SmtpConfig, SmtpEncryptionKind},
         SmtpContextBuilder, SmtpContextSync,
     },
-    Result,
+    AnyResult,
 };
 use email_testing_server::with_email_testing_server;
 use secret::Secret;
@@ -61,14 +61,14 @@ async fn test_static_backend() {
 
         #[async_trait]
         impl ListFolders for StaticBackend {
-            async fn list_folders(&self) -> Result<Folders> {
+            async fn list_folders(&self) -> AnyResult<Folders> {
                 ListImapFolders::new(&self.0.imap).list_folders().await
             }
         }
 
         #[async_trait]
         impl SendMessage for StaticBackend {
-            async fn send_message(&self, msg: &[u8]) -> Result<()> {
+            async fn send_message(&self, msg: &[u8]) -> AnyResult<()> {
                 SendSmtpMessage::new(&self.0.smtp).send_message(msg).await
             }
         }

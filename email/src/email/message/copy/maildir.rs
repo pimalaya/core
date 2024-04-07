@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::info;
 
-use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync};
+use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync, AnyResult};
 
 use super::CopyMessages;
 
@@ -26,12 +26,7 @@ impl CopyMaildirMessages {
 
 #[async_trait]
 impl CopyMessages for CopyMaildirMessages {
-    async fn copy_messages(
-        &self,
-        from_folder: &str,
-        to_folder: &str,
-        id: &Id,
-    ) -> crate::Result<()> {
+    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> AnyResult<()> {
         info!("copying maildir messages {id} from folder {from_folder} to folder {to_folder}");
 
         let ctx = self.ctx.lock().await;

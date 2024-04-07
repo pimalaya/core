@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{folder::error::Error, imap::ImapContextSync};
+use crate::{folder::error::Error, imap::ImapContextSync, AnyResult};
 
 use super::ExpungeFolder;
 
@@ -27,7 +27,7 @@ impl ExpungeImapFolder {
 
 #[async_trait]
 impl ExpungeFolder for ExpungeImapFolder {
-    async fn expunge_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn expunge_folder(&self, folder: &str) -> AnyResult<()> {
         info!("expunging imap folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -39,13 +39,13 @@ impl ExpungeFolder for ExpungeImapFolder {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()),
         )
         .await?;
 
         ctx.exec(
             |session| session.expunge(),
-            |err| Error::ExpungeFolderImapError(err, folder.clone()).into(),
+            |err| Error::ExpungeFolderImapError(err, folder.clone()),
         )
         .await?;
 

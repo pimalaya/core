@@ -9,13 +9,13 @@ use std::{fmt, io};
 #[cfg(feature = "derive")]
 use std::{marker::PhantomData, result};
 
-use crate::{
-    account::config::{
-        oauth2::{OAuth2Config, OAuth2Method},
-        passwd::PasswdConfig,
-    },
-    smtp::error::Error,
+use crate::account::config::{
+    oauth2::{OAuth2Config, OAuth2Method},
+    passwd::PasswdConfig,
 };
+
+#[doc(inline)]
+pub use super::{Error, Result};
 
 /// The SMTP sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -78,7 +78,7 @@ impl SmtpConfig {
     /// The result depends on the [`SmtpAuthConfig`]: if password mode
     /// then creates credentials from login/password, if OAuth 2.0
     /// then creates credentials from access token.
-    pub async fn credentials(&self) -> Result<Credentials<String>, Error> {
+    pub async fn credentials(&self) -> Result<Credentials<String>> {
         Ok(match &self.auth {
             SmtpAuthConfig::Passwd(passwd) => {
                 let passwd = passwd.get().await.map_err(Error::GetPasswdSmtpError)?;
@@ -165,7 +165,7 @@ impl Default for SmtpAuthConfig {
 
 impl SmtpAuthConfig {
     /// Resets the OAuth 2.0 authentication tokens.
-    pub async fn reset(&mut self) -> Result<(), Error> {
+    pub async fn reset(&mut self) -> Result<()> {
         debug!("resetting smtp backend configuration");
 
         if let Self::OAuth2(oauth2) = self {
@@ -182,7 +182,7 @@ impl SmtpAuthConfig {
     pub async fn configure(
         &mut self,
         get_client_secret: impl Fn() -> io::Result<String>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         debug!("configuring smtp backend");
 
         if let Self::OAuth2(oauth2) = self {
@@ -195,10 +195,7 @@ impl SmtpAuthConfig {
         Ok(())
     }
 
-    pub fn replace_undefined_keyring_entries(
-        &mut self,
-        name: impl AsRef<str>,
-    ) -> Result<(), Error> {
+    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
         let name = name.as_ref();
 
         match self {

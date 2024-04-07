@@ -19,6 +19,7 @@ use crate::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
         peek::PeekMessages, r#move::MoveMessages, remove::RemoveMessages, send::SendMessage,
     },
+    AnyResult,
 };
 
 use super::feature::{BackendFeature, CheckUp};
@@ -74,13 +75,13 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     feature!(RemoveMessages);
 
     /// Build the final context used by the backend.
-    async fn build(self) -> crate::Result<Self::Context>;
+    async fn build(self) -> AnyResult<Self::Context>;
 
     #[cfg(feature = "account-sync")]
     fn try_to_sync_cache_builder(
         &self,
         account_config: &crate::account::config::AccountConfig,
-    ) -> Result<crate::maildir::MaildirContextBuilder, crate::account::error::Error>
+    ) -> std::result::Result<crate::maildir::MaildirContextBuilder, crate::account::Error>
     where
         Self: crate::sync::hash::SyncHash,
     {
@@ -93,7 +94,7 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
         };
 
         use crate::{
-            account::{config::AccountConfig, error::Error},
+            account::{config::AccountConfig, Error},
             maildir::{config::MaildirConfig, MaildirContextBuilder},
         };
 

@@ -48,7 +48,7 @@
 //! ```
 
 pub mod context;
-pub mod error;
+mod error;
 pub mod feature;
 pub mod mapper;
 pub mod pool;
@@ -66,7 +66,6 @@ use std::sync::Arc;
 use crate::sync::hash::SyncHash;
 use crate::{
     account::config::{AccountConfig, HasAccountConfig},
-    backend::error::Error,
     envelope::{
         get::GetEnvelope,
         list::{ListEnvelopes, ListEnvelopesOptions},
@@ -83,8 +82,11 @@ use crate::{
         peek::PeekMessages, r#move::MoveMessages, remove::RemoveMessages, send::SendMessage,
         Messages,
     },
+    AnyResult,
 };
 
+#[doc(inline)]
+pub use self::error::{Error, Result};
 use self::{
     context::{BackendContext, BackendContextBuilder},
     feature::{
@@ -160,7 +162,7 @@ impl<C: BackendContext> HasAccountConfig for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> AddFolder for Backend<C> {
-    async fn add_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn add_folder(&self, folder: &str) -> AnyResult<()> {
         self.add_folder
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -172,7 +174,7 @@ impl<C: BackendContext> AddFolder for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> ListFolders for Backend<C> {
-    async fn list_folders(&self) -> crate::Result<Folders> {
+    async fn list_folders(&self) -> AnyResult<Folders> {
         self.list_folders
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -184,7 +186,7 @@ impl<C: BackendContext> ListFolders for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> ExpungeFolder for Backend<C> {
-    async fn expunge_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn expunge_folder(&self, folder: &str) -> AnyResult<()> {
         self.expunge_folder
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -196,7 +198,7 @@ impl<C: BackendContext> ExpungeFolder for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> PurgeFolder for Backend<C> {
-    async fn purge_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn purge_folder(&self, folder: &str) -> AnyResult<()> {
         self.purge_folder
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -208,7 +210,7 @@ impl<C: BackendContext> PurgeFolder for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> DeleteFolder for Backend<C> {
-    async fn delete_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn delete_folder(&self, folder: &str) -> AnyResult<()> {
         self.delete_folder
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -220,7 +222,7 @@ impl<C: BackendContext> DeleteFolder for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> GetEnvelope for Backend<C> {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> crate::Result<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &Id) -> AnyResult<Envelope> {
         self.get_envelope
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -236,7 +238,7 @@ impl<C: BackendContext> ListEnvelopes for Backend<C> {
         &self,
         folder: &str,
         opts: ListEnvelopesOptions,
-    ) -> crate::Result<Envelopes> {
+    ) -> AnyResult<Envelopes> {
         self.list_envelopes
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -248,7 +250,7 @@ impl<C: BackendContext> ListEnvelopes for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> WatchEnvelopes for Backend<C> {
-    async fn watch_envelopes(&self, folder: &str) -> crate::Result<()> {
+    async fn watch_envelopes(&self, folder: &str) -> AnyResult<()> {
         self.watch_envelopes
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -260,7 +262,7 @@ impl<C: BackendContext> WatchEnvelopes for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> AddFlags for Backend<C> {
-    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         self.add_flags
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -272,7 +274,7 @@ impl<C: BackendContext> AddFlags for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> SetFlags for Backend<C> {
-    async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         self.set_flags
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -284,7 +286,7 @@ impl<C: BackendContext> SetFlags for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> RemoveFlags for Backend<C> {
-    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         self.remove_flags
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -301,7 +303,7 @@ impl<C: BackendContext> AddMessage for Backend<C> {
         folder: &str,
         msg: &[u8],
         flags: &Flags,
-    ) -> crate::Result<SingleId> {
+    ) -> AnyResult<SingleId> {
         self.add_message
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -313,7 +315,7 @@ impl<C: BackendContext> AddMessage for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> SendMessage for Backend<C> {
-    async fn send_message(&self, msg: &[u8]) -> crate::Result<()> {
+    async fn send_message(&self, msg: &[u8]) -> AnyResult<()> {
         self.send_message
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -325,7 +327,7 @@ impl<C: BackendContext> SendMessage for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> PeekMessages for Backend<C> {
-    async fn peek_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         self.peek_messages
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -337,7 +339,7 @@ impl<C: BackendContext> PeekMessages for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> GetMessages for Backend<C> {
-    async fn get_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
+    async fn get_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         self.get_messages
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -349,12 +351,7 @@ impl<C: BackendContext> GetMessages for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> CopyMessages for Backend<C> {
-    async fn copy_messages(
-        &self,
-        from_folder: &str,
-        to_folder: &str,
-        id: &Id,
-    ) -> crate::Result<()> {
+    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> AnyResult<()> {
         self.copy_messages
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -366,12 +363,7 @@ impl<C: BackendContext> CopyMessages for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> MoveMessages for Backend<C> {
-    async fn move_messages(
-        &self,
-        from_folder: &str,
-        to_folder: &str,
-        id: &Id,
-    ) -> crate::Result<()> {
+    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> AnyResult<()> {
         self.move_messages
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -383,7 +375,7 @@ impl<C: BackendContext> MoveMessages for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> DeleteMessages for Backend<C> {
-    async fn delete_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
+    async fn delete_messages(&self, folder: &str, id: &Id) -> AnyResult<()> {
         self.delete_messages
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -395,7 +387,7 @@ impl<C: BackendContext> DeleteMessages for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> RemoveMessages for Backend<C> {
-    async fn remove_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
+    async fn remove_messages(&self, folder: &str, id: &Id) -> AnyResult<()> {
         self.remove_messages
             .as_ref()
             .and_then(|feature| feature(&self.context))
@@ -596,7 +588,7 @@ where
     ///
     /// The backend instance should implement
     /// [`AsyncTryIntoBackendFeatures`].
-    pub async fn build<B>(self) -> crate::Result<B>
+    pub async fn build<B>(self) -> AnyResult<B>
     where
         B: BackendFeatures,
         Self: AsyncTryIntoBackendFeatures<B>,
@@ -609,7 +601,7 @@ where
     ///
     /// This function checks up the integrity of the configuration and
     /// the final built context.
-    pub async fn check_up<B>(self) -> crate::Result<()>
+    pub async fn check_up<B>(self) -> AnyResult<()>
     where
         B: BackendFeatures,
         Self: AsyncTryIntoBackendFeatures<B>,
@@ -679,7 +671,7 @@ impl<CB> AsyncTryIntoBackendFeatures<Backend<CB::Context>> for BackendBuilder<CB
 where
     CB: BackendContextBuilder,
 {
-    async fn try_into_backend(self) -> crate::Result<Backend<CB::Context>> {
+    async fn try_into_backend(self) -> AnyResult<Backend<CB::Context>> {
         let add_folder = self.get_add_folder();
         let list_folders = self.get_list_folders();
         let expunge_folder = self.get_expunge_folder();

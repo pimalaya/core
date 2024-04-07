@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::{debug, info};
 
-use crate::{envelope::Id, maildir::MaildirContextSync};
+use crate::{envelope::Id, maildir::MaildirContextSync, AnyResult};
 
 use super::{Messages, PeekMessages};
 
@@ -26,7 +26,7 @@ impl PeekMaildirMessages {
 
 #[async_trait]
 impl PeekMessages for PeekMaildirMessages {
-    async fn peek_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         info!("peeking maildir messages {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;

@@ -1,8 +1,9 @@
-pub mod error;
-
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{account::config::AccountConfig, config::error::Error};
+use crate::{
+    account::{config::AccountConfig, Error},
+    Result,
+};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
@@ -43,7 +44,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn account(&self, name: impl AsRef<str>) -> Result<AccountConfig, Error> {
+    pub fn account(&self, name: impl AsRef<str>) -> Result<AccountConfig> {
         let name = name.as_ref();
 
         let account_config = self

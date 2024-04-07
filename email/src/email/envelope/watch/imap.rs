@@ -8,6 +8,7 @@ use crate::{
     email::error::Error,
     envelope::{list::imap::LIST_ENVELOPES_QUERY, Envelope, Envelopes},
     imap::ImapContextSync,
+    AnyResult,
 };
 
 use super::WatchEnvelopes;
@@ -33,7 +34,7 @@ impl WatchImapEnvelopes {
 
 #[async_trait]
 impl WatchEnvelopes for WatchImapEnvelopes {
-    async fn watch_envelopes(&self, folder: &str) -> crate::Result<()> {
+    async fn watch_envelopes(&self, folder: &str) -> AnyResult<()> {
         info!("watching imap folder {folder} for envelope changes");
 
         let config = &self.ctx.account_config;
@@ -47,7 +48,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
         let envelopes_count = ctx
             .exec(
                 |session| session.examine(&folder_encoded),
-                |err| Error::ExamineFolderImapError(err, folder.clone()).into(),
+                |err| Error::ExamineFolderImapError(err, folder.clone()),
             )
             .await?
             .exists;
@@ -58,7 +59,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
             let fetches = ctx
                 .exec(
                     |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
-                    |err| Error::ListAllEnvelopesImapError(err, folder.clone()).into(),
+                    |err| Error::ListAllEnvelopesImapError(err, folder.clone()),
                 )
                 .await?;
             Envelopes::from_imap_fetches(fetches)
@@ -81,7 +82,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
 
                     idle.wait_while(stop_on_any)
                 },
-                |err| Error::RunIdleModeImapError(err).into(),
+                |err| Error::RunIdleModeImapError(err),
             )
             .await?;
 
@@ -90,7 +91,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
             let fetches = ctx
                 .exec(
                     |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
-                    |err| Error::ListAllEnvelopesImapError(err, folder.clone()).into(),
+                    |err| Error::ListAllEnvelopesImapError(err, folder.clone()),
                 )
                 .await?;
             let next_envelopes = Envelopes::from_imap_fetches(fetches);

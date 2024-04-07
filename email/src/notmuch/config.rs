@@ -6,7 +6,8 @@
 use notmuch::{Database, DatabaseMode};
 use std::path::{Path, PathBuf};
 
-use crate::notmuch::error::Error;
+#[doc(inline)]
+pub use super::{Error, Result};
 
 /// The Notmuch backend config.
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
@@ -44,20 +45,20 @@ pub struct NotmuchConfig {
 
 impl NotmuchConfig {
     /// Get the default Notmuch database path.
-    pub fn get_default_database_path() -> Result<PathBuf, Error> {
+    pub fn get_default_database_path() -> Result<PathBuf> {
         Ok(Database::open_with_config(
             None::<PathBuf>,
             DatabaseMode::ReadOnly,
             None::<PathBuf>,
             None,
         )
-        .map_err(Error::OpenNotmuchDatabase)?
+        .map_err(Error::OpenDatabaseError)?
         .path()
         .to_owned())
     }
 
     /// Try to get the reference to the Notmuch database path.
-    pub fn try_get_database_path(&self) -> Result<PathBuf, Error> {
+    pub fn try_get_database_path(&self) -> Result<PathBuf> {
         match self.database_path.as_ref() {
             Some(path) => Ok(path.to_owned()),
             None => Self::get_default_database_path(),
@@ -68,7 +69,7 @@ impl NotmuchConfig {
     ///
     /// Tries `maildir_path` first, otherwise falls back to
     /// `database_path`.
-    pub fn try_get_maildir_path(&self) -> Result<PathBuf, Error> {
+    pub fn try_get_maildir_path(&self) -> Result<PathBuf> {
         match self.maildir_path.as_ref() {
             Some(path) => Ok(path.to_owned()),
             None => self.try_get_database_path(),

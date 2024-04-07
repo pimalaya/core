@@ -4,6 +4,7 @@ use log::info;
 use crate::{
     folder::{Folder, FolderKind, Folders},
     notmuch::NotmuchContextSync,
+    AnyResult,
 };
 
 use super::ListFolders;
@@ -28,7 +29,7 @@ impl ListNotmuchFolders {
 
 #[async_trait]
 impl ListFolders for ListNotmuchFolders {
-    async fn list_folders(&self) -> crate::Result<Folders> {
+    async fn list_folders(&self) -> AnyResult<Folders> {
         info!("listing notmuch folders via maildir");
 
         let ctx = self.ctx.lock().await;

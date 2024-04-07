@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::Id, imap::ImapContextSync};
+use crate::{email::error::Error, envelope::Id, imap::ImapContextSync, AnyResult};
 
 use super::{AddFlags, Flags};
 
@@ -27,7 +27,7 @@ impl AddImapFlags {
 
 #[async_trait]
 impl AddFlags for AddImapFlags {
-    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         info!("adding imap flag(s) {flags} to envelope {id} from folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -39,7 +39,7 @@ impl AddFlags for AddImapFlags {
 
         ctx.exec(
             |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()).into(),
+            |err| Error::SelectFolderImapError(err, folder.clone()),
         )
         .await?;
 
@@ -48,7 +48,7 @@ impl AddFlags for AddImapFlags {
                 let query = format!("+FLAGS ({})", flags.to_imap_query_string());
                 session.uid_store(id.join(","), query)
             },
-            |err| Error::AddFlagImapError(err, folder.clone(), id.clone(), flags.clone()).into(),
+            |err| Error::AddFlagImapError(err, folder.clone(), id.clone(), flags.clone()),
         )
         .await?;
 

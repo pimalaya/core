@@ -5,6 +5,7 @@ use maildirpp::Maildir;
 use crate::{
     folder::{error::Error, FolderKind},
     maildir::{self, MaildirContextSync},
+    AnyResult,
 };
 
 use super::AddFolder;
@@ -29,7 +30,7 @@ impl AddMaildirFolder {
 
 #[async_trait]
 impl AddFolder for AddMaildirFolder {
-    async fn add_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn add_folder(&self, folder: &str) -> AnyResult<()> {
         info!("creating maildir folder {folder}");
 
         let ctx = self.ctx.lock().await;

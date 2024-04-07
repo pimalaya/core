@@ -8,10 +8,10 @@ use std::{fmt, hash::Hash};
 #[cfg(feature = "derive")]
 use std::{marker::PhantomData, result};
 
-use crate::{
-    account::config::{oauth2::OAuth2Config, passwd::PasswdConfig},
-    imap::error::Error,
-};
+use crate::account::config::{oauth2::OAuth2Config, passwd::PasswdConfig};
+
+#[doc(inline)]
+use super::{Error, Result};
 
 /// Errors related to the IMAP backend configuration.
 
@@ -81,7 +81,7 @@ impl ImapConfig {
     ///
     /// Authentication credentials can be either a password or an
     /// OAuth 2.0 access token.
-    pub async fn build_credentials(&self) -> Result<String, Error> {
+    pub async fn build_credentials(&self) -> Result<String> {
         self.auth.build_credentials().await
     }
 
@@ -170,7 +170,7 @@ impl Default for ImapAuthConfig {
 
 impl ImapAuthConfig {
     /// Reset IMAP secrets (password or OAuth 2.0 tokens).
-    pub async fn reset(&self) -> Result<(), Error> {
+    pub async fn reset(&self) -> Result<()> {
         match self {
             ImapAuthConfig::Passwd(config) => {
                 config.reset().await.map_err(Error::ResetPasswordError)
@@ -185,7 +185,7 @@ impl ImapAuthConfig {
     ///
     /// Authentication credentials can be either a password or an
     /// OAuth 2.0 access token.
-    pub async fn build_credentials(&self) -> Result<String, Error> {
+    pub async fn build_credentials(&self) -> Result<String> {
         match self {
             ImapAuthConfig::Passwd(passwd) => {
                 let passwd = passwd.get().await.map_err(Error::GetPasswdImapError)?;
@@ -202,10 +202,7 @@ impl ImapAuthConfig {
         }
     }
 
-    pub fn replace_undefined_keyring_entries(
-        &mut self,
-        name: impl AsRef<str>,
-    ) -> Result<(), Error> {
+    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
         let name = name.as_ref();
 
         match self {

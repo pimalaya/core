@@ -11,11 +11,9 @@ pub mod report;
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, trace};
 use std::{collections::HashSet, sync::Arc};
-use tokio::task::JoinHandle;
 
 use crate::{
     backend::context::BackendContextBuilder,
-    folder::error::Error,
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
     thread_pool::ThreadPool,
 };
@@ -23,12 +21,14 @@ use crate::{
 use super::{
     add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders, Folder,
 };
+#[doc(inline)]
+pub use super::{Error, Result};
 
 use self::{hunk::FolderSyncHunk, report::FolderSyncReport};
 
 pub(crate) async fn sync<L, R>(
     pool: Arc<ThreadPool<SyncPoolContext<L::Context, R::Context>>>,
-) -> crate::Result<FolderSyncReport>
+) -> Result<FolderSyncReport>
 where
     L: BackendContextBuilder + 'static,
     R: BackendContextBuilder + 'static,
@@ -36,45 +36,52 @@ where
     let mut report = FolderSyncReport::default();
 
     let pool_ref = pool.clone();
-    let left_cached_folders: JoinHandle<crate::Result<HashSet<String>>> =
-        tokio::spawn(async move {
-            pool_ref
-                .exec(|ctx| {
-                    async move {
-                        let folders = ctx.left_cache.list_folders().await?;
-                        let names = HashSet::<String>::from_iter(
-                            folders
-                                .iter()
-                                .map(Folder::get_kind_or_name)
-                                // TODO: instead of fetching all the folders then
-                                // filtering them here, it could be better to filter
-                                // them at the source directly, which implies to add a
-                                // new backend fn called `search_folders` and to set
-                                // up a common search API across backends.
-                                .filter_map(|folder| {
-                                    if ctx.matches_folder_filter(folder) {
-                                        Some(folder.to_owned())
-                                    } else {
-                                        None
-                                    }
-                                }),
-                        );
+    let left_cached_folders = tokio::spawn(async move {
+        pool_ref
+            .exec(|ctx| {
+                async move {
+                    let folders = ctx
+                        .left_cache
+                        .list_folders()
+                        .await
+                        .map_err(Error::ListLeftFoldersCachedError)?;
+                    let names = HashSet::<String>::from_iter(
+                        folders
+                            .iter()
+                            .map(Folder::get_kind_or_name)
+                            // TODO: instead of fetching all the folders then
+                            // filtering them here, it could be better to filter
+                            // them at the source directly, which implies to add a
+                            // new backend fn called `search_folders` and to set
+                            // up a common search API across backends.
+                            .filter_map(|folder| {
+                                if ctx.matches_folder_filter(folder) {
+                                    Some(folder.to_owned())
+                                } else {
+                                    None
+                                }
+                            }),
+                    );
 
-                        SyncEvent::ListedLeftCachedFolders(names.len())
-                            .emit(&ctx.handler)
-                            .await;
+                    SyncEvent::ListedLeftCachedFolders(names.len())
+                        .emit(&ctx.handler)
+                        .await;
 
-                        Ok(names)
-                    }
-                })
-                .await
-        });
+                    Ok(names)
+                }
+            })
+            .await
+    });
 
     let pool_ref = pool.clone();
-    let left_folders: JoinHandle<crate::Result<HashSet<String>>> = tokio::spawn(async move {
+    let left_folders = tokio::spawn(async move {
         pool_ref
             .exec(|ctx| async move {
-                let folders = ctx.left.list_folders().await?;
+                let folders = ctx
+                    .left
+                    .list_folders()
+                    .await
+                    .map_err(Error::ListLeftFoldersError)?;
                 let names = HashSet::<String>::from_iter(
                     folders
                         .iter()
@@ -103,43 +110,50 @@ where
     });
 
     let pool_ref = pool.clone();
-    let right_cached_folders: JoinHandle<crate::Result<HashSet<String>>> =
-        tokio::spawn(async move {
-            pool_ref
-                .exec(|ctx| async move {
-                    let folders = ctx.right_cache.list_folders().await?;
-                    let names = HashSet::<String>::from_iter(
-                        folders
-                            .iter()
-                            .map(Folder::get_kind_or_name)
-                            // TODO: instead of fetching all the folders then
-                            // filtering them here, it could be better to filter
-                            // them at the source directly, which implies to add a
-                            // new backend fn called `search_folders` and to set
-                            // up a common search API across backends.
-                            .filter_map(|folder| {
-                                if ctx.matches_folder_filter(folder) {
-                                    Some(folder.to_owned())
-                                } else {
-                                    None
-                                }
-                            }),
-                    );
-
-                    SyncEvent::ListedRightCachedFolders(names.len())
-                        .emit(&ctx.handler)
-                        .await;
-
-                    Ok(names)
-                })
-                .await
-        });
-
-    let pool_ref = pool.clone();
-    let right_folders: JoinHandle<crate::Result<HashSet<String>>> = tokio::spawn(async move {
+    let right_cached_folders = tokio::spawn(async move {
         pool_ref
             .exec(|ctx| async move {
-                let folders = ctx.right.list_folders().await?;
+                let folders = ctx
+                    .right_cache
+                    .list_folders()
+                    .await
+                    .map_err(Error::ListRightFoldersCachedError)?;
+                let names = HashSet::<String>::from_iter(
+                    folders
+                        .iter()
+                        .map(Folder::get_kind_or_name)
+                        // TODO: instead of fetching all the folders then
+                        // filtering them here, it could be better to filter
+                        // them at the source directly, which implies to add a
+                        // new backend fn called `search_folders` and to set
+                        // up a common search API across backends.
+                        .filter_map(|folder| {
+                            if ctx.matches_folder_filter(folder) {
+                                Some(folder.to_owned())
+                            } else {
+                                None
+                            }
+                        }),
+                );
+
+                SyncEvent::ListedRightCachedFolders(names.len())
+                    .emit(&ctx.handler)
+                    .await;
+
+                Ok(names)
+            })
+            .await
+    });
+
+    let pool_ref = pool.clone();
+    let right_folders = tokio::spawn(async move {
+        pool_ref
+            .exec(|ctx| async move {
+                let folders = ctx
+                    .right
+                    .list_folders()
+                    .await
+                    .map_err(Error::ListRightFoldersError)?;
                 let names: HashSet<String> = HashSet::from_iter(
                     folders
                         .iter()

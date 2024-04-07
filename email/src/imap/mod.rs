@@ -1,5 +1,5 @@
 pub mod config;
-pub mod error;
+mod error;
 
 use async_trait::async_trait;
 use imap::{Authenticator, Client, ImapConnection, Session, TlsKind};
@@ -30,7 +30,6 @@ use crate::{
         list::{imap::ListImapFolders, ListFolders},
         purge::{imap::PurgeImapFolder, PurgeFolder},
     },
-    imap::error::Error,
     message::{
         add::{imap::AddImapMessage, AddMessage},
         copy::{imap::CopyImapMessages, CopyMessages},
@@ -40,10 +39,12 @@ use crate::{
         r#move::{imap::MoveImapMessages, MoveMessages},
         remove::{imap::RemoveImapMessages, RemoveMessages},
     },
-    Result,
+    AnyError, AnyResult,
 };
 
 use self::config::{ImapAuthConfig, ImapConfig};
+#[doc(inline)]
+pub use self::error::{Error, Result};
 
 /// The IMAP backend context.
 ///
@@ -66,10 +67,10 @@ impl ImapContext {
     ///
     /// If an OAuth 2.0 authentication error occurs, the access token
     /// is refreshed and the action is executed once again.
-    pub async fn exec<T>(
+    pub async fn exec<T, E: AnyError>(
         &mut self,
         action: impl Fn(&mut Session<Box<dyn ImapConnection>>) -> imap::Result<T>,
-        map_err: impl Fn(imap::Error) -> Box<dyn crate::EmailError>,
+        map_err: impl Fn(imap::Error) -> E,
     ) -> Result<T> {
         let mut retry = ImapRetryState::default();
 
@@ -80,19 +81,25 @@ impl ImapContext {
                 }
                 Err(err) if retry.is_empty() => {
                     warn!("cannot exec IMAP action after 3 attempts, aborting");
-                    break Err(map_err(err));
+                    let err = Box::new(map_err(err));
+                    break Err(Error::ExecuteActionRetryError(err));
                 }
                 Err(err) => {
                     if is_authentication_failed(&err) {
                         match &self.imap_config.auth {
                             ImapAuthConfig::Passwd(_) => {
-                                break Err(map_err(err));
+                                let err = Box::new(map_err(err));
+                                break Err(Error::ExecuteActionPasswordError(err));
                             }
                             ImapAuthConfig::OAuth2(_) if retry.oauth2_access_token_refreshed => {
-                                break Err(map_err(err));
+                                let err = Box::new(map_err(err));
+                                break Err(Error::ExecuteActionOAuthError(err));
                             }
                             ImapAuthConfig::OAuth2(oauth2_config) => {
-                                oauth2_config.refresh_access_token().await?;
+                                oauth2_config
+                                    .refresh_access_token()
+                                    .await
+                                    .map_err(Error::RefreshAccessTokenError)?;
                                 self.session = build_session(&self.imap_config, None).await?;
                                 retry.set_oauth2_access_token_refreshed();
                                 continue;
@@ -112,7 +119,7 @@ impl ImapContext {
     }
 
     pub async fn noop(&mut self) -> Result<()> {
-        Ok(self.session.noop().map_err(Error::NoopFailure)?)
+        self.session.noop().map_err(Error::ExecuteNoOperationError)
     }
 }
 
@@ -269,7 +276,7 @@ impl BackendContextBuilder for ImapContextBuilder {
         Some(Arc::new(RemoveImapMessages::some_new_boxed))
     }
 
-    async fn build(self) -> Result<Self::Context> {
+    async fn build(self) -> AnyResult<Self::Context> {
         info!("building new imap context");
 
         let mut retry = ImapRetryState::default();
@@ -285,8 +292,8 @@ impl BackendContextBuilder for ImapContextBuilder {
                     break Err(err);
                 }
                 Err(err) => {
-                    match err.as_ref().as_any().downcast_ref::<Error>() {
-                        Some(Error::AuthenticateImapError(e)) if is_authentication_failed(&e) => {
+                    match &err {
+                        Error::AuthenticateImapError(e) if is_authentication_failed(&e) => {
                             match &self.imap_config.auth {
                                 ImapAuthConfig::Passwd(_) => {
                                     break Err(err);
@@ -297,7 +304,12 @@ impl BackendContextBuilder for ImapContextBuilder {
                                     break Err(err);
                                 }
                                 ImapAuthConfig::OAuth2(config) => {
-                                    creds = Some(config.refresh_access_token().await?);
+                                    creds = Some(
+                                        config
+                                            .refresh_access_token()
+                                            .await
+                                            .map_err(Error::RefreshAccessTokenError)?,
+                                    );
                                     continue;
                                 }
                             }
@@ -408,9 +420,10 @@ impl CheckUpImap {
 
 #[async_trait]
 impl CheckUp for CheckUpImap {
-    async fn check_up(&self) -> Result<()> {
+    async fn check_up(&self) -> AnyResult<()> {
         let mut ctx = self.ctx.lock().await;
-        ctx.noop().await
+        ctx.noop().await?;
+        Ok(())
     }
 }
 
@@ -479,7 +492,10 @@ pub async fn build_session(
         ImapAuthConfig::OAuth2(oauth2_config) => {
             let access_token = match credentials {
                 Some(access_token) => access_token.to_string(),
-                None => oauth2_config.access_token().await?,
+                None => oauth2_config
+                    .access_token()
+                    .await
+                    .map_err(Error::RefreshAccessTokenError)?,
             };
             match oauth2_config.method {
                 OAuth2Method::XOAuth2 => {

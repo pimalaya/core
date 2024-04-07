@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use log::{debug, info};
 
-use crate::{email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync};
+use crate::{
+    email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync, AnyResult,
+};
 
 use super::{AddFlags, Flags};
 
@@ -26,7 +28,7 @@ impl AddNotmuchFlags {
 
 #[async_trait]
 impl AddFlags for AddNotmuchFlags {
-    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         info!("adding notmuch flag(s) {flags} to envelope {id} from folder {folder}");
 
         let config = &self.ctx.account_config;

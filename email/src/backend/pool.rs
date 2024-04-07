@@ -24,6 +24,7 @@ use crate::{
         peek::PeekMessages, r#move::MoveMessages, send::SendMessage, Messages,
     },
     thread_pool::{ThreadPool, ThreadPoolBuilder, ThreadPoolContext, ThreadPoolContextBuilder},
+    AnyResult,
 };
 
 use super::{
@@ -94,7 +95,7 @@ impl<C: BackendContext> HasAccountConfig for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> AddFolder for BackendPool<C> {
-    async fn add_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn add_folder(&self, folder: &str) -> AnyResult<()> {
         let folder = folder.to_owned();
         let feature = self
             .add_folder
@@ -114,7 +115,7 @@ impl<C: BackendContext + 'static> AddFolder for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> ListFolders for BackendPool<C> {
-    async fn list_folders(&self) -> crate::Result<Folders> {
+    async fn list_folders(&self) -> AnyResult<Folders> {
         let feature = self
             .list_folders
             .clone()
@@ -133,7 +134,7 @@ impl<C: BackendContext + 'static> ListFolders for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> ExpungeFolder for BackendPool<C> {
-    async fn expunge_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn expunge_folder(&self, folder: &str) -> AnyResult<()> {
         let folder = folder.to_owned();
         let feature = self
             .expunge_folder
@@ -153,7 +154,7 @@ impl<C: BackendContext + 'static> ExpungeFolder for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> PurgeFolder for BackendPool<C> {
-    async fn purge_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn purge_folder(&self, folder: &str) -> AnyResult<()> {
         let folder = folder.to_owned();
         let feature = self
             .purge_folder
@@ -173,7 +174,7 @@ impl<C: BackendContext + 'static> PurgeFolder for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> DeleteFolder for BackendPool<C> {
-    async fn delete_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn delete_folder(&self, folder: &str) -> AnyResult<()> {
         let folder = folder.to_owned();
         let feature = self
             .delete_folder
@@ -193,7 +194,7 @@ impl<C: BackendContext + 'static> DeleteFolder for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> GetEnvelope for BackendPool<C> {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> crate::Result<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &Id) -> AnyResult<Envelope> {
         let folder = folder.to_owned();
         let id = id.clone();
         let feature = self
@@ -218,7 +219,7 @@ impl<C: BackendContext + 'static> ListEnvelopes for BackendPool<C> {
         &self,
         folder: &str,
         opts: ListEnvelopesOptions,
-    ) -> crate::Result<Envelopes> {
+    ) -> AnyResult<Envelopes> {
         let folder = folder.to_owned();
         let feature = self
             .list_envelopes
@@ -238,7 +239,7 @@ impl<C: BackendContext + 'static> ListEnvelopes for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> WatchEnvelopes for BackendPool<C> {
-    async fn watch_envelopes(&self, folder: &str) -> crate::Result<()> {
+    async fn watch_envelopes(&self, folder: &str) -> AnyResult<()> {
         let folder = folder.to_owned();
         let feature = self
             .watch_envelopes
@@ -258,7 +259,7 @@ impl<C: BackendContext + 'static> WatchEnvelopes for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> AddFlags for BackendPool<C> {
-    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn add_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         let folder = folder.to_owned();
         let id = id.clone();
         let flags = flags.clone();
@@ -280,7 +281,7 @@ impl<C: BackendContext + 'static> AddFlags for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> SetFlags for BackendPool<C> {
-    async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         let folder = folder.to_owned();
         let id = id.clone();
         let flags = flags.clone();
@@ -302,7 +303,7 @@ impl<C: BackendContext + 'static> SetFlags for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> RemoveFlags for BackendPool<C> {
-    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         let folder = folder.to_owned();
         let id = id.clone();
         let flags = flags.clone();
@@ -329,7 +330,7 @@ impl<C: BackendContext + 'static> AddMessage for BackendPool<C> {
         folder: &str,
         msg: &[u8],
         flags: &Flags,
-    ) -> crate::Result<SingleId> {
+    ) -> AnyResult<SingleId> {
         let folder = folder.to_owned();
         let msg = msg.to_owned();
         let flags = flags.clone();
@@ -351,7 +352,7 @@ impl<C: BackendContext + 'static> AddMessage for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> SendMessage for BackendPool<C> {
-    async fn send_message(&self, msg: &[u8]) -> crate::Result<()> {
+    async fn send_message(&self, msg: &[u8]) -> AnyResult<()> {
         let msg = msg.to_owned();
         let feature = self
             .send_message
@@ -371,7 +372,7 @@ impl<C: BackendContext + 'static> SendMessage for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> PeekMessages for BackendPool<C> {
-    async fn peek_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
+    async fn peek_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         let folder = folder.to_owned();
         let id = id.clone();
         let feature = self
@@ -392,7 +393,7 @@ impl<C: BackendContext + 'static> PeekMessages for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> GetMessages for BackendPool<C> {
-    async fn get_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages> {
+    async fn get_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         let folder = folder.to_owned();
         let id = id.clone();
         let feature = self
@@ -413,12 +414,7 @@ impl<C: BackendContext + 'static> GetMessages for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> CopyMessages for BackendPool<C> {
-    async fn copy_messages(
-        &self,
-        from_folder: &str,
-        to_folder: &str,
-        id: &Id,
-    ) -> crate::Result<()> {
+    async fn copy_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> AnyResult<()> {
         let from_folder = from_folder.to_owned();
         let to_folder = to_folder.to_owned();
         let id = id.clone();
@@ -440,12 +436,7 @@ impl<C: BackendContext + 'static> CopyMessages for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> MoveMessages for BackendPool<C> {
-    async fn move_messages(
-        &self,
-        from_folder: &str,
-        to_folder: &str,
-        id: &Id,
-    ) -> crate::Result<()> {
+    async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> AnyResult<()> {
         let from_folder = from_folder.to_owned();
         let to_folder = to_folder.to_owned();
         let id = id.clone();
@@ -467,7 +458,7 @@ impl<C: BackendContext + 'static> MoveMessages for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> DeleteMessages for BackendPool<C> {
-    async fn delete_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
+    async fn delete_messages(&self, folder: &str, id: &Id) -> AnyResult<()> {
         let folder = folder.to_owned();
         let id = id.clone();
         let feature = self
@@ -491,7 +482,7 @@ impl<CB> AsyncTryIntoBackendFeatures<BackendPool<CB::Context>> for BackendBuilde
 where
     CB: BackendContextBuilder + 'static,
 {
-    async fn try_into_backend(self) -> crate::Result<BackendPool<CB::Context>> {
+    async fn try_into_backend(self) -> AnyResult<BackendPool<CB::Context>> {
         let add_folder = self.get_add_folder();
         let list_folders = self.get_list_folders();
         let expunge_folder = self.get_expunge_folder();
@@ -552,7 +543,7 @@ where
 {
     type Context = T::Context;
 
-    async fn build(self) -> crate::Result<Self::Context> {
+    async fn build(self) -> AnyResult<Self::Context> {
         BackendContextBuilder::build(self).await
     }
 }

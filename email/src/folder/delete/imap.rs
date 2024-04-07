@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{folder::error::Error, imap::ImapContextSync};
+use crate::{folder::error::Error, imap::ImapContextSync, AnyResult};
 
 use super::DeleteFolder;
 
@@ -27,7 +27,7 @@ impl DeleteImapFolder {
 
 #[async_trait]
 impl DeleteFolder for DeleteImapFolder {
-    async fn delete_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn delete_folder(&self, folder: &str) -> AnyResult<()> {
         info!("deleting imap folder {folder}");
 
         let mut ctx = self.ctx.lock().await;
@@ -39,7 +39,7 @@ impl DeleteFolder for DeleteImapFolder {
 
         ctx.exec(
             |session| session.delete(&folder_encoded),
-            |err| Error::DeleteFolderImapError(err, folder.clone()).into(),
+            |err| Error::DeleteFolderImapError(err, folder.clone()),
         )
         .await?;
 

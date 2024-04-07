@@ -8,10 +8,12 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 
+use crate::AnyResult;
+
 use super::Folders;
 
 #[async_trait]
 pub trait ListFolders: Send + Sync {
     /// List all available folders (alias mailboxes).
-    async fn list_folders(&self) -> crate::Result<Folders>;
+    async fn list_folders(&self) -> AnyResult<Folders>;
 }

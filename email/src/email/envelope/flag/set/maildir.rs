@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::info;
 
-use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync};
+use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync, AnyResult};
 
 use super::{Flags, SetFlags};
 
@@ -26,7 +26,7 @@ impl SetMaildirFlags {
 
 #[async_trait]
 impl SetFlags for SetMaildirFlags {
-    async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> crate::Result<()> {
+    async fn set_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         info!("setting maildir flag(s) {flags} to envelope {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;

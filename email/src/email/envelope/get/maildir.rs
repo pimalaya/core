@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::{info, trace};
 
-use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync};
+use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync, AnyResult};
 
 use super::{Envelope, GetEnvelope};
 
@@ -26,7 +26,7 @@ impl GetMaildirEnvelope {
 
 #[async_trait]
 impl GetEnvelope for GetMaildirEnvelope {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> crate::Result<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &Id) -> AnyResult<Envelope> {
         info!("getting maildir envelope {id} from folder {folder}");
 
         let session = self.ctx.lock().await;

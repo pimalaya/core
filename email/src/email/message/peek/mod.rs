@@ -7,7 +7,7 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 
-use crate::envelope::Id;
+use crate::{envelope::Id, AnyResult};
 
 use super::Messages;
 
@@ -20,5 +20,5 @@ pub trait PeekMessages: Send + Sync {
     /// change. If you want [`Flag::Seen`](crate::email::Flag) to be
     /// automatically added to envelopes, see
     /// [`GetMessages`](super::get::GetMessages).
-    async fn peek_messages(&self, folder: &str, id: &Id) -> crate::Result<Messages>;
+    async fn peek_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages>;
 }

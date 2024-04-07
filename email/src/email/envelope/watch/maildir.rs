@@ -7,6 +7,7 @@ use crate::{
     email::error::Error,
     envelope::{Envelope, Envelopes},
     maildir::MaildirContextSync,
+    AnyResult,
 };
 
 use super::WatchEnvelopes;
@@ -31,7 +32,7 @@ impl WatchMaildirEnvelopes {
 
 #[async_trait]
 impl WatchEnvelopes for WatchMaildirEnvelopes {
-    async fn watch_envelopes(&self, folder: &str) -> crate::Result<()> {
+    async fn watch_envelopes(&self, folder: &str) -> AnyResult<()> {
         info!("maildir: watching folder {folder} for email changes");
 
         let session = self.ctx.lock().await;

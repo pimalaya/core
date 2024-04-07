@@ -6,6 +6,7 @@ use crate::{
     folder::{error::Error, FolderKind},
     maildir,
     notmuch::NotmuchContextSync,
+    AnyResult,
 };
 
 use super::AddFolder;
@@ -30,7 +31,7 @@ impl AddNotmuchFolder {
 
 #[async_trait]
 impl AddFolder for AddNotmuchFolder {
-    async fn add_folder(&self, folder: &str) -> crate::Result<()> {
+    async fn add_folder(&self, folder: &str) -> AnyResult<()> {
         info!("creating notmuch folder {folder} via maildir");
 
         let config = &self.ctx.account_config;

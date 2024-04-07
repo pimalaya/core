@@ -1,8 +1,14 @@
-use std::{io, path::PathBuf};
-
+use std::{any::Any, io, path::PathBuf, result};
 use thiserror::Error;
 use tokio::task::JoinError;
-#[derive(Error, Debug)]
+
+use crate::{AnyBoxedError, AnyError};
+
+/// The global `Result` alias of the module.
+pub type Result<T> = result::Result<T, Error>;
+
+/// The global `Result` alias of the module.
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot create imap folder {1}")]
     CreateFolderImapError(#[source] imap::Error, String),
@@ -32,16 +38,25 @@ pub enum Error {
     GetUidMissingImapError(u32),
     #[error("cannot gather folders: {0}")]
     FolderTasksFailed(JoinError),
+
+    #[error("cannot sync: cannot list folders from left cache")]
+    ListLeftFoldersCachedError(#[source] AnyBoxedError),
+    #[error("cannot sync: cannot list folders from left backend")]
+    ListLeftFoldersError(#[source] AnyBoxedError),
+    #[error("cannot sync: cannot list folders from right cache")]
+    ListRightFoldersCachedError(#[source] AnyBoxedError),
+    #[error("cannot sync: cannot list folders from right backend")]
+    ListRightFoldersError(#[source] AnyBoxedError),
 }
 
-impl crate::EmailError for Error {
-    fn as_any(&self) -> &dyn std::any::Any {
+impl AnyError for Error {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-impl From<Error> for Box<dyn crate::EmailError> {
-    fn from(value: Error) -> Self {
-        Box::new(value)
+impl From<Error> for AnyBoxedError {
+    fn from(err: Error) -> Self {
+        Box::new(err)
     }
 }

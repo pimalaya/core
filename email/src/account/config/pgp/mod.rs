@@ -11,7 +11,8 @@ pub mod native;
 use mml::pgp::Pgp;
 use std::io;
 
-use crate::account::error::Error;
+#[doc(inline)]
+pub use super::{Error, Result};
 
 #[cfg(feature = "pgp-commands")]
 #[doc(inline)]
@@ -62,7 +63,7 @@ impl From<PgpConfig> for Pgp {
 }
 
 impl PgpConfig {
-    pub async fn reset(&self) -> Result<(), Error> {
+    pub async fn reset(&self) -> Result<()> {
         match self {
             #[cfg(feature = "pgp-commands")]
             Self::Cmds(..) => Ok(()),
@@ -78,7 +79,7 @@ impl PgpConfig {
         &self,
         email: impl ToString,
         passwd: impl Fn() -> io::Result<String>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         match self {
             #[cfg(feature = "pgp-commands")]
             Self::Cmds(..) => Ok(()),

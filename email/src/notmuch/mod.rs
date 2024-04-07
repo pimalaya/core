@@ -1,5 +1,5 @@
 pub mod config;
-pub mod error;
+mod error;
 
 use async_trait::async_trait;
 use log::info;
@@ -38,9 +38,12 @@ use crate::{
         r#move::{notmuch::MoveNotmuchMessages, MoveMessages},
         remove::{notmuch::RemoveNotmuchMessages, RemoveMessages},
     },
+    AnyResult,
 };
 
 use self::config::NotmuchConfig;
+#[doc(inline)]
+pub use self::error::{Error, Result};
 
 /// The Notmuch backend context.
 ///
@@ -61,7 +64,7 @@ pub struct NotmuchContext {
 }
 
 impl NotmuchContext {
-    pub fn open_db(&self) -> Result<Database, error::Error> {
+    pub fn open_db(&self) -> Result<Database> {
         let db_path = self
             .notmuch_config
             .database_path
@@ -72,7 +75,7 @@ impl NotmuchContext {
         let profile = self.notmuch_config.find_profile();
 
         let db = Database::open_with_config(db_path, db_mode, config_path, profile)
-            .map_err(error::Error::OpenNotmuchDatabase)?;
+            .map_err(Error::OpenDatabaseError)?;
 
         Ok(db)
     }
@@ -216,7 +219,7 @@ impl BackendContextBuilder for NotmuchContextBuilder {
         Some(Arc::new(RemoveNotmuchMessages::some_new_boxed))
     }
 
-    async fn build(self) -> crate::Result<Self::Context> {
+    async fn build(self) -> AnyResult<Self::Context> {
         info!("building new notmuch context");
 
         let root = Maildir::from(self.notmuch_config.try_get_maildir_path()?);
@@ -266,15 +269,15 @@ impl CheckUpNotmuch {
 
 #[async_trait]
 impl CheckUp for CheckUpNotmuch {
-    async fn check_up(&self) -> crate::Result<()> {
+    async fn check_up(&self) -> AnyResult<()> {
         let ctx = self.ctx.lock().await;
 
         let db = ctx.open_db()?;
         db.create_query("*")
-            .map_err(error::Error::CreatingQueryNotmuchFailed)?
+            .map_err(Error::CreateQueryError)?
             .count_messages()
-            .map_err(error::Error::QueryNotmuchFailed)?;
-        db.close().map_err(error::Error::ClosingNotmuchFailed)?;
+            .map_err(Error::ExecuteQueryError)?;
+        db.close().map_err(Error::CloseDatabaseError)?;
 
         Ok(())
     }

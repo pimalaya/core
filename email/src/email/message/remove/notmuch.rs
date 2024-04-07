@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use log::{debug, info};
 
-use crate::{email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync};
+use crate::{
+    email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync, AnyResult,
+};
 
 use super::RemoveMessages;
 
@@ -26,7 +28,7 @@ impl RemoveNotmuchMessages {
 
 #[async_trait]
 impl RemoveMessages for RemoveNotmuchMessages {
-    async fn remove_messages(&self, folder: &str, id: &Id) -> crate::Result<()> {
+    async fn remove_messages(&self, folder: &str, id: &Id) -> AnyResult<()> {
         info!("removing notmuch message(s) {id} from folder {folder}");
 
         let config = &self.ctx.account_config;

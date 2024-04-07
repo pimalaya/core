@@ -1,6 +1,13 @@
+use std::{any::Any, result};
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+use crate::{AnyBoxedError, AnyError};
+
+/// The global `Result` alias of the module.
+pub type Result<T> = result::Result<T, Error>;
+
+/// The global `Error` enum of the module.
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot send message without a sender")]
     SendMessageMissingSenderError,
@@ -30,14 +37,14 @@ pub enum Error {
     MailSendNoOpFailed(#[source] mail_send::Error),
 }
 
-impl crate::EmailError for Error {
-    fn as_any(&self) -> &dyn std::any::Any {
+impl AnyError for Error {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-impl From<Error> for Box<dyn crate::EmailError> {
-    fn from(value: Error) -> Self {
-        Box::new(value)
+impl From<Error> for AnyBoxedError {
+    fn from(err: Error) -> Self {
+        Box::new(err)
     }
 }
