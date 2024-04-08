@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2024-04-08
+
 ### Fixed
 
 - Fixed keyutils used on Windows, preventing the lib to build on this platform.
