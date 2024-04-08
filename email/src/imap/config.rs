@@ -4,7 +4,7 @@
 //! all associated structures related to it.
 
 use imap::ConnectionMode;
-use std::{fmt, hash::Hash};
+use std::fmt;
 #[cfg(feature = "derive")]
 use std::{marker::PhantomData, result};
 
@@ -94,8 +94,8 @@ impl ImapConfig {
 #[cfg(feature = "account-sync")]
 impl crate::sync::hash::SyncHash for ImapConfig {
     fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
-        self.host.hash(state);
-        self.login.hash(state);
+        std::hash::Hash::hash(&self.host, state);
+        std::hash::Hash::hash(&self.login, state);
     }
 }
 

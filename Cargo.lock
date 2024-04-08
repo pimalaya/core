@@ -1671,7 +1671,7 @@ dependencies = [
 
 [[package]]
 name = "email-lib"
-version = "0.22.3"
+version = "0.23.0"
 dependencies = [
  "advisory-lock",
  "async-trait",
