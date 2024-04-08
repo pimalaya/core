@@ -11,9 +11,9 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     #[error("cannot expand path: {0}")]
     ExpandPathFailed(#[from] shellexpand_utils::Error),
-    #[error("maildir checkup failed: {0}")]
-    CheckingUpMaildirFailed(#[source] maildirpp::Error),
-    #[error("cannot create maildir folder structure at {1}")]
+    #[error("error while checking up current maildir directory")]
+    CheckUpCurrentDirectoryError(#[source] maildirpp::Error),
+    #[error("cannot create maildir folder structure at {0}")]
     CreateFolderStructureError(#[source] maildirpp::Error, PathBuf),
 }
 

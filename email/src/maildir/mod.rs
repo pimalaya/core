@@ -286,7 +286,7 @@ impl CheckUp for CheckUpMaildir {
         ctx.root
             .list_cur()
             .try_for_each(|e| e.map(|_| ()))
-            .map_err(error::Error::CheckingUpMaildirFailed)?;
+            .map_err(Error::CheckUpCurrentDirectoryError)?;
 
         Ok(())
     }
