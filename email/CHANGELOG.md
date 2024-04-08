@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.1] - 2024-04-08
+
+### Changed
+
+- Bumped `keyring@0.4.2`.
+- Bumped `secret@0.4.4`.
+- Bumped `mml@1.0.11`.
+
 ## [0.23.0] - 2024-04-08
 
 ### Added
