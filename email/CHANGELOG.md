@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2024-04-08
+
 ### Added
 
 - Added cargo feature `derive` to enable/disable (de)serialization of structs using `serde`.
