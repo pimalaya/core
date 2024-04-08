@@ -182,11 +182,13 @@ impl TryFrom<String> for KeyringEntry {
             Err(err) => Err(Error::BuildEntryError(err, key.clone())),
         }?;
 
+        #[cfg(target_os = "linux")]
         let cache_entry = KeyutilsEntry::try_new(&key)?;
 
         Ok(Self {
             key,
             entry,
+            #[cfg(target_os = "linux")]
             cache_entry,
         })
     }
