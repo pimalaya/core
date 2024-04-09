@@ -1,6 +1,6 @@
 [package]
 name = "mml-lib"
-version = "1.0.11"
+version = "1.0.12"
 description = "Rust implementation of the Emacs MIME message Meta Language (MML)"
 homepage = "https://pimalaya.org/"
 documentation = "https://docs.rs/mml-lib/latest/mml/"
@@ -47,6 +47,7 @@ tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]
 async-recursion = "1"
+chumsky = { version = "=1.0.0-alpha.7", optional = true, default-features = false, features = ["std", "label"] }
 gpgme = { version = "0.11", optional = true }
 log = "0.4"
 mail-builder = "0.3"
@@ -59,9 +60,3 @@ serde = { version = "1", optional = true }
 shellexpand-utils = { version = "=0.2.1", optional = true }
 thiserror = "1"
 tree_magic_mini = { version = "3", optional = true }
-
-[target.'cfg(unix)'.dependencies]
-chumsky = { version = "=1.0.0-alpha.7", optional = true, features = ["label"] }
-
-[target.'cfg(windows)'.dependencies]
-chumsky = { version = "=1.0.0-alpha.7", optional = true, default-features = false, features = ["std", "label"] }

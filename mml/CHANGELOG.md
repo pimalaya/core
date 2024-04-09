@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.12] - 2024-04-09
+
+### Removed
+
+- Removed `chumsky@1.0.0-alpha.7`'s `spill-stack` feature due to cross-compilation issues.
+
 ## [1.0.11] - 2024-04-08
 
 ### Changed
