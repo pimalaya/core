@@ -55,7 +55,7 @@ where
                             // new backend fn called `search_folders` and to set
                             // up a common search API across backends.
                             .filter_map(|folder| {
-                                if ctx.matches_folder_filter(folder) {
+                                if ctx.folder_filters.matches(folder) {
                                     Some(folder.to_owned())
                                 } else {
                                     None
@@ -92,7 +92,7 @@ where
                         // new backend fn called `search_folders` and to set
                         // up a common search API across backends.
                         .filter_map(|folder| {
-                            if ctx.matches_folder_filter(folder) {
+                            if ctx.folder_filters.matches(folder) {
                                 Some(folder.to_owned())
                             } else {
                                 None
@@ -128,7 +128,7 @@ where
                         // new backend fn called `search_folders` and to set
                         // up a common search API across backends.
                         .filter_map(|folder| {
-                            if ctx.matches_folder_filter(folder) {
+                            if ctx.folder_filters.matches(folder) {
                                 Some(folder.to_owned())
                             } else {
                                 None
@@ -164,7 +164,7 @@ where
                         // new backend fn called `search_folders` and to set
                         // up a common search API across backends.
                         .filter_map(|folder| {
-                            if ctx.matches_folder_filter(folder) {
+                            if ctx.folder_filters.matches(folder) {
                                 Some(folder.to_owned())
                             } else {
                                 None
@@ -193,12 +193,20 @@ where
     pool.exec(|ctx| async move { SyncEvent::ListedAllFolders.emit(&ctx.handler).await })
         .await;
 
-    let patch = patch::build(
-        left_cached_folders?,
-        left_folders?,
-        right_cached_folders?,
-        right_folders?,
-    );
+    let patch = pool
+        .exec(|ctx| async move {
+            let mut patch = patch::build(
+                left_cached_folders?,
+                left_folders?,
+                right_cached_folders?,
+                right_folders?,
+            );
+
+            ctx.apply_folder_permissions(&mut patch);
+
+            Ok(patch)
+        })
+        .await?;
 
     let patch_clone = patch.clone();
     pool.exec(move |ctx| async move {
@@ -231,44 +239,28 @@ where
 
                     match hunk_clone {
                         FolderSyncHunk::Cache(folder, SyncDestination::Left) => {
-                            if ctx.left_cache.account_config.can_sync_create_folder() {
-                                ctx.left_cache.add_folder(&folder).await?;
-                            }
+                            ctx.left_cache.add_folder(&folder).await?;
                         }
                         FolderSyncHunk::Create(folder, SyncDestination::Left) => {
-                            if ctx.left.account_config.can_sync_create_folder() {
-                                ctx.left.add_folder(&folder).await?;
-                            }
+                            ctx.left.add_folder(&folder).await?;
                         }
                         FolderSyncHunk::Cache(folder, SyncDestination::Right) => {
-                            if ctx.right_cache.account_config.can_sync_create_folder() {
-                                ctx.right_cache.add_folder(&folder).await?;
-                            }
+                            ctx.right_cache.add_folder(&folder).await?;
                         }
                         FolderSyncHunk::Create(folder, SyncDestination::Right) => {
-                            if ctx.right.account_config.can_sync_create_folder() {
-                                ctx.right.add_folder(&folder).await?;
-                            }
+                            ctx.right.add_folder(&folder).await?;
                         }
                         FolderSyncHunk::Uncache(folder, SyncDestination::Left) => {
-                            if ctx.left_cache.account_config.can_sync_delete_folder() {
-                                ctx.left_cache.delete_folder(&folder).await?;
-                            }
+                            ctx.left_cache.delete_folder(&folder).await?;
                         }
                         FolderSyncHunk::Delete(folder, SyncDestination::Left) => {
-                            if ctx.left.account_config.can_sync_delete_folder() {
-                                ctx.left.delete_folder(&folder).await?;
-                            }
+                            ctx.left.delete_folder(&folder).await?;
                         }
                         FolderSyncHunk::Uncache(folder, SyncDestination::Right) => {
-                            if ctx.right_cache.account_config.can_sync_delete_folder() {
-                                ctx.right_cache.delete_folder(&folder).await?;
-                            }
+                            ctx.right_cache.delete_folder(&folder).await?;
                         }
                         FolderSyncHunk::Delete(folder, SyncDestination::Right) => {
-                            if ctx.right.account_config.can_sync_delete_folder() {
-                                ctx.right.delete_folder(&folder).await?;
-                            }
+                            ctx.right.delete_folder(&folder).await?;
                         }
                     };
 

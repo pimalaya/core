@@ -2,7 +2,7 @@ use advisory_lock::FileLockError;
 use std::{io, path::PathBuf, result};
 use thiserror::Error;
 
-use crate::{email, folder, thread_pool};
+use crate::{email, folder, thread_pool, AnyBoxedError};
 
 /// The global `Result` alias of the module.
 pub type Result<T> = result::Result<T, Error>;
@@ -26,4 +26,12 @@ pub enum Error {
     ExpungeFoldersError(#[source] folder::Error),
     #[error("cannot sync emails")]
     SyncEmailsError(#[source] email::Error),
+    #[error("cannot configure left sync context")]
+    ConfigureLeftContextError(#[source] AnyBoxedError),
+    #[error("cannot configure right sync context")]
+    ConfigureRightContextError(#[source] AnyBoxedError),
+    #[error("cannot sync: left context is not configured")]
+    LeftContextNotConfiguredError(#[source] AnyBoxedError),
+    #[error("cannot sync: right context is not configured")]
+    RightContextNotConfiguredError(#[source] AnyBoxedError),
 }

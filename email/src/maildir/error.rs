@@ -9,12 +9,15 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot expand path: {0}")]
-    ExpandPathFailed(#[from] shellexpand_utils::Error),
+    #[error("error while checking maildir configuration")]
+    CheckConfigurationInvalidPathError(#[source] shellexpand_utils::Error),
     #[error("error while checking up current maildir directory")]
     CheckUpCurrentDirectoryError(#[source] maildirpp::Error),
     #[error("cannot create maildir folder structure at {0}")]
     CreateFolderStructureError(#[source] maildirpp::Error, PathBuf),
+
+    #[error(transparent)]
+    ExpandPathError(#[from] shellexpand_utils::Error),
 }
 
 impl AnyError for Error {

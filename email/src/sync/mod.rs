@@ -27,15 +27,19 @@ use std::{
 use crate::{
     backend::{context::BackendContextBuilder, BackendBuilder},
     email::{self, sync::hunk::EmailSyncHunk},
+    envelope::sync::config::EnvelopeSyncFilters,
+    flag::sync::config::FlagSyncPermissions,
     folder::{
         self,
         sync::{
-            config::FolderSyncStrategy,
+            config::{FolderSyncPermissions, FolderSyncStrategy},
             hunk::{FolderName, FolderSyncHunk},
             patch::FolderSyncPatch,
         },
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder},
+    message::sync::config::MessageSyncPermissions,
+    sync::pool::SyncPoolConfig,
 };
 
 #[doc(inline)]
@@ -55,15 +59,12 @@ static RUNTIME_DIR: Lazy<PathBuf> = Lazy::new(|| {
 /// The synchronization builder.
 #[derive(Clone)]
 pub struct SyncBuilder<L: BackendContextBuilder + SyncHash, R: BackendContextBuilder + SyncHash> {
+    config: SyncPoolConfig,
     left_builder: BackendBuilder<L>,
     left_hash: String,
     right_builder: BackendBuilder<R>,
     right_hash: String,
     cache_dir: Option<PathBuf>,
-    pool_size: Option<usize>,
-    handler: Option<Arc<SyncEventHandler>>,
-    dry_run: Option<bool>,
-    folder_filter: Option<FolderSyncStrategy>,
 }
 
 impl<L, R> SyncBuilder<L, R>
@@ -83,17 +84,16 @@ where
         let right_hash = format!("{:x}", right_hasher.finish());
 
         Self {
+            config: Default::default(),
             left_builder,
             left_hash,
             right_builder,
             right_hash,
             cache_dir: None,
-            pool_size: None,
-            handler: None,
-            dry_run: None,
-            folder_filter: Default::default(),
         }
     }
+
+    // cache dir setters
 
     pub fn set_some_cache_dir(&mut self, dir: Option<impl Into<PathBuf>>) {
         self.cache_dir = dir.map(Into::into);
@@ -113,8 +113,10 @@ where
         self
     }
 
+    // pool size setters
+
     pub fn set_some_pool_size(&mut self, size: Option<usize>) {
-        self.pool_size = size;
+        self.config.pool_size = size;
     }
 
     pub fn set_pool_size(&mut self, size: usize) {
@@ -131,11 +133,13 @@ where
         self
     }
 
+    // handler setters
+
     pub fn set_some_handler<F: Future<Output = Result<()>> + Send + 'static>(
         &mut self,
         handler: Option<impl Fn(SyncEvent) -> F + Send + Sync + 'static>,
     ) {
-        self.handler = match handler {
+        self.config.handler = match handler {
             Some(handler) => Some(Arc::new(move |evt| Box::pin(handler(evt)))),
             None => None,
         };
@@ -164,8 +168,10 @@ where
         self
     }
 
+    // dry run setters and getter
+
     pub fn set_some_dry_run(&mut self, dry_run: Option<bool>) {
-        self.dry_run = dry_run;
+        self.config.dry_run = dry_run;
     }
 
     pub fn set_dry_run(&mut self, dry_run: bool) {
@@ -183,43 +189,210 @@ where
     }
 
     pub fn get_dry_run(&self) -> bool {
-        self.dry_run.unwrap_or_default()
+        self.config.dry_run.unwrap_or_default()
     }
 
-    pub fn set_some_folders_filter(&mut self, filter: Option<impl Into<FolderSyncStrategy>>) {
-        self.folder_filter = filter.map(Into::into);
+    // folder filters setters
+
+    pub fn set_some_folder_filters(&mut self, f: Option<impl Into<FolderSyncStrategy>>) {
+        self.config.folder_filters = f.map(Into::into);
     }
 
-    pub fn set_folders_filter(&mut self, folders: impl Into<FolderSyncStrategy>) {
-        self.set_some_folders_filter(Some(folders));
+    pub fn set_folder_filters(&mut self, f: impl Into<FolderSyncStrategy>) {
+        self.set_some_folder_filters(Some(f));
     }
 
-    pub fn with_some_folders_filter(
+    pub fn with_some_folder_filters(mut self, f: Option<impl Into<FolderSyncStrategy>>) -> Self {
+        self.set_some_folder_filters(f);
+        self
+    }
+
+    pub fn with_folder_filters(mut self, f: impl Into<FolderSyncStrategy>) -> Self {
+        self.set_folder_filters(f);
+        self
+    }
+
+    // left folder permissions setters
+
+    pub fn set_some_left_folder_permissions(
+        &mut self,
+        p: Option<impl Into<FolderSyncPermissions>>,
+    ) {
+        self.config.left_folder_permissions = p.map(Into::into);
+    }
+
+    pub fn set_left_folder_permissions(&mut self, p: impl Into<FolderSyncPermissions>) {
+        self.set_some_left_folder_permissions(Some(p));
+    }
+
+    pub fn with_some_left_folder_permissions(
         mut self,
-        folders: Option<impl Into<FolderSyncStrategy>>,
+        p: Option<impl Into<FolderSyncPermissions>>,
     ) -> Self {
-        self.set_some_folders_filter(folders);
+        self.set_some_left_folder_permissions(p);
         self
     }
 
-    pub fn with_folders_filter(mut self, folders: impl Into<FolderSyncStrategy>) -> Self {
-        self.set_folders_filter(folders);
+    pub fn with_left_folder_permissions(mut self, p: impl Into<FolderSyncPermissions>) -> Self {
+        self.set_left_folder_permissions(p);
         self
     }
+
+    // right folder permissions setters
+
+    pub fn set_some_right_folder_permissions(
+        &mut self,
+        p: Option<impl Into<FolderSyncPermissions>>,
+    ) {
+        self.config.right_folder_permissions = p.map(Into::into);
+    }
+
+    pub fn set_right_folder_permissions(&mut self, p: impl Into<FolderSyncPermissions>) {
+        self.set_some_right_folder_permissions(Some(p));
+    }
+
+    pub fn with_some_right_folder_permissions(
+        mut self,
+        p: Option<impl Into<FolderSyncPermissions>>,
+    ) -> Self {
+        self.set_some_right_folder_permissions(p);
+        self
+    }
+
+    pub fn with_right_folder_permissions(mut self, p: impl Into<FolderSyncPermissions>) -> Self {
+        self.set_right_folder_permissions(p);
+        self
+    }
+
+    // envelope filters setters
+
+    pub fn set_some_envelope_filter(&mut self, f: Option<impl Into<EnvelopeSyncFilters>>) {
+        self.config.envelope_filters = f.map(Into::into);
+    }
+
+    pub fn set_envelope_filter(&mut self, f: impl Into<EnvelopeSyncFilters>) {
+        self.set_some_envelope_filter(Some(f));
+    }
+
+    pub fn with_some_envelope_filter(mut self, f: Option<impl Into<EnvelopeSyncFilters>>) -> Self {
+        self.set_some_envelope_filter(f);
+        self
+    }
+
+    pub fn with_envelope_filter(mut self, f: impl Into<EnvelopeSyncFilters>) -> Self {
+        self.set_envelope_filter(f);
+        self
+    }
+
+    // left flag permissions setters
+
+    pub fn set_some_left_flag_permissions(&mut self, p: Option<impl Into<FlagSyncPermissions>>) {
+        self.config.left_flag_permissions = p.map(Into::into);
+    }
+
+    pub fn set_left_flag_permissions(&mut self, p: impl Into<FlagSyncPermissions>) {
+        self.set_some_left_flag_permissions(Some(p));
+    }
+
+    pub fn with_some_left_flag_permissions(
+        mut self,
+        p: Option<impl Into<FlagSyncPermissions>>,
+    ) -> Self {
+        self.set_some_left_flag_permissions(p);
+        self
+    }
+
+    pub fn with_left_flag_permissions(mut self, p: impl Into<FlagSyncPermissions>) -> Self {
+        self.set_left_flag_permissions(p);
+        self
+    }
+
+    // right flag permissions setters
+
+    pub fn set_some_right_flag_permissions(&mut self, p: Option<impl Into<FlagSyncPermissions>>) {
+        self.config.right_flag_permissions = p.map(Into::into);
+    }
+
+    pub fn set_right_flag_permissions(&mut self, p: impl Into<FlagSyncPermissions>) {
+        self.set_some_right_flag_permissions(Some(p));
+    }
+
+    pub fn with_some_right_flag_permissions(
+        mut self,
+        p: Option<impl Into<FlagSyncPermissions>>,
+    ) -> Self {
+        self.set_some_right_flag_permissions(p);
+        self
+    }
+
+    pub fn with_right_flag_permissions(mut self, p: impl Into<FlagSyncPermissions>) -> Self {
+        self.set_right_flag_permissions(p);
+        self
+    }
+
+    // left message permissions setters
+
+    pub fn set_some_left_message_permissions(
+        &mut self,
+        p: Option<impl Into<MessageSyncPermissions>>,
+    ) {
+        self.config.left_message_permissions = p.map(Into::into);
+    }
+
+    pub fn set_left_message_permissions(&mut self, p: impl Into<MessageSyncPermissions>) {
+        self.set_some_left_message_permissions(Some(p));
+    }
+
+    pub fn with_some_left_message_permissions(
+        mut self,
+        p: Option<impl Into<MessageSyncPermissions>>,
+    ) -> Self {
+        self.set_some_left_message_permissions(p);
+        self
+    }
+
+    pub fn with_left_message_permissions(mut self, p: impl Into<MessageSyncPermissions>) -> Self {
+        self.set_left_message_permissions(p);
+        self
+    }
+
+    // right message permissions setters
+
+    pub fn set_some_right_message_permissions(
+        &mut self,
+        p: Option<impl Into<MessageSyncPermissions>>,
+    ) {
+        self.config.right_message_permissions = p.map(Into::into);
+    }
+
+    pub fn set_right_message_permissions(&mut self, p: impl Into<MessageSyncPermissions>) {
+        self.set_some_right_message_permissions(Some(p));
+    }
+
+    pub fn with_some_right_message_permissions(
+        mut self,
+        p: Option<impl Into<MessageSyncPermissions>>,
+    ) -> Self {
+        self.set_some_right_message_permissions(p);
+        self
+    }
+
+    pub fn with_right_message_permissions(mut self, p: impl Into<MessageSyncPermissions>) -> Self {
+        self.set_right_message_permissions(p);
+        self
+    }
+
+    // getters
 
     pub fn find_default_cache_dir(&self) -> Option<PathBuf> {
         cache_dir().map(|dir| dir.join("pimalaya").join("email").join("sync"))
     }
 
-    pub fn find_cache_dir(&self) -> Option<PathBuf> {
+    pub fn get_cache_dir(&self) -> Result<PathBuf> {
         self.cache_dir
             .as_ref()
             .cloned()
             .or_else(|| self.find_default_cache_dir())
-    }
-
-    pub fn get_cache_dir(&self) -> Result<PathBuf> {
-        self.find_cache_dir()
             .ok_or(Error::GetCacheDirectorySyncError.into())
     }
 
@@ -240,6 +413,8 @@ where
         let right_cache_builder = BackendBuilder::new(right_config, ctx);
         Ok(right_cache_builder)
     }
+
+    // build
 
     pub async fn sync(self) -> Result<SyncReport> {
         let left_lock_file_path = RUNTIME_DIR.join(format!("{}.lock", self.left_hash));
@@ -266,16 +441,77 @@ where
             .try_lock(FileLockMode::Exclusive)
             .map_err(|err| Error::LockFileError(err, right_lock_file_path.clone()))?;
 
+        let mut left_cache_builder = self.get_left_cache_builder()?;
+        let left_cache_check = left_cache_builder.ctx_builder.check_configuration();
+
+        let mut left_builder = self.left_builder.clone();
+        let left_check = left_builder.ctx_builder.check_configuration();
+
+        match (left_cache_check, left_check) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Ok(()), Err(err)) => Err(Error::LeftContextNotConfiguredError(err)),
+            (Err(_), Ok(())) => {
+                left_cache_builder
+                    .ctx_builder
+                    .configure()
+                    .await
+                    .map_err(Error::ConfigureLeftContextError)?;
+                Ok(())
+            }
+            (Err(_), Err(_)) => {
+                left_cache_builder
+                    .ctx_builder
+                    .configure()
+                    .await
+                    .map_err(Error::ConfigureLeftContextError)?;
+                left_builder
+                    .ctx_builder
+                    .configure()
+                    .await
+                    .map_err(Error::ConfigureLeftContextError)?;
+                Ok(())
+            }
+        }?;
+
+        let mut right_cache_builder = self.get_right_cache_builder()?;
+        let right_cache_check = right_cache_builder.ctx_builder.check_configuration();
+
+        let mut right_builder = self.right_builder.clone();
+        let right_check = right_builder.ctx_builder.check_configuration();
+
+        match (right_cache_check, right_check) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Ok(()), Err(err)) => Err(Error::RightContextNotConfiguredError(err)),
+            (Err(_), Ok(())) => {
+                right_cache_builder
+                    .ctx_builder
+                    .configure()
+                    .await
+                    .map_err(Error::ConfigureRightContextError)?;
+                Ok(())
+            }
+            (Err(_), Err(_)) => {
+                right_cache_builder
+                    .ctx_builder
+                    .configure()
+                    .await
+                    .map_err(Error::ConfigureRightContextError)?;
+                right_builder
+                    .ctx_builder
+                    .configure()
+                    .await
+                    .map_err(Error::ConfigureRightContextError)?;
+                Ok(())
+            }
+        }?;
+
         let pool = Arc::new(
             pool::new(
-                self.get_left_cache_builder()?,
-                self.left_builder.clone(),
-                self.get_right_cache_builder()?,
-                self.right_builder.clone(),
-                self.pool_size,
-                self.handler.clone(),
-                self.get_dry_run(),
-                self.folder_filter,
+                self.config,
+                left_cache_builder,
+                left_builder,
+                right_cache_builder,
+                right_builder,
             )
             .await?,
         );

@@ -35,6 +35,37 @@ pub enum FolderSyncHunk {
     Uncache(FolderName, SyncDestination),
 }
 
+impl FolderSyncHunk {
+    pub fn is_left(&self) -> bool {
+        match self {
+            Self::Create(_, SyncDestination::Left) => true,
+            Self::Cache(_, SyncDestination::Left) => true,
+            Self::Delete(_, SyncDestination::Left) => true,
+            Self::Uncache(_, SyncDestination::Left) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_right(&self) -> bool {
+        match self {
+            Self::Create(_, SyncDestination::Right) => true,
+            Self::Cache(_, SyncDestination::Right) => true,
+            Self::Delete(_, SyncDestination::Right) => true,
+            Self::Uncache(_, SyncDestination::Right) => true,
+            _ => false,
+        }
+    }
+
+    pub fn folder(&self) -> &str {
+        match self {
+            Self::Create(folder, _) => folder.as_str(),
+            Self::Cache(folder, _) => folder.as_str(),
+            Self::Delete(folder, _) => folder.as_str(),
+            Self::Uncache(folder, _) => folder.as_str(),
+        }
+    }
+}
+
 impl fmt::Display for FolderSyncHunk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -46,17 +77,6 @@ impl fmt::Display for FolderSyncHunk {
             Self::Uncache(folder, target) => {
                 write!(f, "Removing {target} folder {folder} from cache")
             }
-        }
-    }
-}
-
-impl FolderSyncHunk {
-    pub fn folder(&self) -> &str {
-        match self {
-            Self::Create(folder, _) => folder.as_str(),
-            Self::Cache(folder, _) => folder.as_str(),
-            Self::Delete(folder, _) => folder.as_str(),
-            Self::Uncache(folder, _) => folder.as_str(),
         }
     }
 }

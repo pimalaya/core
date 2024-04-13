@@ -52,6 +52,14 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     /// The type of the context being built by this builder.
     type Context: BackendContext;
 
+    fn check_configuration(&self) -> AnyResult<()> {
+        Ok(())
+    }
+
+    async fn configure(&mut self) -> AnyResult<()> {
+        Ok(())
+    }
+
     feature!(CheckUp);
 
     feature!(AddFolder);

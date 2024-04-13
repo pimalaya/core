@@ -930,7 +930,6 @@ dependencies = [
  "hashbrown 0.14.3",
  "regex-automata 0.3.9",
  "serde",
- "stacker",
  "unicode-ident",
 ]
 
@@ -1671,7 +1670,7 @@ dependencies = [
 
 [[package]]
 name = "email-lib"
-version = "0.23.0"
+version = "0.23.2"
 dependencies = [
  "advisory-lock",
  "async-trait",
@@ -3063,7 +3062,7 @@ dependencies = [
 
 [[package]]
 name = "keyring-lib"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "env_logger",
  "keyring",
@@ -3553,7 +3552,7 @@ dependencies = [
 
 [[package]]
 name = "mml-lib"
-version = "1.0.10"
+version = "1.0.12"
 dependencies = [
  "async-recursion",
  "chumsky",
@@ -4679,15 +4678,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "psm"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5787f7cda34e3033a72192c018bc5883100330f362ef279a8cbccfce8bb4e874"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "pwhash"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5358,7 +5348,7 @@ dependencies = [
 
 [[package]]
 name = "secret-lib"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "env_logger",
  "keyring-lib",
@@ -5840,19 +5830,6 @@ checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der",
-]
-
-[[package]]
-name = "stacker"
-version = "0.1.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c886bd4480155fd3ef527d45e9ac8dd7118a898a46530b7b94c3e21866259fce"
-dependencies = [
- "cc",
- "cfg-if",
- "libc",
- "psm",
- "winapi",
 ]
 
 [[package]]

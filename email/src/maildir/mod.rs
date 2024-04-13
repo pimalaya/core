@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use log::info;
 use maildirpp::Maildir;
 use shellexpand_utils::{shellexpand_path, try_shellexpand_path};
-use std::{ops::Deref, sync::Arc};
+use std::{ops::Deref, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -146,6 +146,14 @@ impl MaildirContextBuilder {
             mdir_config,
         }
     }
+
+    pub fn expanded_root_dir(&self) -> PathBuf {
+        shellexpand_path(&self.mdir_config.root_dir)
+    }
+
+    pub fn maildir(&self) -> Maildir {
+        Maildir::from(self.expanded_root_dir())
+    }
 }
 
 #[cfg(feature = "account-sync")]
@@ -158,6 +166,22 @@ impl crate::sync::hash::SyncHash for MaildirContextBuilder {
 #[async_trait]
 impl BackendContextBuilder for MaildirContextBuilder {
     type Context = MaildirContextSync;
+
+    async fn configure(&mut self) -> AnyResult<()> {
+        let mdir = self.maildir();
+
+        mdir.create_dirs()
+            .map_err(|err| Error::CreateFolderStructureError(err, mdir.path().to_owned()))?;
+
+        Ok(())
+    }
+
+    fn check_configuration(&self) -> AnyResult<()> {
+        match try_shellexpand_path(&self.mdir_config.root_dir) {
+            Ok(_) => Ok(()),
+            Err(err) => Err(Error::CheckConfigurationInvalidPathError(err).into()),
+        }
+    }
 
     fn check_up(&self) -> Option<BackendFeature<Self::Context, dyn CheckUp>> {
         Some(Arc::new(CheckUpMaildir::some_new_boxed))
@@ -239,16 +263,10 @@ impl BackendContextBuilder for MaildirContextBuilder {
     async fn build(self) -> AnyResult<Self::Context> {
         info!("building new maildir context");
 
-        let path = shellexpand_path(&self.mdir_config.root_dir);
-
-        let root = Maildir::from(path);
-        root.create_dirs()
-            .map_err(|err| Error::CreateFolderStructureError(err, root.path().to_owned()))?;
-
         let ctx = MaildirContext {
             account_config: self.account_config.clone(),
             maildir_config: self.mdir_config.clone(),
-            root,
+            root: self.maildir(),
         };
 
         Ok(MaildirContextSync {
