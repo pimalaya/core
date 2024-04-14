@@ -1,8 +1,9 @@
+use chrono::NaiveDate;
 use email::{
     account::config::AccountConfig,
     backend::{context::BackendContextBuilder, Backend, BackendBuilder},
     email::sync::hunk::EmailSyncHunk,
-    envelope::{list::ListEnvelopes, Envelope, Id},
+    envelope::{list::ListEnvelopes, sync::config::EnvelopeSyncFilters, Envelope, Id},
     flag::{add::AddFlags, Flag, Flags},
     folder::{
         add::AddFolder,
@@ -104,7 +105,9 @@ async fn test_sync() {
         .add_message_with_flag(
             INBOX,
             &MessageBuilder::new()
-                .message_id("<a@localhost>")
+                // January, 2024 the 1st at 12:00 (UTC)
+                .date(1704106800_i64)
+                .message_id("a@localhost")
                 .from("alice@localhost")
                 .to("bob@localhost")
                 .subject("A")
@@ -120,7 +123,9 @@ async fn test_sync() {
         .add_message_with_flags(
             INBOX,
             &MessageBuilder::new()
-                .message_id("<b@localhost>")
+                // January, 2024 the 5th at 12:00 (UTC)
+                .date(1704452400_i64)
+                .message_id("b@localhost")
                 .from("alice@localhost")
                 .to("bob@localhost")
                 .subject("B")
@@ -136,7 +141,9 @@ async fn test_sync() {
         .add_message(
             INBOX,
             &MessageBuilder::new()
-                .message_id("<c@localhost>")
+                // January, 2024 the 10th at 12:00 (UTC)
+                .date(1704884400_i64)
+                .message_id("c@localhost")
                 .from("alice@localhost")
                 .to("bob@localhost")
                 .subject("C")
@@ -207,7 +214,7 @@ async fn test_sync() {
         .await
         .unwrap();
 
-    // check sync with dry run on INBOX only
+    // check dry sync with INBOX folder filter
 
     let report = sync_builder
         .clone()
@@ -293,6 +300,78 @@ async fn test_sync() {
             SyncDestination::Left,
             true,
         )),
+        SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
+            INBOX.into(),
+            Envelope {
+                message_id: "<c@localhost>".into(),
+                ..Default::default()
+            },
+            SyncDestination::Right,
+            SyncDestination::Left,
+            true,
+        )),
+        SyncEvent::ProcessedAllEmailHunks,
+        SyncEvent::ExpungedAllFolders,
+    ]);
+
+    {
+        let mut evts = EVENTS_STACK.lock().await;
+        assert_eq!(*evts, expected_evts);
+        evts.clear()
+    }
+
+    // check dry sync with folder exclude filter and envelope date filters
+
+    let report = sync_builder
+        .clone()
+        .with_dry_run(true)
+        .with_folder_filters(FolderSyncStrategy::Exclude(BTreeSet::from_iter([
+            DRAFTS.into(),
+            SENT.into(),
+            TRASH.into(),
+            "Junk".into(),
+        ])))
+        .with_envelope_filters(
+            EnvelopeSyncFilters::default()
+                .with_after(NaiveDate::from_ymd_opt(2024, 1, 5).unwrap())
+                .with_before(NaiveDate::from_ymd_opt(2024, 1, 11).unwrap()),
+        )
+        .sync()
+        .await
+        .unwrap();
+
+    let expected_folders = HashSet::from_iter([INBOX.into()]);
+
+    assert_eq!(report.folder.names, expected_folders);
+
+    let expected_evts = HashSet::from_iter([
+        SyncEvent::ListedLeftCachedFolders(1),
+        SyncEvent::ListedRightCachedFolders(1),
+        SyncEvent::ListedLeftFolders(1),
+        SyncEvent::ListedRightFolders(1),
+        SyncEvent::ListedAllFolders,
+        SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([(
+            INBOX.into(),
+            BTreeSet::from_iter([]),
+        )])),
+        SyncEvent::ProcessedAllFolderHunks,
+        SyncEvent::ListedLeftCachedEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedRightCachedEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedLeftEnvelopes(INBOX.into(), 0),
+        SyncEvent::ListedRightEnvelopes(INBOX.into(), 1),
+        SyncEvent::GeneratedEmailPatch(BTreeMap::from_iter([(
+            INBOX.into(),
+            BTreeSet::from_iter([EmailSyncHunk::CopyThenCache(
+                INBOX.into(),
+                Envelope {
+                    message_id: "<c@localhost>".into(),
+                    ..Default::default()
+                },
+                SyncDestination::Right,
+                SyncDestination::Left,
+                true,
+            )]),
+        )])),
         SyncEvent::ProcessedEmailHunk(EmailSyncHunk::CopyThenCache(
             INBOX.into(),
             Envelope {

@@ -1,6 +1,6 @@
-use chrono::{DateTime, Local};
+use chrono::NaiveDate;
 
-use crate::envelope::Envelope;
+use crate::search_query::filter::SearchEmailsFilterQuery;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
@@ -22,73 +22,60 @@ pub struct EnvelopeSyncConfig {
 pub struct EnvelopeSyncFilters {
     /// Filter envelopes with a `Date` header more recent than the given
     /// date.
-    pub before: Option<DateTime<Local>>,
+    pub before: Option<NaiveDate>,
 
     /// Filter envelopes with a `Date` header older than the given date.
-    pub after: Option<DateTime<Local>>,
+    pub after: Option<NaiveDate>,
 }
 
 impl EnvelopeSyncFilters {
-    pub fn set_some_after(&mut self, date: Option<impl Into<DateTime<Local>>>) {
-        self.before = date.map(Into::into);
+    pub fn set_some_after(&mut self, date: Option<impl Into<NaiveDate>>) {
+        self.after = date.map(Into::into);
     }
 
-    pub fn set_after(&mut self, date: impl Into<DateTime<Local>>) {
+    pub fn set_after(&mut self, date: impl Into<NaiveDate>) {
         self.set_some_after(Some(date));
     }
 
-    pub fn with_some_after(mut self, date: Option<impl Into<DateTime<Local>>>) -> Self {
+    pub fn with_some_after(mut self, date: Option<impl Into<NaiveDate>>) -> Self {
         self.set_some_after(date);
         self
     }
 
-    pub fn with_after(mut self, date: impl Into<DateTime<Local>>) -> Self {
+    pub fn with_after(mut self, date: impl Into<NaiveDate>) -> Self {
         self.set_after(date);
         self
     }
 
-    pub fn after(&self) -> Option<&DateTime<Local>> {
-        self.before.as_ref()
+    pub fn set_some_before(&mut self, date: Option<impl Into<NaiveDate>>) {
+        self.before = date.map(Into::into);
     }
 
-    pub fn set_some_before(&mut self, date: Option<impl Into<DateTime<Local>>>) {
-        self.after = date.map(Into::into);
-    }
-
-    pub fn set_before(&mut self, date: impl Into<DateTime<Local>>) {
+    pub fn set_before(&mut self, date: impl Into<NaiveDate>) {
         self.set_some_before(Some(date));
     }
 
-    pub fn with_some_before(mut self, date: Option<impl Into<DateTime<Local>>>) -> Self {
+    pub fn with_some_before(mut self, date: Option<impl Into<NaiveDate>>) -> Self {
         self.set_some_before(date);
         self
     }
 
-    pub fn with_before(mut self, date: impl Into<DateTime<Local>>) -> Self {
+    pub fn with_before(mut self, date: impl Into<NaiveDate>) -> Self {
         self.set_before(date);
         self
     }
+}
 
-    pub fn before(&self) -> Option<&DateTime<Local>> {
-        self.after.as_ref()
-    }
-
-    pub fn matches(&self, envelope: &Envelope) -> bool {
-        let date = envelope.date.with_timezone(&Local);
-        self.matches_after(&date) && self.matches_before(&date)
-    }
-
-    pub fn matches_after(&self, date: &DateTime<Local>) -> bool {
-        match self.after() {
-            Some(after) => after > date,
-            None => true,
-        }
-    }
-
-    pub fn matches_before(&self, date: &DateTime<Local>) -> bool {
-        match self.before() {
-            Some(before) => before < date,
-            None => true,
+impl From<EnvelopeSyncFilters> for Option<SearchEmailsFilterQuery> {
+    fn from(f: EnvelopeSyncFilters) -> Self {
+        match (f.before, f.after) {
+            (None, None) => None,
+            (Some(before), None) => Some(SearchEmailsFilterQuery::BeforeDate(before)),
+            (None, Some(after)) => Some(SearchEmailsFilterQuery::AfterDate(after)),
+            (Some(before), Some(after)) => Some(SearchEmailsFilterQuery::And(
+                Box::new(SearchEmailsFilterQuery::BeforeDate(before)),
+                Box::new(SearchEmailsFilterQuery::AfterDate(after)),
+            )),
         }
     }
 }

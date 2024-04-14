@@ -16,9 +16,14 @@ use std::{
 
 use crate::{
     backend::context::BackendContextBuilder,
-    envelope::{get::GetEnvelope, list::ListEnvelopes, Envelope, Id},
+    envelope::{
+        get::GetEnvelope,
+        list::{ListEnvelopes, ListEnvelopesOptions},
+        Envelope, Id,
+    },
     flag::{add::AddFlags, set::SetFlags, Flag},
     message::{add::AddMessage, peek::PeekMessages},
+    search_query::SearchEmailsQuery,
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
     thread_pool::ThreadPool,
     AnyBoxedError,
@@ -40,16 +45,26 @@ where
     R: BackendContextBuilder + 'static,
 {
     let mut report = EmailSyncReport::default();
-
     let patch = FuturesUnordered::from_iter(folders.iter().map(|folder| {
         let pool_ref = pool.clone();
         let folder_ref = folder.clone();
+
         let left_cached_envelopes = tokio::spawn(async move {
             pool_ref
                 .exec(|ctx| async move {
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                         ctx.left_cache
-                            .list_envelopes(&folder_ref, Default::default())
+                            .list_envelopes(
+                                &folder_ref,
+                                ListEnvelopesOptions {
+                                    page: 0,
+                                    page_size: 0,
+                                    query: Some(SearchEmailsQuery {
+                                        filter: ctx.envelope_filters.clone().into(),
+                                        sort: None,
+                                    }),
+                                },
+                            )
                             .await
                             .or_else(|err| {
                                 if ctx.dry_run {
@@ -59,13 +74,7 @@ where
                                 }
                             })?
                             .into_iter()
-                            .filter_map(|e| {
-                                if ctx.envelope_filters.matches(&e) {
-                                    Some((e.message_id.clone(), e))
-                                } else {
-                                    None
-                                }
-                            }),
+                            .map(|e| (e.message_id.clone(), e)),
                     );
 
                     SyncEvent::ListedLeftCachedEnvelopes(folder_ref.clone(), envelopes.len())
@@ -84,7 +93,17 @@ where
                 .exec(|ctx| async move {
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                         ctx.left
-                            .list_envelopes(&folder_ref, Default::default())
+                            .list_envelopes(
+                                &folder_ref,
+                                ListEnvelopesOptions {
+                                    page: 0,
+                                    page_size: 0,
+                                    query: Some(SearchEmailsQuery {
+                                        filter: ctx.envelope_filters.clone().into(),
+                                        sort: None,
+                                    }),
+                                },
+                            )
                             .await
                             .or_else(|err| {
                                 if ctx.dry_run {
@@ -94,13 +113,7 @@ where
                                 }
                             })?
                             .into_iter()
-                            .filter_map(|e| {
-                                if ctx.envelope_filters.matches(&e) {
-                                    Some((e.message_id.clone(), e))
-                                } else {
-                                    None
-                                }
-                            }),
+                            .map(|e| (e.message_id.clone(), e)),
                     );
 
                     SyncEvent::ListedLeftEnvelopes(folder_ref.clone(), envelopes.len())
@@ -119,7 +132,17 @@ where
                 .exec(|ctx| async move {
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                         ctx.right_cache
-                            .list_envelopes(&folder_ref, Default::default())
+                            .list_envelopes(
+                                &folder_ref,
+                                ListEnvelopesOptions {
+                                    page: 0,
+                                    page_size: 0,
+                                    query: Some(SearchEmailsQuery {
+                                        filter: ctx.envelope_filters.clone().into(),
+                                        sort: None,
+                                    }),
+                                },
+                            )
                             .await
                             .or_else(|err| {
                                 if ctx.dry_run {
@@ -129,13 +152,7 @@ where
                                 }
                             })?
                             .into_iter()
-                            .filter_map(|e| {
-                                if ctx.envelope_filters.matches(&e) {
-                                    Some((e.message_id.clone(), e))
-                                } else {
-                                    None
-                                }
-                            }),
+                            .map(|e| (e.message_id.clone(), e)),
                     );
 
                     SyncEvent::ListedRightCachedEnvelopes(folder_ref.clone(), envelopes.len())
@@ -154,7 +171,17 @@ where
                 .exec(|ctx| async move {
                     let envelopes: HashMap<String, Envelope> = HashMap::from_iter(
                         ctx.right
-                            .list_envelopes(&folder_ref, Default::default())
+                            .list_envelopes(
+                                &folder_ref,
+                                ListEnvelopesOptions {
+                                    page: 0,
+                                    page_size: 0,
+                                    query: Some(SearchEmailsQuery {
+                                        filter: ctx.envelope_filters.clone().into(),
+                                        sort: None,
+                                    }),
+                                },
+                            )
                             .await
                             .or_else(|err| {
                                 if ctx.dry_run {
@@ -164,13 +191,7 @@ where
                                 }
                             })?
                             .into_iter()
-                            .filter_map(|e| {
-                                if ctx.envelope_filters.matches(&e) {
-                                    Some((e.message_id.clone(), e))
-                                } else {
-                                    None
-                                }
-                            }),
+                            .map(|e| (e.message_id.clone(), e)),
                     );
 
                     SyncEvent::ListedRightEnvelopes(folder_ref.clone(), envelopes.len())

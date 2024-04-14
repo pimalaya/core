@@ -266,21 +266,21 @@ where
 
     // envelope filters setters
 
-    pub fn set_some_envelope_filter(&mut self, f: Option<impl Into<EnvelopeSyncFilters>>) {
+    pub fn set_some_envelope_filters(&mut self, f: Option<impl Into<EnvelopeSyncFilters>>) {
         self.config.envelope_filters = f.map(Into::into);
     }
 
-    pub fn set_envelope_filter(&mut self, f: impl Into<EnvelopeSyncFilters>) {
-        self.set_some_envelope_filter(Some(f));
+    pub fn set_envelope_filters(&mut self, f: impl Into<EnvelopeSyncFilters>) {
+        self.set_some_envelope_filters(Some(f));
     }
 
-    pub fn with_some_envelope_filter(mut self, f: Option<impl Into<EnvelopeSyncFilters>>) -> Self {
-        self.set_some_envelope_filter(f);
+    pub fn with_some_envelope_filters(mut self, f: Option<impl Into<EnvelopeSyncFilters>>) -> Self {
+        self.set_some_envelope_filters(f);
         self
     }
 
-    pub fn with_envelope_filter(mut self, f: impl Into<EnvelopeSyncFilters>) -> Self {
-        self.set_envelope_filter(f);
+    pub fn with_envelope_filters(mut self, f: impl Into<EnvelopeSyncFilters>) -> Self {
+        self.set_envelope_filters(f);
         self
     }
 

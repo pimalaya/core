@@ -212,66 +212,6 @@ impl AccountConfig {
         }
     }
 
-    #[cfg(feature = "account-sync")]
-    pub fn matches_envelope_sync_filters(&self, envelope: &Envelope) -> bool {
-        self.envelope
-            .as_ref()
-            .and_then(|c| c.sync.as_ref())
-            .map(|c| c.filter.clone())
-            .unwrap_or_default()
-            .matches(envelope)
-    }
-
-    #[cfg(feature = "account-sync")]
-    pub fn can_sync_create_folder(&self) -> bool {
-        self.folder
-            .as_ref()
-            .and_then(|c| c.sync.as_ref())
-            .map(|c| c.permissions.clone())
-            .unwrap_or_default()
-            .create
-    }
-
-    #[cfg(feature = "account-sync")]
-    pub fn can_sync_delete_folder(&self) -> bool {
-        self.folder
-            .as_ref()
-            .and_then(|c| c.sync.as_ref())
-            .map(|c| c.permissions.clone())
-            .unwrap_or_default()
-            .delete
-    }
-
-    #[cfg(feature = "account-sync")]
-    pub fn can_sync_update_flags(&self) -> bool {
-        self.flag
-            .as_ref()
-            .and_then(|c| c.sync.as_ref())
-            .map(|c| c.permissions.clone())
-            .unwrap_or_default()
-            .update
-    }
-
-    #[cfg(feature = "account-sync")]
-    pub fn can_sync_create_message(&self) -> bool {
-        self.message
-            .as_ref()
-            .and_then(|c| c.sync.as_ref())
-            .map(|c| c.permissions.clone())
-            .unwrap_or_default()
-            .create
-    }
-
-    #[cfg(feature = "account-sync")]
-    pub fn can_sync_delete_message(&self) -> bool {
-        self.message
-            .as_ref()
-            .and_then(|c| c.sync.as_ref())
-            .map(|c| c.permissions.clone())
-            .unwrap_or_default()
-            .delete
-    }
-
     /// Execute the envelope received hook.
     pub async fn exec_received_envelope_hook(&self, envelope: &Envelope) {
         let hook = self
