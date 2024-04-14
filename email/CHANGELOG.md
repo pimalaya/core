@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2024-04-14
+
+### Added
+
+- Added `SyncBuilder` setters to customize folder filters and permissions, envelope filters, flag permissions and message permissions.
+
+### Changed
+
+- Renamed `SyncBuilder::{set,set_some,with,with_some}_folders_filter` to `*_folder_filters` to match other namings.
+- Applied sync filters at patch creation rather than patch execution.
+- Envelope sync date filters `before` and `after` takes now a `NaiveDate` instead, to match the search envelope query.
+
 ## [0.23.2] - 2024-04-09
 
 ### Changed
