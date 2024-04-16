@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.1] - 2024-04-16
+
 ### Fixed
 
 - Fixed error page out of bounds when filtering envelopes returned an empty result [#195].
