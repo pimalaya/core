@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed error page out of bounds when filtering envelopes returned an empty result [#195].
+
 ## [0.24.0] - 2024-04-14
 
 ### Added
@@ -912,3 +916,4 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#174]: https://todo.sr.ht/~soywod/pimalaya/174
 [#179]: https://todo.sr.ht/~soywod/pimalaya/179
 [#187]: https://todo.sr.ht/~soywod/pimalaya/187
+[#195]: https://todo.sr.ht/~soywod/pimalaya/195

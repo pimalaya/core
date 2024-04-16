@@ -83,6 +83,10 @@ impl ListEnvelopes for ListImapEnvelopes {
                 )
                 .await?;
 
+            if uids.is_empty() {
+                return Ok(Envelopes::default());
+            }
+
             apply_pagination(&mut uids, opts.page, opts.page_size)?;
 
             let range = uids.iter().fold(String::new(), |mut range, uid| {
