@@ -1,0 +1,18 @@
+[package]
+name = "m2dir"
+version = "0.0.1"
+description = "Rust implementation of the m2dir specification"
+authors = ["soywod <clement.douin@posteo.net>"]
+edition = "2021"
+license = "MIT"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
+
+[features]
+default = []
+
+[dev-dependencies]
+
+[dependencies]
