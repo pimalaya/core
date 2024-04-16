@@ -1,6 +1,6 @@
+use crate::{debug, info, trace};
 use async_trait::async_trait;
 use chrono::TimeDelta;
-use log::{debug, info, trace};
 
 use crate::{
     email::error::Error,

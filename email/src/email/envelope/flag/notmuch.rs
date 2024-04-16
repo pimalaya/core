@@ -3,7 +3,7 @@
 //! This module contains flag-related mapping functions from the
 //! [notmuch] crate types.
 
-use log::debug;
+use crate::debug;
 use notmuch::Message;
 
 use crate::flag::Flags;

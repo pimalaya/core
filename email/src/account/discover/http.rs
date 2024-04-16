@@ -3,9 +3,9 @@
 //! This module contains everything needed to discover account using
 //! HTTP requests.
 
+use crate::trace;
 use hyper::{body::to_bytes, client::HttpConnector, Client, Uri};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use log::trace;
 
 use super::config::AutoConfig;
 #[doc(inline)]

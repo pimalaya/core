@@ -1,9 +1,9 @@
 pub mod config;
 mod error;
 
+use crate::{debug, info, warn};
 use async_trait::async_trait;
 use futures::TryFutureExt;
-use log::{debug, info, warn};
 use mail_parser::{Addr, Address, HeaderName, HeaderValue, Message, MessageParser};
 use mail_send::{
     smtp::message::{Address as SmtpAddress, IntoMessage, Message as SmtpMessage},

@@ -3,12 +3,12 @@
 //! This module contains everything needed to discover account using
 //! DNS records.
 
+use crate::{debug, trace};
 use hickory_resolver::{
     proto::rr::rdata::{MX, SRV},
     TokioAsyncResolver,
 };
 use hyper::Uri;
-use log::{debug, trace};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{cmp::Ordering, ops::Deref};

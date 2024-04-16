@@ -1,5 +1,5 @@
+use crate::{debug, info};
 use async_trait::async_trait;
-use log::{debug, info};
 use mail_parser::MessageParser;
 
 use crate::{email::error::Error, sendmail::SendmailContextSync, AnyResult};

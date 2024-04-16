@@ -93,8 +93,8 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     where
         Self: crate::sync::hash::SyncHash,
     {
+        use crate::debug;
         use dirs::data_dir;
-        use log::debug;
         use shellexpand_utils::try_shellexpand_path;
         use std::{
             hash::{DefaultHasher, Hasher},

@@ -6,7 +6,7 @@
 use crate::email::error::Error;
 
 use super::{Flag, Flags};
-use log::debug;
+use crate::debug;
 use maildirpp::MailEntry;
 
 impl Flag {

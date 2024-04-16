@@ -3,7 +3,7 @@
 //! This module contains envelope-related mapping functions from the
 //! [notmuch] crate types.
 
-use log::debug;
+use crate::debug;
 
 use crate::{
     envelope::{Envelope, Envelopes},

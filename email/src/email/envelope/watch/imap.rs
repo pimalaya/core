@@ -1,6 +1,6 @@
+use crate::{debug, info};
 use async_trait::async_trait;
 use imap::extensions::idle::stop_on_any;
-use log::{debug, info};
 use std::{collections::HashMap, time::Duration};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 

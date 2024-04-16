@@ -9,9 +9,9 @@ pub mod hash;
 pub mod pool;
 pub mod report;
 
+use crate::{debug, trace};
 use advisory_lock::{AdvisoryFileLock, FileLockMode};
 use dirs::{cache_dir, runtime_dir};
-use log::{debug, trace};
 use once_cell::sync::Lazy;
 use std::{
     collections::{BTreeMap, BTreeSet},

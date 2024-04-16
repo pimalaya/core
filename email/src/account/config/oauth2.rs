@@ -3,7 +3,7 @@
 //! This module contains everything related to OAuth 2.0
 //! configuration.
 
-use log::debug;
+use crate::debug;
 use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use secret::Secret;
 use std::{io, net::TcpListener, vec};

@@ -3,11 +3,11 @@
 //! This module contains envelope-related mapping functions from the
 //! [imap] crate types.
 
+use crate::debug;
 use imap::{
     extensions::sort::SortCriterion,
     types::{Fetch, Fetches},
 };
-use log::debug;
 use std::{ops::Deref, str::FromStr};
 
 use crate::{

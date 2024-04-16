@@ -1,5 +1,5 @@
+use crate::info;
 use async_trait::async_trait;
-use log::info;
 use std::fs;
 
 use crate::{

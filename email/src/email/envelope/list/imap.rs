@@ -1,7 +1,7 @@
+use crate::{debug, info, trace};
 use async_trait::async_trait;
 use chrono::TimeDelta;
 use imap::extensions::sort::{SortCharset, SortCriterion};
-use log::{debug, info, trace};
 use std::{collections::HashMap, result};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 

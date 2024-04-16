@@ -3,7 +3,7 @@
 //! This module contains the configuration specific to the SMTP
 //! sender.
 
-use log::debug;
+use crate::debug;
 use mail_send::Credentials;
 use std::{fmt, io};
 #[cfg(feature = "derive")]

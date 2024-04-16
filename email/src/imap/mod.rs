@@ -1,9 +1,9 @@
 pub mod config;
 mod error;
 
+use crate::{debug, info, warn};
 use async_trait::async_trait;
 use imap::{Authenticator, Client, ImapConnection, Session, TlsKind};
-use log::{debug, info, log_enabled, warn, Level};
 use std::{ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -520,8 +520,6 @@ pub async fn build_session(
             }
         }
     }?;
-
-    session.debug = log_enabled!(Level::Trace);
 
     Ok(session)
 }

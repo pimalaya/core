@@ -1,5 +1,5 @@
+use crate::{debug, info};
 use async_trait::async_trait;
-use log::{debug, info};
 
 use crate::{
     email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync, AnyResult,

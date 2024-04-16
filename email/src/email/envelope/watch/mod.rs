@@ -4,8 +4,8 @@ pub mod imap;
 #[cfg(feature = "maildir")]
 pub mod maildir;
 
+use crate::debug;
 use async_trait::async_trait;
-use log::debug;
 use std::collections::HashMap;
 
 use crate::{account::config::AccountConfig, envelope::Envelope, AnyResult};

@@ -3,7 +3,7 @@
 //! This module contains envelope-related mapping functions from the
 //! [maildirpp] crate types.
 
-use log::{debug, trace};
+use crate::{debug, trace};
 use maildirpp::{MailEntries, MailEntry};
 use rayon::prelude::*;
 

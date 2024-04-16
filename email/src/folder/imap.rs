@@ -1,6 +1,6 @@
+use crate::{debug, trace};
 use imap::types::{Name, Names};
 use imap_proto::NameAttribute;
-use log::{debug, trace};
 use utf7_imap::decode_utf7_imap as decode_utf7;
 
 use crate::{

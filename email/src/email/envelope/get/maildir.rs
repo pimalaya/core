@@ -1,5 +1,5 @@
+use crate::{info, trace};
 use async_trait::async_trait;
-use log::{info, trace};
 
 use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync, AnyResult};
 

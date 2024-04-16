@@ -16,7 +16,7 @@ pub mod set;
 #[cfg(feature = "account-sync")]
 pub mod sync;
 
-use log::debug;
+use crate::debug;
 use std::{
     collections::BTreeSet,
     fmt,

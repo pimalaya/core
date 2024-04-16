@@ -1,8 +1,8 @@
 pub mod config;
 mod error;
 
+use crate::info;
 use async_trait::async_trait;
-use log::info;
 use maildirpp::Maildir;
 use shellexpand_utils::{shellexpand_path, try_shellexpand_path};
 use std::{ops::Deref, path::PathBuf, sync::Arc};

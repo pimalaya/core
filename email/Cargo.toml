@@ -34,6 +34,8 @@ default = [
   # "pgp-native",
 
   # "derive",
+
+  "tracing"
 ]
 
 imap = ["dep:futures", "dep:imap", "dep:imap-proto", "dep:utf7-imap"]
@@ -41,6 +43,7 @@ maildir = ["dep:maildirpp", "dep:notify", "dep:rayon"]
 notmuch = ["dep:notmuch"]
 smtp = ["dep:mail-send"]
 sendmail = []
+tracing = ["dep:tracing"]
 
 account-discovery = [
   "dep:email_address",
@@ -88,7 +91,6 @@ hyper-rustls = { version = "0.24", optional = true }
 imap = { version = "=3.0.0-alpha.13", optional = true, default-features = false, features = ["rustls-tls"] }
 imap-proto = { version = "=0.16.3", optional = true }
 keyring-lib = { version = "=0.4.2", optional = true }
-log = "0.4"
 mail-builder = "0.3"
 mail-parser = "0.9"
 mail-send = { version = "0.4", optional = true }
@@ -112,6 +114,7 @@ shellexpand-utils = "=0.2.1"
 thiserror = "1"
 tokio = { version = "1.23", default-features = false, features = ["macros", "fs", "net"] }
 tokio-rustls = "0.25"
+tracing = { version ="0.1.40" , optional = true }
 tree_magic_mini = "3"
 urlencoding = "2.1"
 utf7-imap = { version = "=0.3.2", optional = true }

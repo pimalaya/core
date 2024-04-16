@@ -26,10 +26,10 @@ pub mod config;
 pub mod dns;
 pub mod http;
 
+use crate::{debug, trace};
 use email_address::EmailAddress;
 use futures::{future::select_ok, FutureExt};
 use hyper::Uri;
-use log::{debug, trace};
 use std::str::FromStr;
 
 use super::discover::config::{

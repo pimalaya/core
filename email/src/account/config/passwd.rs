@@ -2,7 +2,7 @@
 //!
 //! This module contains everything related to password configuration.
 
-use log::debug;
+use crate::debug;
 use secret::Secret;
 use std::{
     io,

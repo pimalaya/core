@@ -1,8 +1,8 @@
 pub mod config;
 mod error;
 
+use crate::info;
 use async_trait::async_trait;
-use log::info;
 use std::sync::Arc;
 
 use crate::{

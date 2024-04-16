@@ -1,5 +1,5 @@
+use crate::{debug, info, trace};
 use async_trait::async_trait;
-use log::{debug, info, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::{collections::HashMap, sync::mpsc};
 

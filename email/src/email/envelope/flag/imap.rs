@@ -3,8 +3,8 @@
 //! This module contains flag-related mapping functions from the
 //! [imap] crate types.
 
+use crate::debug;
 use imap::{self, types::Fetch};
-use log::debug;
 
 use crate::email::error::Error;
 

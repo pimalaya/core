@@ -8,9 +8,9 @@ pub mod passwd;
 #[cfg(feature = "pgp")]
 pub mod pgp;
 
+use crate::debug;
 #[cfg(feature = "account-sync")]
 use dirs::data_dir;
-use log::debug;
 use mail_builder::headers::address::{Address, EmailAddress};
 use mail_parser::Address::*;
 use mml::MimeInterpreterBuilder;

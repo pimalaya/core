@@ -20,9 +20,9 @@ pub mod send;
 pub mod sync;
 pub mod template;
 
+use crate::debug;
 #[cfg(feature = "imap")]
 use imap::types::{Fetch, Fetches};
-use log::debug;
 use mail_parser::{MessageParser, MimeHeaders};
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;

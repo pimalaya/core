@@ -1,6 +1,6 @@
 //! Module dedicated to email utils.
 
-use log::debug;
+use crate::debug;
 use std::{env, fs, io, path::PathBuf};
 
 /// Gets the local draft file path.

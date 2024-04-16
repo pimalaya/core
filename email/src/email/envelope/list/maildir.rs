@@ -1,5 +1,5 @@
+use crate::{debug, info, trace, warn};
 use async_trait::async_trait;
-use log::{debug, info, trace, warn};
 use mail_parser::MessageParser;
 use std::{fs, path::Path};
 

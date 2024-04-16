@@ -3,7 +3,7 @@
 //! This module contains folder-related mapping functions from the
 //! [maildirpp] crate types.
 
-use log::{debug, trace};
+use crate::{debug, trace};
 use maildirpp::{Maildir, Submaildirs};
 use rayon::prelude::*;
 use std::ffi::OsStr;

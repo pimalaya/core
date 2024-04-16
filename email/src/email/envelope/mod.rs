@@ -20,8 +20,8 @@ pub mod notmuch;
 pub mod sync;
 pub mod watch;
 
+use crate::debug;
 use chrono::{DateTime, FixedOffset, Local};
-use log::debug;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     ops::{Deref, DerefMut},
@@ -140,7 +140,9 @@ impl Envelope {
 
             match msg.date() {
                 Some(date) => envelope.set_date(date),
-                None => debug!("cannot extract envelope date from message header, skipping it"),
+                None => {
+                    debug!("cannot extract envelope date from message header, skipping it")
+                }
             };
 
             envelope.message_id = msg

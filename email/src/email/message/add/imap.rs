@@ -1,6 +1,6 @@
+use crate::{debug, info};
 use async_trait::async_trait;
 use imap_proto::UidSetMember;
-use log::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use crate::{email::error::Error, envelope::SingleId, imap::ImapContextSync, AnyResult};

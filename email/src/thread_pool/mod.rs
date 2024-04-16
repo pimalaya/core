@@ -12,9 +12,9 @@
 
 mod error;
 
+use crate::debug;
 use async_trait::async_trait;
 use futures::{lock::Mutex, stream::FuturesUnordered, Future, StreamExt};
-use log::debug;
 use std::{
     pin::Pin,
     sync::Arc,

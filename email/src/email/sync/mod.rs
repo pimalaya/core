@@ -6,8 +6,8 @@ pub mod hunk;
 pub mod patch;
 pub mod report;
 
+use crate::{debug, trace};
 use futures::{stream::FuturesUnordered, StreamExt};
-use log::{debug, trace};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     string::String,
