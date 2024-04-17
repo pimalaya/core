@@ -1,10 +1,8 @@
-use crate::{debug, info};
 use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::Id, imap::ImapContextSync, AnyResult};
-
 use super::{GetMessages, Messages};
+use crate::{debug, email::error::Error, envelope::Id, imap::ImapContextSync, info, AnyResult};
 
 /// The IMAP query needed to retrieve messages.
 const GET_MESSAGES_QUERY: &str = "BODY[]";

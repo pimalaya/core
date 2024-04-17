@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 
+use super::{DefaultGetMessages, GetMessages, Messages};
 use crate::{
     envelope::Id,
     flag::{
@@ -10,8 +11,6 @@ use crate::{
     message::peek::{maildir::PeekMaildirMessages, PeekMessages},
     AnyResult,
 };
-
-use super::{DefaultGetMessages, GetMessages, Messages};
 
 #[derive(Clone)]
 pub struct GetMaildirMessages {

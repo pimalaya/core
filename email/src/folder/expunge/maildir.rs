@@ -1,9 +1,7 @@
-use crate::info;
 use async_trait::async_trait;
 
-use crate::{folder::error::Error, maildir::MaildirContextSync, AnyResult};
-
 use super::ExpungeFolder;
+use crate::{folder::error::Error, info, maildir::MaildirContextSync, AnyResult};
 
 pub struct ExpungeMaildirFolder {
     ctx: MaildirContextSync,

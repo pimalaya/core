@@ -6,9 +6,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::flag;
-
 use super::*;
+use crate::flag;
 
 /// Alias for an envelope hash map where the key is its identifier.
 pub type Envelopes = HashMap<String, Envelope>;
@@ -504,13 +503,12 @@ pub fn build(
 
 #[cfg(test)]
 mod tests {
+    use super::{EmailSyncHunk, EmailSyncPatch, Envelopes};
     use crate::{
         envelope::Envelope,
         flag::{Flag, Flags},
         sync::SyncDestination,
     };
-
-    use super::{EmailSyncHunk, EmailSyncPatch, Envelopes};
 
     #[test]
     fn build_patch_0000() {

@@ -1,3 +1,7 @@
+#![cfg(feature = "full")]
+
+use std::{collections::HashMap, sync::Arc};
+
 use concat_with::concat_line;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
@@ -17,7 +21,6 @@ use email::{
 use email_testing_server::with_email_testing_server;
 use mml::MmlCompilerBuilder;
 use secret::Secret;
-use std::{collections::HashMap, sync::Arc};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_imap_features() {

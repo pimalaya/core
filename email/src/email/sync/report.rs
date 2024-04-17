@@ -3,9 +3,8 @@
 //! Module dedicated to email synchronization reporting. The main
 //! structure of this module is [`EmailSyncReport`].
 
-use crate::AnyBoxedError;
-
 use super::hunk::EmailSyncHunk;
+use crate::AnyBoxedError;
 
 /// The email synchronization report.
 #[derive(Debug, Default)]

@@ -8,9 +8,8 @@
 use chrono::NaiveDate;
 use chumsky::prelude::*;
 
-use crate::search_query::parser::ParserError;
-
 use super::SearchEmailsFilterQuery;
+use crate::search_query::parser::ParserError;
 
 /// The emails search filter query string parser.
 ///
@@ -254,9 +253,7 @@ fn naive_date<'a>() -> impl Parser<'a, &'a str, NaiveDate, ParserError<'a>> + Cl
     ))
 }
 
-fn naive_date_with_fmt<'a>(
-    fmt: &'a str,
-) -> impl Parser<'a, &'a str, NaiveDate, ParserError<'a>> + Clone {
+fn naive_date_with_fmt(fmt: &str) -> impl Parser<&str, NaiveDate, ParserError> + Clone {
     pattern().try_map(move |ref s, span| {
         NaiveDate::parse_from_str(s, fmt).map_err(|err| Rich::custom(span, err))
     })

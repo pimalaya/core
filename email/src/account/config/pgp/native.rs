@@ -1,13 +1,14 @@
-use crate::debug;
+use std::io;
+
 use keyring::KeyringEntry;
 use mml::pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
 use secret::Secret;
 use shellexpand_utils::shellexpand_path;
-use std::io;
 use tokio::fs;
 
 #[doc(inline)]
 pub use super::{Error, Result};
+use crate::debug;
 
 /// The native PGP configuration.
 ///

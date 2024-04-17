@@ -1,6 +1,7 @@
+use std::{io, path::PathBuf, result};
+
 #[cfg(feature = "account-discovery")]
 use hyper::{StatusCode, Uri};
-use std::{io, path::PathBuf, result};
 use thiserror::Error;
 
 /// The global `Result` alias of the module.

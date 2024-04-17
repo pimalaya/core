@@ -1,14 +1,13 @@
-use crate::info;
 use async_trait::async_trait;
 use maildirpp::Maildir;
 
+use super::AddFolder;
 use crate::{
     folder::{error::Error, FolderKind},
+    info,
     maildir::{self, MaildirContextSync},
     AnyResult,
 };
-
-use super::AddFolder;
 
 pub struct AddMaildirFolder {
     ctx: MaildirContextSync,

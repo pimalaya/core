@@ -1,18 +1,22 @@
 pub mod config;
 mod error;
 
-use crate::{debug, info, warn};
+use std::{ops::Deref, sync::Arc};
+
 use async_trait::async_trait;
 use imap::{Authenticator, Client, ImapConnection, Session, TlsKind};
-use std::{ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
+use self::config::{ImapAuthConfig, ImapConfig};
+#[doc(inline)]
+pub use self::error::{Error, Result};
 use crate::{
     account::config::{oauth2::OAuth2Method, AccountConfig},
     backend::{
         context::{BackendContext, BackendContextBuilder},
         feature::{BackendFeature, CheckUp},
     },
+    debug,
     envelope::{
         get::{imap::GetImapEnvelope, GetEnvelope},
         list::{imap::ListImapEnvelopes, ListEnvelopes},
@@ -30,6 +34,7 @@ use crate::{
         list::{imap::ListImapFolders, ListFolders},
         purge::{imap::PurgeImapFolder, PurgeFolder},
     },
+    info,
     message::{
         add::{imap::AddImapMessage, AddMessage},
         copy::{imap::CopyImapMessages, CopyMessages},
@@ -39,12 +44,8 @@ use crate::{
         r#move::{imap::MoveImapMessages, MoveMessages},
         remove::{imap::RemoveImapMessages, RemoveMessages},
     },
-    AnyError, AnyResult,
+    warn, AnyError, AnyResult,
 };
-
-use self::config::{ImapAuthConfig, ImapConfig};
-#[doc(inline)]
-pub use self::error::{Error, Result};
 
 /// The IMAP backend context.
 ///
@@ -293,7 +294,7 @@ impl BackendContextBuilder for ImapContextBuilder {
                 }
                 Err(err) => {
                     match &err {
-                        Error::AuthenticateImapError(e) if is_authentication_failed(&e) => {
+                        Error::AuthenticateImapError(e) if is_authentication_failed(e) => {
                             match &self.imap_config.auth {
                                 ImapAuthConfig::Passwd(_) => {
                                     break Err(err);
@@ -471,7 +472,7 @@ pub async fn build_session(
     imap_config: &ImapConfig,
     credentials: Option<&String>,
 ) -> Result<Session<Box<dyn ImapConnection>>> {
-    let mut session = match &imap_config.auth {
+    let session = match &imap_config.auth {
         ImapAuthConfig::Passwd(passwd) => {
             debug!("creating session using login and password");
             let passwd = match credentials {

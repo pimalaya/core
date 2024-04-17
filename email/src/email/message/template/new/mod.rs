@@ -6,18 +6,17 @@
 
 pub mod config;
 
+use std::sync::Arc;
+
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
 };
 use mml::MimeInterpreterBuilder;
-use std::sync::Arc;
-
-use crate::{account::config::AccountConfig, email::error::Error};
-
-use super::{Template, TemplateBody, TemplateCursor};
 
 use self::config::NewTemplateSignatureStyle;
+use super::{Template, TemplateBody, TemplateCursor};
+use crate::{account::config::AccountConfig, email::error::Error};
 
 /// The new template builder.
 ///
@@ -193,8 +192,9 @@ impl NewTemplateBuilder {
 
 #[cfg(test)]
 mod tests {
-    use concat_with::concat_line;
     use std::sync::Arc;
+
+    use concat_with::concat_line;
 
     use crate::{
         account::config::AccountConfig,

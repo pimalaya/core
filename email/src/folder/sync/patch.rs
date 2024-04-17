@@ -8,9 +8,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::sync::SyncDestination;
-
 use super::hunk::{FolderName, FolderSyncHunk, FoldersName};
+use crate::sync::SyncDestination;
 
 /// A folder synchronization patch is just a list of folder
 /// synchronization hunks (changes).
@@ -152,9 +151,8 @@ pub fn build(
 mod tests {
     use std::collections::{BTreeMap, BTreeSet};
 
-    use crate::sync::SyncDestination;
-
     use super::{FolderSyncHunk, FoldersName};
+    use crate::sync::SyncDestination;
 
     #[test]
     fn build_folder_patch() {

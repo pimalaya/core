@@ -3,8 +3,9 @@
 //! This module contains the configuration specific to the Notmuch
 //! backend.
 
-use notmuch::{Database, DatabaseMode};
 use std::path::{Path, PathBuf};
+
+use notmuch::{Database, DatabaseMode};
 
 #[doc(inline)]
 pub use super::{Error, Result};

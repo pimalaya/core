@@ -6,16 +6,20 @@ pub mod hunk;
 pub mod patch;
 pub mod report;
 
-use crate::{debug, trace};
-use futures::{stream::FuturesUnordered, StreamExt};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     string::String,
     sync::Arc,
 };
 
+use futures::{stream::FuturesUnordered, StreamExt};
+
+use self::{hunk::EmailSyncHunk, report::EmailSyncReport};
+#[doc(inline)]
+pub use super::{Error, Result};
 use crate::{
     backend::context::BackendContextBuilder,
+    debug,
     envelope::{
         get::GetEnvelope,
         list::{ListEnvelopes, ListEnvelopesOptions},
@@ -26,13 +30,8 @@ use crate::{
     search_query::SearchEmailsQuery,
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
     thread_pool::ThreadPool,
-    AnyBoxedError,
+    trace, AnyBoxedError,
 };
-
-#[doc(inline)]
-pub use super::{Error, Result};
-
-use self::{hunk::EmailSyncHunk, report::EmailSyncReport};
 
 /// Errors related to email synchronization.
 

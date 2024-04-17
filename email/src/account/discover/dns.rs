@@ -3,7 +3,8 @@
 //! This module contains everything needed to discover account using
 //! DNS records.
 
-use crate::{debug, trace};
+use std::{cmp::Ordering, ops::Deref};
+
 use hickory_resolver::{
     proto::rr::rdata::{MX, SRV},
     TokioAsyncResolver,
@@ -11,10 +12,10 @@ use hickory_resolver::{
 use hyper::Uri;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::{cmp::Ordering, ops::Deref};
 
 #[doc(inline)]
 pub use super::{Error, Result};
+use crate::{debug, trace};
 
 /// Regular expression used to extract the URI of a mailconf TXT
 /// record.

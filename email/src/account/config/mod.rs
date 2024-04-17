@@ -8,15 +8,6 @@ pub mod passwd;
 #[cfg(feature = "pgp")]
 pub mod pgp;
 
-use crate::debug;
-#[cfg(feature = "account-sync")]
-use dirs::data_dir;
-use mail_builder::headers::address::{Address, EmailAddress};
-use mail_parser::Address::*;
-use mml::MimeInterpreterBuilder;
-use notify_rust::Notification;
-use process::Command;
-use shellexpand_utils::{shellexpand_path, shellexpand_str, try_shellexpand_path};
 use std::{
     collections::HashMap,
     env,
@@ -26,8 +17,24 @@ use std::{
     vec,
 };
 
+#[cfg(feature = "account-sync")]
+use dirs::data_dir;
+use mail_builder::headers::address::{Address, EmailAddress};
+use mail_parser::Address::*;
+use mml::MimeInterpreterBuilder;
+use notify_rust::Notification;
+use process::Command;
+use shellexpand_utils::{shellexpand_path, shellexpand_str, try_shellexpand_path};
+
+#[cfg(feature = "pgp")]
+use self::pgp::PgpConfig;
+#[cfg(feature = "account-sync")]
+use super::sync::config::SyncConfig;
+#[doc(inline)]
+pub use super::{Error, Result};
 use crate::{
     date::from_mail_parser_to_chrono_datetime,
+    debug,
     email::config::EmailTextPlainFormat,
     envelope::{config::EnvelopeConfig, Envelope},
     flag::config::FlagConfig,
@@ -41,14 +48,6 @@ use crate::{
     },
     watch::config::WatchHook,
 };
-
-#[cfg(feature = "account-sync")]
-use super::sync::config::SyncConfig;
-#[doc(inline)]
-pub use super::{Error, Result};
-
-#[cfg(feature = "pgp")]
-use self::pgp::PgpConfig;
 
 pub const DEFAULT_PAGE_SIZE: usize = 10;
 pub const DEFAULT_SIGNATURE_DELIM: &str = "-- \n";
@@ -138,7 +137,8 @@ impl AccountConfig {
             .unwrap_or(DEFAULT_SIGNATURE_DELIM);
 
         let signature = self.signature.as_ref();
-        let signature = signature.map(|path_or_raw| {
+
+        signature.map(|path_or_raw| {
             let signature = try_shellexpand_path(path_or_raw)
                 .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))
                 .and_then(fs::read_to_string)
@@ -148,9 +148,7 @@ impl AccountConfig {
                     shellexpand_str(path_or_raw)
                 });
             format!("{}{}", delim, signature.trim())
-        });
-
-        signature
+        })
     }
 
     /// Get then expand the downloads directory path.

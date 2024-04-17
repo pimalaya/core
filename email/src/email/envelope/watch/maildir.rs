@@ -1,16 +1,17 @@
-use crate::{debug, info, trace};
-use async_trait::async_trait;
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::{collections::HashMap, sync::mpsc};
 
-use crate::{
-    email::error::Error,
-    envelope::{Envelope, Envelopes},
-    maildir::MaildirContextSync,
-    AnyResult,
-};
+use async_trait::async_trait;
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 
 use super::WatchEnvelopes;
+use crate::{
+    debug,
+    email::error::Error,
+    envelope::{Envelope, Envelopes},
+    info,
+    maildir::MaildirContextSync,
+    trace, AnyResult,
+};
 
 pub struct WatchMaildirEnvelopes {
     ctx: MaildirContextSync,

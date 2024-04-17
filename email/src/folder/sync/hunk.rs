@@ -5,9 +5,8 @@
 
 use std::fmt;
 
-use crate::sync::SyncDestination;
-
 use super::*;
+use crate::sync::SyncDestination;
 
 /// Alias for the folder name.
 pub type FolderName = String;

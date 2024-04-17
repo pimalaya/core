@@ -1,3 +1,7 @@
+#![cfg(feature = "full")]
+
+use std::sync::Arc;
+
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::{Backend, BackendBuilder},
@@ -15,7 +19,6 @@ use email::{
 use email_testing_server::with_email_testing_server;
 use mail_builder::MessageBuilder;
 use secret::Secret;
-use std::sync::Arc;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_smtp_features() {

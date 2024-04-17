@@ -1,7 +1,8 @@
 pub mod config;
 mod error;
 
-use crate::{debug, info, warn};
+use std::{collections::HashSet, sync::Arc};
+
 use async_trait::async_trait;
 use futures::TryFutureExt;
 use mail_parser::{Addr, Address, HeaderName, HeaderValue, Message, MessageParser};
@@ -9,23 +10,22 @@ use mail_send::{
     smtp::message::{Address as SmtpAddress, IntoMessage, Message as SmtpMessage},
     SmtpClientBuilder,
 };
-use std::{collections::HashSet, sync::Arc};
 use tokio::{net::TcpStream, sync::Mutex};
 use tokio_rustls::client::TlsStream;
 
+use self::config::{SmtpAuthConfig, SmtpConfig};
+#[doc(inline)]
+pub use self::error::{Error, Result};
 use crate::{
     account::config::AccountConfig,
     backend::{
         context::{BackendContext, BackendContextBuilder},
         feature::{BackendFeature, CheckUp},
     },
+    debug, info,
     message::send::{smtp::SendSmtpMessage, SendMessage},
-    AnyResult,
+    warn, AnyResult,
 };
-
-use self::config::{SmtpAuthConfig, SmtpConfig};
-#[doc(inline)]
-pub use self::error::{Error, Result};
 
 /// The SMTP backend context.
 ///

@@ -20,23 +20,23 @@ pub mod notmuch;
 pub mod sync;
 pub mod watch;
 
-use crate::debug;
-use chrono::{DateTime, FixedOffset, Local};
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     ops::{Deref, DerefMut},
     vec,
 };
 
-use crate::{
-    account::config::AccountConfig, date::from_mail_parser_to_chrono_datetime, message::Message,
-};
+use chrono::{DateTime, FixedOffset, Local};
 
 #[doc(inline)]
 pub use self::{
     address::Address,
     flag::{Flag, Flags},
     id::{Id, MultipleIds, SingleId},
+};
+use crate::{
+    account::config::AccountConfig, date::from_mail_parser_to_chrono_datetime, debug,
+    message::Message,
 };
 
 /// The email envelope.
@@ -236,8 +236,8 @@ impl Hash for Envelope {
 pub struct Envelopes(Vec<Envelope>);
 
 impl IntoIterator for Envelopes {
-    type Item = Envelope;
     type IntoIter = vec::IntoIter<Self::Item>;
+    type Item = Envelope;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()

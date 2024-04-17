@@ -3,15 +3,15 @@
 //! This module contains the implementation of the IMAP backend and
 //! all associated structures related to it.
 
-use imap::ConnectionMode;
 use std::fmt;
 #[cfg(feature = "derive")]
 use std::{marker::PhantomData, result};
 
-use crate::account::config::{oauth2::OAuth2Config, passwd::PasswdConfig};
+use imap::ConnectionMode;
 
 #[doc(inline)]
 use super::{Error, Result};
+use crate::account::config::{oauth2::OAuth2Config, passwd::PasswdConfig};
 
 /// Errors related to the IMAP backend configuration.
 

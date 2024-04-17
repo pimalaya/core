@@ -16,7 +16,6 @@ pub mod set;
 #[cfg(feature = "account-sync")]
 pub mod sync;
 
-use crate::debug;
 use std::{
     collections::BTreeSet,
     fmt,
@@ -25,11 +24,10 @@ use std::{
     str::FromStr,
 };
 
-use crate::email::error::Error;
-
 #[cfg(feature = "account-sync")]
 #[doc(inline)]
 pub use self::sync::sync;
+use crate::{debug, email::error::Error};
 
 /// The email envelope flag.
 ///
@@ -102,7 +100,7 @@ impl FromStr for Flag {
             trashed if trashed.eq_ignore_ascii_case("trashed") => Ok(Flag::Deleted),
             draft if draft.eq_ignore_ascii_case("draft") => Ok(Flag::Draft),
             drafts if drafts.eq_ignore_ascii_case("drafts") => Ok(Flag::Draft),
-            unknown => Err(Error::ParseFlagError(unknown.to_string()).into()),
+            unknown => Err(Error::ParseFlagError(unknown.to_string())),
         }
     }
 }

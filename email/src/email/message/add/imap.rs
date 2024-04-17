@@ -1,11 +1,11 @@
-use crate::{debug, info};
 use async_trait::async_trait;
 use imap_proto::UidSetMember;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::SingleId, imap::ImapContextSync, AnyResult};
-
 use super::{AddMessage, Flags};
+use crate::{
+    debug, email::error::Error, envelope::SingleId, imap::ImapContextSync, info, AnyResult,
+};
 
 #[derive(Clone, Debug)]
 pub struct AddImapMessage {

@@ -4,11 +4,11 @@ pub mod imap;
 #[cfg(feature = "maildir")]
 pub mod maildir;
 
-use crate::debug;
-use async_trait::async_trait;
 use std::collections::HashMap;
 
-use crate::{account::config::AccountConfig, envelope::Envelope, AnyResult};
+use async_trait::async_trait;
+
+use crate::{account::config::AccountConfig, debug, envelope::Envelope, AnyResult};
 
 #[async_trait]
 pub trait WatchEnvelopes: Send + Sync {

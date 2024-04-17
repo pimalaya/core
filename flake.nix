@@ -16,7 +16,7 @@
         pkgs = import nixpkgs { inherit system; };
         rust-toolchain = fenix.packages.${system}.fromToolchainFile {
           file = ./rust-toolchain.toml;
-          sha256 = "3St/9/UKo/6lz2Kfq2VmlzHyufduALpiIKaaKX4Pq0g=";
+          sha256 = "+syqAd2kX8KVa8/U2gz3blIQTTsYYt3U63xBWaGOSc8=";
         };
       in
       {
@@ -24,7 +24,7 @@
           nativeBuildInputs = with pkgs; [ pkg-config ];
           buildInputs = with pkgs; [
             # Nix env
-            rnix-lsp
+            nil
             nixpkgs-fmt
 
             # Rust env

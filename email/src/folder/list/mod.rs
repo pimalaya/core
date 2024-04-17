@@ -8,9 +8,8 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 
-use crate::AnyResult;
-
 use super::Folders;
+use crate::AnyResult;
 
 #[async_trait]
 pub trait ListFolders: Send + Sync {

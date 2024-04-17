@@ -7,9 +7,8 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 
-use crate::{envelope::Id, AnyResult};
-
 use super::{Flag, Flags};
+use crate::{envelope::Id, AnyResult};
 
 #[async_trait]
 pub trait AddFlags: Send + Sync {

@@ -12,20 +12,19 @@
 
 mod error;
 
-use crate::debug;
-use async_trait::async_trait;
-use futures::{lock::Mutex, stream::FuturesUnordered, Future, StreamExt};
 use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll, Waker},
 };
-use tokio::{sync::mpsc, task::JoinHandle};
 
-use crate::AnyResult;
+use async_trait::async_trait;
+use futures::{lock::Mutex, stream::FuturesUnordered, Future, StreamExt};
+use tokio::{sync::mpsc, task::JoinHandle};
 
 #[doc(inline)]
 pub use self::error::{Error, Result};
+use crate::{debug, AnyResult};
 
 /// The thread pool task.
 pub type ThreadPoolTask<C> =
@@ -40,12 +39,7 @@ pub struct ThreadPoolTaskResolver<T>(Arc<Mutex<ThreadPoolTaskResolverState<T>>>)
 impl<T> ThreadPoolTaskResolver<T> {
     /// Create a new task resolver with an empty state.
     pub fn new() -> Self {
-        let state = ThreadPoolTaskResolverState {
-            output: None,
-            waker: None,
-        };
-
-        Self(Arc::new(Mutex::new(state)))
+        Default::default()
     }
 
     /// Resolves the given task.
@@ -59,6 +53,17 @@ impl<T> ThreadPoolTaskResolver<T> {
         if let Some(waker) = state.waker.take() {
             waker.wake()
         }
+    }
+}
+
+impl<T> Default for ThreadPoolTaskResolver<T> {
+    fn default() -> Self {
+        let state = ThreadPoolTaskResolverState {
+            output: None,
+            waker: None,
+        };
+
+        Self(Arc::new(Mutex::new(state)))
     }
 }
 

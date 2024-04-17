@@ -6,16 +6,16 @@ pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;
 
-use async_trait::async_trait;
 use std::cmp::Ordering;
 
+use async_trait::async_trait;
+
+use super::{Envelope, Envelopes};
 use crate::{
     email::search_query::SearchEmailsQuery,
     search_query::sort::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder},
     AnyResult,
 };
-
-use super::{Envelope, Envelopes};
 
 #[async_trait]
 pub trait ListEnvelopes: Send + Sync {

@@ -1,14 +1,14 @@
-use crate::{debug, trace};
 use imap::types::{Name, Names};
 use imap_proto::NameAttribute;
 use utf7_imap::decode_utf7_imap as decode_utf7;
 
+use super::FolderKind;
 use crate::{
     account::config::AccountConfig,
+    debug,
     folder::{Folder, Folders},
+    trace,
 };
-
-use super::FolderKind;
 
 impl Folder {
     /// Parse a folder from an IMAP name.

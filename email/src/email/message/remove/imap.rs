@@ -1,10 +1,10 @@
-use crate::{debug, info};
 use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::Id, flag::Flag, imap::ImapContextSync, AnyResult};
-
 use super::RemoveMessages;
+use crate::{
+    debug, email::error::Error, envelope::Id, flag::Flag, imap::ImapContextSync, info, AnyResult,
+};
 
 #[derive(Clone)]
 pub struct RemoveImapMessages {

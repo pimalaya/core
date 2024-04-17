@@ -1,9 +1,7 @@
-use crate::info;
 use async_trait::async_trait;
 
-use crate::{smtp::SmtpContextSync, AnyResult};
-
 use super::SendMessage;
+use crate::{info, smtp::SmtpContextSync, AnyResult};
 
 #[derive(Clone)]
 pub struct SendSmtpMessage {

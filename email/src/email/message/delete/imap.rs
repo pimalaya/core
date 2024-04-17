@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 
+use super::{DefaultDeleteMessages, DeleteMessages};
 use crate::{
     account::config::{AccountConfig, HasAccountConfig},
     envelope::Id,
@@ -11,8 +12,6 @@ use crate::{
     message::r#move::{imap::MoveImapMessages, MoveMessages},
     AnyResult,
 };
-
-use super::{DefaultDeleteMessages, DeleteMessages};
 
 #[derive(Clone)]
 pub struct DeleteImapMessages {

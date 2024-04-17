@@ -1,16 +1,16 @@
-use crate::{debug, info, trace};
 use async_trait::async_trait;
 use chrono::TimeDelta;
 
+use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 use crate::{
+    debug,
     email::error::Error,
     folder::FolderKind,
+    info,
     notmuch::NotmuchContextSync,
     search_query::{filter::SearchEmailsFilterQuery, SearchEmailsQuery},
-    AnyResult,
+    trace, AnyResult,
 };
-
-use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 
 #[derive(Clone)]
 pub struct ListNotmuchEnvelopes {

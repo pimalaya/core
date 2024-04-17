@@ -8,13 +8,12 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 
+use super::{peek::PeekMessages, Messages};
 use crate::{
     envelope::Id,
     flag::{add::AddFlags, Flag},
     AnyResult,
 };
-
-use super::{peek::PeekMessages, Messages};
 
 /// Get messages eature.
 #[async_trait]

@@ -3,15 +3,16 @@
 //! This module contains folder-related mapping functions from the
 //! [maildirpp] crate types.
 
-use crate::{debug, trace};
+use std::ffi::OsStr;
+
 use maildirpp::{Maildir, Submaildirs};
 use rayon::prelude::*;
-use std::ffi::OsStr;
 
 use crate::{
     account::config::AccountConfig,
+    debug,
     folder::{Folder, Folders},
-    maildir,
+    maildir, trace,
 };
 
 impl Folder {

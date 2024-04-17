@@ -1,11 +1,10 @@
-use crate::{debug, info};
 use async_trait::async_trait;
 
-use crate::{
-    email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync, AnyResult,
-};
-
 use super::{Flags, RemoveFlags};
+use crate::{
+    debug, email::error::Error, envelope::Id, folder::FolderKind, info,
+    notmuch::NotmuchContextSync, AnyResult,
+};
 
 #[derive(Clone)]
 pub struct RemoveNotmuchFlags {

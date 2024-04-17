@@ -3,13 +3,14 @@
 //! This module contains everything related to OAuth 2.0
 //! configuration.
 
-use crate::debug;
+use std::{io, net::TcpListener, vec};
+
 use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use secret::Secret;
-use std::{io, net::TcpListener, vec};
 
 #[doc(inline)]
 pub use super::{Error, Result};
+use crate::debug;
 
 /// The OAuth 2.0 configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -74,7 +75,7 @@ impl OAuth2Config {
     pub fn get_first_available_port() -> Result<u16> {
         (49_152..65_535)
             .find(|port| TcpListener::bind((OAuth2Config::LOCALHOST, *port)).is_ok())
-            .ok_or(Error::GetAvailablePortError.into())
+            .ok_or(Error::GetAvailablePortError)
     }
 
     /// Resets the three secrets of the OAuth 2.0 configuration.
@@ -226,7 +227,7 @@ impl OAuth2Config {
         self.access_token
             .get()
             .await
-            .map_err(|err| Error::GetAccessTokenOauthError(err).into())
+            .map_err(Error::GetAccessTokenOauthError)
     }
 }
 
@@ -265,8 +266,8 @@ impl Default for OAuth2Scopes {
 }
 
 impl IntoIterator for OAuth2Scopes {
-    type Item = String;
     type IntoIter = vec::IntoIter<Self::Item>;
+    type Item = String;
 
     fn into_iter(self) -> Self::IntoIter {
         match self {

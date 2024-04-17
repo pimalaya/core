@@ -8,23 +8,23 @@ pub mod hunk;
 pub mod patch;
 pub mod report;
 
-use crate::{debug, trace};
-use futures::{stream::FuturesUnordered, StreamExt};
 use std::{collections::HashSet, sync::Arc};
 
-use crate::{
-    backend::context::BackendContextBuilder,
-    sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
-    thread_pool::ThreadPool,
-};
+use futures::{stream::FuturesUnordered, StreamExt};
 
+use self::{hunk::FolderSyncHunk, report::FolderSyncReport};
 use super::{
     add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders, Folder,
 };
 #[doc(inline)]
 pub use super::{Error, Result};
-
-use self::{hunk::FolderSyncHunk, report::FolderSyncReport};
+use crate::{
+    backend::context::BackendContextBuilder,
+    debug,
+    sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
+    thread_pool::ThreadPool,
+    trace,
+};
 
 pub(crate) async fn sync<L, R>(
     pool: Arc<ThreadPool<SyncPoolContext<L::Context, R::Context>>>,

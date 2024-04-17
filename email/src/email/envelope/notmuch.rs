@@ -3,9 +3,8 @@
 //! This module contains envelope-related mapping functions from the
 //! [notmuch] crate types.
 
-use crate::debug;
-
 use crate::{
+    debug,
     envelope::{Envelope, Envelopes},
     flag::Flags,
     message::Message,

@@ -1,11 +1,11 @@
-use crate::info;
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::{email::error::Error, envelope::SingleId, notmuch::NotmuchContextSync, AnyResult};
-
 use super::{AddMessage, Flags};
+use crate::{
+    email::error::Error, envelope::SingleId, info, notmuch::NotmuchContextSync, AnyResult,
+};
 
 static EXTRACT_FOLDER_FROM_QUERY: Lazy<Regex> =
     Lazy::new(|| Regex::new("folder:\"?([^\"]*)\"?").unwrap());

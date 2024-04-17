@@ -1,10 +1,8 @@
-use crate::{debug, info};
 use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{email::error::Error, envelope::Id, imap::ImapContextSync, AnyResult};
-
 use super::{Flags, RemoveFlags};
+use crate::{debug, email::error::Error, envelope::Id, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct RemoveImapFlags {

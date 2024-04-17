@@ -4,9 +4,11 @@
 //! envelopes or sending message. A feature needs a backend context to
 //! be executed.
 
-use async_trait::async_trait;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
+use super::{context::BackendContext, AnyResult};
 use crate::{
     account::config::HasAccountConfig,
     envelope::{get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes},
@@ -20,8 +22,6 @@ use crate::{
         peek::PeekMessages, r#move::MoveMessages, send::SendMessage,
     },
 };
-
-use super::{context::BackendContext, AnyResult};
 
 /// Backend builder feature for checking up configuration and context
 /// integrity.

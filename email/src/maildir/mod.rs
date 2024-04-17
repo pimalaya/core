@@ -1,13 +1,16 @@
 pub mod config;
 mod error;
 
-use crate::info;
+use std::{ops::Deref, path::PathBuf, sync::Arc};
+
 use async_trait::async_trait;
 use maildirpp::Maildir;
 use shellexpand_utils::{shellexpand_path, try_shellexpand_path};
-use std::{ops::Deref, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 
+use self::config::MaildirConfig;
+#[doc(inline)]
+pub use self::error::{Error, Result};
 use crate::{
     account::config::AccountConfig,
     backend::{
@@ -31,6 +34,7 @@ use crate::{
         list::{maildir::ListMaildirFolders, ListFolders},
         FolderKind,
     },
+    info,
     message::{
         add::{maildir::AddMaildirMessage, AddMessage},
         copy::{maildir::CopyMaildirMessages, CopyMessages},
@@ -42,10 +46,6 @@ use crate::{
     },
     AnyResult,
 };
-
-use self::config::MaildirConfig;
-#[doc(inline)]
-pub use self::error::{Error, Result};
 
 /// The Maildir backend context.
 ///

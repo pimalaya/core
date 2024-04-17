@@ -1,3 +1,5 @@
+#![cfg(feature = "pgp-native")]
+
 use mml::{
     pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
     MmlCompilerBuilder,

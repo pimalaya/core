@@ -3,9 +3,15 @@
 //! A [`BackendPool`] allows you to execute batches of features in
 //! parallel.
 
-use async_trait::async_trait;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
+use super::{
+    context::{BackendContext, BackendContextBuilder},
+    feature::BackendFeature,
+    AsyncTryIntoBackendFeatures, BackendBuilder, Error,
+};
 use crate::{
     account::config::{AccountConfig, HasAccountConfig},
     envelope::{
@@ -25,12 +31,6 @@ use crate::{
     },
     thread_pool::{ThreadPool, ThreadPoolBuilder, ThreadPoolContext, ThreadPoolContextBuilder},
     AnyResult,
-};
-
-use super::{
-    context::{BackendContext, BackendContextBuilder},
-    feature::BackendFeature,
-    AsyncTryIntoBackendFeatures, BackendBuilder, Error,
 };
 
 /// The backend pool.

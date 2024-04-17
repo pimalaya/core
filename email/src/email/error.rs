@@ -1,5 +1,6 @@
-use chumsky::error::Rich;
 use std::{any::Any, io, path::PathBuf, result};
+
+use chumsky::error::Rich;
 use thiserror::Error;
 use tokio::task::JoinError;
 

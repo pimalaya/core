@@ -1,15 +1,14 @@
-use crate::{debug, info};
 use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
+use super::{Envelope, GetEnvelope};
 use crate::{
+    debug,
     email::error::Error,
     envelope::{list::imap::LIST_ENVELOPES_QUERY, Id},
     imap::ImapContextSync,
-    AnyResult,
+    info, AnyResult,
 };
-
-use super::{Envelope, GetEnvelope};
 
 #[derive(Clone, Debug)]
 pub struct GetImapEnvelope {

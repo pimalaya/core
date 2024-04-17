@@ -1,17 +1,17 @@
-use crate::{debug, info};
+use std::{collections::HashMap, time::Duration};
+
 use async_trait::async_trait;
 use imap::extensions::idle::stop_on_any;
-use std::{collections::HashMap, time::Duration};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
+use super::WatchEnvelopes;
 use crate::{
+    debug,
     email::error::Error,
     envelope::{list::imap::LIST_ENVELOPES_QUERY, Envelope, Envelopes},
     imap::ImapContextSync,
-    AnyResult,
+    info, AnyResult,
 };
-
-use super::WatchEnvelopes;
 
 #[derive(Clone, Debug)]
 pub struct WatchImapEnvelopes {
@@ -82,7 +82,7 @@ impl WatchEnvelopes for WatchImapEnvelopes {
 
                     idle.wait_while(stop_on_any)
                 },
-                |err| Error::RunIdleModeImapError(err),
+                Error::RunIdleModeImapError,
             )
             .await?;
 

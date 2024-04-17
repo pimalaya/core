@@ -26,9 +26,9 @@ pub mod purge;
 #[cfg(feature = "account-sync")]
 pub mod sync;
 
-use std::hash::Hash;
 use std::{
     fmt,
+    hash::Hash,
     ops::{Deref, DerefMut},
     str::FromStr,
 };

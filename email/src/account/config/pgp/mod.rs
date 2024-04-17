@@ -8,11 +8,9 @@ pub mod gpg;
 #[cfg(feature = "pgp-native")]
 pub mod native;
 
-use mml::pgp::Pgp;
 use std::io;
 
-#[doc(inline)]
-pub use super::{Error, Result};
+use mml::pgp::Pgp;
 
 #[cfg(feature = "pgp-commands")]
 #[doc(inline)]
@@ -23,6 +21,8 @@ pub use self::gpg::GpgConfig;
 #[cfg(feature = "pgp-native")]
 #[doc(inline)]
 pub use self::native::NativePgpConfig;
+#[doc(inline)]
+pub use super::{Error, Result};
 
 /// The PGP configuration.
 #[derive(Clone, Debug, Eq, PartialEq)]

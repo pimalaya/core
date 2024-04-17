@@ -3,9 +3,14 @@
 //! This module contains [`BackendContextBuilder`] helpers to map
 //! features from a subcontext B to a context A.
 
-use paste::paste;
 use std::sync::Arc;
 
+use paste::paste;
+
+use super::{
+    context::{BackendContext, BackendContextBuilder},
+    feature::{BackendFeature, CheckUp},
+};
 use crate::{
     envelope::{get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
@@ -17,11 +22,6 @@ use crate::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
         peek::PeekMessages, r#move::MoveMessages, send::SendMessage,
     },
-};
-
-use super::{
-    context::{BackendContext, BackendContextBuilder},
-    feature::{BackendFeature, CheckUp},
 };
 
 /// Macro for defining some [`BackendContextBuilder`] feature mapper.

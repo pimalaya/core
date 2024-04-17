@@ -1,10 +1,8 @@
-use crate::{debug, info};
 use async_trait::async_trait;
 use mail_parser::MessageParser;
 
-use crate::{email::error::Error, sendmail::SendmailContextSync, AnyResult};
-
 use super::SendMessage;
+use crate::{debug, email::error::Error, info, sendmail::SendmailContextSync, AnyResult};
 
 #[derive(Clone)]
 pub struct SendSendmailMessage {

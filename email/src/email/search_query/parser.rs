@@ -56,10 +56,7 @@ pub type ParserError<'a> = extra::Err<Rich<'a, char>>;
 ///
 /// ```abnf,ignore
 /// query = filter-query / "order by" SP sort-query / filter-query SP "order by" SP sort-query
-///
-///
 #[doc = include_str!("./filter/grammar.abnf")]
-///
 ///
 #[doc = include_str!("./sort/grammar.abnf")]
 /// ```

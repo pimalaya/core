@@ -6,6 +6,8 @@
 
 pub mod config;
 
+use std::sync::Arc;
+
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
@@ -13,13 +15,10 @@ use mail_builder::{
 use mml::MimeInterpreterBuilder;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::sync::Arc;
-
-use crate::{account::config::AccountConfig, email::error::Error, message::Message};
 
 use self::config::{ForwardTemplatePostingStyle, ForwardTemplateSignatureStyle};
-
 use super::{Template, TemplateBody, TemplateCursor};
+use crate::{account::config::AccountConfig, email::error::Error, message::Message};
 
 /// Regex used to trim out prefix(es) from a subject.
 ///
@@ -309,12 +308,12 @@ impl<'a> ForwardTemplateBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use concat_with::concat_line;
     use std::sync::Arc;
 
-    use crate::{account::config::AccountConfig, message::Message, template::Template};
+    use concat_with::concat_line;
 
     use super::ForwardTemplateBuilder;
+    use crate::{account::config::AccountConfig, message::Message, template::Template};
 
     #[tokio::test]
     async fn default() {

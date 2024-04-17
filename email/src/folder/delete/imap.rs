@@ -1,10 +1,8 @@
-use crate::{debug, info};
 use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use crate::{folder::error::Error, imap::ImapContextSync, AnyResult};
-
 use super::DeleteFolder;
+use crate::{debug, folder::error::Error, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Debug)]
 pub struct DeleteImapFolder {

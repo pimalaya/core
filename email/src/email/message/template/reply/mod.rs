@@ -5,6 +5,8 @@
 
 pub mod config;
 
+use std::sync::Arc;
+
 use mail_builder::{
     headers::{address::Address, raw::Raw},
     MessageBuilder,
@@ -13,17 +15,14 @@ use mail_parser::{Addr, HeaderValue};
 use mml::MimeInterpreterBuilder;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::sync::Arc;
 
+use self::config::{ReplyTemplatePostingStyle, ReplyTemplateSignatureStyle};
+use super::{Template, TemplateBody, TemplateCursor};
 use crate::{
     account::config::AccountConfig,
     email::{address, error::Error},
     message::Message,
 };
-
-use self::config::{ReplyTemplatePostingStyle, ReplyTemplateSignatureStyle};
-
-use super::{Template, TemplateBody, TemplateCursor};
 
 /// Regex used to trim out prefix(es) from a subject.
 ///
@@ -355,15 +354,15 @@ impl<'a> ReplyTemplateBuilder<'a> {
                             continue;
                         }
 
-                        if address::contains(&reply_to, &a.address) {
+                        if address::contains(reply_to, &a.address) {
                             continue;
                         }
 
-                        if address::contains(&from, &a.address) {
+                        if address::contains(from, &a.address) {
                             continue;
                         }
 
-                        if address::contains(&sender, &a.address) {
+                        if address::contains(sender, &a.address) {
                             continue;
                         }
 
@@ -532,8 +531,9 @@ impl<'a> ReplyTemplateBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use concat_with::concat_line;
     use std::sync::Arc;
+
+    use concat_with::concat_line;
 
     use crate::{
         account::config::AccountConfig,

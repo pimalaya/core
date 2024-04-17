@@ -26,20 +26,20 @@ pub mod config;
 pub mod dns;
 pub mod http;
 
-use crate::{debug, trace};
+use std::str::FromStr;
+
 use email_address::EmailAddress;
 use futures::{future::select_ok, FutureExt};
 use hyper::Uri;
-use std::str::FromStr;
 
+use self::{config::AutoConfig, dns::DnsClient, http::HttpClient};
 use super::discover::config::{
     AuthenticationType, EmailProvider, EmailProviderProperty, SecurityType, Server, ServerProperty,
     ServerType,
 };
 #[doc(inline)]
 pub use super::{Error, Result};
-
-use self::{config::AutoConfig, dns::DnsClient, http::HttpClient};
+use crate::{debug, trace};
 
 /// Discover configuration associated to a given email address using
 /// ISP locations then DNS, as described in the Mozilla [wiki].

@@ -2,15 +2,16 @@
 //!
 //! This module contains everything related to password configuration.
 
-use crate::debug;
-use secret::Secret;
 use std::{
     io,
     ops::{Deref, DerefMut},
 };
 
+use secret::Secret;
+
 #[doc(inline)]
 pub use super::{Error, Result};
+use crate::debug;
 
 /// The password configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -62,7 +63,7 @@ impl PasswdConfig {
                 Ok(())
             }
             Ok(_) => Ok(()),
-            Err(err) => Err(Error::GetFromKeyringError(err).into()),
+            Err(err) => Err(Error::GetFromKeyringError(err)),
         }
     }
 }

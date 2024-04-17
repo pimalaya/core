@@ -8,14 +8,13 @@
 
 pub mod config;
 
+#[doc(inline)]
+pub use super::{Error, Result};
 use crate::{
     backend::{context::BackendContextBuilder, BackendBuilder},
     maildir::MaildirContextBuilder,
     sync::{hash::SyncHash, SyncBuilder},
 };
-
-#[doc(inline)]
-pub use super::{Error, Result};
 
 /// The account synchronization builder.
 ///

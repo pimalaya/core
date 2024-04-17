@@ -1,0 +1,8 @@
+# Not yet stable
+#
+# group_imports = "StdExternalCrate"
+# imports_granularity = "Crate"
+# imports_layout = "Horizontal"
+# normalize_comments = true
+# normalize_doc_attributes = true
+# reorder_impl_items = true

@@ -1,5 +1,6 @@
-use advisory_lock::FileLockError;
 use std::{io, path::PathBuf, result};
+
+use advisory_lock::FileLockError;
 use thiserror::Error;
 
 use crate::{email, folder, thread_pool, AnyBoxedError};

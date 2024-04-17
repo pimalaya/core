@@ -7,9 +7,8 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 
-use crate::AnyResult;
-
 use super::{Envelope, Id};
+use crate::AnyResult;
 
 #[async_trait]
 pub trait GetEnvelope: Send + Sync {

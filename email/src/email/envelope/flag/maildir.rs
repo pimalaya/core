@@ -3,11 +3,10 @@
 //! This module contains flag-related mapping functions from the
 //! [maildirpp] crate types.
 
-use crate::email::error::Error;
+use maildirpp::MailEntry;
 
 use super::{Flag, Flags};
-use crate::debug;
-use maildirpp::MailEntry;
+use crate::{debug, email::error::Error};
 
 impl Flag {
     pub fn try_from_mdir_char(c: char) -> Result<Self, Error> {
@@ -17,7 +16,7 @@ impl Flag {
             't' | 'T' => Ok(Flag::Deleted),
             'd' | 'D' => Ok(Flag::Draft),
             'f' | 'F' => Ok(Flag::Flagged),
-            unknown => Err(Error::ParseFlagMaildirError(unknown).into()),
+            unknown => Err(Error::ParseFlagMaildirError(unknown)),
         }
     }
 

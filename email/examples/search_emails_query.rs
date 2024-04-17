@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use chrono::NaiveDate;
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
@@ -15,7 +17,6 @@ use email::{
 };
 use email_testing_server::with_email_testing_server;
 use secret::Secret;
-use std::sync::Arc;
 
 #[tokio::main]
 pub async fn main() {

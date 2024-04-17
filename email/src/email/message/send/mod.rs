@@ -6,9 +6,8 @@ pub mod smtp;
 
 use async_trait::async_trait;
 
-use crate::{account::config::HasAccountConfig, flag::Flag, folder::SENT, AnyResult};
-
 use super::add::AddMessage;
+use crate::{account::config::HasAccountConfig, flag::Flag, folder::SENT, AnyResult};
 
 #[async_trait]
 pub trait SendMessage: Send + Sync {

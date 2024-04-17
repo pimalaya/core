@@ -7,9 +7,8 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 
-use crate::{envelope::Id, AnyResult};
-
 use super::Messages;
+use crate::{envelope::Id, AnyResult};
 
 #[async_trait]
 pub trait PeekMessages: Send + Sync {

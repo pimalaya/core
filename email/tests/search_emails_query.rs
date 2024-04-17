@@ -1,3 +1,7 @@
+#![cfg(feature = "full")]
+
+use std::{iter::FromIterator, sync::Arc};
+
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
     backend::{Backend, BackendBuilder},
@@ -19,7 +23,6 @@ use email::{
 use email_testing_server::start_email_testing_server;
 use mail_builder::MessageBuilder;
 use secret::Secret;
-use std::{iter::FromIterator, sync::Arc};
 use tempfile::tempdir;
 
 #[tokio::test(flavor = "multi_thread")]

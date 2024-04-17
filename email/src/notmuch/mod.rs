@@ -1,14 +1,17 @@
 pub mod config;
 mod error;
 
-use crate::info;
+use std::{hash::Hash, ops::Deref, sync::Arc};
+
 use async_trait::async_trait;
 use maildirpp::Maildir;
 use notmuch::{Database, DatabaseMode};
 use shellexpand_utils::shellexpand_path;
-use std::{hash::Hash, ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
+use self::config::NotmuchConfig;
+#[doc(inline)]
+pub use self::error::{Error, Result};
 use crate::{
     account::config::AccountConfig,
     backend::{
@@ -28,6 +31,7 @@ use crate::{
         add::{notmuch::AddNotmuchFolder, AddFolder},
         list::{notmuch::ListNotmuchFolders, ListFolders},
     },
+    info,
     maildir::{config::MaildirConfig, MaildirContext},
     message::{
         add::{notmuch::AddNotmuchMessage, AddMessage},
@@ -40,10 +44,6 @@ use crate::{
     },
     AnyResult,
 };
-
-use self::config::NotmuchConfig;
-#[doc(inline)]
-pub use self::error::{Error, Result};
 
 /// The Notmuch backend context.
 ///

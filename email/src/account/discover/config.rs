@@ -5,8 +5,9 @@
 //!
 //! [Autoconfiguration]: https://wiki.mozilla.org/Thunderbird:Autoconfiguration:ConfigFileFormat
 
-use serde::Deserialize;
 use std::time::Duration;
+
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

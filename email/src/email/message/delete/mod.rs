@@ -8,6 +8,7 @@ pub mod notmuch;
 
 use async_trait::async_trait;
 
+use super::r#move::MoveMessages;
 use crate::{
     account::config::HasAccountConfig,
     envelope::Id,
@@ -15,8 +16,6 @@ use crate::{
     folder::TRASH,
     AnyResult,
 };
-
-use super::r#move::MoveMessages;
 
 /// eature to delete message(s).
 #[async_trait]

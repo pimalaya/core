@@ -7,9 +7,8 @@
 
 use chumsky::prelude::*;
 
-use crate::search_query::parser::ParserError;
-
 use super::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder};
+use crate::search_query::parser::ParserError;
 
 /// The emails search sort query string parser.
 ///

@@ -1,17 +1,17 @@
-use crate::info;
-use async_trait::async_trait;
 use std::fs;
 
+use async_trait::async_trait;
+
+use super::CopyMessages;
 use crate::{
     email::error::Error,
     envelope::Id,
     flag::{Flag, Flags},
     folder::FolderKind,
+    info,
     notmuch::NotmuchContextSync,
     AnyResult,
 };
-
-use super::CopyMessages;
 
 #[derive(Clone)]
 pub struct CopyNotmuchMessages {

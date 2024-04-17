@@ -1,9 +1,7 @@
-use crate::info;
 use async_trait::async_trait;
 
-use crate::{email::error::Error, envelope::Id, maildir::MaildirContextSync, AnyResult};
-
 use super::{AddFlags, Flags};
+use crate::{email::error::Error, envelope::Id, info, maildir::MaildirContextSync, AnyResult};
 
 #[derive(Clone)]
 pub struct AddMaildirFlags {

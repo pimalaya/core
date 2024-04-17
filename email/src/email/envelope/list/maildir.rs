@@ -1,17 +1,18 @@
-use crate::{debug, info, trace, warn};
-use async_trait::async_trait;
-use mail_parser::MessageParser;
 use std::{fs, path::Path};
 
-use crate::{
-    email::error::Error,
-    envelope::Envelope,
-    maildir::MaildirContextSync,
-    search_query::{filter::SearchEmailsFilterQuery, SearchEmailsQuery},
-    AnyResult,
-};
+use async_trait::async_trait;
+use mail_parser::MessageParser;
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
+use crate::{
+    debug,
+    email::error::Error,
+    envelope::Envelope,
+    info,
+    maildir::MaildirContextSync,
+    search_query::{filter::SearchEmailsFilterQuery, SearchEmailsQuery},
+    trace, warn, AnyResult,
+};
 
 #[cfg(test)]
 static USER_TZ: &chrono::Utc = &chrono::Utc;

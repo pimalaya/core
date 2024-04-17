@@ -1,14 +1,14 @@
-use crate::info;
-use async_trait::async_trait;
 use std::fs;
 
+use async_trait::async_trait;
+
+use super::DeleteFolder;
 use crate::{
     folder::{error::Error, FolderKind},
+    info,
     maildir::{self, MaildirContextSync},
     AnyResult,
 };
-
-use super::DeleteFolder;
 
 pub struct DeleteMaildirFolder {
     ctx: MaildirContextSync,

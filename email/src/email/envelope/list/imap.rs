@@ -1,23 +1,24 @@
-use crate::{debug, info, trace};
+use std::{collections::HashMap, result};
+
 use async_trait::async_trait;
 use chrono::TimeDelta;
 use imap::extensions::sort::{SortCharset, SortCriterion};
-use std::{collections::HashMap, result};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
+use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 use crate::{
+    debug,
     email::error::Error,
     envelope::Envelope,
     imap::ImapContextSync,
+    info,
     search_query::{
         filter::SearchEmailsFilterQuery,
         sort::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder},
         SearchEmailsQuery,
     },
-    AnyResult,
+    trace, AnyResult,
 };
-
-use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 
 /// The IMAP query needed to retrieve everything we need to build an
 /// [envelope]: UID, flags and headers (Message-ID, From, To, Subject,
@@ -148,12 +149,12 @@ impl SearchEmailsQuery {
             .map(|f| f.to_imap_sort_query())
             .unwrap_or_default();
         let query = query.trim();
-        let query = if query.is_empty() {
+
+        if query.is_empty() {
             String::from("ALL")
         } else {
             query.to_owned()
-        };
-        query
+        }
     }
 
     pub fn to_imap_sort_criteria(&self) -> Vec<SortCriterion> {

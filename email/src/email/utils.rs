@@ -1,7 +1,8 @@
 //! Module dedicated to email utils.
 
-use crate::debug;
 use std::{env, fs, io, path::PathBuf};
+
+use crate::debug;
 
 /// Gets the local draft file path.
 pub fn local_draft_path() -> PathBuf {
@@ -19,9 +20,10 @@ pub fn remove_local_draft() -> io::Result<()> {
 
 /// Module dedicated to email address utils.
 pub(crate) mod address {
+    use std::borrow::Cow;
+
     use mail_builder::headers::address::Address as AddressBuilder;
     use mail_parser::{Address, HeaderValue};
-    use std::borrow::Cow;
 
     pub(crate) fn is_empty(header: &HeaderValue) -> bool {
         match header {

@@ -1,6 +1,10 @@
-use async_trait::async_trait;
 use std::{collections::BTreeSet, sync::Arc};
 
+use async_trait::async_trait;
+
+#[doc(inline)]
+pub use super::{Error, Result};
+use super::{SyncDestination, SyncEventHandler};
 use crate::{
     backend::{
         context::{BackendContext, BackendContextBuilder},
@@ -19,10 +23,6 @@ use crate::{
     thread_pool::{ThreadPool, ThreadPoolBuilder, ThreadPoolContext, ThreadPoolContextBuilder},
     AnyResult,
 };
-
-#[doc(inline)]
-pub use super::{Error, Result};
-use super::{SyncDestination, SyncEventHandler};
 
 #[derive(Clone, Default)]
 pub struct SyncPoolConfig {

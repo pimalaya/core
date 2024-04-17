@@ -1,3 +1,10 @@
+#![cfg(feature = "full")]
+
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    sync::Arc,
+};
+
 use chrono::NaiveDate;
 use email::{
     account::config::AccountConfig,
@@ -22,11 +29,6 @@ use email::{
 };
 use mail_builder::MessageBuilder;
 use once_cell::sync::Lazy;
-use std::{
-    collections::HashMap,
-    collections::{BTreeMap, BTreeSet, HashSet},
-    sync::Arc,
-};
 use tempfile::tempdir;
 use tokio::sync::Mutex;
 

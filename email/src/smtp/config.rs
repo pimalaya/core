@@ -3,19 +3,21 @@
 //! This module contains the configuration specific to the SMTP
 //! sender.
 
-use crate::debug;
-use mail_send::Credentials;
 use std::{fmt, io};
 #[cfg(feature = "derive")]
 use std::{marker::PhantomData, result};
 
-use crate::account::config::{
-    oauth2::{OAuth2Config, OAuth2Method},
-    passwd::PasswdConfig,
-};
+use mail_send::Credentials;
 
 #[doc(inline)]
 pub use super::{Error, Result};
+use crate::{
+    account::config::{
+        oauth2::{OAuth2Config, OAuth2Method},
+        passwd::PasswdConfig,
+    },
+    debug,
+};
 
 /// The SMTP sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

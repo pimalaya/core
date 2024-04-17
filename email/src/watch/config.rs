@@ -1,6 +1,7 @@
+use std::{fmt, ops::Deref, pin::Pin, sync::Arc};
+
 use futures::Future;
 use process::Command;
-use std::{fmt, ops::Deref, pin::Pin, sync::Arc};
 
 use crate::envelope::Envelope;
 

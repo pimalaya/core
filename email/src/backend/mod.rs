@@ -42,7 +42,6 @@
 //! as manually implement backend features.
 //!
 //! See a full example at `../../tests/static_backend.rs`.
-//!
 //! ```rust,ignore
 #![doc = include_str!("../../tests/static_backend.rs")]
 //! ```
@@ -56,12 +55,21 @@ pub mod macros {
     pub use email_macros::BackendContext;
 }
 
-use async_trait::async_trait;
-use paste::paste;
 #[cfg(feature = "account-sync")]
 use std::hash::DefaultHasher;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use paste::paste;
+
+#[doc(inline)]
+pub use self::error::{Error, Result};
+use self::{
+    context::{BackendContext, BackendContextBuilder},
+    feature::{
+        AsyncTryIntoBackendFeatures, BackendFeature, BackendFeatureSource, BackendFeatures, CheckUp,
+    },
+};
 #[cfg(feature = "account-sync")]
 use crate::sync::hash::SyncHash;
 use crate::{
@@ -83,15 +91,6 @@ use crate::{
         Messages,
     },
     AnyResult,
-};
-
-#[doc(inline)]
-pub use self::error::{Error, Result};
-use self::{
-    context::{BackendContext, BackendContextBuilder},
-    feature::{
-        AsyncTryIntoBackendFeatures, BackendFeature, BackendFeatureSource, BackendFeatures, CheckUp,
-    },
 };
 
 /// The basic backend implementation.
@@ -520,6 +519,46 @@ impl<CB> BackendBuilder<CB>
 where
     CB: BackendContextBuilder,
 {
+    feature_accessors!(CheckUp);
+
+    feature_accessors!(AddFolder);
+
+    feature_accessors!(ListFolders);
+
+    feature_accessors!(ExpungeFolder);
+
+    feature_accessors!(PurgeFolder);
+
+    feature_accessors!(DeleteFolder);
+
+    feature_accessors!(GetEnvelope);
+
+    feature_accessors!(ListEnvelopes);
+
+    feature_accessors!(WatchEnvelopes);
+
+    feature_accessors!(AddFlags);
+
+    feature_accessors!(SetFlags);
+
+    feature_accessors!(RemoveFlags);
+
+    feature_accessors!(AddMessage);
+
+    feature_accessors!(SendMessage);
+
+    feature_accessors!(PeekMessages);
+
+    feature_accessors!(GetMessages);
+
+    feature_accessors!(CopyMessages);
+
+    feature_accessors!(MoveMessages);
+
+    feature_accessors!(DeleteMessages);
+
+    feature_accessors!(RemoveMessages);
+
     /// Create a new backend builder using the given backend context
     /// builder.
     ///
@@ -561,28 +600,6 @@ where
         self.set_list_folders(BackendFeatureSource::None);
         self
     }
-
-    feature_accessors!(CheckUp);
-
-    feature_accessors!(AddFolder);
-    feature_accessors!(ListFolders);
-    feature_accessors!(ExpungeFolder);
-    feature_accessors!(PurgeFolder);
-    feature_accessors!(DeleteFolder);
-    feature_accessors!(GetEnvelope);
-    feature_accessors!(ListEnvelopes);
-    feature_accessors!(WatchEnvelopes);
-    feature_accessors!(AddFlags);
-    feature_accessors!(SetFlags);
-    feature_accessors!(RemoveFlags);
-    feature_accessors!(AddMessage);
-    feature_accessors!(SendMessage);
-    feature_accessors!(PeekMessages);
-    feature_accessors!(GetMessages);
-    feature_accessors!(CopyMessages);
-    feature_accessors!(MoveMessages);
-    feature_accessors!(DeleteMessages);
-    feature_accessors!(RemoveMessages);
 
     /// Build the final backend.
     ///

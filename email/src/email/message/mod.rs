@@ -20,16 +20,14 @@ pub mod send;
 pub mod sync;
 pub mod template;
 
-use crate::debug;
+use std::{borrow::Cow, sync::Arc};
+
 #[cfg(feature = "imap")]
 use imap::types::{Fetch, Fetches};
 use mail_parser::{MessageParser, MimeHeaders};
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
-use std::{borrow::Cow, sync::Arc};
-
-use crate::{account::config::AccountConfig, email::error::Error};
 
 use self::{
     attachment::Attachment,
@@ -37,6 +35,7 @@ use self::{
         forward::ForwardTemplateBuilder, new::NewTemplateBuilder, reply::ReplyTemplateBuilder,
     },
 };
+use crate::{account::config::AccountConfig, debug, email::error::Error};
 
 /// The raw message wrapper.
 enum RawMessage<'a> {
@@ -246,7 +245,7 @@ impl TryFrom<Fetches> for Messages {
 
     fn try_from(fetches: Fetches) -> Result<Self, Error> {
         if fetches.is_empty() {
-            Err(Error::ParseEmailFromEmptyEntriesError.into())
+            Err(Error::ParseEmailFromEmptyEntriesError)
         } else {
             Ok(MessagesBuilder {
                 raw: RawMessages::Fetches(fetches),
@@ -263,7 +262,7 @@ impl TryFrom<Vec<MailEntry>> for Messages {
 
     fn try_from(entries: Vec<MailEntry>) -> Result<Self, Error> {
         if entries.is_empty() {
-            Err(Error::ParseEmailFromEmptyEntriesError.into())
+            Err(Error::ParseEmailFromEmptyEntriesError)
         } else {
             Ok(MessagesBuilder {
                 raw: RawMessages::MailEntries(entries),
@@ -276,8 +275,9 @@ impl TryFrom<Vec<MailEntry>> for Messages {
 
 #[cfg(test)]
 mod tests {
-    use concat_with::concat_line;
     use std::sync::Arc;
+
+    use concat_with::concat_line;
 
     use crate::{
         account::config::AccountConfig,

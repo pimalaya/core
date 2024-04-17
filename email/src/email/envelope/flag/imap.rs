@@ -3,12 +3,10 @@
 //! This module contains flag-related mapping functions from the
 //! [imap] crate types.
 
-use crate::debug;
 use imap::{self, types::Fetch};
 
-use crate::email::error::Error;
-
 use super::{Flag, Flags};
+use crate::{debug, email::error::Error};
 
 impl Flag {
     pub fn try_from_imap_flag(imap_flag: &imap::types::Flag) -> Result<Self, Error> {
@@ -18,7 +16,7 @@ impl Flag {
             imap::types::Flag::Flagged => Ok(Flag::Flagged),
             imap::types::Flag::Deleted => Ok(Flag::Deleted),
             imap::types::Flag::Draft => Ok(Flag::Draft),
-            unknown => Err(Error::ParseFlagImapError(unknown.to_string()).into()),
+            unknown => Err(Error::ParseFlagImapError(unknown.to_string())),
         }
     }
 

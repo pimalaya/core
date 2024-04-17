@@ -8,6 +8,7 @@
 use async_trait::async_trait;
 use paste::paste;
 
+use super::feature::{BackendFeature, CheckUp};
 use crate::{
     envelope::{get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
@@ -21,8 +22,6 @@ use crate::{
     },
     AnyResult,
 };
-
-use super::feature::{BackendFeature, CheckUp};
 
 /// The backend context.
 ///
@@ -93,16 +92,17 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     where
         Self: crate::sync::hash::SyncHash,
     {
-        use crate::debug;
-        use dirs::data_dir;
-        use shellexpand_utils::try_shellexpand_path;
         use std::{
             hash::{DefaultHasher, Hasher},
             sync::Arc,
         };
 
+        use dirs::data_dir;
+        use shellexpand_utils::try_shellexpand_path;
+
         use crate::{
             account::{config::AccountConfig, Error},
+            debug,
             maildir::{config::MaildirConfig, MaildirContextBuilder},
         };
 

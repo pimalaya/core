@@ -1,23 +1,23 @@
 pub mod config;
 mod error;
 
-use crate::info;
-use async_trait::async_trait;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
+use self::config::SendmailConfig;
+#[doc(inline)]
+pub use self::error::{Error, Result};
 use crate::{
     account::config::AccountConfig,
     backend::{
         context::{BackendContext, BackendContextBuilder},
         feature::{BackendFeature, CheckUp},
     },
+    info,
     message::send::{sendmail::SendSendmailMessage, SendMessage},
     AnyResult,
 };
-
-use self::config::SendmailConfig;
-#[doc(inline)]
-pub use self::error::{Error, Result};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SendmailContext {

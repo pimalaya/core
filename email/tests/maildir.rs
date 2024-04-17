@@ -1,3 +1,7 @@
+#![cfg(feature = "full")]
+
+use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
+
 use concat_with::concat_line;
 use email::{
     account::config::AccountConfig,
@@ -13,7 +17,6 @@ use email::{
 };
 use mail_builder::MessageBuilder;
 use maildirpp::Maildir;
-use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
 use tempfile::tempdir;
 
 #[tokio::test]

@@ -3,13 +3,13 @@
 //! This module contains everything needed to discover account using
 //! HTTP requests.
 
-use crate::trace;
 use hyper::{body::to_bytes, client::HttpConnector, Client, Uri};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
 use super::config::AutoConfig;
 #[doc(inline)]
 pub use super::{Error, Result};
+use crate::trace;
 
 /// Simple HTTP client using rustls connector.
 pub struct HttpClient {

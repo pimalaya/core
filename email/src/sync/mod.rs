@@ -9,10 +9,6 @@ pub mod hash;
 pub mod pool;
 pub mod report;
 
-use crate::{debug, trace};
-use advisory_lock::{AdvisoryFileLock, FileLockMode};
-use dirs::{cache_dir, runtime_dir};
-use once_cell::sync::Lazy;
 use std::{
     collections::{BTreeMap, BTreeSet},
     env, fmt,
@@ -24,8 +20,16 @@ use std::{
     sync::Arc,
 };
 
+use advisory_lock::{AdvisoryFileLock, FileLockMode};
+use dirs::{cache_dir, runtime_dir};
+use once_cell::sync::Lazy;
+
+#[doc(inline)]
+pub use self::error::{Error, Result};
+use self::{hash::SyncHash, report::SyncReport};
 use crate::{
     backend::{context::BackendContextBuilder, BackendBuilder},
+    debug,
     email::{self, sync::hunk::EmailSyncHunk},
     envelope::sync::config::EnvelopeSyncFilters,
     flag::sync::config::FlagSyncPermissions,
@@ -40,11 +44,8 @@ use crate::{
     maildir::{config::MaildirConfig, MaildirContextBuilder},
     message::sync::config::MessageSyncPermissions,
     sync::pool::SyncPoolConfig,
+    trace,
 };
-
-#[doc(inline)]
-pub use self::error::{Error, Result};
-use self::{hash::SyncHash, report::SyncReport};
 
 static RUNTIME_DIR: Lazy<PathBuf> = Lazy::new(|| {
     let dir = runtime_dir()

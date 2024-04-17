@@ -2,9 +2,8 @@
 //!
 //! The core structure of this module is the [`FolderSyncReport`].
 
-use crate::AnyBoxedError;
-
 use super::hunk::{FolderSyncHunk, FoldersName};
+use crate::AnyBoxedError;
 
 /// The folder synchronization report.
 #[derive(Debug, Default)]

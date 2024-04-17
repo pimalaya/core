@@ -1,3 +1,5 @@
+#![cfg(feature = "pgp-commands")]
+
 use mml::{
     pgp::{CmdsPgp, Pgp},
     MmlCompilerBuilder,

@@ -20,8 +20,9 @@ pub mod filter;
 pub mod parser;
 pub mod sort;
 
-use error::Error;
 use std::str::FromStr;
+
+use error::Error;
 
 use self::{filter::SearchEmailsFilterQuery, sort::SearchEmailsSortQuery};
 
@@ -76,10 +77,7 @@ pub struct SearchEmailsQuery {
 ///
 /// ```abnf,ignore
 /// query = filter-query / "order by" SP sort-query / filter-query SP "order by" SP sort-query
-///
-///
 #[doc = include_str!("./filter/grammar.abnf")]
-///
 ///
 #[doc = include_str!("./sort/grammar.abnf")]
 /// ```
