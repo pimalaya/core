@@ -20,72 +20,75 @@ pub fn remove_local_draft() -> io::Result<()> {
 
 /// Module dedicated to email address utils.
 pub(crate) mod address {
-    use std::borrow::Cow;
+    use std::{borrow::Cow, collections::HashSet};
 
-    use mail_builder::headers::address::Address as AddressBuilder;
-    use mail_parser::{Address, HeaderValue};
+    use mail_builder::headers::address as builder;
+    use mail_parser as parser;
+    use once_cell::sync::Lazy;
+    use regex::Regex;
 
-    pub(crate) fn is_empty(header: &HeaderValue) -> bool {
+    /// Regex used to detect if an email address is a noreply one.
+    ///
+    /// Matches usual names like `no_reply`, `noreply`, but also
+    /// `do-not.reply`.
+    static NO_REPLY: Lazy<Regex> = Lazy::new(|| Regex::new("(?i:not?[_\\-\\.]?reply)").unwrap());
+
+    pub(crate) fn is_empty(header: &parser::HeaderValue) -> bool {
         match header {
-            HeaderValue::Address(Address::List(addrs)) => addrs.is_empty(),
-            HeaderValue::Address(Address::Group(groups)) => groups.is_empty(),
-            HeaderValue::Empty => true,
+            parser::HeaderValue::Address(parser::Address::List(addrs)) => addrs.is_empty(),
+            parser::HeaderValue::Address(parser::Address::Group(groups)) => groups.is_empty(),
+            parser::HeaderValue::Empty => true,
             _ => false,
         }
     }
 
-    pub(crate) fn contains(header: &HeaderValue, a: &Option<Cow<str>>) -> bool {
+    pub(crate) fn push_builder_address<'a>(
+        all_emails: &mut HashSet<Cow<'a, str>>,
+        all_addrs: &mut Vec<builder::Address<'a>>,
+        header: &'a parser::HeaderValue,
+    ) {
         match header {
-            HeaderValue::Address(Address::List(addrs)) => addrs.iter().any(|b| a == &b.address),
-            HeaderValue::Address(Address::Group(groups)) => groups
-                .iter()
-                .find_map(|g| g.addresses.iter().find(|b| a == &b.address))
-                .is_some(),
-            _ => false,
-        }
-    }
+            parser::HeaderValue::Address(parser::Address::List(addrs)) => {
+                for addr in addrs {
+                    if let Some(email) = addr.address.as_ref() {
+                        if let Some(addr) = &addr.address {
+                            if NO_REPLY.is_match(addr) {
+                                continue;
+                            }
+                        }
 
-    pub(crate) fn get_address_id(header: &HeaderValue) -> Vec<String> {
-        match header {
-            HeaderValue::Address(Address::List(addrs)) => addrs
-                .iter()
-                .map(|a| a.address.clone().unwrap_or_default().to_string())
-                .collect(),
-            HeaderValue::Address(Address::Group(groups)) => groups
-                .iter()
-                .map(|g| g.name.clone().unwrap_or_default().to_string())
-                .collect(),
-            _ => Vec::new(),
-        }
-    }
+                        if all_emails.insert(email.clone()) {
+                            all_addrs.push(builder::Address::new_address(
+                                addr.name.clone(),
+                                email.clone(),
+                            ))
+                        }
+                    }
+                }
+            }
+            parser::HeaderValue::Address(parser::Address::Group(groups)) => {
+                for group in groups {
+                    if let Some(group_name) = group.name.as_ref() {
+                        if all_emails.insert(group_name.clone()) {
+                            let name = Some(group_name.clone());
+                            let addrs = group
+                                .addresses
+                                .iter()
+                                .filter_map(|addr| {
+                                    addr.address.as_ref().map(|email| {
+                                        let name = addr.name.clone();
+                                        let email = email.as_ref();
+                                        builder::Address::new_address(name, email)
+                                    })
+                                })
+                                .collect();
 
-    pub(crate) fn into(header: HeaderValue) -> AddressBuilder {
-        match header {
-            HeaderValue::Address(Address::List(addrs)) => AddressBuilder::new_list(
-                addrs
-                    .into_iter()
-                    .filter_map(|a| {
-                        a.address
-                            .map(|email| AddressBuilder::new_address(a.name, email))
-                    })
-                    .collect(),
-            ),
-            HeaderValue::Address(Address::Group(groups)) => AddressBuilder::new_list(
-                groups
-                    .into_iter()
-                    .flat_map(|g| {
-                        g.addresses.into_iter().filter_map(|a| {
-                            a.address
-                                .map(|email| AddressBuilder::new_address(a.name, email))
-                        })
-                    })
-                    .collect(),
-            ),
-            _ => AddressBuilder::new_list(Vec::new()),
+                            all_addrs.push(builder::Address::new_group(name, addrs))
+                        }
+                    }
+                }
+            }
+            _ => (),
         }
-    }
-
-    pub(crate) fn equal(a: &HeaderValue, b: &HeaderValue) -> bool {
-        get_address_id(a) == get_address_id(b)
     }
 }

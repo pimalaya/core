@@ -5,7 +5,7 @@
 
 pub mod config;
 
-use std::sync::Arc;
+use std::{borrow::Cow, collections::HashSet, sync::Arc};
 
 use mail_builder::{
     headers::{address::Address, raw::Raw},
@@ -29,12 +29,6 @@ use crate::{
 /// Everything starting by "Re:" (case and whitespace insensitive) is
 /// considered a prefix.
 static SUBJECT: Lazy<Regex> = Lazy::new(|| Regex::new("(?i:\\s*re\\s*:\\s*)*(.*)").unwrap());
-
-/// Regex used to detect if an email address is a noreply one.
-///
-/// Matches usual names like `no_reply`, `noreply`, but also
-/// `do-not.reply`.
-static NO_REPLY: Lazy<Regex> = Lazy::new(|| Regex::new("(?i:not?[_\\-\\.]?reply)").unwrap());
 
 /// Trim out prefix(es) from the given subject.
 fn trim_prefix(subject: &str) -> &str {
@@ -266,134 +260,37 @@ impl<'a> ReplyTemplateBuilder<'a> {
 
         // To
 
-        let i_am_the_sender = {
-            let me = &HeaderValue::Address(mail_parser::Address::List(vec![me.clone()]));
-            address::equal(from, me)
-        };
+        let mut curr_rcpts = Vec::<Address>::default();
+        let mut all_rcpts_email = HashSet::<Cow<str>>::default();
+        all_rcpts_email.insert(me.address.clone().unwrap());
 
-        let i_am_a_main_recipient = address::contains(to, &me.address);
-
-        let recipients = if i_am_the_sender {
-            to.clone()
-        } else if !i_am_a_main_recipient {
-            if !address::is_empty(reply_to) {
-                reply_to.clone()
-            } else {
-                to.clone()
-            }
-        } else if !address::is_empty(reply_to) {
-            reply_to.clone()
-        } else if !address::is_empty(from) {
-            from.clone()
+        if !address::is_empty(reply_to) {
+            address::push_builder_address(&mut all_rcpts_email, &mut curr_rcpts, &reply_to);
         } else {
-            sender.clone()
-        };
+            let from = if !address::is_empty(from) {
+                from
+            } else {
+                sender
+            };
+            address::push_builder_address(&mut all_rcpts_email, &mut curr_rcpts, &from);
+            address::push_builder_address(&mut all_rcpts_email, &mut curr_rcpts, &to);
+        }
 
-        builder = builder.to(address::into(recipients.clone()));
+        builder = builder.to(Address::new_list(curr_rcpts.clone()));
         cursor.row += 1;
 
         // Cc
 
-        let cc = {
-            let mut addresses = Vec::new();
+        if self.reply_all {
+            let cc = parsed.header("Cc").unwrap_or(&HeaderValue::Empty);
 
-            if !i_am_a_main_recipient && address::is_empty(reply_to) {
-                if !address::is_empty(from) {
-                    if let HeaderValue::Address(mail_parser::Address::List(addrs)) = &from {
-                        for a in addrs {
-                            if a.address == me.address {
-                                continue;
-                            }
+            curr_rcpts.clear();
+            address::push_builder_address(&mut all_rcpts_email, &mut curr_rcpts, &cc);
 
-                            if address::contains(&recipients, &a.address) {
-                                continue;
-                            }
-
-                            if let Some(addr) = &a.address {
-                                if NO_REPLY.is_match(addr) {
-                                    continue;
-                                }
-                            }
-
-                            addresses.push(Address::new_address(
-                                a.name.clone(),
-                                a.address.clone().unwrap(),
-                            ));
-                        }
-                    }
-                } else if let HeaderValue::Address(mail_parser::Address::List(addrs)) = &sender {
-                    for a in addrs {
-                        if a.address == me.address {
-                            continue;
-                        }
-
-                        if address::contains(&recipients, &a.address) {
-                            continue;
-                        }
-
-                        if let Some(addr) = &a.address {
-                            if NO_REPLY.is_match(addr) {
-                                continue;
-                            }
-                        }
-
-                        addresses.push(Address::new_address(
-                            a.name.clone(),
-                            a.address.clone().unwrap(),
-                        ));
-                    }
-                }
+            if !curr_rcpts.is_empty() {
+                builder = builder.cc(curr_rcpts);
+                cursor.row += 1;
             }
-
-            if self.reply_all {
-                let cc = parsed.header("Cc").unwrap_or(&HeaderValue::Empty);
-
-                if let HeaderValue::Address(mail_parser::Address::List(addrs)) = cc {
-                    for a in addrs {
-                        if a.address == me.address {
-                            continue;
-                        }
-
-                        if address::contains(reply_to, &a.address) {
-                            continue;
-                        }
-
-                        if address::contains(from, &a.address) {
-                            continue;
-                        }
-
-                        if address::contains(sender, &a.address) {
-                            continue;
-                        }
-
-                        if address::contains(&recipients, &a.address) {
-                            continue;
-                        }
-
-                        if let Some(addr) = &a.address {
-                            if NO_REPLY.is_match(addr) {
-                                continue;
-                            }
-                        }
-
-                        addresses.push(Address::new_address(
-                            a.name.clone(),
-                            a.address.clone().unwrap(),
-                        ));
-                    }
-                }
-            }
-
-            if addresses.is_empty() {
-                None
-            } else {
-                Some(Address::new_list(addresses))
-            }
-        };
-
-        if let Some(cc) = cc {
-            builder = builder.cc(cc);
-            cursor.row += 1;
         }
 
         // Subject
@@ -1161,6 +1058,315 @@ mod tests {
                 (10, 0),
             ),
         );
+    }
+
+    #[tokio::test]
+    async fn reply_to_self() {
+        let config = Arc::new(AccountConfig {
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        });
+
+        let msg = Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: me@localhost",
+            "To: to@localhost, to2@localhost",
+            "Cc: cc@localhost, cc2@localhost, dot-not-reply@localhost",
+            "Bcc: bcc@localhost",
+            "Subject: Re: subject",
+            "",
+            "Hello from myself!",
+            "",
+            "-- ",
+            "Regards,",
+        ));
+
+        let tpl = msg
+            .to_reply_tpl_builder(config.clone())
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: to@localhost, to2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from myself!",
+            ),
+            (5, 0),
+        );
+
+        assert_eq!(tpl, expected_tpl);
+
+        let tpl = msg
+            .to_reply_tpl_builder(config)
+            .with_reply_all(true)
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: to@localhost, to2@localhost",
+                "Cc: cc@localhost, cc2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from myself!",
+            ),
+            (6, 0),
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[tokio::test]
+    async fn reply_mailing_list_using_sender() {
+        let config = Arc::new(AccountConfig {
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        });
+
+        let msg = Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "Sender: sender@localhost",
+            "To: mlist@localhost,other@localhost",
+            "Cc: sender@localhost, cc@localhost, cc2@localhost, noreply@localhost, me@localhost",
+            "Bcc: bcc@localhost",
+            "Subject: Re: subject",
+            "",
+            "Hello from mailing list!",
+            "",
+            "-- ",
+            "Regards,",
+        ));
+
+        let tpl = msg
+            .to_reply_tpl_builder(config.clone())
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: sender@localhost, mlist@localhost, other@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+            ),
+            (5, 0),
+        );
+
+        assert_eq!(tpl, expected_tpl);
+
+        let tpl = msg
+            .to_reply_tpl_builder(config)
+            .with_reply_all(true)
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: sender@localhost, mlist@localhost, other@localhost",
+                "Cc: cc@localhost, cc2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+            ),
+            (6, 0),
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[tokio::test]
+    async fn reply_mailing_list_using_from() {
+        let config = Arc::new(AccountConfig {
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        });
+
+        let msg = Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "Sender: sender@localhost",
+            "From: from@localhost",
+            "To: mlist@localhost,other@localhost",
+            "Cc: from@localhost, cc@localhost, cc2@localhost, noreply@localhost, me@localhost",
+            "Bcc: bcc@localhost",
+            "Subject: Re: subject",
+            "",
+            "Hello from mailing list!",
+            "",
+            "-- ",
+            "Regards,",
+        ));
+
+        let tpl = msg
+            .to_reply_tpl_builder(config.clone())
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: from@localhost, mlist@localhost, other@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+            ),
+            (5, 0),
+        );
+
+        assert_eq!(tpl, expected_tpl);
+
+        let tpl = msg
+            .to_reply_tpl_builder(config)
+            .with_reply_all(true)
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: from@localhost, mlist@localhost, other@localhost",
+                "Cc: cc@localhost, cc2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+            ),
+            (6, 0),
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[tokio::test]
+    async fn reply_mailing_list_using_reply_to() {
+        let config = Arc::new(AccountConfig {
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        });
+
+        let msg = Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: from@localhost",
+            "Sender: sender@localhost",
+            "Reply-To: reply-to@localhost",
+            "To: mlist@localhost,other@localhost",
+            "Cc: from@localhost, cc@localhost, cc2@localhost, noreply@localhost",
+            "Bcc: bcc@localhost",
+            "Subject: Re: subject",
+            "",
+            "Hello from mailing list!",
+            "",
+            "-- ",
+            "Regards,",
+        ));
+
+        let tpl = msg
+            .to_reply_tpl_builder(config.clone())
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: reply-to@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+            ),
+            (5, 0),
+        );
+
+        assert_eq!(tpl, expected_tpl);
+
+        let tpl = msg
+            .to_reply_tpl_builder(config)
+            .with_reply_all(true)
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: reply-to@localhost",
+                "Cc: from@localhost, cc@localhost, cc2@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+            ),
+            (6, 0),
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[tokio::test]
+    async fn reply_mailing_list_multiple_senders() {
+        let config = Arc::new(AccountConfig {
+            email: "me@localhost".into(),
+            ..AccountConfig::default()
+        });
+
+        let msg = Message::from(concat_line!(
+            "Content-Type: text/plain",
+            "From: from@localhost",
+            "To: mlist@localhost,me@localhost",
+            "Cc: cc@localhost, cc2@localhost",
+            "Subject: subject",
+            "",
+            "Hello from mailing list!",
+            "",
+            "-- ",
+            "Regards,",
+        ));
+
+        let tpl = msg
+            .to_reply_tpl_builder(config.clone())
+            .build()
+            .await
+            .unwrap();
+
+        let expected_tpl = Template::new_with_cursor(
+            concat_line!(
+                "From: me@localhost",
+                "To: from@localhost, mlist@localhost",
+                "Subject: Re: subject",
+                "",
+                "",
+                "",
+                "> Hello from mailing list!",
+            ),
+            (5, 0),
+        );
+
+        assert_eq!(tpl, expected_tpl);
     }
 
     #[test]
