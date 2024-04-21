@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Made reply template headers more reliable.
+
+  When replying to a message, the `Reply-To` is used as recipients if existing, otherwise it uses all recipients from `From` (or `Sender` if missing) and `To`, minus yourself and noreply addresses. When replying all to a message, the `Cc` is also used minus yourself and noreply addresses.
+
 ## [0.24.1] - 2024-04-16
 
 ### Fixed
