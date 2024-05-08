@@ -110,23 +110,6 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
         self.sync_hash(&mut hasher);
         let hash = format!("{:x}", hasher.finish());
 
-        let account_config = Arc::new(AccountConfig {
-            name: account_config.name.clone(),
-            email: account_config.email.clone(),
-            display_name: account_config.display_name.clone(),
-            signature: account_config.signature.clone(),
-            signature_delim: account_config.signature_delim.clone(),
-            downloads_dir: account_config.downloads_dir.clone(),
-            folder: account_config.folder.clone(),
-            envelope: account_config.envelope.clone(),
-            flag: account_config.flag.clone(),
-            message: account_config.message.clone(),
-            template: account_config.template.clone(),
-            sync: None,
-            #[cfg(feature = "pgp")]
-            pgp: account_config.pgp.clone(),
-        });
-
         let sync_dir = account_config.sync.as_ref().and_then(|c| c.dir.as_ref());
         let root_dir = match sync_dir {
             Some(dir) => {
@@ -146,6 +129,24 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
                 sync_dir
             }
         };
+
+        let account_config = Arc::new(AccountConfig {
+            name: account_config.name.clone(),
+            email: account_config.email.clone(),
+            display_name: account_config.display_name.clone(),
+            signature: account_config.signature.clone(),
+            signature_delim: account_config.signature_delim.clone(),
+            downloads_dir: account_config.downloads_dir.clone(),
+            folder: account_config.folder.clone(),
+            envelope: account_config.envelope.clone(),
+            flag: account_config.flag.clone(),
+            message: account_config.message.clone(),
+            template: account_config.template.clone(),
+            sync: None,
+            #[cfg(feature = "pgp")]
+            pgp: account_config.pgp.clone(),
+        });
+
         let config = Arc::new(MaildirConfig { root_dir });
         let ctx = MaildirContextBuilder::new(account_config.clone(), config);
 
