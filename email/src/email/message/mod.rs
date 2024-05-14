@@ -12,6 +12,8 @@ pub mod config;
 pub mod copy;
 pub mod delete;
 pub mod get;
+#[cfg(feature = "imap")]
+pub mod imap;
 pub mod r#move;
 pub mod peek;
 pub mod remove;
@@ -20,10 +22,9 @@ pub mod send;
 pub mod sync;
 pub mod template;
 
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, num::NonZeroU32, sync::Arc};
 
-#[cfg(feature = "imap")]
-use imap::types::{Fetch, Fetches};
+use imap_client::imap_flow::imap_codec::imap_types::{core::Vec1, fetch::MessageDataItem};
 use mail_parser::{MessageParser, MimeHeaders};
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
@@ -35,34 +36,21 @@ use self::{
         forward::ForwardTemplateBuilder, new::NewTemplateBuilder, reply::ReplyTemplateBuilder,
     },
 };
-use crate::{account::config::AccountConfig, debug, email::error::Error};
-
-/// The raw message wrapper.
-enum RawMessage<'a> {
-    Cow(Cow<'a, [u8]>),
-    #[cfg(feature = "imap")]
-    Fetch(&'a Fetch<'a>),
-}
+use crate::{account::config::AccountConfig, debug, email::error::Error, trace};
 
 /// The message wrapper.
 #[self_referencing]
 pub struct Message<'a> {
-    raw: RawMessage<'a>,
-    #[borrows(mut raw)]
+    bytes: Cow<'a, [u8]>,
+    #[borrows(mut bytes)]
     #[covariant]
     parsed: Option<mail_parser::Message<'this>>,
 }
 
 impl Message<'_> {
     /// Builds an optional message from a raw message.
-    fn parsed_builder<'a>(raw: &'a mut RawMessage) -> Option<mail_parser::Message<'a>> {
-        match raw {
-            RawMessage::Cow(ref bytes) => MessageParser::new().parse(bytes.as_ref()),
-            #[cfg(feature = "imap")]
-            RawMessage::Fetch(fetch) => {
-                MessageParser::new().parse(fetch.body().unwrap_or_default())
-            }
-        }
+    fn parsed_builder<'a>(bytes: &'a mut Cow<[u8]>) -> Option<mail_parser::Message<'a>> {
+        MessageParser::new().parse((*bytes).as_ref())
     }
 
     /// Returns the parsed version of the message.
@@ -139,7 +127,7 @@ impl Message<'_> {
 impl<'a> From<Vec<u8>> for Message<'a> {
     fn from(bytes: Vec<u8>) -> Self {
         MessageBuilder {
-            raw: RawMessage::Cow(Cow::Owned(bytes)),
+            bytes: Cow::Owned(bytes),
             parsed_builder: Message::parsed_builder,
         }
         .build()
@@ -149,27 +137,7 @@ impl<'a> From<Vec<u8>> for Message<'a> {
 impl<'a> From<&'a [u8]> for Message<'a> {
     fn from(bytes: &'a [u8]) -> Self {
         MessageBuilder {
-            raw: RawMessage::Cow(Cow::Borrowed(bytes)),
-            parsed_builder: Message::parsed_builder,
-        }
-        .build()
-    }
-}
-
-impl<'a> From<&'a Fetch<'a>> for Message<'a> {
-    fn from(fetch: &'a Fetch) -> Self {
-        MessageBuilder {
-            raw: RawMessage::Fetch(fetch),
-            parsed_builder: Message::parsed_builder,
-        }
-        .build()
-    }
-}
-
-impl<'a> From<&'a mut MailEntry> for Message<'a> {
-    fn from(entry: &'a mut MailEntry) -> Self {
-        MessageBuilder {
-            raw: RawMessage::Cow(Cow::Owned(entry.body().unwrap_or_default())),
+            bytes: Cow::Borrowed(bytes),
             parsed_builder: Message::parsed_builder,
         }
         .build()
@@ -182,12 +150,24 @@ impl<'a> From<&'a str> for Message<'a> {
     }
 }
 
+// TODO: move to maildir module
+impl<'a> From<&'a mut MailEntry> for Message<'a> {
+    fn from(entry: &'a mut MailEntry) -> Self {
+        MessageBuilder {
+            bytes: Cow::Owned(entry.body().unwrap_or_default()),
+            parsed_builder: Message::parsed_builder,
+        }
+        .build()
+    }
+}
+
 enum RawMessages {
-    Vec(Vec<Vec<u8>>),
     #[cfg(feature = "imap")]
-    Fetches(Fetches),
+    Imap(HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>),
     #[cfg(feature = "maildir")]
     MailEntries(Vec<MailEntry>),
+    #[cfg(feature = "notmuch")]
+    Notmuch(Vec<Vec<u8>>),
 }
 
 #[self_referencing]
@@ -199,24 +179,27 @@ pub struct Messages {
 }
 
 impl Messages {
-    fn emails_builder(raw: &mut RawMessages) -> Vec<Message> {
+    fn emails_builder<'a>(raw: &'a mut RawMessages) -> Vec<Message<'a>> {
         match raw {
-            RawMessages::Vec(vec) => vec.iter().map(Vec::as_slice).map(Message::from).collect(),
             #[cfg(feature = "imap")]
-            RawMessages::Fetches(fetches) => fetches
-                .iter()
-                .filter(|fetch| match fetch.body() {
-                    Some(_) => true,
-                    None => {
-                        debug!("skipping imap fetch with an empty body");
-                        debug!("skipping imap fetch with an empty body: {fetch:#?}");
-                        false
+            RawMessages::Imap(items) => items
+                .values()
+                .filter_map(|items| match Message::try_from(items.as_ref()) {
+                    Ok(msg) => Some(msg),
+                    Err(err) => {
+                        debug!("cannot build imap message: {err}");
+                        trace!("{err:#?}");
+                        None
                     }
                 })
-                .map(Message::from)
                 .collect(),
             #[cfg(feature = "maildir")]
             RawMessages::MailEntries(entries) => entries.iter_mut().map(Message::from).collect(),
+            #[cfg(feature = "notmuch")]
+            RawMessages::Notmuch(raw) => raw
+                .iter()
+                .map(|raw| Message::from(raw.as_slice()))
+                .collect(),
         }
     }
 
@@ -229,30 +212,14 @@ impl Messages {
     }
 }
 
-impl From<Vec<Vec<u8>>> for Messages {
-    fn from(bytes: Vec<Vec<u8>>) -> Self {
+#[cfg(feature = "imap")]
+impl From<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> for Messages {
+    fn from(items: HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>) -> Self {
         MessagesBuilder {
-            raw: RawMessages::Vec(bytes),
+            raw: RawMessages::Imap(items),
             emails_builder: Messages::emails_builder,
         }
         .build()
-    }
-}
-
-#[cfg(feature = "imap")]
-impl TryFrom<Fetches> for Messages {
-    type Error = Error;
-
-    fn try_from(fetches: Fetches) -> Result<Self, Error> {
-        if fetches.is_empty() {
-            Err(Error::ParseEmailFromEmptyEntriesError)
-        } else {
-            Ok(MessagesBuilder {
-                raw: RawMessages::Fetches(fetches),
-                emails_builder: Messages::emails_builder,
-            }
-            .build())
-        }
     }
 }
 
@@ -270,6 +237,17 @@ impl TryFrom<Vec<MailEntry>> for Messages {
             }
             .build())
         }
+    }
+}
+
+#[cfg(feature = "notmuch")]
+impl From<Vec<Vec<u8>>> for Messages {
+    fn from(raw: Vec<Vec<u8>>) -> Self {
+        MessagesBuilder {
+            raw: RawMessages::Notmuch(raw),
+            emails_builder: Messages::emails_builder,
+        }
+        .build()
     }
 }
 

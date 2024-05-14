@@ -1,14 +1,9 @@
 use async_trait::async_trait;
+use imap_client::imap_flow::imap_codec::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{Envelope, GetEnvelope};
-use crate::{
-    debug,
-    email::error::Error,
-    envelope::{list::imap::LIST_ENVELOPES_QUERY, Id},
-    imap::ImapContextSync,
-    info, AnyResult,
-};
+use crate::{debug, email::error::Error, envelope::Id, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct GetImapEnvelope {
@@ -41,24 +36,22 @@ impl GetEnvelope for GetImapEnvelope {
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        ctx.exec(
-            |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()),
-        )
-        .await?;
+        ctx.select_mailbox(&folder_encoded).await?;
 
-        let fetches = ctx
-            .exec(
-                |session| session.uid_fetch(id.to_string(), LIST_ENVELOPES_QUERY),
-                |err| Error::FetchEnvolpesImapError(err, folder.clone(), id.clone()),
-            )
-            .await?;
+        let uids: SequenceSet = match id {
+            Id::Single(id) => Sequence::try_from(id.as_str()).unwrap().into(),
+            Id::Multiple(ids) => ids
+                .iter()
+                .filter_map(|id| Sequence::try_from(id.as_str()).ok())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        };
 
-        let fetch = fetches
-            .get(0)
+        let envelope = ctx
+            .fetch_first_envelope(uids)
+            .await?
             .ok_or_else(|| Error::GetFirstEnvelopeImapError(folder.clone(), id.clone()))?;
-
-        let envelope = Envelope::from_imap_fetch(fetch)?;
         debug!("imap envelope: {envelope:#?}");
 
         Ok(envelope)

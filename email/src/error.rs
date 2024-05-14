@@ -25,7 +25,7 @@ impl AnyError for JoinError {
 }
 
 /// The global any boxed `Error` alias of the module.
-pub type AnyBoxedError = Box<dyn AnyError + 'static>;
+pub type AnyBoxedError = Box<dyn AnyError + Send + 'static>;
 
 impl error::Error for AnyBoxedError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {

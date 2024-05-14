@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use super::{Folders, ListFolders};
-use crate::{folder::error::Error, imap::ImapContextSync, info, AnyResult};
+use crate::{imap::ImapContextSync, info, AnyResult};
 
 #[derive(Debug, Clone)]
 pub struct ListImapFolders {
@@ -30,14 +30,7 @@ impl ListFolders for ListImapFolders {
         let config = &self.ctx.account_config;
         let mut ctx = self.ctx.lock().await;
 
-        let names = ctx
-            .exec(
-                |session| session.list(Some(""), Some("*")),
-                Error::ListFoldersImapError,
-            )
-            .await?;
-
-        let folders = Folders::from_imap_names(config, names);
+        let folders = ctx.list_all_mailboxes(config).await?;
 
         Ok(folders)
     }

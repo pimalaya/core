@@ -28,3 +28,9 @@ process-lib = { path = "./process" }
 secret-lib = { path = "./secret" }
 shellexpand-utils = { path = "./shellexpand-utils" }
 time-lib = { path = "./time" }
+
+# WIP: transition from `imap` to `imap-codec`
+imap-codec = { git = "https://github.com/duesee/imap-codec.git" }
+imap-types = { git = "https://github.com/duesee/imap-codec.git" }
+imap-client = { git = "https://github.com/soywod/imap-flow.git", branch = "session" }
+tasks = { git = "https://github.com/soywod/imap-flow.git", branch = "session" }

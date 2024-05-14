@@ -1,8 +1,9 @@
 use async_trait::async_trait;
+use imap_client::imap_flow::imap_codec::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::MoveMessages;
-use crate::{debug, email::error::Error, envelope::Id, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct MoveImapMessages {
@@ -39,24 +40,18 @@ impl MoveMessages for MoveImapMessages {
         let to_folder_encoded = encode_utf7(to_folder.clone());
         debug!("utf7 encoded to folder: {to_folder_encoded}");
 
-        ctx.exec(
-            |session| session.select(&from_folder_encoded),
-            |err| Error::SelectFolderImapError(err, from_folder.clone()),
-        )
-        .await?;
+        let uids: SequenceSet = match id {
+            Id::Single(id) => Sequence::try_from(id.as_str()).unwrap().into(),
+            Id::Multiple(ids) => ids
+                .iter()
+                .filter_map(|id| Sequence::try_from(id.as_str()).ok())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        };
 
-        ctx.exec(
-            |session| session.uid_mv(id.join(","), &to_folder_encoded),
-            |err| {
-                Error::MoveMessagesImapError(
-                    err,
-                    from_folder.clone(),
-                    to_folder.clone(),
-                    id.clone(),
-                )
-            },
-        )
-        .await?;
+        ctx.select_mailbox(&from_folder_encoded).await?;
+        ctx.move_messages(uids, &to_folder_encoded).await?;
 
         Ok(())
     }

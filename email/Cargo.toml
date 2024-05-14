@@ -37,7 +37,7 @@ default = [
   # "derive",
 ]
 
-imap = ["dep:futures", "dep:imap", "dep:imap-proto", "dep:utf7-imap"]
+imap = ["dep:futures", "dep:utf7-imap", "dep:imap-client", "dep:async-ctrlc"]
 maildir = ["dep:maildirpp", "dep:notify", "dep:rayon"]
 notmuch = ["dep:notmuch"]
 smtp = ["dep:mail-send"]
@@ -76,6 +76,7 @@ tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]
 advisory-lock = { version = "0.3", optional = true }
+async-ctrlc = { version = "1.2", optional = true, features = ["termination"] }
 async-trait = "0.1"
 chrono = "0.4"
 chumsky = { version = "=1.0.0-alpha.7", default-features = false, features = ["std", "label"] }
@@ -87,8 +88,7 @@ futures = { version = "0.3", optional = true }
 hickory-resolver = { version = "0.24", optional = true, features = ["dns-over-rustls"] }
 hyper = { version = "0.14", optional = true, default-features = false, features = [ "http1", "http2" ] }
 hyper-rustls = { version = "0.24", optional = true }
-imap = { version = "=3.0.0-alpha.13", optional = true, default-features = false, features = ["rustls-tls"] }
-imap-proto = { version = "=0.16.3", optional = true }
+imap-client = { version = "=0.1.0", optional = true }
 keyring-lib = { version = "=0.4.2", optional = true }
 mail-builder = "0.3"
 mail-parser = "0.9"

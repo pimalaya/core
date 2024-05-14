@@ -1,82 +1,85 @@
-use imap::types::{Name, Names};
-use imap_proto::NameAttribute;
+use imap_client::imap_flow::imap_codec::imap_types::{
+    core::{Atom, QuotedChar},
+    flag::FlagNameAttribute,
+    mailbox::Mailbox,
+};
 use utf7_imap::decode_utf7_imap as decode_utf7;
 
-use super::FolderKind;
+use super::{Error, FolderKind, Result};
 use crate::{
     account::config::AccountConfig,
     debug,
     folder::{Folder, Folders},
-    trace,
 };
 
-impl Folder {
-    /// Parse a folder from an IMAP name.
-    ///
-    /// Returns [`None`] if the folder cannot be selected.
-    pub fn from_imap_name(config: &AccountConfig, name: &Name) -> Option<Self> {
-        let attrs = name.attributes();
-
-        // exit straight if the folder cannot be selected
-        // TODO: make this behaviour customizable?
-        if attrs.contains(&NameAttribute::NoSelect) {
-            debug!("skipping not selectable imap folder: {}", name.name());
-            return None;
-        }
-
-        let name = decode_utf7(name.name().into());
-
-        let kind = config
-            .find_folder_kind_from_alias(&name)
-            .or_else(|| find_folder_kind_from_imap_attrs(attrs))
-            .or_else(|| name.parse().ok());
-
-        let desc = attrs.iter().fold(String::default(), |mut desc, attr| {
-            let attr = match attr {
-                NameAttribute::All => Some("All"),
-                NameAttribute::Archive => Some("Archive"),
-                NameAttribute::Flagged => Some("Flagged"),
-                NameAttribute::Junk => Some("Junk"),
-                NameAttribute::Marked => Some("Marked"),
-                NameAttribute::Unmarked => Some("Unmarked"),
-                NameAttribute::Extension(ext) => Some(ext.as_ref()),
-                _ => None,
-            };
-
-            if let Some(attr) = attr {
-                if !desc.is_empty() {
-                    desc.push_str(", ")
-                }
-                desc.push_str(attr);
-            }
-
-            desc
-        });
-
-        let folder = Folder { kind, name, desc };
-        trace!("parsed imap folder: {folder:#?}");
-        Some(folder)
-    }
-}
+pub type ImapMailboxes = Vec<ImapMailbox>;
 
 impl Folders {
-    /// Parse folders from IMAP names.
-    pub fn from_imap_names(config: &AccountConfig, names: Names) -> Self {
-        names
-            .iter()
-            .filter_map(|name| Folder::from_imap_name(config, name))
+    pub fn from_imap_mailboxes(config: &AccountConfig, mboxes: ImapMailboxes) -> Self {
+        mboxes
+            .into_iter()
+            .filter_map(|mbox| match Folder::try_from_imap_mailbox(config, &mbox) {
+                Ok(folder) => Some(folder),
+                Err(err) => {
+                    debug!("skipping IMAP mailbox {:?}: {err}", mbox.0.clone());
+                    None
+                }
+            })
             .collect()
     }
 }
 
-pub fn find_folder_kind_from_imap_attrs(attrs: &[NameAttribute]) -> Option<FolderKind> {
-    if attrs.contains(&NameAttribute::Sent) {
-        Some(FolderKind::Sent)
-    } else if attrs.contains(&NameAttribute::Drafts) {
-        Some(FolderKind::Drafts)
-    } else if attrs.contains(&NameAttribute::Trash) {
-        Some(FolderKind::Trash)
-    } else {
-        None
+pub type ImapMailbox = (
+    Mailbox<'static>,
+    Option<QuotedChar>,
+    Vec<FlagNameAttribute<'static>>,
+);
+
+impl Folder {
+    fn try_from_imap_mailbox(
+        config: &AccountConfig,
+        (mbox, _delim, attrs): &ImapMailbox,
+    ) -> Result<Self> {
+        let mbox = match mbox {
+            Mailbox::Inbox => String::from("INBOX"),
+            Mailbox::Other(mbox) => String::from_utf8_lossy(mbox.as_ref()).to_string(),
+        };
+
+        // exit straight if the mailbox is not selectable.
+        // TODO: make this behaviour customizable?
+        if attrs.contains(&FlagNameAttribute::Noselect) {
+            return Err(Error::ParseImapFolderNotSelectableError(mbox.clone()));
+        }
+
+        let name = decode_utf7(mbox.into());
+
+        let kind = config
+            .find_folder_kind_from_alias(&name)
+            .or_else(|| find_folder_kind_from_imap_attrs(attrs.as_ref()))
+            .or_else(|| name.parse().ok());
+
+        let desc = attrs.iter().fold(String::default(), |mut desc, attr| {
+            if !desc.is_empty() {
+                desc.push_str(", ")
+            }
+            desc.push_str(&format!("{attr}"));
+            desc
+        });
+
+        Ok(Folder { kind, name, desc })
     }
+}
+
+pub fn find_folder_kind_from_imap_attrs(attrs: &[FlagNameAttribute]) -> Option<FolderKind> {
+    attrs.iter().find_map(|attr| {
+        if attr == &FlagNameAttribute::from(Atom::try_from("Sent").unwrap()) {
+            Some(FolderKind::Sent)
+        } else if attr == &FlagNameAttribute::from(Atom::try_from("Drafts").unwrap()) {
+            Some(FolderKind::Drafts)
+        } else if attr == &FlagNameAttribute::from(Atom::try_from("Trash").unwrap()) {
+            Some(FolderKind::Trash)
+        } else {
+            None
+        }
+    })
 }

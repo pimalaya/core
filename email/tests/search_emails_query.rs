@@ -1,4 +1,4 @@
-#![cfg(feature = "full")]
+#![cfg(all(feature = "imap", feature = "notmuch"))]
 
 use std::{iter::FromIterator, sync::Arc};
 

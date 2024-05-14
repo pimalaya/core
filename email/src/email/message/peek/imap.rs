@@ -1,11 +1,9 @@
 use async_trait::async_trait;
+use imap_client::imap_flow::imap_codec::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{Messages, PeekMessages};
-use crate::{debug, email::error::Error, envelope::Id, imap::ImapContextSync, info, AnyResult};
-
-/// The IMAP query needed to retrieve messages.
-const PEEK_MESSAGES_QUERY: &str = "BODY.PEEK[]";
+use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct PeekImapMessages {
@@ -38,19 +36,19 @@ impl PeekMessages for PeekImapMessages {
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        ctx.exec(
-            |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()),
-        )
-        .await?;
+        let uids: SequenceSet = match id {
+            Id::Single(id) => Sequence::try_from(id.as_str()).unwrap().into(),
+            Id::Multiple(ids) => ids
+                .iter()
+                .filter_map(|id| Sequence::try_from(id.as_str()).ok())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        };
 
-        let fetches = ctx
-            .exec(
-                |session| session.uid_fetch(id.join(","), PEEK_MESSAGES_QUERY),
-                |err| Error::PeekMessagesImapError(err, folder.clone(), id.clone()),
-            )
-            .await?;
+        ctx.select_mailbox(&folder_encoded).await?;
+        let msgs = ctx.peek_messages(uids).await?;
 
-        Ok(Messages::try_from(fetches)?)
+        Ok(msgs)
     }
 }

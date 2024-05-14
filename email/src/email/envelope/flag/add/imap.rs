@@ -1,8 +1,9 @@
 use async_trait::async_trait;
+use imap_client::imap_flow::imap_codec::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{AddFlags, Flags};
-use crate::{debug, email::error::Error, envelope::Id, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct AddImapFlags {
@@ -35,20 +36,18 @@ impl AddFlags for AddImapFlags {
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        ctx.exec(
-            |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()),
-        )
-        .await?;
+        let uids: SequenceSet = match id {
+            Id::Single(id) => Sequence::try_from(id.as_str()).unwrap().into(),
+            Id::Multiple(ids) => ids
+                .iter()
+                .filter_map(|id| Sequence::try_from(id.as_str()).ok())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        };
 
-        ctx.exec(
-            |session| {
-                let query = format!("+FLAGS ({})", flags.to_imap_query_string());
-                session.uid_store(id.join(","), query)
-            },
-            |err| Error::AddFlagImapError(err, folder.clone(), id.clone(), flags.clone()),
-        )
-        .await?;
+        ctx.select_mailbox(&folder_encoded).await?;
+        ctx.add_flags(uids, flags.to_imap_flags_iter()).await?;
 
         Ok(())
     }

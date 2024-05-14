@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::ExpungeFolder;
-use crate::{debug, folder::error::Error, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Debug)]
 pub struct ExpungeImapFolder {
@@ -35,17 +35,8 @@ impl ExpungeFolder for ExpungeImapFolder {
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        ctx.exec(
-            |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()),
-        )
-        .await?;
-
-        ctx.exec(
-            |session| session.expunge(),
-            |err| Error::ExpungeFolderImapError(err, folder.clone()),
-        )
-        .await?;
+        let count = ctx.expunge_mailbox(&folder_encoded).await?;
+        debug!("expunged {count} messages from {folder}");
 
         Ok(())
     }

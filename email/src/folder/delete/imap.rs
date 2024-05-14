@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::DeleteFolder;
-use crate::{debug, folder::error::Error, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Debug)]
 pub struct DeleteImapFolder {
@@ -35,11 +35,7 @@ impl DeleteFolder for DeleteImapFolder {
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        ctx.exec(
-            |session| session.delete(&folder_encoded),
-            |err| Error::DeleteFolderImapError(err, folder.clone()),
-        )
-        .await?;
+        ctx.delete_mailbox(&folder_encoded).await?;
 
         Ok(())
     }

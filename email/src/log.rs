@@ -34,6 +34,6 @@ macro_rules! warn {
 macro_rules! error {
     ($($arg:tt)*) => {
         #[cfg(feature = "tracing")]
-        tracing::!($($arg)*)
+        tracing::error!($($arg)*)
     };
 }

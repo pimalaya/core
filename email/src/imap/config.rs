@@ -7,8 +7,6 @@ use std::fmt;
 #[cfg(feature = "derive")]
 use std::{marker::PhantomData, result};
 
-use imap::ConnectionMode;
-
 #[doc(inline)]
 use super::{Error, Result};
 use crate::account::config::{oauth2::OAuth2Config, passwd::PasswdConfig};
@@ -130,16 +128,6 @@ impl From<bool> for ImapEncryptionKind {
             Self::Tls
         } else {
             Self::None
-        }
-    }
-}
-
-impl From<ImapEncryptionKind> for ConnectionMode {
-    fn from(val: ImapEncryptionKind) -> Self {
-        match val {
-            ImapEncryptionKind::Tls => ConnectionMode::Tls,
-            ImapEncryptionKind::StartTls => ConnectionMode::StartTls,
-            ImapEncryptionKind::None => ConnectionMode::Plaintext,
         }
     }
 }

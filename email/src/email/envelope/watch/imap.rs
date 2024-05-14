@@ -1,17 +1,12 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
+use async_ctrlc::CtrlC;
 use async_trait::async_trait;
-use imap::extensions::idle::stop_on_any;
+use tokio::sync::oneshot;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::WatchEnvelopes;
-use crate::{
-    debug,
-    email::error::Error,
-    envelope::{list::imap::LIST_ENVELOPES_QUERY, Envelope, Envelopes},
-    imap::ImapContextSync,
-    info, AnyResult,
-};
+use crate::{debug, envelope::Envelope, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct WatchImapEnvelopes {
@@ -30,6 +25,44 @@ impl WatchImapEnvelopes {
     pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn WatchEnvelopes>> {
         Some(Self::new_boxed(ctx))
     }
+
+    pub async fn watch_envelopes_loop(
+        &self,
+        folder: &str,
+        wait_for_shutdown_request: &mut oneshot::Receiver<()>,
+    ) -> AnyResult<()> {
+        info!("watching imap folder {folder} for envelope changes");
+
+        let config = &self.ctx.account_config;
+        let mut ctx = self.ctx.lock().await;
+
+        let folder = config.get_folder_alias(folder);
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!("utf7 encoded folder: {folder_encoded}");
+
+        let envelopes_count = ctx.examine_mailbox(folder_encoded).await?.exists.unwrap() as usize;
+
+        let envelopes = if envelopes_count == 0 {
+            Default::default()
+        } else {
+            ctx.fetch_all_envelopes().await?
+        };
+
+        let mut envelopes: HashMap<String, Envelope> =
+            HashMap::from_iter(envelopes.into_iter().map(|e| (e.id.clone(), e)));
+
+        loop {
+            ctx.idle(wait_for_shutdown_request).await?;
+
+            let next_envelopes = ctx.fetch_all_envelopes().await?;
+            let next_envelopes: HashMap<String, Envelope> =
+                HashMap::from_iter(next_envelopes.into_iter().map(|e| (e.id.clone(), e)));
+
+            self.exec_hooks(config, &envelopes, &next_envelopes).await;
+
+            envelopes = next_envelopes;
+        }
+    }
 }
 
 #[async_trait]
@@ -37,70 +70,28 @@ impl WatchEnvelopes for WatchImapEnvelopes {
     async fn watch_envelopes(&self, folder: &str) -> AnyResult<()> {
         info!("watching imap folder {folder} for envelope changes");
 
-        let config = &self.ctx.account_config;
-        let timeout = &self.ctx.imap_config.find_watch_timeout();
-        let mut ctx = self.ctx.lock().await;
+        let (request_shutdown, mut wait_for_shutdown_request) = oneshot::channel();
+        let (shutdown, wait_for_shutdown) = oneshot::channel();
 
-        let folder = config.get_folder_alias(folder);
-        let folder_encoded = encode_utf7(folder.clone());
-        debug!("utf7 encoded folder: {folder_encoded}");
-
-        let envelopes_count = ctx
-            .exec(
-                |session| session.examine(&folder_encoded),
-                |err| Error::ExamineFolderImapError(err, folder.clone()),
-            )
-            .await?
-            .exists;
-
-        let envelopes = if envelopes_count == 0 {
-            Default::default()
-        } else {
-            let fetches = ctx
-                .exec(
-                    |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
-                    |err| Error::ListAllEnvelopesImapError(err, folder.clone()),
-                )
-                .await?;
-            Envelopes::from_imap_fetches(fetches)
+        let ctrlc = async move {
+            CtrlC::new().expect("cannot create Ctrl+C handler").await;
+            info!("received interruption signal, exiting envelopes watcher…");
+            request_shutdown.send(()).unwrap();
+            wait_for_shutdown.await.unwrap();
+            Ok(())
         };
 
-        let mut envelopes: HashMap<String, Envelope> =
-            HashMap::from_iter(envelopes.into_iter().map(|e| (e.id.clone(), e)));
+        let r#loop = async {
+            let res = self
+                .watch_envelopes_loop(folder, &mut wait_for_shutdown_request)
+                .await;
+            shutdown.send(()).unwrap();
+            res
+        };
 
-        loop {
-            debug!("starting idle loop…");
-
-            ctx.exec(
-                |session| {
-                    let mut idle = session.idle();
-
-                    if let Some(secs) = timeout {
-                        debug!("setting imap idle timeout option at {secs}secs");
-                        idle.timeout(Duration::new(*secs, 0));
-                    }
-
-                    idle.wait_while(stop_on_any)
-                },
-                Error::RunIdleModeImapError,
-            )
-            .await?;
-
-            debug!("exitting the idle loop");
-
-            let fetches = ctx
-                .exec(
-                    |session| session.fetch("1:*", LIST_ENVELOPES_QUERY),
-                    |err| Error::ListAllEnvelopesImapError(err, folder.clone()),
-                )
-                .await?;
-            let next_envelopes = Envelopes::from_imap_fetches(fetches);
-            let next_envelopes: HashMap<String, Envelope> =
-                HashMap::from_iter(next_envelopes.into_iter().map(|e| (e.id.clone(), e)));
-
-            self.exec_hooks(config, &envelopes, &next_envelopes).await;
-
-            envelopes = next_envelopes;
+        tokio::select! {
+            res = ctrlc => res,
+            res = r#loop => res,
         }
     }
 }

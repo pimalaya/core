@@ -1,4 +1,4 @@
-#![cfg(feature = "full")]
+#![cfg(feature = "imap")]
 
 use std::{collections::HashMap, sync::Arc};
 

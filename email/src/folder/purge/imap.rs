@@ -2,13 +2,7 @@ use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::PurgeFolder;
-use crate::{
-    debug,
-    flag::{Flag, Flags},
-    folder::error::Error,
-    imap::ImapContextSync,
-    info, AnyResult,
-};
+use crate::{debug, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Debug)]
 pub struct PurgeImapFolder {
@@ -41,28 +35,7 @@ impl PurgeFolder for PurgeImapFolder {
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        let flags = Flags::from_iter([Flag::Deleted]);
-        let uids = String::from("1:*");
-
-        ctx.exec(
-            |session| session.select(&folder_encoded),
-            |err| Error::SelectFolderImapError(err, folder.clone()),
-        )
-        .await?;
-
-        ctx.exec(
-            |session| {
-                session.uid_store(&uids, format!("+FLAGS ({})", flags.to_imap_query_string()))
-            },
-            |err| Error::AddDeletedFlagImapError(err, folder.clone()),
-        )
-        .await?;
-
-        ctx.exec(
-            |session| session.expunge(),
-            |err| Error::ExpungeFolderImapError(err, folder.clone()),
-        )
-        .await?;
+        ctx.purge_mailbox(&folder_encoded).await?;
 
         Ok(())
     }

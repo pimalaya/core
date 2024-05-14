@@ -1,11 +1,10 @@
+use std::borrow::Cow;
+
 use async_trait::async_trait;
-use imap_proto::UidSetMember;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{AddMessage, Flags};
-use crate::{
-    debug, email::error::Error, envelope::SingleId, imap::ImapContextSync, info, AnyResult,
-};
+use crate::{debug, envelope::SingleId, imap::ImapContextSync, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct AddImapMessage {
@@ -31,7 +30,7 @@ impl AddMessage for AddImapMessage {
     async fn add_message_with_flags(
         &self,
         folder: &str,
-        raw_msg: &[u8],
+        msg: &[u8],
         flags: &Flags,
     ) -> AnyResult<SingleId> {
         info!("adding imap message to folder {folder} with flags {flags}");
@@ -43,40 +42,13 @@ impl AddMessage for AddImapMessage {
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        let appended = ctx
-            .exec(
-                |session| {
-                    session
-                        .append(&folder, raw_msg)
-                        .flags(flags.to_imap_flags_vec())
-                        .finish()
-                },
-                |err| Error::AppendRawMessageWithFlagsImapError(err, folder.clone(), flags.clone()),
+        let uid = ctx
+            .add_message(
+                &folder_encoded,
+                flags.to_imap_flags_iter(),
+                Cow::Owned(msg.to_vec()),
             )
             .await?;
-
-        let uid = match appended.uids {
-            Some(mut uids) if uids.len() == 1 => match uids.get_mut(0).unwrap() {
-                UidSetMember::Uid(uid) => Ok::<_, Error>(*uid),
-                UidSetMember::UidRange(uids) => Ok(uids.next().ok_or_else(|| {
-                    Error::GetAddedMessageUidFromRangeImapError(uids.fold(
-                        String::new(),
-                        |range, uid| {
-                            if range.is_empty() {
-                                uid.to_string()
-                            } else {
-                                range + ", " + &uid.to_string()
-                            }
-                        },
-                    ))
-                })?),
-            },
-            _ => {
-                // TODO: manage other cases
-                Err(Error::GetAddedMessageUidImapError)
-            }
-        }?;
-        debug!("added imap message uid: {uid}");
 
         Ok(SingleId::from(uid.to_string()))
     }

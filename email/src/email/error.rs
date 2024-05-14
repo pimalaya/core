@@ -27,17 +27,11 @@ pub enum Error {
     RemoveNotmuchMessageError(#[source] notmuch::Error, String, Id),
     #[error("cannot remove maildir message(s) {2} from folder {1}")]
     RemoveMaildirMessageError(#[source] maildirpp::Error, String, String),
-    #[error("cannot add deleted flag to imap message(s) {2} from folder {1}")]
-    AddDeletedFlagImapError(#[source] imap::Error, String, Id),
-    #[error("cannot peek imap messages {2} from folder {1}")]
-    PeekMessagesImapError(#[source] imap::Error, String, Id),
     #[cfg(feature = "notmuch")]
     #[error("cannot move notmuch message {3} from {1} to {2}")]
     MoveMessageNotmuchError(#[source] notmuch::Error, String, String, String),
     #[error("cannot move messages {3} from maildir folder {1} to folder {2}")]
     MoveMessagesMaildirError(#[source] maildirpp::Error, String, String, String),
-    #[error("cannot move imap messages {3} from folder {1} to folder {2}")]
-    MoveMessagesImapError(#[source] imap::Error, String, String, Id),
     #[error("cannot parse email")]
     ParseEmailError,
     #[error("cannot parse email: raw email is empty")]
@@ -66,8 +60,6 @@ pub enum Error {
     InterpretEmailAsTplError(#[source] mml::Error),
     #[error("cannot parse email message")]
     ParseEmailMessageError,
-    #[error("cannot get imap messages {2} from folder {1}")]
-    GetMessagesImapError(#[source] imap::Error, String, Id),
     #[error("cannot get notmuch message filename from {0}")]
     GetMessageFilenameNotmuchError(PathBuf),
     #[cfg(feature = "notmuch")]
@@ -75,12 +67,8 @@ pub enum Error {
     CopyMessageNotmuchError(#[source] notmuch::Error, String, String, String),
     #[error("cannot copy maildir messages {3} from folder {1} to folder {2}")]
     CopyMessagesMaildirError(#[source] maildirpp::Error, String, String, String),
-    #[error("cannot copy imap messages {3} from folder {1} to folder {2}")]
-    CopyMessagesImapError(#[source] imap::Error, String, String, Id),
     #[error("cannot add maildir message to folder {1} with flags {2}")]
     StoreWithFlagsMaildirError(#[source] maildirpp::Error, String, Flags),
-    #[error("cannot add imap message to folder {1} with flags {2}")]
-    AppendRawMessageWithFlagsImapError(#[source] imap::Error, String, Flags),
     #[error("cannot get added imap message uid from range {0}")]
     GetAddedMessageUidFromRangeImapError(String),
     #[error("cannot get added imap message uid: extension UIDPLUS may be missing on the server")]
@@ -91,12 +79,6 @@ pub enum Error {
     ParseSubfolderMaildirError(PathBuf, PathBuf),
     #[error("cannot create maildir {1} folder structure")]
     InitFolderMaildirError(#[source] maildirpp::Error, PathBuf),
-    #[error("cannot examine imap folder {1}")]
-    ExamineFolderImapError(#[source] imap::Error, String),
-    #[error("cannot run imap idle mode")]
-    RunIdleModeImapError(#[source] imap::Error),
-    #[error("cannot list all imap envelopes of folder {1}")]
-    ListAllEnvelopesImapError(#[source] imap::Error, String),
     #[error("cannot list notmuch envelopes from {0}: page {1} out of bounds")]
     GetEnvelopesOutOfBoundsNotmuchError(String, usize),
     #[cfg(feature = "notmuch")]
@@ -104,10 +86,6 @@ pub enum Error {
     SearchMessagesInvalidQueryNotmuch(#[source] notmuch::Error, String, String),
     #[error("cannot list maildir envelopes from {0}: page {1} out of bounds")]
     GetEnvelopesOutOfBoundsMaildirError(String, usize),
-    #[error("cannot list imap envelopes {2} from folder {1}")]
-    ListEnvelopesImapError(#[source] imap::Error, String, String),
-    #[error("cannot search imap envelopes from folder {1} with query {2}")]
-    SearchEnvelopesImapError(#[source] imap::Error, String, String),
     #[error("cannot list imap envelopes: page {0} out of bounds")]
     BuildPageRangeOutOfBoundsImapError(usize),
     #[error("cannot get uid of imap envelope {0}: uid is missing")]
@@ -118,18 +96,12 @@ pub enum Error {
     FindEnvelopeEmptyNotmuchError(String, String),
     #[error("cannot find maildir envelope {1} from folder {0}")]
     GetEnvelopeMaildirError(PathBuf, Id),
-    #[error("cannot fetch imap envelopes {2} from folder {1}")]
-    FetchEnvolpesImapError(#[source] imap::Error, String, Id),
     #[error("cannot find imap envelope {1} from folder {0}")]
     GetFirstEnvelopeImapError(String, Id),
     #[error("cannot set flags {3} to envelope(s) {2} from folder {1}")]
     SetFlagsMaildirError(#[source] maildirpp::Error, String, String, Flags),
-    #[error("cannot set flags {3} to envelope(s) {2} from folder {1}")]
-    SetFlagImapError(#[source] imap::Error, String, Id, Flags),
     #[error("cannot remove flags {3} to envelope(s) {2} from folder {1}")]
     RemoveFlagsMaildirError(#[source] maildirpp::Error, String, String, Flags),
-    #[error("cannot remove flags {3} to envelope(s) {2} from folder {1}")]
-    RemoveFlagImapError(#[source] imap::Error, String, Id, Flags),
     #[error("cannot parse flag {0}")]
     ParseFlagError(String),
     #[error("cannot parse maildir flag char {0}")]
@@ -138,10 +110,6 @@ pub enum Error {
     ParseFlagImapError(String),
     #[error("cannot add maildir flags {3} to envelope(s) {2} from folder {1}")]
     AddFlagsMaildirError(#[source] maildirpp::Error, String, String, Flags),
-    #[error("cannot select imap folder {1}")]
-    SelectFolderImapError(#[source] imap::Error, String),
-    #[error("cannot add imap flags {3} to envelope(s) {2} from folder {1}")]
-    AddFlagImapError(#[source] imap::Error, String, Id, Flags),
     #[error("invalid input: {0}")]
     InvalidInput(String),
     #[error("failed to get envelopes: {0}")]

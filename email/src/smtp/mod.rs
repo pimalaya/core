@@ -217,11 +217,9 @@ impl SmtpClientStream {
     }
 
     pub async fn noop(&mut self) -> Result<()> {
-        // TODO: replace by noop() as soon as PR merged:
-        // <https://github.com/stalwartlabs/mail-send/pull/29>
         match self {
-            Self::Tcp(client) => client.rset().map_err(Error::MailSendNoOpFailed).await,
-            Self::Tls(client) => client.rset().map_err(Error::MailSendNoOpFailed).await,
+            Self::Tcp(client) => client.noop().map_err(Error::MailSendNoOpFailed).await,
+            Self::Tls(client) => client.noop().map_err(Error::MailSendNoOpFailed).await,
         }
     }
 }

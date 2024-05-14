@@ -66,6 +66,12 @@ impl From<&MultipleIds> for Id {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SingleId(String);
 
+impl SingleId {
+    pub fn as_str(&self) -> &str {
+        self.deref().as_str()
+    }
+}
+
 impl Deref for SingleId {
     type Target = String;
 

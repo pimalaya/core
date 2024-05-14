@@ -1,15 +1,19 @@
-use std::{collections::HashMap, result};
+use std::{num::NonZeroU32, result};
 
 use async_trait::async_trait;
 use chrono::TimeDelta;
-use imap::extensions::sort::{SortCharset, SortCriterion};
+use imap_client::imap_flow::imap_codec::imap_types::{
+    core::Vec1,
+    extensions::sort::{SortCriterion, SortKey},
+    search::SearchKey,
+    sequence::{SeqOrUid, Sequence},
+};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 use crate::{
     debug,
     email::error::Error,
-    envelope::Envelope,
     imap::ImapContextSync,
     info,
     search_query::{
@@ -17,13 +21,8 @@ use crate::{
         sort::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder},
         SearchEmailsQuery,
     },
-    trace, AnyResult,
+    trace, AnyResult, Result,
 };
-
-/// The IMAP query needed to retrieve everything we need to build an
-/// [envelope]: UID, flags and headers (Message-ID, From, To, Subject,
-/// Date).
-pub const LIST_ENVELOPES_QUERY: &str = "(UID FLAGS ENVELOPE)";
 
 #[derive(Clone, Debug)]
 pub struct ListImapEnvelopes {
@@ -60,76 +59,28 @@ impl ListEnvelopes for ListImapEnvelopes {
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        let folder_size = ctx
-            .exec(
-                |session| session.select(&folder_encoded),
-                |err| Error::SelectFolderImapError(err, folder.clone()),
-            )
-            .await?
-            .exists as usize;
+        let folder_size = ctx.select_mailbox(folder_encoded).await?.exists.unwrap() as usize;
         debug!("folder size: {folder_size}");
 
         if folder_size == 0 {
             return Ok(Envelopes::default());
         }
 
-        let envelopes = if let Some(query) = opts.query {
-            let filters = query.to_imap_sort_query();
-            let sorters = query.to_imap_sort_criteria();
+        let envelopes = if let Some(query) = opts.query.as_ref() {
+            let search_criteria = query.to_imap_search_criteria();
+            let sort_criteria = query.to_imap_sort_criteria();
 
-            let mut uids = ctx
-                .exec(
-                    |session| session.uid_sort(&sorters, SortCharset::Utf8, &filters),
-                    |err| Error::SearchEnvelopesImapError(err, folder.clone(), filters.clone()),
-                )
-                .await?;
+            let mut envelopes = ctx
+                .sort_envelopes(sort_criteria, search_criteria)
+                .await
+                .unwrap();
 
-            if uids.is_empty() {
-                return Ok(Envelopes::default());
-            }
+            apply_pagination(&mut envelopes, opts.page, opts.page_size)?;
 
-            apply_pagination(&mut uids, opts.page, opts.page_size)?;
-
-            let range = uids.iter().fold(String::new(), |mut range, uid| {
-                if !range.is_empty() {
-                    range.push(',');
-                }
-                range.push_str(&uid.to_string());
-                range
-            });
-
-            let fetches = ctx
-                .exec(
-                    |session| session.uid_fetch(&range, LIST_ENVELOPES_QUERY),
-                    |err| Error::ListEnvelopesImapError(err, folder.clone(), range.clone()),
-                )
-                .await?;
-
-            let mut envelopes: HashMap<String, Envelope> =
-                HashMap::from_iter(fetches.iter().filter_map(
-                    |fetch| match Envelope::from_imap_fetch(fetch) {
-                        Ok(envelope) => Some((envelope.id.clone(), envelope)),
-                        Err(err) => {
-                            debug!("cannot build imap envelope, skipping it: {err}");
-                            None
-                        }
-                    },
-                ));
-
-            uids.into_iter()
-                .map(|uid| envelopes.remove_entry(&uid.to_string()).unwrap().1)
-                .collect()
+            envelopes
         } else {
-            let range = build_page_range(opts.page, opts.page_size, folder_size)?;
-
-            let fetches = ctx
-                .exec(
-                    |session| session.fetch(&range, LIST_ENVELOPES_QUERY),
-                    |err| Error::ListEnvelopesImapError(err, folder.clone(), range.clone()),
-                )
-                .await?;
-
-            let mut envelopes = Envelopes::from_imap_fetches(fetches);
+            let seq = build_sequence(opts.page, opts.page_size, folder_size)?;
+            let mut envelopes = ctx.fetch_envelopes_by_sequence(seq.into()).await?;
             envelopes.sort_by(|a, b| b.date.cmp(&a.date));
             envelopes
         };
@@ -142,23 +93,16 @@ impl ListEnvelopes for ListImapEnvelopes {
 }
 
 impl SearchEmailsQuery {
-    pub fn to_imap_sort_query(&self) -> String {
-        let query = self
-            .filter
+    pub fn to_imap_search_criteria(&self) -> Vec1<SearchKey<'static>> {
+        self.filter
             .as_ref()
-            .map(|f| f.to_imap_sort_query())
-            .unwrap_or_default();
-        let query = query.trim();
-
-        if query.is_empty() {
-            String::from("ALL")
-        } else {
-            query.to_owned()
-        }
+            .map(|f| f.to_imap_search_criterion())
+            .unwrap_or(SearchKey::All)
+            .into()
     }
 
-    pub fn to_imap_sort_criteria(&self) -> Vec<SortCriterion> {
-        let criteria: Vec<SortCriterion> = self
+    pub fn to_imap_sort_criteria(&self) -> Vec1<SortCriterion> {
+        let criteria: Vec<_> = self
             .sort
             .as_ref()
             .map(|sorters| {
@@ -169,59 +113,57 @@ impl SearchEmailsQuery {
             })
             .unwrap_or_default();
 
-        if criteria.is_empty() {
-            vec![SortCriterion::Reverse(&SortCriterion::Date)]
-        } else {
-            criteria
-        }
+        Vec1::try_from(criteria).unwrap_or_else(|_| {
+            Vec1::from(SortCriterion {
+                reverse: true,
+                key: SortKey::Date,
+            })
+        })
     }
 }
 
 impl SearchEmailsFilterQuery {
-    pub fn to_imap_sort_query(&self) -> String {
+    pub fn to_imap_search_criterion(&self) -> SearchKey<'static> {
         match self {
             SearchEmailsFilterQuery::And(left, right) => {
-                let left = left.to_imap_sort_query();
-                let right = right.to_imap_sort_query();
-                format!("{left} {right}")
+                let criteria = vec![
+                    left.to_imap_search_criterion(),
+                    right.to_imap_search_criterion(),
+                ];
+                SearchKey::And(criteria.try_into().unwrap())
             }
             SearchEmailsFilterQuery::Or(left, right) => {
-                let left = left.to_imap_sort_query();
-                let right = right.to_imap_sort_query();
-                format!("OR ({left}) ({right})")
+                let left = left.to_imap_search_criterion();
+                let right = right.to_imap_search_criterion();
+                SearchKey::Or(Box::new(left), Box::new(right))
             }
             SearchEmailsFilterQuery::Not(filter) => {
-                let filter = filter.to_imap_sort_query();
-                format!("NOT ({filter})")
+                let criterion = filter.to_imap_search_criterion();
+                SearchKey::Not(Box::new(criterion))
             }
-            SearchEmailsFilterQuery::Date(date) => {
-                format!("SENTON {}", date.format("%d-%b-%Y"))
-            }
+            SearchEmailsFilterQuery::Date(date) => SearchKey::SentOn((*date).try_into().unwrap()),
             SearchEmailsFilterQuery::BeforeDate(date) => {
-                format!("SENTBEFORE {}", date.format("%d-%b-%Y"))
+                SearchKey::SentBefore((*date).try_into().unwrap())
             }
             SearchEmailsFilterQuery::AfterDate(date) => {
                 // imap sentsince is inclusive, so we add one day to
                 // the date filter.
                 let date = *date + TimeDelta::try_days(1).unwrap();
-                format!("SENTSINCE {}", date.format("%d-%b-%Y"))
+                SearchKey::SentSince(date.try_into().unwrap())
             }
             SearchEmailsFilterQuery::From(pattern) => {
-                format!("FROM {pattern}")
+                SearchKey::From(pattern.clone().try_into().unwrap())
             }
             SearchEmailsFilterQuery::To(pattern) => {
-                format!("TO {pattern}")
+                SearchKey::To(pattern.clone().try_into().unwrap())
             }
             SearchEmailsFilterQuery::Subject(pattern) => {
-                format!("SUBJECT {pattern}")
+                SearchKey::Subject(pattern.clone().try_into().unwrap())
             }
             SearchEmailsFilterQuery::Body(pattern) => {
-                format!("BODY {pattern}")
+                SearchKey::Body(pattern.clone().try_into().unwrap())
             }
-            SearchEmailsFilterQuery::Flag(flag) => {
-                let flag = flag.to_imap_query_string();
-                format!("KEYWORD {flag}")
-            }
+            SearchEmailsFilterQuery::Flag(flag) => flag.clone().try_into().unwrap(),
         }
     }
 }
@@ -230,27 +172,50 @@ impl SearchEmailsSorter {
     pub fn to_imap_sort_criterion(&self) -> SortCriterion {
         use SearchEmailsSorterKind::*;
         use SearchEmailsSorterOrder::*;
-        use SortCriterion::Reverse;
 
         match self {
-            SearchEmailsSorter(Date, Ascending) => SortCriterion::Date,
-            SearchEmailsSorter(Date, Descending) => Reverse(&SortCriterion::Date),
-            SearchEmailsSorter(From, Ascending) => SortCriterion::From,
-            SearchEmailsSorter(From, Descending) => Reverse(&SortCriterion::From),
-            SearchEmailsSorter(To, Ascending) => SortCriterion::To,
-            SearchEmailsSorter(To, Descending) => SortCriterion::Reverse(&SortCriterion::To),
-            SearchEmailsSorter(Subject, Ascending) => SortCriterion::Subject,
-            SearchEmailsSorter(Subject, Descending) => Reverse(&SortCriterion::Subject),
+            SearchEmailsSorter(Date, Ascending) => SortCriterion {
+                reverse: false,
+                key: SortKey::Date,
+            },
+            SearchEmailsSorter(Date, Descending) => SortCriterion {
+                reverse: true,
+                key: SortKey::Date,
+            },
+            SearchEmailsSorter(From, Ascending) => SortCriterion {
+                reverse: false,
+                key: SortKey::From,
+            },
+            SearchEmailsSorter(From, Descending) => SortCriterion {
+                reverse: true,
+                key: SortKey::From,
+            },
+            SearchEmailsSorter(To, Ascending) => SortCriterion {
+                reverse: false,
+                key: SortKey::To,
+            },
+            SearchEmailsSorter(To, Descending) => SortCriterion {
+                reverse: true,
+                key: SortKey::To,
+            },
+            SearchEmailsSorter(Subject, Ascending) => SortCriterion {
+                reverse: false,
+                key: SortKey::Subject,
+            },
+            SearchEmailsSorter(Subject, Descending) => SortCriterion {
+                reverse: true,
+                key: SortKey::Subject,
+            },
         }
     }
 }
 
 fn apply_pagination(
-    uids: &mut Vec<u32>,
+    envelopes: &mut Envelopes,
     page: usize,
     page_size: usize,
 ) -> result::Result<(), Error> {
-    let total = uids.len();
+    let total = envelopes.len();
     let page_cursor = page * page_size;
     if page_cursor >= total {
         Err(Error::BuildPageRangeOutOfBoundsImapError(page + 1))?
@@ -261,75 +226,33 @@ fn apply_pagination(
     }
 
     let page_size = page_size.min(total);
-    *uids = uids[0..page_size].into();
+    *envelopes = Envelopes(envelopes[0..page_size].to_vec());
     Ok(())
 }
 
 /// Builds the IMAP sequence set for the give page, page size and
 /// total size.
-fn build_page_range(page: usize, page_size: usize, total: usize) -> result::Result<String, Error> {
-    let page_cursor = page * page_size;
-    if page_cursor >= total {
-        Err(Error::BuildPageRangeOutOfBoundsImapError(page + 1))?
-    }
-
-    let range = if page_size == 0 {
-        String::from("1:*")
+fn build_sequence(page: usize, page_size: usize, total: usize) -> Result<Sequence> {
+    let seq = if page_size == 0 {
+        Sequence::Single(SeqOrUid::Asterisk)
     } else {
-        let page_size = page_size.min(total);
+        let page_cursor = page * page_size;
+        if page_cursor >= total {
+            Err(Error::BuildPageRangeOutOfBoundsImapError(page + 1))?
+        }
+
         let mut count = 1;
         let mut cursor = total - (total.min(page_cursor));
-        let mut range = cursor.to_string();
+
+        let page_size = page_size.min(total);
+        let from = SeqOrUid::Value(NonZeroU32::new(cursor as u32).unwrap());
         while cursor > 1 && count < page_size {
             count += 1;
             cursor -= 1;
-            if count > 1 {
-                range.push(',');
-            }
-            range.push_str(&cursor.to_string());
         }
-        range
+        let to = SeqOrUid::Value(NonZeroU32::new(cursor as u32).unwrap());
+        Sequence::Range(from, to)
     };
 
-    Ok(range)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn build_page_range_out_of_bounds() {
-        // page * page_size < size
-        assert_eq!(super::build_page_range(0, 5, 5).unwrap(), "5,4,3,2,1");
-
-        // page * page_size = size
-        assert!(matches!(
-            super::build_page_range(1, 5, 5).unwrap_err(),
-            super::Error::BuildPageRangeOutOfBoundsImapError(2),
-        ));
-
-        // page * page_size > size
-        assert!(matches!(
-            super::build_page_range(2, 5, 5).unwrap_err(),
-            super::Error::BuildPageRangeOutOfBoundsImapError(3),
-        ));
-    }
-
-    #[test]
-    fn build_page_range_page_size_0() {
-        assert_eq!(super::build_page_range(0, 0, 3).unwrap(), "1:*");
-        assert_eq!(super::build_page_range(1, 0, 4).unwrap(), "1:*");
-        assert_eq!(super::build_page_range(2, 0, 5).unwrap(), "1:*");
-    }
-
-    #[test]
-    fn build_page_range_page_size_smaller_than_size() {
-        assert_eq!(super::build_page_range(0, 3, 5).unwrap(), "5,4,3");
-        assert_eq!(super::build_page_range(1, 3, 5).unwrap(), "2,1");
-        assert_eq!(super::build_page_range(1, 4, 5).unwrap(), "1");
-    }
-
-    #[test]
-    fn build_page_range_page_bigger_than_size() {
-        assert_eq!(super::build_page_range(0, 10, 5).unwrap(), "5,4,3,2,1");
-    }
+    Ok(seq)
 }
