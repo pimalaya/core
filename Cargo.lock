@@ -2714,7 +2714,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.6",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -2796,7 +2796,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core",
 ]
 
 [[package]]
@@ -2878,7 +2878,7 @@ dependencies = [
 [[package]]
 name = "imap-client"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#6bce14af7f9078503e8aa21829f95585bc3f358c"
+source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
 dependencies = [
  "imap-flow",
  "once_cell",
@@ -2908,7 +2908,7 @@ dependencies = [
 [[package]]
 name = "imap-flow"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#6bce14af7f9078503e8aa21829f95585bc3f358c"
+source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
 dependencies = [
  "bounded-static",
  "bytes",
@@ -6180,7 +6180,7 @@ dependencies = [
 [[package]]
 name = "tag-generator"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#6bce14af7f9078503e8aa21829f95585bc3f358c"
+source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
 dependencies = [
  "imap-types",
  "rand",
@@ -6201,7 +6201,7 @@ checksum = "e1fc403891a21bcfb7c37834ba66a547a8f402146eba7265b5a6d88059c9ff2f"
 [[package]]
 name = "tasks"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#6bce14af7f9078503e8aa21829f95585bc3f358c"
+source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
 dependencies = [
  "imap-flow",
  "imap-types",
@@ -7135,7 +7135,7 @@ version = "0.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca229916c5ee38c2f2bc1e9d8f04df975b4bd93f9955dc69fabb5d91270045c9"
 dependencies = [
- "windows-core 0.51.1",
+ "windows-core",
  "windows-targets 0.48.5",
 ]
 
@@ -7146,15 +7146,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f8cf84f35d2db49a46868f947758c7a1138116f7fac3bc844f43ade1292e64"
 dependencies = [
  "windows-targets 0.48.5",
-]
-
-[[package]]
-name = "windows-core"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
-dependencies = [
- "windows-targets 0.52.5",
 ]
 
 [[package]]
