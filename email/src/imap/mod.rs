@@ -1,14 +1,17 @@
 pub mod config;
 mod error;
 
-use std::{env, fmt, num::NonZeroU32, ops::Deref, sync::Arc, time::Duration};
+use std::{collections::HashMap, env, fmt, num::NonZeroU32, ops::Deref, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use imap_client::{
     imap_flow::imap_codec::imap_types::{
         auth::AuthMechanism,
         core::{Charset, IString, NString},
-        extensions::sort::SortCriterion,
+        extensions::{
+            sort::SortCriterion,
+            thread::{Thread, ThreadingAlgorithm},
+        },
         flag::{Flag, StoreType},
         mailbox::{ListMailbox, Mailbox},
         search::SearchKey,
@@ -34,6 +37,7 @@ use crate::{
         get::{imap::GetImapEnvelope, GetEnvelope},
         imap::FETCH_ENVELOPES,
         list::{imap::ListImapEnvelopes, ListEnvelopes},
+        thread::{imap::ThreadImapEnvelopes, ThreadEnvelopes},
         watch::{imap::WatchImapEnvelopes, WatchEnvelopes},
         Envelope, Envelopes,
     },
@@ -73,8 +77,9 @@ macro_rules! retry {
                 Err(err) if retried => {
                     break Err($err(err));
                 }
-                Err(ClientError::Stream(_)) => {
-                    warn!("IMAP stream issue, re-building client…");
+                Err(ClientError::Stream(err)) => {
+                    println!("err: {:#?}", err);
+                    warn!("{err}, re-building IMAP client…");
                     $self.client = $self.client_builder.build().await?;
                     retried = true;
                     continue;
@@ -238,6 +243,27 @@ impl ImapContext {
         Ok(Envelopes::from_imap_data_items(fetches))
     }
 
+    pub async fn fetch_envelopes_map(
+        &mut self,
+        uids: SequenceSet,
+    ) -> Result<HashMap<String, Envelope>> {
+        let fetches = retry! {
+            self,
+            self.client.fetch(uids.clone(), FETCH_ENVELOPES.clone(), true).await,
+            Error::FetchMessagesError
+        }?;
+
+        let map = fetches
+            .into_values()
+            .map(|items| {
+                let envelope = Envelope::from_imap_data_items(items.as_ref());
+                (envelope.id.clone(), envelope)
+            })
+            .collect();
+
+        Ok(map)
+    }
+
     pub async fn fetch_first_envelope(&mut self, uids: SequenceSet) -> Result<Option<Envelope>> {
         let fetch = retry! {
             self,
@@ -282,6 +308,24 @@ impl ImapContext {
         }?;
 
         Ok(Envelopes::from(fetches))
+    }
+
+    pub async fn thread_envelopes(
+        &mut self,
+        search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
+    ) -> Result<Vec<Thread>> {
+        let charset = Charset::try_from("UTF-8").unwrap();
+
+        retry! {
+            self,
+            self.client.thread(
+                ThreadingAlgorithm::References,
+                charset.clone(),
+                search_criteria.clone(),
+                true
+            ).await,
+            Error::ThreadMessagesError
+        }
     }
 
     pub async fn idle(
@@ -553,6 +597,10 @@ impl BackendContextBuilder for ImapContextBuilder {
 
     fn list_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn ListEnvelopes>> {
         Some(Arc::new(ListImapEnvelopes::some_new_boxed))
+    }
+
+    fn thread_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn ThreadEnvelopes>> {
+        Some(Arc::new(ThreadImapEnvelopes::some_new_boxed))
     }
 
     fn watch_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn WatchEnvelopes>> {

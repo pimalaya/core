@@ -22,6 +22,8 @@ pub enum Error {
     DeleteFolderNotAvailableError,
     #[error("cannot list envelopes: feature not available, or backend configuration for this functionality is not set")]
     ListEnvelopesNotAvailableError,
+    #[error("cannot thread envelopes: feature not available, or backend configuration for this functionality is not set")]
+    ThreadEnvelopesNotAvailableError,
     #[error("cannot watch for envelopes changes: feature not available, or backend configuration for this functionality is not set")]
     WatchEnvelopesNotAvailableError,
     #[error("cannot get envelope: feature not available, or backend configuration for this functionality is not set")]

@@ -61,6 +61,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use paste::paste;
+use petgraph::graphmap::DiGraphMap;
 
 #[doc(inline)]
 pub use self::error::{Error, Result};
@@ -77,8 +78,9 @@ use crate::{
     envelope::{
         get::GetEnvelope,
         list::{ListEnvelopes, ListEnvelopesOptions},
+        thread::ThreadEnvelopes,
         watch::WatchEnvelopes,
-        Envelope, Envelopes, Id, SingleId,
+        Envelope, Envelopes, Id, SingleId, ThreadedEnvelopes,
     },
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flags},
     folder::{
@@ -125,6 +127,8 @@ where
     pub get_envelope: Option<BackendFeature<C, dyn GetEnvelope>>,
     /// The list envelopes backend feature.
     pub list_envelopes: Option<BackendFeature<C, dyn ListEnvelopes>>,
+    /// The thread envelopes backend feature.
+    pub thread_envelopes: Option<BackendFeature<C, dyn ThreadEnvelopes>>,
     /// The watch envelopes backend feature.
     pub watch_envelopes: Option<BackendFeature<C, dyn WatchEnvelopes>>,
 
@@ -243,6 +247,22 @@ impl<C: BackendContext> ListEnvelopes for Backend<C> {
             .and_then(|feature| feature(&self.context))
             .ok_or(Error::ListEnvelopesNotAvailableError)?
             .list_envelopes(folder, opts)
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: BackendContext> ThreadEnvelopes for Backend<C> {
+    async fn thread_envelopes(
+        &self,
+        folder: &str,
+        opts: ListEnvelopesOptions,
+    ) -> AnyResult<ThreadedEnvelopes> {
+        self.thread_envelopes
+            .as_ref()
+            .and_then(|feature| feature(&self.context))
+            .ok_or(Error::ThreadEnvelopesNotAvailableError)?
+            .thread_envelopes(folder, opts)
             .await
     }
 }
@@ -487,6 +507,8 @@ where
     pub get_envelope: BackendFeatureSource<CB::Context, dyn GetEnvelope>,
     /// The list envelopes backend builder feature.
     pub list_envelopes: BackendFeatureSource<CB::Context, dyn ListEnvelopes>,
+    /// The thread envelopes backend builder feature.
+    pub thread_envelopes: BackendFeatureSource<CB::Context, dyn ThreadEnvelopes>,
     /// The watch envelopes backend builder feature.
     pub watch_envelopes: BackendFeatureSource<CB::Context, dyn WatchEnvelopes>,
 
@@ -520,43 +542,25 @@ where
     CB: BackendContextBuilder,
 {
     feature_accessors!(CheckUp);
-
     feature_accessors!(AddFolder);
-
     feature_accessors!(ListFolders);
-
     feature_accessors!(ExpungeFolder);
-
     feature_accessors!(PurgeFolder);
-
     feature_accessors!(DeleteFolder);
-
     feature_accessors!(GetEnvelope);
-
     feature_accessors!(ListEnvelopes);
-
+    feature_accessors!(ThreadEnvelopes);
     feature_accessors!(WatchEnvelopes);
-
     feature_accessors!(AddFlags);
-
     feature_accessors!(SetFlags);
-
     feature_accessors!(RemoveFlags);
-
     feature_accessors!(AddMessage);
-
     feature_accessors!(SendMessage);
-
     feature_accessors!(PeekMessages);
-
     feature_accessors!(GetMessages);
-
     feature_accessors!(CopyMessages);
-
     feature_accessors!(MoveMessages);
-
     feature_accessors!(DeleteMessages);
-
     feature_accessors!(RemoveMessages);
 
     /// Create a new backend builder using the given backend context
@@ -578,6 +582,7 @@ where
 
             get_envelope: BackendFeatureSource::Context,
             list_envelopes: BackendFeatureSource::Context,
+            thread_envelopes: BackendFeatureSource::Context,
             watch_envelopes: BackendFeatureSource::Context,
 
             add_flags: BackendFeatureSource::Context,
@@ -665,6 +670,7 @@ where
 
             get_envelope: self.get_envelope.clone(),
             list_envelopes: self.list_envelopes.clone(),
+            thread_envelopes: self.thread_envelopes.clone(),
             watch_envelopes: self.watch_envelopes.clone(),
 
             add_flags: self.add_flags.clone(),
@@ -697,6 +703,7 @@ where
 
         let get_envelope = self.get_get_envelope();
         let list_envelopes = self.get_list_envelopes();
+        let thread_envelopes = self.get_thread_envelopes();
         let watch_envelopes = self.get_watch_envelopes();
 
         let add_flags = self.get_add_flags();
@@ -724,6 +731,7 @@ where
 
             get_envelope,
             list_envelopes,
+            thread_envelopes,
             watch_envelopes,
 
             add_flags,

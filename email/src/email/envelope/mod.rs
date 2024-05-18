@@ -18,15 +18,19 @@ pub mod maildir;
 pub mod notmuch;
 #[cfg(feature = "account-sync")]
 pub mod sync;
+pub mod thread;
 pub mod watch;
 
 use std::{
+    collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
     ops::{Deref, DerefMut},
     vec,
 };
 
 use chrono::{DateTime, FixedOffset, Local};
+use ouroboros::self_referencing;
+use petgraph::graphmap::DiGraphMap;
 
 #[doc(inline)]
 pub use self::{
@@ -267,5 +271,20 @@ impl DerefMut for Envelopes {
 impl FromIterator<Envelope> for Envelopes {
     fn from_iter<T: IntoIterator<Item = Envelope>>(iter: T) -> Self {
         Envelopes(iter.into_iter().collect())
+    }
+}
+
+#[self_referencing]
+#[derive(Debug)]
+pub struct ThreadedEnvelopes {
+    envelopes: HashMap<String, Envelope>,
+    #[borrows(envelopes)]
+    #[covariant]
+    graph: DiGraphMap<&'this str, u8>,
+}
+
+impl ThreadedEnvelopes {
+    pub fn graph(&self) -> &DiGraphMap<&str, u8> {
+        self.borrow_graph()
     }
 }

@@ -1831,6 +1831,7 @@ dependencies = [
  "once_cell",
  "ouroboros",
  "paste",
+ "petgraph",
  "pgp-lib",
  "process-lib",
  "rayon",
