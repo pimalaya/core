@@ -197,7 +197,7 @@ impl<C: BackendContext + 'static> DeleteFolder for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> GetEnvelope for BackendPool<C> {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> AnyResult<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &SingleId) -> AnyResult<Envelope> {
         let folder = folder.to_owned();
         let id = id.clone();
         let feature = self

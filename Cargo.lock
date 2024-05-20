@@ -2879,7 +2879,7 @@ dependencies = [
 [[package]]
 name = "imap-client"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
+source = "git+https://github.com/soywod/imap-flow.git?branch=session#7d60dd27829b82602e7c7f794633aef432f4c191"
 dependencies = [
  "imap-flow",
  "once_cell",
@@ -2894,7 +2894,7 @@ dependencies = [
 [[package]]
 name = "imap-codec"
 version = "2.0.0"
-source = "git+https://github.com/duesee/imap-codec.git#8fdfdf0e2573db407b34efac85a55cfcc641aa56"
+source = "git+https://github.com/duesee/imap-codec.git#638924e92d9a8ea82208397d8e739110296daf01"
 dependencies = [
  "abnf-core",
  "base64 0.21.7",
@@ -2909,7 +2909,7 @@ dependencies = [
 [[package]]
 name = "imap-flow"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
+source = "git+https://github.com/soywod/imap-flow.git?branch=session#7d60dd27829b82602e7c7f794633aef432f4c191"
 dependencies = [
  "bounded-static",
  "bytes",
@@ -2925,7 +2925,7 @@ dependencies = [
 [[package]]
 name = "imap-types"
 version = "2.0.0"
-source = "git+https://github.com/duesee/imap-codec.git#8fdfdf0e2573db407b34efac85a55cfcc641aa56"
+source = "git+https://github.com/duesee/imap-codec.git#638924e92d9a8ea82208397d8e739110296daf01"
 dependencies = [
  "base64 0.21.7",
  "bounded-static",
@@ -6181,7 +6181,7 @@ dependencies = [
 [[package]]
 name = "tag-generator"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
+source = "git+https://github.com/soywod/imap-flow.git?branch=session#7d60dd27829b82602e7c7f794633aef432f4c191"
 dependencies = [
  "imap-types",
  "rand",
@@ -6202,7 +6202,7 @@ checksum = "e1fc403891a21bcfb7c37834ba66a547a8f402146eba7265b5a6d88059c9ff2f"
 [[package]]
 name = "tasks"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
+source = "git+https://github.com/soywod/imap-flow.git?branch=session#7d60dd27829b82602e7c7f794633aef432f4c191"
 dependencies = [
  "imap-flow",
  "imap-types",

@@ -1,15 +1,10 @@
 pub mod config;
 #[cfg(feature = "imap")]
 pub mod imap;
-// #[cfg(feature = "maildir")]
-// pub mod maildir;
-// #[cfg(feature = "notmuch")]
-// pub mod notmuch;
 
 use async_trait::async_trait;
-use petgraph::graphmap::DiGraphMap;
 
-use super::{list::ListEnvelopesOptions, Envelopes, SingleId, ThreadedEnvelopes};
+use super::{list::ListEnvelopesOptions, SingleId, ThreadedEnvelopes};
 use crate::AnyResult;
 
 #[async_trait]

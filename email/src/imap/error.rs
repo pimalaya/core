@@ -68,6 +68,8 @@ pub enum Error {
     #[error("cannot delete IMAP mailbox")]
     DeleteMailboxError(#[source] ClientError),
 
+    #[error("cannot exchange IMAP client/server ids")]
+    ExchangeIdsError(#[source] ClientError),
     #[error("cannot fetch IMAP messages")]
     FetchMessagesError(#[source] ClientError),
     #[error("cannot search IMAP messages")]

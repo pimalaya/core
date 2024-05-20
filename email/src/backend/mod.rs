@@ -61,7 +61,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use paste::paste;
-use petgraph::graphmap::DiGraphMap;
 
 #[doc(inline)]
 pub use self::error::{Error, Result};
@@ -225,7 +224,7 @@ impl<C: BackendContext> DeleteFolder for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> GetEnvelope for Backend<C> {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> AnyResult<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &SingleId) -> AnyResult<Envelope> {
         self.get_envelope
             .as_ref()
             .and_then(|feature| feature(&self.context))

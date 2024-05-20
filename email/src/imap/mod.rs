@@ -7,17 +7,17 @@ use async_trait::async_trait;
 use imap_client::{
     imap_flow::imap_codec::imap_types::{
         auth::AuthMechanism,
-        core::{Charset, IString, NString},
+        core::{IString, NString, Vec1},
         extensions::{
             sort::SortCriterion,
             thread::{Thread, ThreadingAlgorithm},
         },
+        fetch::MessageDataItem,
         flag::{Flag, StoreType},
-        mailbox::{ListMailbox, Mailbox},
         search::SearchKey,
         sequence::SequenceSet,
     },
-    tasks::tasks::{fetch::MessageDataItemsMap, select::SelectData},
+    tasks::tasks::select::SelectDataUnvalidated,
     Client, ClientError,
 };
 use once_cell::sync::Lazy;
@@ -158,77 +158,68 @@ impl fmt::Debug for ImapContext {
 
 impl ImapContext {
     pub async fn create_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
-        let mbox = Mailbox::try_from(mbox.to_string())
-            .map_err(|err| Error::ParseMailboxError(err, mbox.to_string()))?;
-
         retry! {
             self,
-            self.client.create(mbox.clone()).await,
+            self.client.create(mbox.to_string()).await,
             Error::CreateMailboxError
         }
     }
 
     pub async fn list_all_mailboxes(&mut self, config: &AccountConfig) -> Result<Folders> {
-        let mbox = Mailbox::try_from("").unwrap();
-        let mbox_wcard = ListMailbox::try_from("*").unwrap();
-
         let mboxes = retry! {
             self,
-            self.client.list(mbox.clone(), mbox_wcard.clone()).await,
+            self.client.list("", "*").await,
             Error::ListMailboxesError
         }?;
 
         Ok(Folders::from_imap_mailboxes(config, mboxes))
     }
 
-    pub async fn select_mailbox(&mut self, mbox: impl ToString) -> Result<SelectData> {
-        let mbox = Mailbox::try_from(mbox.to_string())
-            .map_err(|err| Error::ParseMailboxError(err, mbox.to_string()))?;
-
+    pub async fn select_mailbox(&mut self, mbox: impl ToString) -> Result<SelectDataUnvalidated> {
         retry! {
             self,
-            self.client.select(mbox.clone()).await,
+            self.client.select(mbox.to_string()).await,
             Error::SelectMailboxError
         }
     }
 
-    pub async fn examine_mailbox(&mut self, mbox: impl ToString) -> Result<SelectData> {
-        let mbox = Mailbox::try_from(mbox.to_string())
-            .map_err(|err| Error::ParseMailboxError(err, mbox.to_string()))?;
-
+    pub async fn examine_mailbox(&mut self, mbox: impl ToString) -> Result<SelectDataUnvalidated> {
         retry! {
             self,
-            self.client.examine(mbox.clone()).await,
+            self.client.examine(mbox.to_string()).await,
             Error::ExamineMailboxError
         }
     }
 
     pub async fn expunge_mailbox(&mut self, mbox: impl ToString) -> Result<usize> {
         self.select_mailbox(mbox).await?;
-        retry! {
+
+        let expunged = retry! {
             self,
             self.client.expunge().await,
             Error::ExpungeMailboxError
-        }
+        }?;
+
+        Ok(expunged.len())
     }
 
     pub async fn purge_mailbox(&mut self, mbox: impl ToString) -> Result<usize> {
         self.select_mailbox(mbox).await?;
         self.add_deleted_flag_silently((..).into()).await?;
-        retry! {
+
+        let expunged = retry! {
             self,
             self.client.expunge().await,
             Error::ExpungeMailboxError
-        }
+        }?;
+
+        Ok(expunged.len())
     }
 
     pub async fn delete_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
-        let mbox = Mailbox::try_from(mbox.to_string())
-            .map_err(|err| Error::ParseMailboxError(err, mbox.to_string()))?;
-
         retry! {
             self,
-            self.client.delete(mbox.clone()).await,
+            self.client.delete(mbox.to_string()).await,
             Error::DeleteMailboxError
         }
     }
@@ -236,7 +227,7 @@ impl ImapContext {
     pub async fn fetch_envelopes(&mut self, uids: SequenceSet) -> Result<Envelopes> {
         let fetches = retry! {
             self,
-            self.client.fetch(uids.clone(), FETCH_ENVELOPES.clone(), true).await,
+            self.client.uid_fetch(uids.clone(), FETCH_ENVELOPES.clone()).await,
             Error::FetchMessagesError
         }?;
 
@@ -249,7 +240,7 @@ impl ImapContext {
     ) -> Result<HashMap<String, Envelope>> {
         let fetches = retry! {
             self,
-            self.client.fetch(uids.clone(), FETCH_ENVELOPES.clone(), true).await,
+            self.client.uid_fetch(uids.clone(), FETCH_ENVELOPES.clone()).await,
             Error::FetchMessagesError
         }?;
 
@@ -264,20 +255,20 @@ impl ImapContext {
         Ok(map)
     }
 
-    pub async fn fetch_first_envelope(&mut self, uids: SequenceSet) -> Result<Option<Envelope>> {
-        let fetch = retry! {
+    pub async fn fetch_first_envelope(&mut self, uid: u32) -> Result<Envelope> {
+        let items = retry! {
             self,
-            self.client.fetch_first(uids.clone(), FETCH_ENVELOPES.clone(), true).await,
+            self.client.uid_fetch_first(uid.try_into().unwrap(), FETCH_ENVELOPES.clone()).await,
             Error::FetchMessagesError
         }?;
 
-        Ok(fetch.map(|items| Envelope::from_imap_data_items(items.as_ref())))
+        Ok(Envelope::from_imap_data_items(items.as_ref()))
     }
 
     pub async fn fetch_envelopes_by_sequence(&mut self, seq: SequenceSet) -> Result<Envelopes> {
         let fetches = retry! {
             self,
-            self.client.fetch(seq.clone(), FETCH_ENVELOPES.clone(), false).await,
+            self.client.fetch(seq.clone(), FETCH_ENVELOPES.clone()).await,
             Error::FetchMessagesError
         }?;
 
@@ -293,16 +284,12 @@ impl ImapContext {
         sort_criteria: impl IntoIterator<Item = SortCriterion> + Clone,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
     ) -> Result<Envelopes> {
-        let charset = Charset::try_from("UTF-8").unwrap();
-
         let fetches = retry! {
             self,
-            self.client.sort_or_fallback(
+            self.client.uid_sort_or_fallback(
                 sort_criteria.clone(),
-                charset.clone(),
                 search_criteria.clone(),
                 FETCH_ENVELOPES.clone(),
-                true
             ).await,
             Error::FetchMessagesError
         }?;
@@ -314,15 +301,11 @@ impl ImapContext {
         &mut self,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
     ) -> Result<Vec<Thread>> {
-        let charset = Charset::try_from("UTF-8").unwrap();
-
         retry! {
             self,
-            self.client.thread(
+            self.client.uid_thread(
                 ThreadingAlgorithm::References,
-                charset.clone(),
                 search_criteria.clone(),
-                true
             ).await,
             Error::ThreadMessagesError
         }
@@ -351,18 +334,21 @@ impl ImapContext {
         &mut self,
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
-    ) -> Result<MessageDataItemsMap> {
+    ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
         retry! {
             self,
-            self.client.store(uids.clone(), StoreType::Add, flags.clone(), true).await,
+            self.client.uid_store(uids.clone(), StoreType::Add, flags.clone()).await,
             Error::StoreFlagsError
         }
     }
 
-    pub async fn add_deleted_flag(&mut self, uids: SequenceSet) -> Result<MessageDataItemsMap> {
+    pub async fn add_deleted_flag(
+        &mut self,
+        uids: SequenceSet,
+    ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
         retry! {
             self,
-            self.client.store(uids.clone(), StoreType::Add, Some(Flag::Deleted), true).await,
+            self.client.uid_store(uids.clone(), StoreType::Add, Some(Flag::Deleted)).await,
             Error::StoreFlagsError
         }
     }
@@ -370,7 +356,7 @@ impl ImapContext {
     pub async fn add_deleted_flag_silently(&mut self, uids: SequenceSet) -> Result<()> {
         retry! {
             self,
-            self.client.silent_store(uids.clone(), StoreType::Add, Some(Flag::Deleted), true).await,
+            self.client.uid_silent_store(uids.clone(), StoreType::Add, Some(Flag::Deleted)).await,
             Error::StoreFlagsError
         }
     }
@@ -382,7 +368,7 @@ impl ImapContext {
     ) -> Result<()> {
         retry! {
             self,
-            self.client.silent_store(uids.clone(), StoreType::Add, flags.clone(), true).await,
+            self.client.uid_silent_store(uids.clone(), StoreType::Add, flags.clone()).await,
             Error::StoreFlagsError
         }
     }
@@ -391,10 +377,10 @@ impl ImapContext {
         &mut self,
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
-    ) -> Result<MessageDataItemsMap> {
+    ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
         retry! {
             self,
-            self.client.store(uids.clone(), StoreType::Replace, flags.clone(), true).await,
+            self.client.uid_store(uids.clone(), StoreType::Replace, flags.clone()).await,
             Error::StoreFlagsError
         }
     }
@@ -406,7 +392,7 @@ impl ImapContext {
     ) -> Result<()> {
         retry! {
             self,
-            self.client.silent_store(uids.clone(), StoreType::Replace, flags.clone(), true).await,
+            self.client.uid_silent_store(uids.clone(), StoreType::Replace, flags.clone()).await,
             Error::StoreFlagsError
         }
     }
@@ -415,10 +401,10 @@ impl ImapContext {
         &mut self,
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
-    ) -> Result<MessageDataItemsMap> {
+    ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
         retry! {
             self,
-            self.client.store(uids.clone(), StoreType::Remove, flags.clone(), true).await,
+            self.client.uid_store(uids.clone(), StoreType::Remove, flags.clone()).await,
             Error::StoreFlagsError
         }
     }
@@ -430,7 +416,7 @@ impl ImapContext {
     ) -> Result<()> {
         retry! {
             self,
-            self.client.silent_store(uids.clone(), StoreType::Remove, flags.clone(), true).await,
+            self.client.uid_silent_store(uids.clone(), StoreType::Remove, flags.clone()).await,
             Error::StoreFlagsError
         }
     }
@@ -438,16 +424,12 @@ impl ImapContext {
     pub async fn add_message(
         &mut self,
         mbox: impl ToString,
-        flags: impl IntoIterator<Item = Flag<'static>>,
+        flags: impl IntoIterator<Item = Flag<'static>> + Clone,
         msg: impl AsRef<[u8]> + Clone,
     ) -> Result<NonZeroU32> {
-        let mbox = Mailbox::try_from(mbox.to_string())
-            .map_err(|err| Error::ParseMailboxError(err, mbox.to_string()))?;
-        let flags: Vec<_> = flags.into_iter().collect();
-
         let id = retry! {
             self,
-            self.client.appenduid_or_fallback(mbox.clone(), flags.clone(), msg.clone()).await,
+            self.client.appenduid_or_fallback(mbox.to_string(), flags.clone(), msg.clone()).await,
             Error::StoreFlagsError
         }?;
 
@@ -457,7 +439,7 @@ impl ImapContext {
     pub async fn fetch_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
         let fetches = retry! {
             self,
-            self.client.fetch(uids.clone(), FETCH_MESSAGES.clone(), true).await,
+            self.client.uid_fetch(uids.clone(), FETCH_MESSAGES.clone()).await,
             Error::StoreFlagsError
         }?;
 
@@ -467,7 +449,7 @@ impl ImapContext {
     pub async fn peek_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
         let fetches = retry! {
             self,
-            self.client.fetch(uids.clone(), PEEK_MESSAGES.clone(), true).await,
+            self.client.uid_fetch(uids.clone(), PEEK_MESSAGES.clone()).await,
             Error::StoreFlagsError
         }?;
 
@@ -475,23 +457,17 @@ impl ImapContext {
     }
 
     pub async fn copy_messages(&mut self, uids: SequenceSet, mbox: impl ToString) -> Result<()> {
-        let mbox = Mailbox::try_from(mbox.to_string())
-            .map_err(|err| Error::ParseMailboxError(err, mbox.to_string()))?;
-
         retry! {
             self,
-            self.client.copy(uids.clone(), mbox.clone(), true).await,
+            self.client.uid_copy(uids.clone(), mbox.to_string()).await,
             Error::CopyMessagesError
         }
     }
 
     pub async fn move_messages(&mut self, uids: SequenceSet, mbox: impl ToString) -> Result<()> {
-        let mbox = Mailbox::try_from(mbox.to_string())
-            .map_err(|err| Error::ParseMailboxError(err, mbox.to_string()))?;
-
         retry! {
             self,
-            self.client.move_or_fallback(uids.clone(), mbox.clone(), true).await,
+            self.client.uid_move_or_fallback(uids.clone(), mbox.to_string()).await,
             Error::MoveMessagesError
         }
     }
@@ -740,7 +716,7 @@ impl ImapClientBuilder {
         match &self.config.auth {
             ImapAuthConfig::Passwd(passwd) => {
                 if !client.supports_auth_mechanism(AuthMechanism::Plain) {
-                    let auth = client.supported_auth_mechanisms().into_iter().collect();
+                    let auth = client.supported_auth_mechanisms().cloned().collect();
                     return Err(Error::AuthenticatePlainNotSupportedError(auth));
                 }
 
@@ -759,18 +735,14 @@ impl ImapClientBuilder {
                 };
 
                 client
-                    .authenticate_plain(
-                        self.config.login.as_str(),
-                        passwd.as_str(),
-                        ID_PARAMS.clone(),
-                    )
+                    .authenticate_plain(self.config.login.as_str(), passwd.as_str())
                     .await
                     .map_err(Error::AuthenticatePlainError)?;
             }
             ImapAuthConfig::OAuth2(oauth2) => match oauth2.method {
                 OAuth2Method::XOAuth2 => {
                     if !client.supports_auth_mechanism(AuthMechanism::XOAuth2) {
-                        let auth = client.supported_auth_mechanisms().into_iter().collect();
+                        let auth = client.supported_auth_mechanisms().cloned().collect();
                         return Err(Error::AuthenticateXOAuth2NotSupportedError(auth));
                     }
 
@@ -785,11 +757,7 @@ impl ImapClientBuilder {
                     };
 
                     let auth = client
-                        .authenticate_xoauth2(
-                            self.config.login.as_str(),
-                            access_token.as_str(),
-                            ID_PARAMS.clone(),
-                        )
+                        .authenticate_xoauth2(self.config.login.as_str(), access_token.as_str())
                         .await;
 
                     if auth.is_err() {
@@ -801,11 +769,7 @@ impl ImapClientBuilder {
                             .map_err(Error::RefreshAccessTokenError)?;
 
                         client
-                            .authenticate_xoauth2(
-                                self.config.login.as_str(),
-                                access_token.as_str(),
-                                ID_PARAMS.clone(),
-                            )
+                            .authenticate_xoauth2(self.config.login.as_str(), access_token.as_str())
                             .await
                             .map_err(Error::AuthenticateXOauth2Error)?;
 
@@ -814,7 +778,7 @@ impl ImapClientBuilder {
                 }
                 OAuth2Method::OAuthBearer => {
                     if !client.supports_auth_mechanism("OAUTHBEARER".try_into().unwrap()) {
-                        let auth = client.supported_auth_mechanisms().into_iter().collect();
+                        let auth = client.supported_auth_mechanisms().cloned().collect();
                         return Err(Error::AuthenticateOAuthBearerNotSupportedError(auth));
                     }
 
@@ -834,7 +798,6 @@ impl ImapClientBuilder {
                             self.config.host.as_str(),
                             self.config.port,
                             access_token.as_str(),
-                            ID_PARAMS.clone(),
                         )
                         .await;
 
@@ -852,7 +815,6 @@ impl ImapClientBuilder {
                                 self.config.host.as_str(),
                                 self.config.port,
                                 access_token.as_str(),
-                                ID_PARAMS.clone(),
                             )
                             .await
                             .map_err(Error::AuthenticateOAuthBearerError)?;
@@ -862,6 +824,13 @@ impl ImapClientBuilder {
                 }
             },
         };
+
+        let server_id = client
+            .id(Some(ID_PARAMS.clone()))
+            .await
+            .map_err(Error::ExchangeIdsError)?;
+
+        debug!(?server_id, "server identity");
 
         Ok(client)
     }

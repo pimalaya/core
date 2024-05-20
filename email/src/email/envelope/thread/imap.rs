@@ -3,6 +3,7 @@ use std::num::NonZeroU32;
 use async_trait::async_trait;
 use imap_client::imap_flow::imap_codec::imap_types::{
     extensions::thread::Thread,
+    search::SearchKey,
     sequence::{Sequence, SequenceSet},
 };
 use petgraph::graphmap::DiGraphMap;
@@ -61,29 +62,12 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
             }));
         }
 
-        // let envelopes = if let Some(query) = opts.query.as_ref() {
-        //     let search_criteria = query.to_imap_search_criteria();
-
-        //     let mut envelopes = ctx.thread_envelopes(search_criteria).await.unwrap();
-
-        //     apply_pagination(&mut envelopes, opts.page, opts.page_size)?;
-
-        //     envelopes
-        // } else {
-        //     let seq = build_sequence(opts.page, opts.page_size, folder_size)?;
-        //     let mut envelopes = ctx.fetch_envelopes_by_sequence(seq.into()).await?;
-        //     envelopes.sort_by(|a, b| b.date.cmp(&a.date));
-        //     envelopes
-        // };
-
-        let threads = ctx
-            .thread_envelopes(Some(
-                imap_client::imap_flow::imap_codec::imap_types::search::SearchKey::All,
-            ))
-            .await
-            .unwrap();
-
-        // apply_pagination(&mut envelopes, opts.page, opts.page_size)?;
+        let threads = if let Some(query) = opts.query.as_ref() {
+            let search_criteria = query.to_imap_search_criteria();
+            ctx.thread_envelopes(search_criteria).await.unwrap()
+        } else {
+            ctx.thread_envelopes(Some(SearchKey::All)).await.unwrap()
+        };
 
         let mut graph = DiGraphMap::<u32, u8>::new();
 
