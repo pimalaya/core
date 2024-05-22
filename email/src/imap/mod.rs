@@ -437,21 +437,31 @@ impl ImapContext {
     }
 
     pub async fn fetch_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
-        let fetches = retry! {
+        let mut fetches = retry! {
             self,
             self.client.uid_fetch(uids.clone(), FETCH_MESSAGES.clone()).await,
             Error::StoreFlagsError
         }?;
 
+        let fetches: Vec<_> = uids
+            .iter(NonZeroU32::MAX)
+            .filter_map(|ref uid| fetches.remove(uid))
+            .collect();
+
         Ok(Messages::from(fetches))
     }
 
     pub async fn peek_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
-        let fetches = retry! {
+        let mut fetches = retry! {
             self,
             self.client.uid_fetch(uids.clone(), PEEK_MESSAGES.clone()).await,
             Error::StoreFlagsError
         }?;
+
+        let fetches: Vec<_> = uids
+            .iter(NonZeroU32::MAX)
+            .filter_map(|ref uid| fetches.remove(uid))
+            .collect();
 
         Ok(Messages::from(fetches))
     }
