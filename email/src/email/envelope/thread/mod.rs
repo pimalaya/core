@@ -17,7 +17,12 @@ pub trait ThreadEnvelopes: Send + Sync {
         opts: ListEnvelopesOptions,
     ) -> AnyResult<ThreadedEnvelopes>;
 
-    async fn thread_envelope(&self, _folder: &str, _id: SingleId) -> AnyResult<ThreadedEnvelopes> {
+    async fn thread_envelope(
+        &self,
+        _folder: &str,
+        _id: SingleId,
+        _opts: ListEnvelopesOptions,
+    ) -> AnyResult<ThreadedEnvelopes> {
         unimplemented!()
     }
 }

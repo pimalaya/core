@@ -113,7 +113,12 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    async fn thread_envelope(&self, folder: &str, id: SingleId) -> AnyResult<ThreadedEnvelopes> {
+    async fn thread_envelope(
+        &self,
+        folder: &str,
+        id: SingleId,
+        opts: ListEnvelopesOptions,
+    ) -> AnyResult<ThreadedEnvelopes> {
         let mut ctx = self.ctx.lock().await;
         let config = &ctx.account_config;
 
@@ -125,7 +130,13 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
         debug!(folder_size, "folder size");
 
         let uid = id.parse::<u32>().unwrap();
-        let threads = ctx.thread_envelopes(Some(SearchKey::All)).await.unwrap();
+
+        let threads = if let Some(query) = opts.query.as_ref() {
+            let search_criteria = query.to_imap_search_criteria();
+            ctx.thread_envelopes(search_criteria).await.unwrap()
+        } else {
+            ctx.thread_envelopes(Some(SearchKey::All)).await.unwrap()
+        };
 
         let mut full_graph = DiGraphMap::<u32, u8>::new();
 
