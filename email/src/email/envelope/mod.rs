@@ -219,6 +219,19 @@ impl Envelope {
         let date = self.date.to_rfc2822();
         format!("Message-ID: {id}\nDate: {date}\n\n")
     }
+
+    pub fn as_threaded(&self) -> ThreadedEnvelope {
+        ThreadedEnvelope {
+            id: self.id.as_str(),
+            message_id: self.message_id.as_str(),
+            subject: self.subject.as_str(),
+            from: match self.from.name.as_ref() {
+                Some(name) => name.as_str(),
+                None => self.from.addr.as_str(),
+            },
+            date: self.date,
+        }
+    }
 }
 
 // NOTE: this is useful for the sync, not sure how relevant it is for
@@ -274,17 +287,54 @@ impl FromIterator<Envelope> for Envelopes {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialOrd)]
+pub struct ThreadedEnvelope<'a> {
+    pub id: &'a str,
+    pub message_id: &'a str,
+    pub from: &'a str,
+    pub subject: &'a str,
+    pub date: DateTime<FixedOffset>,
+}
+
+impl ThreadedEnvelope<'_> {
+    /// Format the envelope date according to the datetime format and
+    /// timezone from the [account configuration](crate::AccountConfig).
+    pub fn format_date(&self, config: &AccountConfig) -> String {
+        let fmt = config.get_envelope_list_datetime_fmt();
+
+        let date = if config.has_envelope_list_datetime_local_tz() {
+            self.date.with_timezone(&Local).format(&fmt)
+        } else {
+            self.date.format(&fmt)
+        };
+
+        date.to_string()
+    }
+}
+
+impl PartialEq for ThreadedEnvelope<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.message_id == other.message_id
+    }
+}
+
+impl Hash for ThreadedEnvelope<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.message_id.hash(state);
+    }
+}
+
 #[self_referencing]
 #[derive(Debug)]
 pub struct ThreadedEnvelopes {
     envelopes: HashMap<String, Envelope>,
     #[borrows(envelopes)]
     #[covariant]
-    graph: DiGraphMap<&'this str, u8>,
+    graph: DiGraphMap<ThreadedEnvelope<'this>, u8>,
 }
 
 impl ThreadedEnvelopes {
-    pub fn graph(&self) -> &DiGraphMap<&str, u8> {
+    pub fn graph(&self) -> &DiGraphMap<ThreadedEnvelope, u8> {
         self.borrow_graph()
     }
 }

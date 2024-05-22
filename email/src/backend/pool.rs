@@ -262,6 +262,23 @@ impl<C: BackendContext + 'static> ThreadEnvelopes for BackendPool<C> {
             })
             .await
     }
+
+    async fn thread_envelope(&self, folder: &str, id: SingleId) -> AnyResult<ThreadedEnvelopes> {
+        let folder = folder.to_owned();
+        let feature = self
+            .thread_envelopes
+            .clone()
+            .ok_or(Error::ThreadEnvelopesNotAvailableError)?;
+
+        self.pool
+            .exec(move |ctx| async move {
+                feature(&ctx)
+                    .ok_or(Error::ThreadEnvelopesNotAvailableError)?
+                    .thread_envelope(&folder, id)
+                    .await
+            })
+            .await
+    }
 }
 
 #[async_trait]

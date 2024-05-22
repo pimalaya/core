@@ -6,13 +6,13 @@ use imap_client::imap_flow::imap_codec::imap_types::{
     search::SearchKey,
     sequence::{Sequence, SequenceSet},
 };
-use petgraph::graphmap::DiGraphMap;
+use petgraph::{graphmap::DiGraphMap, Direction};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::ThreadEnvelopes;
 use crate::{
     debug,
-    envelope::{list::ListEnvelopesOptions, ThreadedEnvelopes},
+    envelope::{list::ListEnvelopesOptions, SingleId, ThreadedEnvelope, ThreadedEnvelopes},
     imap::ImapContextSync,
     AnyResult,
 };
@@ -85,16 +85,86 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
 
         let envelopes = ctx.fetch_envelopes_map(uids).await.unwrap();
         let envelopes = ThreadedEnvelopes::new(envelopes, move |envelopes| {
-            let mut final_graph = DiGraphMap::<&str, u8>::new();
+            let mut final_graph = DiGraphMap::<ThreadedEnvelope, u8>::new();
 
             for (a, b, w) in graph.all_edges() {
                 let eb = envelopes.get(&b.to_string()).unwrap();
                 match envelopes.get(&a.to_string()) {
                     Some(ea) => {
-                        final_graph.add_edge(ea.message_id.as_str(), eb.message_id.as_str(), *w);
+                        final_graph.add_edge(ea.as_threaded(), eb.as_threaded(), *w);
                     }
                     None => {
-                        final_graph.add_edge("root", eb.message_id.as_str(), *w);
+                        let ea = ThreadedEnvelope {
+                            id: "0",
+                            message_id: "0",
+                            subject: "",
+                            from: "",
+                            date: Default::default(),
+                        };
+                        final_graph.add_edge(ea, eb.as_threaded(), *w);
+                    }
+                }
+            }
+
+            final_graph
+        });
+
+        Ok(envelopes)
+    }
+
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    async fn thread_envelope(&self, folder: &str, id: SingleId) -> AnyResult<ThreadedEnvelopes> {
+        let mut ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
+
+        let folder = config.get_folder_alias(folder);
+        let folder_encoded = encode_utf7(folder.clone());
+        debug!(folder_encoded, "utf7 encoded folder");
+
+        let folder_size = ctx.select_mailbox(folder_encoded).await?.exists.unwrap() as usize;
+        debug!(folder_size, "folder size");
+
+        let uid = id.parse::<u32>().unwrap();
+        let threads = ctx.thread_envelopes(Some(SearchKey::All)).await.unwrap();
+
+        let mut full_graph = DiGraphMap::<u32, u8>::new();
+
+        for thread in threads {
+            build_graph_from_thread(&mut full_graph, 0, 0, thread)
+        }
+
+        let mut graph = DiGraphMap::<u32, u8>::new();
+
+        build_parents_graph(&full_graph, &mut graph, uid);
+        build_children_graph(&full_graph, &mut graph, uid);
+
+        let uids: SequenceSet = graph
+            .nodes()
+            .filter_map(NonZeroU32::new)
+            .map(Sequence::from)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        let envelopes = ctx.fetch_envelopes_map(uids).await.unwrap();
+        let envelopes = ThreadedEnvelopes::new(envelopes, move |envelopes| {
+            let mut final_graph = DiGraphMap::<ThreadedEnvelope, u8>::new();
+
+            for (a, b, w) in graph.all_edges() {
+                let eb = envelopes.get(&b.to_string()).unwrap();
+                match envelopes.get(&a.to_string()) {
+                    Some(ea) => {
+                        final_graph.add_edge(ea.as_threaded(), eb.as_threaded(), *w);
+                    }
+                    None => {
+                        let ea = ThreadedEnvelope {
+                            id: "0",
+                            message_id: "0",
+                            subject: "",
+                            from: "",
+                            date: Default::default(),
+                        };
+                        final_graph.add_edge(ea, eb.as_threaded(), *w);
                     }
                 }
             }
@@ -131,6 +201,30 @@ fn build_graph_from_thread(
                 build_graph_from_thread(graph, parent_node, weight, thread)
             }
         }
+    }
+}
+
+fn build_parents_graph(
+    graph: &DiGraphMap<u32, u8>,
+    parents_graph: &mut DiGraphMap<u32, u8>,
+    cursor: u32,
+) {
+    for parent in graph.neighbors_directed(cursor, Direction::Incoming) {
+        let weight = *graph.edge_weight(parent, cursor).unwrap();
+        parents_graph.add_edge(parent, cursor, weight);
+        build_parents_graph(graph, parents_graph, parent);
+    }
+}
+
+fn build_children_graph(
+    graph: &DiGraphMap<u32, u8>,
+    children_graph: &mut DiGraphMap<u32, u8>,
+    cursor: u32,
+) {
+    for child in graph.neighbors_directed(cursor, Direction::Outgoing) {
+        let weight = *graph.edge_weight(cursor, child).unwrap();
+        children_graph.add_edge(cursor, child, weight);
+        build_children_graph(graph, children_graph, child);
     }
 }
 

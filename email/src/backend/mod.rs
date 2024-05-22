@@ -264,6 +264,15 @@ impl<C: BackendContext> ThreadEnvelopes for Backend<C> {
             .thread_envelopes(folder, opts)
             .await
     }
+
+    async fn thread_envelope(&self, folder: &str, id: SingleId) -> AnyResult<ThreadedEnvelopes> {
+        self.thread_envelopes
+            .as_ref()
+            .and_then(|feature| feature(&self.context))
+            .ok_or(Error::ThreadEnvelopesNotAvailableError)?
+            .thread_envelope(folder, id)
+            .await
+    }
 }
 
 #[async_trait]
