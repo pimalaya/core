@@ -288,6 +288,11 @@ impl FromIterator<Envelope> for Envelopes {
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialOrd)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct ThreadedEnvelope<'a> {
     pub id: &'a str,
     pub message_id: &'a str,
@@ -336,5 +341,34 @@ pub struct ThreadedEnvelopes {
 impl ThreadedEnvelopes {
     pub fn graph(&self) -> &DiGraphMap<ThreadedEnvelope, u8> {
         self.borrow_graph()
+    }
+}
+
+#[cfg(feature = "derive")]
+impl serde::Serialize for ThreadedEnvelopes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+
+        let count = self.graph().all_edges().count();
+        let mut seq = serializer.serialize_seq(Some(count))?;
+
+        for ref edge in self.graph().all_edges() {
+            seq.serialize_element(edge)?;
+        }
+
+        serde::ser::SerializeSeq::end(seq)
+    }
+}
+
+#[cfg(feature = "derive")]
+impl<'de> serde::Deserialize<'de> for ThreadedEnvelopes {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        todo!()
     }
 }

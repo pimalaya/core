@@ -308,6 +308,15 @@ impl DerefMut for Folders {
     }
 }
 
+impl IntoIterator for Folders {
+    type Item = Folder;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl FromIterator<Folder> for Folders {
     fn from_iter<T: IntoIterator<Item = Folder>>(iter: T) -> Self {
         let mut folders = Folders::default();
