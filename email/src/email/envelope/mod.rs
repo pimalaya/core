@@ -57,6 +57,8 @@ pub struct Envelope {
     pub id: String,
     /// The Message-ID header from the email message.
     pub message_id: String,
+    /// The In-Reply-To header from the email message.
+    pub in_reply_to: Option<String>,
     /// The envelope flags.
     pub flags: Flags,
     /// The first address from the email message header From.
@@ -151,7 +153,7 @@ impl Envelope {
 
             envelope.message_id = msg
                 .message_id()
-                .map(|message_id| format!("<{message_id}>"))
+                .map(|mid| format!("<{mid}>"))
                 // NOTE: this is useful for the sync to prevent
                 // messages without Message-ID to still being
                 // synchronized.
@@ -160,6 +162,8 @@ impl Envelope {
                     envelope.date.to_string().hash(&mut hasher);
                     format!("<{:x}@generated>", hasher.finish())
                 });
+
+            envelope.in_reply_to = msg.in_reply_to().as_text().map(|mid| format!("<{mid}>"));
         } else {
             debug!("cannot parse message header, skipping it");
         };
