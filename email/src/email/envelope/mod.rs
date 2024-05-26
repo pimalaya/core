@@ -332,13 +332,24 @@ impl Hash for ThreadedEnvelope<'_> {
 #[self_referencing]
 #[derive(Debug)]
 pub struct ThreadedEnvelopes {
-    envelopes: HashMap<String, Envelope>,
-    #[borrows(envelopes)]
+    inner: HashMap<String, Envelope>,
+    #[borrows(inner)]
     #[covariant]
     graph: DiGraphMap<ThreadedEnvelope<'this>, u8>,
 }
 
 impl ThreadedEnvelopes {
+    pub fn build(
+        envelopes: HashMap<String, Envelope>,
+        f: impl Fn(&HashMap<String, Envelope>) -> DiGraphMap<ThreadedEnvelope, u8>,
+    ) -> Self {
+        ThreadedEnvelopes::new(envelopes, f)
+    }
+
+    pub fn map(&self) -> &HashMap<String, Envelope> {
+        self.borrow_inner()
+    }
+
     pub fn graph(&self) -> &DiGraphMap<ThreadedEnvelope, u8> {
         self.borrow_graph()
     }
