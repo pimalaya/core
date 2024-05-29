@@ -414,6 +414,16 @@ impl AccountConfig {
             .unwrap_or(DEFAULT_PAGE_SIZE)
     }
 
+    /// Get the envelope threading page size if defined, otherwise
+    /// return the default one.
+    pub fn get_envelope_thread_page_size(&self) -> usize {
+        self.envelope
+            .as_ref()
+            .and_then(|c| c.thread.as_ref())
+            .and_then(|c| c.page_size)
+            .unwrap_or(DEFAULT_PAGE_SIZE)
+    }
+
     /// Get the message reading format if defined, otherwise return
     /// the default one.
     pub fn get_message_read_format(&self) -> EmailTextPlainFormat {

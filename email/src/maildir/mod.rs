@@ -20,6 +20,7 @@ use crate::{
     envelope::{
         get::{maildir::GetMaildirEnvelope, GetEnvelope},
         list::{maildir::ListMaildirEnvelopes, ListEnvelopes},
+        thread::{maildir::ThreadMaildirEnvelopes, ThreadEnvelopes},
         watch::{maildir::WatchMaildirEnvelopes, WatchEnvelopes},
     },
     flag::{
@@ -214,6 +215,10 @@ impl BackendContextBuilder for MaildirContextBuilder {
 
     fn list_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn ListEnvelopes>> {
         Some(Arc::new(ListMaildirEnvelopes::some_new_boxed))
+    }
+
+    fn thread_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn ThreadEnvelopes>> {
+        Some(Arc::new(ThreadMaildirEnvelopes::some_new_boxed))
     }
 
     fn watch_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn WatchEnvelopes>> {

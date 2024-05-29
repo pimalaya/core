@@ -1831,6 +1831,7 @@ dependencies = [
  "once_cell",
  "ouroboros",
  "paste",
+ "petgraph",
  "pgp-lib",
  "process-lib",
  "rayon",
@@ -2878,12 +2879,13 @@ dependencies = [
 [[package]]
 name = "imap-client"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
+source = "git+https://github.com/soywod/imap-client.git#4533995f3ebe6efdb503128af15a867b60e48645"
 dependencies = [
  "imap-flow",
+ "imap-types",
  "once_cell",
  "rustls-native-certs 0.7.0",
- "tasks",
+ "tag-generator",
  "thiserror",
  "tokio",
  "tokio-rustls 0.26.0",
@@ -2893,7 +2895,7 @@ dependencies = [
 [[package]]
 name = "imap-codec"
 version = "2.0.0"
-source = "git+https://github.com/duesee/imap-codec.git#8fdfdf0e2573db407b34efac85a55cfcc641aa56"
+source = "git+https://github.com/duesee/imap-codec.git#638924e92d9a8ea82208397d8e739110296daf01"
 dependencies = [
  "abnf-core",
  "base64 0.21.7",
@@ -2908,7 +2910,7 @@ dependencies = [
 [[package]]
 name = "imap-flow"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
+source = "git+https://github.com/soywod/imap-flow?branch=into-inner-stream#b705adbc03976367330f2b24e99a9623e5da3733"
 dependencies = [
  "bounded-static",
  "bytes",
@@ -2924,7 +2926,7 @@ dependencies = [
 [[package]]
 name = "imap-types"
 version = "2.0.0"
-source = "git+https://github.com/duesee/imap-codec.git#8fdfdf0e2573db407b34efac85a55cfcc641aa56"
+source = "git+https://github.com/duesee/imap-codec.git#638924e92d9a8ea82208397d8e739110296daf01"
 dependencies = [
  "base64 0.21.7",
  "bounded-static",
@@ -6180,7 +6182,7 @@ dependencies = [
 [[package]]
 name = "tag-generator"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
+source = "git+https://github.com/duesee/imap-flow#9ffda2b321247896b3f452072ccfd38789bb547a"
 dependencies = [
  "imap-types",
  "rand",
@@ -6197,18 +6199,6 @@ name = "target-lexicon"
 version = "0.12.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1fc403891a21bcfb7c37834ba66a547a8f402146eba7265b5a6d88059c9ff2f"
-
-[[package]]
-name = "tasks"
-version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow.git?branch=session#599cedbf9facd7d04eaacef2ec6710ee7f7f9eff"
-dependencies = [
- "imap-flow",
- "imap-types",
- "tag-generator",
- "thiserror",
- "tracing",
-]
 
 [[package]]
 name = "tauri-winrt-notification"

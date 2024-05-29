@@ -23,7 +23,7 @@ use crate::{
     envelope::{
         get::GetEnvelope,
         list::{ListEnvelopes, ListEnvelopesOptions},
-        Envelope, Id,
+        Envelope, Id, SingleId,
     },
     flag::{add::AddFlags, set::SetFlags, Flag},
     message::{add::AddMessage, peek::PeekMessages},
@@ -265,7 +265,8 @@ where
 
                     match hunk_clone {
                         EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Left) => {
-                            let envelope = ctx.left.get_envelope(&folder, &Id::single(id)).await?;
+                            let envelope =
+                                ctx.left.get_envelope(&folder, &SingleId::from(id)).await?;
                             let flags = envelope.flags.clone();
                             let msg = envelope.to_sync_cache_msg();
                             ctx.left_cache
@@ -273,7 +274,8 @@ where
                                 .await?;
                         }
                         EmailSyncHunk::GetThenCache(folder, id, SyncDestination::Right) => {
-                            let envelope = ctx.right.get_envelope(&folder, &Id::single(id)).await?;
+                            let envelope =
+                                ctx.right.get_envelope(&folder, &SingleId::from(id)).await?;
                             let flags = envelope.flags.clone();
                             let msg = envelope.to_sync_cache_msg();
                             ctx.right_cache
@@ -327,7 +329,7 @@ where
                                         )
                                         .await?;
                                     let envelope =
-                                        ctx.left.get_envelope(&folder, &Id::single(id)).await?;
+                                        ctx.left.get_envelope(&folder, &SingleId::from(id)).await?;
                                     let flags = envelope.flags.clone();
                                     let msg = envelope.to_sync_cache_msg();
                                     ctx.left_cache
@@ -343,8 +345,10 @@ where
                                             &envelope.flags,
                                         )
                                         .await?;
-                                    let envelope =
-                                        ctx.right.get_envelope(&folder, &Id::single(id)).await?;
+                                    let envelope = ctx
+                                        .right
+                                        .get_envelope(&folder, &SingleId::from(id))
+                                        .await?;
                                     let flags = envelope.flags.clone();
                                     let msg = envelope.to_sync_cache_msg();
                                     ctx.right_cache

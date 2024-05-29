@@ -5,7 +5,7 @@
 
 use std::{collections::HashMap, num::NonZeroU32};
 
-use imap_client::imap_flow::imap_codec::imap_types::{
+use imap_client::types::{
     core::Vec1,
     fetch::{MacroOrMessageDataItemNames, MessageDataItem, MessageDataItemName},
 };

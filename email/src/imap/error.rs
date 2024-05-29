@@ -1,11 +1,8 @@
 use std::{any::Any, collections::HashSet, result};
 
 use imap_client::{
-    imap_flow::{
-        client::ClientFlowError,
-        imap_codec::imap_types::{auth::AuthMechanism, error::ValidationError},
-        stream::StreamError,
-    },
+    flow::{client::ClientFlowError, stream::StreamError},
+    types::{auth::AuthMechanism, error::ValidationError},
     ClientError,
 };
 use thiserror::Error;
@@ -68,6 +65,8 @@ pub enum Error {
     #[error("cannot delete IMAP mailbox")]
     DeleteMailboxError(#[source] ClientError),
 
+    #[error("cannot exchange IMAP client/server ids")]
+    ExchangeIdsError(#[source] ClientError),
     #[error("cannot fetch IMAP messages")]
     FetchMessagesError(#[source] ClientError),
     #[error("cannot search IMAP messages")]

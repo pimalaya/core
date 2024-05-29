@@ -22,9 +22,9 @@ pub mod send;
 pub mod sync;
 pub mod template;
 
-use std::{borrow::Cow, collections::HashMap, num::NonZeroU32, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
-use imap_client::imap_flow::imap_codec::imap_types::{core::Vec1, fetch::MessageDataItem};
+use imap_client::types::{core::Vec1, fetch::MessageDataItem};
 use mail_parser::{MessageParser, MimeHeaders};
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
@@ -163,7 +163,7 @@ impl<'a> From<&'a mut MailEntry> for Message<'a> {
 
 enum RawMessages {
     #[cfg(feature = "imap")]
-    Imap(HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>),
+    Imap(Vec<Vec1<MessageDataItem<'static>>>),
     #[cfg(feature = "maildir")]
     MailEntries(Vec<MailEntry>),
     #[cfg(feature = "notmuch")]
@@ -183,7 +183,7 @@ impl Messages {
         match raw {
             #[cfg(feature = "imap")]
             RawMessages::Imap(items) => items
-                .values()
+                .iter()
                 .filter_map(|items| match Message::try_from(items.as_ref()) {
                     Ok(msg) => Some(msg),
                     Err(err) => {
@@ -213,8 +213,8 @@ impl Messages {
 }
 
 #[cfg(feature = "imap")]
-impl From<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> for Messages {
-    fn from(items: HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>) -> Self {
+impl From<Vec<Vec1<MessageDataItem<'static>>>> for Messages {
+    fn from(items: Vec<Vec1<MessageDataItem<'static>>>) -> Self {
         MessagesBuilder {
             raw: RawMessages::Imap(items),
             emails_builder: Messages::emails_builder,

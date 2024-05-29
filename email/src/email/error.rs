@@ -4,7 +4,11 @@ use chumsky::error::Rich;
 use thiserror::Error;
 use tokio::task::JoinError;
 
-use crate::{envelope::Id, flag::Flags, AnyBoxedError, AnyError};
+use crate::{
+    envelope::{Id, SingleId},
+    flag::Flags,
+    AnyBoxedError, AnyError,
+};
 
 /// The global `Result` alias of the module.
 pub type Result<T> = result::Result<T, Error>;
@@ -94,8 +98,8 @@ pub enum Error {
     GetEnvelopeMissingError(u32),
     #[error("cannot find notmuch envelope {1} from folder {0}")]
     FindEnvelopeEmptyNotmuchError(String, String),
-    #[error("cannot find maildir envelope {1} from folder {0}")]
-    GetEnvelopeMaildirError(PathBuf, Id),
+    #[error("cannot find maildir envelope {1:?} from folder {0}")]
+    GetEnvelopeMaildirError(PathBuf, SingleId),
     #[error("cannot find imap envelope {1} from folder {0}")]
     GetFirstEnvelopeImapError(String, Id),
     #[error("cannot set flags {3} to envelope(s) {2} from folder {1}")]

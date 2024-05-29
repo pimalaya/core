@@ -12,7 +12,9 @@ use super::{
     feature::{BackendFeature, CheckUp},
 };
 use crate::{
-    envelope::{get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes},
+    envelope::{
+        get::GetEnvelope, list::ListEnvelopes, thread::ThreadEnvelopes, watch::WatchEnvelopes,
+    },
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
@@ -73,6 +75,7 @@ where
     some_feature_mapper!(DeleteFolder);
     some_feature_mapper!(GetEnvelope);
     some_feature_mapper!(ListEnvelopes);
+    some_feature_mapper!(ThreadEnvelopes);
     some_feature_mapper!(WatchEnvelopes);
     some_feature_mapper!(AddFlags);
     some_feature_mapper!(SetFlags);
@@ -133,6 +136,7 @@ where
     feature_mapper!(DeleteFolder);
     feature_mapper!(GetEnvelope);
     feature_mapper!(ListEnvelopes);
+    feature_mapper!(ThreadEnvelopes);
     feature_mapper!(WatchEnvelopes);
     feature_mapper!(AddFlags);
     feature_mapper!(SetFlags);

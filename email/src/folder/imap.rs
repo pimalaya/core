@@ -1,4 +1,4 @@
-use imap_client::imap_flow::imap_codec::imap_types::{
+use imap_client::types::{
     core::{Atom, QuotedChar},
     flag::FlagNameAttribute,
     mailbox::Mailbox,

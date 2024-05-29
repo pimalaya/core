@@ -1,4 +1,4 @@
-use imap_client::imap_flow::imap_codec::imap_types::fetch::{
+use imap_client::types::fetch::{
     MacroOrMessageDataItemNames, MessageDataItem, MessageDataItemName,
 };
 use once_cell::sync::Lazy;

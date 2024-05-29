@@ -10,7 +10,9 @@ use paste::paste;
 
 use super::feature::{BackendFeature, CheckUp};
 use crate::{
-    envelope::{get::GetEnvelope, list::ListEnvelopes, watch::WatchEnvelopes},
+    envelope::{
+        get::GetEnvelope, list::ListEnvelopes, thread::ThreadEnvelopes, watch::WatchEnvelopes,
+    },
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
@@ -68,6 +70,7 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     feature!(DeleteFolder);
     feature!(GetEnvelope);
     feature!(ListEnvelopes);
+    feature!(ThreadEnvelopes);
     feature!(WatchEnvelopes);
     feature!(AddFlags);
     feature!(SetFlags);

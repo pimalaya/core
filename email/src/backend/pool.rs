@@ -17,8 +17,9 @@ use crate::{
     envelope::{
         get::GetEnvelope,
         list::{ListEnvelopes, ListEnvelopesOptions},
+        thread::ThreadEnvelopes,
         watch::WatchEnvelopes,
-        Envelope, Envelopes, Id, SingleId,
+        Envelope, Envelopes, Id, SingleId, ThreadedEnvelopes,
     },
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flags},
     folder::{
@@ -61,6 +62,8 @@ pub struct BackendPool<C: BackendContext> {
     pub get_envelope: Option<BackendFeature<C, dyn GetEnvelope>>,
     /// The list envelopes backend feature.
     pub list_envelopes: Option<BackendFeature<C, dyn ListEnvelopes>>,
+    /// The thread envelopes backend feature.
+    pub thread_envelopes: Option<BackendFeature<C, dyn ThreadEnvelopes>>,
     /// The watch envelopes backend feature.
     pub watch_envelopes: Option<BackendFeature<C, dyn WatchEnvelopes>>,
 
@@ -194,7 +197,7 @@ impl<C: BackendContext + 'static> DeleteFolder for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> GetEnvelope for BackendPool<C> {
-    async fn get_envelope(&self, folder: &str, id: &Id) -> AnyResult<Envelope> {
+    async fn get_envelope(&self, folder: &str, id: &SingleId) -> AnyResult<Envelope> {
         let folder = folder.to_owned();
         let id = id.clone();
         let feature = self
@@ -231,6 +234,52 @@ impl<C: BackendContext + 'static> ListEnvelopes for BackendPool<C> {
                 feature(&ctx)
                     .ok_or(Error::ListEnvelopesNotAvailableError)?
                     .list_envelopes(&folder, opts)
+                    .await
+            })
+            .await
+    }
+}
+
+#[async_trait]
+impl<C: BackendContext + 'static> ThreadEnvelopes for BackendPool<C> {
+    async fn thread_envelopes(
+        &self,
+        folder: &str,
+        opts: ListEnvelopesOptions,
+    ) -> AnyResult<ThreadedEnvelopes> {
+        let folder = folder.to_owned();
+        let feature = self
+            .thread_envelopes
+            .clone()
+            .ok_or(Error::ThreadEnvelopesNotAvailableError)?;
+
+        self.pool
+            .exec(move |ctx| async move {
+                feature(&ctx)
+                    .ok_or(Error::ThreadEnvelopesNotAvailableError)?
+                    .thread_envelopes(&folder, opts)
+                    .await
+            })
+            .await
+    }
+
+    async fn thread_envelope(
+        &self,
+        folder: &str,
+        id: SingleId,
+        opts: ListEnvelopesOptions,
+    ) -> AnyResult<ThreadedEnvelopes> {
+        let folder = folder.to_owned();
+        let feature = self
+            .thread_envelopes
+            .clone()
+            .ok_or(Error::ThreadEnvelopesNotAvailableError)?;
+
+        self.pool
+            .exec(move |ctx| async move {
+                feature(&ctx)
+                    .ok_or(Error::ThreadEnvelopesNotAvailableError)?
+                    .thread_envelope(&folder, id, opts)
                     .await
             })
             .await
@@ -491,6 +540,7 @@ where
 
         let get_envelope = self.get_get_envelope();
         let list_envelopes = self.get_list_envelopes();
+        let thread_envelopes = self.get_thread_envelopes();
         let watch_envelopes = self.get_watch_envelopes();
 
         let add_flags = self.get_add_flags();
@@ -517,6 +567,7 @@ where
 
             get_envelope,
             list_envelopes,
+            thread_envelopes,
             watch_envelopes,
 
             add_flags,

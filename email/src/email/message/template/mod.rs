@@ -10,6 +10,7 @@ pub mod reply;
 
 use std::{
     borrow::Cow,
+    fmt,
     ops::{Deref, DerefMut},
 };
 
@@ -64,6 +65,12 @@ impl DerefMut for Template {
 impl From<String> for Template {
     fn from(s: String) -> Self {
         Self::new(s)
+    }
+}
+
+impl fmt::Display for Template {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.content)
     }
 }
 

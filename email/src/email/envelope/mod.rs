@@ -18,15 +18,19 @@ pub mod maildir;
 pub mod notmuch;
 #[cfg(feature = "account-sync")]
 pub mod sync;
+pub mod thread;
 pub mod watch;
 
 use std::{
+    collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
     ops::{Deref, DerefMut},
     vec,
 };
 
 use chrono::{DateTime, FixedOffset, Local};
+use ouroboros::self_referencing;
+use petgraph::graphmap::DiGraphMap;
 
 #[doc(inline)]
 pub use self::{
@@ -53,6 +57,8 @@ pub struct Envelope {
     pub id: String,
     /// The Message-ID header from the email message.
     pub message_id: String,
+    /// The In-Reply-To header from the email message.
+    pub in_reply_to: Option<String>,
     /// The envelope flags.
     pub flags: Flags,
     /// The first address from the email message header From.
@@ -147,7 +153,7 @@ impl Envelope {
 
             envelope.message_id = msg
                 .message_id()
-                .map(|message_id| format!("<{message_id}>"))
+                .map(|mid| format!("<{mid}>"))
                 // NOTE: this is useful for the sync to prevent
                 // messages without Message-ID to still being
                 // synchronized.
@@ -156,6 +162,8 @@ impl Envelope {
                     envelope.date.to_string().hash(&mut hasher);
                     format!("<{:x}@generated>", hasher.finish())
                 });
+
+            envelope.in_reply_to = msg.in_reply_to().as_text().map(|mid| format!("<{mid}>"));
         } else {
             debug!("cannot parse message header, skipping it");
         };
@@ -215,6 +223,19 @@ impl Envelope {
         let date = self.date.to_rfc2822();
         format!("Message-ID: {id}\nDate: {date}\n\n")
     }
+
+    pub fn as_threaded(&self) -> ThreadedEnvelope {
+        ThreadedEnvelope {
+            id: self.id.as_str(),
+            message_id: self.message_id.as_str(),
+            subject: self.subject.as_str(),
+            from: match self.from.name.as_ref() {
+                Some(name) => name.as_str(),
+                None => self.from.addr.as_str(),
+            },
+            date: self.date,
+        }
+    }
 }
 
 // NOTE: this is useful for the sync, not sure how relevant it is for
@@ -267,5 +288,102 @@ impl DerefMut for Envelopes {
 impl FromIterator<Envelope> for Envelopes {
     fn from_iter<T: IntoIterator<Item = Envelope>>(iter: T) -> Self {
         Envelopes(iter.into_iter().collect())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialOrd)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
+pub struct ThreadedEnvelope<'a> {
+    pub id: &'a str,
+    pub message_id: &'a str,
+    pub from: &'a str,
+    pub subject: &'a str,
+    pub date: DateTime<FixedOffset>,
+}
+
+impl ThreadedEnvelope<'_> {
+    /// Format the envelope date according to the datetime format and
+    /// timezone from the [account configuration](crate::AccountConfig).
+    pub fn format_date(&self, config: &AccountConfig) -> String {
+        let fmt = config.get_envelope_list_datetime_fmt();
+
+        let date = if config.has_envelope_list_datetime_local_tz() {
+            self.date.with_timezone(&Local).format(&fmt)
+        } else {
+            self.date.format(&fmt)
+        };
+
+        date.to_string()
+    }
+}
+
+impl PartialEq for ThreadedEnvelope<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.message_id == other.message_id
+    }
+}
+
+impl Hash for ThreadedEnvelope<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.message_id.hash(state);
+    }
+}
+
+#[self_referencing]
+#[derive(Debug)]
+pub struct ThreadedEnvelopes {
+    inner: HashMap<String, Envelope>,
+    #[borrows(inner)]
+    #[covariant]
+    graph: DiGraphMap<ThreadedEnvelope<'this>, u8>,
+}
+
+impl ThreadedEnvelopes {
+    pub fn build(
+        envelopes: HashMap<String, Envelope>,
+        f: impl Fn(&HashMap<String, Envelope>) -> DiGraphMap<ThreadedEnvelope, u8>,
+    ) -> Self {
+        ThreadedEnvelopes::new(envelopes, f)
+    }
+
+    pub fn map(&self) -> &HashMap<String, Envelope> {
+        self.borrow_inner()
+    }
+
+    pub fn graph(&self) -> &DiGraphMap<ThreadedEnvelope, u8> {
+        self.borrow_graph()
+    }
+}
+
+#[cfg(feature = "derive")]
+impl serde::Serialize for ThreadedEnvelopes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+
+        let count = self.graph().all_edges().count();
+        let mut seq = serializer.serialize_seq(Some(count))?;
+
+        for ref edge in self.graph().all_edges() {
+            seq.serialize_element(edge)?;
+        }
+
+        serde::ser::SerializeSeq::end(seq)
+    }
+}
+
+#[cfg(feature = "derive")]
+impl<'de> serde::Deserialize<'de> for ThreadedEnvelopes {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        todo!()
     }
 }
