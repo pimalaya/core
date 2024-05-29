@@ -5,7 +5,8 @@ use std::{collections::HashMap, env, fmt, num::NonZeroU32, ops::Deref, sync::Arc
 
 use async_trait::async_trait;
 use imap_client::{
-    imap_flow::imap_codec::imap_types::{
+    tasks::tasks::select::SelectDataUnvalidated,
+    types::{
         auth::AuthMechanism,
         core::{IString, NString, Vec1},
         extensions::{
@@ -17,7 +18,6 @@ use imap_client::{
         search::SearchKey,
         sequence::SequenceSet,
     },
-    tasks::tasks::select::SelectDataUnvalidated,
     Client, ClientError,
 };
 use once_cell::sync::Lazy;

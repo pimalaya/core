@@ -24,7 +24,7 @@ pub mod template;
 
 use std::{borrow::Cow, sync::Arc};
 
-use imap_client::imap_flow::imap_codec::imap_types::{core::Vec1, fetch::MessageDataItem};
+use imap_client::types::{core::Vec1, fetch::MessageDataItem};
 use mail_parser::{MessageParser, MimeHeaders};
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;

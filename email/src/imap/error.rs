@@ -1,11 +1,8 @@
 use std::{any::Any, collections::HashSet, result};
 
 use imap_client::{
-    imap_flow::{
-        client::ClientFlowError,
-        imap_codec::imap_types::{auth::AuthMechanism, error::ValidationError},
-        stream::StreamError,
-    },
+    flow::{client::ClientFlowError, stream::StreamError},
+    types::{auth::AuthMechanism, error::ValidationError},
     ClientError,
 };
 use thiserror::Error;

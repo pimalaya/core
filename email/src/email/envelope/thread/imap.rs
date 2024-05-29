@@ -1,7 +1,7 @@
 use std::num::NonZeroU32;
 
 use async_trait::async_trait;
-use imap_client::imap_flow::imap_codec::imap_types::{
+use imap_client::types::{
     extensions::thread::Thread,
     search::SearchKey,
     sequence::{Sequence, SequenceSet},
@@ -243,7 +243,7 @@ fn build_children_graph(
 mod test {
     use std::num::NonZeroU32;
 
-    use imap_client::imap_flow::imap_codec::imap_types::{
+    use imap_client::types::{
         core::{Vec1, Vec2},
         extensions::thread::Thread,
     };
