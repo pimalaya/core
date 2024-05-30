@@ -626,7 +626,7 @@ dependencies = [
  "bitflags 2.5.0",
  "cexpr",
  "clang-sys",
- "itertools 0.11.0",
+ "itertools 0.10.5",
  "lazy_static",
  "lazycell",
  "log",
@@ -2879,7 +2879,7 @@ dependencies = [
 [[package]]
 name = "imap-client"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-client.git#4533995f3ebe6efdb503128af15a867b60e48645"
+source = "git+https://github.com/soywod/imap-client.git#d519907e1bd814e199024fd3d6182b343309f35a"
 dependencies = [
  "imap-flow",
  "imap-types",
@@ -2910,7 +2910,7 @@ dependencies = [
 [[package]]
 name = "imap-flow"
 version = "0.1.0"
-source = "git+https://github.com/soywod/imap-flow?branch=into-inner-stream#b705adbc03976367330f2b24e99a9623e5da3733"
+source = "git+https://github.com/duesee/imap-flow#1c304dc525cec11af3f46c647214f306f43e959d"
 dependencies = [
  "bounded-static",
  "bytes",
@@ -6182,7 +6182,7 @@ dependencies = [
 [[package]]
 name = "tag-generator"
 version = "0.1.0"
-source = "git+https://github.com/duesee/imap-flow#9ffda2b321247896b3f452072ccfd38789bb547a"
+source = "git+https://github.com/duesee/imap-flow#1c304dc525cec11af3f46c647214f306f43e959d"
 dependencies = [
  "imap-types",
  "rand",
