@@ -30,7 +30,7 @@ impl KeyutilsEntry {
     pub fn try_new(key: impl ToString) -> Result<Self> {
         let service = get_global_service_name();
         let key = key.to_string();
-        let creds = KeyutilsCredential::new_with_target(None, service, service)
+        let creds = KeyutilsCredential::new_with_target(Some(&key), service, service)
             .map_err(|err| Error::BuildCredentialsError(err, key.clone()))?;
         let entry = keyring_native::Entry::new_with_credential(Box::new(creds));
         let entry = Arc::new(entry);
