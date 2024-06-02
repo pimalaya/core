@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use async_ctrlc::CtrlC;
 use async_trait::async_trait;
-use tokio::sync::oneshot;
+use tokio::sync::oneshot::{Receiver, Sender};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::WatchEnvelopes;
@@ -29,7 +28,7 @@ impl WatchImapEnvelopes {
     pub async fn watch_envelopes_loop(
         &self,
         folder: &str,
-        wait_for_shutdown_request: &mut oneshot::Receiver<()>,
+        wait_for_shutdown_request: &mut Receiver<()>,
     ) -> AnyResult<()> {
         info!("watching imap folder {folder} for envelope changes");
 
@@ -67,31 +66,18 @@ impl WatchImapEnvelopes {
 
 #[async_trait]
 impl WatchEnvelopes for WatchImapEnvelopes {
-    async fn watch_envelopes(&self, folder: &str) -> AnyResult<()> {
-        info!("watching imap folder {folder} for envelope changes");
+    async fn watch_envelopes(
+        &self,
+        folder: &str,
+        mut wait_for_shutdown_request: Receiver<()>,
+        shutdown: Sender<()>,
+    ) -> AnyResult<()> {
+        let res = self
+            .watch_envelopes_loop(folder, &mut wait_for_shutdown_request)
+            .await;
 
-        let (request_shutdown, mut wait_for_shutdown_request) = oneshot::channel();
-        let (shutdown, wait_for_shutdown) = oneshot::channel();
+        shutdown.send(()).unwrap();
 
-        let ctrlc = async move {
-            CtrlC::new().expect("cannot create Ctrl+C handler").await;
-            info!("received interruption signal, exiting envelopes watcher…");
-            request_shutdown.send(()).unwrap();
-            wait_for_shutdown.await.unwrap();
-            Ok(())
-        };
-
-        let r#loop = async {
-            let res = self
-                .watch_envelopes_loop(folder, &mut wait_for_shutdown_request)
-                .await;
-            shutdown.send(()).unwrap();
-            res
-        };
-
-        tokio::select! {
-            res = ctrlc => res,
-            res = r#loop => res,
-        }
+        res
     }
 }

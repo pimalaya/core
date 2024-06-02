@@ -676,7 +676,9 @@ impl CheckUpImap {
 
 #[async_trait]
 impl CheckUp for CheckUpImap {
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     async fn check_up(&self) -> AnyResult<()> {
+        debug!("executing check up backend feature");
         let mut ctx = self.ctx.lock().await;
         ctx.client.noop().await.map_err(Error::ExecuteNoOpError)?;
         Ok(())

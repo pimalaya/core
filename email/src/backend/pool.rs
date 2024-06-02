@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use tokio::sync::oneshot::{Receiver, Sender};
 
 use super::{
     context::{BackendContext, BackendContextBuilder},
@@ -288,7 +289,12 @@ impl<C: BackendContext + 'static> ThreadEnvelopes for BackendPool<C> {
 
 #[async_trait]
 impl<C: BackendContext + 'static> WatchEnvelopes for BackendPool<C> {
-    async fn watch_envelopes(&self, folder: &str) -> AnyResult<()> {
+    async fn watch_envelopes(
+        &self,
+        folder: &str,
+        wait_for_shutdown_request: Receiver<()>,
+        shutdown: Sender<()>,
+    ) -> AnyResult<()> {
         let folder = folder.to_owned();
         let feature = self
             .watch_envelopes
@@ -299,7 +305,7 @@ impl<C: BackendContext + 'static> WatchEnvelopes for BackendPool<C> {
             .exec(|ctx| async move {
                 feature(&ctx)
                     .ok_or(Error::WatchEnvelopesNotAvailableError)?
-                    .watch_envelopes(&folder)
+                    .watch_envelopes(&folder, wait_for_shutdown_request, shutdown)
                     .await
             })
             .await

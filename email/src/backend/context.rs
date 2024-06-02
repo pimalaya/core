@@ -53,6 +53,18 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     /// The type of the context being built by this builder.
     type Context: BackendContext;
 
+    async fn check(&self) -> AnyResult<()> {
+        if let Some(feature) = self.check_up() {
+            let ctx = self.clone().build().await?;
+
+            if let Some(feature) = feature(&ctx) {
+                feature.check_up().await?;
+            }
+        }
+
+        Ok(())
+    }
+
     fn check_configuration(&self) -> AnyResult<()> {
         Ok(())
     }

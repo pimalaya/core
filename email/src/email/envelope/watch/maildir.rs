@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::mpsc};
 
 use async_trait::async_trait;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use tokio::sync::oneshot::{Receiver, Sender};
 
 use super::WatchEnvelopes;
 use crate::{
@@ -33,7 +34,12 @@ impl WatchMaildirEnvelopes {
 
 #[async_trait]
 impl WatchEnvelopes for WatchMaildirEnvelopes {
-    async fn watch_envelopes(&self, folder: &str) -> AnyResult<()> {
+    async fn watch_envelopes(
+        &self,
+        folder: &str,
+        _wait_for_shutdown_request: Receiver<()>,
+        _shutdown: Sender<()>,
+    ) -> AnyResult<()> {
         info!("maildir: watching folder {folder} for email changes");
 
         let session = self.ctx.lock().await;

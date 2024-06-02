@@ -302,15 +302,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-ctrlc"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "907279f6e91a51c8ec7cac24711e8308f21da7c10c7700ca2f7e125694ed2df1"
-dependencies = [
- "ctrlc",
-]
-
-[[package]]
 name = "async-executor"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -996,12 +987,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "cfg_aliases"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
-
-[[package]]
 name = "chrono"
 version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1272,16 +1257,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0369ee1ad671834580515889b80f2ea915f23b8be8d0daa4bbaf2ac5c7590835"
 dependencies = [
  "cipher 0.4.4",
-]
-
-[[package]]
-name = "ctrlc"
-version = "3.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "672465ae37dc1bc6380a6547a8883d5dd397b0f1faaad4f265726cc7042a5345"
-dependencies = [
- "nix 0.28.0",
- "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1802,7 +1777,6 @@ name = "email-lib"
 version = "0.24.1"
 dependencies = [
  "advisory-lock",
- "async-ctrlc",
  "async-trait",
  "chrono",
  "chumsky",
@@ -3791,18 +3765,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nix"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
-dependencies = [
- "bitflags 2.5.0",
- "cfg-if",
- "cfg_aliases",
- "libc",
-]
-
-[[package]]
 name = "nlp"
 version = "0.6.0"
 source = "git+https://github.com/stalwartlabs/mail-server.git?rev=310ce493149a0e073cab667bea2b5bb230ff3b22#310ce493149a0e073cab667bea2b5bb230ff3b22"
@@ -4756,7 +4718,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9bc12de3935536ed9b69488faea4450a298dac44179b54f71806e63f55034bf9"
 dependencies = [
  "libc",
- "nix 0.26.4",
+ "nix",
 ]
 
 [[package]]
@@ -7440,7 +7402,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "hex",
- "nix 0.26.4",
+ "nix",
  "once_cell",
  "ordered-stream",
  "rand",

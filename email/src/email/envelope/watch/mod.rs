@@ -7,13 +7,19 @@ pub mod maildir;
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use tokio::sync::oneshot::{Receiver, Sender};
 
 use crate::{account::config::AccountConfig, debug, envelope::Envelope, AnyResult};
 
 #[async_trait]
 pub trait WatchEnvelopes: Send + Sync {
     /// Watch the given folder for envelopes changes.
-    async fn watch_envelopes(&self, folder: &str) -> AnyResult<()>;
+    async fn watch_envelopes(
+        &self,
+        folder: &str,
+        wait_for_shutdown_request: Receiver<()>,
+        shutdown: Sender<()>,
+    ) -> AnyResult<()>;
 
     async fn exec_hooks(
         &self,

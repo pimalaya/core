@@ -3,7 +3,7 @@
 //! This module contains everything related to OAuth 2.0
 //! configuration.
 
-use std::{io, net::TcpListener, vec};
+use std::{fmt, io, net::TcpListener, vec};
 
 use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use secret::Secret;
@@ -245,6 +245,15 @@ pub enum OAuth2Method {
     XOAuth2,
     #[cfg_attr(feature = "derive", serde(alias = "OAUTHBEARER"))]
     OAuthBearer,
+}
+
+impl fmt::Display for OAuth2Method {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::XOAuth2 => write!(f, "XOAUTH2"),
+            Self::OAuthBearer => write!(f, "OAUTHBEARER"),
+        }
+    }
 }
 
 /// Access token scope(s), as defined by the authorization server.

@@ -61,6 +61,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use paste::paste;
+use tokio::sync::oneshot::{Receiver, Sender};
 
 #[doc(inline)]
 pub use self::error::{Error, Result};
@@ -282,12 +283,17 @@ impl<C: BackendContext> ThreadEnvelopes for Backend<C> {
 
 #[async_trait]
 impl<C: BackendContext> WatchEnvelopes for Backend<C> {
-    async fn watch_envelopes(&self, folder: &str) -> AnyResult<()> {
+    async fn watch_envelopes(
+        &self,
+        folder: &str,
+        wait_for_shutdown_request: Receiver<()>,
+        shutdown: Sender<()>,
+    ) -> AnyResult<()> {
         self.watch_envelopes
             .as_ref()
             .and_then(|feature| feature(&self.context))
             .ok_or(Error::WatchEnvelopesNotAvailableError)?
-            .watch_envelopes(folder)
+            .watch_envelopes(folder, wait_for_shutdown_request, shutdown)
             .await
     }
 }
