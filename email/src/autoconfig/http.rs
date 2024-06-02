@@ -46,8 +46,7 @@ impl HttpClient {
 
         // If we got an error response we return an error
         if !status.is_success() {
-            let err = String::from_utf8_lossy(&body);
-            trace!("{err}");
+            trace!("{}", String::from_utf8_lossy(&body));
             return Err(Error::GetAutoConfigError(uri.clone(), status).into());
         }
 

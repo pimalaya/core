@@ -49,6 +49,8 @@
 //! - [`SendRawMessage`](crate::message::send_raw::SendRawMessage)
 
 pub mod account;
+#[cfg(feature = "autoconfig")]
+pub mod autoconfig;
 pub mod backend;
 pub mod config;
 pub mod email;
@@ -67,7 +69,7 @@ pub mod sendmail;
 pub(crate) mod serde;
 #[cfg(feature = "smtp")]
 pub mod smtp;
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 pub mod sync;
 pub mod thread_pool;
 pub mod watch;

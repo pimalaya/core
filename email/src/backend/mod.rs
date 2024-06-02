@@ -55,7 +55,7 @@ pub mod macros {
     pub use email_macros::BackendContext;
 }
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 use std::hash::DefaultHasher;
 use std::sync::Arc;
 
@@ -71,7 +71,7 @@ use self::{
         AsyncTryIntoBackendFeatures, BackendFeature, BackendFeatureSource, BackendFeatures, CheckUp,
     },
 };
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 use crate::sync::hash::SyncHash;
 use crate::{
     account::config::{AccountConfig, HasAccountConfig},
@@ -769,7 +769,7 @@ where
     }
 }
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 impl<CB> SyncHash for BackendBuilder<CB>
 where
     CB: BackendContextBuilder + SyncHash,

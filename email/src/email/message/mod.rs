@@ -18,14 +18,16 @@ pub mod r#move;
 pub mod peek;
 pub mod remove;
 pub mod send;
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 pub mod sync;
 pub mod template;
 
 use std::{borrow::Cow, sync::Arc};
 
+#[cfg(feature = "imap")]
 use imap_client::types::{core::Vec1, fetch::MessageDataItem};
 use mail_parser::{MessageParser, MimeHeaders};
+#[cfg(feature = "maildir")]
 use maildirpp::MailEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
@@ -36,7 +38,7 @@ use self::{
         forward::ForwardTemplateBuilder, new::NewTemplateBuilder, reply::ReplyTemplateBuilder,
     },
 };
-use crate::{account::config::AccountConfig, debug, email::error::Error, trace};
+use crate::{account::config::AccountConfig, email::error::Error};
 
 /// The message wrapper.
 #[self_referencing]
@@ -151,6 +153,7 @@ impl<'a> From<&'a str> for Message<'a> {
 }
 
 // TODO: move to maildir module
+#[cfg(feature = "maildir")]
 impl<'a> From<&'a mut MailEntry> for Message<'a> {
     fn from(entry: &'a mut MailEntry) -> Self {
         MessageBuilder {
@@ -168,6 +171,8 @@ enum RawMessages {
     MailEntries(Vec<MailEntry>),
     #[cfg(feature = "notmuch")]
     Notmuch(Vec<Vec<u8>>),
+    #[allow(dead_code)]
+    None,
 }
 
 #[self_referencing]
@@ -179,6 +184,7 @@ pub struct Messages {
 }
 
 impl Messages {
+    #[allow(dead_code)]
     fn emails_builder<'a>(raw: &'a mut RawMessages) -> Vec<Message<'a>> {
         match raw {
             #[cfg(feature = "imap")]
@@ -187,8 +193,8 @@ impl Messages {
                 .filter_map(|items| match Message::try_from(items.as_ref()) {
                     Ok(msg) => Some(msg),
                     Err(err) => {
-                        debug!("cannot build imap message: {err}");
-                        trace!("{err:#?}");
+                        crate::debug!("cannot build imap message: {err}");
+                        crate::trace!("{err:#?}");
                         None
                     }
                 })
@@ -200,6 +206,7 @@ impl Messages {
                 .iter()
                 .map(|raw| Message::from(raw.as_slice()))
                 .collect(),
+            RawMessages::None => vec![],
         }
     }
 

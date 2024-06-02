@@ -542,7 +542,7 @@ impl ImapContextBuilder {
     }
 }
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 impl crate::sync::hash::SyncHash for ImapContextBuilder {
     fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
         self.imap_config.sync_hash(state);

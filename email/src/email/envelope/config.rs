@@ -1,4 +1,4 @@
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 use super::sync::config::EnvelopeSyncConfig;
 use super::{
     list::config::EnvelopeListConfig, thread::config::EnvelopeThreadConfig,
@@ -21,7 +21,7 @@ pub struct EnvelopeConfig {
     /// Configuration dedicated to envelope changes.
     pub watch: Option<WatchEnvelopeConfig>,
 
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     /// Configuration dedicated to envelope changes.
     pub sync: Option<EnvelopeSyncConfig>,
 }

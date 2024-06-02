@@ -99,7 +99,7 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     /// Build the final context used by the backend.
     async fn build(self) -> AnyResult<Self::Context>;
 
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     fn try_to_sync_cache_builder(
         &self,
         account_config: &crate::account::config::AccountConfig,

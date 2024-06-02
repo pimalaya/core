@@ -119,7 +119,7 @@ impl DnsClient {
             .resolver
             .txt_lookup(domain)
             .await
-            .map_err(Error::TXTLookUpFailure)?
+            .map_err(Error::LookUpTxtError)?
             .into_iter()
             .map(|record| record.to_string())
             .collect();
@@ -148,7 +148,7 @@ impl DnsClient {
             .resolver
             .mx_lookup(domain)
             .await
-            .map_err(Error::MXLookUpFailure)?
+            .map_err(Error::LookUpMxError)?
             .into_iter()
             .map(MxRecord::new)
             .collect();
@@ -171,14 +171,14 @@ impl DnsClient {
     }
 
     /// Get the first SRV record from a given domain and subdomain.
-    async fn get_srv(&self, domain: &str, subdomain: &str) -> Result<SRV> {
+    pub async fn get_srv(&self, domain: &str, subdomain: &str) -> Result<SRV> {
         let domain = format!("_{subdomain}._tcp.{domain}");
 
         let mut records: Vec<SrvRecord> = self
             .resolver
             .srv_lookup(&domain)
             .await
-            .map_err(Error::SRVLookUpFailure)?
+            .map_err(Error::LookUpSrvError)?
             .into_iter()
             .filter(|record| !record.target().is_root())
             .map(SrvRecord::new)
@@ -201,16 +201,19 @@ impl DnsClient {
     }
 
     /// Get the first IMAP SRV record from a given domain.
+    #[cfg(feature = "imap")]
     pub async fn get_imap_srv(&self, domain: &str) -> Result<SRV> {
         self.get_srv(domain, "imap").await
     }
 
     /// Get the first IMAPS SRV record from a given domain.
+    #[cfg(feature = "imap")]
     pub async fn get_imaps_srv(&self, domain: &str) -> Result<SRV> {
         self.get_srv(domain, "imaps").await
     }
 
     /// Get the first SMTP(S) SRV record from a given domain.
+    #[cfg(feature = "smtp")]
     pub async fn get_submission_srv(&self, domain: &str) -> Result<SRV> {
         self.get_srv(domain, "submission").await
     }

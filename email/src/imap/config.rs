@@ -89,7 +89,7 @@ impl ImapConfig {
     }
 }
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 impl crate::sync::hash::SyncHash for ImapConfig {
     fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
         std::hash::Hash::hash(&self.host, state);

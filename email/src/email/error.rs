@@ -4,9 +4,10 @@ use chumsky::error::Rich;
 use thiserror::Error;
 use tokio::task::JoinError;
 
+#[cfg(feature = "maildir")]
+use crate::flag::Flags;
 use crate::{
     envelope::{Id, SingleId},
-    flag::Flags,
     AnyBoxedError, AnyError,
 };
 
@@ -29,11 +30,13 @@ pub enum Error {
     #[cfg(feature = "notmuch")]
     #[error("cannot remove notmuch message(s) {2} from folder {1}")]
     RemoveNotmuchMessageError(#[source] notmuch::Error, String, Id),
+    #[cfg(feature = "maildir")]
     #[error("cannot remove maildir message(s) {2} from folder {1}")]
     RemoveMaildirMessageError(#[source] maildirpp::Error, String, String),
     #[cfg(feature = "notmuch")]
     #[error("cannot move notmuch message {3} from {1} to {2}")]
     MoveMessageNotmuchError(#[source] notmuch::Error, String, String, String),
+    #[cfg(feature = "maildir")]
     #[error("cannot move messages {3} from maildir folder {1} to folder {2}")]
     MoveMessagesMaildirError(#[source] maildirpp::Error, String, String, String),
     #[error("cannot parse email")]
@@ -69,18 +72,22 @@ pub enum Error {
     #[cfg(feature = "notmuch")]
     #[error("cannot copy notmuch message {3} from {1} to {2}")]
     CopyMessageNotmuchError(#[source] notmuch::Error, String, String, String),
+    #[cfg(feature = "maildir")]
     #[error("cannot copy maildir messages {3} from folder {1} to folder {2}")]
     CopyMessagesMaildirError(#[source] maildirpp::Error, String, String, String),
+    #[cfg(feature = "maildir")]
     #[error("cannot add maildir message to folder {1} with flags {2}")]
     StoreWithFlagsMaildirError(#[source] maildirpp::Error, String, Flags),
     #[error("cannot get added imap message uid from range {0}")]
     GetAddedMessageUidFromRangeImapError(String),
     #[error("cannot get added imap message uid: extension UIDPLUS may be missing on the server")]
     GetAddedMessageUidImapError,
+    #[cfg(feature = "maildir")]
     #[error("maildir: cannot get subfolder from {1}")]
     GetSubfolderMaildirError(#[source] maildirpp::Error, PathBuf),
     #[error("maildir: cannot parse subfolder {1} from {0}")]
     ParseSubfolderMaildirError(PathBuf, PathBuf),
+    #[cfg(feature = "maildir")]
     #[error("cannot create maildir {1} folder structure")]
     InitFolderMaildirError(#[source] maildirpp::Error, PathBuf),
     #[error("cannot list notmuch envelopes from {0}: page {1} out of bounds")]
@@ -102,8 +109,10 @@ pub enum Error {
     GetEnvelopeMaildirError(PathBuf, SingleId),
     #[error("cannot find imap envelope {1} from folder {0}")]
     GetFirstEnvelopeImapError(String, Id),
+    #[cfg(feature = "maildir")]
     #[error("cannot set flags {3} to envelope(s) {2} from folder {1}")]
     SetFlagsMaildirError(#[source] maildirpp::Error, String, String, Flags),
+    #[cfg(feature = "maildir")]
     #[error("cannot remove flags {3} to envelope(s) {2} from folder {1}")]
     RemoveFlagsMaildirError(#[source] maildirpp::Error, String, String, Flags),
     #[error("cannot parse flag {0}")]
@@ -112,6 +121,7 @@ pub enum Error {
     ParseFlagMaildirError(char),
     #[error("cannot parse imap flag {0}")]
     ParseFlagImapError(String),
+    #[cfg(feature = "maildir")]
     #[error("cannot add maildir flags {3} to envelope(s) {2} from folder {1}")]
     AddFlagsMaildirError(#[source] maildirpp::Error, String, String, Flags),
     #[error("invalid input: {0}")]
@@ -123,8 +133,10 @@ pub enum Error {
     NotMuchFailure(notmuch::Error),
     #[error("process failed: {0}")]
     ProcessFailure(process::Error),
+    #[cfg(feature = "maildir")]
     #[error("maildir failed: {0}")]
     MaildirppFailure(maildirpp::Error),
+    #[cfg(feature = "maildir")]
     #[error("could not watch: {0}")]
     NotifyFailure(notify::Error),
     #[error("could not watch: {0}")]

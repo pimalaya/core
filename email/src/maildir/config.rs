@@ -22,7 +22,7 @@ pub struct MaildirConfig {
     pub root_dir: PathBuf,
 }
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 impl crate::sync::hash::SyncHash for MaildirConfig {
     fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
         std::hash::Hash::hash(&shellexpand_utils::shellexpand_path(&self.root_dir), state);

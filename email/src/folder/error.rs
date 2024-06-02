@@ -11,14 +11,18 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Result` alias of the module.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[cfg(feature = "maildir")]
     #[error("cannot create maildir folder structure at {1}")]
     CreateFolderStructureMaildirError(#[source] maildirpp::Error, PathBuf),
+    #[cfg(feature = "maildir")]
     #[error("cannot create notmuch folder structure at {1}")]
     CreateFolderStructureNotmuchError(#[source] maildirpp::Error, PathBuf),
     #[error("cannot delete maildir folder {1}")]
     DeleteFolderMaildirError(#[source] io::Error, PathBuf),
+    #[cfg(feature = "maildir")]
     #[error("maildir: cannot list current folder from {1}")]
     ListCurrentFolderMaildirError(#[source] maildirpp::Error, PathBuf),
+    #[cfg(feature = "maildir")]
     #[error("maildir: cannot delete message {2} from folder {1}")]
     DeleteMessageMaildirError(#[source] maildirpp::Error, PathBuf, String),
     #[error("cannot parse folder kind {0}")]

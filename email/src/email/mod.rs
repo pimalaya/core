@@ -17,11 +17,11 @@ pub mod envelope;
 mod error;
 pub mod message;
 pub mod search_query;
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 pub mod sync;
 pub mod utils;
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 pub(crate) use sync::sync;
 #[doc(inline)]
 pub use {

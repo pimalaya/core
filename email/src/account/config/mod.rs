@@ -3,6 +3,7 @@
 //! This module contains the representation of the user's current
 //! account configuration named [`AccountConfig`].
 
+#[cfg(feature = "oauth2")]
 pub mod oauth2;
 pub mod passwd;
 #[cfg(feature = "pgp")]
@@ -17,18 +18,19 @@ use std::{
     vec,
 };
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 use dirs::data_dir;
 use mail_builder::headers::address::{Address, EmailAddress};
 use mail_parser::Address::*;
 use mml::MimeInterpreterBuilder;
+#[cfg(feature = "notify")]
 use notify_rust::Notification;
 use process::Command;
 use shellexpand_utils::{shellexpand_path, shellexpand_str, try_shellexpand_path};
 
 #[cfg(feature = "pgp")]
 use self::pgp::PgpConfig;
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 use super::sync::config::SyncConfig;
 #[doc(inline)]
 pub use super::{Error, Result};
@@ -117,7 +119,7 @@ pub struct AccountConfig {
     pub template: Option<TemplateConfig>,
 
     /// The account synchronization configuration.
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     pub sync: Option<SyncConfig>,
 
     /// The PGP configuration.
@@ -142,9 +144,9 @@ impl AccountConfig {
             let signature = try_shellexpand_path(path_or_raw)
                 .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))
                 .and_then(fs::read_to_string)
-                .unwrap_or_else(|err| {
-                    debug!("cannot read signature from path: {err}");
-                    debug!("{err:?}");
+                .unwrap_or_else(|_err| {
+                    debug!("cannot read signature from path: {_err}");
+                    debug!("{_err:?}");
                     shellexpand_str(path_or_raw)
                 });
             format!("{}{}", delim, signature.trim())
@@ -185,7 +187,7 @@ impl AccountConfig {
     }
 
     /// Return `true` if the synchronization is enabled.
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     pub fn is_sync_enabled(&self) -> bool {
         self.sync
             .as_ref()
@@ -194,7 +196,7 @@ impl AccountConfig {
     }
 
     /// Return `true` if the synchronization directory already exists.
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     pub fn does_sync_dir_exist(&self) -> bool {
         match self.sync.as_ref().and_then(|c| c.dir.as_ref()) {
             Some(dir) => try_shellexpand_path(dir).is_ok(),
@@ -256,12 +258,14 @@ impl AccountConfig {
                 .replace("{recipient.address}", &envelope.to.addr)
                 .run()
                 .await;
-            if let Err(err) = res {
+
+            if let Err(_err) = res {
                 debug!("error while executing watch command hook");
-                debug!("{err:?}");
+                debug!("{_err:?}");
             }
         }
 
+        #[allow(unused_variables)]
         let replace = move |fmt: &str, envelope: &Envelope| -> String {
             fmt.replace("{id}", &envelope.id)
                 .replace("{subject}", &envelope.subject)
@@ -273,7 +277,7 @@ impl AccountConfig {
                 .replace("{recipient.address}", &envelope.to.addr)
         };
 
-        #[cfg(target_os = "linux")]
+        #[cfg(all(feature = "notify", target_os = "linux"))]
         if let Some(notify) = hook.notify.as_ref() {
             let res = Notification::new()
                 .summary(&replace(&notify.summary, envelope))
@@ -286,7 +290,7 @@ impl AccountConfig {
             }
         }
 
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(all(feature = "notify", not(target_os = "linux")))]
         if let Some(notify) = hook.notify.as_ref() {
             let summary = replace(&notify.summary, &envelope);
             let body = replace(&notify.body, &envelope);
@@ -310,9 +314,9 @@ impl AccountConfig {
 
         if let Some(callback) = hook.callback.as_ref() {
             let res = callback(envelope).await;
-            if let Err(err) = res {
+            if let Err(_err) = res {
                 debug!("error while executing callback");
-                debug!("{err:?}");
+                debug!("{_err:?}");
             }
         }
     }

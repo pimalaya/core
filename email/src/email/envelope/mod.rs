@@ -16,7 +16,7 @@ pub mod list;
 pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 pub mod sync;
 pub mod thread;
 pub mod watch;
@@ -217,7 +217,7 @@ impl Envelope {
     /// The message is just composed of two headers and contains no
     /// content. It is mostly used by the synchronization to cache
     /// envelopes.
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     pub fn to_sync_cache_msg(&self) -> String {
         let id = &self.message_id;
         let date = self.date.to_rfc2822();

@@ -1,4 +1,4 @@
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 use super::sync::config::FlagSyncConfig;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -8,7 +8,7 @@ use super::sync::config::FlagSyncConfig;
     serde(rename_all = "kebab-case")
 )]
 pub struct FlagConfig {
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     /// Configuration dedicated to flag synchronization.
     pub sync: Option<FlagSyncConfig>,
 }

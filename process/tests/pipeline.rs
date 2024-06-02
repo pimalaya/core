@@ -8,6 +8,10 @@ async fn test_pipeline() {
     let out = cmd.run().await.unwrap().to_string_lossy();
     assert_eq!(out, "hello\n");
 
+    let cmd = Command::from("echo hello | cat");
+    let out = cmd.run().await.unwrap().to_string_lossy();
+    assert_eq!(out, "hello\n");
+
     let cmd = Command::from(vec!["echo hello", "bad", "cat"]);
     match cmd.run().await.unwrap_err() {
         Error::GetExitStatusCodeNonZeroError(cmd, status, err) => {

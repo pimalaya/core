@@ -20,52 +20,113 @@ name = "email"
 
 [features]
 default = [
-  "imap",
-  "maildir",
-  # "notmuch",
-  "smtp",
-  "sendmail",
+  # Enables the IMAP backend, which allows management of local or
+  # remote mailboxes and emails located on any IMAP server. Paired
+  # with the `autoconfig` feature, it also allows to discover IMAP
+  # configuration from a simple email address.
+  #
+  # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/imap.html>
+  # "imap",
 
-  # "account-discovery",
-  # "account-sync",
+  # Enables the Maildir backend, which allows management of folders
+  # and emails located in a local Maildir directory, using file
+  # system.
+  #
+  # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/maildir.html>
+  # "maildir",
+
+  # Enables the Notmuch backend, which allows management of emails
+  # located in a Notmuch database. Since Notmuch needs a Maildir to
+  # work, it also enables the `maildir` feature.
+  #
+  # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/notmuch.html>
+  # "notmuch",
+  
+  # Enables the SMTP backend, which allows sending emails to any SMTP
+  # server. Paired with the `autoconfig` feature, it also allows to
+  # discover SMTP configuration from a simple email address.
+  #
+  # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/smtp.html>
+  # "smtp",
+  
+  # Enables the sendmail backend, which allows sending emails via any
+  # sendmail-compatible command.
+  #
+  # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/sendmail.html>
+  # "sendmail",
+
+  "autoconfig",
+  # "derive",
+  # "notify",
+  # "oauth2",
+  # "sync",
+  # "tracing",
+  # "watch",
 
   # "pgp-commands",
   # "pgp-gpg",
   # "pgp-native",
-
-  "tracing",
-  # "derive",
 ]
 
-imap = ["dep:futures", "dep:utf7-imap", "dep:imap-client"]
-maildir = ["dep:maildirpp", "dep:notify", "dep:rayon"]
-notmuch = ["dep:notmuch"]
-smtp = ["dep:mail-send"]
-sendmail = []
+imap = [
+  "dep:utf7-imap",
+  "dep:imap-client",
+]
 
-account-discovery = [
+maildir = [
+  "dep:maildirpp",
+  "dep:notify",
+  "dep:rayon",
+]
+
+smtp = [
+  "dep:mail-send",
+]
+
+sendmail = [
+  # nothing
+]
+
+autoconfig = [
   "dep:email_address",
-  "dep:futures",
   "dep:hickory-resolver",
   "dep:hyper",
   "dep:hyper-rustls",
   "dep:serde",
   "dep:serde-xml-rs",
 ]
-account-sync = [
+
+derive = [
+  "dep:serde",
+  "serde/derive",
+  "mml-lib/derive",
+  "secret-lib/derive",
+  "process-lib/derive",
+  "keyring-lib?/derive",
+]
+
+notify = [
+  "dep:notify-rust",
+]
+
+oauth2 = [
+  "dep:oauth-lib"
+]
+
+sync = [
   "dep:advisory-lock",
   "dep:dirs",
-  "dep:futures",
   "maildir",
 ]
 
-pgp = []
-pgp-commands = ["pgp", "mml-lib/pgp-commands"]
-pgp-gpg = ["pgp", "mml-lib/pgp-gpg"]
-pgp-native = ["pgp", "keyring-lib", "mml-lib/pgp-native", "dep:pgp-lib"]
+watch = [
+  # nothing
+]
 
-tracing = ["dep:tracing"]
-derive = ["dep:serde", "serde/derive", "mml-lib/derive", "secret-lib/derive", "process-lib/derive", "keyring-lib/derive"]
+pgp = [] # used as internal guard
+pgp-commands = ["mml-lib/pgp-commands", "pgp"]
+pgp-gpg = ["mml-lib/pgp-gpg", "pgp"]
+pgp-native = ["dep:pgp-lib", "dep:keyring-lib", "pgp", "mml-lib/pgp-native"]
 
 [dev-dependencies]
 concat-with = "0.2"
@@ -83,7 +144,7 @@ convert_case = "0.5"
 dirs = { version = "4.0", optional = true }
 email-macros = "=0.0.2"
 email_address = { version = "0.2", optional = true, default-features = false }
-futures = { version = "0.3", optional = true }
+futures = "0.3"
 hickory-resolver = { version = "0.24", optional = true, features = ["dns-over-rustls"] }
 hyper = { version = "0.14", optional = true, default-features = false, features = [ "http1", "http2" ] }
 hyper-rustls = { version = "0.24", optional = true }
@@ -95,9 +156,9 @@ mail-send = { version = "0.4", optional = true }
 maildirpp = { version = "=0.0.2", optional = true }
 mml-lib = "=1.0.12"
 notify = { version = "6", optional = true, default-features = false, features = ["macos_kqueue"] }
-notify-rust = "4"
+notify-rust = { version = "4", optional = true }
 notmuch = { version = "=0.8.0", optional = true }
-oauth-lib = "=0.1.1"
+oauth-lib = { version = "=0.1.1", optional = true }
 once_cell = "1"
 ouroboros = "0.15"
 paste = "1"
