@@ -11,13 +11,9 @@ use mail_send::Credentials;
 
 #[doc(inline)]
 pub use super::{Error, Result};
-use crate::{
-    account::config::{
-        oauth2::{OAuth2Config, OAuth2Method},
-        passwd::PasswdConfig,
-    },
-    debug,
-};
+#[cfg(feature = "oauth2")]
+use crate::account::config::oauth2::{OAuth2Config, OAuth2Method};
+use crate::{account::config::passwd::PasswdConfig, debug};
 
 /// The SMTP sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -90,6 +86,7 @@ impl SmtpConfig {
                     .ok_or(Error::GetPasswdEmptySmtpError)?;
                 Credentials::new(self.login.clone(), passwd.to_owned())
             }
+            #[cfg(feature = "oauth2")]
             SmtpAuthConfig::OAuth2(oauth2) => {
                 let access_token = oauth2
                     .access_token()
@@ -156,6 +153,7 @@ pub enum SmtpAuthConfig {
     Passwd(PasswdConfig),
 
     /// The OAuth 2.0 authentication mechanism.
+    #[cfg(feature = "oauth2")]
     OAuth2(OAuth2Config),
 }
 
@@ -170,6 +168,7 @@ impl SmtpAuthConfig {
     pub async fn reset(&mut self) -> Result<()> {
         debug!("resetting smtp backend configuration");
 
+        #[cfg(feature = "oauth2")]
         if let Self::OAuth2(oauth2) = self {
             oauth2
                 .reset()
@@ -183,10 +182,12 @@ impl SmtpAuthConfig {
     /// Configures the OAuth 2.0 authentication tokens.
     pub async fn configure(
         &mut self,
+        #[cfg_attr(not(feature = "oauth2"), allow(unused_variables))]
         get_client_secret: impl Fn() -> io::Result<String>,
     ) -> Result<()> {
         debug!("configuring smtp backend");
 
+        #[cfg(feature = "oauth2")]
         if let Self::OAuth2(oauth2) = self {
             oauth2
                 .configure(get_client_secret)
@@ -206,6 +207,7 @@ impl SmtpAuthConfig {
                     .replace_undefined_to_keyring(format!("{name}-smtp-passwd"))
                     .map_err(Error::ReplacingKeyringFailed)?;
             }
+            #[cfg(feature = "oauth2")]
             SmtpAuthConfig::OAuth2(config) => {
                 config
                     .client_secret

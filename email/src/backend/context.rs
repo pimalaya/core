@@ -9,10 +9,12 @@ use async_trait::async_trait;
 use paste::paste;
 
 use super::feature::{BackendFeature, CheckUp};
+#[cfg(feature = "thread")]
+use crate::envelope::thread::ThreadEnvelopes;
+#[cfg(feature = "watch")]
+use crate::envelope::watch::WatchEnvelopes;
 use crate::{
-    envelope::{
-        get::GetEnvelope, list::ListEnvelopes, thread::ThreadEnvelopes, watch::WatchEnvelopes,
-    },
+    envelope::{get::GetEnvelope, list::ListEnvelopes},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
@@ -82,7 +84,9 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
     feature!(DeleteFolder);
     feature!(GetEnvelope);
     feature!(ListEnvelopes);
+    #[cfg(feature = "thread")]
     feature!(ThreadEnvelopes);
+    #[cfg(feature = "watch")]
     feature!(WatchEnvelopes);
     feature!(AddFlags);
     feature!(SetFlags);

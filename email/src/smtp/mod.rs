@@ -4,7 +4,6 @@ mod error;
 use std::{collections::HashSet, sync::Arc};
 
 use async_trait::async_trait;
-use futures::TryFutureExt;
 use mail_parser::{Addr, Address, HeaderName, HeaderValue, Message, MessageParser};
 use mail_send::{
     smtp::message::{Address as SmtpAddress, IntoMessage, Message as SmtpMessage},
@@ -64,9 +63,9 @@ impl SmtpContext {
                         Default::default()
                     });
                 }
-                Err(err) => {
-                    debug!("cannot execute pre-send hook: {err}");
-                    debug!("{err:?}");
+                Err(_err) => {
+                    debug!("cannot execute pre-send hook: {_err}");
+                    debug!("{_err:?}");
                 }
             }
         };
@@ -86,9 +85,11 @@ impl SmtpContext {
                         SmtpAuthConfig::Passwd(_) => {
                             break Err(Error::SendMessageSmtpError(err))?;
                         }
+                        #[cfg(feature = "oauth2")]
                         SmtpAuthConfig::OAuth2(_) if retry.oauth2_access_token_refreshed => {
                             break Err(Error::SendMessageSmtpError(err))?;
                         }
+                        #[cfg(feature = "oauth2")]
                         SmtpAuthConfig::OAuth2(oauth2_config) => {
                             oauth2_config
                                 .refresh_access_token()
@@ -110,8 +111,8 @@ impl SmtpContext {
                         }
                     },
                     mail_send::Error::Timeout | mail_send::Error::Io(_) => {
-                        let count = 3 - retry.decrement();
-                        warn!("cannot send smtp message: {err}, attempt ({count})");
+                        let _count = 3 - retry.decrement();
+                        warn!("cannot send smtp message: {err}, attempt ({_count})");
 
                         self.client = if self.smtp_config.is_encryption_enabled() {
                             build_tls_client(&self.client_builder).await
@@ -218,8 +219,8 @@ impl SmtpClientStream {
 
     pub async fn noop(&mut self) -> Result<()> {
         match self {
-            Self::Tcp(client) => client.noop().map_err(Error::MailSendNoOpFailed).await,
-            Self::Tls(client) => client.noop().map_err(Error::MailSendNoOpFailed).await,
+            Self::Tcp(client) => client.noop().await.map_err(Error::MailSendNoOpFailed),
+            Self::Tls(client) => client.noop().await.map_err(Error::MailSendNoOpFailed),
         }
     }
 }
@@ -251,7 +252,7 @@ impl CheckUp for CheckUpSmtp {
     }
 }
 
-struct SmtpRetryState {
+pub struct SmtpRetryState {
     pub count: usize,
     pub oauth2_access_token_refreshed: bool,
 }
@@ -269,7 +270,7 @@ impl SmtpRetryState {
         self.count == 0
     }
 
-    fn set_oauth2_access_token_refreshed(&mut self) {
+    pub fn set_oauth2_access_token_refreshed(&mut self) {
         self.count = 3;
         self.oauth2_access_token_refreshed = true;
     }
@@ -286,6 +287,7 @@ impl Default for SmtpRetryState {
 
 pub async fn build_client(
     smtp_config: &SmtpConfig,
+    #[cfg_attr(not(feature = "oauth2"), allow(unused_mut))]
     mut client_builder: mail_send::SmtpClientBuilder<String>,
 ) -> Result<(mail_send::SmtpClientBuilder<String>, SmtpClientStream)> {
     match (&smtp_config.auth, smtp_config.is_encryption_enabled()) {
@@ -297,6 +299,7 @@ pub async fn build_client(
             let client = build_tls_client(&client_builder).await?;
             Ok((client_builder, client))
         }
+        #[cfg(feature = "oauth2")]
         (SmtpAuthConfig::OAuth2(oauth2_config), false) => {
             match Ok(build_tcp_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
@@ -312,6 +315,7 @@ pub async fn build_client(
                 Err(err) => Err(err),
             }
         }
+        #[cfg(feature = "oauth2")]
         (SmtpAuthConfig::OAuth2(oauth2_config), true) => {
             match Ok(build_tls_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),

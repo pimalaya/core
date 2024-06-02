@@ -213,6 +213,7 @@ impl AccountConfig {
     }
 
     /// Execute the envelope received hook.
+    #[cfg(feature = "watch")]
     pub async fn exec_received_envelope_hook(&self, envelope: &Envelope) {
         let hook = self
             .envelope
@@ -226,6 +227,7 @@ impl AccountConfig {
     }
 
     /// Execute the envelope any hook.
+    #[cfg(feature = "watch")]
     pub async fn exec_any_envelope_hook(&self, envelope: &Envelope) {
         let hook = self
             .envelope
@@ -420,6 +422,7 @@ impl AccountConfig {
 
     /// Get the envelope threading page size if defined, otherwise
     /// return the default one.
+    #[cfg(feature = "thread")]
     pub fn get_envelope_thread_page_size(&self) -> usize {
         self.envelope
             .as_ref()

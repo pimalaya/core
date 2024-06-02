@@ -18,18 +18,19 @@ pub mod maildir;
 pub mod notmuch;
 #[cfg(feature = "sync")]
 pub mod sync;
+#[cfg(feature = "thread")]
 pub mod thread;
+#[cfg(feature = "watch")]
 pub mod watch;
 
 use std::{
-    collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
     ops::{Deref, DerefMut},
     vec,
 };
 
 use chrono::{DateTime, FixedOffset, Local};
-use ouroboros::self_referencing;
+#[cfg(feature = "thread")]
 use petgraph::graphmap::DiGraphMap;
 
 #[doc(inline)]
@@ -333,15 +334,17 @@ impl Hash for ThreadedEnvelope<'_> {
     }
 }
 
-#[self_referencing]
+#[cfg(feature = "thread")]
+#[ouroboros::self_referencing]
 #[derive(Debug)]
 pub struct ThreadedEnvelopes {
-    inner: HashMap<String, Envelope>,
+    inner: std::collections::HashMap<String, Envelope>,
     #[borrows(inner)]
     #[covariant]
     graph: DiGraphMap<ThreadedEnvelope<'this>, u8>,
 }
 
+#[cfg(feature = "thread")]
 impl ThreadedEnvelopes {
     pub fn build(
         envelopes: HashMap<String, Envelope>,
@@ -359,7 +362,7 @@ impl ThreadedEnvelopes {
     }
 }
 
-#[cfg(feature = "derive")]
+#[cfg(all(feature = "thread", feature = "derive"))]
 impl serde::Serialize for ThreadedEnvelopes {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -378,7 +381,7 @@ impl serde::Serialize for ThreadedEnvelopes {
     }
 }
 
-#[cfg(feature = "derive")]
+#[cfg(all(feature = "thread", feature = "derive"))]
 impl<'de> serde::Deserialize<'de> for ThreadedEnvelopes {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where

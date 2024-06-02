@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+#[cfg(feature = "watch")]
 use tokio::sync::oneshot::{Receiver, Sender};
 
 use super::{
@@ -13,14 +14,16 @@ use super::{
     feature::BackendFeature,
     AsyncTryIntoBackendFeatures, BackendBuilder, Error,
 };
+#[cfg(feature = "watch")]
+use crate::envelope::watch::WatchEnvelopes;
+#[cfg(feature = "thread")]
+use crate::envelope::{thread::ThreadEnvelopes, ThreadedEnvelopes};
 use crate::{
     account::config::{AccountConfig, HasAccountConfig},
     envelope::{
         get::GetEnvelope,
         list::{ListEnvelopes, ListEnvelopesOptions},
-        thread::ThreadEnvelopes,
-        watch::WatchEnvelopes,
-        Envelope, Envelopes, Id, SingleId, ThreadedEnvelopes,
+        Envelope, Envelopes, Id, SingleId,
     },
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flags},
     folder::{
@@ -64,8 +67,10 @@ pub struct BackendPool<C: BackendContext> {
     /// The list envelopes backend feature.
     pub list_envelopes: Option<BackendFeature<C, dyn ListEnvelopes>>,
     /// The thread envelopes backend feature.
+    #[cfg(feature = "thread")]
     pub thread_envelopes: Option<BackendFeature<C, dyn ThreadEnvelopes>>,
     /// The watch envelopes backend feature.
+    #[cfg(feature = "watch")]
     pub watch_envelopes: Option<BackendFeature<C, dyn WatchEnvelopes>>,
 
     /// The add flags backend feature.
@@ -241,6 +246,7 @@ impl<C: BackendContext + 'static> ListEnvelopes for BackendPool<C> {
     }
 }
 
+#[cfg(feature = "thread")]
 #[async_trait]
 impl<C: BackendContext + 'static> ThreadEnvelopes for BackendPool<C> {
     async fn thread_envelopes(
@@ -287,6 +293,7 @@ impl<C: BackendContext + 'static> ThreadEnvelopes for BackendPool<C> {
     }
 }
 
+#[cfg(feature = "watch")]
 #[async_trait]
 impl<C: BackendContext + 'static> WatchEnvelopes for BackendPool<C> {
     async fn watch_envelopes(
@@ -546,7 +553,9 @@ where
 
         let get_envelope = self.get_get_envelope();
         let list_envelopes = self.get_list_envelopes();
+        #[cfg(feature = "thread")]
         let thread_envelopes = self.get_thread_envelopes();
+        #[cfg(feature = "watch")]
         let watch_envelopes = self.get_watch_envelopes();
 
         let add_flags = self.get_add_flags();
@@ -573,7 +582,9 @@ where
 
             get_envelope,
             list_envelopes,
+            #[cfg(feature = "thread")]
             thread_envelopes,
+            #[cfg(feature = "watch")]
             watch_envelopes,
 
             add_flags,
