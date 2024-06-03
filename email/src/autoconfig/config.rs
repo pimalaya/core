@@ -319,8 +319,9 @@ pub enum SecurityType {
 #[serde(rename_all = "camelCase")]
 pub enum ServerType {
     Exchange,
+    #[cfg(feature = "imap")]
     Imap,
-    Pop3,
+    #[cfg(feature = "smtp")]
     Smtp,
 }
 

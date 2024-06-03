@@ -11,9 +11,7 @@ use async_trait::async_trait;
 use super::{context::BackendContext, AnyResult};
 use crate::{
     account::config::HasAccountConfig,
-    envelope::{
-        get::GetEnvelope, list::ListEnvelopes, thread::ThreadEnvelopes, watch::WatchEnvelopes,
-    },
+    envelope::{get::GetEnvelope, list::ListEnvelopes},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
     folder::{
         add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
@@ -99,8 +97,6 @@ pub trait BackendFeatures:
     + DeleteFolder
     + GetEnvelope
     + ListEnvelopes
-    + ThreadEnvelopes
-    + WatchEnvelopes
     + AddFlags
     + SetFlags
     + RemoveFlags
@@ -125,8 +121,6 @@ impl<T> BackendFeatures for T where
         + DeleteFolder
         + GetEnvelope
         + ListEnvelopes
-        + ThreadEnvelopes
-        + WatchEnvelopes
         + AddFlags
         + SetFlags
         + RemoveFlags

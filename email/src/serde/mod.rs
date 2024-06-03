@@ -1,3 +1,4 @@
+#[allow(unused_macros)]
 macro_rules! serde_deprecated {
     ($name:ident, $from:literal, $to:literal) => {
         paste::paste! {
@@ -9,4 +10,5 @@ macro_rules! serde_deprecated {
     };
 }
 
+#[allow(unused_imports)]
 pub(crate) use serde_deprecated;

@@ -35,8 +35,8 @@ impl ExpungeFolder for ExpungeImapFolder {
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        let count = ctx.expunge_mailbox(&folder_encoded).await?;
-        debug!("expunged {count} messages from {folder}");
+        let _count = ctx.expunge_mailbox(&folder_encoded).await?;
+        debug!("expunged {_count} messages from {folder}");
 
         Ok(())
     }

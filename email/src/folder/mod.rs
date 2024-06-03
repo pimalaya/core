@@ -23,7 +23,7 @@ pub mod list;
 #[cfg(feature = "maildir")]
 pub mod maildir;
 pub mod purge;
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 pub mod sync;
 
 use std::{
@@ -33,7 +33,7 @@ use std::{
     str::FromStr,
 };
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 pub(crate) use sync::sync;
 
 #[doc(inline)]

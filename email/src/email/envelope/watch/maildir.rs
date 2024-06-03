@@ -60,8 +60,8 @@ impl WatchEnvelopes for WatchMaildirEnvelopes {
 
         for res in rx {
             match res {
-                Ok(evt) => {
-                    trace!("received filesystem change event: {evt:?}");
+                Ok(_evt) => {
+                    trace!("received filesystem change event: {_evt:?}");
 
                     let next_envelopes = Envelopes::from_mdir_entries(mdir.list_cur(), None);
                     let next_envelopes: HashMap<String, Envelope> =
@@ -71,9 +71,9 @@ impl WatchEnvelopes for WatchMaildirEnvelopes {
 
                     envelopes = next_envelopes;
                 }
-                Err(err) => {
-                    debug!("error while receiving message added event: {err}");
-                    debug!("{err:?}");
+                Err(_err) => {
+                    debug!("error while receiving message added event: {_err}");
+                    debug!("{_err:?}");
                 }
             }
         }

@@ -16,20 +16,23 @@ pub mod list;
 pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 pub mod sync;
+#[cfg(feature = "thread")]
 pub mod thread;
+#[cfg(feature = "watch")]
 pub mod watch;
 
+#[cfg(feature = "thread")]
+use std::collections::HashMap;
 use std::{
-    collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
     ops::{Deref, DerefMut},
     vec,
 };
 
 use chrono::{DateTime, FixedOffset, Local};
-use ouroboros::self_referencing;
+#[cfg(feature = "thread")]
 use petgraph::graphmap::DiGraphMap;
 
 #[doc(inline)]
@@ -217,13 +220,14 @@ impl Envelope {
     /// The message is just composed of two headers and contains no
     /// content. It is mostly used by the synchronization to cache
     /// envelopes.
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     pub fn to_sync_cache_msg(&self) -> String {
         let id = &self.message_id;
         let date = self.date.to_rfc2822();
         format!("Message-ID: {id}\nDate: {date}\n\n")
     }
 
+    #[cfg(feature = "thread")]
     pub fn as_threaded(&self) -> ThreadedEnvelope {
         ThreadedEnvelope {
             id: self.id.as_str(),
@@ -291,6 +295,7 @@ impl FromIterator<Envelope> for Envelopes {
     }
 }
 
+#[cfg(feature = "thread")]
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialOrd)]
 #[cfg_attr(
     feature = "derive",
@@ -305,6 +310,7 @@ pub struct ThreadedEnvelope<'a> {
     pub date: DateTime<FixedOffset>,
 }
 
+#[cfg(feature = "thread")]
 impl ThreadedEnvelope<'_> {
     /// Format the envelope date according to the datetime format and
     /// timezone from the [account configuration](crate::AccountConfig).
@@ -321,27 +327,32 @@ impl ThreadedEnvelope<'_> {
     }
 }
 
+#[cfg(feature = "thread")]
 impl PartialEq for ThreadedEnvelope<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.message_id == other.message_id
     }
 }
 
+#[cfg(feature = "thread")]
 impl Hash for ThreadedEnvelope<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.message_id.hash(state);
     }
 }
 
-#[self_referencing]
+#[cfg_attr(feature = "thread", ouroboros::self_referencing)]
 #[derive(Debug)]
 pub struct ThreadedEnvelopes {
-    inner: HashMap<String, Envelope>,
+    #[cfg(feature = "thread")]
+    inner: std::collections::HashMap<String, Envelope>,
+    #[cfg(feature = "thread")]
     #[borrows(inner)]
     #[covariant]
     graph: DiGraphMap<ThreadedEnvelope<'this>, u8>,
 }
 
+#[cfg(feature = "thread")]
 impl ThreadedEnvelopes {
     pub fn build(
         envelopes: HashMap<String, Envelope>,
@@ -359,7 +370,7 @@ impl ThreadedEnvelopes {
     }
 }
 
-#[cfg(feature = "derive")]
+#[cfg(all(feature = "thread", feature = "derive"))]
 impl serde::Serialize for ThreadedEnvelopes {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -378,7 +389,7 @@ impl serde::Serialize for ThreadedEnvelopes {
     }
 }
 
-#[cfg(feature = "derive")]
+#[cfg(all(feature = "thread", feature = "derive"))]
 impl<'de> serde::Deserialize<'de> for ThreadedEnvelopes {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where

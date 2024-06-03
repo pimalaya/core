@@ -18,32 +18,88 @@ rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
 [lib]
 name = "email"
 
+
+# dyn backend does not make sense anymore?
+
 [features]
 default = [
+  # Enables the IMAP backend, which allows management of local or
+  # remote mailboxes and emails located on any IMAP server. Paired
+  # with the `autoconfig` feature, it also allows to discover IMAP
+  # configuration from a simple email address.
+  #
+  # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/imap.html>
   "imap",
+
+  # Enables the Maildir backend, which allows management of folders
+  # and emails located in a local Maildir directory, using file
+  # system.
+  #
+  # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/maildir.html>
   "maildir",
-  # "notmuch",
+
+  # Enables the Notmuch backend, which allows management of emails
+  # located in a Notmuch database. Since Notmuch needs a Maildir to
+  # work, it also enables the `maildir` feature.
+  #
+  # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/notmuch.html>
+  "notmuch",
+  
+  # Enables the SMTP backend, which allows sending emails to any SMTP
+  # server. Paired with the `autoconfig` feature, it also allows to
+  # discover SMTP configuration from a simple email address.
+  #
+  # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/smtp.html>
   "smtp",
+  
+  # Enables the sendmail backend, which allows sending emails via any
+  # sendmail-compatible command.
+  #
+  # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/sendmail.html>
   "sendmail",
 
-  # "account-discovery",
-  # "account-sync",
-
-  # "pgp-commands",
-  # "pgp-gpg",
-  # "pgp-native",
-
+  "autoconfig",
+  "derive",
+  "keyring",
+  "notify",
+  "oauth2",
+  "pool",
+  "sync",
+  "thread",
   "tracing",
-  # "derive",
+  "watch",
+
+  "pgp-commands",
+  "pgp-gpg",
+  "pgp-native",
 ]
 
-imap = ["dep:futures", "dep:utf7-imap", "dep:imap-client"]
-maildir = ["dep:maildirpp", "dep:notify", "dep:rayon"]
-notmuch = ["dep:notmuch"]
-smtp = ["dep:mail-send"]
-sendmail = []
+imap = [
+  "dep:utf7-imap",
+  "dep:imap-client",
+  "tokio/sync",
+]
 
-account-discovery = [
+maildir = [
+  "dep:maildirpp",
+  "dep:notify",
+  "dep:rayon",
+]
+
+notmuch = [
+  "dep:notmuch",
+  "maildir",
+]
+
+smtp = [
+  "dep:mail-send",
+]
+
+sendmail = [
+  # nothing
+]
+
+autoconfig = [
   "dep:email_address",
   "dep:futures",
   "dep:hickory-resolver",
@@ -52,20 +108,52 @@ account-discovery = [
   "dep:serde",
   "dep:serde-xml-rs",
 ]
-account-sync = [
+
+derive = [
+  "dep:serde",
+  "serde/derive",
+  "chrono/serde",
+  "mml-lib/derive",
+  "secret-lib/derive",
+  "process-lib/derive",
+  "keyring-lib?/derive",
+]
+
+keyring = [
+  "secret-lib/keyring-tokio",
+]
+
+notify = [
+  "dep:notify-rust",
+]
+
+oauth2 = [
+  "dep:oauth-lib",
+]
+
+pool = [
+  "dep:futures",
+]
+
+sync = [
   "dep:advisory-lock",
   "dep:dirs",
   "dep:futures",
   "maildir",
 ]
 
-pgp = []
-pgp-commands = ["pgp", "mml-lib/pgp-commands"]
-pgp-gpg = ["pgp", "mml-lib/pgp-gpg"]
-pgp-native = ["pgp", "keyring-lib", "mml-lib/pgp-native", "dep:pgp-lib"]
+thread = [
+  "dep:petgraph",
+]
 
-tracing = ["dep:tracing"]
-derive = ["dep:serde", "serde/derive", "mml-lib/derive", "secret-lib/derive", "process-lib/derive", "keyring-lib/derive"]
+watch = [
+  "tokio/sync",
+]
+
+pgp = [] # used as internal guard
+pgp-commands = ["mml-lib/pgp-commands", "pgp"]
+pgp-gpg = ["mml-lib/pgp-gpg", "pgp"]
+pgp-native = ["dep:pgp-lib", "dep:keyring-lib", "pgp", "mml-lib/pgp-native"]
 
 [dev-dependencies]
 concat-with = "0.2"
@@ -79,7 +167,6 @@ advisory-lock = { version = "0.3", optional = true }
 async-trait = "0.1"
 chrono = "0.4"
 chumsky = { version = "=1.0.0-alpha.7", default-features = false, features = ["std", "label"] }
-convert_case = "0.5"
 dirs = { version = "4.0", optional = true }
 email-macros = "=0.0.2"
 email_address = { version = "0.2", optional = true, default-features = false }
@@ -95,23 +182,23 @@ mail-send = { version = "0.4", optional = true }
 maildirpp = { version = "=0.0.2", optional = true }
 mml-lib = "=1.0.12"
 notify = { version = "6", optional = true, default-features = false, features = ["macos_kqueue"] }
-notify-rust = "4"
+notify-rust = { version = "4", optional = true }
 notmuch = { version = "=0.8.0", optional = true }
-oauth-lib = "=0.1.1"
+oauth-lib = { version = "=0.1.1", optional = true }
 once_cell = "1"
 ouroboros = "0.15"
 paste = "1"
-petgraph = "0.6"
+petgraph = { version = "0.6", optional = true }
 pgp-lib = { version = "=0.2.0", optional = true }
 process-lib = "=0.4.2"
 rayon = { version = "1.6", optional = true }
 regex = "1.5"
-secret-lib = { version = "=0.4.4" }
+secret-lib = { version = "=0.4.4", default-features = false, features = ["command"] }
 serde = { version = "1", optional = true }
 serde-xml-rs = { version = "0.6", optional = true }
 shellexpand-utils = "=0.2.1"
 thiserror = "1"
-tokio = { version = "1.23", default-features = false, features = ["macros", "fs", "net"] }
+tokio = { version = "1.23", default-features = false, features = ["fs", "macros", "net", "rt"] }
 tokio-rustls = "0.25"
 tracing = { version ="0.1.40" , optional = true }
 tree_magic_mini = "3"

@@ -13,7 +13,7 @@ pub mod maildir;
 pub mod notmuch;
 pub mod remove;
 pub mod set;
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 pub mod sync;
 
 use std::{
@@ -24,7 +24,7 @@ use std::{
     str::FromStr,
 };
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 #[doc(inline)]
 pub use self::sync::sync;
 use crate::{debug, email::error::Error};
@@ -174,6 +174,7 @@ impl From<&str> for Flags {
         s.split_whitespace()
             .filter_map(|flag| match flag.parse() {
                 Ok(flag) => Some(flag),
+                #[cfg_attr(not(feature = "tracing"), allow(unused_variables))]
                 Err(err) => {
                     debug!("cannot parse flag {flag}, skipping it: {err}");
                     debug!("{err:?}");

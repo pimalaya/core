@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::list::config::FolderListConfig;
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 use super::sync::config::FolderSyncConfig;
 
 /// The folder configuration.
@@ -24,7 +24,7 @@ pub struct FolderConfig {
     /// The configuration dedicated to folder listing.
     pub list: Option<FolderListConfig>,
 
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     /// The configuration dedicated to folder synchronization.
     pub sync: Option<FolderSyncConfig>,
 }

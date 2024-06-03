@@ -19,8 +19,8 @@ impl Flags {
         Flags::from_iter(fetches.iter().filter_map(|fetch| {
             match Flag::try_from_imap_fetch(fetch) {
                 Ok(flag) => Some(flag),
-                Err(err) => {
-                    debug!("{err:?}");
+                Err(_err) => {
+                    debug!("{_err:?}");
                     None
                 }
             }
@@ -33,9 +33,9 @@ impl Flags {
         self.iter()
             .filter_map(|flag| match flag.clone().try_into() {
                 Ok(flag) => Some(flag),
-                Err(err) => {
-                    debug!("cannot serialize IMAP flag {flag}: {err}");
-                    trace!("{err:?}");
+                Err(_err) => {
+                    debug!("cannot serialize IMAP flag {flag}: {_err}");
+                    trace!("{_err:?}");
                     None
                 }
             })

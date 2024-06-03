@@ -50,17 +50,19 @@ pub mod context;
 mod error;
 pub mod feature;
 pub mod mapper;
+#[cfg(feature = "pool")]
 pub mod pool;
 pub mod macros {
     pub use email_macros::BackendContext;
 }
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 use std::hash::DefaultHasher;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use paste::paste;
+#[cfg(feature = "watch")]
 use tokio::sync::oneshot::{Receiver, Sender};
 
 #[doc(inline)]
@@ -71,16 +73,18 @@ use self::{
         AsyncTryIntoBackendFeatures, BackendFeature, BackendFeatureSource, BackendFeatures, CheckUp,
     },
 };
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "watch")]
+use crate::envelope::watch::WatchEnvelopes;
+#[cfg(feature = "thread")]
+use crate::envelope::{thread::ThreadEnvelopes, ThreadedEnvelopes};
+#[cfg(feature = "sync")]
 use crate::sync::hash::SyncHash;
 use crate::{
     account::config::{AccountConfig, HasAccountConfig},
     envelope::{
         get::GetEnvelope,
         list::{ListEnvelopes, ListEnvelopesOptions},
-        thread::ThreadEnvelopes,
-        watch::WatchEnvelopes,
-        Envelope, Envelopes, Id, SingleId, ThreadedEnvelopes,
+        Envelope, Envelopes, Id, SingleId,
     },
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flags},
     folder::{
@@ -128,8 +132,10 @@ where
     /// The list envelopes backend feature.
     pub list_envelopes: Option<BackendFeature<C, dyn ListEnvelopes>>,
     /// The thread envelopes backend feature.
+    #[cfg(feature = "thread")]
     pub thread_envelopes: Option<BackendFeature<C, dyn ThreadEnvelopes>>,
     /// The watch envelopes backend feature.
+    #[cfg(feature = "watch")]
     pub watch_envelopes: Option<BackendFeature<C, dyn WatchEnvelopes>>,
 
     /// The add flags backend feature.
@@ -251,6 +257,7 @@ impl<C: BackendContext> ListEnvelopes for Backend<C> {
     }
 }
 
+#[cfg(feature = "thread")]
 #[async_trait]
 impl<C: BackendContext> ThreadEnvelopes for Backend<C> {
     async fn thread_envelopes(
@@ -281,6 +288,7 @@ impl<C: BackendContext> ThreadEnvelopes for Backend<C> {
     }
 }
 
+#[cfg(feature = "watch")]
 #[async_trait]
 impl<C: BackendContext> WatchEnvelopes for Backend<C> {
     async fn watch_envelopes(
@@ -527,8 +535,10 @@ where
     /// The list envelopes backend builder feature.
     pub list_envelopes: BackendFeatureSource<CB::Context, dyn ListEnvelopes>,
     /// The thread envelopes backend builder feature.
+    #[cfg(feature = "thread")]
     pub thread_envelopes: BackendFeatureSource<CB::Context, dyn ThreadEnvelopes>,
     /// The watch envelopes backend builder feature.
+    #[cfg(feature = "watch")]
     pub watch_envelopes: BackendFeatureSource<CB::Context, dyn WatchEnvelopes>,
 
     /// The add flags backend builder feature.
@@ -568,7 +578,9 @@ where
     feature_accessors!(DeleteFolder);
     feature_accessors!(GetEnvelope);
     feature_accessors!(ListEnvelopes);
+    #[cfg(feature = "thread")]
     feature_accessors!(ThreadEnvelopes);
+    #[cfg(feature = "watch")]
     feature_accessors!(WatchEnvelopes);
     feature_accessors!(AddFlags);
     feature_accessors!(SetFlags);
@@ -601,7 +613,9 @@ where
 
             get_envelope: BackendFeatureSource::Context,
             list_envelopes: BackendFeatureSource::Context,
+            #[cfg(feature = "thread")]
             thread_envelopes: BackendFeatureSource::Context,
+            #[cfg(feature = "watch")]
             watch_envelopes: BackendFeatureSource::Context,
 
             add_flags: BackendFeatureSource::Context,
@@ -689,7 +703,9 @@ where
 
             get_envelope: self.get_envelope.clone(),
             list_envelopes: self.list_envelopes.clone(),
+            #[cfg(feature = "thread")]
             thread_envelopes: self.thread_envelopes.clone(),
+            #[cfg(feature = "watch")]
             watch_envelopes: self.watch_envelopes.clone(),
 
             add_flags: self.add_flags.clone(),
@@ -722,7 +738,9 @@ where
 
         let get_envelope = self.get_get_envelope();
         let list_envelopes = self.get_list_envelopes();
+        #[cfg(feature = "thread")]
         let thread_envelopes = self.get_thread_envelopes();
+        #[cfg(feature = "watch")]
         let watch_envelopes = self.get_watch_envelopes();
 
         let add_flags = self.get_add_flags();
@@ -750,7 +768,9 @@ where
 
             get_envelope,
             list_envelopes,
+            #[cfg(feature = "thread")]
             thread_envelopes,
+            #[cfg(feature = "watch")]
             watch_envelopes,
 
             add_flags,
@@ -769,7 +789,7 @@ where
     }
 }
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 impl<CB> SyncHash for BackendBuilder<CB>
 where
     CB: BackendContextBuilder + SyncHash,

@@ -69,8 +69,10 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
 
         let mut envelopes = Envelopes::from_notmuch_msgs(msgs);
 
-        let envelopes_len = envelopes.len();
-        debug!("found {envelopes_len} notmuch envelopes matching query {final_query}");
+        debug!(
+            "found {} notmuch envelopes matching query {final_query}",
+            envelopes.len()
+        );
         trace!("{envelopes:#?}");
 
         let page_begin = opts.page * opts.page_size;

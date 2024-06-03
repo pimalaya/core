@@ -13,10 +13,10 @@ pub enum Error {
     #[error("cannot get configuration of account {0}")]
     GetAccountConfigNotFoundError(String),
 
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     #[error("cannot get sync directory from XDG_DATA_HOME")]
     GetXdgDataDirSyncError,
-    #[cfg(feature = "account-sync")]
+    #[cfg(feature = "sync")]
     #[error("cannot get invalid or missing synchronization directory {1}")]
     GetSyncDirInvalidError(#[source] shellexpand_utils::Error, PathBuf),
 
@@ -24,10 +24,13 @@ pub enum Error {
     ParseDownloadFileNameError(PathBuf),
     #[error("cannot get file name from path {0}")]
     GetFileNameFromPathSyncError(PathBuf),
+    #[cfg(feature = "oauth2")]
     #[error("cannot create oauth2 client")]
     InitOauthClientError(#[source] oauth::v2_0::Error),
+    #[cfg(feature = "oauth2")]
     #[error("cannot create oauth2 client")]
     BuildOauthClientError(#[source] oauth::v2_0::Error),
+    #[cfg(feature = "oauth2")]
     #[error("cannot wait for oauth2 redirection error")]
     WaitForOauthRedirectionError(#[source] oauth::v2_0::Error),
 
@@ -35,6 +38,7 @@ pub enum Error {
     GetAccessTokenOauthError(#[source] secret::Error),
     #[error("cannot set oauth2 access token")]
     SetAccessTokenOauthError(#[source] secret::Error),
+    #[cfg(feature = "oauth2")]
     #[error("cannot refresh oauth2 access token")]
     RefreshAccessTokenOauthError(#[source] oauth::v2_0::Error),
     #[error("cannot delete oauth2 access token from global keyring")]

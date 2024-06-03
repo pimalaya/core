@@ -26,20 +26,49 @@ pub mod config;
 pub mod dns;
 pub mod http;
 
-use std::str::FromStr;
+use std::{result, str::FromStr};
 
 use email_address::EmailAddress;
 use futures::{future::select_ok, FutureExt};
-use hyper::Uri;
+use hyper::{StatusCode, Uri};
+use thiserror::Error;
 
-use self::{config::AutoConfig, dns::DnsClient, http::HttpClient};
-use super::discover::config::{
-    AuthenticationType, EmailProvider, EmailProviderProperty, SecurityType, Server, ServerProperty,
-    ServerType,
+use self::{
+    config::{AutoConfig, EmailProvider},
+    dns::DnsClient,
+    http::HttpClient,
 };
-#[doc(inline)]
-pub use super::{Error, Result};
 use crate::{debug, trace};
+
+/// The global `Result` alias of the module.
+pub type Result<T> = result::Result<T, Error>;
+
+/// The global `Error` enum of the module.
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("cannot find any MX record at {0}")]
+    GetMxRecordNotFoundError(String),
+    #[error("cannot find any mailconf TXT record at {0}")]
+    GetMailconfTxtRecordNotFoundError(String),
+    #[error("cannot find any SRV record at {0}")]
+    GetSrvRecordNotFoundError(String),
+    #[error("cannot do txt lookup: {0}")]
+    LookUpTxtError(#[source] hickory_resolver::error::ResolveError),
+    #[error("cannot do mx lookup: {0}")]
+    LookUpMxError(#[source] hickory_resolver::error::ResolveError),
+    #[error("cannot do srv lookup: {0}")]
+    LookUpSrvError(#[source] hickory_resolver::error::ResolveError),
+    #[error("cannot get autoconfig from {0}: {1}")]
+    GetAutoConfigError(Uri, StatusCode),
+    #[error("cannot do a get request for autoconfig from {0}: {1}")]
+    GetConnectionAutoConfigError(Uri, #[source] hyper::Error),
+    #[error("cannot get the body of response for autoconfig from {0}: {1}")]
+    ToBytesAutoConfigError(Uri, #[source] hyper::Error),
+    #[error("cannot decode the body of response for autoconfig from {0}: {1}")]
+    SerdeXmlFailedForAutoConfig(Uri, #[source] serde_xml_rs::Error),
+    #[error("cannot parse email {0}: {1}")]
+    ParsingEmailAddress(String, #[source] email_address::Error),
+}
 
 /// Discover configuration associated to a given email address using
 /// ISP locations then DNS, as described in the Mozilla [wiki].
@@ -52,8 +81,8 @@ pub async fn from_addr(addr: impl AsRef<str>) -> Result<AutoConfig> {
 
     match from_isps(&http, &addr).await {
         Ok(config) => Ok(config),
-        Err(err) => {
-            trace!("{err}");
+        Err(_err) => {
+            trace!("{_err}");
             debug!("ISP discovery failed for {addr}, falling back to DNS");
             from_dns(&http, &addr).await
         }
@@ -75,8 +104,8 @@ async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig>
 
     match select_ok(from_main_isps).await {
         Ok((config, _)) => Ok(config),
-        Err(err) => {
-            trace!("{err}");
+        Err(_err) => {
+            trace!("{_err}");
             debug!("main ISP discovery failed for {addr}, falling back to alternative ISP");
 
             let from_alt_isps = [
@@ -86,8 +115,8 @@ async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig>
 
             match select_ok(from_alt_isps).await {
                 Ok((config, _)) => Ok(config),
-                Err(err) => {
-                    trace!("{err}");
+                Err(_err) => {
+                    trace!("{_err}");
                     debug!("alternative ISP discovery failed for {addr}, falling back to ISPDB");
                     from_ispdb(http, addr).await
                 }
@@ -174,13 +203,13 @@ async fn from_dns(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> 
 
     match from_dns_mx(http, &dns, addr).await {
         Ok(config) => Ok(config),
-        Err(err) => {
-            trace!("{err}");
+        Err(_err) => {
+            trace!("{_err}");
             debug!("MX discovery failed for {addr}, falling back to TXT records");
             match from_dns_txt(http, &dns, domain).await {
                 Ok(config) => Ok(config),
-                Err(err) => {
-                    trace!("{err}");
+                Err(_err) => {
+                    trace!("{_err}");
                     debug!("TXT discovery failed for {addr}, falling back to SRV records");
                     from_dns_srv(&dns, domain).await
                 }
@@ -203,8 +232,8 @@ async fn from_dns_mx(
 
     match from_isps(http, &addr).await {
         Ok(config) => Ok(config),
-        Err(err) => {
-            trace!("{err}");
+        Err(_err) => {
+            trace!("{_err}");
             debug!("ISP discovery failed for {domain}, falling back to TXT records");
             from_dns_txt(http, dns, domain).await
         }
@@ -225,7 +254,11 @@ async fn from_dns_txt(http: &HttpClient, dns: &DnsClient, domain: &str) -> Resul
 
 /// Discover configuration associated to a given email address using
 /// SRV DNS records.
-async fn from_dns_srv(dns: &DnsClient, domain: &str) -> Result<AutoConfig> {
+async fn from_dns_srv(
+    #[allow(unused_variables)] dns: &DnsClient,
+    domain: &str,
+) -> Result<AutoConfig> {
+    #[allow(unused_mut)]
     let mut config = AutoConfig {
         version: String::from("1.1"),
         email_provider: EmailProvider {
@@ -235,7 +268,13 @@ async fn from_dns_srv(dns: &DnsClient, domain: &str) -> Result<AutoConfig> {
         oauth2: None,
     };
 
+    #[cfg(feature = "imap")]
     if let Ok(record) = dns.get_imap_srv(domain).await {
+        use self::config::{
+            AuthenticationType, EmailProviderProperty, SecurityType, Server, ServerProperty,
+            ServerType,
+        };
+
         config
             .email_provider
             .properties
@@ -250,7 +289,13 @@ async fn from_dns_srv(dns: &DnsClient, domain: &str) -> Result<AutoConfig> {
             }))
     }
 
+    #[cfg(feature = "imap")]
     if let Ok(record) = dns.get_imaps_srv(domain).await {
+        use self::config::{
+            AuthenticationType, EmailProviderProperty, SecurityType, Server, ServerProperty,
+            ServerType,
+        };
+
         config
             .email_provider
             .properties
@@ -265,7 +310,13 @@ async fn from_dns_srv(dns: &DnsClient, domain: &str) -> Result<AutoConfig> {
             }))
     }
 
+    #[cfg(feature = "smtp")]
     if let Ok(record) = dns.get_submission_srv(domain).await {
+        use self::config::{
+            AuthenticationType, EmailProviderProperty, SecurityType, Server, ServerProperty,
+            ServerType,
+        };
+
         config
             .email_provider
             .properties

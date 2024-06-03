@@ -20,8 +20,8 @@ impl Folders {
             .into_iter()
             .filter_map(|mbox| match Folder::try_from_imap_mailbox(config, &mbox) {
                 Ok(folder) => Some(folder),
-                Err(err) => {
-                    debug!("skipping IMAP mailbox {:?}: {err}", mbox.0.clone());
+                Err(_err) => {
+                    debug!("skipping IMAP mailbox {:?}: {_err}", mbox.0.clone());
                     None
                 }
             })

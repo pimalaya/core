@@ -1,9 +1,10 @@
-#[cfg(feature = "account-sync")]
+use super::list::config::EnvelopeListConfig;
+#[cfg(feature = "sync")]
 use super::sync::config::EnvelopeSyncConfig;
-use super::{
-    list::config::EnvelopeListConfig, thread::config::EnvelopeThreadConfig,
-    watch::config::WatchEnvelopeConfig,
-};
+#[cfg(feature = "thread")]
+use super::thread::config::EnvelopeThreadConfig;
+#[cfg(feature = "watch")]
+use super::watch::config::WatchEnvelopeConfig;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
@@ -16,12 +17,14 @@ pub struct EnvelopeConfig {
     pub list: Option<EnvelopeListConfig>,
 
     /// The envelope config related to threading.
+    #[cfg(feature = "thread")]
     pub thread: Option<EnvelopeThreadConfig>,
 
     /// Configuration dedicated to envelope changes.
+    #[cfg(feature = "watch")]
     pub watch: Option<WatchEnvelopeConfig>,
 
-    #[cfg(feature = "account-sync")]
     /// Configuration dedicated to envelope changes.
+    #[cfg(feature = "sync")]
     pub sync: Option<EnvelopeSyncConfig>,
 }

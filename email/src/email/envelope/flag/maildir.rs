@@ -39,9 +39,9 @@ impl Flags {
             .chars()
             .filter_map(|c| match Flag::try_from_mdir_char(c) {
                 Ok(flag) => Some(flag),
-                Err(err) => {
-                    debug!("cannot parse maildir flag char {c}, skipping it: {err}");
-                    debug!("{err:?}");
+                Err(_err) => {
+                    debug!("cannot parse maildir flag char {c}, skipping it: {_err}");
+                    debug!("{_err:?}");
                     None
                 }
             })

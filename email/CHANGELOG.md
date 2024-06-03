@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced `imap` crate by `imap-{types,codec,flow,client}` suite.
+- Renamed `account-discovery` cargo feature by `autoconfig`.
+- Moved `account::discover` module at the root level, and renamed it `autoconfig`.
+
 ### Fixed
 
 - Made reply template headers more reliable.

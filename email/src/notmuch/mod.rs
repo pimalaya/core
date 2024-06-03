@@ -1,7 +1,7 @@
 pub mod config;
 mod error;
 
-use std::{hash::Hash, ops::Deref, sync::Arc};
+use std::{ops::Deref, sync::Arc};
 
 use async_trait::async_trait;
 use maildirpp::Maildir;
@@ -126,11 +126,11 @@ impl NotmuchContextBuilder {
     }
 }
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 impl crate::sync::hash::SyncHash for NotmuchContextBuilder {
     fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
         if let Ok(path) = self.notmuch_config.try_get_maildir_path() {
-            path.hash(state);
+            std::hash::Hash::hash(&path, state);
         }
     }
 }

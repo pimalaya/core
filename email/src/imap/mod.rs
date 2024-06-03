@@ -26,8 +26,14 @@ use tokio::sync::{oneshot, Mutex};
 use self::config::{ImapAuthConfig, ImapConfig};
 #[doc(inline)]
 pub use self::error::{Error, Result};
+#[cfg(feature = "oauth2")]
+use crate::account::config::oauth2::OAuth2Method;
+#[cfg(feature = "thread")]
+use crate::envelope::thread::{imap::ThreadImapEnvelopes, ThreadEnvelopes};
+#[cfg(feature = "watch")]
+use crate::envelope::watch::{imap::WatchImapEnvelopes, WatchEnvelopes};
 use crate::{
-    account::config::{oauth2::OAuth2Method, AccountConfig},
+    account::config::AccountConfig,
     backend::{
         context::{BackendContext, BackendContextBuilder},
         feature::{BackendFeature, CheckUp},
@@ -37,8 +43,6 @@ use crate::{
         get::{imap::GetImapEnvelope, GetEnvelope},
         imap::FETCH_ENVELOPES,
         list::{imap::ListImapEnvelopes, ListEnvelopes},
-        thread::{imap::ThreadImapEnvelopes, ThreadEnvelopes},
-        watch::{imap::WatchImapEnvelopes, WatchEnvelopes},
         Envelope, Envelopes,
     },
     flag::{
@@ -542,7 +546,7 @@ impl ImapContextBuilder {
     }
 }
 
-#[cfg(feature = "account-sync")]
+#[cfg(feature = "sync")]
 impl crate::sync::hash::SyncHash for ImapContextBuilder {
     fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
         self.imap_config.sync_hash(state);
@@ -585,10 +589,12 @@ impl BackendContextBuilder for ImapContextBuilder {
         Some(Arc::new(ListImapEnvelopes::some_new_boxed))
     }
 
+    #[cfg(feature = "thread")]
     fn thread_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn ThreadEnvelopes>> {
         Some(Arc::new(ThreadImapEnvelopes::some_new_boxed))
     }
 
+    #[cfg(feature = "watch")]
     fn watch_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn WatchEnvelopes>> {
         Some(Arc::new(WatchImapEnvelopes::some_new_boxed))
     }
@@ -751,6 +757,7 @@ impl ImapClientBuilder {
                     .await
                     .map_err(Error::AuthenticatePlainError)?;
             }
+            #[cfg(feature = "oauth2")]
             ImapAuthConfig::OAuth2(oauth2) => match oauth2.method {
                 OAuth2Method::XOAuth2 => {
                     if !client.supports_auth_mechanism(AuthMechanism::XOAuth2) {
@@ -837,12 +844,13 @@ impl ImapClientBuilder {
             },
         };
 
-        let server_id = client
+        #[cfg_attr(not(feature = "tracing"), allow(unused_variables))]
+        let server = client
             .id(Some(ID_PARAMS.clone()))
             .await
             .map_err(Error::ExchangeIdsError)?;
 
-        debug!(?server_id, "server identity");
+        debug!(?server, "server identity");
 
         Ok(client)
     }

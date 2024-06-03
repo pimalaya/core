@@ -12,9 +12,9 @@ impl Flags {
         msg.tags()
             .filter_map(|ref tag| match tag.parse() {
                 Ok(flag) => Some(flag),
-                Err(err) => {
-                    debug!("cannot parse notmuch tag {tag}: {err}");
-                    debug!("{err:?}");
+                Err(_err) => {
+                    debug!("cannot parse notmuch tag {tag}: {_err}");
+                    debug!("{_err:?}");
                     None
                 }
             })

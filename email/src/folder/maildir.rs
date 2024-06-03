@@ -65,9 +65,9 @@ impl Folders {
                 .into_par_iter()
                 .filter_map(|mdir| match mdir {
                     Ok(mdir) => Folder::from_maildir(config, mdir),
-                    Err(err) => {
-                        debug!("cannot parse submaildir: {err}");
-                        debug!("{err:?}");
+                    Err(_err) => {
+                        debug!("cannot parse submaildir: {_err}");
+                        debug!("{_err:?}");
                         None
                     }
                 })
