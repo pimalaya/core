@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2024-06-03
+
+### Changed
+
+- Bumped `keyring@0.4.3`.
+
 ## [0.4.4] - 2024-04-08
 
 ### Changed
