@@ -9,10 +9,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use super::{context::BackendContext, AnyResult};
-#[cfg(feature = "thread")]
-use crate::envelope::thread::ThreadEnvelopes;
-#[cfg(feature = "watch")]
-use crate::envelope::watch::WatchEnvelopes;
 use crate::{
     account::config::HasAccountConfig,
     envelope::{get::GetEnvelope, list::ListEnvelopes},

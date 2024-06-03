@@ -23,6 +23,8 @@ pub mod thread;
 #[cfg(feature = "watch")]
 pub mod watch;
 
+#[cfg(feature = "thread")]
+use std::collections::HashMap;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     ops::{Deref, DerefMut},
@@ -225,6 +227,7 @@ impl Envelope {
         format!("Message-ID: {id}\nDate: {date}\n\n")
     }
 
+    #[cfg(feature = "thread")]
     pub fn as_threaded(&self) -> ThreadedEnvelope {
         ThreadedEnvelope {
             id: self.id.as_str(),
@@ -292,6 +295,7 @@ impl FromIterator<Envelope> for Envelopes {
     }
 }
 
+#[cfg(feature = "thread")]
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialOrd)]
 #[cfg_attr(
     feature = "derive",
@@ -306,6 +310,7 @@ pub struct ThreadedEnvelope<'a> {
     pub date: DateTime<FixedOffset>,
 }
 
+#[cfg(feature = "thread")]
 impl ThreadedEnvelope<'_> {
     /// Format the envelope date according to the datetime format and
     /// timezone from the [account configuration](crate::AccountConfig).
@@ -322,23 +327,26 @@ impl ThreadedEnvelope<'_> {
     }
 }
 
+#[cfg(feature = "thread")]
 impl PartialEq for ThreadedEnvelope<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.message_id == other.message_id
     }
 }
 
+#[cfg(feature = "thread")]
 impl Hash for ThreadedEnvelope<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.message_id.hash(state);
     }
 }
 
-#[cfg(feature = "thread")]
-#[ouroboros::self_referencing]
+#[cfg_attr(feature = "thread", ouroboros::self_referencing)]
 #[derive(Debug)]
 pub struct ThreadedEnvelopes {
+    #[cfg(feature = "thread")]
     inner: std::collections::HashMap<String, Envelope>,
+    #[cfg(feature = "thread")]
     #[borrows(inner)]
     #[covariant]
     graph: DiGraphMap<ThreadedEnvelope<'this>, u8>,

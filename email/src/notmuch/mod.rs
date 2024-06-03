@@ -130,7 +130,7 @@ impl NotmuchContextBuilder {
 impl crate::sync::hash::SyncHash for NotmuchContextBuilder {
     fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
         if let Ok(path) = self.notmuch_config.try_get_maildir_path() {
-            path.hash(state);
+            std::hash::Hash::hash(&path, state);
         }
     }
 }

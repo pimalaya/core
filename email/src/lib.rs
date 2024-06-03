@@ -71,6 +71,7 @@ pub(crate) mod serde;
 pub mod smtp;
 #[cfg(feature = "sync")]
 pub mod sync;
+#[cfg(feature = "pool")]
 pub mod thread_pool;
 pub mod watch;
 

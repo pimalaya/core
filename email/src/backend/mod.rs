@@ -50,6 +50,7 @@ pub mod context;
 mod error;
 pub mod feature;
 pub mod mapper;
+#[cfg(feature = "pool")]
 pub mod pool;
 pub mod macros {
     pub use email_macros::BackendContext;

@@ -37,8 +37,8 @@ impl PeekMessages for PeekMaildirMessages {
                     .iter()
                     .position(|id| id == entry.id())
                     .map(|pos| (pos, entry)),
-                Err(err) => {
-                    debug!("skipping invalid maildir entry: {}", err);
+                Err(_err) => {
+                    debug!("skipping invalid maildir entry: {_err}");
                     None
                 }
             })

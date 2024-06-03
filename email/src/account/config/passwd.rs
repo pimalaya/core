@@ -11,7 +11,6 @@ use secret::Secret;
 
 #[doc(inline)]
 pub use super::{Error, Result};
-use crate::debug;
 
 /// The password configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -45,21 +44,33 @@ impl DerefMut for PasswdConfig {
 impl PasswdConfig {
     /// If the current password secret is a keyring entry, delete it.
     pub async fn reset(&self) -> Result<()> {
+        #[cfg(feature = "keyring")]
         self.delete_only_keyring()
             .await
             .map_err(Error::DeletePasswordFromKeyringError)?;
+
         Ok(())
     }
 
     /// Define the password only if it does not exist in the keyring.
-    pub async fn configure(&self, get_passwd: impl Fn() -> io::Result<String>) -> Result<()> {
+    pub async fn configure<F>(
+        &self,
+        #[cfg_attr(not(feature = "keyring"), allow(unused_variables))] get_passwd: F,
+    ) -> Result<()>
+    where
+        F: Fn() -> io::Result<String>,
+    {
         match self.find().await {
+            #[cfg(feature = "keyring")]
             Ok(None) => {
-                debug!("cannot find imap password from keyring, setting it");
+                crate::debug!("cannot find imap password from keyring, setting it");
+
                 let passwd = get_passwd().map_err(Error::GetFromUserError)?;
+
                 self.set_only_keyring(passwd)
                     .await
                     .map_err(Error::SetIntoKeyringError)?;
+
                 Ok(())
             }
             Ok(_) => Ok(()),

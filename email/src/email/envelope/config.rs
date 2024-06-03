@@ -4,7 +4,7 @@ use super::sync::config::EnvelopeSyncConfig;
 #[cfg(feature = "thread")]
 use super::thread::config::EnvelopeThreadConfig;
 #[cfg(feature = "watch")]
-use super::watch::config::EnvelopeWatchConfig;
+use super::watch::config::WatchEnvelopeConfig;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(

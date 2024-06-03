@@ -41,9 +41,9 @@ fn get_header(msg: &notmuch::Message, key: impl AsRef<str>) -> String {
     let val = match msg.header(key) {
         Ok(Some(val)) => val,
         Ok(None) => Default::default(),
-        Err(err) => {
-            debug!("cannot get header {key} from notmuch message: {err}");
-            debug!("{err:?}");
+        Err(_err) => {
+            debug!("cannot get header {key} from notmuch message: {_err}");
+            debug!("{_err:?}");
             Default::default()
         }
     };

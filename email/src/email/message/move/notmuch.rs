@@ -64,8 +64,8 @@ impl MoveMessages for MoveNotmuchMessages {
 
             match &mdir_id {
                 None => {
-                    let path = msg.filename().to_string_lossy();
-                    debug!("cannot move missing notmuch message {path}");
+                    let _path = msg.filename().to_string_lossy();
+                    debug!("cannot move missing notmuch message {_path}");
                     break;
                 }
                 Some(mdir_id) => {

@@ -9,7 +9,9 @@ use std::{marker::PhantomData, result};
 
 #[doc(inline)]
 use super::{Error, Result};
-use crate::account::config::{oauth2::OAuth2Config, passwd::PasswdConfig};
+#[cfg(feature = "oauth2")]
+use crate::account::config::oauth2::OAuth2Config;
+use crate::account::config::passwd::PasswdConfig;
 
 /// Errors related to the IMAP backend configuration.
 
@@ -147,6 +149,7 @@ pub enum ImapAuthConfig {
     Passwd(PasswdConfig),
 
     /// The OAuth 2.0 configuration.
+    #[cfg(feature = "oauth2")]
     OAuth2(OAuth2Config),
 }
 
@@ -163,6 +166,7 @@ impl ImapAuthConfig {
             ImapAuthConfig::Passwd(config) => {
                 config.reset().await.map_err(Error::ResetPasswordError)
             }
+            #[cfg(feature = "oauth2")]
             ImapAuthConfig::OAuth2(config) => {
                 config.reset().await.map_err(Error::ResetOAuthSecretsError)
             }
@@ -183,6 +187,7 @@ impl ImapAuthConfig {
                     .ok_or(Error::GetPasswdEmptyImapError)?;
                 Ok(passwd.to_owned())
             }
+            #[cfg(feature = "oauth2")]
             ImapAuthConfig::OAuth2(oauth2) => Ok(oauth2
                 .access_token()
                 .await
@@ -190,6 +195,7 @@ impl ImapAuthConfig {
         }
     }
 
+    #[cfg(feature = "keyring")]
     pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
         let name = name.as_ref();
 
@@ -199,6 +205,7 @@ impl ImapAuthConfig {
                     .replace_undefined_to_keyring(format!("{name}-imap-passwd"))
                     .map_err(Error::ReplacingUnidentifiedFailed)?;
             }
+            #[cfg(feature = "oauth2")]
             Self::OAuth2(config) => {
                 config
                     .client_secret

@@ -126,8 +126,8 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
         let folder_encoded = encode_utf7(folder.clone());
         debug!(folder_encoded, "utf7 encoded folder");
 
-        let folder_size = ctx.select_mailbox(folder_encoded).await?.exists.unwrap() as usize;
-        debug!(folder_size, "folder size");
+        let _folder_size = ctx.select_mailbox(folder_encoded).await?.exists.unwrap() as usize;
+        debug!(folder_size = _folder_size, "folder size");
 
         let uid = id.parse::<u32>().unwrap();
 

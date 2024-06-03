@@ -233,7 +233,7 @@ async fn from_dns_mx(
     match from_isps(http, &addr).await {
         Ok(config) => Ok(config),
         Err(_err) => {
-            trace!("{err}");
+            trace!("{_err}");
             debug!("ISP discovery failed for {domain}, falling back to TXT records");
             from_dns_txt(http, dns, domain).await
         }

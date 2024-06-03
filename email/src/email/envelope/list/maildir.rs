@@ -159,9 +159,9 @@ impl SearchEmailsFilterQuery {
                     }
                     false
                 }
-                Err(err) => {
+                Err(_err) => {
                     warn!("cannot find message at {msg_path:?}, skipping body filter");
-                    trace!("{err:?}");
+                    trace!("{_err:?}");
                     true
                 }
             },

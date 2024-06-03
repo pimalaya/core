@@ -198,6 +198,7 @@ impl SmtpAuthConfig {
         Ok(())
     }
 
+    #[cfg(feature = "keyring")]
     pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
         let name = name.as_ref();
 

@@ -11,6 +11,10 @@ use tokio::sync::Mutex;
 use self::config::MaildirConfig;
 #[doc(inline)]
 pub use self::error::{Error, Result};
+#[cfg(feature = "thread")]
+use crate::envelope::thread::{maildir::ThreadMaildirEnvelopes, ThreadEnvelopes};
+#[cfg(feature = "watch")]
+use crate::envelope::watch::{maildir::WatchMaildirEnvelopes, WatchEnvelopes};
 use crate::{
     account::config::AccountConfig,
     backend::{
@@ -20,8 +24,6 @@ use crate::{
     envelope::{
         get::{maildir::GetMaildirEnvelope, GetEnvelope},
         list::{maildir::ListMaildirEnvelopes, ListEnvelopes},
-        thread::{maildir::ThreadMaildirEnvelopes, ThreadEnvelopes},
-        watch::{maildir::WatchMaildirEnvelopes, WatchEnvelopes},
     },
     flag::{
         add::{maildir::AddMaildirFlags, AddFlags},
@@ -217,10 +219,12 @@ impl BackendContextBuilder for MaildirContextBuilder {
         Some(Arc::new(ListMaildirEnvelopes::some_new_boxed))
     }
 
+    #[cfg(feature = "thread")]
     fn thread_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn ThreadEnvelopes>> {
         Some(Arc::new(ThreadMaildirEnvelopes::some_new_boxed))
     }
 
+    #[cfg(feature = "watch")]
     fn watch_envelopes(&self) -> Option<BackendFeature<Self::Context, dyn WatchEnvelopes>> {
         Some(Arc::new(WatchMaildirEnvelopes::some_new_boxed))
     }

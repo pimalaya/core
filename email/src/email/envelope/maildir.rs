@@ -22,9 +22,9 @@ impl Envelopes {
                 .into_par_iter()
                 .filter_map(|entry| match entry {
                     Ok(entry) => Some(entry),
-                    Err(err) => {
-                        debug!("cannot parse maildir entry, skipping it: {err}");
-                        trace!("{err:?}");
+                    Err(_err) => {
+                        debug!("cannot parse maildir entry, skipping it: {_err}");
+                        trace!("{_err:?}");
                         None
                     }
                 })

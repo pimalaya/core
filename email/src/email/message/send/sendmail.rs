@@ -43,9 +43,9 @@ impl SendMessage for SendSendmailMessage {
                         Default::default()
                     });
                 }
-                Err(err) => {
-                    debug!("cannot execute pre-send hook: {err}");
-                    debug!("{err:?}");
+                Err(_err) => {
+                    debug!("cannot execute pre-send hook: {_err}");
+                    debug!("{_err:?}");
                 }
             }
         };

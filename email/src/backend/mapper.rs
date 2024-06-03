@@ -11,7 +11,7 @@ use super::{
     context::{BackendContext, BackendContextBuilder},
     feature::{BackendFeature, CheckUp},
 };
-#[cfg(feature = "watch")]
+#[cfg(feature = "thread")]
 use crate::envelope::thread::ThreadEnvelopes;
 #[cfg(feature = "watch")]
 use crate::envelope::watch::WatchEnvelopes;
