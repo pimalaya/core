@@ -29,49 +29,91 @@ default = [
   # configuration from a simple email address.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/imap.html>
-  "imap",
+  # "imap",
 
   # Enables the Maildir backend, which allows management of folders
   # and emails located in a local Maildir directory, using file
   # system.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/maildir.html>
-  "maildir",
+  # "maildir",
 
   # Enables the Notmuch backend, which allows management of emails
   # located in a Notmuch database. Since Notmuch needs a Maildir to
   # work, it also enables the `maildir` feature.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/notmuch.html>
-  "notmuch",
-  
+  # "notmuch",
+
   # Enables the SMTP backend, which allows sending emails to any SMTP
   # server. Paired with the `autoconfig` feature, it also allows to
   # discover SMTP configuration from a simple email address.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/smtp.html>
-  "smtp",
-  
+  # "smtp",
+
   # Enables the sendmail backend, which allows sending emails via any
   # sendmail-compatible command.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/sendmail.html>
-  "sendmail",
+  # "sendmail",
 
-  "autoconfig",
-  "derive",
-  "keyring",
-  "notify",
-  "oauth2",
-  "pool",
-  "sync",
-  "thread",
-  "tracing",
-  "watch",
+  # Enables the discovery of IMAP and SMTP configurations, based on
+  # the Thunderbird AutoConfig protocol.
+  #
+  # "autoconfig",
 
-  "pgp-commands",
-  "pgp-gpg",
-  "pgp-native",
+  # Enables serde/derive features as well as (de)serialization of all
+  # types.
+  #
+  # "derive",
+
+  # Enables the global user keyring system for storing and retieving
+  # secrets.
+  #
+  # "keyring",
+  
+  # Enables the notify watch action.
+  #
+  # "notify",
+
+  # Enables OAuth 2.0 support.
+  #
+  # "oauth2",
+
+  # Enables thread pool system, for opening batch of connections
+  # (mostly useful for IMAP and SMTP).
+  #
+  # "pool",
+
+  # Enables mailbox and emails synchronization.
+  #
+  # "sync",
+
+  # Enables the envelope threading support.
+  #
+  # "thread",
+
+  # Enables logs based on the `tracing` crate.
+  #
+  # "tracing",
+
+  # Enables watch backend features.
+  #
+  # "watch",
+
+  # Enables PGP support using shell commands.
+  #
+  # "pgp-commands",
+
+  # Enables PGP support using GPG lib.
+  #
+  # "pgp-gpg",
+
+  # Enables PGP support using native Rust implementation of OpenPGP
+  # standard.
+  #
+  # "pgp-native",
 ]
 
 imap = [

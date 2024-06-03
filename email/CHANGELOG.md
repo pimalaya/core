@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `keyring` cargo feature, which enables the global user keyring system for storing and retrieving secrets.
+- Added `oauth2` cargo feature, which enables OAuth 2.0 support.
+- Added `notify` cargo feature, which enables watch system notification action.
+- Added `pool` cargo feature, which enables the `thread_pool` module.
+- Added `watch` cargo feature, which enables watch features (only `WatchEnvelopes` is available at the moment).
+
 ### Changed
 
 - Replaced `imap` crate by `imap-{types,codec,flow,client}` suite.
-- Renamed `account-discovery` cargo feature by `autoconfig`.
+- Renamed `account-sync` cargo feature with `sync`.
+- Renamed `account-discovery` cargo feature with `autoconfig`.
 - Moved `account::discover` module at the root level, and renamed it `autoconfig`.
 
 ### Fixed
