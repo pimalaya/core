@@ -18,9 +18,6 @@ rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
 [lib]
 name = "email"
 
-
-# dyn backend does not make sense anymore?
-
 [features]
 default = [
   # Enables the IMAP backend, which allows management of local or
@@ -217,12 +214,12 @@ hickory-resolver = { version = "0.24", optional = true, features = ["dns-over-ru
 hyper = { version = "0.14", optional = true, default-features = false, features = [ "http1", "http2" ] }
 hyper-rustls = { version = "0.24", optional = true }
 imap-client = { version = "=0.1.0", optional = true }
-keyring-lib = { version = "=0.4.2", optional = true }
+keyring-lib = { version = "=0.4.3", optional = true }
 mail-builder = "0.3"
 mail-parser = "0.9"
 mail-send = { version = "0.4", optional = true }
 maildirpp = { version = "=0.0.2", optional = true }
-mml-lib = "=1.0.12"
+mml-lib = "=1.0.13"
 notify = { version = "6", optional = true, default-features = false, features = ["macos_kqueue"] }
 notify-rust = { version = "4", optional = true }
 notmuch = { version = "=0.8.0", optional = true }
@@ -235,7 +232,7 @@ pgp-lib = { version = "=0.2.0", optional = true }
 process-lib = "=0.4.2"
 rayon = { version = "1.6", optional = true }
 regex = "1.5"
-secret-lib = { version = "=0.4.4", default-features = false, features = ["command"] }
+secret-lib = { version = "=0.4.5", default-features = false, features = ["command"] }
 serde = { version = "1", optional = true }
 serde-xml-rs = { version = "0.6", optional = true }
 shellexpand-utils = "=0.2.1"
