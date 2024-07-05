@@ -16,7 +16,7 @@ use email::{
     },
 };
 use mail_builder::MessageBuilder;
-use maildirpp::Maildir;
+use maildirs::Maildir;
 use tempfile::tempdir;
 
 #[tokio::test]

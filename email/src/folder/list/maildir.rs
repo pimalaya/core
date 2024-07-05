@@ -1,12 +1,7 @@
 use async_trait::async_trait;
 
 use super::ListFolders;
-use crate::{
-    folder::{Folder, FolderKind, Folders},
-    info,
-    maildir::MaildirContextSync,
-    AnyResult,
-};
+use crate::{folder::Folders, info, maildir::MaildirContextSync, AnyResult};
 
 pub struct ListMaildirFolders {
     ctx: MaildirContextSync,
@@ -34,19 +29,7 @@ impl ListFolders for ListMaildirFolders {
         let ctx = self.ctx.lock().await;
         let config = &ctx.account_config;
 
-        let mut folders = Folders::default();
-
-        folders.push(Folder {
-            kind: Some(FolderKind::Inbox),
-            name: config.get_inbox_folder_alias(),
-            desc: ctx.root.path().to_string_lossy().to_string(),
-        });
-
-        let subfolders: Vec<Folder> =
-            Folders::from_submaildirs(config, ctx.root.list_subdirs()).into();
-
-        folders.extend(subfolders);
-
-        Ok(folders)
+        let folders = Folders::from_maildirs(config, ctx.root.iter());
+        Ok(folders.into())
     }
 }

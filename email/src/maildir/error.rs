@@ -13,12 +13,14 @@ pub enum Error {
     #[error("error while checking maildir configuration")]
     CheckConfigurationInvalidPathError(#[source] shellexpand_utils::Error),
     #[error("error while checking up current maildir directory")]
-    CheckUpCurrentDirectoryError(#[source] maildirpp::Error),
+    CheckUpCurrentDirectoryError(#[source] maildirs::Error),
     #[error("cannot create maildir folder structure at {0}")]
-    CreateFolderStructureError(#[source] maildirpp::Error, PathBuf),
+    CreateFolderStructureError(#[source] maildirs::Error, PathBuf),
 
     #[error(transparent)]
     ExpandPathError(#[from] shellexpand_utils::Error),
+    #[error(transparent)]
+    MaildirError(#[from] maildirs::Error),
 }
 
 impl AnyError for Error {

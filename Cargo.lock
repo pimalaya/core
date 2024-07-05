@@ -1879,7 +1879,7 @@ dependencies = [
  "mail-builder",
  "mail-parser 0.9.3",
  "mail-send",
- "maildirpp 0.0.2",
+ "maildirs",
  "mml-lib",
  "notify",
  "notify-rust",
@@ -3642,17 +3642,6 @@ dependencies = [
 
 [[package]]
 name = "maildirpp"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "739f52fb085592150b1a1ece82ffc4e29e1621b222141e709a64943282f0e6e5"
-dependencies = [
- "gethostname",
- "log",
- "thiserror",
-]
-
-[[package]]
-name = "maildirpp"
 version = "0.0.3"
 dependencies = [
  "gethostname",
@@ -3660,6 +3649,15 @@ dependencies = [
  "mail-parser 0.8.2",
  "percent-encoding 1.0.1",
  "tempfile",
+ "thiserror",
+ "walkdir",
+]
+
+[[package]]
+name = "maildirs"
+version = "0.1.0"
+dependencies = [
+ "gethostname",
  "thiserror",
  "walkdir",
 ]

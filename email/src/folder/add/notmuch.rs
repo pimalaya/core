@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use maildirpp::Maildir;
+use maildirs::Maildir;
 
 use super::AddFolder;
 use crate::{

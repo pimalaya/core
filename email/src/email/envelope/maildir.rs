@@ -3,34 +3,28 @@
 //! This module contains envelope-related mapping functions from the
 //! [maildirpp] crate types.
 
-use maildirpp::{MailEntries, MailEntry};
+use maildirs::MaildirEntry;
 use rayon::prelude::*;
 
 use crate::{
-    debug,
     envelope::{Envelope, Envelopes, Flags},
     message::Message,
     search_query::SearchEmailsQuery,
-    trace,
+    Error, Result,
 };
 
 impl Envelopes {
-    pub fn from_mdir_entries(entries: MailEntries, query: Option<&SearchEmailsQuery>) -> Self {
+    pub fn from_mdir_entries(
+        entries: impl Iterator<Item = MaildirEntry>,
+        query: Option<&SearchEmailsQuery>,
+    ) -> Self {
         Envelopes::from_iter(
             entries
                 .collect::<Vec<_>>()
                 .into_par_iter()
-                .filter_map(|entry| match entry {
-                    Ok(entry) => Some(entry),
-                    Err(_err) => {
-                        debug!("cannot parse maildir entry, skipping it: {_err}");
-                        trace!("{_err:?}");
-                        None
-                    }
-                })
                 .filter_map(|entry| {
                     let msg_path = entry.path().to_owned();
-                    let envelope = Envelope::from_mdir_entry(entry);
+                    let envelope = Envelope::try_from(entry).ok()?;
                     if let Some(query) = query {
                         query
                             .matches_maildir_search_query(&envelope, msg_path.as_ref())
@@ -44,9 +38,15 @@ impl Envelopes {
     }
 }
 
-impl Envelope {
-    pub fn from_mdir_entry(entry: MailEntry) -> Self {
-        let msg = Message::from(entry.headers());
-        Envelope::from_msg(entry.id(), Flags::from_mdir_entry(&entry), msg)
+impl TryFrom<MaildirEntry> for Envelope {
+    type Error = Error;
+
+    fn try_from(entry: MaildirEntry) -> Result<Self> {
+        let id = entry.id()?;
+        let msg = Message::from(entry.headers()?);
+        let flags = Flags::try_from(entry)?;
+        let envelope = Envelope::from_msg(id, flags, msg);
+
+        Ok(envelope)
     }
 }

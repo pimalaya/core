@@ -33,3 +33,5 @@ time-lib = { path = "./time" }
 imap-codec = { git = "https://github.com/duesee/imap-codec.git" }
 imap-types = { git = "https://github.com/duesee/imap-codec.git" }
 imap-client = { git = "https://github.com/soywod/imap-client.git" }
+
+maildirs = { path = "/home/soywod/sourcehut/maildirs" }

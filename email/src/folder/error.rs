@@ -13,18 +13,22 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     #[cfg(feature = "maildir")]
     #[error("cannot create maildir folder structure at {1}")]
-    CreateFolderStructureMaildirError(#[source] maildirpp::Error, PathBuf),
+    CreateFolderStructureMaildirError(#[source] maildirs::Error, PathBuf),
     #[cfg(feature = "maildir")]
     #[error("cannot create notmuch folder structure at {1}")]
-    CreateFolderStructureNotmuchError(#[source] maildirpp::Error, PathBuf),
-    #[error("cannot delete maildir folder {1}")]
-    DeleteFolderMaildirError(#[source] io::Error, PathBuf),
+    CreateFolderStructureNotmuchError(#[source] maildirs::Error, PathBuf),
+    #[cfg(feature = "maildir")]
+    #[error("cannot delete maildir folder {1} at {0}")]
+    DeleteMaildirFolderError(#[source] maildirs::Error, String),
+    #[cfg(feature = "maildir")]
+    #[error("cannot delete maildir INBOX at {0}")]
+    DeleteMaildirInboxForbiddenError(PathBuf),
     #[cfg(feature = "maildir")]
     #[error("maildir: cannot list current folder from {1}")]
-    ListCurrentFolderMaildirError(#[source] maildirpp::Error, PathBuf),
+    ListCurrentFolderMaildirError(#[source] maildirs::Error, PathBuf),
     #[cfg(feature = "maildir")]
-    #[error("maildir: cannot delete message {2} from folder {1}")]
-    DeleteMessageMaildirError(#[source] maildirpp::Error, PathBuf, String),
+    #[error("cannot remove maildir entry at {1}")]
+    RemoveMaildirEntryError(#[source] maildirs::Error, PathBuf),
     #[error("cannot parse folder kind {0}")]
     ParseFolderKindError(String),
     #[error("cannot get uid of imap folder {0}: uid is missing")]
@@ -44,6 +48,10 @@ pub enum Error {
     // ======== v2
     #[error("cannot parse IMAP mailbox {0}: mailbox not selectable")]
     ParseImapFolderNotSelectableError(String),
+
+    #[cfg(feature = "maildir")]
+    #[error(transparent)]
+    MaildirsError(#[from] maildirs::Error),
 }
 
 impl AnyError for Error {

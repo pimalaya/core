@@ -30,7 +30,7 @@ impl PeekMessages for PeekMaildirMessages {
         let ctx = self.ctx.lock().await;
         let mdir = ctx.get_maildir_from_folder_name(folder)?;
 
-        let mut msgs: Vec<(usize, maildirpp::MailEntry)> = mdir
+        let mut msgs: Vec<(usize, maildirs::MaildirEntry)> = mdir
             .list_cur()
             .filter_map(|entry| match entry {
                 Ok(entry) => id

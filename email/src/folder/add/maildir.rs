@@ -1,13 +1,7 @@
 use async_trait::async_trait;
-use maildirpp::Maildir;
 
 use super::AddFolder;
-use crate::{
-    folder::{error::Error, FolderKind},
-    info,
-    maildir::{self, MaildirContextSync},
-    AnyResult,
-};
+use crate::{folder::error::Error, info, maildir::MaildirContextSync, AnyResult};
 
 pub struct AddMaildirFolder {
     ctx: MaildirContextSync,
@@ -35,17 +29,9 @@ impl AddFolder for AddMaildirFolder {
         let ctx = self.ctx.lock().await;
         let config = &ctx.account_config;
 
-        let path = if FolderKind::matches_inbox(folder) {
-            ctx.root.path().to_owned()
-        } else {
-            let folder = config.get_folder_alias(folder);
-            let folder = maildir::encode_folder(folder);
-            ctx.root.path().join(format!(".{}", folder))
-        };
-
-        Maildir::from(path.clone())
-            .create_dirs()
-            .map_err(|e| Error::CreateFolderStructureMaildirError(e, path))?;
+        ctx.root
+            .create(config.get_folder_alias(folder))
+            .map_err(|e| Error::CreateFolderStructureMaildirError(e, ctx.root.path().to_owned()))?;
 
         Ok(())
     }

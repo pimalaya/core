@@ -13,7 +13,7 @@ use email::{
     notmuch::{config::NotmuchConfig, NotmuchContextBuilder, NotmuchContextSync},
 };
 use mail_builder::MessageBuilder;
-use maildirpp::Maildir;
+use maildirs::Maildir;
 use notmuch::Database;
 use tempfile::tempdir;
 

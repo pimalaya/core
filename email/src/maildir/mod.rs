@@ -4,7 +4,7 @@ mod error;
 use std::{ops::Deref, path::PathBuf, sync::Arc};
 
 use async_trait::async_trait;
-use maildirpp::Maildir;
+use maildirs::{Maildir, Maildirs};
 use shellexpand_utils::{shellexpand_path, try_shellexpand_path};
 use tokio::sync::Mutex;
 
@@ -62,48 +62,22 @@ pub struct MaildirContext {
     pub maildir_config: Arc<MaildirConfig>,
 
     /// The maildir instance.
-    pub root: Maildir,
+    pub root: Maildirs,
 }
 
 impl MaildirContext {
     /// Create a maildir instance from a folder name.
     pub fn get_maildir_from_folder_name(&self, folder: &str) -> Result<Maildir> {
-        // If the folder matches to the inbox folder kind, create a
-        // maildir instance from the root folder.
-        if FolderKind::matches_inbox(folder) {
-            return try_shellexpand_path(self.root.path())
-                .map(Maildir::from)
-                .map_err(Into::into);
-        }
-
         let folder = self.account_config.get_folder_alias(folder);
 
-        // If the folder is a valid maildir path, create a maildir
-        // instance from it. First check for absolute path…
-        try_shellexpand_path(&folder)
-            // then check for relative path to `maildir-dir`…
-            .or_else(|_| try_shellexpand_path(self.root.path().join(&folder)))
-            // TODO: should move to CLI
-            // // and finally check for relative path to the current
-            // // directory
-            // .or_else(|_| {
-            //     try_shellexpand_path(
-            //         env::current_dir()
-            //             .map_err(Error::GetCurrentFolderError)?
-            //             .join(&folder),
-            //     )
-            // })
-            .or_else(|_| {
-                // Otherwise create a maildir instance from a maildir
-                // subdirectory by adding a "." in front of the name
-                // as described in the [spec].
-                //
-                // [spec]: http://www.courier-mta.org/imap/README.maildirquota.html
-                let folder = self::encode_folder(&folder);
-                try_shellexpand_path(self.root.path().join(format!(".{}", folder)))
-            })
-            .map(Maildir::from)
-            .map_err(Into::into)
+        // If the folder matches to the inbox folder kind, create a
+        // maildir instance from the root folder.
+        if self.maildir_config.maildirpp && FolderKind::matches_inbox(folder) {
+            return Ok(Maildir::from(try_shellexpand_path(self.root.path())?));
+        }
+
+        let mdir = self.root.get(folder)?;
+        Ok(mdir)
     }
 }
 
@@ -154,8 +128,8 @@ impl MaildirContextBuilder {
         shellexpand_path(&self.mdir_config.root_dir)
     }
 
-    pub fn maildir(&self) -> Maildir {
-        Maildir::from(self.expanded_root_dir())
+    pub fn maildir(&self) -> Maildirs {
+        Maildirs::new(self.expanded_root_dir()).with_maildirpp(self.mdir_config.maildirpp)
     }
 }
 
@@ -173,8 +147,14 @@ impl BackendContextBuilder for MaildirContextBuilder {
     async fn configure(&mut self) -> AnyResult<()> {
         let mdir = self.maildir();
 
-        mdir.create_dirs()
-            .map_err(|err| Error::CreateFolderStructureError(err, mdir.path().to_owned()))?;
+        if self.mdir_config.maildirpp {
+            Maildir::from(mdir.path())
+                .create_all()
+                .map_err(|err| Error::CreateFolderStructureError(err, mdir.path().to_owned()))?;
+        } else {
+            mdir.add(self.account_config.get_inbox_folder_alias())
+                .map_err(|err| Error::CreateFolderStructureError(err, mdir.path().to_owned()))?;
+        }
 
         Ok(())
     }
@@ -308,12 +288,14 @@ impl CheckUpMaildir {
 #[async_trait]
 impl CheckUp for CheckUpMaildir {
     async fn check_up(&self) -> AnyResult<()> {
-        let ctx = self.ctx.lock().await;
+        // FIXME
+        //
+        // let ctx = self.ctx.lock().await;
 
-        ctx.root
-            .list_cur()
-            .try_for_each(|e| e.map(|_| ()))
-            .map_err(Error::CheckUpCurrentDirectoryError)?;
+        // ctx.root
+        //     .list_cur()
+        //     .try_for_each(|e| e.map(|_| ()))
+        //     .map_err(Error::CheckUpCurrentDirectoryError)?;
 
         Ok(())
     }

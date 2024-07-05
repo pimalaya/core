@@ -1,9 +1,7 @@
 use async_trait::async_trait;
 
 use super::{Envelope, GetEnvelope};
-use crate::{
-    email::error::Error, envelope::SingleId, info, maildir::MaildirContextSync, trace, AnyResult,
-};
+use crate::{envelope::SingleId, info, maildir::MaildirContextSync, trace, AnyResult, Error};
 
 #[derive(Clone)]
 pub struct GetMaildirEnvelope {
@@ -32,10 +30,8 @@ impl GetEnvelope for GetMaildirEnvelope {
         let session = self.ctx.lock().await;
         let mdir = session.get_maildir_from_folder_name(folder)?;
 
-        let envelope: Envelope =
-            Envelope::from_mdir_entry(mdir.find(&id.to_string()).ok_or_else(|| {
-                Error::GetEnvelopeMaildirError(mdir.path().to_owned(), id.clone())
-            })?);
+        let entry = mdir.get_cur(id.to_string()).map_err(Error::from)?;
+        let envelope = Envelope::try_from(entry)?;
         trace!("maildir envelope: {envelope:#?}");
 
         Ok(envelope)

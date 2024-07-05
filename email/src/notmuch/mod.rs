@@ -4,7 +4,7 @@ mod error;
 use std::{ops::Deref, sync::Arc};
 
 use async_trait::async_trait;
-use maildirpp::Maildir;
+use maildirs::Maildir;
 use notmuch::{Database, DatabaseMode};
 use shellexpand_utils::shellexpand_path;
 use tokio::sync::Mutex;

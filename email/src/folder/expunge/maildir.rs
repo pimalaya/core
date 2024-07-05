@@ -27,25 +27,20 @@ impl ExpungeFolder for ExpungeMaildirFolder {
         info!("expunging maildir folder {folder}");
 
         let ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
 
         let mdir = ctx.get_maildir_from_folder_name(folder)?;
         let entries = mdir
-            .list_cur()
-            .collect::<maildirpp::Result<Vec<_>>>()
+            .read_cur()
             .map_err(|err| Error::ListCurrentFolderMaildirError(err, mdir.path().to_owned()))?;
+
         entries
             .iter()
-            .filter_map(|entry| {
-                if entry.is_trashed() {
-                    Some(entry.id())
-                } else {
-                    None
-                }
-            })
-            .try_for_each(|id| {
-                mdir.delete(id).map_err(|err| {
-                    Error::DeleteMessageMaildirError(err, mdir.path().to_owned(), id.to_owned())
-                })
+            .filter(|entry| entry.has_trash_flag())
+            .try_for_each(|entry| {
+                entry
+                    .remove()
+                    .map_err(|err| Error::RemoveMaildirEntryError(err, entry.path().to_owned()))
             })?;
 
         Ok(())

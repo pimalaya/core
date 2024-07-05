@@ -28,7 +28,7 @@ use std::{borrow::Cow, sync::Arc};
 use imap_client::types::{core::Vec1, fetch::MessageDataItem};
 use mail_parser::{MessageParser, MimeHeaders};
 #[cfg(feature = "maildir")]
-use maildirpp::MailEntry;
+use maildirs::MaildirEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
 
@@ -154,8 +154,8 @@ impl<'a> From<&'a str> for Message<'a> {
 
 // TODO: move to maildir module
 #[cfg(feature = "maildir")]
-impl<'a> From<&'a mut MailEntry> for Message<'a> {
-    fn from(entry: &'a mut MailEntry) -> Self {
+impl<'a> From<&'a mut MaildirEntry> for Message<'a> {
+    fn from(entry: &'a mut MaildirEntry) -> Self {
         MessageBuilder {
             bytes: Cow::Owned(entry.body().unwrap_or_default()),
             parsed_builder: Message::parsed_builder,
@@ -168,7 +168,7 @@ enum RawMessages {
     #[cfg(feature = "imap")]
     Imap(Vec<Vec1<MessageDataItem<'static>>>),
     #[cfg(feature = "maildir")]
-    MailEntries(Vec<MailEntry>),
+    MailEntries(Vec<MaildirEntry>),
     #[cfg(feature = "notmuch")]
     Notmuch(Vec<Vec<u8>>),
     #[allow(dead_code)]
@@ -231,10 +231,10 @@ impl From<Vec<Vec1<MessageDataItem<'static>>>> for Messages {
 }
 
 #[cfg(feature = "maildir")]
-impl TryFrom<Vec<MailEntry>> for Messages {
+impl TryFrom<Vec<MaildirEntry>> for Messages {
     type Error = Error;
 
-    fn try_from(entries: Vec<MailEntry>) -> Result<Self, Error> {
+    fn try_from(entries: Vec<MaildirEntry>) -> Result<Self, Error> {
         if entries.is_empty() {
             Err(Error::ParseEmailFromEmptyEntriesError)
         } else {

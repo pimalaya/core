@@ -20,6 +20,8 @@ pub struct MaildirConfig {
     /// folders). Path is shell-expanded, which means environment
     /// variables and tilde `~` are replaced by their values.
     pub root_dir: PathBuf,
+
+    pub maildirpp: bool,
 }
 
 #[cfg(feature = "sync")]
