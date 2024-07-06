@@ -157,7 +157,7 @@ impl<'a> From<&'a str> for Message<'a> {
 impl<'a> From<&'a mut MaildirEntry> for Message<'a> {
     fn from(entry: &'a mut MaildirEntry) -> Self {
         MessageBuilder {
-            bytes: Cow::Owned(entry.body().unwrap_or_default()),
+            bytes: Cow::Owned(entry.read().unwrap_or_default()),
             parsed_builder: Message::parsed_builder,
         }
         .build()

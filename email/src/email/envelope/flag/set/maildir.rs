@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use async_trait::async_trait;
 
 use super::{Flags, SetFlags};
@@ -28,13 +30,24 @@ impl SetFlags for SetMaildirFlags {
         info!("setting maildir flag(s) {flags} to envelope {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;
-        let mdir = ctx.get_maildir_from_folder_name(folder)?;
+        let mdir = ctx.get_maildir_from_folder_alias(folder)?;
 
-        id.iter().try_for_each(|ref id| {
-            mdir.set_flags(id, &flags.to_mdir_string()).map_err(|err| {
-                Error::SetFlagsMaildirError(err, folder.to_owned(), id.to_string(), flags.clone())
+        id.iter()
+            .filter_map(|id| mdir.find(id).ok().flatten())
+            .filter_map(|entry| match entry.flags() {
+                Ok(flags) => Some((entry, flags)),
+                Err(_) => None,
             })
-        })?;
+            .try_for_each(|(entry, entry_flags)| {
+                entry.update_flags(HashSet::from(flags)).map_err(|err| {
+                    Error::SetFlagsMaildirError(
+                        err,
+                        folder.to_owned(),
+                        id.to_string(),
+                        flags.clone(),
+                    )
+                })
+            })?;
 
         Ok(())
     }

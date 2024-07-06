@@ -43,7 +43,7 @@ impl TryFrom<MaildirEntry> for Envelope {
 
     fn try_from(entry: MaildirEntry) -> Result<Self> {
         let id = entry.id()?;
-        let msg = Message::from(entry.headers()?);
+        let msg = Message::from(entry.read_headers()?);
         let flags = Flags::try_from(entry)?;
         let envelope = Envelope::from_msg(id, flags, msg);
 

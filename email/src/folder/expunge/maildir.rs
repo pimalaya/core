@@ -29,13 +29,12 @@ impl ExpungeFolder for ExpungeMaildirFolder {
         let ctx = self.ctx.lock().await;
         let config = &ctx.account_config;
 
-        let mdir = ctx.get_maildir_from_folder_name(folder)?;
+        let mdir = ctx.get_maildir_from_folder_alias(folder)?;
         let entries = mdir
-            .read_cur()
+            .read()
             .map_err(|err| Error::ListCurrentFolderMaildirError(err, mdir.path().to_owned()))?;
 
         entries
-            .iter()
             .filter(|entry| entry.has_trash_flag())
             .try_for_each(|entry| {
                 entry

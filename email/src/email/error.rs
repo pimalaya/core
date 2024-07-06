@@ -17,6 +17,10 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[cfg(feature = "maildir")]
+    #[error("cannot list maildir entries")]
+    ListMaildirEntriesError(#[source] maildirs::Error),
+
     #[error("cannot get flags from maildir entry {0}")]
     GetMaildirFlagsError(#[source] maildirs::Error, PathBuf),
     #[error("cannot find message associated to envelope {0}")]
@@ -39,8 +43,8 @@ pub enum Error {
     #[error("cannot move notmuch message {3} from {1} to {2}")]
     MoveMessageNotmuchError(#[source] notmuch::Error, String, String, String),
     #[cfg(feature = "maildir")]
-    #[error("cannot move messages {3} from maildir folder {1} to folder {2}")]
-    MoveMessagesMaildirError(#[source] maildirs::Error, String, String, String),
+    #[error("cannot move message {3} from maildir folder {1} to folder {2}")]
+    MoveMessagesMaildirError(#[source] maildirs::Error, String, String, PathBuf),
     #[error("cannot parse email")]
     ParseEmailError,
     #[error("cannot parse email: raw email is empty")]
@@ -75,8 +79,8 @@ pub enum Error {
     #[error("cannot copy notmuch message {3} from {1} to {2}")]
     CopyMessageNotmuchError(#[source] notmuch::Error, String, String, String),
     #[cfg(feature = "maildir")]
-    #[error("cannot copy maildir messages {3} from folder {1} to folder {2}")]
-    CopyMessagesMaildirError(#[source] maildirs::Error, String, String, String),
+    #[error("cannot copy maildir message {3} from folder {1} to folder {2}")]
+    CopyMessagesMaildirError(#[source] maildirs::Error, String, String, PathBuf),
     #[cfg(feature = "maildir")]
     #[error("cannot add maildir message to folder {1} with flags {2}")]
     StoreWithFlagsMaildirError(#[source] maildirs::Error, String, Flags),

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use super::{Messages, PeekMessages};
-use crate::{debug, envelope::Id, info, maildir::MaildirContextSync, AnyResult};
+use crate::{envelope::Id, info, maildir::MaildirContextSync, AnyResult, Error};
 
 #[derive(Clone)]
 pub struct PeekMaildirMessages {
@@ -28,19 +28,19 @@ impl PeekMessages for PeekMaildirMessages {
         info!("peeking maildir messages {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;
-        let mdir = ctx.get_maildir_from_folder_name(folder)?;
+        let mdir = ctx.get_maildir_from_folder_alias(folder)?;
 
         let mut msgs: Vec<(usize, maildirs::MaildirEntry)> = mdir
-            .list_cur()
-            .filter_map(|entry| match entry {
-                Ok(entry) => id
-                    .iter()
-                    .position(|id| id == entry.id())
-                    .map(|pos| (pos, entry)),
-                Err(_err) => {
-                    debug!("skipping invalid maildir entry: {_err}");
-                    None
-                }
+            .read()
+            .map_err(Error::ListMaildirEntriesError)?
+            .filter_map(|entry| match entry.id() {
+                Ok(id) => Some((entry, id)),
+                Err(_) => None,
+            })
+            .filter_map(|(entry, entry_id)| {
+                id.iter()
+                    .position(|id| id == entry_id)
+                    .map(|pos| (pos, entry))
             })
             .collect();
         msgs.sort_by_key(|(pos, _)| *pos);

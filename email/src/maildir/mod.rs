@@ -67,7 +67,7 @@ pub struct MaildirContext {
 
 impl MaildirContext {
     /// Create a maildir instance from a folder name.
-    pub fn get_maildir_from_folder_name(&self, folder: &str) -> Result<Maildir> {
+    pub fn get_maildir_from_folder_alias(&self, folder: &str) -> Result<Maildir> {
         let folder = self.account_config.get_folder_alias(folder);
 
         // If the folder matches to the inbox folder kind, create a

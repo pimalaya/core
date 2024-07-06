@@ -28,19 +28,21 @@ impl CopyMessages for CopyMaildirMessages {
         info!("copying maildir messages {id} from folder {from_folder} to folder {to_folder}");
 
         let ctx = self.ctx.lock().await;
-        let from_mdir = ctx.get_maildir_from_folder_name(from_folder)?;
-        let to_mdir = ctx.get_maildir_from_folder_name(to_folder)?;
+        let from_mdir = ctx.get_maildir_from_folder_alias(from_folder)?;
+        let to_mdir = ctx.get_maildir_from_folder_alias(to_folder)?;
 
-        id.iter().try_for_each(|id| {
-            from_mdir.copy_to(id, &to_mdir).map_err(|err| {
-                Error::CopyMessagesMaildirError(
-                    err,
-                    from_folder.to_owned(),
-                    to_folder.to_owned(),
-                    id.to_owned(),
-                )
-            })
-        })?;
+        id.iter()
+            .filter_map(|id| from_mdir.find(id).ok().flatten())
+            .try_for_each(|entry| {
+                entry.copy(&to_mdir).map_err(|err| {
+                    Error::CopyMessagesMaildirError(
+                        err,
+                        from_folder.to_owned(),
+                        to_folder.to_owned(),
+                        entry.path().to_owned(),
+                    )
+                })
+            })?;
 
         Ok(())
     }

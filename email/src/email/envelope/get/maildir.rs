@@ -28,9 +28,9 @@ impl GetEnvelope for GetMaildirEnvelope {
         info!("getting maildir envelope {id:?} from folder {folder}");
 
         let session = self.ctx.lock().await;
-        let mdir = session.get_maildir_from_folder_name(folder)?;
+        let mdir = session.get_maildir_from_folder_alias(folder)?;
 
-        let entry = mdir.get_cur(id.to_string()).map_err(Error::from)?;
+        let entry = mdir.get(id.to_string()).map_err(Error::from)?;
         let envelope = Envelope::try_from(entry)?;
         trace!("maildir envelope: {envelope:#?}");
 

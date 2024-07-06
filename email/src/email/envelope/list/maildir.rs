@@ -48,9 +48,10 @@ impl ListEnvelopes for ListMaildirEnvelopes {
         info!("listing maildir envelopes from folder {folder}");
 
         let ctx = self.ctx.lock().await;
-        let mdir = ctx.get_maildir_from_folder_name(folder)?;
+        let mdir = ctx.get_maildir_from_folder_alias(folder)?;
 
-        let mut envelopes = Envelopes::from_mdir_entries(mdir.list_cur(), opts.query.as_ref());
+        let entries = mdir.read().map_err(Error::ListMaildirEntriesError)?;
+        let mut envelopes = Envelopes::from_mdir_entries(entries, opts.query.as_ref());
         debug!("found {} maildir envelopes", envelopes.len());
         trace!("{envelopes:#?}");
 
