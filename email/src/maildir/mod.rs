@@ -72,7 +72,7 @@ impl MaildirContext {
 
         // If the folder matches to the inbox folder kind, create a
         // maildir instance from the root folder.
-        if self.maildir_config.maildirpp && FolderKind::matches_inbox(folder) {
+        if self.maildir_config.maildirpp && FolderKind::matches_inbox(&folder) {
             return Ok(Maildir::from(try_shellexpand_path(self.root.path())?));
         }
 

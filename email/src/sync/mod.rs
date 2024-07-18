@@ -400,8 +400,13 @@ where
     pub fn get_left_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
         let left_config = self.left_builder.account_config.clone();
         let root_dir = self.get_cache_dir()?.join(&self.left_hash);
-        let ctx =
-            MaildirContextBuilder::new(left_config.clone(), Arc::new(MaildirConfig { root_dir }));
+        let ctx = MaildirContextBuilder::new(
+            left_config.clone(),
+            Arc::new(MaildirConfig {
+                root_dir,
+                maildirpp: false,
+            }),
+        );
         let left_cache_builder = BackendBuilder::new(left_config, ctx);
         Ok(left_cache_builder)
     }
@@ -409,8 +414,13 @@ where
     pub fn get_right_cache_builder(&self) -> Result<BackendBuilder<MaildirContextBuilder>> {
         let right_config = self.right_builder.account_config.clone();
         let root_dir = self.get_cache_dir()?.join(&self.right_hash);
-        let ctx =
-            MaildirContextBuilder::new(right_config.clone(), Arc::new(MaildirConfig { root_dir }));
+        let ctx = MaildirContextBuilder::new(
+            right_config.clone(),
+            Arc::new(MaildirConfig {
+                root_dir,
+                maildirpp: false,
+            }),
+        );
         let right_cache_builder = BackendBuilder::new(right_config, ctx);
         Ok(right_cache_builder)
     }

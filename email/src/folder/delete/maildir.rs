@@ -36,13 +36,13 @@ impl DeleteFolder for DeleteMaildirFolder {
 
         let folder = config.get_folder_alias(folder);
 
-        if FolderKind::matches_inbox(folder) {
+        if FolderKind::matches_inbox(&folder) {
             let path = ctx.root.path().to_owned();
             return Err(Error::DeleteMaildirInboxForbiddenError(path).into());
         }
 
         ctx.root
-            .remove(folder)
+            .remove(&folder)
             .map_err(|err| Error::DeleteMaildirFolderError(err, folder))?;
 
         Ok(())

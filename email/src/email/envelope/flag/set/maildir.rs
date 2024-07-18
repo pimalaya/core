@@ -34,11 +34,7 @@ impl SetFlags for SetMaildirFlags {
 
         id.iter()
             .filter_map(|id| mdir.find(id).ok().flatten())
-            .filter_map(|entry| match entry.flags() {
-                Ok(flags) => Some((entry, flags)),
-                Err(_) => None,
-            })
-            .try_for_each(|(entry, entry_flags)| {
+            .try_for_each(|mut entry| {
                 entry.update_flags(HashSet::from(flags)).map_err(|err| {
                     Error::SetFlagsMaildirError(
                         err,

@@ -26,7 +26,7 @@ default = [
   # configuration from a simple email address.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/imap.html>
-  # "imap",
+  "imap",
 
   # Enables the Maildir backend, which allows management of folders
   # and emails located in a local Maildir directory, using file
@@ -47,70 +47,70 @@ default = [
   # discover SMTP configuration from a simple email address.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/smtp.html>
-  # "smtp",
+  "smtp",
 
   # Enables the sendmail backend, which allows sending emails via any
   # sendmail-compatible command.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/sendmail.html>
-  # "sendmail",
+  "sendmail",
 
   # Enables the discovery of IMAP and SMTP configurations, based on
   # the Thunderbird AutoConfig protocol.
   #
-  # "autoconfig",
+  "autoconfig",
 
   # Enables serde/derive features as well as (de)serialization of all
   # types.
   #
-  # "derive",
+  "derive",
 
   # Enables the global user keyring system for storing and retieving
   # secrets.
   #
-  # "keyring",
+  "keyring",
   
   # Enables the notify watch action.
   #
-  # "notify",
+  "notify",
 
   # Enables OAuth 2.0 support.
   #
-  # "oauth2",
+  "oauth2",
 
   # Enables thread pool system, for opening batch of connections
   # (mostly useful for IMAP and SMTP).
   #
-  # "pool",
+  "pool",
 
   # Enables mailbox and emails synchronization.
   #
-  # "sync",
+  "sync",
 
   # Enables the envelope threading support.
   #
-  # "thread",
+  "thread",
 
   # Enables logs based on the `tracing` crate.
   #
-  # "tracing",
+  "tracing",
 
   # Enables watch backend features.
   #
-  # "watch",
+  "watch",
 
   # Enables PGP support using shell commands.
   #
-  # "pgp-commands",
+  "pgp-commands",
 
   # Enables PGP support using GPG lib.
   #
-  # "pgp-gpg",
+  "pgp-gpg",
 
   # Enables PGP support using native Rust implementation of OpenPGP
   # standard.
   #
-  # "pgp-native",
+  "pgp-native",
 ]
 
 imap = [
@@ -197,7 +197,7 @@ pgp-native = ["dep:pgp-lib", "dep:keyring-lib", "pgp", "mml-lib/pgp-native"]
 
 [dev-dependencies]
 concat-with = "0.2"
-email-testing-server = { path = "../email-testing-server" }
+# email-testing-server = { path = "../email-testing-server" }
 env_logger = "0.10"
 tempfile = "3.3"
 tokio = { version = "1.23", features = ["full"] }

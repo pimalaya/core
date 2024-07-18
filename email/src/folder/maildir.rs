@@ -7,8 +7,8 @@ use maildirs::Maildir;
 
 use crate::{
     account::config::AccountConfig,
-    debug,
-    folder::{Folder, Folders},
+    folder::{Folder, FolderKind, Folders, INBOX},
+    maildir::MaildirContext,
 };
 
 use super::Result;
@@ -18,13 +18,23 @@ impl Folders {
     ///
     /// Folders are parsed in parallel, using [`rayon`]. Only parses
     /// direct submaildirs (no recursion).
-    pub fn from_maildirs(config: &AccountConfig, maildirs: impl Iterator<Item = Maildir>) -> Self {
-        Folders::from_iter(maildirs.filter_map(|mdir| {
-            let folder = Folder::try_from_maildir(config, mdir);
+    pub fn from_maildir_context(ctx: &MaildirContext) -> Self {
+        let maildirpp = ctx.maildir_config.maildirpp;
 
-            // #[cfg(feature = "tracing")]
-            if let Err(err) = folder {
-                debug!(err, "cannot parse folder from maildir, skipping it");
+        Folders::from_iter(ctx.root.iter().filter_map(|mdir| {
+            if maildirpp && ctx.root.path() == mdir.path() {
+                return Some(Folder {
+                    name: INBOX.into(),
+                    kind: Some(FolderKind::Inbox),
+                    desc: mdir.path().display().to_string(),
+                });
+            }
+
+            let folder = Folder::try_from_maildir(&ctx.account_config, mdir);
+
+            #[cfg(feature = "tracing")]
+            if let Err(ref err) = folder {
+                tracing::debug!(?err, "cannot parse folder from maildir, skipping it");
             }
 
             folder.ok()

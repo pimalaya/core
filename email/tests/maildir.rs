@@ -1,4 +1,4 @@
-#![cfg(feature = "full")]
+#![cfg(feature = "maildir")]
 
 use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
 
@@ -23,30 +23,26 @@ use tempfile::tempdir;
 async fn test_maildir_features() {
     env_logger::builder().is_test(true).init();
 
-    // set up maildir folders
-
-    let mdir: Maildir = tempdir().unwrap().path().to_owned().into();
+    let mdir = Maildir::from(tempdir().unwrap().path());
     _ = fs::remove_dir_all(mdir.path());
-    mdir.create_dirs().unwrap();
+    mdir.create_all().unwrap();
 
-    let mdir_sub: Maildir = mdir.path().join(".Subdir").into();
+    let mdir_sub = Maildir::from(mdir.path().join("INBOX"));
     _ = fs::remove_dir_all(mdir_sub.path());
-    mdir_sub.create_dirs().unwrap();
+    mdir_sub.create_all().unwrap();
 
-    let mdir_trash = Maildir::from(mdir.path().join(".Trash"));
+    let mdir_sub = Maildir::from(mdir.path().join("Subdir"));
+    _ = fs::remove_dir_all(mdir_sub.path());
+    mdir_sub.create_all().unwrap();
+
+    let mdir_trash = Maildir::from(mdir.path().join("Trash"));
     _ = fs::remove_dir_all(mdir_trash.path());
-    mdir_trash.create_dirs().unwrap();
+    mdir_trash.create_all().unwrap();
 
     let account_config = Arc::new(AccountConfig {
         name: "account".into(),
         folder: Some(FolderConfig {
-            aliases: Some(HashMap::from_iter([
-                ("subdir".into(), "Subdir".into()),
-                (
-                    "abs-subdir".into(),
-                    mdir.path().join(".Subdir").to_string_lossy().into(),
-                ),
-            ])),
+            aliases: Some(HashMap::from_iter([("subdir".into(), "Subdir".into())])),
             ..Default::default()
         }),
         ..Default::default()
@@ -57,6 +53,7 @@ async fn test_maildir_features() {
     let mdir_path = mdir.path().to_owned();
     let mdir_config = Arc::new(MaildirConfig {
         root_dir: mdir_path.clone(),
+        maildirpp: false,
     });
 
     let mdir_ctx = MaildirContextBuilder::new(account_config.clone(), mdir_config.clone());
@@ -69,6 +66,7 @@ async fn test_maildir_features() {
 
     let mdir_config = Arc::new(MaildirConfig {
         root_dir: mdir_path.clone(),
+        maildirpp: false,
     });
     let submdir_ctx = MaildirContextBuilder::new(account_config.clone(), mdir_config.clone());
     let submdir = BackendBuilder::new(account_config.clone(), submdir_ctx)
@@ -169,17 +167,12 @@ async fn test_maildir_features() {
         .list_envelopes("subdir", Default::default())
         .await
         .unwrap();
-    let abs_subdir = mdir
-        .list_envelopes("abs-subdir", Default::default())
-        .await
-        .unwrap();
     let trash = mdir
         .list_envelopes("Trash", Default::default())
         .await
         .unwrap();
     assert_eq!(1, inbox.len());
     assert_eq!(1, subdir.len());
-    assert_eq!(1, abs_subdir.len());
     assert_eq!(0, trash.len());
     assert!(mdir
         .get_messages("INBOX", &Id::single(&inbox[0].id))
@@ -206,17 +199,12 @@ async fn test_maildir_features() {
         .list_envelopes("subdir", Default::default())
         .await
         .unwrap();
-    let abs_subdir = mdir
-        .list_envelopes("abs-subdir", Default::default())
-        .await
-        .unwrap();
     let trash = mdir
         .list_envelopes("Trash", Default::default())
         .await
         .unwrap();
     assert_eq!(1, inbox.len());
     assert_eq!(1, subdir.len());
-    assert_eq!(1, abs_subdir.len());
     assert_eq!(0, trash.len());
 
     mdir.expunge_folder("subdir").await.unwrap();
@@ -224,12 +212,7 @@ async fn test_maildir_features() {
         .list_envelopes("subdir", Default::default())
         .await
         .unwrap();
-    let abs_subdir = mdir
-        .list_envelopes("subdir", Default::default())
-        .await
-        .unwrap();
     assert_eq!(0, subdir.len());
-    assert_eq!(0, abs_subdir.len());
 
     // check that the message can be moved
     mdir.move_messages("INBOX", "subdir", &Id::single(&envelope.id))

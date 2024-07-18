@@ -26,7 +26,7 @@ impl TryFrom<MaildirEntry> for Flags {
             .filter_map(|flag| match Flag::try_from(*flag) {
                 Ok(flag) => Some(flag),
                 Err(_err) => {
-                    debug!("cannot parse maildir flag char {c}, skipping it: {_err}");
+                    debug!("cannot parse maildir flag {flag:?}, skipping it: {_err}");
                     debug!("{_err:?}");
                     None
                 }
@@ -41,10 +41,10 @@ impl From<&Flags> for HashSet<maildirs::Flag> {
     fn from(flags: &Flags) -> Self {
         flags
             .iter()
-            .filter_map(|flag| match maildirs::Flag::try_from(*flag) {
+            .filter_map(|flag| match maildirs::Flag::try_from(flag) {
                 Ok(flag) => Some(flag),
                 Err(_err) => {
-                    debug!("cannot parse maildir flag char {c}, skipping it: {_err}");
+                    debug!("cannot parse maildir flag {flag}, skipping it: {_err}");
                     debug!("{_err:?}");
                     None
                 }

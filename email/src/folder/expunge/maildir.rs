@@ -27,9 +27,8 @@ impl ExpungeFolder for ExpungeMaildirFolder {
         info!("expunging maildir folder {folder}");
 
         let ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
-
         let mdir = ctx.get_maildir_from_folder_alias(folder)?;
+
         let entries = mdir
             .read()
             .map_err(|err| Error::ListCurrentFolderMaildirError(err, mdir.path().to_owned()))?;

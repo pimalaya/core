@@ -67,7 +67,7 @@ where
                         .emit(&ctx.handler)
                         .await;
 
-                    Ok(names)
+                    Result::Ok(names)
                 }
             })
             .await
@@ -104,7 +104,7 @@ where
                     .emit(&ctx.handler)
                     .await;
 
-                Ok(names)
+                Result::Ok(names)
             })
             .await
     });
@@ -140,7 +140,7 @@ where
                     .emit(&ctx.handler)
                     .await;
 
-                Ok(names)
+                Result::Ok(names)
             })
             .await
     });
@@ -176,7 +176,7 @@ where
                     .emit(&ctx.handler)
                     .await;
 
-                Ok(names)
+                Result::Ok(names)
             })
             .await
     });
@@ -204,7 +204,7 @@ where
 
             ctx.apply_folder_permissions(&mut patch);
 
-            Ok(patch)
+            Result::Ok(patch)
         })
         .await?;
 

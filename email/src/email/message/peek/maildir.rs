@@ -33,9 +33,15 @@ impl PeekMessages for PeekMaildirMessages {
         let mut msgs: Vec<(usize, maildirs::MaildirEntry)> = mdir
             .read()
             .map_err(Error::ListMaildirEntriesError)?
-            .filter_map(|entry| match entry.id() {
-                Ok(id) => Some((entry, id)),
-                Err(_) => None,
+            .filter_map(|entry| {
+                let mut entry = (entry, String::new());
+                match entry.0.id() {
+                    Err(_) => None,
+                    Ok(id) => {
+                        entry.1 = id.to_owned();
+                        Some(entry)
+                    }
+                }
             })
             .filter_map(|(entry, entry_id)| {
                 id.iter()

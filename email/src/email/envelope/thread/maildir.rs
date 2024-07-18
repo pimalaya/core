@@ -9,7 +9,7 @@ use crate::{
         list::ListEnvelopesOptions, Envelopes, SingleId, ThreadedEnvelope, ThreadedEnvelopes,
     },
     maildir::MaildirContextSync,
-    AnyResult,
+    AnyResult, Error,
 };
 
 #[derive(Clone)]
@@ -40,9 +40,10 @@ impl ThreadEnvelopes for ThreadMaildirEnvelopes {
         opts: ListEnvelopesOptions,
     ) -> AnyResult<ThreadedEnvelopes> {
         let ctx = self.ctx.lock().await;
-        let mdir = ctx.get_maildir_from_folder_name(folder)?;
+        let mdir = ctx.get_maildir_from_folder_alias(folder)?;
 
-        let envelopes = Envelopes::from_mdir_entries(mdir.list_cur(), opts.query.as_ref())
+        let entries = mdir.read().map_err(Error::MaildirsError)?;
+        let envelopes = Envelopes::from_mdir_entries(entries, opts.query.as_ref())
             .into_iter()
             .map(|e| (e.id.clone(), e))
             .collect();
@@ -117,9 +118,10 @@ impl ThreadEnvelopes for ThreadMaildirEnvelopes {
         opts: ListEnvelopesOptions,
     ) -> AnyResult<ThreadedEnvelopes> {
         let ctx = self.ctx.lock().await;
-        let mdir = ctx.get_maildir_from_folder_name(folder)?;
+        let mdir = ctx.get_maildir_from_folder_alias(folder)?;
 
-        let envelopes = Envelopes::from_mdir_entries(mdir.list_cur(), opts.query.as_ref())
+        let entries = mdir.read().map_err(Error::MaildirsError)?;
+        let envelopes = Envelopes::from_mdir_entries(entries, opts.query.as_ref())
             .into_iter()
             .map(|e| (e.id.clone(), e))
             .collect();

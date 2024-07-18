@@ -27,9 +27,8 @@ impl ListFolders for ListMaildirFolders {
         info!("listing maildir folders");
 
         let ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let folders = Folders::from_maildir_context(&ctx);
 
-        let folders = Folders::from_maildirs(config, ctx.root.iter());
         Ok(folders.into())
     }
 }
