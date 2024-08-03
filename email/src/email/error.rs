@@ -20,7 +20,7 @@ pub enum Error {
     #[cfg(feature = "maildir")]
     #[error("cannot list maildir entries")]
     ListMaildirEntriesError(#[source] maildirs::Error),
-
+    #[cfg(feature = "maildir")]
     #[error("cannot get flags from maildir entry {0}")]
     GetMaildirFlagsError(#[source] maildirs::Error, PathBuf),
     #[error("cannot find message associated to envelope {0}")]

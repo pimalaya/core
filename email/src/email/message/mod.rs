@@ -25,7 +25,7 @@ pub mod template;
 use std::{borrow::Cow, sync::Arc};
 
 #[cfg(feature = "imap")]
-use imap_client::types::{core::Vec1, fetch::MessageDataItem};
+use imap_next::imap_types::{core::Vec1, fetch::MessageDataItem};
 use mail_parser::{MessageParser, MimeHeaders};
 #[cfg(feature = "maildir")]
 use maildirs::MaildirEntry;

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use imap_client::types::sequence::{Sequence, SequenceSet};
+use imap_next::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{Messages, PeekMessages};

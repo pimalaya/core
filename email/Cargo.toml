@@ -26,14 +26,14 @@ default = [
   # configuration from a simple email address.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/imap.html>
-  "imap",
+  # "imap",
 
   # Enables the Maildir backend, which allows management of folders
   # and emails located in a local Maildir directory, using file
   # system.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/maildir.html>
-  "maildir",
+  # "maildir",
 
   # Enables the Notmuch backend, which allows management of emails
   # located in a Notmuch database. Since Notmuch needs a Maildir to
@@ -47,49 +47,49 @@ default = [
   # discover SMTP configuration from a simple email address.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/smtp.html>
-  "smtp",
+  # "smtp",
 
   # Enables the sendmail backend, which allows sending emails via any
   # sendmail-compatible command.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/sendmail.html>
-  "sendmail",
+  # "sendmail",
 
   # Enables the discovery of IMAP and SMTP configurations, based on
   # the Thunderbird AutoConfig protocol.
   #
-  "autoconfig",
+  # "autoconfig",
 
   # Enables serde/derive features as well as (de)serialization of all
   # types.
   #
-  "derive",
+  # "derive",
 
   # Enables the global user keyring system for storing and retieving
   # secrets.
   #
-  "keyring",
+  # "keyring",
   
   # Enables the notify watch action.
   #
-  "notify",
+  # "notify",
 
   # Enables OAuth 2.0 support.
   #
-  "oauth2",
+  # "oauth2",
 
   # Enables thread pool system, for opening batch of connections
   # (mostly useful for IMAP and SMTP).
   #
-  "pool",
+  # "pool",
 
   # Enables mailbox and emails synchronization.
   #
-  "sync",
+  # "sync",
 
   # Enables the envelope threading support.
   #
-  "thread",
+  # "thread",
 
   # Enables logs based on the `tracing` crate.
   #
@@ -97,25 +97,26 @@ default = [
 
   # Enables watch backend features.
   #
-  "watch",
+  # "watch",
 
   # Enables PGP support using shell commands.
   #
-  "pgp-commands",
+  # "pgp-commands",
 
   # Enables PGP support using GPG lib.
   #
-  "pgp-gpg",
+  # "pgp-gpg",
 
   # Enables PGP support using native Rust implementation of OpenPGP
   # standard.
   #
-  "pgp-native",
+  # "pgp-native",
 ]
 
 imap = [
   "dep:utf7-imap",
   "dep:imap-client",
+  "dep:imap-next",
   "tokio/sync",
 ]
 
@@ -197,7 +198,6 @@ pgp-native = ["dep:pgp-lib", "dep:keyring-lib", "pgp", "mml-lib/pgp-native"]
 
 [dev-dependencies]
 concat-with = "0.2"
-# email-testing-server = { path = "../email-testing-server" }
 env_logger = "0.10"
 tempfile = "3.3"
 tokio = { version = "1.23", features = ["full"] }
@@ -209,12 +209,14 @@ chrono = "0.4"
 chumsky = { version = "=1.0.0-alpha.7", default-features = false, features = ["std", "label"] }
 dirs = { version = "4.0", optional = true }
 email-macros = "=0.0.2"
+email-testing-server = { path = "../email-testing-server", optional = true }
 email_address = { version = "0.2", optional = true, default-features = false }
 futures = { version = "0.3", optional = true }
 hickory-resolver = { version = "0.24", optional = true, features = ["dns-over-rustls"] }
 hyper = { version = "0.14", optional = true, default-features = false, features = [ "http1", "http2" ] }
 hyper-rustls = { version = "0.24", optional = true }
 imap-client = { version = "=0.1.0", optional = true }
+imap-next = { version = "0.2", optional = true, features = ["expose_stream", "tag_generator", "starttls", "ext_id", "ext_metadata"] }
 keyring-lib = { version = "=0.4.3", optional = true }
 mail-builder = "0.3"
 mail-parser = "0.9"

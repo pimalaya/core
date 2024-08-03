@@ -1,4 +1,4 @@
-use std::{any::Any, path::PathBuf, result};
+use std::{any::Any, result};
 
 use thiserror::Error;
 use tokio::task::JoinError;
@@ -13,22 +13,22 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     #[cfg(feature = "maildir")]
     #[error("cannot create maildir folder structure at {1}")]
-    CreateFolderStructureMaildirError(#[source] maildirs::Error, PathBuf),
+    CreateFolderStructureMaildirError(#[source] maildirs::Error, std::path::PathBuf),
     #[cfg(feature = "maildir")]
     #[error("cannot create notmuch folder structure at {1}")]
-    CreateFolderStructureNotmuchError(#[source] maildirs::Error, PathBuf),
+    CreateFolderStructureNotmuchError(#[source] maildirs::Error, std::path::PathBuf),
     #[cfg(feature = "maildir")]
     #[error("cannot delete maildir folder {1} at {0}")]
     DeleteMaildirFolderError(#[source] maildirs::Error, String),
     #[cfg(feature = "maildir")]
     #[error("cannot delete maildir INBOX at {0}")]
-    DeleteMaildirInboxForbiddenError(PathBuf),
+    DeleteMaildirInboxForbiddenError(std::path::PathBuf),
     #[cfg(feature = "maildir")]
     #[error("maildir: cannot list current folder from {1}")]
-    ListCurrentFolderMaildirError(#[source] maildirs::Error, PathBuf),
+    ListCurrentFolderMaildirError(#[source] maildirs::Error, std::path::PathBuf),
     #[cfg(feature = "maildir")]
     #[error("cannot remove maildir entry at {1}")]
-    RemoveMaildirEntryError(#[source] maildirs::Error, PathBuf),
+    RemoveMaildirEntryError(#[source] maildirs::Error, std::path::PathBuf),
     #[error("cannot parse folder kind {0}")]
     ParseFolderKindError(String),
     #[error("cannot get uid of imap folder {0}: uid is missing")]

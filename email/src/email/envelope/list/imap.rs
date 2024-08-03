@@ -2,7 +2,7 @@ use std::{num::NonZeroU32, result};
 
 use async_trait::async_trait;
 use chrono::TimeDelta;
-use imap_client::types::{
+use imap_next::imap_types::{
     core::Vec1,
     extensions::sort::{SortCriterion, SortKey},
     search::SearchKey,

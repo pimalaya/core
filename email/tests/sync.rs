@@ -1,9 +1,4 @@
-#![cfg(all(
-    feature = "imap",
-    feature = "maildir",
-    feature = "pool",
-    feature = "sync",
-))]
+#![cfg(all(feature = "maildir", feature = "pool", feature = "sync"))]
 
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
