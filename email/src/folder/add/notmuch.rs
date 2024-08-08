@@ -1,13 +1,7 @@
 use async_trait::async_trait;
-use maildirs::Maildir;
 
 use super::AddFolder;
-use crate::{
-    folder::{error::Error, FolderKind},
-    info, maildir,
-    notmuch::NotmuchContextSync,
-    AnyResult,
-};
+use crate::{folder::error::Error, info, notmuch::NotmuchContextSync, AnyResult};
 
 pub struct AddNotmuchFolder {
     ctx: NotmuchContextSync,
@@ -34,19 +28,11 @@ impl AddFolder for AddNotmuchFolder {
 
         let config = &self.ctx.account_config;
         let ctx = self.ctx.lock().await;
-        let mdir_ctx = &ctx.mdir_ctx;
 
-        let path = if FolderKind::matches_inbox(folder) {
-            mdir_ctx.root.path().to_owned()
-        } else {
-            let folder = config.get_folder_alias(folder);
-            let folder = maildir::encode_folder(folder); // TODO: Is this right under the notmuch backend?
-            mdir_ctx.root.path().join(format!(".{}", folder))
-        };
-
-        Maildir::from(path.clone())
-            .create_dirs()
-            .map_err(|err| Error::CreateFolderStructureNotmuchError(err, path))?;
+        ctx.mdir_ctx
+            .root
+            .create(config.get_folder_alias(folder))
+            .map_err(|e| Error::CreateFolderStructureNotmuchError(e, folder.to_owned()))?;
 
         Ok(())
     }

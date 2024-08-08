@@ -15,8 +15,8 @@ pub enum Error {
     #[error("cannot create maildir folder structure at {1}")]
     CreateFolderStructureMaildirError(#[source] maildirs::Error, std::path::PathBuf),
     #[cfg(feature = "maildir")]
-    #[error("cannot create notmuch folder structure at {1}")]
-    CreateFolderStructureNotmuchError(#[source] maildirs::Error, std::path::PathBuf),
+    #[error("cannot create notmuch folder {1}")]
+    CreateFolderStructureNotmuchError(#[source] maildirs::Error, String),
     #[cfg(feature = "maildir")]
     #[error("cannot delete maildir folder {1} at {0}")]
     DeleteMaildirFolderError(#[source] maildirs::Error, String),

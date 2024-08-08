@@ -19,77 +19,78 @@ rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
 name = "email"
 
 [features]
-default = [
+default = ["full"]
+full = [
   # Enables the IMAP backend, which allows management of local or
   # remote mailboxes and emails located on any IMAP server. Paired
   # with the `autoconfig` feature, it also allows to discover IMAP
   # configuration from a simple email address.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/imap.html>
-  # "imap",
+  "imap",
 
   # Enables the Maildir backend, which allows management of folders
   # and emails located in a local Maildir directory, using file
   # system.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/maildir.html>
-  # "maildir",
+  "maildir",
 
   # Enables the Notmuch backend, which allows management of emails
   # located in a Notmuch database. Since Notmuch needs a Maildir to
   # work, it also enables the `maildir` feature.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/notmuch.html>
-  # "notmuch",
+  "notmuch",
 
   # Enables the SMTP backend, which allows sending emails to any SMTP
   # server. Paired with the `autoconfig` feature, it also allows to
   # discover SMTP configuration from a simple email address.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/smtp.html>
-  # "smtp",
+  "smtp",
 
   # Enables the sendmail backend, which allows sending emails via any
   # sendmail-compatible command.
   #
   # doc: <https://pimalaya.org/himalaya/cli/latest/usage/advanced/sendmail.html>
-  # "sendmail",
+  "sendmail",
 
   # Enables the discovery of IMAP and SMTP configurations, based on
   # the Thunderbird AutoConfig protocol.
   #
-  # "autoconfig",
+  "autoconfig",
 
   # Enables serde/derive features as well as (de)serialization of all
   # types.
   #
-  # "derive",
+  "derive",
 
   # Enables the global user keyring system for storing and retieving
   # secrets.
   #
-  # "keyring",
+  "keyring",
   
   # Enables the notify watch action.
   #
-  # "notify",
+  "notify",
 
   # Enables OAuth 2.0 support.
   #
-  # "oauth2",
+  "oauth2",
 
   # Enables thread pool system, for opening batch of connections
   # (mostly useful for IMAP and SMTP).
   #
-  # "pool",
+  "pool",
 
   # Enables mailbox and emails synchronization.
   #
-  # "sync",
+  "sync",
 
   # Enables the envelope threading support.
   #
-  # "thread",
+  "thread",
 
   # Enables logs based on the `tracing` crate.
   #
@@ -97,20 +98,20 @@ default = [
 
   # Enables watch backend features.
   #
-  # "watch",
+  "watch",
 
   # Enables PGP support using shell commands.
   #
-  # "pgp-commands",
+  "pgp-commands",
 
   # Enables PGP support using GPG lib.
   #
-  # "pgp-gpg",
+  "pgp-gpg",
 
   # Enables PGP support using native Rust implementation of OpenPGP
   # standard.
   #
-  # "pgp-native",
+  "pgp-native",
 ]
 
 imap = [
@@ -134,6 +135,7 @@ notmuch = [
 
 smtp = [
   "dep:mail-send",
+  "dep:tokio-rustls",
 ]
 
 sendmail = [
@@ -144,8 +146,10 @@ autoconfig = [
   "dep:email_address",
   "dep:futures",
   "dep:hickory-resolver",
+  "dep:http-body-util",
   "dep:hyper",
   "dep:hyper-rustls",
+  "dep:hyper-util",
   "dep:serde",
   "dep:serde-xml-rs",
 ]
@@ -213,8 +217,10 @@ email-testing-server = { path = "../email-testing-server", optional = true }
 email_address = { version = "0.2", optional = true, default-features = false }
 futures = { version = "0.3", optional = true }
 hickory-resolver = { version = "0.24", optional = true, features = ["dns-over-rustls"] }
-hyper = { version = "1.4", optional = true, default-features = false, features = [ "http1", "http2" ] }
+http-body-util = { version = "0.1", optional = true }
+hyper = { version = "1.4", optional = true, default-features = false, features = [ "client", "http1", "http2" ] }
 hyper-rustls = { version = "0.27", optional = true }
+hyper-util = { version = "0.1", optional = true, default-features = false, features = [ "client-legacy" ] }
 imap-client = { version = "=0.1.0", optional = true }
 imap-next = { version = "0.2", optional = true, features = ["expose_stream", "tag_generator", "starttls", "ext_id", "ext_metadata"] }
 keyring-lib = { version = "=0.4.3", optional = true }
@@ -241,7 +247,7 @@ serde-xml-rs = { version = "0.6", optional = true }
 shellexpand-utils = "=0.2.1"
 thiserror = "1"
 tokio = { version = "1.23", default-features = false, features = ["fs", "macros", "net", "rt"] }
-tokio-rustls = "0.26"
+tokio-rustls = { version = "0.26", optional = true }
 tracing = { version ="0.1.40" , optional = true }
 tree_magic_mini = "3"
 urlencoding = "2.1"

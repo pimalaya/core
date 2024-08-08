@@ -4,7 +4,7 @@ mod error;
 use std::{ops::Deref, sync::Arc};
 
 use async_trait::async_trait;
-use maildirs::Maildir;
+use maildirs::Maildirs;
 use notmuch::{Database, DatabaseMode};
 use shellexpand_utils::shellexpand_path;
 use tokio::sync::Mutex;
@@ -78,6 +78,10 @@ impl NotmuchContext {
             .map_err(Error::OpenDatabaseError)?;
 
         Ok(db)
+    }
+
+    pub fn maildirpp(&self) -> bool {
+        self.notmuch_config.maildirpp
     }
 }
 
@@ -222,10 +226,11 @@ impl BackendContextBuilder for NotmuchContextBuilder {
     async fn build(self) -> AnyResult<Self::Context> {
         info!("building new notmuch context");
 
-        let root = Maildir::from(self.notmuch_config.try_get_maildir_path()?);
+        let root = Maildirs::new(self.notmuch_config.try_get_maildir_path()?);
 
         let maildir_config = Arc::new(MaildirConfig {
             root_dir: root.path().to_owned(),
+            maildirpp: false,
         });
 
         let mdir_ctx = MaildirContext {

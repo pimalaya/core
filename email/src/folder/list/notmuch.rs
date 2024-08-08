@@ -1,12 +1,7 @@
 use async_trait::async_trait;
 
 use super::ListFolders;
-use crate::{
-    folder::{Folder, FolderKind, Folders},
-    info,
-    notmuch::NotmuchContextSync,
-    AnyResult,
-};
+use crate::{folder::Folders, info, notmuch::NotmuchContextSync, AnyResult};
 
 pub struct ListNotmuchFolders {
     ctx: NotmuchContextSync,
@@ -32,21 +27,7 @@ impl ListFolders for ListNotmuchFolders {
         info!("listing notmuch folders via maildir");
 
         let ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
-        let mdir_ctx = &ctx.mdir_ctx;
-
-        let mut folders = Folders::default();
-
-        folders.push(Folder {
-            kind: Some(FolderKind::Inbox),
-            name: config.get_inbox_folder_alias(),
-            desc: mdir_ctx.root.path().to_string_lossy().to_string(),
-        });
-
-        let subfolders: Vec<Folder> =
-            Folders::from_submaildirs(config, mdir_ctx.root.list_subdirs()).into();
-
-        folders.extend(subfolders);
+        let folders = Folders::from_maildir_context(&ctx.mdir_ctx);
 
         Ok(folders)
     }

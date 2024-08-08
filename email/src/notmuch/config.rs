@@ -42,6 +42,8 @@ pub struct NotmuchConfig {
 
     /// Override the default Notmuch profile name.
     pub profile: Option<String>,
+
+    pub maildirpp: bool,
 }
 
 impl NotmuchConfig {

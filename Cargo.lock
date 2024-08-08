@@ -672,7 +672,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "rustc-hash",
+ "rustc-hash 1.1.0",
  "shlex",
  "syn 2.0.72",
  "which",
@@ -861,9 +861,9 @@ dependencies = [
 
 [[package]]
 name = "buffer-redux"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c9f8ddd22e0a12391d1e7ada69ec3b0da1914f1cec39c5cf977143c5b2854f5"
+checksum = "4e8acf87c5b9f5897cd3ebb9a327f420e0cae9dd4e5c1d2e36f2c84c571a58f1"
 dependencies = [
  "memchr",
 ]
@@ -1145,7 +1145,7 @@ dependencies = [
  "reqwest 0.12.5",
  "ring 0.17.8",
  "rustls 0.23.12",
- "rustls-pemfile 2.1.2",
+ "rustls-pemfile 2.1.3",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -1541,9 +1541,9 @@ dependencies = [
 
 [[package]]
 name = "decancer"
-version = "3.2.3"
+version = "3.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d14bdff2b0fd0e3eb4f1af30efc2cb6419c734b5cb93da37521a13313218e3f"
+checksum = "58bf04658e77cbb82c3c8b64d094e3d2bc75d4e182b0425a51196e5614108270"
 dependencies = [
  "lazy_static",
  "paste",
@@ -1866,9 +1866,9 @@ dependencies = [
 
 [[package]]
 name = "dunce"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56ce8c6da7551ec6c462cbaf3bfbc75131ebbfa1c944aeaa9dab51ca1c5f0c3b"
+checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
 name = "dyn-clone"
@@ -1966,7 +1966,7 @@ dependencies = [
 
 [[package]]
 name = "email-lib"
-version = "0.24.1"
+version = "0.25.0"
 dependencies = [
  "advisory-lock",
  "async-trait",
@@ -1974,38 +1974,40 @@ dependencies = [
  "chumsky",
  "concat-with",
  "dirs 4.0.0",
- "email-macros",
+ "email-macros 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "email-testing-server",
  "email_address",
  "env_logger",
  "futures",
  "hickory-resolver",
+ "http-body-util",
  "hyper 1.4.1",
  "hyper-rustls 0.27.2",
+ "hyper-util",
  "imap-client",
  "imap-next",
- "keyring-lib",
+ "keyring-lib 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "mail-builder",
  "mail-parser 0.9.3",
  "mail-send",
  "maildirs",
- "mml-lib",
+ "mml-lib 1.0.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "notify",
  "notify-rust",
  "notmuch",
- "oauth-lib",
+ "oauth-lib 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell",
  "ouroboros",
  "paste",
  "petgraph",
- "pgp-lib",
- "process-lib",
+ "pgp-lib 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "process-lib 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rayon",
  "regex",
- "secret-lib",
+ "secret-lib 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde-xml-rs",
- "shellexpand-utils",
+ "shellexpand-utils 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile",
  "thiserror",
  "tokio",
@@ -2019,6 +2021,16 @@ dependencies = [
 [[package]]
 name = "email-macros"
 version = "0.0.2"
+dependencies = [
+ "quote",
+ "syn 2.0.72",
+]
+
+[[package]]
+name = "email-macros"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f24a09fd651027f8764f8a12c12358715cb9bab622ab3125ede3dd6ae047c95"
 dependencies = [
  "quote",
  "syn 2.0.72",
@@ -2278,9 +2290,9 @@ checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
 
 [[package]]
 name = "flate2"
-version = "1.0.30"
+version = "1.0.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f54427cfd1c7829e2a139fcefea601bf088ebca651d2bf53ebc600eac295dae"
+checksum = "7f211bbe8e69bbd0cfdea405084f128ae8b4aaa6b0b522fc8f2b009084797920"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
@@ -3004,9 +3016,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ab92f4f49ee4fb4f997c784b7a2e0fa70050211e0b6a287f898c3c9785ca956"
+checksum = "cde7055719c54e36e95e8719f95883f22072a48ede39db7fc17a4e1d5281e9b9"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -3235,7 +3247,7 @@ dependencies = [
  "parking_lot",
  "rand",
  "rustls 0.23.12",
- "rustls-pemfile 2.1.2",
+ "rustls-pemfile 2.1.3",
  "store",
  "tokio",
  "tokio-rustls 0.26.0",
@@ -3246,6 +3258,8 @@ dependencies = [
 [[package]]
 name = "imap-client"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3e62726ad9db2962ab35df8bd5f1a113a5fa1edbece0f72bab621c0a3c7850b"
 dependencies = [
  "imap-next",
  "once_cell",
@@ -3623,6 +3637,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "keyring-lib"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb0a843c3edec50d5f5541e72c4068ab5bc273efa16b4ba51c5825a872ad8a9a"
+dependencies = [
+ "keyring",
+ "log",
+ "once_cell",
+ "serde",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "konst"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3913,7 +3941,7 @@ dependencies = [
  "rand",
  "ring 0.17.8",
  "rsa",
- "rustls-pemfile 2.1.2",
+ "rustls-pemfile 2.1.3",
  "serde",
  "serde_json",
  "zip",
@@ -3983,6 +4011,8 @@ dependencies = [
 [[package]]
 name = "maildirs"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af9b9086f53e122c2c18e50832b5bf59aa71ede36bccedad023f840586da495c"
 dependencies = [
  "gethostname",
  "thiserror",
@@ -4016,7 +4046,7 @@ dependencies = [
  "md5",
  "parking_lot",
  "rustls 0.23.12",
- "rustls-pemfile 2.1.2",
+ "rustls-pemfile 2.1.3",
  "sieve-rs",
  "store",
  "tokio",
@@ -4164,14 +4194,36 @@ dependencies = [
  "mail-builder",
  "mail-parser 0.9.3",
  "nanohtml2text",
- "pgp-lib",
- "process-lib",
- "secret-lib",
+ "pgp-lib 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "process-lib 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "secret-lib 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
- "shellexpand-utils",
+ "shellexpand-utils 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile",
  "thiserror",
  "tokio",
+ "tree_magic_mini",
+]
+
+[[package]]
+name = "mml-lib"
+version = "1.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77175e610c5a634261bdbae33f0712e1cbafbd35f7fd6475f03e54c1561d1f0c"
+dependencies = [
+ "async-recursion",
+ "chumsky",
+ "gpgme",
+ "log",
+ "mail-builder",
+ "mail-parser 0.9.3",
+ "nanohtml2text",
+ "pgp-lib 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "process-lib 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "secret-lib 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "shellexpand-utils 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "thiserror",
  "tree_magic_mini",
 ]
 
@@ -4449,6 +4501,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "oauth-lib"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fd81f50b3bdf9656f511a776e5a76c249e00d7ce5c0c9071d0b923177d9248d"
+dependencies = [
+ "log",
+ "oauth2",
+ "reqwest 0.11.27",
+ "thiserror",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "oauth2"
 version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4499,9 +4565,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.36.2"
+version = "0.36.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f203fa8daa7bb185f760ae12bd8e097f63d17041dcdcaf675ac54cdf863170e"
+checksum = "27b64972346851a39438c60b341ebc01bba47464ae329e55cf343eb93964efd9"
 dependencies = [
  "memchr",
 ]
@@ -4930,6 +4996,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pgp-lib"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6802b1ef0dfc50217185a1eda6ddd546b65ffa8b80f942aa1feda6536adf165"
+dependencies = [
+ "async-recursion",
+ "futures",
+ "hyper 0.14.30",
+ "hyper-rustls 0.24.2",
+ "log",
+ "pgp",
+ "rand",
+ "sha1",
+ "smallvec",
+ "thiserror",
+ "tokio",
+ "url",
+ "z-base-32",
+]
+
+[[package]]
 name = "phf"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5217,6 +5304,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "process-lib"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0600893efc62c84ded38fec2b022ada4d4d80e48a8df5bceb070c865bf8a33a9"
+dependencies = [
+ "log",
+ "serde",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "prost"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5299,16 +5398,17 @@ dependencies = [
 
 [[package]]
 name = "quinn"
-version = "0.11.2"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4ceeeeabace7857413798eb1ffa1e9c905a9946a57d81fb69b4b71c4d8eb3ad"
+checksum = "b22d8e7369034b9a7132bc2008cac12f2013c8132b45e0554e6e20e2617f2156"
 dependencies = [
  "bytes",
  "pin-project-lite",
  "quinn-proto",
  "quinn-udp",
- "rustc-hash",
+ "rustc-hash 2.0.0",
  "rustls 0.23.12",
+ "socket2 0.5.7",
  "thiserror",
  "tokio",
  "tracing",
@@ -5316,14 +5416,14 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.3"
+version = "0.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddf517c03a109db8100448a4be38d498df8a210a99fe0e1b9eaf39e78c640efe"
+checksum = "ba92fb39ec7ad06ca2582c0ca834dfeadcaf06ddfc8e635c80aa7e1c05315fdd"
 dependencies = [
  "bytes",
  "rand",
  "ring 0.17.8",
- "rustc-hash",
+ "rustc-hash 2.0.0",
  "rustls 0.23.12",
  "slab",
  "thiserror",
@@ -5340,6 +5440,7 @@ dependencies = [
  "libc",
  "once_cell",
  "socket2 0.5.7",
+ "tracing",
  "windows-sys 0.52.0",
 ]
 
@@ -5653,7 +5754,7 @@ dependencies = [
  "pin-project-lite",
  "quinn",
  "rustls 0.23.12",
- "rustls-pemfile 2.1.2",
+ "rustls-pemfile 2.1.3",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -5811,6 +5912,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
+name = "rustc-hash"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "583034fd73374156e66797ed8e5b0d5690409c9226b22d87cb7f19821c05d152"
+
+[[package]]
 name = "rustc_version"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5902,7 +6009,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a88d6d420651b496bdd98684116959239430022a115c1240e6c3993be0b15fba"
 dependencies = [
  "openssl-probe",
- "rustls-pemfile 2.1.2",
+ "rustls-pemfile 2.1.3",
  "rustls-pki-types",
  "schannel",
  "security-framework",
@@ -5919,9 +6026,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pemfile"
-version = "2.1.2"
+version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29993a25686778eb88d4189742cd713c9bce943bc54251a33509dc63cbacf73d"
+checksum = "196fe16b00e106300d3e45ecfcb764fa292a535d7326a29a5875c579c7417425"
 dependencies = [
  "base64 0.22.1",
  "rustls-pki-types",
@@ -5929,9 +6036,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "976295e77ce332211c0d24d92c0e83e50f5c5f046d11082cea19f3df13a3562d"
+checksum = "fc0a2ce646f8655401bb81e7927b812614bd5d91dbc968696be50603510fcaf0"
 
 [[package]]
 name = "rustls-webpki"
@@ -6050,12 +6157,25 @@ name = "secret-lib"
 version = "0.4.5"
 dependencies = [
  "env_logger",
- "keyring-lib",
+ "keyring-lib 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",
- "process-lib",
+ "process-lib 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "secret-lib"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26bee1af08c393bd97f81a1060544145a8e879be6add7f89b090c2c968569007"
+dependencies = [
+ "keyring-lib 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log",
+ "process-lib 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -6348,6 +6468,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "shellexpand-utils"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c15a8f3693529b38d1be40ec6016bb6317ebee4a0208a813a75e3538f3e439f5"
+dependencies = [
+ "log",
+ "shellexpand",
+ "thiserror",
+]
+
+[[package]]
 name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6451,7 +6582,7 @@ dependencies = [
  "regex",
  "reqwest 0.12.5",
  "rustls 0.23.12",
- "rustls-pemfile 2.1.2",
+ "rustls-pemfile 2.1.3",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -6739,15 +6870,15 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.11.0"
+version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8fcd239983515c23a32fb82099f97d0b11b8c72f654ed659363a95c3dad7a53"
+checksum = "04cbcdd0c794ebb0d4cf35e88edd2f7d2c4c3e9a5a6dab322839b321c6a87a64"
 dependencies = [
  "cfg-if",
  "fastrand 2.1.0",
  "once_cell",
  "rustix 0.38.34",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -7412,7 +7543,7 @@ dependencies = [
  "reqwest 0.12.5",
  "ring 0.17.8",
  "rustls 0.23.12",
- "rustls-pemfile 2.1.2",
+ "rustls-pemfile 2.1.3",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -7994,9 +8125,9 @@ dependencies = [
 
 [[package]]
 name = "xml-rs"
-version = "0.8.20"
+version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "791978798f0597cfc70478424c2b4fdc2b7a8024aaff78497ef00f24ef674193"
+checksum = "539a77ee7c0de333dcc6da69b177380a0b81e0dacfa4f7344c465a36871ee601"
 
 [[package]]
 name = "xxhash-rust"

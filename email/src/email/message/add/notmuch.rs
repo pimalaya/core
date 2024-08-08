@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -52,14 +54,13 @@ impl AddMessage for AddNotmuchMessage {
             None => folder.to_owned(),
         };
 
-        let mdir = mdir_ctx.get_maildir_from_folder_name(&folder)?;
-        let id = mdir
-            .store_cur_with_flags(msg, &flags.to_mdir_string())
+        let mdir = mdir_ctx.get_maildir_from_folder_alias(&folder)?;
+        let entry = mdir
+            .write_cur(msg, HashSet::from(flags))
             .map_err(Error::MaildirppFailure)?;
-        let msg = mdir.find(&id).unwrap();
 
         let msg = db
-            .index_file(msg.path(), None)
+            .index_file(entry.path(), None)
             .map_err(Error::NotMuchFailure)?;
 
         flags

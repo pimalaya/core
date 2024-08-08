@@ -34,10 +34,10 @@ impl AddFlags for AddNotmuchFlags {
         let ctx = self.ctx.lock().await;
         let db = ctx.open_db()?;
 
-        let folder_query = if FolderKind::matches_inbox(folder) {
-            "folder:\"\"".to_owned()
+        let ref folder = config.get_folder_alias(folder);
+        let folder_query = if ctx.maildirpp() && FolderKind::matches_inbox(folder) {
+            String::from("folder:\"\"")
         } else {
-            let folder = config.get_folder_alias(folder);
             format!("folder:{folder:?}")
         };
         let mid_query = format!("mid:\"/^({})$/\"", id.join("|"));

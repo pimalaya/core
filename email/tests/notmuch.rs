@@ -1,4 +1,4 @@
-#![cfg(feature = "full")]
+#![cfg(feature = "notmuch")]
 
 use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
 
@@ -25,11 +25,15 @@ async fn test_notmuch_features() {
 
     let mdir: Maildir = tempdir().unwrap().path().to_owned().into();
     _ = fs::remove_dir_all(mdir.path());
-    mdir.create_dirs().unwrap();
+    mdir.create_all().unwrap();
+
+    let inbox = Maildir::from(mdir.path().join("INBOX"));
+    _ = fs::remove_dir_all(inbox.path());
+    inbox.create_all().unwrap();
 
     let custom_mdir: Maildir = mdir.path().join("CustomMaildirFolder").into();
     _ = fs::remove_dir_all(custom_mdir.path());
-    custom_mdir.create_dirs().unwrap();
+    custom_mdir.create_all().unwrap();
 
     Database::create(mdir.path()).unwrap();
 
@@ -89,6 +93,8 @@ async fn test_notmuch_features() {
         .list_envelopes(INBOX, Default::default())
         .await
         .unwrap();
+    println!("envelopes: {envelopes:?}");
+
     let inbox_envelope = envelopes.first().unwrap();
 
     assert_eq!(1, envelopes.len());

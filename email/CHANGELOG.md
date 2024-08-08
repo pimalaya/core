@@ -17,10 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Replaced `imap` crate by `imap-{types,codec,flow,client}` suite.
-- Renamed `account-sync` cargo feature with `sync`.
-- Renamed `account-discovery` cargo feature with `autoconfig`.
+- Replaced `imap` crate by `imap-{types,codec,next,client}` suite.
+- Replaced `maildirpp` crate by `maildirs`, which improves Maildir supports.
+- Renamed `account-sync` cargo feature by `sync`.
+- Renamed `account-discovery` cargo feature by `autoconfig`.
 - Moved `account::discover` module at the root level, and renamed it `autoconfig`.
+- Bumped autoconfig `hyper` to `v1`.
 
 ### Fixed
 
