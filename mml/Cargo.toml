@@ -37,7 +37,7 @@ pgp-commands = ["pgp", "dep:process-lib"]
 pgp-gpg = ["pgp", "dep:gpgme"]
 pgp-native = ["pgp", "dep:pgp-lib", "dep:secret-lib", "dep:shellexpand-utils"]
 
-derive = ["dep:serde", "serde/derive", "process-lib/derive", "secret-lib/derive"]
+derive = ["dep:serde", "serde/derive", "process-lib?/derive", "secret-lib?/derive"]
 
 [dev-dependencies]
 concat-with = "0.2"

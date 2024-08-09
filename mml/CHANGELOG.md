@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Prevented `process-lib` and `secret-lib` to be automatically built when using `derive` feature by using the `?` syntax.
+
 ## [1.0.13] - 2024-06-03
 
 ### Changed
