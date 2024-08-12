@@ -6,6 +6,7 @@
 use std::path::{Path, PathBuf};
 
 use notmuch::{Database, DatabaseMode};
+use shellexpand_utils::shellexpand_path;
 
 #[doc(inline)]
 pub use super::{Error, Result};
@@ -43,6 +44,7 @@ pub struct NotmuchConfig {
     /// Override the default Notmuch profile name.
     pub profile: Option<String>,
 
+    #[cfg_attr(feature = "derive", serde(default))]
     pub maildirpp: bool,
 }
 
@@ -63,7 +65,7 @@ impl NotmuchConfig {
     /// Try to get the reference to the Notmuch database path.
     pub fn try_get_database_path(&self) -> Result<PathBuf> {
         match self.database_path.as_ref() {
-            Some(path) => Ok(path.to_owned()),
+            Some(path) => Ok(shellexpand_path(path)),
             None => Self::get_default_database_path(),
         }
     }
@@ -74,7 +76,7 @@ impl NotmuchConfig {
     /// `database_path`.
     pub fn try_get_maildir_path(&self) -> Result<PathBuf> {
         match self.maildir_path.as_ref() {
-            Some(path) => Ok(path.to_owned()),
+            Some(path) => Ok(shellexpand_path(path)),
             None => self.try_get_database_path(),
         }
     }

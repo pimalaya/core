@@ -1,6 +1,6 @@
 #![cfg(feature = "maildir")]
 
-use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
+use std::{collections::HashMap, iter::FromIterator, sync::Arc};
 
 use concat_with::concat_line;
 use email::{
@@ -8,7 +8,10 @@ use email::{
     backend::{Backend, BackendBuilder},
     envelope::{list::ListEnvelopes, Id},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag},
-    folder::{config::FolderConfig, expunge::ExpungeFolder},
+    folder::{
+        add::AddFolder, config::FolderConfig, delete::DeleteFolder, expunge::ExpungeFolder,
+        list::ListFolders, Folder, FolderKind, Folders,
+    },
     maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
     message::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
@@ -16,43 +19,29 @@ use email::{
     },
 };
 use mail_builder::MessageBuilder;
-use maildirs::Maildir;
 use tempfile::tempdir;
 
 #[tokio::test]
 async fn test_maildir_features() {
     env_logger::builder().is_test(true).init();
 
-    let mdir = Maildir::from(tempdir().unwrap().path());
-    _ = fs::remove_dir_all(mdir.path());
-    mdir.create_all().unwrap();
-
-    let mdir_sub = Maildir::from(mdir.path().join("INBOX"));
-    _ = fs::remove_dir_all(mdir_sub.path());
-    mdir_sub.create_all().unwrap();
-
-    let mdir_sub = Maildir::from(mdir.path().join("Subdir"));
-    _ = fs::remove_dir_all(mdir_sub.path());
-    mdir_sub.create_all().unwrap();
-
-    let mdir_trash = Maildir::from(mdir.path().join("Trash"));
-    _ = fs::remove_dir_all(mdir_trash.path());
-    mdir_trash.create_all().unwrap();
+    let tmp_dir = tempdir().unwrap().path().to_owned();
 
     let account_config = Arc::new(AccountConfig {
         name: "account".into(),
         folder: Some(FolderConfig {
-            aliases: Some(HashMap::from_iter([("subdir".into(), "Subdir".into())])),
+            aliases: Some(HashMap::from_iter([
+                ("inbox".into(), "Inbox".into()),
+                ("subdir".into(), "Subdir".into()),
+                ("subsubdir".into(), "Subdir/Subdir".into()),
+            ])),
             ..Default::default()
         }),
         ..Default::default()
     });
 
-    // Main maildir backend
-
-    let mdir_path = mdir.path().to_owned();
     let mdir_config = Arc::new(MaildirConfig {
-        root_dir: mdir_path.clone(),
+        root_dir: tmp_dir.clone(),
         maildirpp: false,
     });
 
@@ -62,17 +51,84 @@ async fn test_maildir_features() {
         .await
         .unwrap();
 
-    // Sub maildir backend
+    // testing folders
 
-    let mdir_config = Arc::new(MaildirConfig {
-        root_dir: mdir_path.clone(),
-        maildirpp: false,
-    });
-    let submdir_ctx = MaildirContextBuilder::new(account_config.clone(), mdir_config.clone());
-    let submdir = BackendBuilder::new(account_config.clone(), submdir_ctx)
-        .build::<Backend<MaildirContextSync>>()
-        .await
-        .unwrap();
+    mdir.add_folder("inbox").await.unwrap();
+    mdir.add_folder("subdir").await.unwrap();
+    mdir.add_folder("Subdir/Subdir").await.unwrap();
+    mdir.add_folder("Subdir/Trash").await.unwrap();
+    mdir.add_folder("Trash").await.unwrap();
+
+    let folders = mdir.list_folders().await.unwrap();
+    let expected_folders = Folders::from_iter([
+        Folder {
+            name: "Inbox".into(),
+            kind: Some(FolderKind::Inbox),
+            desc: tmp_dir.join("Inbox").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Trash".into(),
+            kind: Some(FolderKind::Trash),
+            desc: tmp_dir.join("Trash").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Subdir".into(),
+            kind: Some(FolderKind::UserDefined("subdir".into())),
+            desc: tmp_dir.join("Subdir").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Subdir/Trash".into(),
+            kind: None,
+            desc: tmp_dir
+                .join("Subdir")
+                .join("Trash")
+                .to_string_lossy()
+                .to_string(),
+        },
+        Folder {
+            name: "Subdir/Subdir".into(),
+            kind: Some(FolderKind::UserDefined("subsubdir".into())),
+            desc: tmp_dir
+                .join("Subdir")
+                .join("Subdir")
+                .to_string_lossy()
+                .to_string(),
+        },
+    ]);
+
+    assert_eq!(folders, expected_folders);
+
+    mdir.delete_folder("Subdir/Trash").await.unwrap();
+
+    let folders = mdir.list_folders().await.unwrap();
+    let expected_folders = Folders::from_iter([
+        Folder {
+            name: "Inbox".into(),
+            kind: Some(FolderKind::Inbox),
+            desc: tmp_dir.join("Inbox").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Trash".into(),
+            kind: Some(FolderKind::Trash),
+            desc: tmp_dir.join("Trash").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Subdir".into(),
+            kind: Some(FolderKind::UserDefined("subdir".into())),
+            desc: tmp_dir.join("Subdir").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Subdir/Subdir".into(),
+            kind: Some(FolderKind::UserDefined("subsubdir".into())),
+            desc: tmp_dir
+                .join("Subdir")
+                .join("Subdir")
+                .to_string_lossy()
+                .to_string(),
+        },
+    ]);
+
+    assert_eq!(folders, expected_folders);
 
     // check that a message can be built and added
     let email = MessageBuilder::new()
@@ -180,10 +236,6 @@ async fn test_maildir_features() {
         .is_ok());
     assert!(mdir
         .get_messages("subdir", &Id::single(&subdir[0].id))
-        .await
-        .is_ok());
-    assert!(submdir
-        .get_messages("INBOX", &Id::single(&subdir[0].id))
         .await
         .is_ok());
 

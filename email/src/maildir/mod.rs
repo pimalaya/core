@@ -151,9 +151,6 @@ impl BackendContextBuilder for MaildirContextBuilder {
             Maildir::from(mdir.path())
                 .create_all()
                 .map_err(|err| Error::CreateFolderStructureError(err, mdir.path().to_owned()))?;
-        } else {
-            mdir.add(self.account_config.get_inbox_folder_alias())
-                .map_err(|err| Error::CreateFolderStructureError(err, mdir.path().to_owned()))?;
         }
 
         Ok(())

@@ -3983,9 +3983,9 @@ dependencies = [
 
 [[package]]
 name = "maildirs"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af9b9086f53e122c2c18e50832b5bf59aa71ede36bccedad023f840586da495c"
+checksum = "2b7facca4e88a8ab98c16ddd66290d592a6c6f63459e880234a1c6abc8f97491"
 dependencies = [
  "gethostname",
  "thiserror",

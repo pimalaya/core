@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use super::DeleteFolder;
 use crate::{
     folder::{error::Error, FolderKind},
-    info,
     maildir::MaildirContextSync,
     AnyResult,
 };
@@ -29,14 +28,13 @@ impl DeleteMaildirFolder {
 #[async_trait]
 impl DeleteFolder for DeleteMaildirFolder {
     async fn delete_folder(&self, folder: &str) -> AnyResult<()> {
-        info!("deleting maildir folder {folder}");
-
         let ctx = self.ctx.lock().await;
         let config = &ctx.account_config;
+        let maildirpp = ctx.maildir_config.maildirpp;
 
         let folder = config.get_folder_alias(folder);
 
-        if FolderKind::matches_inbox(&folder) {
+        if maildirpp && FolderKind::matches_inbox(&folder) {
             let path = ctx.root.path().to_owned();
             return Err(Error::DeleteMaildirInboxForbiddenError(path).into());
         }

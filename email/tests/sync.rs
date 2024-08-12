@@ -49,7 +49,6 @@ async fn test_sync() {
         name: "left".into(),
         folder: Some(FolderConfig {
             aliases: Some(HashMap::from_iter([
-                (INBOX.into(), "INBOX".into()),
                 (SENT.into(), "Sent Items".into()),
                 (DRAFTS.into(), "Drafts".into()),
                 (TRASH.into(), "Deleted Items".into()),
@@ -238,14 +237,16 @@ async fn test_sync() {
     let expected_evts = HashSet::from_iter([
         SyncEvent::ListedLeftCachedFolders(0),
         SyncEvent::ListedRightCachedFolders(0),
-        SyncEvent::ListedLeftFolders(1),
+        SyncEvent::ListedLeftFolders(0),
         SyncEvent::ListedRightFolders(1),
         SyncEvent::ListedAllFolders,
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left)),
         SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left)),
         SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right)),
         SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([(
             INBOX.into(),
             BTreeSet::from_iter([
+                FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left),
                 FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left),
                 FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right),
             ]),
@@ -357,14 +358,16 @@ async fn test_sync() {
     let expected_evts = HashSet::from_iter([
         SyncEvent::ListedLeftCachedFolders(0),
         SyncEvent::ListedRightCachedFolders(0),
-        SyncEvent::ListedLeftFolders(1),
+        SyncEvent::ListedLeftFolders(0),
         SyncEvent::ListedRightFolders(1),
         SyncEvent::ListedAllFolders,
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left)),
         SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left)),
         SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right)),
         SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([(
             INBOX.into(),
             BTreeSet::from_iter([
+                FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left),
                 FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left),
                 FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right),
             ]),
@@ -445,15 +448,17 @@ async fn test_sync() {
     let expected_evts = HashSet::from_iter([
         SyncEvent::ListedLeftCachedFolders(0),
         SyncEvent::ListedRightCachedFolders(0),
-        SyncEvent::ListedLeftFolders(1),
+        SyncEvent::ListedLeftFolders(0),
         SyncEvent::ListedRightFolders(5),
         SyncEvent::ListedAllFolders,
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left)),
         SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left)),
         SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right)),
         SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([
             (
                 INBOX.into(),
                 BTreeSet::from_iter([
+                    FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left),
                     FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left),
                     FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right),
                 ]),
@@ -669,6 +674,7 @@ async fn test_sync() {
         .collect();
 
     let expected_folder_patch = HashSet::from_iter([
+        FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left),
         FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left),
         FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right),
         FolderSyncHunk::Cache(DRAFTS.into(), SyncDestination::Right),
@@ -750,6 +756,8 @@ async fn test_sync() {
     assert_eq!(email_patch, expected_email_patch);
 
     // attempt a second sync that should lead to an empty report
+
+    println!("left_folders: {:#?}", left.list_folders().await.unwrap());
 
     let report = sync_builder.clone().sync().await.unwrap();
 

@@ -21,6 +21,7 @@ pub struct MaildirConfig {
     /// variables and tilde `~` are replaced by their values.
     pub root_dir: PathBuf,
 
+    #[cfg_attr(feature = "derive", serde(default))]
     pub maildirpp: bool,
 }
 

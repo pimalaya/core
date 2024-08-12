@@ -230,7 +230,7 @@ impl BackendContextBuilder for NotmuchContextBuilder {
 
         let maildir_config = Arc::new(MaildirConfig {
             root_dir: root.path().to_owned(),
-            maildirpp: false,
+            maildirpp: self.notmuch_config.maildirpp,
         });
 
         let mdir_ctx = MaildirContext {

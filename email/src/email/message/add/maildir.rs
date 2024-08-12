@@ -38,7 +38,7 @@ impl AddMessage for AddMaildirMessage {
         let mdir = ctx.get_maildir_from_folder_alias(folder)?;
 
         let entry = mdir
-            .write_new_with(
+            .write_cur(
                 raw_msg,
                 flags
                     .iter()
