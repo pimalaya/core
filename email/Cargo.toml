@@ -19,7 +19,7 @@ rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
 name = "email"
 
 [features]
-default = ["notmuch", "maildir"]
+default = ["imap", "maildir", "notmuch"]
 full = [
   # Enables the IMAP backend, which allows management of local or
   # remote mailboxes and emails located on any IMAP server. Paired

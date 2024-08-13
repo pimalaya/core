@@ -1,4 +1,11 @@
-#![cfg(all(feature = "imap", feature = "notmuch"))]
+#![cfg(all(
+    feature = "email-testing-server",
+    feature = "imap",
+    feature = "maildir",
+    feature = "notmuch",
+    feature = "sync",
+    feature = "pool",
+))]
 
 use std::{iter::FromIterator, sync::Arc};
 
@@ -114,6 +121,7 @@ async fn test_search_emails_query() {
 
     let mdir_config = Arc::new(MaildirConfig {
         root_dir: tmp.join("maildir"),
+        maildirpp: false,
     });
 
     let mdir_ctx = MaildirContextBuilder::new(account_config.clone(), mdir_config.clone());
