@@ -24,6 +24,7 @@ async fn test_notmuch_features() {
     // set up maildir folders and notmuch database
 
     let mdir: Maildir = tempdir().unwrap().path().to_owned().into();
+    // let mdir: Maildir = std::path::PathBuf::from("/tmp/caca").into();
     _ = fs::remove_dir_all(mdir.path());
     mdir.create_all().unwrap();
 
@@ -93,7 +94,6 @@ async fn test_notmuch_features() {
         .list_envelopes(INBOX, Default::default())
         .await
         .unwrap();
-    println!("envelopes: {envelopes:?}");
 
     let inbox_envelope = envelopes.first().unwrap();
 
@@ -175,7 +175,7 @@ async fn test_notmuch_features() {
         .unwrap();
     let envelope = envelopes.first().unwrap();
 
-    assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
+    assert!(envelope.flags.contains(&Flag::Custom("flag".into())));
     assert!(envelope.flags.contains(&Flag::Seen));
     assert!(envelope.flags.contains(&Flag::Flagged));
     assert!(envelope.flags.contains(&Flag::Answered));
@@ -198,7 +198,7 @@ async fn test_notmuch_features() {
 
     // check that envelopes flags can be changed
 
-    let flags = Flags::from_iter([Flag::custom("flag"), Flag::Answered]);
+    let flags = Flags::from_iter([Flag::Answered]);
     notmuch
         .set_flags(INBOX, &Id::single(&*inbox_id), &flags)
         .await

@@ -80,6 +80,7 @@ impl From<&str> for Flag {
             deleted if deleted.eq_ignore_ascii_case("deleted") => Flag::Deleted,
             trashed if trashed.eq_ignore_ascii_case("trashed") => Flag::Deleted,
             draft if draft.eq_ignore_ascii_case("draft") => Flag::Draft,
+            draft if draft.eq_ignore_ascii_case("draft") => Flag::Draft,
             flag => Flag::Custom(flag.into()),
         }
     }

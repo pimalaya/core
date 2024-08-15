@@ -41,7 +41,8 @@ impl CopyMessages for CopyMaildirMessages {
                         to_folder.to_owned(),
                         entry.path().to_owned(),
                     )
-                })
+                })?;
+                AnyResult::Ok(())
             })?;
 
         Ok(())

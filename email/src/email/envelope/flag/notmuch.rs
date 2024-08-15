@@ -5,19 +5,39 @@
 
 use notmuch::Message;
 
-use crate::{debug, flag::Flags};
+use crate::flag::Flags;
 
-impl Flags {
-    pub fn from_notmuch_msg(msg: &Message) -> Self {
-        msg.tags()
-            .filter_map(|ref tag| match tag.parse() {
-                Ok(flag) => Some(flag),
-                Err(_err) => {
-                    debug!("cannot parse notmuch tag {tag}: {_err}");
-                    debug!("{_err:?}");
-                    None
+use super::Flag;
+
+impl From<&Message> for Flags {
+    fn from(msg: &Message) -> Self {
+        let mut flags = Flags::default();
+        let mut unread = false;
+
+        for tag in msg.tags() {
+            match tag.as_str() {
+                "draft" => {
+                    flags.insert(Flag::Draft);
                 }
-            })
-            .collect()
+                "flagged" => {
+                    flags.insert(Flag::Flagged);
+                }
+                "replied" => {
+                    flags.insert(Flag::Answered);
+                }
+                "unread" => {
+                    unread = true;
+                }
+                flag => {
+                    flags.insert(Flag::custom(flag));
+                }
+            }
+        }
+
+        if !unread {
+            flags.insert(Flag::Seen);
+        }
+
+        flags
     }
 }

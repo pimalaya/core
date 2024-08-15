@@ -1,6 +1,5 @@
-use std::fs;
-
 use async_trait::async_trait;
+use maildirs::MaildirEntry;
 
 use super::CopyMessages;
 use crate::{
@@ -54,12 +53,22 @@ impl CopyMessages for CopyNotmuchMessages {
             .map_err(Error::NotMuchFailure)?;
 
         for msg in msgs {
-            let content = fs::read(msg.filename()).map_err(Error::FileReadFailure)?;
-            let mdir_entry = mdir
-                .write_cur(&content, [maildirs::Flag::Seen])
-                .map_err(Error::MaildirppFailure)?;
-            db.index_file(mdir_entry.path(), None)
-                .map_err(Error::NotMuchFailure)?;
+            let Some(filename) = msg.filenames().find(|f| f.is_file()) else {
+                #[cfg(feature = "tracing")]
+                {
+                    let id = msg.id();
+                    tracing::debug!(?id, "skipping notmuch message with invalid filename");
+                }
+
+                continue;
+            };
+
+            let entry = MaildirEntry::new(filename);
+            let path = entry.copy(&mdir).map_err(Error::MaildirppFailure)?;
+
+            if let Some(path) = path {
+                db.index_file(path, None).map_err(Error::NotMuchFailure)?;
+            }
         }
 
         Ok(())

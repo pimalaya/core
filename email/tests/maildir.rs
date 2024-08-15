@@ -56,8 +56,9 @@ async fn test_maildir_features() {
     mdir.add_folder("inbox").await.unwrap();
     mdir.add_folder("subdir").await.unwrap();
     mdir.add_folder("Subdir/Subdir").await.unwrap();
-    mdir.add_folder("Subdir/Trash").await.unwrap();
     mdir.add_folder("Trash").await.unwrap();
+    mdir.add_folder("Nested").await.unwrap();
+    mdir.add_folder("Nested/Folder").await.unwrap();
 
     let folders = mdir.list_folders().await.unwrap();
     let expected_folders = Folders::from_iter([
@@ -65,6 +66,20 @@ async fn test_maildir_features() {
             name: "Inbox".into(),
             kind: Some(FolderKind::Inbox),
             desc: tmp_dir.join("Inbox").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Nested".into(),
+            kind: None,
+            desc: tmp_dir.join("Nested").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Nested/Folder".into(),
+            kind: None,
+            desc: tmp_dir
+                .join("Nested")
+                .join("Folder")
+                .to_string_lossy()
+                .to_string(),
         },
         Folder {
             name: "Trash".into(),
@@ -75,15 +90,6 @@ async fn test_maildir_features() {
             name: "Subdir".into(),
             kind: Some(FolderKind::UserDefined("subdir".into())),
             desc: tmp_dir.join("Subdir").to_string_lossy().to_string(),
-        },
-        Folder {
-            name: "Subdir/Trash".into(),
-            kind: None,
-            desc: tmp_dir
-                .join("Subdir")
-                .join("Trash")
-                .to_string_lossy()
-                .to_string(),
         },
         Folder {
             name: "Subdir/Subdir".into(),
@@ -98,7 +104,9 @@ async fn test_maildir_features() {
 
     assert_eq!(folders, expected_folders);
 
-    mdir.delete_folder("Subdir/Trash").await.unwrap();
+    // deleting a root's nested folders should not delete nested
+    // folders
+    mdir.delete_folder("Nested").await.unwrap();
 
     let folders = mdir.list_folders().await.unwrap();
     let expected_folders = Folders::from_iter([
@@ -106,6 +114,15 @@ async fn test_maildir_features() {
             name: "Inbox".into(),
             kind: Some(FolderKind::Inbox),
             desc: tmp_dir.join("Inbox").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Nested/Folder".into(),
+            kind: None,
+            desc: tmp_dir
+                .join("Nested")
+                .join("Folder")
+                .to_string_lossy()
+                .to_string(),
         },
         Folder {
             name: "Trash".into(),

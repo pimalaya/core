@@ -19,7 +19,7 @@ impl Envelopes {
 impl Envelope {
     pub fn from_notmuch_msg(msg: notmuch::Message) -> Self {
         let id = msg.id();
-        let flags = Flags::from_notmuch_msg(&msg);
+        let flags = Flags::from(&msg);
 
         let message_id = get_header(&msg, "Message-ID");
         let subject = get_header(&msg, "Subject");

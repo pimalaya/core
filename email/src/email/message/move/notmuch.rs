@@ -1,9 +1,10 @@
 use async_trait::async_trait;
+use maildirs::MaildirEntry;
 
 use super::MoveMessages;
 use crate::{
-    debug, email::error::Error, envelope::Id, folder::FolderKind, info,
-    notmuch::NotmuchContextSync, AnyResult,
+    email::error::Error, envelope::Id, folder::FolderKind, info, notmuch::NotmuchContextSync,
+    AnyResult,
 };
 
 #[derive(Clone)]
@@ -34,7 +35,6 @@ impl MoveMessages for MoveNotmuchMessages {
         let ctx = self.ctx.lock().await;
 
         let mdir_ctx = &ctx.mdir_ctx;
-        let mdir_from = mdir_ctx.get_maildir_from_folder_alias(from_folder)?;
         let mdir_to = mdir_ctx.get_maildir_from_folder_alias(to_folder)?;
 
         let db = ctx.open_db()?;
@@ -53,30 +53,23 @@ impl MoveMessages for MoveNotmuchMessages {
             .map_err(Error::NotMuchFailure)?;
 
         for msg in msgs {
-            let mdir_entry = mdir_from
-                .read()
-                .map_err(Error::MaildirsError)?
-                .find(|entry| entry.path() == msg.filename());
+            let Some(filename) = msg.filenames().find(|f| f.is_file()) else {
+                #[cfg(feature = "tracing")]
+                {
+                    let id = msg.id();
+                    tracing::debug!(?id, "skipping notmuch message with invalid filename");
+                }
 
-            match &mdir_entry {
-                None => {
-                    let _path = msg.filename().to_string_lossy();
-                    debug!("cannot move missing notmuch message {_path}");
-                    break;
-                }
-                Some(mdir_entry) => {
-                    mdir_entry
-                        .r#move(&mdir_to)
-                        .map_err(Error::MaildirppFailure)?;
-                    msg.reindex(db.default_indexopts().map_err(Error::NotMuchFailure)?)
-                        .map_err(Error::NotMuchFailure)?;
-                    let mdir_entry = mdir_to
-                        .find(mdir_entry.id().map_err(Error::MaildirppFailure)?)
-                        .map_err(Error::MaildirppFailure)?
-                        .unwrap();
-                    db.index_file(mdir_entry.path(), None)
-                        .map_err(Error::NotMuchFailure)?;
-                }
+                continue;
+            };
+
+            let entry = MaildirEntry::new(filename);
+            let path = entry.r#move(&mdir_to).map_err(Error::MaildirppFailure)?;
+
+            if let Some(path) = path {
+                msg.reindex(db.default_indexopts().map_err(Error::NotMuchFailure)?)
+                    .map_err(Error::NotMuchFailure)?;
+                db.index_file(path, None).map_err(Error::NotMuchFailure)?;
             }
         }
 
