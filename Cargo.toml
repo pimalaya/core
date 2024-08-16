@@ -6,7 +6,6 @@ members = [
   "email-testing-server",
   "keyring",
   "m2dir",
-  "maildir++",
   "mml",
   "oauth",
   "pgp",
@@ -20,7 +19,6 @@ members = [
 email-lib = { path = "./email" }
 email-macros = { path = "./email-macros" }
 keyring-lib = { path = "./keyring" }
-maildirpp = { path = "./maildir++" }
 mml-lib = { path = "./mml" }
 oauth-lib = { path = "./oauth" }
 pgp-lib = { path = "./pgp" }
