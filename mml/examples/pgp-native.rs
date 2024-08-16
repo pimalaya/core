@@ -1,16 +1,15 @@
-#![cfg(feature = "pgp-native")]
-
-use mml::{
-    pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
-    MmlCompilerBuilder,
-};
-use pgp::gen_key_pair;
-use secret::Secret;
-use tempfile::tempdir;
-use tokio::fs;
-
+#[cfg(feature = "pgp-native")]
 #[tokio::main]
 async fn main() {
+    use mml::{
+        pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
+        MmlCompilerBuilder,
+    };
+    use pgp::gen_key_pair;
+    use secret::Secret;
+    use tempfile::tempdir;
+    use tokio::fs;
+
     env_logger::builder().is_test(true).init();
 
     let dir = tempdir().unwrap();
@@ -52,4 +51,10 @@ async fn main() {
     println!("================================");
     println!();
     println!("{mime}");
+}
+
+#[cfg(not(feature = "pgp-native"))]
+#[tokio::main]
+async fn main() {
+    panic!("The pgp-native cargo feature should be enabled to run this example.");
 }

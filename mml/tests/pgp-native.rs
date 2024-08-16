@@ -1,3 +1,5 @@
+#![cfg(feature = "pgp-native")]
+
 use concat_with::concat_line;
 use mml::{
     pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},

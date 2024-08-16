@@ -1,3 +1,5 @@
+#![cfg(feature = "pgp-commands")]
+
 use concat_with::concat_line;
 use mml::{
     pgp::{CmdsPgp, Pgp},

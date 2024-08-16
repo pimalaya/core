@@ -1,13 +1,12 @@
-#![cfg(feature = "pgp-commands")]
-
-use mml::{
-    pgp::{CmdsPgp, Pgp},
-    MmlCompilerBuilder,
-};
-use process::Command;
-
+#[cfg(feature = "pgp-commands")]
 #[tokio::main]
 async fn main() {
+    use mml::{
+        pgp::{CmdsPgp, Pgp},
+        MmlCompilerBuilder,
+    };
+    use process::Command;
+
     env_logger::builder().is_test(true).init();
 
     let mml = include_str!("./pgp.eml");
@@ -37,4 +36,10 @@ async fn main() {
     println!("================================");
     println!();
     println!("{mime}");
+}
+
+#[cfg(not(feature = "pgp-commands"))]
+#[tokio::main]
+async fn main() {
+    panic!("The pgp-commands cargo feature should be enabled to run this example.");
 }

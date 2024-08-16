@@ -323,6 +323,7 @@ mod tests {
             "From: from@localhost",
             "To: to@localhost",
             "Subject: subject",
+            "MIME-Version: 1.0",
             "Content-Type: text/plain; charset=utf-8",
             "Content-Transfer-Encoding: 7bit",
             "",

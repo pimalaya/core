@@ -396,6 +396,7 @@ mod tests {
         let expected_msg = concat_line!(
             "Message-ID: <id@localhost>\r",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
+            "MIME-Version: 1.0\r",
             "Content-Type: text/plain; charset=\"utf-8\"\r",
             "Content-Transfer-Encoding: 7bit\r",
             "\r",
@@ -426,6 +427,7 @@ mod tests {
         let expected_msg = concat_line!(
             "Message-ID: <id@localhost>\r",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
+            "MIME-Version: 1.0\r",
             "Content-Type: text/html; charset=\"utf-8\"\r",
             "Content-Transfer-Encoding: 7bit\r",
             "\r",
@@ -463,6 +465,7 @@ mod tests {
         let expected_msg = concat_line!(
             "Message-ID: <id@localhost>\r",
             "Date: Thu, 1 Jan 1970 00:00:00 +0000\r",
+            "MIME-Version: 1.0\r",
             "Content-Type: text/plain; name=\"custom\"\r",
             "Content-Transfer-Encoding: base64\r",
             "Content-Disposition: attachment; filename=\"/tmp/custom\"\r",

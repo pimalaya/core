@@ -1,3 +1,5 @@
+#![cfg(feature = "pgp-gpg")]
+
 use concat_with::concat_line;
 use mml::{
     pgp::{Gpg, Pgp},
