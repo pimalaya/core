@@ -1,6 +1,8 @@
 use std::{any::Any, io, path::PathBuf, result};
 
 use chumsky::error::Rich;
+#[cfg(feature = "imap")]
+use imap_next::imap_types::error::ValidationError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -17,6 +19,9 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[cfg(feature = "imap")]
+    #[error("cannot parse IMAP sequence")]
+    ParseSequenceError(#[source] ValidationError),
     #[cfg(feature = "maildir")]
     #[error("cannot list maildir entries")]
     ListMaildirEntriesError(#[source] maildirs::Error),

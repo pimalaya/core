@@ -3,7 +3,7 @@ use imap_next::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{Flags, SetFlags};
-use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult, Error};
 
 #[derive(Clone, Debug)]
 pub struct SetImapFlags {
@@ -37,13 +37,24 @@ impl SetFlags for SetImapFlags {
         debug!("utf7 encoded folder: {folder_encoded}");
 
         let uids: SequenceSet = match id {
-            Id::Single(id) => Sequence::try_from(id.as_str()).unwrap().into(),
+            Id::Single(id) => Sequence::try_from(id.as_str())
+                .map_err(Error::ParseSequenceError)?
+                .into(),
             Id::Multiple(ids) => ids
                 .iter()
-                .filter_map(|id| Sequence::try_from(id.as_str()).ok())
+                .filter_map(|id| {
+                    let seq = Sequence::try_from(id.as_str());
+
+                    #[cfg(feature = "tracing")]
+                    if let Err(err) = &seq {
+                        tracing::debug!(?id, ?err, "skipping invalid sequence");
+                    }
+
+                    seq.ok()
+                })
                 .collect::<Vec<_>>()
                 .try_into()
-                .unwrap(),
+                .map_err(Error::ParseSequenceError)?,
         };
 
         ctx.select_mailbox(&folder_encoded).await?;
