@@ -44,10 +44,10 @@ impl ListEnvelopes for ListNotmuchEnvelopes {
         let config = &ctx.account_config;
         let db = ctx.open_db()?;
 
-        let mut final_query = if FolderKind::matches_inbox(folder) {
+        let ref folder = config.get_folder_alias(folder);
+        let mut final_query = if ctx.maildirpp() && FolderKind::matches_inbox(folder) {
             String::from("folder:\"\"")
         } else {
-            let folder = config.get_folder_alias(folder.as_ref());
             format!("folder:{folder:?}")
         };
 

@@ -4,21 +4,18 @@ mod error;
 use std::{collections::HashMap, env, fmt, num::NonZeroU32, ops::Deref, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use imap_client::{
-    tasks::tasks::select::SelectDataUnvalidated,
-    types::{
-        auth::AuthMechanism,
-        core::{IString, NString, Vec1},
-        extensions::{
-            sort::SortCriterion,
-            thread::{Thread, ThreadingAlgorithm},
-        },
-        fetch::MessageDataItem,
-        flag::{Flag, StoreType},
-        search::SearchKey,
-        sequence::SequenceSet,
+use imap_client::{tasks::tasks::select::SelectDataUnvalidated, Client, ClientError};
+use imap_next::imap_types::{
+    auth::AuthMechanism,
+    core::{IString, NString, Vec1},
+    extensions::{
+        sort::SortCriterion,
+        thread::{Thread, ThreadingAlgorithm},
     },
-    Client, ClientError,
+    fetch::MessageDataItem,
+    flag::{Flag, StoreType},
+    search::SearchKey,
+    sequence::SequenceSet,
 };
 use once_cell::sync::Lazy;
 use tokio::sync::{oneshot, Mutex};

@@ -1,9 +1,10 @@
 use std::{any::Any, collections::HashSet, result};
 
-use imap_client::{
-    flow::{client::ClientFlowError, stream::StreamError},
-    types::{auth::AuthMechanism, error::ValidationError},
-    ClientError,
+use imap_client::ClientError;
+use imap_next::{
+    client::Error as ClientFlowError,
+    imap_types::{auth::AuthMechanism, error::ValidationError},
+    stream::Error as StreamError,
 };
 use thiserror::Error;
 

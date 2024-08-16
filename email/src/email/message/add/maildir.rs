@@ -35,14 +35,19 @@ impl AddMessage for AddMaildirMessage {
         info!("adding maildir message to folder {folder} with flags {flags}");
 
         let ctx = self.ctx.lock().await;
-        let mdir = ctx.get_maildir_from_folder_name(folder)?;
+        let mdir = ctx.get_maildir_from_folder_alias(folder)?;
 
-        let id = mdir
-            .store_cur_with_flags(raw_msg, &flags.to_mdir_string())
+        let entry = mdir
+            .write_cur(
+                raw_msg,
+                flags
+                    .iter()
+                    .filter_map(|flag| maildirs::Flag::try_from(flag).ok()),
+            )
             .map_err(|err| {
                 Error::StoreWithFlagsMaildirError(err, folder.to_owned(), flags.clone())
             })?;
 
-        Ok(SingleId::from(id))
+        Ok(SingleId::from(entry.id().unwrap()))
     }
 }

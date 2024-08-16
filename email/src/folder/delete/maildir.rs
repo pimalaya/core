@@ -1,12 +1,9 @@
-use std::fs;
-
 use async_trait::async_trait;
 
 use super::DeleteFolder;
 use crate::{
     folder::{error::Error, FolderKind},
-    info,
-    maildir::{self, MaildirContextSync},
+    maildir::MaildirContextSync,
     AnyResult,
 };
 
@@ -31,18 +28,20 @@ impl DeleteMaildirFolder {
 #[async_trait]
 impl DeleteFolder for DeleteMaildirFolder {
     async fn delete_folder(&self, folder: &str) -> AnyResult<()> {
-        info!("deleting maildir folder {folder}");
-
         let ctx = self.ctx.lock().await;
+        let config = &ctx.account_config;
+        let maildirpp = ctx.maildir_config.maildirpp;
 
-        let path = if FolderKind::matches_inbox(folder) {
-            ctx.root.path().join("cur")
-        } else {
-            let folder = maildir::encode_folder(folder);
-            ctx.root.path().join(format!(".{}", folder))
-        };
+        let folder = config.get_folder_alias(folder);
 
-        fs::remove_dir_all(&path).map_err(|err| Error::DeleteFolderMaildirError(err, path))?;
+        if maildirpp && FolderKind::matches_inbox(&folder) {
+            let path = ctx.root.path().to_owned();
+            return Err(Error::DeleteMaildirInboxForbiddenError(path).into());
+        }
+
+        ctx.root
+            .remove(&folder)
+            .map_err(|err| Error::DeleteMaildirFolderError(err, folder))?;
 
         Ok(())
     }

@@ -1,10 +1,13 @@
+use std::collections::HashSet;
+
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
 use super::{AddMessage, Flags};
 use crate::{
-    email::error::Error, envelope::SingleId, info, notmuch::NotmuchContextSync, AnyResult,
+    email::error::Error, envelope::SingleId, flag::Flag, info, notmuch::NotmuchContextSync,
+    AnyResult,
 };
 
 static EXTRACT_FOLDER_FROM_QUERY: Lazy<Regex> =
@@ -52,20 +55,55 @@ impl AddMessage for AddNotmuchMessage {
             None => folder.to_owned(),
         };
 
-        let mdir = mdir_ctx.get_maildir_from_folder_name(&folder)?;
-        let id = mdir
-            .store_cur_with_flags(msg, &flags.to_mdir_string())
+        let mdir = mdir_ctx.get_maildir_from_folder_alias(&folder)?;
+        let mut entry = mdir
+            .write_cur(msg, HashSet::from(flags))
             .map_err(Error::MaildirppFailure)?;
-        let msg = mdir.find(&id).unwrap();
-
-        let msg = db
-            .index_file(msg.path(), None)
+        let mut msg = db
+            .index_file(entry.path(), None)
             .map_err(Error::NotMuchFailure)?;
 
-        flags
-            .iter()
-            .try_for_each(|flag| msg.add_tag(&flag.to_string()))
-            .map_err(Error::NotMuchFailure)?;
+        for flag in flags.iter() {
+            match flag {
+                Flag::Seen => {
+                    msg.remove_tag("unread").map_err(Error::NotMuchFailure)?;
+                    entry
+                        .insert_flag(maildirs::Flag::Seen)
+                        .map_err(Error::MaildirppFailure)?;
+                }
+                Flag::Answered => {
+                    msg.add_tag("replied").map_err(Error::NotMuchFailure)?;
+                    entry
+                        .insert_flag(maildirs::Flag::Replied)
+                        .map_err(Error::MaildirppFailure)?;
+                }
+                Flag::Flagged => {
+                    msg.add_tag("flagged").map_err(Error::NotMuchFailure)?;
+                    entry
+                        .insert_flag(maildirs::Flag::Flagged)
+                        .map_err(Error::MaildirppFailure)?;
+                }
+                Flag::Deleted => {
+                    msg.add_tag("deleted").map_err(Error::NotMuchFailure)?;
+                    entry
+                        .insert_flag(maildirs::Flag::Trashed)
+                        .map_err(Error::MaildirppFailure)?;
+                }
+                Flag::Draft => {
+                    msg.add_tag("draft").map_err(Error::NotMuchFailure)?;
+                    entry
+                        .insert_flag(maildirs::Flag::Draft)
+                        .map_err(Error::MaildirppFailure)?;
+                }
+                Flag::Custom(tag) => {
+                    msg.add_tag(tag).map_err(Error::NotMuchFailure)?;
+                }
+            }
+
+            msg = db
+                .index_file(entry.path(), None)
+                .map_err(Error::NotMuchFailure)?;
+        }
 
         let id = SingleId::from(msg.id());
 

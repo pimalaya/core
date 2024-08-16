@@ -1,8 +1,19 @@
-use directory::core::config::ConfigDirectory;
+use arc_swap::ArcSwap;
+use common::{
+    config::{
+        server::{ServerProtocol, Servers},
+        tracers::Tracers,
+    },
+    manager::{
+        boot::BootManager,
+        config::{ConfigManager, Patterns},
+    },
+    Core, Ipc, IPC_CHANNEL_BUFFER,
+};
 use imap::core::{ImapSessionManager, IMAP};
 #[cfg(not(target_env = "msvc"))]
 use jemallocator::Jemalloc;
-use jmap::{services::IPC_CHANNEL_BUFFER, JMAP};
+use jmap::JMAP;
 use log::{log_enabled, Level::*};
 use smtp::core::{SmtpSessionManager, SMTP};
 use std::{
@@ -10,19 +21,20 @@ use std::{
     future::Future,
     net::TcpListener,
 };
-use store::config::ConfigStore;
+use store::Stores;
 use tempfile::tempdir;
 use tokio::sync::mpsc;
-use utils::{
-    config::{Config, ServerProtocol},
-    enable_tracing,
-};
+use utils::config::Config;
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
 pub async fn start_email_testing_server() -> (Ports, impl Fn()) {
+    tokio_rustls::rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     // NOTE: did not find a way to get the current log level
     let tracing_level = if log_enabled!(Trace) {
         "trace"
@@ -104,92 +116,78 @@ pub async fn start_email_testing_server() -> (Ports, impl Fn()) {
             ("store.sqlite.path".into(), sqlite_path),
             ("resolver.type".into(), "system".into()),
         ]),
+        ..Default::default()
+    };
+
+    // Parser servers
+    let servers = Servers::parse(&mut config);
+    servers.bind_and_drop_priv(&mut config);
+
+    // Resolve file and configuration macros
+    config.resolve_macros(&["file", "cfg"]).await;
+
+    // Load stores
+    let stores = Stores::parse(&mut config).await;
+
+    // Build manager
+    let manager = ConfigManager {
+        cfg_local: ArcSwap::from_pointee(config.keys.clone()),
+        cfg_local_path: tmp.to_owned(),
+        cfg_local_patterns: Patterns::parse(&mut config).into(),
+        cfg_store: config
+            .value("storage.data")
+            .and_then(|id| stores.stores.get(id))
+            .cloned()
+            .unwrap_or_default(),
     };
 
     // Enable tracing
-    enable_tracing(
-        &config,
-        &format!(
-            "Starting Stalwart Mail Server v{}...",
-            env!("CARGO_PKG_VERSION"),
-        ),
-    )
-    .expect("should enable tracing");
+    Tracers::parse(&mut config).enable();
 
-    // Bind ports and drop privileges
-    let mut servers = config
-        .parse_servers()
-        .expect("servers config should be valid");
-    servers.bind(&config);
-
-    // Parse stores
-    let stores = config
-        .parse_stores()
+    let core = Core::parse(&mut config, stores, manager)
         .await
-        .expect("stores config should be valid");
-    let data_store = stores
-        .get_store(&config, "storage.data")
-        .expect("data stores config should be valid");
+        .into_shared();
 
-    // Update configuration
-    config.update(
-        data_store
-            .config_list("")
-            .await
-            .expect("should be able to save data store config"),
-    );
+    let init = BootManager {
+        core,
+        config,
+        servers,
+    };
 
-    // Parse directories
-    let directory = config
-        .parse_directory(&stores, data_store)
-        .await
-        .expect("directory config should be valid");
+    let mut config = init.config;
+    let core = init.core;
 
     // Init servers
     let (delivery_tx, delivery_rx) = mpsc::channel(IPC_CHANNEL_BUFFER);
+    let ipc = Ipc { delivery_tx };
 
-    let smtp = SMTP::init(&config, &servers, &stores, &directory, delivery_tx)
-        .await
-        .expect("should be able to init SMTP server");
-
-    let jmap = JMAP::init(
-        &config,
-        &stores,
-        &directory,
-        &mut servers,
-        delivery_rx,
-        smtp.clone(),
+    let smtp = SMTP::init(
+        &mut config,
+        core.clone(),
+        ipc,
+        init.servers.span_id_gen.clone(),
     )
-    .await
-    .expect("should be able to init JMAP server");
-
-    let imap = IMAP::init(&config)
-        .await
-        .expect("should be able to init IMAP server");
+    .await;
+    let jmap = JMAP::init(&mut config, delivery_rx, core.clone(), smtp.inner.clone()).await;
+    let imap = IMAP::init(&mut config, jmap.clone()).await;
 
     // Spawn servers
-    let (shutdown_tx, _) = servers.spawn(|server, shutdown_rx| {
+    let (shutdown_tx, _) = init.servers.spawn(|server, acceptor, shutdown_rx| {
         match &server.protocol {
-            ServerProtocol::Smtp | ServerProtocol::Lmtp => {
-                server.spawn(SmtpSessionManager::new(smtp.clone()), shutdown_rx)
-            }
-            ServerProtocol::Http => {
-                unreachable!();
-            }
-            ServerProtocol::Jmap => {
-                unreachable!();
-                // server.spawn(JmapSessionManager::new(jmap.clone()), shutdown_rx)
-            }
-            ServerProtocol::Imap => server.spawn(
-                ImapSessionManager::new(jmap.clone(), imap.clone()),
+            ServerProtocol::Smtp | ServerProtocol::Lmtp => server.spawn(
+                SmtpSessionManager::new(smtp.clone()),
+                core.clone(),
+                acceptor,
                 shutdown_rx,
             ),
-            ServerProtocol::ManageSieve => {
+            ServerProtocol::Imap => server.spawn(
+                ImapSessionManager::new(imap.clone()),
+                core.clone(),
+                acceptor,
+                shutdown_rx,
+            ),
+            _ => {
                 unreachable!();
-                // server.spawn(
-                //     ManageSieveSessionManager::new(jmap.clone(), imap.clone()),
-                //     shutdown_rx,
-                // )
             }
         };
     });

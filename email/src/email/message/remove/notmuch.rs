@@ -50,7 +50,17 @@ impl RemoveMessages for RemoveNotmuchMessages {
             .map_err(Error::NotMuchFailure)?;
 
         for msg in msgs {
-            db.remove_message(msg.filename()).map_err(|err| {
+            let Some(filename) = msg.filenames().find(|f| f.is_file()) else {
+                #[cfg(feature = "tracing")]
+                {
+                    let id = msg.id();
+                    tracing::debug!(?id, "skipping notmuch message with invalid filename");
+                }
+
+                continue;
+            };
+
+            db.remove_message(filename).map_err(|err| {
                 Error::RemoveNotmuchMessageError(err, folder.to_owned(), id.clone())
             })?
         }

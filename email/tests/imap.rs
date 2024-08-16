@@ -1,4 +1,4 @@
-#![cfg(feature = "imap")]
+#![cfg(all(feature = "imap", feature = "email-testing-server"))]
 
 use std::{collections::HashMap, sync::Arc};
 

@@ -1,8 +1,9 @@
 use async_trait::async_trait;
+use maildirs::MaildirEntry;
 
 use super::{AddFlags, Flags};
 use crate::{
-    debug, email::error::Error, envelope::Id, folder::FolderKind, info,
+    debug, email::error::Error, envelope::Id, flag::Flag, folder::FolderKind, info,
     notmuch::NotmuchContextSync, AnyResult,
 };
 
@@ -34,10 +35,10 @@ impl AddFlags for AddNotmuchFlags {
         let ctx = self.ctx.lock().await;
         let db = ctx.open_db()?;
 
-        let folder_query = if FolderKind::matches_inbox(folder) {
-            "folder:\"\"".to_owned()
+        let ref folder = config.get_folder_alias(folder);
+        let folder_query = if ctx.maildirpp() && FolderKind::matches_inbox(folder) {
+            String::from("folder:\"\"")
         } else {
-            let folder = config.get_folder_alias(folder);
             format!("folder:{folder:?}")
         };
         let mid_query = format!("mid:\"/^({})$/\"", id.join("|"));
@@ -49,10 +50,51 @@ impl AddFlags for AddNotmuchFlags {
             .search_messages()
             .map_err(Error::NotMuchFailure)?;
 
-        for msg in msgs {
+        for mut msg in msgs {
+            let mut entry = MaildirEntry::new(msg.filename());
+
             for flag in flags.iter() {
-                msg.add_tag(&flag.to_string())
-                    .map_err(Error::NotMuchFailure)?;
+                match flag {
+                    Flag::Seen => {
+                        msg.remove_tag("unread").map_err(Error::NotMuchFailure)?;
+                        entry
+                            .insert_flag(maildirs::Flag::Seen)
+                            .map_err(Error::MaildirppFailure)?;
+                    }
+                    Flag::Answered => {
+                        msg.add_tag("replied").map_err(Error::NotMuchFailure)?;
+                        entry
+                            .insert_flag(maildirs::Flag::Replied)
+                            .map_err(Error::MaildirppFailure)?;
+                    }
+                    Flag::Flagged => {
+                        msg.add_tag("flagged").map_err(Error::NotMuchFailure)?;
+                        entry
+                            .insert_flag(maildirs::Flag::Flagged)
+                            .map_err(Error::MaildirppFailure)?;
+                    }
+                    Flag::Deleted => {
+                        msg.add_tag("deleted").map_err(Error::NotMuchFailure)?;
+                        entry
+                            .insert_flag(maildirs::Flag::Trashed)
+                            .map_err(Error::MaildirppFailure)?;
+                    }
+                    Flag::Draft => {
+                        msg.add_tag("draft").map_err(Error::NotMuchFailure)?;
+                        entry
+                            .insert_flag(maildirs::Flag::Draft)
+                            .map_err(Error::MaildirppFailure)?;
+                    }
+                    Flag::Custom(tag) => {
+                        msg.add_tag(tag).map_err(Error::NotMuchFailure)?;
+                    }
+                }
+
+                if msg.filename() != entry.path() {
+                    msg = db
+                        .index_file(entry.path(), None)
+                        .map_err(Error::NotMuchFailure)?;
+                }
             }
         }
 

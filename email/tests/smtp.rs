@@ -1,6 +1,6 @@
-#![cfg(feature = "full")]
+#![cfg(all(feature = "smtp", feature = "imap", feature = "email-testing-server"))]
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use email::{
     account::config::{passwd::PasswdConfig, AccountConfig},
@@ -66,6 +66,8 @@ async fn test_smtp_features() {
             .write_to_vec()
             .unwrap();
         smtp.send_message(&raw_msg).await.unwrap();
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
 
         // checking that the envelope of the sent email exists
 

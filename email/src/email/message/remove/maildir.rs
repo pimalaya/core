@@ -28,13 +28,15 @@ impl RemoveMessages for RemoveMaildirMessages {
         info!("removing maildir message(s) {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;
-        let mdir = ctx.get_maildir_from_folder_name(folder)?;
+        let mdir = ctx.get_maildir_from_folder_alias(folder)?;
 
-        id.iter().try_for_each(|ref id| {
-            mdir.delete(id).map_err(|err| {
-                Error::RemoveMaildirMessageError(err, folder.to_owned(), id.to_string())
-            })
-        })?;
+        id.iter()
+            .filter_map(|id| mdir.find(id).ok().flatten())
+            .try_for_each(|entry| {
+                entry.remove().map_err(|err| {
+                    Error::RemoveMaildirMessageError(err, folder.to_owned(), id.to_string())
+                })
+            })?;
 
         Ok(())
     }

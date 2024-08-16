@@ -1,4 +1,4 @@
-#![cfg(feature = "full")]
+#![cfg(feature = "notmuch")]
 
 use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
 
@@ -13,7 +13,7 @@ use email::{
     notmuch::{config::NotmuchConfig, NotmuchContextBuilder, NotmuchContextSync},
 };
 use mail_builder::MessageBuilder;
-use maildirpp::Maildir;
+use maildirs::Maildir;
 use notmuch::Database;
 use tempfile::tempdir;
 
@@ -24,12 +24,17 @@ async fn test_notmuch_features() {
     // set up maildir folders and notmuch database
 
     let mdir: Maildir = tempdir().unwrap().path().to_owned().into();
+    // let mdir: Maildir = std::path::PathBuf::from("/tmp/caca").into();
     _ = fs::remove_dir_all(mdir.path());
-    mdir.create_dirs().unwrap();
+    mdir.create_all().unwrap();
+
+    let inbox = Maildir::from(mdir.path().join("INBOX"));
+    _ = fs::remove_dir_all(inbox.path());
+    inbox.create_all().unwrap();
 
     let custom_mdir: Maildir = mdir.path().join("CustomMaildirFolder").into();
     _ = fs::remove_dir_all(custom_mdir.path());
-    custom_mdir.create_dirs().unwrap();
+    custom_mdir.create_all().unwrap();
 
     Database::create(mdir.path()).unwrap();
 
@@ -89,6 +94,7 @@ async fn test_notmuch_features() {
         .list_envelopes(INBOX, Default::default())
         .await
         .unwrap();
+
     let inbox_envelope = envelopes.first().unwrap();
 
     assert_eq!(1, envelopes.len());
@@ -169,7 +175,7 @@ async fn test_notmuch_features() {
         .unwrap();
     let envelope = envelopes.first().unwrap();
 
-    assert!(!envelope.flags.contains(&Flag::Custom("flag".into())));
+    assert!(envelope.flags.contains(&Flag::Custom("flag".into())));
     assert!(envelope.flags.contains(&Flag::Seen));
     assert!(envelope.flags.contains(&Flag::Flagged));
     assert!(envelope.flags.contains(&Flag::Answered));
@@ -192,7 +198,7 @@ async fn test_notmuch_features() {
 
     // check that envelopes flags can be changed
 
-    let flags = Flags::from_iter([Flag::custom("flag"), Flag::Answered]);
+    let flags = Flags::from_iter([Flag::Answered]);
     notmuch
         .set_flags(INBOX, &Id::single(&*inbox_id), &flags)
         .await

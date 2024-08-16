@@ -1,6 +1,6 @@
-#![cfg(feature = "full")]
+#![cfg(feature = "maildir")]
 
-use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
+use std::{collections::HashMap, iter::FromIterator, sync::Arc};
 
 use concat_with::concat_line;
 use email::{
@@ -8,7 +8,10 @@ use email::{
     backend::{Backend, BackendBuilder},
     envelope::{list::ListEnvelopes, Id},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag},
-    folder::{config::FolderConfig, expunge::ExpungeFolder},
+    folder::{
+        add::AddFolder, config::FolderConfig, delete::DeleteFolder, expunge::ExpungeFolder,
+        list::ListFolders, Folder, FolderKind, Folders,
+    },
     maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
     message::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
@@ -16,47 +19,30 @@ use email::{
     },
 };
 use mail_builder::MessageBuilder;
-use maildirpp::Maildir;
 use tempfile::tempdir;
 
 #[tokio::test]
 async fn test_maildir_features() {
     env_logger::builder().is_test(true).init();
 
-    // set up maildir folders
-
-    let mdir: Maildir = tempdir().unwrap().path().to_owned().into();
-    _ = fs::remove_dir_all(mdir.path());
-    mdir.create_dirs().unwrap();
-
-    let mdir_sub: Maildir = mdir.path().join(".Subdir").into();
-    _ = fs::remove_dir_all(mdir_sub.path());
-    mdir_sub.create_dirs().unwrap();
-
-    let mdir_trash = Maildir::from(mdir.path().join(".Trash"));
-    _ = fs::remove_dir_all(mdir_trash.path());
-    mdir_trash.create_dirs().unwrap();
+    let tmp_dir = tempdir().unwrap().path().to_owned();
 
     let account_config = Arc::new(AccountConfig {
         name: "account".into(),
         folder: Some(FolderConfig {
             aliases: Some(HashMap::from_iter([
+                ("inbox".into(), "Inbox".into()),
                 ("subdir".into(), "Subdir".into()),
-                (
-                    "abs-subdir".into(),
-                    mdir.path().join(".Subdir").to_string_lossy().into(),
-                ),
+                ("subsubdir".into(), "Subdir/Subdir".into()),
             ])),
             ..Default::default()
         }),
         ..Default::default()
     });
 
-    // Main maildir backend
-
-    let mdir_path = mdir.path().to_owned();
     let mdir_config = Arc::new(MaildirConfig {
-        root_dir: mdir_path.clone(),
+        root_dir: tmp_dir.clone(),
+        maildirpp: false,
     });
 
     let mdir_ctx = MaildirContextBuilder::new(account_config.clone(), mdir_config.clone());
@@ -65,16 +51,101 @@ async fn test_maildir_features() {
         .await
         .unwrap();
 
-    // Sub maildir backend
+    // testing folders
 
-    let mdir_config = Arc::new(MaildirConfig {
-        root_dir: mdir_path.clone(),
-    });
-    let submdir_ctx = MaildirContextBuilder::new(account_config.clone(), mdir_config.clone());
-    let submdir = BackendBuilder::new(account_config.clone(), submdir_ctx)
-        .build::<Backend<MaildirContextSync>>()
-        .await
-        .unwrap();
+    mdir.add_folder("inbox").await.unwrap();
+    mdir.add_folder("subdir").await.unwrap();
+    mdir.add_folder("Subdir/Subdir").await.unwrap();
+    mdir.add_folder("Trash").await.unwrap();
+    mdir.add_folder("Nested").await.unwrap();
+    mdir.add_folder("Nested/Folder").await.unwrap();
+
+    let folders = mdir.list_folders().await.unwrap();
+    let expected_folders = Folders::from_iter([
+        Folder {
+            name: "Inbox".into(),
+            kind: Some(FolderKind::Inbox),
+            desc: tmp_dir.join("Inbox").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Nested".into(),
+            kind: None,
+            desc: tmp_dir.join("Nested").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Nested/Folder".into(),
+            kind: None,
+            desc: tmp_dir
+                .join("Nested")
+                .join("Folder")
+                .to_string_lossy()
+                .to_string(),
+        },
+        Folder {
+            name: "Trash".into(),
+            kind: Some(FolderKind::Trash),
+            desc: tmp_dir.join("Trash").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Subdir".into(),
+            kind: Some(FolderKind::UserDefined("subdir".into())),
+            desc: tmp_dir.join("Subdir").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Subdir/Subdir".into(),
+            kind: Some(FolderKind::UserDefined("subsubdir".into())),
+            desc: tmp_dir
+                .join("Subdir")
+                .join("Subdir")
+                .to_string_lossy()
+                .to_string(),
+        },
+    ]);
+
+    assert_eq!(folders, expected_folders);
+
+    // deleting a root's nested folders should not delete nested
+    // folders
+    mdir.delete_folder("Nested").await.unwrap();
+
+    let folders = mdir.list_folders().await.unwrap();
+    let expected_folders = Folders::from_iter([
+        Folder {
+            name: "Inbox".into(),
+            kind: Some(FolderKind::Inbox),
+            desc: tmp_dir.join("Inbox").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Nested/Folder".into(),
+            kind: None,
+            desc: tmp_dir
+                .join("Nested")
+                .join("Folder")
+                .to_string_lossy()
+                .to_string(),
+        },
+        Folder {
+            name: "Trash".into(),
+            kind: Some(FolderKind::Trash),
+            desc: tmp_dir.join("Trash").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Subdir".into(),
+            kind: Some(FolderKind::UserDefined("subdir".into())),
+            desc: tmp_dir.join("Subdir").to_string_lossy().to_string(),
+        },
+        Folder {
+            name: "Subdir/Subdir".into(),
+            kind: Some(FolderKind::UserDefined("subsubdir".into())),
+            desc: tmp_dir
+                .join("Subdir")
+                .join("Subdir")
+                .to_string_lossy()
+                .to_string(),
+        },
+    ]);
+
+    assert_eq!(folders, expected_folders);
 
     // check that a message can be built and added
     let email = MessageBuilder::new()
@@ -169,17 +240,12 @@ async fn test_maildir_features() {
         .list_envelopes("subdir", Default::default())
         .await
         .unwrap();
-    let abs_subdir = mdir
-        .list_envelopes("abs-subdir", Default::default())
-        .await
-        .unwrap();
     let trash = mdir
         .list_envelopes("Trash", Default::default())
         .await
         .unwrap();
     assert_eq!(1, inbox.len());
     assert_eq!(1, subdir.len());
-    assert_eq!(1, abs_subdir.len());
     assert_eq!(0, trash.len());
     assert!(mdir
         .get_messages("INBOX", &Id::single(&inbox[0].id))
@@ -187,10 +253,6 @@ async fn test_maildir_features() {
         .is_ok());
     assert!(mdir
         .get_messages("subdir", &Id::single(&subdir[0].id))
-        .await
-        .is_ok());
-    assert!(submdir
-        .get_messages("INBOX", &Id::single(&subdir[0].id))
         .await
         .is_ok());
 
@@ -206,17 +268,12 @@ async fn test_maildir_features() {
         .list_envelopes("subdir", Default::default())
         .await
         .unwrap();
-    let abs_subdir = mdir
-        .list_envelopes("abs-subdir", Default::default())
-        .await
-        .unwrap();
     let trash = mdir
         .list_envelopes("Trash", Default::default())
         .await
         .unwrap();
     assert_eq!(1, inbox.len());
     assert_eq!(1, subdir.len());
-    assert_eq!(1, abs_subdir.len());
     assert_eq!(0, trash.len());
 
     mdir.expunge_folder("subdir").await.unwrap();
@@ -224,12 +281,7 @@ async fn test_maildir_features() {
         .list_envelopes("subdir", Default::default())
         .await
         .unwrap();
-    let abs_subdir = mdir
-        .list_envelopes("subdir", Default::default())
-        .await
-        .unwrap();
     assert_eq!(0, subdir.len());
-    assert_eq!(0, abs_subdir.len());
 
     // check that the message can be moved
     mdir.move_messages("INBOX", "subdir", &Id::single(&envelope.id))

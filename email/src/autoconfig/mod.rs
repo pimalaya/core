@@ -26,7 +26,7 @@ pub mod config;
 pub mod dns;
 pub mod http;
 
-use std::{result, str::FromStr};
+use std::{io, result, str::FromStr};
 
 use email_address::EmailAddress;
 use futures::{future::select_ok, FutureExt};
@@ -46,6 +46,8 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot create autoconfig HTTP connector")]
+    CreateHttpConnectorError(#[source] io::Error),
     #[error("cannot find any MX record at {0}")]
     GetMxRecordNotFoundError(String),
     #[error("cannot find any mailconf TXT record at {0}")]
@@ -61,7 +63,9 @@ pub enum Error {
     #[error("cannot get autoconfig from {0}: {1}")]
     GetAutoConfigError(Uri, StatusCode),
     #[error("cannot do a get request for autoconfig from {0}: {1}")]
-    GetConnectionAutoConfigError(Uri, #[source] hyper::Error),
+    GetConnectionAutoConfigError(Uri, #[source] hyper_util::client::legacy::Error),
+    #[error("cannot do a get request for autoconfig from {0}: {1}")]
+    GetBodyAutoConfigError(Uri, #[source] hyper::Error),
     #[error("cannot get the body of response for autoconfig from {0}: {1}")]
     ToBytesAutoConfigError(Uri, #[source] hyper::Error),
     #[error("cannot decode the body of response for autoconfig from {0}: {1}")]
@@ -77,7 +81,7 @@ pub enum Error {
 pub async fn from_addr(addr: impl AsRef<str>) -> Result<AutoConfig> {
     let addr = EmailAddress::from_str(addr.as_ref())
         .map_err(|e| Error::ParsingEmailAddress(addr.as_ref().to_string(), e))?;
-    let http = HttpClient::new();
+    let http = HttpClient::new()?;
 
     match from_isps(&http, &addr).await {
         Ok(config) => Ok(config),

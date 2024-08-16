@@ -166,7 +166,11 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
             pgp: account_config.pgp.clone(),
         });
 
-        let config = Arc::new(MaildirConfig { root_dir });
+        let config = Arc::new(MaildirConfig {
+            root_dir,
+            maildirpp: false,
+        });
+
         let ctx = MaildirContextBuilder::new(account_config.clone(), config);
 
         Ok(ctx)

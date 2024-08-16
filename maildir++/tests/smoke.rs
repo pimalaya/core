@@ -1,5 +1,5 @@
 use mail_parser::Message;
-use maildirpp::{Error, Maildir};
+use maildirs::{Error, Maildir};
 use percent_encoding::percent_decode;
 use std::fs;
 #[cfg(unix)]

@@ -1,4 +1,4 @@
-#![cfg(feature = "imap")]
+#![cfg(all(feature = "maildir", feature = "pool", feature = "sync"))]
 
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
@@ -42,13 +42,13 @@ async fn test_sync() {
 
     let left_config = Arc::new(MaildirConfig {
         root_dir: tmp.join("left"),
+        maildirpp: true,
     });
 
     let left_account_config = Arc::new(AccountConfig {
         name: "left".into(),
         folder: Some(FolderConfig {
             aliases: Some(HashMap::from_iter([
-                (INBOX.into(), "INBOX".into()),
                 (SENT.into(), "Sent Items".into()),
                 (DRAFTS.into(), "Drafts".into()),
                 (TRASH.into(), "Deleted Items".into()),
@@ -71,6 +71,7 @@ async fn test_sync() {
 
     let right_config = Arc::new(MaildirConfig {
         root_dir: tmp.join("right"),
+        maildirpp: false,
     });
 
     let right_account_config = Arc::new(AccountConfig {
@@ -98,6 +99,7 @@ async fn test_sync() {
         .await
         .unwrap();
 
+    right.add_folder("INBOX").await.unwrap();
     right.add_folder("Sent Items").await.unwrap();
     right.add_folder("Drafts").await.unwrap();
     right.add_folder("Deleted Items").await.unwrap();
@@ -233,14 +235,21 @@ async fn test_sync() {
     assert_eq!(report.folder.names, expected_folders);
 
     let expected_evts = HashSet::from_iter([
-        SyncEvent::ListedLeftCachedFolders(1),
-        SyncEvent::ListedRightCachedFolders(1),
-        SyncEvent::ListedLeftFolders(1),
+        SyncEvent::ListedLeftCachedFolders(0),
+        SyncEvent::ListedRightCachedFolders(0),
+        SyncEvent::ListedLeftFolders(0),
         SyncEvent::ListedRightFolders(1),
         SyncEvent::ListedAllFolders,
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left)),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left)),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right)),
         SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([(
             INBOX.into(),
-            BTreeSet::from_iter([]),
+            BTreeSet::from_iter([
+                FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left),
+                FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left),
+                FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right),
+            ]),
         )])),
         SyncEvent::ProcessedAllFolderHunks,
         SyncEvent::ListedLeftCachedEnvelopes(INBOX.into(), 0),
@@ -347,14 +356,21 @@ async fn test_sync() {
     assert_eq!(report.folder.names, expected_folders);
 
     let expected_evts = HashSet::from_iter([
-        SyncEvent::ListedLeftCachedFolders(1),
-        SyncEvent::ListedRightCachedFolders(1),
-        SyncEvent::ListedLeftFolders(1),
+        SyncEvent::ListedLeftCachedFolders(0),
+        SyncEvent::ListedRightCachedFolders(0),
+        SyncEvent::ListedLeftFolders(0),
         SyncEvent::ListedRightFolders(1),
         SyncEvent::ListedAllFolders,
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left)),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left)),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right)),
         SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([(
             INBOX.into(),
-            BTreeSet::from_iter([]),
+            BTreeSet::from_iter([
+                FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left),
+                FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left),
+                FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right),
+            ]),
         )])),
         SyncEvent::ProcessedAllFolderHunks,
         SyncEvent::ListedLeftCachedEnvelopes(INBOX.into(), 0),
@@ -430,13 +446,23 @@ async fn test_sync() {
     assert_eq!(report.folder.names, expected_folders);
 
     let expected_evts = HashSet::from_iter([
-        SyncEvent::ListedLeftCachedFolders(1),
-        SyncEvent::ListedRightCachedFolders(1),
-        SyncEvent::ListedLeftFolders(1),
+        SyncEvent::ListedLeftCachedFolders(0),
+        SyncEvent::ListedRightCachedFolders(0),
+        SyncEvent::ListedLeftFolders(0),
         SyncEvent::ListedRightFolders(5),
         SyncEvent::ListedAllFolders,
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left)),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left)),
+        SyncEvent::ProcessedFolderHunk(FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right)),
         SyncEvent::GeneratedFolderPatch(BTreeMap::from_iter([
-            (INBOX.into(), BTreeSet::from_iter([])),
+            (
+                INBOX.into(),
+                BTreeSet::from_iter([
+                    FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left),
+                    FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left),
+                    FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right),
+                ]),
+            ),
             (
                 SENT.into(),
                 BTreeSet::from_iter([
@@ -648,6 +674,9 @@ async fn test_sync() {
         .collect();
 
     let expected_folder_patch = HashSet::from_iter([
+        FolderSyncHunk::Create(INBOX.into(), SyncDestination::Left),
+        FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Left),
+        FolderSyncHunk::Cache(INBOX.into(), SyncDestination::Right),
         FolderSyncHunk::Cache(DRAFTS.into(), SyncDestination::Right),
         FolderSyncHunk::Create(DRAFTS.into(), SyncDestination::Left),
         FolderSyncHunk::Cache(DRAFTS.into(), SyncDestination::Left),
@@ -727,6 +756,8 @@ async fn test_sync() {
     assert_eq!(email_patch, expected_email_patch);
 
     // attempt a second sync that should lead to an empty report
+
+    println!("left_folders: {:#?}", left.list_folders().await.unwrap());
 
     let report = sync_builder.clone().sync().await.unwrap();
 

@@ -3,8 +3,13 @@
 //! This module contains everything needed to discover account using
 //! HTTP requests.
 
-use hyper::{body::to_bytes, client::HttpConnector, Client, Uri};
+use http_body_util::{BodyExt, Full};
+use hyper::{body::Bytes, Uri};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use hyper_util::{
+    client::legacy::{connect::HttpConnector, Client},
+    rt::TokioExecutor,
+};
 
 use super::config::AutoConfig;
 #[doc(inline)]
@@ -13,21 +18,24 @@ use crate::trace;
 
 /// Simple HTTP client using rustls connector.
 pub struct HttpClient {
-    client: Client<HttpsConnector<HttpConnector>>,
+    client: Client<HttpsConnector<HttpConnector>, Full<Bytes>>,
 }
 
 impl HttpClient {
     /// Create a new HTTP client using defaults.
-    pub fn new() -> Self {
-        let client = Client::builder().build(
-            HttpsConnectorBuilder::new()
-                .with_native_roots()
-                .https_or_http()
-                .enable_http1()
-                .build(),
-        );
+    pub fn new() -> Result<Self> {
+        let conn = HttpsConnectorBuilder::new()
+            .with_native_roots()
+            .map_err(Error::CreateHttpConnectorError)?
+            .https_or_http()
+            .enable_http1()
+            .build();
 
-        Self { client }
+        let client = Self {
+            client: Client::builder(TokioExecutor::new()).build(conn),
+        };
+
+        Ok(client)
     }
 
     /// Send a GET request to the given URI and try to parse response
@@ -40,9 +48,12 @@ impl HttpClient {
             .map_err(|e| Error::GetConnectionAutoConfigError(uri.clone(), e))?;
 
         let status = res.status();
-        let body = to_bytes(res.into_body())
+        let body = res
+            .into_body()
+            .collect()
             .await
-            .map_err(|e| Error::GetConnectionAutoConfigError(uri.clone(), e))?;
+            .map_err(|e| Error::GetBodyAutoConfigError(uri.clone(), e))?
+            .to_bytes();
 
         // If we got an error response we return an error
         if !status.is_success() {
@@ -53,11 +64,5 @@ impl HttpClient {
         let config = serde_xml_rs::from_reader(body.as_ref())
             .map_err(|e| Error::SerdeXmlFailedForAutoConfig(uri, e))?;
         Ok(config)
-    }
-}
-
-impl Default for HttpClient {
-    fn default() -> Self {
-        Self::new()
     }
 }

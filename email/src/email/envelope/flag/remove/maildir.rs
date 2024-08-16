@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use async_trait::async_trait;
 
 use super::{Flags, RemoveFlags};
@@ -28,11 +30,12 @@ impl RemoveFlags for RemoveMaildirFlags {
         info!("removing maildir flag(s) {flags} to envelope {id} from folder {folder}");
 
         let ctx = self.ctx.lock().await;
-        let mdir = ctx.get_maildir_from_folder_name(folder)?;
+        let mdir = ctx.get_maildir_from_folder_alias(folder)?;
 
-        id.iter().try_for_each(|ref id| {
-            mdir.remove_flags(id, &flags.to_mdir_string())
-                .map_err(|err| {
+        id.iter()
+            .filter_map(|id| mdir.find(id).ok().flatten())
+            .try_for_each(|mut entry| {
+                entry.remove_flags(HashSet::from(flags)).map_err(|err| {
                     Error::RemoveFlagsMaildirError(
                         err,
                         folder.to_owned(),
@@ -40,7 +43,7 @@ impl RemoveFlags for RemoveMaildirFlags {
                         flags.clone(),
                     )
                 })
-        })?;
+            })?;
 
         Ok(())
     }

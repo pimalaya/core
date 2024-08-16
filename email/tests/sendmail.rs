@@ -1,4 +1,8 @@
-#![cfg(feature = "full")]
+#![cfg(all(
+    feature = "sendmail",
+    feature = "imap",
+    feature = "email-testing-server"
+))]
 
 use std::{sync::Arc, time::Duration};
 

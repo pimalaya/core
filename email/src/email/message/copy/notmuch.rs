@@ -1,15 +1,9 @@
-use std::fs;
-
 use async_trait::async_trait;
+use maildirs::MaildirEntry;
 
 use super::CopyMessages;
 use crate::{
-    email::error::Error,
-    envelope::Id,
-    flag::{Flag, Flags},
-    folder::FolderKind,
-    info,
-    notmuch::NotmuchContextSync,
+    email::error::Error, envelope::Id, folder::FolderKind, info, notmuch::NotmuchContextSync,
     AnyResult,
 };
 
@@ -41,15 +35,15 @@ impl CopyMessages for CopyNotmuchMessages {
         let ctx = self.ctx.lock().await;
 
         let mdir_ctx = &ctx.mdir_ctx;
-        let mdir = mdir_ctx.get_maildir_from_folder_name(to_folder)?;
+        let mdir = mdir_ctx.get_maildir_from_folder_alias(to_folder)?;
 
         let db = ctx.open_db()?;
 
-        let folder_query = if FolderKind::matches_inbox(from_folder) {
-            "folder:\"\"".to_owned()
+        let ref from_folder = config.get_folder_alias(from_folder);
+        let folder_query = if ctx.maildirpp() && FolderKind::matches_inbox(from_folder) {
+            String::from("folder:\"\"")
         } else {
-            let folder = config.get_folder_alias(from_folder);
-            format!("folder:{folder:?}")
+            format!("folder:{from_folder:?}")
         };
         let mid_query = format!("mid:\"/^({})$/\"", id.join("|"));
         let query = [folder_query, mid_query].join(" and ");
@@ -59,14 +53,22 @@ impl CopyMessages for CopyNotmuchMessages {
             .map_err(Error::NotMuchFailure)?;
 
         for msg in msgs {
-            let flags = Flags::from_iter([Flag::Seen]).to_mdir_string();
-            let content = fs::read(msg.filename()).map_err(Error::FileReadFailure)?;
-            let mdir_id = mdir
-                .store_cur_with_flags(&content, &flags)
-                .map_err(Error::MaildirppFailure)?;
-            let mdir_entry = mdir.find(&mdir_id).unwrap();
-            db.index_file(mdir_entry.path(), None)
-                .map_err(Error::NotMuchFailure)?;
+            let Some(filename) = msg.filenames().find(|f| f.is_file()) else {
+                #[cfg(feature = "tracing")]
+                {
+                    let id = msg.id();
+                    tracing::debug!(?id, "skipping notmuch message with invalid filename");
+                }
+
+                continue;
+            };
+
+            let entry = MaildirEntry::new(filename);
+            let path = entry.copy(&mdir).map_err(Error::MaildirppFailure)?;
+
+            if let Some(path) = path {
+                db.index_file(path, None).map_err(Error::NotMuchFailure)?;
+            }
         }
 
         Ok(())

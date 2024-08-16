@@ -1,9 +1,10 @@
 use async_trait::async_trait;
+use maildirs::MaildirEntry;
 
 use super::MoveMessages;
 use crate::{
-    debug, email::error::Error, envelope::Id, folder::FolderKind, info,
-    notmuch::NotmuchContextSync, AnyResult,
+    email::error::Error, envelope::Id, folder::FolderKind, info, notmuch::NotmuchContextSync,
+    AnyResult,
 };
 
 #[derive(Clone)]
@@ -34,16 +35,15 @@ impl MoveMessages for MoveNotmuchMessages {
         let ctx = self.ctx.lock().await;
 
         let mdir_ctx = &ctx.mdir_ctx;
-        let mdir_from = mdir_ctx.get_maildir_from_folder_name(from_folder)?;
-        let mdir_to = mdir_ctx.get_maildir_from_folder_name(to_folder)?;
+        let mdir_to = mdir_ctx.get_maildir_from_folder_alias(to_folder)?;
 
         let db = ctx.open_db()?;
 
-        let folder_query = if FolderKind::matches_inbox(from_folder) {
-            "folder:\"\"".to_owned()
+        let ref from_folder = config.get_folder_alias(from_folder);
+        let folder_query = if ctx.maildirpp() && FolderKind::matches_inbox(from_folder) {
+            String::from("folder:\"\"")
         } else {
-            let folder = config.get_folder_alias(from_folder);
-            format!("folder:{folder:?}")
+            format!("folder:{from_folder:?}")
         };
         let mid_query = format!("mid:\"/^({})$/\"", id.join("|"));
         let query = [folder_query, mid_query].join(" and ");
@@ -53,31 +53,23 @@ impl MoveMessages for MoveNotmuchMessages {
             .map_err(Error::NotMuchFailure)?;
 
         for msg in msgs {
-            let mdir_id = mdir_from.list_cur().find_map(|entry| {
-                let entry = entry.ok()?;
-                if entry.path() == msg.filename() {
-                    Some(entry.id().to_owned())
-                } else {
-                    None
+            let Some(filename) = msg.filenames().find(|f| f.is_file()) else {
+                #[cfg(feature = "tracing")]
+                {
+                    let id = msg.id();
+                    tracing::debug!(?id, "skipping notmuch message with invalid filename");
                 }
-            });
 
-            match &mdir_id {
-                None => {
-                    let _path = msg.filename().to_string_lossy();
-                    debug!("cannot move missing notmuch message {_path}");
-                    break;
-                }
-                Some(mdir_id) => {
-                    mdir_from
-                        .move_to(mdir_id, &mdir_to)
-                        .map_err(Error::MaildirppFailure)?;
-                    msg.reindex(db.default_indexopts().map_err(Error::NotMuchFailure)?)
-                        .map_err(Error::NotMuchFailure)?;
-                    let mdir_entry = mdir_to.find(mdir_id).unwrap();
-                    db.index_file(mdir_entry.path(), None)
-                        .map_err(Error::NotMuchFailure)?;
-                }
+                continue;
+            };
+
+            let entry = MaildirEntry::new(filename);
+            let path = entry.r#move(&mdir_to).map_err(Error::MaildirppFailure)?;
+
+            if let Some(path) = path {
+                msg.reindex(db.default_indexopts().map_err(Error::NotMuchFailure)?)
+                    .map_err(Error::NotMuchFailure)?;
+                db.index_file(path, None).map_err(Error::NotMuchFailure)?;
             }
         }
 
