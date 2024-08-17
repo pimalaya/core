@@ -6,6 +6,7 @@
 use std::{collections::HashMap, num::NonZeroU32};
 
 use imap_next::imap_types::{
+    body::{BodyStructure, Disposition},
     core::Vec1,
     fetch::{MacroOrMessageDataItemNames, MessageDataItem, MessageDataItemName},
 };
@@ -25,6 +26,7 @@ pub static FETCH_ENVELOPES: Lazy<MacroOrMessageDataItemNames<'static>> = Lazy::n
         MessageDataItemName::Uid,
         MessageDataItemName::Flags,
         MessageDataItemName::Envelope,
+        MessageDataItemName::BodyStructure,
     ])
 });
 
@@ -51,6 +53,7 @@ impl Envelope {
         let mut id = 0;
         let mut flags = Flags::default();
         let mut msg = Vec::default();
+        let mut has_attachment = false;
 
         for item in items {
             match item {
@@ -143,11 +146,62 @@ impl Envelope {
 
                     msg.push(b'\n');
                 }
+                MessageDataItem::BodyStructure(body) => {
+                    has_attachment = has_at_least_one_attachment([body]);
+                }
                 _ => (),
             }
         }
 
         let msg = Message::from(msg);
-        Envelope::from_msg(id, flags, msg)
+        let mut env = Envelope::from_msg(id, flags, msg);
+        env.has_attachment = has_attachment;
+        env
     }
+}
+
+fn has_at_least_one_attachment<'a, B>(bodies: B) -> bool
+where
+    B: IntoIterator<Item = &'a BodyStructure<'a>>,
+{
+    for body in bodies {
+        match body {
+            BodyStructure::Single { extension_data, .. } => {
+                let disp = extension_data.as_ref().and_then(|data| data.tail.as_ref());
+
+                if is_attachment(disp) {
+                    return true;
+                }
+            }
+            BodyStructure::Multi {
+                extension_data,
+                bodies,
+                ..
+            } => {
+                let disp = extension_data.as_ref().and_then(|data| data.tail.as_ref());
+
+                if is_attachment(disp) {
+                    return true;
+                }
+
+                if has_at_least_one_attachment(bodies.as_ref().iter()) {
+                    return true;
+                }
+            }
+        };
+    }
+
+    false
+}
+
+fn is_attachment(disp: Option<&Disposition>) -> bool {
+    if let Some(disp) = disp {
+        if let Some(disp) = &disp.disposition {
+            if disp.0.as_ref() == b"attachment" {
+                return true;
+            }
+        }
+    }
+
+    false
 }

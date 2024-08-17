@@ -6,7 +6,7 @@
 use crate::{
     debug,
     envelope::{Envelope, Envelopes},
-    flag::Flags,
+    flag::{Flag, Flags},
     message::Message,
 };
 
@@ -20,6 +20,7 @@ impl Envelope {
     pub fn from_notmuch_msg(msg: notmuch::Message) -> Self {
         let id = msg.id();
         let flags = Flags::from(&msg);
+        let has_attachment = flags.contains(&Flag::custom("attachment"));
 
         let message_id = get_header(&msg, "Message-ID");
         let subject = get_header(&msg, "Subject");
@@ -31,7 +32,9 @@ impl Envelope {
         // extract the envelope
         let msg: Message = headers.as_bytes().into();
 
-        Envelope::from_msg(id, flags, msg)
+        let mut env = Envelope::from_msg(id, flags, msg);
+        env.has_attachment = has_attachment;
+        env
     }
 }
 

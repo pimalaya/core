@@ -3248,9 +3248,9 @@ dependencies = [
 
 [[package]]
 name = "imap-client"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3e62726ad9db2962ab35df8bd5f1a113a5fa1edbece0f72bab621c0a3c7850b"
+checksum = "56aad0480cb885b11bf3bed91df513911a9c084f2199df051f4f9b8251488840"
 dependencies = [
  "imap-next",
  "once_cell",

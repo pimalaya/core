@@ -72,6 +72,12 @@ pub struct Envelope {
     pub subject: String,
     /// The Date header from the email message.
     pub date: DateTime<FixedOffset>,
+
+    /// True if the current envelope contains at least one attachment.
+    ///
+    /// An attachment is defined here as a MIME part that is not a
+    /// `text/*`.
+    pub has_attachment: bool,
 }
 
 impl Envelope {

@@ -44,9 +44,19 @@ impl TryFrom<MaildirEntry> for Envelope {
     fn try_from(entry: MaildirEntry) -> Result<Self> {
         let id = entry.id()?.to_owned();
         let msg = Message::from(entry.read_headers()?);
-        let flags = Flags::try_from(entry)?;
-        let envelope = Envelope::from_msg(id, flags, msg);
 
-        Ok(envelope)
+        let has_attachment = {
+            let attachments = msg.attachments();
+
+            match attachments {
+                Ok(attachments) => !attachments.is_empty(),
+                Err(_) => false,
+            }
+        };
+
+        let flags = Flags::try_from(entry)?;
+        let mut env = Envelope::from_msg(id, flags, msg);
+        env.has_attachment = has_attachment;
+        Ok(env)
     }
 }
