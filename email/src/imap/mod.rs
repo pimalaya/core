@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use imap_client::{tasks::tasks::select::SelectDataUnvalidated, Client, ClientError};
 use imap_next::imap_types::{
     auth::AuthMechanism,
-    core::{IString, NString, Vec1},
+    core::{AString, IString, NString, Vec1},
     extensions::{
         sort::SortCriterion,
         thread::{Thread, ThreadingAlgorithm},
@@ -15,6 +15,7 @@ use imap_next::imap_types::{
     fetch::MessageDataItem,
     flag::{Flag, StoreType},
     search::SearchKey,
+    secret::Secret,
     sequence::SequenceSet,
 };
 use once_cell::sync::Lazy;
@@ -729,6 +730,35 @@ impl ImapClientBuilder {
         client.set_some_idle_timeout(self.config.find_watch_timeout().map(Duration::from_secs));
 
         match &self.config.auth {
+            ImapAuthConfig::Passwd(passwd) if self.config.is_encryption_disabled() => {
+                debug!("using LOGIN mechanism");
+
+                let username = self
+                    .config
+                    .login
+                    .as_str()
+                    .try_into()
+                    .map_err(|err| Error::ParseUsernameError(err, self.config.login.clone()))?;
+
+                let passwd = match self.credentials.as_ref() {
+                    Some(passwd) => passwd.to_string(),
+                    None => passwd
+                        .get()
+                        .await
+                        .map_err(Error::GetPasswdImapError)?
+                        .lines()
+                        .next()
+                        .ok_or(Error::GetPasswdEmptyImapError)?
+                        .to_owned(),
+                };
+                let passwd = AString::try_from(passwd).map_err(Error::ParsePasswordError)?;
+                let passwd = Secret::new(passwd);
+
+                client
+                    .login(username, passwd)
+                    .await
+                    .map_err(Error::AuthenticatePlainError)?;
+            }
             ImapAuthConfig::Passwd(passwd) => {
                 if !client.supports_auth_mechanism(AuthMechanism::Plain) {
                     let auth = client.supported_auth_mechanisms().cloned().collect();

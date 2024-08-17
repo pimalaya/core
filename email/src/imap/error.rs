@@ -43,6 +43,10 @@ pub enum Error {
     // parse
     #[error("cannot parse IMAP mailbox {1}")]
     ParseMailboxError(#[source] ValidationError, String),
+    #[error("cannot parse IMAP username")]
+    ParseUsernameError(#[source] ValidationError, String),
+    #[error("cannot parse IMAP password")]
+    ParsePasswordError(#[source] ValidationError),
     #[error("cannot find UID of appended IMAP message")]
     FindAppendedMessageUidError,
 
