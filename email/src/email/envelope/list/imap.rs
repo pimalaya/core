@@ -70,10 +70,7 @@ impl ListEnvelopes for ListImapEnvelopes {
             let search_criteria = query.to_imap_search_criteria();
             let sort_criteria = query.to_imap_sort_criteria();
 
-            let mut envelopes = ctx
-                .sort_envelopes(sort_criteria, search_criteria)
-                .await
-                .unwrap();
+            let mut envelopes = ctx.sort_envelopes(sort_criteria, search_criteria).await?;
 
             apply_pagination(&mut envelopes, opts.page, opts.page_size)?;
 

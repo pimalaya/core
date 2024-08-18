@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use imap_client::{tasks::tasks::select::SelectDataUnvalidated, Client, ClientError};
 use imap_next::imap_types::{
     auth::AuthMechanism,
-    core::{AString, IString, NString, Vec1},
+    core::{IString, NString, Vec1},
     extensions::{
         sort::SortCriterion,
         thread::{Thread, ThreadingAlgorithm},
@@ -15,7 +15,6 @@ use imap_next::imap_types::{
     fetch::MessageDataItem,
     flag::{Flag, StoreType},
     search::SearchKey,
-    secret::Secret,
     sequence::SequenceSet,
 };
 use once_cell::sync::Lazy;
@@ -731,14 +730,11 @@ impl ImapClientBuilder {
 
         match &self.config.auth {
             ImapAuthConfig::Passwd(passwd) if self.config.is_encryption_disabled() => {
-                debug!("using LOGIN mechanism");
+                if !client.login_supported() {
+                    return Err(Error::LoginNotSupportedError);
+                }
 
-                let username = self
-                    .config
-                    .login
-                    .as_str()
-                    .try_into()
-                    .map_err(|err| Error::ParseUsernameError(err, self.config.login.clone()))?;
+                warn!("using unsafe LOGIN mechanism");
 
                 let passwd = match self.credentials.as_ref() {
                     Some(passwd) => passwd.to_string(),
@@ -751,11 +747,9 @@ impl ImapClientBuilder {
                         .ok_or(Error::GetPasswdEmptyImapError)?
                         .to_owned(),
                 };
-                let passwd = AString::try_from(passwd).map_err(Error::ParsePasswordError)?;
-                let passwd = Secret::new(passwd);
 
                 client
-                    .login(username, passwd)
+                    .login(self.config.login.as_str(), passwd)
                     .await
                     .map_err(Error::AuthenticatePlainError)?;
             }

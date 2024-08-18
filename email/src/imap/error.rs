@@ -43,10 +43,6 @@ pub enum Error {
     // parse
     #[error("cannot parse IMAP mailbox {1}")]
     ParseMailboxError(#[source] ValidationError, String),
-    #[error("cannot parse IMAP username")]
-    ParseUsernameError(#[source] ValidationError, String),
-    #[error("cannot parse IMAP password")]
-    ParsePasswordError(#[source] ValidationError),
     #[error("cannot find UID of appended IMAP message")]
     FindAppendedMessageUidError,
 
@@ -104,11 +100,13 @@ pub enum Error {
     // flow
     #[error("cannot receive IMAP greeting")]
     ReceiveGreetingTaskError(#[source] ClientFlowError),
-    #[error("plain authentication not support (available: {0:?})")]
+    #[error("login not supported")]
+    LoginNotSupportedError,
+    #[error("plain authentication not supported (available: {0:?})")]
     AuthenticatePlainNotSupportedError(HashSet<AuthMechanism<'static>>),
-    #[error("XOAuth2 authentication not support (available: {0:?})")]
+    #[error("XOAuth2 authentication not supported (available: {0:?})")]
     AuthenticateXOAuth2NotSupportedError(HashSet<AuthMechanism<'static>>),
-    #[error("OAuthBearer authentication not support (available: {0:?})")]
+    #[error("OAuthBearer authentication not supported (available: {0:?})")]
     AuthenticateOAuthBearerNotSupportedError(HashSet<AuthMechanism<'static>>),
 
     // tasks
