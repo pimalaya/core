@@ -43,7 +43,7 @@ impl TryFrom<MaildirEntry> for Envelope {
 
     fn try_from(entry: MaildirEntry) -> Result<Self> {
         let id = entry.id()?.to_owned();
-        let msg = Message::from(entry.read_headers()?);
+        let msg = Message::from(entry.read()?);
 
         let has_attachment = {
             let attachments = msg.attachments();
