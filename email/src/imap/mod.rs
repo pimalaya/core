@@ -4,7 +4,7 @@ mod error;
 use std::{collections::HashMap, env, fmt, num::NonZeroU32, ops::Deref, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use imap_client::{tasks::tasks::select::SelectDataUnvalidated, Client, ClientError};
+use imap_client::{tasks::tasks::select::SelectDataUnvalidated, Client};
 use imap_next::imap_types::{
     auth::AuthMechanism,
     core::{IString, NString, Vec1},
@@ -72,15 +72,17 @@ use crate::{
 
 macro_rules! retry {
     ($self:ident, $task:expr, $err:expr) => {{
+        #[cfg_attr(not(feature = "oauth2"), allow(unused_mut))]
         let mut retried = false;
+
         loop {
             match $task {
                 Err(err) if retried => {
                     break Err($err(err));
                 }
-                Err(ClientError::Stream(err)) => {
-                    println!("err: {:#?}", err);
-                    warn!("{err}, re-building IMAP client…");
+                #[cfg(feature = "oauth2")]
+                Err(imap_client::ClientError::Stream(err)) => {
+                    warn!(?err, "re-building IMAP client…");
                     $self.client = $self.client_builder.build().await?;
                     retried = true;
                     continue;
@@ -143,7 +145,7 @@ pub struct ImapContext {
     pub imap_config: Arc<ImapConfig>,
 
     /// The next gen IMAP client builder.
-    client_builder: ImapClientBuilder,
+    pub client_builder: ImapClientBuilder,
 
     /// The next gen IMAP client.
     client: Client,
