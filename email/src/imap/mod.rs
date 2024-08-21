@@ -867,13 +867,21 @@ impl ImapClientBuilder {
             },
         };
 
-        #[cfg_attr(not(feature = "tracing"), allow(unused_variables))]
-        let server = client
-            .id(Some(ID_PARAMS.clone()))
-            .await
-            .map_err(Error::ExchangeIdsError)?;
+        if self.config.send_id_after_auth() {
+            #[cfg(feature = "tracing")]
+            {
+                let params = ID_PARAMS.clone();
+                tracing::debug!(?params, "client identity");
+            }
 
-        debug!(?server, "server identity");
+            #[cfg_attr(not(feature = "tracing"), allow(unused_variables))]
+            let params = client
+                .id(Some(ID_PARAMS.clone()))
+                .await
+                .map_err(Error::ExchangeIdsError)?;
+
+            debug!(?params, "server identity");
+        }
 
         Ok(client)
     }

@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Added new boolean `Envelope::has_attachment` to determine if an envelope has at least one attachment.
+- Added `ImapConfig::extensions` of type `Option<ImapExtensionsConfig>`.
+- Changed the way `ID` command is automatically sent after authentication.
+
+  The `ID` command is now sent if and only if `ImapConfig.extensions.id.send_after_auth` is `true`. See [#25](https://github.com/modern-email/defects/issues/25) for more information.
 
 ## [0.25.0] - 2024-08-16
 

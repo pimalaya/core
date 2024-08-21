@@ -51,6 +51,9 @@ pub struct ImapConfig {
     #[cfg_attr(feature = "derive", serde(flatten))]
     pub auth: ImapAuthConfig,
 
+    /// The IMAP extensions configuration.
+    pub extensions: Option<ImapExtensionsConfig>,
+
     /// The IMAP notify command.
     ///
     /// Defines the command used to notify the user when a new email is available.
@@ -59,6 +62,14 @@ pub struct ImapConfig {
 }
 
 impl ImapConfig {
+    pub fn send_id_after_auth(&self) -> bool {
+        self.extensions
+            .as_ref()
+            .and_then(|ext| ext.id.as_ref())
+            .and_then(|id| id.send_after_auth)
+            .unwrap_or_default()
+    }
+
     /// Return `true` if TLS or StartTLS is enabled.
     pub fn is_encryption_enabled(&self) -> bool {
         matches!(
@@ -302,4 +313,30 @@ where
     }
 
     deserializer.deserialize_option(SomeBoolOrKind(PhantomData))
+}
+
+/// The IMAP configuration dedicated to extensions.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
+pub struct ImapExtensionsConfig {
+    id: Option<ImapIdExtensionConfig>,
+}
+
+/// The IMAP configuration dedicated to the ID extension.
+///
+/// https://www.rfc-editor.org/rfc/rfc2971.html
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
+pub struct ImapIdExtensionConfig {
+    /// Automatically sends the ID command straight after
+    /// authentication.
+    send_after_auth: Option<bool>,
 }
