@@ -46,11 +46,15 @@ pub enum Error {
     #[error("cannot find UID of appended IMAP message")]
     FindAppendedMessageUidError,
 
-    #[error("cannot authenticate to IMAP server using PLAIN mechanism")]
+    #[error("cannot authenticate to IMAP server: no valid auth mechanism found")]
+    AuthenticateError(#[source] ClientError),
+    #[error("cannot authenticate to IMAP server using LOGIN mechanism")]
+    LoginError(#[source] ClientError),
+    #[error("cannot authenticate to IMAP server using SASL PLAIN mechanism")]
     AuthenticatePlainError(#[source] ClientError),
-    #[error("cannot authenticate to IMAP server using XOAUTH2 mechanism")]
+    #[error("cannot authenticate to IMAP server using SASL XOAUTH2 mechanism")]
     AuthenticateXOauth2Error(#[source] ClientError),
-    #[error("cannot authenticate to IMAP server using OAUTHBEARER mechanism")]
+    #[error("cannot authenticate to IMAP server using SASL OAUTHBEARER mechanism")]
     AuthenticateOAuthBearerError(#[source] ClientError),
 
     #[error("cannot create IMAP mailbox")]

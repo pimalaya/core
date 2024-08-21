@@ -731,38 +731,7 @@ impl ImapClientBuilder {
         client.set_some_idle_timeout(self.config.find_watch_timeout().map(Duration::from_secs));
 
         match &self.config.auth {
-            ImapAuthConfig::Passwd(passwd) if self.config.is_encryption_disabled() => {
-                if !client.login_supported() {
-                    return Err(Error::LoginNotSupportedError);
-                }
-
-                warn!("using unsafe LOGIN mechanism");
-
-                let passwd = match self.credentials.as_ref() {
-                    Some(passwd) => passwd.to_string(),
-                    None => passwd
-                        .get()
-                        .await
-                        .map_err(Error::GetPasswdImapError)?
-                        .lines()
-                        .next()
-                        .ok_or(Error::GetPasswdEmptyImapError)?
-                        .to_owned(),
-                };
-
-                client
-                    .login(self.config.login.as_str(), passwd)
-                    .await
-                    .map_err(Error::AuthenticatePlainError)?;
-            }
             ImapAuthConfig::Passwd(passwd) => {
-                if !client.supports_auth_mechanism(AuthMechanism::Plain) {
-                    let auth = client.supported_auth_mechanisms().cloned().collect();
-                    return Err(Error::AuthenticatePlainNotSupportedError(auth));
-                }
-
-                debug!("using PLAIN auth mechanism");
-
                 let passwd = match self.credentials.as_ref() {
                     Some(passwd) => passwd.to_string(),
                     None => passwd
@@ -775,10 +744,48 @@ impl ImapClientBuilder {
                         .to_owned(),
                 };
 
-                client
-                    .authenticate_plain(self.config.login.as_str(), passwd.as_str())
-                    .await
-                    .map_err(Error::AuthenticatePlainError)?;
+                let auth_mechanisms: Vec<_> = client.supported_auth_mechanisms().cloned().collect();
+                let mut last_auth_err = false;
+
+                for mechanism in auth_mechanisms {
+                    let auth = match mechanism {
+                        AuthMechanism::Plain => {
+                            client
+                                .authenticate_plain(self.config.login.as_str(), passwd.as_str())
+                                .await
+                        }
+                        AuthMechanism::Login => {
+                            // TODO
+                            // client
+                            //     .authenticate_login(self.config.login.as_str(), passwd.as_str())
+                            //     .await
+                            continue;
+                        }
+                        _ => {
+                            continue;
+                        }
+                    };
+
+                    match auth {
+                        Ok(()) => break,
+                        Err(err) => {
+                            warn!(?mechanism, ?err, "trying another IMAP auth mechanism…");
+                            last_auth_err = true;
+                            continue;
+                        }
+                    }
+                }
+
+                if last_auth_err {
+                    if !client.login_supported() {
+                        return Err(Error::LoginNotSupportedError);
+                    }
+
+                    client
+                        .login(self.config.login.as_str(), passwd.as_str())
+                        .await
+                        .map_err(Error::LoginError)?;
+                }
             }
             #[cfg(feature = "oauth2")]
             ImapAuthConfig::OAuth2(oauth2) => match oauth2.method {
