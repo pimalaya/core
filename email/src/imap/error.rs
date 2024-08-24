@@ -46,6 +46,8 @@ pub enum Error {
     #[error("cannot find UID of appended IMAP message")]
     FindAppendedMessageUidError,
 
+    #[error("cannot enable IMAP capability")]
+    EnableCapabilityError(#[source] ClientError),
     #[error("cannot authenticate to IMAP server: no valid auth mechanism found")]
     AuthenticateError(#[source] ClientError),
     #[error("cannot authenticate to IMAP server using LOGIN mechanism")]

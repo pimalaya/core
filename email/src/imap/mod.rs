@@ -9,6 +9,7 @@ use imap_next::imap_types::{
     auth::AuthMechanism,
     core::{IString, NString, Vec1},
     extensions::{
+        enable::{CapabilityEnable, Utf8Kind},
         sort::SortCriterion,
         thread::{Thread, ThreadingAlgorithm},
     },
@@ -29,6 +30,8 @@ use crate::account::config::oauth2::OAuth2Method;
 use crate::envelope::thread::{imap::ThreadImapEnvelopes, ThreadEnvelopes};
 #[cfg(feature = "watch")]
 use crate::envelope::watch::{imap::WatchImapEnvelopes, WatchEnvelopes};
+#[cfg(feature = "oauth2")]
+use crate::warn;
 use crate::{
     account::config::AccountConfig,
     backend::{
@@ -67,7 +70,7 @@ use crate::{
         remove::{imap::RemoveImapMessages, RemoveMessages},
         Messages,
     },
-    warn, AnyResult,
+    AnyResult,
 };
 
 macro_rules! retry {
@@ -711,6 +714,10 @@ impl ImapClientBuilder {
     /// every time a new session is created. The main use case is for
     /// the synchronization, where multiple sessions can be created in
     /// a row.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(name = "client::build", skip(self))
+    )]
     pub async fn build(&mut self) -> Result<Client> {
         let mut client = match &self.config.encryption {
             Some(ImapEncryptionKind::None) | None => {
@@ -732,6 +739,9 @@ impl ImapClientBuilder {
 
         match &self.config.auth {
             ImapAuthConfig::Passwd(passwd) => {
+                #[cfg(feature = "tracing")]
+                tracing::debug!("using password authentication");
+
                 let passwd = match self.credentials.as_ref() {
                     Some(passwd) => passwd.to_string(),
                     None => passwd
@@ -744,134 +754,156 @@ impl ImapClientBuilder {
                         .to_owned(),
                 };
 
-                let auth_mechanisms: Vec<_> = client.supported_auth_mechanisms().cloned().collect();
-                let mut last_auth_err = false;
+                let mechanisms: Vec<_> = client.supported_auth_mechanisms().cloned().collect();
+                let mut authenticated = false;
 
-                for mechanism in auth_mechanisms {
+                #[cfg(feature = "tracing")]
+                tracing::debug!(?mechanisms, "supported auth mechanisms");
+
+                for mechanism in mechanisms {
+                    #[cfg(feature = "tracing")]
+                    tracing::debug!(?mechanism, "trying auth mechanism…");
+
                     let auth = match mechanism {
                         AuthMechanism::Plain => {
                             client
                                 .authenticate_plain(self.config.login.as_str(), passwd.as_str())
                                 .await
                         }
-                        AuthMechanism::Login => {
-                            // TODO
-                            // client
-                            //     .authenticate_login(self.config.login.as_str(), passwd.as_str())
-                            //     .await
-                            continue;
-                        }
+                        // TODO
+                        // AuthMechanism::Login => {
+                        //     client
+                        //         .authenticate_login(self.config.login.as_str(), passwd.as_str())
+                        //         .await
+                        // }
                         _ => {
                             continue;
                         }
                     };
 
-                    match auth {
-                        Ok(()) => break,
-                        Err(err) => {
-                            warn!(?mechanism, ?err, "trying another IMAP auth mechanism…");
-                            last_auth_err = true;
-                            continue;
-                        }
+                    #[cfg(feature = "tracing")]
+                    if let Err(ref err) = auth {
+                        tracing::warn!(?mechanism, ?err, "authentication failed");
+                    }
+
+                    if auth.is_ok() {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!(?mechanism, "authentication succeeded!");
+                        authenticated = true;
+                        break;
                     }
                 }
 
-                if last_auth_err {
+                if !authenticated {
                     if !client.login_supported() {
                         return Err(Error::LoginNotSupportedError);
                     }
+
+                    #[cfg(feature = "tracing")]
+                    tracing::debug!("trying login…");
 
                     client
                         .login(self.config.login.as_str(), passwd.as_str())
                         .await
                         .map_err(Error::LoginError)?;
+
+                    #[cfg(feature = "tracing")]
+                    tracing::debug!("login succeeded!");
                 }
             }
             #[cfg(feature = "oauth2")]
-            ImapAuthConfig::OAuth2(oauth2) => match oauth2.method {
-                OAuth2Method::XOAuth2 => {
-                    if !client.supports_auth_mechanism(AuthMechanism::XOAuth2) {
-                        let auth = client.supported_auth_mechanisms().cloned().collect();
-                        return Err(Error::AuthenticateXOAuth2NotSupportedError(auth));
-                    }
+            ImapAuthConfig::OAuth2(oauth2) => {
+                #[cfg(feature = "tracing")]
+                tracing::debug!("using OAuth 2.0 authentication");
 
-                    debug!("using XOAUTH2 auth mechanism");
+                match oauth2.method {
+                    OAuth2Method::XOAuth2 => {
+                        if !client.supports_auth_mechanism(AuthMechanism::XOAuth2) {
+                            let auth = client.supported_auth_mechanisms().cloned().collect();
+                            return Err(Error::AuthenticateXOAuth2NotSupportedError(auth));
+                        }
 
-                    let access_token = match self.credentials.as_ref() {
-                        Some(access_token) => access_token.to_string(),
-                        None => oauth2
-                            .access_token()
-                            .await
-                            .map_err(Error::RefreshAccessTokenError)?,
-                    };
+                        debug!("using XOAUTH2 auth mechanism");
 
-                    let auth = client
-                        .authenticate_xoauth2(self.config.login.as_str(), access_token.as_str())
-                        .await;
+                        let access_token = match self.credentials.as_ref() {
+                            Some(access_token) => access_token.to_string(),
+                            None => oauth2
+                                .access_token()
+                                .await
+                                .map_err(Error::RefreshAccessTokenError)?,
+                        };
 
-                    if auth.is_err() {
-                        warn!("authentication failed, refreshing access token and retrying");
-
-                        let access_token = oauth2
-                            .refresh_access_token()
-                            .await
-                            .map_err(Error::RefreshAccessTokenError)?;
-
-                        client
+                        let auth = client
                             .authenticate_xoauth2(self.config.login.as_str(), access_token.as_str())
-                            .await
-                            .map_err(Error::AuthenticateXOauth2Error)?;
+                            .await;
 
-                        self.credentials = Some(access_token);
+                        if auth.is_err() {
+                            warn!("authentication failed, refreshing access token and retrying");
+
+                            let access_token = oauth2
+                                .refresh_access_token()
+                                .await
+                                .map_err(Error::RefreshAccessTokenError)?;
+
+                            client
+                                .authenticate_xoauth2(
+                                    self.config.login.as_str(),
+                                    access_token.as_str(),
+                                )
+                                .await
+                                .map_err(Error::AuthenticateXOauth2Error)?;
+
+                            self.credentials = Some(access_token);
+                        }
                     }
-                }
-                OAuth2Method::OAuthBearer => {
-                    if !client.supports_auth_mechanism("OAUTHBEARER".try_into().unwrap()) {
-                        let auth = client.supported_auth_mechanisms().cloned().collect();
-                        return Err(Error::AuthenticateOAuthBearerNotSupportedError(auth));
-                    }
+                    OAuth2Method::OAuthBearer => {
+                        if !client.supports_auth_mechanism("OAUTHBEARER".try_into().unwrap()) {
+                            let auth = client.supported_auth_mechanisms().cloned().collect();
+                            return Err(Error::AuthenticateOAuthBearerNotSupportedError(auth));
+                        }
 
-                    debug!("using OAUTHBEARER auth mechanism");
+                        debug!("using OAUTHBEARER auth mechanism");
 
-                    let access_token = match self.credentials.as_ref() {
-                        Some(access_token) => access_token.to_string(),
-                        None => oauth2
-                            .access_token()
-                            .await
-                            .map_err(Error::RefreshAccessTokenError)?,
-                    };
+                        let access_token = match self.credentials.as_ref() {
+                            Some(access_token) => access_token.to_string(),
+                            None => oauth2
+                                .access_token()
+                                .await
+                                .map_err(Error::RefreshAccessTokenError)?,
+                        };
 
-                    let auth = client
-                        .authenticate_oauthbearer(
-                            self.config.login.as_str(),
-                            self.config.host.as_str(),
-                            self.config.port,
-                            access_token.as_str(),
-                        )
-                        .await;
-
-                    if auth.is_err() {
-                        warn!("authentication failed, refreshing access token and retrying");
-
-                        let access_token = oauth2
-                            .refresh_access_token()
-                            .await
-                            .map_err(Error::RefreshAccessTokenError)?;
-
-                        client
+                        let auth = client
                             .authenticate_oauthbearer(
                                 self.config.login.as_str(),
                                 self.config.host.as_str(),
                                 self.config.port,
                                 access_token.as_str(),
                             )
-                            .await
-                            .map_err(Error::AuthenticateOAuthBearerError)?;
+                            .await;
 
-                        self.credentials = Some(access_token);
+                        if auth.is_err() {
+                            warn!("authentication failed, refreshing access token and retrying");
+
+                            let access_token = oauth2
+                                .refresh_access_token()
+                                .await
+                                .map_err(Error::RefreshAccessTokenError)?;
+
+                            client
+                                .authenticate_oauthbearer(
+                                    self.config.login.as_str(),
+                                    self.config.host.as_str(),
+                                    self.config.port,
+                                    access_token.as_str(),
+                                )
+                                .await
+                                .map_err(Error::AuthenticateOAuthBearerError)?;
+
+                            self.credentials = Some(access_token);
+                        }
                     }
                 }
-            },
+            }
         };
 
         if self.config.send_id_after_auth() {
@@ -889,6 +921,14 @@ impl ImapClientBuilder {
 
             debug!(?params, "server identity");
         }
+
+        #[cfg(feature = "tracing")]
+        tracing::debug!("enabling UTF8 capability…");
+
+        client
+            .enable(Some(CapabilityEnable::Utf8(Utf8Kind::Accept)))
+            .await
+            .map_err(Error::EnableCapabilityError)?;
 
         Ok(client)
     }
