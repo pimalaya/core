@@ -3,7 +3,7 @@
 
 use oauth2::{
     basic::BasicClient, url::Url, AuthorizationCode, CsrfToken, PkceCodeChallenge,
-    PkceCodeVerifier, Scope, TokenResponse,
+    PkceCodeVerifier, RequestTokenError, Scope, TokenResponse,
 };
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -155,7 +155,12 @@ impl AuthorizationCodeGrant {
         let res = res
             .request_async(oauth2::reqwest::async_http_client)
             .await
-            .map_err(Error::ExchangeCodeError)?;
+            .map_err(|err| match err {
+                RequestTokenError::Request(req) => Error::ExchangeCodeError(req.to_string()),
+                RequestTokenError::ServerResponse(res) => Error::ExchangeCodeError(res.to_string()),
+                RequestTokenError::Parse(err, _) => Error::ExchangeCodeError(err.to_string()),
+                RequestTokenError::Other(err) => Error::ExchangeCodeError(err),
+            })?;
 
         let access_token = res.access_token().secret().to_owned();
         let refresh_token = res.refresh_token().map(|t| t.secret().clone());

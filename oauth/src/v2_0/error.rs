@@ -31,13 +31,8 @@ pub enum Error {
     FindCodeInRedirectUrlError(Url),
     #[error("cannot find state from redirect url {0}")]
     FindStateInRedirectUrlError(Url),
-    #[error("cannot exchange code for an access token and a refresh token")]
-    ExchangeCodeError(
-        RequestTokenError<
-            oauth2::reqwest::Error<reqwest::Error>,
-            StandardErrorResponse<BasicErrorResponseType>,
-        >,
-    ),
+    #[error("cannot exchange code for access and refresh tokens: {0}")]
+    ExchangeCodeError(String),
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),
