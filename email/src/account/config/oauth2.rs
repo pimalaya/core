@@ -63,6 +63,9 @@ pub struct OAuth2Config {
     /// Each character must be ASCII alphanumeric or one of the characters “-” / “.” / “_” / “~”.
     pub pkce: bool,
 
+    pub redirect_host: Option<String>,
+    pub redirect_port: Option<u16>,
+
     /// Access token scope(s), as defined by the authorization server.
     #[cfg_attr(feature = "derive", serde(flatten))]
     pub scopes: OAuth2Scopes,
@@ -106,7 +109,15 @@ impl OAuth2Config {
             return Ok(());
         }
 
-        let redirect_port = OAuth2Config::get_first_available_port()?;
+        let redirect_host = match self.redirect_host.as_ref() {
+            Some(host) => host.clone(),
+            None => OAuth2Config::LOCALHOST.to_owned(),
+        };
+
+        let redirect_port = match self.redirect_port {
+            Some(port) => port,
+            None => OAuth2Config::get_first_available_port()?,
+        };
 
         let client_secret = match self.client_secret.find().await {
             Ok(None) => {
@@ -129,7 +140,7 @@ impl OAuth2Config {
             self.token_url.clone(),
         )
         .map_err(Error::InitOauthClientError)?
-        .with_redirect_host(OAuth2Config::LOCALHOST.to_owned())
+        .with_redirect_host(redirect_host)
         .with_redirect_port(redirect_port)
         .build()
         .map_err(Error::BuildOauthClientError)?;
