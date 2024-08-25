@@ -231,7 +231,7 @@ fn apply_pagination(
 /// total size.
 fn build_sequence(page: usize, page_size: usize, total: usize) -> Result<Sequence> {
     let seq = if page_size == 0 {
-        Sequence::Single(SeqOrUid::Asterisk)
+        Sequence::Range(SeqOrUid::try_from(1).unwrap(), SeqOrUid::Asterisk)
     } else {
         let page_cursor = page * page_size;
         if page_cursor >= total {
