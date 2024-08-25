@@ -34,8 +34,9 @@ pub trait WatchEnvelopes: Send + Sync {
                 debug!("processing received envelope event…");
                 config.exec_received_envelope_hook(envelope).await;
             } else {
-                debug!("processing any envelope event…");
-                config.exec_any_envelope_hook(envelope).await;
+                // TODO
+                // debug!("processing any envelope event…");
+                // config.exec_any_envelope_hook(envelope).await;
             }
         }
     }

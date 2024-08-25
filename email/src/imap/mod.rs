@@ -282,7 +282,8 @@ impl ImapContext {
     }
 
     pub async fn fetch_all_envelopes(&mut self) -> Result<Envelopes> {
-        self.fetch_envelopes_by_sequence((..).into()).await
+        self.fetch_envelopes_by_sequence("1:*".try_into().unwrap())
+            .await
     }
 
     pub async fn sort_envelopes(
