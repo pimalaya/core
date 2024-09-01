@@ -106,6 +106,7 @@ impl ImapConfig {
 impl crate::sync::hash::SyncHash for ImapConfig {
     fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
         std::hash::Hash::hash(&self.host, state);
+        std::hash::Hash::hash(&self.port, state);
         std::hash::Hash::hash(&self.login, state);
     }
 }
