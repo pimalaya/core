@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Removed `serde::flatten` from `ImapConfig::auth` and `SmtpConfig::auth`.
+- Added `serde::tag = "type"` to `ImapAuthConfig` and `SmtpAuthConfig`.
 - Added `OAuth2Config::redirect_host` and `OAuth2Config::redirect_port` so that they can be customized.
 - Added new boolean `Envelope::has_attachment` to determine if an envelope has at least one attachment.
 - Added `ImapConfig::extensions` of type `Option<ImapExtensionsConfig>`.

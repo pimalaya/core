@@ -48,7 +48,6 @@ pub struct SmtpConfig {
     ///
     /// Authentication can be done using password or OAuth 2.0.
     /// See [SmtpAuthConfig].
-    #[cfg_attr(feature = "derive", serde(flatten))]
     pub auth: SmtpAuthConfig,
 }
 
@@ -144,9 +143,8 @@ impl From<bool> for SmtpEncryptionKind {
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "lowercase")
+    serde(rename_all = "lowercase", tag = "type")
 )]
-
 pub enum SmtpAuthConfig {
     /// The password authentication mechanism.
     #[cfg_attr(feature = "derive", serde(alias = "password"))]

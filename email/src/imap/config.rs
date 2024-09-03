@@ -48,7 +48,6 @@ pub struct ImapConfig {
     ///
     /// Authentication can be done using password or OAuth 2.0.
     /// See [ImapAuthConfig].
-    #[cfg_attr(feature = "derive", serde(flatten))]
     pub auth: ImapAuthConfig,
 
     /// The IMAP extensions configuration.
@@ -153,7 +152,7 @@ impl From<bool> for ImapEncryptionKind {
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "lowercase")
+    serde(rename_all = "lowercase", tag = "type")
 )]
 pub enum ImapAuthConfig {
     /// The password configuration.
