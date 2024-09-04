@@ -228,6 +228,8 @@ impl SingleCommand {
             .code()
             .ok_or_else(|| Error::GetExitStatusCodeNotAvailableError(self.to_string()))?;
 
+        debug!("single command exit code: {code}");
+
         if code != 0 {
             let cmd = self.to_string();
             let err = String::from_utf8_lossy(&output.stderr).to_string();
