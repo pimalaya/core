@@ -26,3 +26,7 @@ process-lib = { path = "./process" }
 secret-lib = { path = "./secret" }
 shellexpand-utils = { path = "./shellexpand-utils" }
 time-lib = { path = "./time" }
+
+imap-codec = { git = "https://github.com/duesee/imap-codec" }
+imap-next = { git = "https://github.com/soywod/imap-next" }
+imap-client = { git = "https://github.com/pimalaya/imap-client" }

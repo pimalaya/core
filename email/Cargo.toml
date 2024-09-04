@@ -221,14 +221,14 @@ futures = { version = "0.3", optional = true }
 hickory-resolver = { version = "0.24", optional = true, features = ["dns-over-rustls"] }
 http-body-util = { version = "0.1", optional = true }
 hyper = { version = "1.4", optional = true, default-features = false, features = [ "client", "http1", "http2" ] }
-hyper-rustls = { version = "0.27", optional = true }
-hyper-util = { version = "0.1", optional = true, default-features = false, features = [ "client-legacy" ] }
+hyper-rustls = { version = "0.27", optional = true, default-features = false, features = ["native-tokio", "http1", "logging", "tls12", "ring"] }
+hyper-util = { version = "0.1", optional = true, default-features = false, features = [ "client-legacy", "http1", "http2" ] }
 imap-client = { version = "=0.1.4", optional = true }
 imap-next = { version = "0.2", optional = true, features = ["expose_stream", "tag_generator", "starttls", "ext_id", "ext_metadata"] }
 keyring-lib = { version = "=0.4.3", optional = true }
 mail-builder = "0.3"
 mail-parser = "0.9"
-mail-send = { version = "0.4", optional = true, default-features = false, features = ["aws-lc-rs", "logging", "tls12"] }
+mail-send = { version = "0.4", optional = true, default-features = false, features = ["logging", "tls12", "ring"] }
 maildirs = { version = "=0.2.2", optional = true }
 mml-lib = "=1.0.14"
 notify = { version = "6", optional = true, default-features = false, features = ["macos_kqueue"] }
@@ -249,7 +249,7 @@ serde-xml-rs = { version = "0.6", optional = true }
 shellexpand-utils = "=0.2.1"
 thiserror = "1"
 tokio = { version = "1.23", default-features = false, features = ["fs", "macros", "net", "rt"] }
-tokio-rustls = { version = "0.26", optional = true }
+tokio-rustls = { version = "0.26", optional = true, default-features = false, features = ["logging", "tls12", "ring"] }
 tracing = { version ="0.1.40" , optional = true }
 tree_magic_mini = "3"
 urlencoding = "2.1"
