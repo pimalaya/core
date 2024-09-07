@@ -16,6 +16,13 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot connect to IMAP server {1}:{2} using TCP")]
+    BuildInsecureClientError(#[source] ClientError, String, u16),
+    #[error("cannot connect to IMAP server {1}:{2} using STARTTLS")]
+    BuildStartTlsClientError(#[source] ClientError, String, u16),
+    #[error("cannot connect to IMAP server {1}:{2} using SSL/TLS")]
+    BuildTlsClientError(#[source] ClientError, String, u16),
+
     #[error("cannot get imap password from global keyring")]
     GetPasswdImapError(#[source] secret::Error),
     #[error("cannot get imap password: password is empty")]

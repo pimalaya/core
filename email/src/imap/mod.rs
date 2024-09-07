@@ -724,16 +724,28 @@ impl ImapClientBuilder {
             Some(ImapEncryptionKind::None) | None => {
                 Client::insecure(&self.config.host, self.config.port)
                     .await
-                    .unwrap()
+                    .map_err(|err| {
+                        let host = self.config.host.clone();
+                        let port = self.config.port.clone();
+                        Error::BuildInsecureClientError(err, host, port)
+                    })?
             }
             Some(ImapEncryptionKind::StartTls) => {
                 Client::starttls(&self.config.host, self.config.port)
                     .await
-                    .unwrap()
+                    .map_err(|err| {
+                        let host = self.config.host.clone();
+                        let port = self.config.port.clone();
+                        Error::BuildStartTlsClientError(err, host, port)
+                    })?
             }
             Some(ImapEncryptionKind::Tls) => Client::tls(&self.config.host, self.config.port)
                 .await
-                .unwrap(),
+                .map_err(|err| {
+                    let host = self.config.host.clone();
+                    let port = self.config.port.clone();
+                    Error::BuildTlsClientError(err, host, port)
+                })?,
         };
 
         client.set_some_idle_timeout(self.config.find_watch_timeout().map(Duration::from_secs));
