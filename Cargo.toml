@@ -5,7 +5,6 @@ members = [
   "email-macros",
   "email-testing-server",
   "keyring",
-  "m2dir",
   "mml",
   "oauth",
   "pgp",
