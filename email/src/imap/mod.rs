@@ -9,7 +9,6 @@ use imap_next::imap_types::{
     auth::AuthMechanism,
     core::{IString, NString, Vec1},
     extensions::{
-        enable::{CapabilityEnable, Utf8Kind},
         sort::SortCriterion,
         thread::{Thread, ThreadingAlgorithm},
     },
@@ -938,10 +937,11 @@ impl ImapClientBuilder {
         #[cfg(feature = "tracing")]
         tracing::debug!("enabling UTF8 capability…");
 
-        client
-            .enable(Some(CapabilityEnable::Utf8(Utf8Kind::Accept)))
-            .await
-            .map_err(Error::EnableCapabilityError)?;
+        // TODO: make it customizable
+        // client
+        //     .enable(Some(CapabilityEnable::Utf8(Utf8Kind::Accept)))
+        //     .await
+        //     .map_err(Error::EnableCapabilityError)?;
 
         Ok(client)
     }
