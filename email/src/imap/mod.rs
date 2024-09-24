@@ -1,24 +1,38 @@
 pub mod config;
 mod error;
 
-use std::{collections::HashMap, env, fmt, num::NonZeroU32, ops::Deref, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap, env, fmt, future::IntoFuture, num::NonZeroU32, ops::Deref, sync::Arc,
+    time::Duration,
+};
 
 use async_trait::async_trait;
-use imap_client::{tasks::tasks::select::SelectDataUnvalidated, Client};
-use imap_next::imap_types::{
-    auth::AuthMechanism,
-    core::{IString, NString, Vec1},
-    extensions::{
-        sort::SortCriterion,
-        thread::{Thread, ThreadingAlgorithm},
+use imap_client::{
+    tasks::{tasks::select::SelectDataUnvalidated, SchedulerError},
+    Client, ClientError,
+};
+use imap_next::{
+    imap_types::{
+        auth::AuthMechanism,
+        core::{IString, NString, Vec1},
+        extensions::{
+            sort::SortCriterion,
+            thread::{Thread, ThreadingAlgorithm},
+        },
+        fetch::MessageDataItem,
+        flag::{Flag, StoreType},
+        search::SearchKey,
+        sequence::SequenceSet,
     },
-    fetch::MessageDataItem,
-    flag::{Flag, StoreType},
-    search::SearchKey,
-    sequence::SequenceSet,
+    stream::Error as StreamError,
 };
 use once_cell::sync::Lazy;
-use tokio::sync::{oneshot, Mutex};
+use paste::paste;
+use tokio::{
+    select,
+    sync::{oneshot, Mutex},
+    time::{error::Elapsed, Timeout},
+};
 
 use self::config::{ImapAuthConfig, ImapConfig};
 #[doc(inline)]
@@ -73,31 +87,78 @@ use crate::{
 };
 
 macro_rules! retry {
-    ($self:ident, $task:expr, $err:expr) => {{
-        #[cfg_attr(not(feature = "oauth2"), allow(unused_mut))]
-        let mut retried = false;
+    ($self:ident, $task:expr, $err:ident) => {
+        paste! {{
+            let mut retry = Retry::default();
 
-        loop {
-            match $task {
-                Err(err) if retried => {
-                    break Err($err(err));
-                }
-                #[cfg(feature = "oauth2")]
-                Err(imap_client::ClientError::Stream(err)) => {
-                    warn!(?err, "re-building IMAP client…");
-                    $self.client = $self.client_builder.build().await?;
-                    retried = true;
-                    continue;
-                }
-                Err(err) => {
-                    break Err($err(err));
-                }
-                Ok(output) => {
-                    break Ok(output);
-                }
+            loop {
+                match retry.next(retry.timeout($task).await) {
+                    RetryState::Retry => {
+                        debug!(attempt = retry.attempts, "request timed out");
+                        continue;
+                    }
+                    RetryState::TimedOut => {
+                        break Err(Error::[<$err TimedOutError>]);
+                    }
+                    RetryState::Ok(Ok(res)) => {
+                        break Ok(res);
+                    }
+                    RetryState::Ok(Err(ClientError::Stream(StreamError::State(SchedulerError::UnexpectedByeResponse(bye))))) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!(
+                            message = bye.text.to_string(),
+                            "server closed the connection, re-connecting…"
+			);
+
+			$self.client = $self.client_builder.build().await?;
+
+			if let Some(mbox) = &$self.mailbox {
+			    $self.client.select(mbox.clone()).await.map_err(Error::SelectMailboxError)?;
+			}
+
+			retry.attempts = 0;
+			continue;
+                    }
+                    RetryState::Ok(Err(err)) => {
+			break Err(Error::[<$err Error>](err));
+                    }
+		}
+            }
+        }}
+    };
+}
+
+#[derive(Debug)]
+pub enum RetryState<T> {
+    Ok(T),
+    Retry,
+    TimedOut,
+}
+
+#[derive(Debug, Default)]
+pub struct Retry {
+    attempts: u8,
+}
+
+impl Retry {
+    pub fn timeout<F: IntoFuture>(&self, f: F) -> Timeout<F::IntoFuture> {
+        tokio::time::timeout(Duration::from_secs(5), f)
+    }
+
+    pub fn next<T>(&mut self, res: std::result::Result<T, Elapsed>) -> RetryState<T> {
+        match res.ok() {
+            Some(res) => {
+                return RetryState::Ok(res);
+            }
+            None if self.attempts < 3 => {
+                self.attempts += 1;
+                return RetryState::Retry;
+            }
+            None => {
+                return RetryState::TimedOut;
             }
         }
-    }};
+    }
 }
 
 static ID_PARAMS: Lazy<Vec<(IString<'static>, NString<'static>)>> = Lazy::new(|| {
@@ -129,7 +190,9 @@ static ID_PARAMS: Lazy<Vec<(IString<'static>, NString<'static>)>> = Lazy::new(||
         (
             "support-url".try_into().unwrap(),
             NString(Some(
-                "mailto:~soywod/pimalaya@lists.sr.ht".try_into().unwrap(),
+                "https://github.com/orgs/pimalaya/discussions/new?category=q-a"
+                    .try_into()
+                    .unwrap(),
             )),
         ),
     ]
@@ -151,6 +214,9 @@ pub struct ImapContext {
 
     /// The next gen IMAP client.
     client: Client,
+
+    /// The selected mailbox.
+    mailbox: Option<String>,
 }
 
 impl fmt::Debug for ImapContext {
@@ -162,79 +228,50 @@ impl fmt::Debug for ImapContext {
 }
 
 impl ImapContext {
-    pub async fn create_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
-        retry! {
-            self,
-            self.client.create(mbox.to_string()).await,
-            Error::CreateMailboxError
-        }
-    }
-
-    pub async fn list_all_mailboxes(&mut self, config: &AccountConfig) -> Result<Folders> {
-        let mboxes = retry! {
-            self,
-            self.client.list("", "*").await,
-            Error::ListMailboxesError
-        }?;
-
-        Ok(Folders::from_imap_mailboxes(config, mboxes))
-    }
-
     pub async fn select_mailbox(&mut self, mbox: impl ToString) -> Result<SelectDataUnvalidated> {
-        retry! {
-            self,
-            self.client.select(mbox.to_string()).await,
-            Error::SelectMailboxError
-        }
+        let data = retry!(self, self.client.select(mbox.to_string()), SelectMailbox)?;
+        self.mailbox = Some(mbox.to_string());
+        Ok(data)
     }
 
     pub async fn examine_mailbox(&mut self, mbox: impl ToString) -> Result<SelectDataUnvalidated> {
-        retry! {
-            self,
-            self.client.examine(mbox.to_string()).await,
-            Error::ExamineMailboxError
-        }
+        retry!(self, self.client.examine(mbox.to_string()), ExamineMailbox)
+    }
+
+    pub async fn create_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
+        retry!(self, self.client.create(mbox.to_string()), CreateMailbox)
+    }
+
+    pub async fn list_all_mailboxes(&mut self, config: &AccountConfig) -> Result<Folders> {
+        let mboxes = retry!(self, self.client.list("", "*"), ListMailboxes)?;
+        let folders = Folders::from_imap_mailboxes(config, mboxes);
+        Ok(folders)
     }
 
     pub async fn expunge_mailbox(&mut self, mbox: impl ToString) -> Result<usize> {
         self.select_mailbox(mbox).await?;
-
-        let expunged = retry! {
-            self,
-            self.client.expunge().await,
-            Error::ExpungeMailboxError
-        }?;
-
+        let expunged = retry!(self, self.client.expunge(), ExpungeMailbox)?;
         Ok(expunged.len())
     }
 
     pub async fn purge_mailbox(&mut self, mbox: impl ToString) -> Result<usize> {
         self.select_mailbox(mbox).await?;
-        self.add_deleted_flag_silently((..).into()).await?;
-
-        let expunged = retry! {
-            self,
-            self.client.expunge().await,
-            Error::ExpungeMailboxError
-        }?;
-
+        self.add_deleted_flag_silently("1:*".try_into().unwrap())
+            .await?;
+        let expunged = retry!(self, self.client.expunge(), ExpungeMailbox)?;
         Ok(expunged.len())
     }
 
     pub async fn delete_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
-        retry! {
-            self,
-            self.client.delete(mbox.to_string()).await,
-            Error::DeleteMailboxError
-        }
+        retry!(self, self.client.delete(mbox.to_string()), DeleteMailbox)
     }
 
     pub async fn fetch_envelopes(&mut self, uids: SequenceSet) -> Result<Envelopes> {
-        let fetches = retry! {
+        let fetches = retry!(
             self,
-            self.client.uid_fetch(uids.clone(), FETCH_ENVELOPES.clone()).await,
-            Error::FetchMessagesError
-        }?;
+            self.client.uid_fetch(uids.clone(), FETCH_ENVELOPES.clone()),
+            FetchMessages
+        )?;
 
         Ok(Envelopes::from_imap_data_items(fetches))
     }
@@ -243,11 +280,11 @@ impl ImapContext {
         &mut self,
         uids: SequenceSet,
     ) -> Result<HashMap<String, Envelope>> {
-        let fetches = retry! {
+        let fetches = retry!(
             self,
-            self.client.uid_fetch(uids.clone(), FETCH_ENVELOPES.clone()).await,
-            Error::FetchMessagesError
-        }?;
+            self.client.uid_fetch(uids.clone(), FETCH_ENVELOPES.clone()),
+            FetchMessages
+        )?;
 
         let map = fetches
             .into_values()
@@ -261,21 +298,22 @@ impl ImapContext {
     }
 
     pub async fn fetch_first_envelope(&mut self, uid: u32) -> Result<Envelope> {
-        let items = retry! {
+        let items = retry!(
             self,
-            self.client.uid_fetch_first(uid.try_into().unwrap(), FETCH_ENVELOPES.clone()).await,
-            Error::FetchMessagesError
-        }?;
+            self.client
+                .uid_fetch_first(uid.try_into().unwrap(), FETCH_ENVELOPES.clone()),
+            FetchMessages
+        )?;
 
         Ok(Envelope::from_imap_data_items(items.as_ref()))
     }
 
     pub async fn fetch_envelopes_by_sequence(&mut self, seq: SequenceSet) -> Result<Envelopes> {
-        let fetches = retry! {
+        let fetches = retry!(
             self,
-            self.client.fetch(seq.clone(), FETCH_ENVELOPES.clone()).await,
-            Error::FetchMessagesError
-        }?;
+            self.client.fetch(seq.clone(), FETCH_ENVELOPES.clone()),
+            FetchMessages
+        )?;
 
         Ok(Envelopes::from_imap_data_items(fetches))
     }
@@ -290,15 +328,15 @@ impl ImapContext {
         sort_criteria: impl IntoIterator<Item = SortCriterion> + Clone,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
     ) -> Result<Envelopes> {
-        let fetches = retry! {
+        let fetches = retry!(
             self,
             self.client.uid_sort_or_fallback(
                 sort_criteria.clone(),
                 search_criteria.clone(),
                 FETCH_ENVELOPES.clone(),
-            ).await,
-            Error::FetchMessagesError
-        }?;
+            ),
+            FetchMessages
+        )?;
 
         Ok(Envelopes::from(fetches))
     }
@@ -307,14 +345,12 @@ impl ImapContext {
         &mut self,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
     ) -> Result<Vec<Thread>> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_thread(
-                ThreadingAlgorithm::References,
-                search_criteria.clone(),
-            ).await,
-            Error::ThreadMessagesError
-        }
+            self.client
+                .uid_thread(ThreadingAlgorithm::References, search_criteria.clone(),),
+            ThreadMessages
+        )
     }
 
     pub async fn idle(
@@ -323,7 +359,7 @@ impl ImapContext {
     ) -> Result<()> {
         let tag = self.client.enqueue_idle();
 
-        tokio::select! {
+        select! {
             output = self.client.idle(tag.clone()) => {
                 output.map_err(Error::StartIdleError)?;
                 Ok(())
@@ -341,30 +377,33 @@ impl ImapContext {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_store(uids.clone(), StoreType::Add, flags.clone()).await,
-            Error::StoreFlagsError
-        }
+            self.client
+                .uid_store(uids.clone(), StoreType::Add, flags.clone()),
+            StoreFlags
+        )
     }
 
     pub async fn add_deleted_flag(
         &mut self,
         uids: SequenceSet,
     ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_store(uids.clone(), StoreType::Add, Some(Flag::Deleted)).await,
-            Error::StoreFlagsError
-        }
+            self.client
+                .uid_store(uids.clone(), StoreType::Add, Some(Flag::Deleted)),
+            StoreFlags
+        )
     }
 
     pub async fn add_deleted_flag_silently(&mut self, uids: SequenceSet) -> Result<()> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_silent_store(uids.clone(), StoreType::Add, Some(Flag::Deleted)).await,
-            Error::StoreFlagsError
-        }
+            self.client
+                .uid_silent_store(uids.clone(), StoreType::Add, Some(Flag::Deleted)),
+            StoreFlags
+        )
     }
 
     pub async fn add_flags_silently(
@@ -372,11 +411,12 @@ impl ImapContext {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<()> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_silent_store(uids.clone(), StoreType::Add, flags.clone()).await,
-            Error::StoreFlagsError
-        }
+            self.client
+                .uid_silent_store(uids.clone(), StoreType::Add, flags.clone()),
+            StoreFlags
+        )
     }
 
     pub async fn set_flags(
@@ -384,11 +424,12 @@ impl ImapContext {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_store(uids.clone(), StoreType::Replace, flags.clone()).await,
-            Error::StoreFlagsError
-        }
+            self.client
+                .uid_store(uids.clone(), StoreType::Replace, flags.clone()),
+            StoreFlags
+        )
     }
 
     pub async fn set_flags_silently(
@@ -396,11 +437,12 @@ impl ImapContext {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<()> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_silent_store(uids.clone(), StoreType::Replace, flags.clone()).await,
-            Error::StoreFlagsError
-        }
+            self.client
+                .uid_silent_store(uids.clone(), StoreType::Replace, flags.clone()),
+            StoreFlags
+        )
     }
 
     pub async fn remove_flags(
@@ -408,11 +450,12 @@ impl ImapContext {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_store(uids.clone(), StoreType::Remove, flags.clone()).await,
-            Error::StoreFlagsError
-        }
+            self.client
+                .uid_store(uids.clone(), StoreType::Remove, flags.clone()),
+            StoreFlags
+        )
     }
 
     pub async fn remove_flags_silently(
@@ -420,11 +463,12 @@ impl ImapContext {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<()> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_silent_store(uids.clone(), StoreType::Remove, flags.clone()).await,
-            Error::StoreFlagsError
-        }
+            self.client
+                .uid_silent_store(uids.clone(), StoreType::Remove, flags.clone()),
+            StoreFlags
+        )
     }
 
     pub async fn add_message(
@@ -433,21 +477,22 @@ impl ImapContext {
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
         msg: impl AsRef<[u8]> + Clone,
     ) -> Result<NonZeroU32> {
-        let id = retry! {
+        let id = retry!(
             self,
-            self.client.appenduid_or_fallback(mbox.to_string(), flags.clone(), msg.clone()).await,
-            Error::StoreFlagsError
-        }?;
+            self.client
+                .appenduid_or_fallback(mbox.to_string(), flags.clone(), msg.clone()),
+            StoreFlags
+        )?;
 
         id.ok_or(Error::FindAppendedMessageUidError)
     }
 
     pub async fn fetch_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
-        let mut fetches = retry! {
+        let mut fetches = retry!(
             self,
-            self.client.uid_fetch(uids.clone(), FETCH_MESSAGES.clone()).await,
-            Error::StoreFlagsError
-        }?;
+            self.client.uid_fetch(uids.clone(), FETCH_MESSAGES.clone()),
+            FetchMessages
+        )?;
 
         let fetches: Vec<_> = uids
             .iter(NonZeroU32::MAX)
@@ -458,11 +503,11 @@ impl ImapContext {
     }
 
     pub async fn peek_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
-        let mut fetches = retry! {
+        let mut fetches = retry!(
             self,
-            self.client.uid_fetch(uids.clone(), PEEK_MESSAGES.clone()).await,
-            Error::StoreFlagsError
-        }?;
+            self.client.uid_fetch(uids.clone(), PEEK_MESSAGES.clone()),
+            FetchMessages
+        )?;
 
         let fetches: Vec<_> = uids
             .iter(NonZeroU32::MAX)
@@ -473,19 +518,20 @@ impl ImapContext {
     }
 
     pub async fn copy_messages(&mut self, uids: SequenceSet, mbox: impl ToString) -> Result<()> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_copy(uids.clone(), mbox.to_string()).await,
-            Error::CopyMessagesError
-        }
+            self.client.uid_copy(uids.clone(), mbox.to_string()),
+            CopyMessages
+        )
     }
 
     pub async fn move_messages(&mut self, uids: SequenceSet, mbox: impl ToString) -> Result<()> {
-        retry! {
+        retry!(
             self,
-            self.client.uid_move_or_fallback(uids.clone(), mbox.to_string()).await,
-            Error::MoveMessagesError
-        }
+            self.client
+                .uid_move_or_fallback(uids.clone(), mbox.to_string()),
+            MoveMessages
+        )
     }
 }
 
@@ -653,6 +699,7 @@ impl BackendContextBuilder for ImapContextBuilder {
             imap_config: self.imap_config.clone(),
             client_builder,
             client,
+            mailbox: None,
         };
 
         Ok(ImapContextSync {
@@ -934,10 +981,11 @@ impl ImapClientBuilder {
             debug!(?params, "server identity");
         }
 
-        #[cfg(feature = "tracing")]
-        tracing::debug!("enabling UTF8 capability…");
-
         // TODO: make it customizable
+        //
+        // #[cfg(feature = "tracing")]
+        // tracing::debug!("enabling UTF8 capability…");
+        //
         // client
         //     .enable(Some(CapabilityEnable::Utf8(Utf8Kind::Accept)))
         //     .await

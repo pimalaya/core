@@ -53,6 +53,12 @@ pub enum Error {
     #[error("cannot find UID of appended IMAP message")]
     FindAppendedMessageUidError,
 
+    #[error("cannot send IMAP request")]
+    RequestRetryError(#[source] ClientError),
+    #[error("cannot send IMAP request")]
+    ClientRetryError(#[source] ClientError),
+    #[error("cannot send IMAP request: request timed out after 3 attempts")]
+    RequestRetryTimeoutError,
     #[error("cannot enable IMAP capability")]
     EnableCapabilityError(#[source] ClientError),
     #[error("cannot authenticate to IMAP server: no valid auth mechanism found")]
@@ -68,27 +74,63 @@ pub enum Error {
 
     #[error("cannot create IMAP mailbox")]
     CreateMailboxError(#[source] ClientError),
+    #[error("cannot create IMAP mailbox: request timed out")]
+    CreateMailboxTimedOutError,
+
     #[error("cannot select IMAP mailbox")]
     SelectMailboxError(#[source] ClientError),
+    #[error("cannot select IMAP mailbox: request timed out")]
+    SelectMailboxTimedOutError,
+
     #[error("cannot examine IMAP mailbox")]
     ExamineMailboxError(#[source] ClientError),
+    #[error("cannot examine IMAP mailbox: request timed out")]
+    ExamineMailboxTimedOutError,
+
     #[error("cannot list IMAP mailboxes")]
     ListMailboxesError(#[source] ClientError),
+    #[error("cannot list IMAP mailboxes: request timed out")]
+    ListMailboxesTimedOutError,
+
     #[error("cannot expunge selected IMAP mailbox")]
     ExpungeMailboxError(#[source] ClientError),
+    #[error("cannot expunge selected IMAP mailbox: request timed out")]
+    ExpungeMailboxTimedOutError,
+
     #[error("cannot delete IMAP mailbox")]
     DeleteMailboxError(#[source] ClientError),
+    #[error("cannot delete IMAP mailbox: request timed out")]
+    DeleteMailboxTimedOutError,
+
+    #[error("cannot fetch IMAP messages")]
+    FetchMessagesError(#[source] ClientError),
+    #[error("cannot fetch IMAP messages: request timed out")]
+    FetchMessagesTimedOutError,
+
+    #[error("cannot thread IMAP messages")]
+    ThreadMessagesError(#[source] ClientError),
+    #[error("cannot thread IMAP messages: request timed out")]
+    ThreadMessagesTimedOutError,
+
+    #[error("cannot store IMAP flag(s)")]
+    StoreFlagsError(#[source] ClientError),
+    #[error("cannot store IMAP flag(s): request timed out")]
+    StoreFlagsTimedOutError,
+    #[error("cannot copy IMAP message(s)")]
+    CopyMessagesError(#[source] ClientError),
+    #[error("cannot copy IMAP message(s): request timed out")]
+    CopyMessagesTimedOutError,
+    #[error("cannot move IMAP message(s)")]
+    MoveMessagesError(#[source] ClientError),
+    #[error("cannot move IMAP message(s): request timed out")]
+    MoveMessagesTimedOutError,
 
     #[error("cannot exchange IMAP client/server ids")]
     ExchangeIdsError(#[source] ClientError),
-    #[error("cannot fetch IMAP messages")]
-    FetchMessagesError(#[source] ClientError),
     #[error("cannot search IMAP messages")]
     SearchMessagesError(#[source] ClientError),
     #[error("cannot sort IMAP messages")]
     SortMessagesError(#[source] ClientError),
-    #[error("cannot thread IMAP messages")]
-    ThreadMessagesError(#[source] ClientError),
     #[error("cannot start IMAP IDLE mode")]
     StartIdleError(#[source] StreamError<ClientFlowError>),
     #[error("cannot stop IMAP IDLE mode")]
@@ -101,12 +143,6 @@ pub enum Error {
     ExecuteNoOpAfterAppendError(#[source] ClientError),
     #[error("cannot execute IMAP check after append")]
     ExecuteCheckAfterAppendError(#[source] ClientError),
-    #[error("cannot copy IMAP message(s)")]
-    CopyMessagesError(#[source] ClientError),
-    #[error("cannot move IMAP message(s)")]
-    MoveMessagesError(#[source] ClientError),
-    #[error("cannot store IMAP flag(s)")]
-    StoreFlagsError(#[source] ClientError),
     #[error("cannot execute IMAP no-op")]
     ExecuteNoOpError(#[source] ClientError),
 
