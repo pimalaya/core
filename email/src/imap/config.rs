@@ -58,6 +58,9 @@ pub struct ImapConfig {
     /// Defines the command used to notify the user when a new email is available.
     /// Defaults to `notify-send "📫 <sender>" "<subject>"`.
     pub watch: Option<ImapWatchConfig>,
+
+    #[cfg(feature = "sync")]
+    pub sync: Option<ImapSyncConfig>,
 }
 
 impl ImapConfig {
@@ -98,6 +101,11 @@ impl ImapConfig {
     /// Find the IMAP watch timeout.
     pub fn find_watch_timeout(&self) -> Option<u64> {
         self.watch.as_ref().and_then(|c| c.find_timeout())
+    }
+
+    #[cfg(all(feature = "sync", feature = "pool"))]
+    pub fn find_sync_pool_size(&self) -> Option<u8> {
+        self.sync.as_ref().and_then(|c| c.pool_size)
     }
 }
 
@@ -260,6 +268,22 @@ impl ImapWatchConfig {
     pub fn find_timeout(&self) -> Option<u64> {
         self.timeout
     }
+}
+
+#[cfg(feature = "sync")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
+pub struct ImapSyncConfig {
+    /// The IMAP sync pool size
+    ///
+    /// Timeout used to refresh the IDLE command in
+    /// background. Defaults to 29 min as defined in the RFC.
+    #[cfg(feature = "pool")]
+    pub pool_size: Option<u8>,
 }
 
 #[cfg(feature = "derive")]
