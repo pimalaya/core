@@ -16,11 +16,12 @@ use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll, Waker},
+    time::Duration,
 };
 
 use async_trait::async_trait;
 use futures::{lock::Mutex, stream::FuturesUnordered, Future, StreamExt};
-use tokio::{sync::mpsc, task::JoinHandle};
+use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
 
 #[doc(inline)]
 pub use self::error::{Error, Result};
@@ -229,12 +230,16 @@ impl<B: ThreadPoolContextBuilder + 'static> ThreadPoolBuilder<B> {
                     let mut lock = rx.lock().await;
 
                     debug!("thread {thread_id} waiting for a task…");
-                    match lock.recv().await {
-                        None => {
+                    match timeout(Duration::from_secs(5), lock.recv()).await {
+                        Err(_) => {
+                            debug!("no task found for thread {thread_id} after 5s");
+                            continue;
+                        }
+                        Ok(None) => {
                             drop(lock);
                             break;
                         }
-                        Some(task) => {
+                        Ok(Some(task)) => {
                             drop(lock);
 
                             debug!("thread {thread_id} received a task, executing it…");
