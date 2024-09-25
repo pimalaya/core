@@ -174,7 +174,7 @@ impl<B: ThreadPoolContextBuilder + 'static> ThreadPoolBuilder<B> {
     pub fn new(ctx_builder: B) -> Self {
         Self {
             ctx_builder,
-            size: 8,
+            size: num_cpus::get(),
         }
     }
 
@@ -206,6 +206,9 @@ impl<B: ThreadPoolContextBuilder + 'static> ThreadPoolBuilder<B> {
     pub async fn build(self) -> Result<ThreadPool<B::Context>> {
         let (tx, rx) = mpsc::unbounded_channel::<ThreadPoolTask<B::Context>>();
         let rx = Arc::new(Mutex::new(rx));
+
+        #[cfg(feature = "tracing")]
+        tracing::debug!(size = self.size, "creating pool");
 
         let ctxs = FuturesUnordered::from_iter(
             (0..self.size).map(move |_| tokio::spawn(self.ctx_builder.clone().build())),
