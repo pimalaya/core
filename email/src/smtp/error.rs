@@ -14,8 +14,10 @@ pub enum Error {
     SendMessageMissingSenderError,
     #[error("cannot send message without a recipient")]
     SendMessageMissingRecipientError,
+    #[error("cannot send message: request timed out")]
+    SendMessageTimedOutError,
     #[error("cannot send message")]
-    SendMessageSmtpError(#[source] mail_send::Error),
+    SendMessageError(#[source] mail_send::Error),
     #[error("cannot connect to smtp server using tcp")]
     ConnectTcpSmtpError(#[source] mail_send::Error),
     #[error("cannot connect to smtp server using tls")]

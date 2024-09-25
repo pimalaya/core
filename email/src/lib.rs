@@ -63,6 +63,7 @@ pub mod log;
 pub mod maildir;
 #[cfg(feature = "notmuch")]
 pub mod notmuch;
+pub mod retry;
 #[cfg(feature = "sendmail")]
 pub mod sendmail;
 #[cfg(feature = "derive")]

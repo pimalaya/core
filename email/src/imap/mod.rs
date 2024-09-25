@@ -1,10 +1,7 @@
 pub mod config;
 mod error;
 
-use std::{
-    collections::HashMap, env, fmt, future::IntoFuture, num::NonZeroU32, ops::Deref, sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, env, fmt, num::NonZeroU32, ops::Deref, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use imap_client::{
@@ -31,7 +28,6 @@ use paste::paste;
 use tokio::{
     select,
     sync::{oneshot, Mutex},
-    time::{error::Elapsed, Timeout},
 };
 
 use self::config::{ImapAuthConfig, ImapConfig};
@@ -83,6 +79,7 @@ use crate::{
         remove::{imap::RemoveImapMessages, RemoveMessages},
         Messages,
     },
+    retry::{Retry, RetryState},
     AnyResult,
 };
 
@@ -105,10 +102,10 @@ macro_rules! retry {
                     }
                     RetryState::Ok(Err(ClientError::Stream(StreamError::State(SchedulerError::UnexpectedByeResponse(bye))))) => {
                         #[cfg(feature = "tracing")]
-                        tracing::debug!(
-                            message = bye.text.to_string(),
-                            "server closed the connection, re-connecting…"
-			);
+                        tracing::debug!(reason = bye.text.to_string(), "connection closed");
+
+                        #[cfg(feature = "tracing")]
+			tracing::debug!("re-connecting…");
 
 			$self.client = $self.client_builder.build().await?;
 
@@ -126,39 +123,6 @@ macro_rules! retry {
             }
         }}
     };
-}
-
-#[derive(Debug)]
-pub enum RetryState<T> {
-    Ok(T),
-    Retry,
-    TimedOut,
-}
-
-#[derive(Debug, Default)]
-pub struct Retry {
-    attempts: u8,
-}
-
-impl Retry {
-    pub fn timeout<F: IntoFuture>(&self, f: F) -> Timeout<F::IntoFuture> {
-        tokio::time::timeout(Duration::from_secs(5), f)
-    }
-
-    pub fn next<T>(&mut self, res: std::result::Result<T, Elapsed>) -> RetryState<T> {
-        match res.ok() {
-            Some(res) => {
-                return RetryState::Ok(res);
-            }
-            None if self.attempts < 3 => {
-                self.attempts += 1;
-                return RetryState::Retry;
-            }
-            None => {
-                return RetryState::TimedOut;
-            }
-        }
-    }
 }
 
 static ID_PARAMS: Lazy<Vec<(IString<'static>, NString<'static>)>> = Lazy::new(|| {
@@ -897,7 +861,7 @@ impl ImapClientBuilder {
                             .await;
 
                         if auth.is_err() {
-                            warn!("authentication failed, refreshing access token and retrying");
+                            warn!("authentication failed, refreshing access token and retrying…");
 
                             let access_token = oauth2
                                 .refresh_access_token()

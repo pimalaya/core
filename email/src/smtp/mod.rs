@@ -23,6 +23,7 @@ use crate::{
     },
     debug, info,
     message::send::{smtp::SendSmtpMessage, SendMessage},
+    retry::{Retry, RetryState},
     warn, AnyResult,
 };
 
@@ -46,7 +47,6 @@ pub struct SmtpContext {
 
 impl SmtpContext {
     pub async fn send(&mut self, msg: &[u8]) -> Result<()> {
-        let mut retry = SmtpRetryState::default();
         let buffer: Vec<u8>;
 
         let mut msg = MessageParser::new().parse(msg).unwrap_or_else(|| {
@@ -70,62 +70,65 @@ impl SmtpContext {
             }
         };
 
+        let mut retry = Retry::default();
+
         loop {
             // NOTE: cannot clone the final message
-            match self.client.send(into_smtp_msg(msg.clone())?).await {
-                Ok(res) => {
+            let msg = into_smtp_msg(msg.clone())?;
+
+            match retry.next(retry.timeout(self.client.send(msg)).await) {
+                #[cfg(not(feature = "tracing"))]
+                RetryState::Retry => continue,
+                #[cfg(feature = "tracing")]
+                RetryState::Retry => {
+                    tracing::debug!(attempt = retry.attempts, "request timed out");
+                    continue;
+                }
+                RetryState::TimedOut => {
+                    break Err(Error::SendMessageTimedOutError);
+                }
+                RetryState::Ok(Ok(res)) => {
                     break Ok(res);
                 }
-                Err(err) if retry.is_empty() => {
-                    warn!("cannot send SMTP message after 3 attempts, aborting");
-                    break Err(Error::SendMessageSmtpError(err))?;
+                RetryState::Ok(Err(err)) => {
+                    match err {
+                        #[cfg(not(feature = "tracing"))]
+                        mail_send::Error::Timeout => (),
+                        #[cfg(feature = "tracing")]
+                        mail_send::Error::Timeout => {
+                            tracing::warn!("connection timed out");
+                        }
+                        #[cfg(not(feature = "tracing"))]
+                        mail_send::Error::Io(_) => (),
+                        #[cfg(feature = "tracing")]
+                        mail_send::Error::Io(err) => {
+                            let reason = err.to_string();
+                            tracing::warn!(reason, "connection broke");
+                        }
+                        #[cfg(not(feature = "tracing"))]
+                        mail_send::Error::UnexpectedReply(_) => (),
+                        #[cfg(feature = "tracing")]
+                        mail_send::Error::UnexpectedReply(reply) => {
+                            let reason = reply.message;
+                            let code = reply.code;
+                            tracing::warn!(reason, "server replied with code {code}");
+                        }
+                        err => {
+                            break Err(Error::SendMessageError(err));
+                        }
+                    };
+
+                    tracing::debug!("re-connecting…");
+
+                    self.client = if self.smtp_config.is_encryption_enabled() {
+                        build_tls_client(&self.client_builder).await
+                    } else {
+                        build_tcp_client(&self.client_builder).await
+                    }?;
+
+                    retry.reset();
+                    continue;
                 }
-                Err(err) => match err {
-                    mail_send::Error::AuthenticationFailed(_) => match &self.smtp_config.auth {
-                        SmtpAuthConfig::Passwd(_) => {
-                            break Err(Error::SendMessageSmtpError(err))?;
-                        }
-                        #[cfg(feature = "oauth2")]
-                        SmtpAuthConfig::OAuth2(_) if retry.oauth2_access_token_refreshed => {
-                            break Err(Error::SendMessageSmtpError(err))?;
-                        }
-                        #[cfg(feature = "oauth2")]
-                        SmtpAuthConfig::OAuth2(oauth2_config) => {
-                            oauth2_config
-                                .refresh_access_token()
-                                .await
-                                .map_err(|_| Error::RefreshingAccessTokenFailed)?;
-                            retry.set_oauth2_access_token_refreshed();
-
-                            self.client_builder = self
-                                .client_builder
-                                .clone()
-                                .credentials(self.smtp_config.credentials().await?);
-                            self.client = if self.smtp_config.is_encryption_enabled() {
-                                build_tls_client(&self.client_builder).await
-                            } else {
-                                build_tcp_client(&self.client_builder).await
-                            }?;
-
-                            continue;
-                        }
-                    },
-                    mail_send::Error::Timeout | mail_send::Error::Io(_) => {
-                        let _count = 3 - retry.decrement();
-                        warn!("cannot send smtp message: {err}, attempt ({_count})");
-
-                        self.client = if self.smtp_config.is_encryption_enabled() {
-                            build_tls_client(&self.client_builder).await
-                        } else {
-                            build_tcp_client(&self.client_builder).await
-                        }?;
-
-                        continue;
-                    }
-                    err => {
-                        break Err(Error::SendMessageSmtpError(err))?;
-                    }
-                },
             }
         }
     }
@@ -252,39 +255,6 @@ impl CheckUp for CheckUpSmtp {
     }
 }
 
-pub struct SmtpRetryState {
-    pub count: usize,
-    pub oauth2_access_token_refreshed: bool,
-}
-
-impl SmtpRetryState {
-    fn decrement(&mut self) -> usize {
-        if self.count > 0 {
-            self.count -= 1
-        }
-
-        self.count
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.count == 0
-    }
-
-    pub fn set_oauth2_access_token_refreshed(&mut self) {
-        self.count = 3;
-        self.oauth2_access_token_refreshed = true;
-    }
-}
-
-impl Default for SmtpRetryState {
-    fn default() -> Self {
-        Self {
-            count: 3,
-            oauth2_access_token_refreshed: false,
-        }
-    }
-}
-
 pub async fn build_client(
     smtp_config: &SmtpConfig,
     #[cfg_attr(not(feature = "oauth2"), allow(unused_mut))]
@@ -304,6 +274,7 @@ pub async fn build_client(
             match Ok(build_tcp_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
                 Err(Error::ConnectTcpSmtpError(mail_send::Error::AuthenticationFailed(_))) => {
+                    warn!("authentication failed, refreshing access token and retrying…");
                     oauth2_config
                         .refresh_access_token()
                         .await
@@ -320,6 +291,7 @@ pub async fn build_client(
             match Ok(build_tls_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
                 Err(Error::ConnectTlsSmtpError(mail_send::Error::AuthenticationFailed(_))) => {
+                    warn!("authentication failed, refreshing access token and retrying…");
                     oauth2_config
                         .refresh_access_token()
                         .await
