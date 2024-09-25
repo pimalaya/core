@@ -20,7 +20,7 @@ impl Retry {
     }
 
     pub fn timeout<F: IntoFuture>(&self, f: F) -> Timeout<F::IntoFuture> {
-        tokio::time::timeout(Duration::from_secs(5), f)
+        tokio::time::timeout(Duration::from_secs(30), f)
     }
 
     pub fn next<T>(&mut self, res: Result<T, Elapsed>) -> RetryState<T> {
