@@ -43,7 +43,7 @@ pub use self::{
 };
 use crate::{
     account::config::AccountConfig, date::from_mail_parser_to_chrono_datetime, debug,
-    message::Message,
+    message::Message, trace,
 };
 
 /// The email envelope.
@@ -117,7 +117,7 @@ impl Envelope {
                     envelope.from = Address::new(name, email)
                 }
                 _ => {
-                    debug!("cannot extract envelope sender from message header, skipping it");
+                    trace!("cannot extract envelope sender from message header, skipping it");
                 }
             };
 
@@ -147,7 +147,7 @@ impl Envelope {
                     envelope.to = Address::new(name, email)
                 }
                 _ => {
-                    debug!("cannot extract envelope recipient to message header, skipping it");
+                    trace!("cannot extract envelope recipient from message header, skipping it");
                 }
             };
 
@@ -156,7 +156,7 @@ impl Envelope {
             match msg.date() {
                 Some(date) => envelope.set_date(date),
                 None => {
-                    debug!("cannot extract envelope date from message header, skipping it")
+                    trace!("cannot extract envelope date from message header, skipping it")
                 }
             };
 
@@ -174,7 +174,7 @@ impl Envelope {
 
             envelope.in_reply_to = msg.in_reply_to().as_text().map(|mid| format!("<{mid}>"));
         } else {
-            debug!("cannot parse message header, skipping it");
+            trace!("cannot parse message header, skipping it");
         };
 
         envelope

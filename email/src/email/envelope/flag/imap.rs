@@ -20,7 +20,7 @@ impl Flags {
             match Flag::try_from_imap_fetch(fetch) {
                 Ok(flag) => Some(flag),
                 Err(_err) => {
-                    debug!("{_err:?}");
+                    trace!("{_err:?}");
                     None
                 }
             }
