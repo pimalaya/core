@@ -50,8 +50,6 @@ pub mod context;
 mod error;
 pub mod feature;
 pub mod mapper;
-#[cfg(feature = "pool")]
-pub mod pool;
 pub mod macros {
     pub use email_macros::BackendContext;
 }
@@ -69,9 +67,7 @@ use tokio::sync::oneshot::{Receiver, Sender};
 pub use self::error::{Error, Result};
 use self::{
     context::{BackendContext, BackendContextBuilder},
-    feature::{
-        AsyncTryIntoBackendFeatures, BackendFeature, BackendFeatureSource, BackendFeatures, CheckUp,
-    },
+    feature::{BackendFeature, BackendFeatureSource, CheckUp},
 };
 #[cfg(feature = "watch")]
 use crate::envelope::watch::WatchEnvelopes;
@@ -639,97 +635,7 @@ where
         self
     }
 
-    /// Build the final backend.
-    ///
-    /// The backend instance should implement
-    /// [`AsyncTryIntoBackendFeatures`].
-    pub async fn build<B>(self) -> AnyResult<B>
-    where
-        B: BackendFeatures,
-        Self: AsyncTryIntoBackendFeatures<B>,
-    {
-        self.try_into_backend().await
-    }
-
-    /// Consumes the builder to perform a check up of the
-    /// configuration and the context.
-    ///
-    /// This function checks up the integrity of the configuration and
-    /// the final built context.
-    pub async fn check_up<B>(self) -> AnyResult<()>
-    where
-        B: BackendFeatures,
-        Self: AsyncTryIntoBackendFeatures<B>,
-    {
-        match self.check_up {
-            BackendFeatureSource::None => Ok(()),
-            BackendFeatureSource::Context => {
-                if let Some(f) = self.ctx_builder.check_up() {
-                    let context = self.ctx_builder.build().await?;
-                    if let Some(f) = f(&context) {
-                        f.check_up().await?;
-                    }
-                }
-                Ok(())
-            }
-            BackendFeatureSource::Backend(f) => {
-                let context = self.ctx_builder.build().await?;
-                if let Some(f) = f(&context) {
-                    f.check_up().await?;
-                }
-                Ok(())
-            }
-        }
-    }
-}
-
-#[async_trait]
-impl<CB> Clone for BackendBuilder<CB>
-where
-    CB: BackendContextBuilder,
-{
-    fn clone(&self) -> Self {
-        Self {
-            account_config: self.account_config.clone(),
-            ctx_builder: self.ctx_builder.clone(),
-
-            check_up: self.check_up.clone(),
-
-            add_folder: self.add_folder.clone(),
-            list_folders: self.list_folders.clone(),
-            expunge_folder: self.expunge_folder.clone(),
-            purge_folder: self.purge_folder.clone(),
-            delete_folder: self.delete_folder.clone(),
-
-            get_envelope: self.get_envelope.clone(),
-            list_envelopes: self.list_envelopes.clone(),
-            #[cfg(feature = "thread")]
-            thread_envelopes: self.thread_envelopes.clone(),
-            #[cfg(feature = "watch")]
-            watch_envelopes: self.watch_envelopes.clone(),
-
-            add_flags: self.add_flags.clone(),
-            set_flags: self.set_flags.clone(),
-            remove_flags: self.remove_flags.clone(),
-
-            add_message: self.add_message.clone(),
-            send_message: self.send_message.clone(),
-            peek_messages: self.peek_messages.clone(),
-            get_messages: self.get_messages.clone(),
-            copy_messages: self.copy_messages.clone(),
-            move_messages: self.move_messages.clone(),
-            delete_messages: self.delete_messages.clone(),
-            remove_messages: self.remove_messages.clone(),
-        }
-    }
-}
-
-#[async_trait]
-impl<CB> AsyncTryIntoBackendFeatures<Backend<CB::Context>> for BackendBuilder<CB>
-where
-    CB: BackendContextBuilder,
-{
-    async fn try_into_backend(self) -> AnyResult<Backend<CB::Context>> {
+    pub async fn build(self) -> AnyResult<Backend<CB::Context>> {
         let add_folder = self.get_add_folder();
         let list_folders = self.get_list_folders();
         let expunge_folder = self.get_expunge_folder();
@@ -786,6 +692,47 @@ where
             delete_messages,
             remove_messages,
         })
+    }
+}
+
+#[async_trait]
+impl<CB> Clone for BackendBuilder<CB>
+where
+    CB: BackendContextBuilder,
+{
+    fn clone(&self) -> Self {
+        Self {
+            account_config: self.account_config.clone(),
+            ctx_builder: self.ctx_builder.clone(),
+
+            check_up: self.check_up.clone(),
+
+            add_folder: self.add_folder.clone(),
+            list_folders: self.list_folders.clone(),
+            expunge_folder: self.expunge_folder.clone(),
+            purge_folder: self.purge_folder.clone(),
+            delete_folder: self.delete_folder.clone(),
+
+            get_envelope: self.get_envelope.clone(),
+            list_envelopes: self.list_envelopes.clone(),
+            #[cfg(feature = "thread")]
+            thread_envelopes: self.thread_envelopes.clone(),
+            #[cfg(feature = "watch")]
+            watch_envelopes: self.watch_envelopes.clone(),
+
+            add_flags: self.add_flags.clone(),
+            set_flags: self.set_flags.clone(),
+            remove_flags: self.remove_flags.clone(),
+
+            add_message: self.add_message.clone(),
+            send_message: self.send_message.clone(),
+            peek_messages: self.peek_messages.clone(),
+            get_messages: self.get_messages.clone(),
+            copy_messages: self.copy_messages.clone(),
+            move_messages: self.move_messages.clone(),
+            delete_messages: self.delete_messages.clone(),
+            remove_messages: self.remove_messages.clone(),
+        }
     }
 }
 

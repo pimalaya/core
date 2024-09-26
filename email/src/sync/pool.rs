@@ -1,7 +1,5 @@
 use std::{collections::BTreeSet, sync::Arc};
 
-use async_trait::async_trait;
-
 #[doc(inline)]
 pub use super::{Error, Result};
 use super::{SyncDestination, SyncEventHandler};
@@ -20,7 +18,6 @@ use crate::{
     },
     maildir::{MaildirContextBuilder, MaildirContextSync},
     message::sync::config::MessageSyncPermissions,
-    thread_pool::{ThreadPool, ThreadPoolBuilder, ThreadPoolContext, ThreadPoolContextBuilder},
     AnyResult,
 };
 
@@ -37,38 +34,6 @@ pub struct SyncPoolConfig {
     pub envelope_filters: Option<EnvelopeSyncFilters>,
     pub handler: Option<Arc<SyncEventHandler>>,
     pub dry_run: Option<bool>,
-}
-
-/// Create a new thread pool dedicated to synchronization.
-pub async fn new<L, R>(
-    config: SyncPoolConfig,
-    left_cache_builder: BackendBuilder<MaildirContextBuilder>,
-    left_builder: BackendBuilder<L>,
-    right_cache_builder: BackendBuilder<MaildirContextBuilder>,
-    right_builder: BackendBuilder<R>,
-) -> Result<ThreadPool<SyncPoolContext<L::Context, R::Context>>>
-where
-    L: BackendContextBuilder + 'static,
-    R: BackendContextBuilder + 'static,
-{
-    let pool_size = config.pool_size.clone();
-
-    let pool_ctx_builder = SyncPoolContextBuilder::new(
-        config,
-        left_cache_builder,
-        left_builder,
-        right_cache_builder,
-        right_builder,
-    );
-
-    let pool_builder = ThreadPoolBuilder::new(pool_ctx_builder).with_some_size(pool_size);
-
-    let pool = pool_builder
-        .build()
-        .await
-        .map_err(Error::BuildThreadPoolError)?;
-
-    Ok(pool)
 }
 
 #[derive(Clone)]
@@ -104,17 +69,8 @@ where
             right_builder,
         }
     }
-}
 
-#[async_trait]
-impl<L, R> ThreadPoolContextBuilder for SyncPoolContextBuilder<L, R>
-where
-    L: BackendContextBuilder,
-    R: BackendContextBuilder,
-{
-    type Context = SyncPoolContext<L::Context, R::Context>;
-
-    async fn build(self) -> AnyResult<Self::Context> {
+    pub async fn build(self) -> AnyResult<SyncPoolContext<L::Context, R::Context>> {
         let left_folder_permissions = self
             .config
             .left_folder_permissions
@@ -234,7 +190,7 @@ where
             self.right_builder.build(),
         )?;
 
-        Ok(Self::Context {
+        Ok(SyncPoolContext {
             left_cache,
             left,
             left_folder_permissions,
@@ -302,8 +258,4 @@ impl<L: BackendContext, R: BackendContext> SyncPoolContext<L, R> {
             Uncache(_, _, Right) | Delete(_, _, Right) => self.right_message_permissions.delete,
         });
     }
-}
-
-impl<L: BackendContext, R: BackendContext> ThreadPoolContext for SyncPoolContext<L, R> {
-    //
 }

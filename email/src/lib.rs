@@ -58,8 +58,6 @@ mod error;
 pub mod folder;
 #[cfg(feature = "imap")]
 pub mod imap;
-#[cfg(feature = "imap")]
-pub mod imap_v2;
 pub mod log;
 #[cfg(feature = "maildir")]
 pub mod maildir;
@@ -74,8 +72,6 @@ pub(crate) mod serde;
 pub mod smtp;
 #[cfg(feature = "sync")]
 pub mod sync;
-#[cfg(feature = "pool")]
-pub mod thread_pool;
 pub mod watch;
 
 #[doc(inline)]

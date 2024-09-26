@@ -22,12 +22,11 @@ use crate::{
     backend::context::BackendContextBuilder,
     debug,
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
-    thread_pool::ThreadPool,
     trace,
 };
 
 pub(crate) async fn sync<L, R>(
-    pool: Arc<ThreadPool<SyncPoolContext<L::Context, R::Context>>>,
+    pool: Arc<SyncPoolContext<L::Context, R::Context>>,
 ) -> Result<FolderSyncReport>
 where
     L: BackendContextBuilder + 'static,
@@ -303,7 +302,7 @@ where
 }
 
 pub(crate) async fn expunge<L, R>(
-    pool: Arc<ThreadPool<SyncPoolContext<L::Context, R::Context>>>,
+    pool: Arc<SyncPoolContext<L::Context, R::Context>>,
     folders: &HashSet<String>,
 ) where
     L: BackendContextBuilder + 'static,

@@ -17,7 +17,6 @@ use crate::{
     email::error::Error,
     envelope::imap::FETCH_ENVELOPES,
     imap::ImapContextSync,
-    imap_v2::ImapContextSyncV2,
     info,
     search_query::{
         filter::SearchEmailsFilterQuery,
@@ -50,73 +49,6 @@ impl ListImapEnvelopes {
 
 #[async_trait]
 impl ListEnvelopes for ListImapEnvelopes {
-    async fn list_envelopes(
-        &self,
-        folder: &str,
-        opts: ListEnvelopesOptions,
-    ) -> AnyResult<Envelopes> {
-        info!("listing imap envelopes from folder {folder}");
-
-        let mut client = self.ctx.client().await;
-        let config = &client.account_config;
-
-        let folder = config.get_folder_alias(folder);
-        let folder_encoded = encode_utf7(folder.clone());
-        debug!("utf7 encoded folder: {folder_encoded}");
-
-        let folder_size = client.select_mailbox(folder_encoded).await?.exists.unwrap() as usize;
-        debug!("folder size: {folder_size}");
-
-        if folder_size == 0 {
-            return Ok(Envelopes::default());
-        }
-
-        let envelopes = if let Some(query) = opts.query.as_ref() {
-            let search_criteria = query.to_imap_search_criteria();
-            let sort_criteria = query.to_imap_sort_criteria();
-
-            let mut envelopes = client
-                .sort_envelopes(sort_criteria, search_criteria)
-                .await?;
-
-            apply_pagination(&mut envelopes, opts.page, opts.page_size)?;
-
-            envelopes
-        } else {
-            let seq = build_sequence(opts.page, opts.page_size, folder_size)?;
-            let mut envelopes = client.fetch_envelopes_by_sequence(seq.into()).await?;
-            envelopes.sort_by(|a, b| b.date.cmp(&a.date));
-            envelopes
-        };
-
-        debug!("found {} imap envelopes", envelopes.len());
-        trace!("{envelopes:#?}");
-
-        Ok(envelopes)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ListImapEnvelopesV2 {
-    ctx: ImapContextSyncV2,
-}
-
-impl ListImapEnvelopesV2 {
-    pub fn new(ctx: &ImapContextSyncV2) -> Self {
-        Self { ctx: ctx.clone() }
-    }
-
-    pub fn new_boxed(ctx: &ImapContextSyncV2) -> Box<dyn ListEnvelopes> {
-        Box::new(Self::new(ctx))
-    }
-
-    pub fn some_new_boxed(ctx: &ImapContextSyncV2) -> Option<Box<dyn ListEnvelopes>> {
-        Some(Self::new_boxed(ctx))
-    }
-}
-
-#[async_trait]
-impl ListEnvelopes for ListImapEnvelopesV2 {
     async fn list_envelopes(
         &self,
         folder: &str,
@@ -194,7 +126,11 @@ impl ListEnvelopes for ListImapEnvelopesV2 {
 
             envelopes
         } else {
-            panic!();
+            //             let seq = build_sequence(opts.page, opts.page_size, folder_size)?;
+            // let mut envelopes = client.fetch_envelopes_by_sequence(seq.into()).await?;
+            // envelopes.sort_by(|a, b| b.date.cmp(&a.date));
+            // envelopes
+            todo!();
         };
 
         debug!("found {} imap envelopes", envelopes.len());

@@ -79,11 +79,6 @@ full = [
   #
   "oauth2",
 
-  # Enables thread pool system, for opening batch of connections
-  # (mostly useful for IMAP and SMTP).
-  #
-  "pool",
-
   # Enables mailbox and emails synchronization.
   #
   "sync",
@@ -176,10 +171,6 @@ notify = [
 oauth2 = [
   "dep:oauth-lib",
   "keyring", # TODO: make this dep optional
-]
-
-pool = [
-  "dep:futures",
 ]
 
 sync = [

@@ -29,14 +29,13 @@ use crate::{
     message::{add::AddMessage, peek::PeekMessages},
     search_query::SearchEmailsQuery,
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
-    thread_pool::ThreadPool,
     trace, AnyBoxedError,
 };
 
 /// Errors related to email synchronization.
 
 pub(crate) async fn sync<L, R>(
-    pool: Arc<ThreadPool<SyncPoolContext<L::Context, R::Context>>>,
+    pool: Arc<SyncPoolContext<L::Context, R::Context>>,
     folders: &HashSet<String>,
 ) -> Result<EmailSyncReport>
 where

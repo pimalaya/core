@@ -9,19 +9,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use super::{context::BackendContext, AnyResult};
-use crate::{
-    account::config::HasAccountConfig,
-    envelope::{get::GetEnvelope, list::ListEnvelopes},
-    flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags},
-    folder::{
-        add::AddFolder, delete::DeleteFolder, expunge::ExpungeFolder, list::ListFolders,
-        purge::PurgeFolder,
-    },
-    message::{
-        add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
-        peek::PeekMessages, r#move::MoveMessages, send::SendMessage,
-    },
-};
 
 /// Backend builder feature for checking up configuration and context
 /// integrity.
@@ -83,65 +70,4 @@ where
     fn from(value: T) -> Self {
         Self::Backend(Arc::new(value))
     }
-}
-
-/// The backend features supertrait.
-///
-/// This trait is just an alias for all existing backend features.
-pub trait BackendFeatures:
-    HasAccountConfig
-    + AddFolder
-    + ListFolders
-    + ExpungeFolder
-    + PurgeFolder
-    + DeleteFolder
-    + GetEnvelope
-    + ListEnvelopes
-    + AddFlags
-    + SetFlags
-    + RemoveFlags
-    + AddMessage
-    + SendMessage
-    + PeekMessages
-    + GetMessages
-    + CopyMessages
-    + MoveMessages
-    + DeleteMessages
-{
-}
-
-/// Automatically implement [`BackendFeatures`] for structures
-/// implementing all existing backend features.
-impl<T> BackendFeatures for T where
-    T: HasAccountConfig
-        + AddFolder
-        + ListFolders
-        + ExpungeFolder
-        + PurgeFolder
-        + DeleteFolder
-        + GetEnvelope
-        + ListEnvelopes
-        + AddFlags
-        + SetFlags
-        + RemoveFlags
-        + AddMessage
-        + SendMessage
-        + PeekMessages
-        + GetMessages
-        + CopyMessages
-        + MoveMessages
-        + DeleteMessages
-{
-}
-
-/// The backend implementation builder.
-///
-/// This trait defines how to build a backend implementation from a
-/// [`BackendFeatures`] implementation.
-#[async_trait]
-pub trait AsyncTryIntoBackendFeatures<B>
-where
-    B: BackendFeatures,
-{
-    async fn try_into_backend(self) -> AnyResult<B>;
 }
