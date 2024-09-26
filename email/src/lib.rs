@@ -58,6 +58,8 @@ mod error;
 pub mod folder;
 #[cfg(feature = "imap")]
 pub mod imap;
+#[cfg(feature = "imap")]
+pub mod imap_v2;
 pub mod log;
 #[cfg(feature = "maildir")]
 pub mod maildir;

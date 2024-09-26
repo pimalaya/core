@@ -28,14 +28,14 @@ impl DeleteFolder for DeleteImapFolder {
     async fn delete_folder(&self, folder: &str) -> AnyResult<()> {
         info!("deleting imap folder {folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        ctx.delete_mailbox(&folder_encoded).await?;
+        client.delete_mailbox(&folder_encoded).await?;
 
         Ok(())
     }

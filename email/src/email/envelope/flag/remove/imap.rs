@@ -29,8 +29,8 @@ impl RemoveFlags for RemoveImapFlags {
     async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         info!("removing imap flag(s) {flags} to envelope {id} from folder {folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
@@ -57,8 +57,10 @@ impl RemoveFlags for RemoveImapFlags {
                 .map_err(Error::ParseSequenceError)?,
         };
 
-        ctx.select_mailbox(&folder_encoded).await?;
-        ctx.remove_flags(uids, flags.to_imap_flags_iter()).await?;
+        client.select_mailbox(&folder_encoded).await?;
+        client
+            .remove_flags(uids, flags.to_imap_flags_iter())
+            .await?;
 
         Ok(())
     }

@@ -29,8 +29,8 @@ impl MoveMessages for MoveImapMessages {
     async fn move_messages(&self, from_folder: &str, to_folder: &str, id: &Id) -> AnyResult<()> {
         info!("moving imap messages {id} from folder {from_folder} to folder {to_folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let from_folder = config.get_folder_alias(from_folder);
         let from_folder_encoded = encode_utf7(from_folder.clone());
@@ -50,8 +50,8 @@ impl MoveMessages for MoveImapMessages {
                 .unwrap(),
         };
 
-        ctx.select_mailbox(&from_folder_encoded).await?;
-        ctx.move_messages(uids, &to_folder_encoded).await?;
+        client.select_mailbox(&from_folder_encoded).await?;
+        client.move_messages(uids, &to_folder_encoded).await?;
 
         Ok(())
     }

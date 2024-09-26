@@ -35,14 +35,14 @@ impl AddMessage for AddImapMessage {
     ) -> AnyResult<SingleId> {
         info!("adding imap message to folder {folder} with flags {flags}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        let uid = ctx
+        let uid = client
             .add_message(
                 &folder_encoded,
                 flags.to_imap_flags_iter(),

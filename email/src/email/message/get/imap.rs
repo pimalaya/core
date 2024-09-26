@@ -29,8 +29,8 @@ impl GetMessages for GetImapMessages {
     async fn get_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         info!("getting messages {id} from folder {folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
@@ -46,8 +46,8 @@ impl GetMessages for GetImapMessages {
                 .unwrap(),
         };
 
-        ctx.select_mailbox(&folder_encoded).await?;
-        let msgs = ctx.fetch_messages(uids).await?;
+        client.select_mailbox(&folder_encoded).await?;
+        let msgs = client.fetch_messages(uids).await?;
 
         Ok(msgs)
     }

@@ -7,6 +7,7 @@ use imap_next::{
     stream::Error as StreamError,
 };
 use thiserror::Error;
+use tokio::task::JoinError;
 
 use crate::{account, AnyBoxedError, AnyError};
 
@@ -16,6 +17,10 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot build IMAP client")]
+    JoinClientError(#[source] JoinError),
+    #[error("cannot build IMAP client")]
+    BuildClientError(#[source] Box<Error>),
     #[error("cannot connect to IMAP server {1}:{2} using TCP")]
     BuildInsecureClientError(#[source] ClientError, String, u16),
     #[error("cannot connect to IMAP server {1}:{2} using STARTTLS")]

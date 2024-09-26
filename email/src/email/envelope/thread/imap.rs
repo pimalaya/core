@@ -46,14 +46,14 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
     ) -> AnyResult<ThreadedEnvelopes> {
         debug!(?opts, "thread options");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!(folder_encoded, "utf7 encoded folder");
 
-        let folder_size = ctx.select_mailbox(folder_encoded).await?.exists.unwrap() as usize;
+        let folder_size = client.select_mailbox(folder_encoded).await?.exists.unwrap() as usize;
         debug!(folder_size, "folder size");
 
         if folder_size == 0 {
@@ -64,9 +64,9 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
 
         let threads = if let Some(query) = opts.query.as_ref() {
             let search_criteria = query.to_imap_search_criteria();
-            ctx.thread_envelopes(search_criteria).await.unwrap()
+            client.thread_envelopes(search_criteria).await.unwrap()
         } else {
-            ctx.thread_envelopes(Some(SearchKey::All)).await.unwrap()
+            client.thread_envelopes(Some(SearchKey::All)).await.unwrap()
         };
 
         let mut graph = DiGraphMap::<u32, u8>::new();
@@ -83,7 +83,7 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
             .try_into()
             .unwrap();
 
-        let envelopes = ctx.fetch_envelopes_map(uids).await.unwrap();
+        let envelopes = client.fetch_envelopes_map(uids).await.unwrap();
         let envelopes = ThreadedEnvelopes::new(envelopes, move |envelopes| {
             let mut final_graph = DiGraphMap::<ThreadedEnvelope, u8>::new();
 
@@ -119,23 +119,23 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
         id: SingleId,
         opts: ListEnvelopesOptions,
     ) -> AnyResult<ThreadedEnvelopes> {
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!(folder_encoded, "utf7 encoded folder");
 
-        let _folder_size = ctx.select_mailbox(folder_encoded).await?.exists.unwrap() as usize;
+        let _folder_size = client.select_mailbox(folder_encoded).await?.exists.unwrap() as usize;
         debug!(folder_size = _folder_size, "folder size");
 
         let uid = id.parse::<u32>().unwrap();
 
         let threads = if let Some(query) = opts.query.as_ref() {
             let search_criteria = query.to_imap_search_criteria();
-            ctx.thread_envelopes(search_criteria).await.unwrap()
+            client.thread_envelopes(search_criteria).await.unwrap()
         } else {
-            ctx.thread_envelopes(Some(SearchKey::All)).await.unwrap()
+            client.thread_envelopes(Some(SearchKey::All)).await.unwrap()
         };
 
         let mut full_graph = DiGraphMap::<u32, u8>::new();
@@ -157,7 +157,7 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
             .try_into()
             .unwrap();
 
-        let envelopes = ctx.fetch_envelopes_map(uids).await.unwrap();
+        let envelopes = client.fetch_envelopes_map(uids).await.unwrap();
         let envelopes = ThreadedEnvelopes::new(envelopes, move |envelopes| {
             let mut final_graph = DiGraphMap::<ThreadedEnvelope, u8>::new();
 

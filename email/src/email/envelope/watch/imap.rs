@@ -33,27 +33,31 @@ impl WatchImapEnvelopes {
         info!("watching imap folder {folder} for envelope changes");
 
         let config = &self.ctx.account_config;
-        let mut ctx = self.ctx.lock().await;
+        let mut client = self.ctx.client().await;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        let envelopes_count = ctx.examine_mailbox(folder_encoded).await?.exists.unwrap() as usize;
+        let envelopes_count = client
+            .examine_mailbox(folder_encoded)
+            .await?
+            .exists
+            .unwrap() as usize;
 
         let envelopes = if envelopes_count == 0 {
             Default::default()
         } else {
-            ctx.fetch_all_envelopes().await?
+            client.fetch_all_envelopes().await?
         };
 
         let mut envelopes: HashMap<String, Envelope> =
             HashMap::from_iter(envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
         loop {
-            ctx.idle(wait_for_shutdown_request).await?;
+            client.idle(wait_for_shutdown_request).await?;
 
-            let next_envelopes = ctx.fetch_all_envelopes().await?;
+            let next_envelopes = client.fetch_all_envelopes().await?;
             let next_envelopes: HashMap<String, Envelope> =
                 HashMap::from_iter(next_envelopes.into_iter().map(|e| (e.id.clone(), e)));
 

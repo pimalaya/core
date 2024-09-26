@@ -29,8 +29,8 @@ impl PeekMessages for PeekImapMessages {
     async fn peek_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         info!("peeking imap messages {id} from folder {folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
@@ -46,8 +46,8 @@ impl PeekMessages for PeekImapMessages {
                 .unwrap(),
         };
 
-        ctx.select_mailbox(&folder_encoded).await?;
-        let msgs = ctx.peek_messages(uids).await?;
+        client.select_mailbox(&folder_encoded).await?;
+        let msgs = client.peek_messages(uids).await?;
 
         Ok(msgs)
     }

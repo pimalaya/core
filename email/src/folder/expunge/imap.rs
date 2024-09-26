@@ -28,14 +28,14 @@ impl ExpungeFolder for ExpungeImapFolder {
     async fn expunge_folder(&self, folder: &str) -> AnyResult<()> {
         info!("expunging imap folder {folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        let _count = ctx.expunge_mailbox(&folder_encoded).await?;
+        let _count = client.expunge_mailbox(&folder_encoded).await?;
         debug!("expunged {_count} messages from {folder}");
 
         Ok(())

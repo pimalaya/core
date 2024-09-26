@@ -29,8 +29,8 @@ impl RemoveMessages for RemoveImapMessages {
     async fn remove_messages(&self, folder: &str, id: &Id) -> AnyResult<()> {
         info!("removing imap messages {id} from folder {folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
@@ -46,8 +46,8 @@ impl RemoveMessages for RemoveImapMessages {
                 .unwrap(),
         };
 
-        ctx.select_mailbox(&folder_encoded).await?;
-        ctx.add_deleted_flag(uids).await?;
+        client.select_mailbox(&folder_encoded).await?;
+        client.add_deleted_flag(uids).await?;
 
         Ok(())
     }

@@ -1,9 +1,17 @@
 pub mod config;
 mod error;
 
-use std::{collections::HashMap, env, fmt, num::NonZeroU32, ops::Deref, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    env, fmt,
+    num::NonZeroU32,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+    time::Duration,
+};
 
 use async_trait::async_trait;
+use futures::{stream::FuturesUnordered, StreamExt};
 use imap_client::{
     tasks::{tasks::select::SelectDataUnvalidated, SchedulerError},
     Client, ClientError,
@@ -27,7 +35,8 @@ use once_cell::sync::Lazy;
 use paste::paste;
 use tokio::{
     select,
-    sync::{oneshot, Mutex},
+    sync::{oneshot, Mutex, MutexGuard},
+    time::sleep,
 };
 
 use self::config::{ImapAuthConfig, ImapConfig};
@@ -499,6 +508,20 @@ impl ImapContext {
     }
 }
 
+impl Deref for ImapContext {
+    type Target = Client;
+
+    fn deref(&self) -> &Self::Target {
+        &self.client
+    }
+}
+
+impl DerefMut for ImapContext {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.client
+    }
+}
+
 /// The sync version of the IMAP backend context.
 ///
 /// This is just an IMAP session wrapped into a mutex, so the same
@@ -511,15 +534,36 @@ pub struct ImapContextSync {
     /// The IMAP configuration.
     pub imap_config: Arc<ImapConfig>,
 
-    /// The current IMAP session.
-    inner: Arc<Mutex<ImapContext>>,
+    contexts: Vec<Arc<Mutex<ImapContext>>>,
 }
 
-impl Deref for ImapContextSync {
-    type Target = Arc<Mutex<ImapContext>>;
+impl ImapContextSync {
+    pub async fn client(&self) -> MutexGuard<'_, ImapContext> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(size = self.contexts.len(), "asking for a client");
 
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+        loop {
+            let lock = self
+                .contexts
+                .iter()
+                .enumerate()
+                .find_map(|(i, ctx)| Some((i + 1, ctx.try_lock().ok()?)));
+
+            #[cfg(not(feature = "tracing"))]
+            if let Some((_, ctx)) = lock {
+                break ctx;
+            }
+
+            #[cfg(feature = "tracing")]
+            if let Some((id, ctx)) = lock {
+                tracing::debug!(id, "found available client");
+                break ctx;
+            }
+
+            #[cfg(feature = "tracing")]
+            tracing::debug!("cannot find available client, sleeping for 1s");
+            sleep(Duration::from_secs(1)).await;
+        }
     }
 }
 
@@ -536,6 +580,8 @@ pub struct ImapContextBuilder {
 
     /// The prebuilt IMAP credentials.
     prebuilt_credentials: Option<String>,
+
+    pool_size: u8,
 }
 
 impl ImapContextBuilder {
@@ -544,6 +590,7 @@ impl ImapContextBuilder {
             account_config,
             imap_config,
             prebuilt_credentials: None,
+            pool_size: 1,
         }
     }
 
@@ -555,6 +602,11 @@ impl ImapContextBuilder {
     pub async fn with_prebuilt_credentials(mut self) -> Result<Self> {
         self.prebuild_credentials().await?;
         Ok(self)
+    }
+
+    pub async fn with_pool_size(mut self, pool_size: u8) -> Self {
+        self.pool_size = pool_size;
+        self
     }
 }
 
@@ -651,25 +703,37 @@ impl BackendContextBuilder for ImapContextBuilder {
         Some(Arc::new(RemoveImapMessages::some_new_boxed))
     }
 
-    // #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     async fn build(self) -> AnyResult<Self::Context> {
-        let mut client_builder =
+        let client_builder =
             ImapClientBuilder::new(self.imap_config.clone(), self.prebuilt_credentials);
 
-        let client = client_builder.build().await?;
-
-        let ctx = ImapContext {
-            account_config: self.account_config.clone(),
-            imap_config: self.imap_config.clone(),
-            client_builder,
-            client,
-            mailbox: None,
-        };
+        let contexts = FuturesUnordered::from_iter((0..self.pool_size).map(move |_| {
+            let mut client_builder = client_builder.clone();
+            tokio::spawn(async move {
+                let client = client_builder.build().await?;
+                Ok((client_builder, client))
+            })
+        }))
+        .map(|res| match res {
+            Err(err) => Err(Error::JoinClientError(err)),
+            Ok(Err(err)) => Err(Error::BuildClientError(Box::new(err))),
+            Ok(Ok((client_builder, client))) => Ok(Arc::new(Mutex::new(ImapContext {
+                account_config: self.account_config.clone(),
+                imap_config: self.imap_config.clone(),
+                client_builder,
+                client,
+                mailbox: None,
+            }))),
+        })
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect::<Result<_>>()?;
 
         Ok(ImapContextSync {
             account_config: self.account_config,
             imap_config: self.imap_config,
-            inner: Arc::new(Mutex::new(ctx)),
+            contexts,
         })
     }
 }
@@ -698,8 +762,8 @@ impl CheckUp for CheckUpImap {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     async fn check_up(&self) -> AnyResult<()> {
         debug!("executing check up backend feature");
-        let mut ctx = self.ctx.lock().await;
-        ctx.client.noop().await.map_err(Error::ExecuteNoOpError)?;
+        let mut client = self.ctx.client().await;
+        client.noop().await.map_err(Error::ExecuteNoOpError)?;
         Ok(())
     }
 }

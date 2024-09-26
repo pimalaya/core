@@ -28,9 +28,9 @@ impl ListFolders for ListImapFolders {
         info!("listing imap folders");
 
         let config = &self.ctx.account_config;
-        let mut ctx = self.ctx.lock().await;
+        let mut client = self.ctx.client().await;
 
-        let folders = ctx.list_all_mailboxes(config).await?;
+        let folders = client.list_all_mailboxes(config).await?;
 
         Ok(folders)
     }
