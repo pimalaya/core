@@ -1995,7 +1995,6 @@ dependencies = [
  "notify",
  "notify-rust",
  "notmuch",
- "num_cpus",
  "oauth-lib",
  "once_cell",
  "ouroboros",

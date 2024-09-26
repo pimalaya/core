@@ -13,19 +13,21 @@
 mod error;
 
 use std::{
+    num::NonZeroUsize,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll, Waker},
+    thread::available_parallelism,
     time::Duration,
 };
 
 use async_trait::async_trait;
 use futures::{lock::Mutex, stream::FuturesUnordered, Future, StreamExt};
-use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
+use tokio::{task::JoinHandle, time::sleep};
 
 #[doc(inline)]
 pub use self::error::{Error, Result};
-use crate::{debug, AnyResult};
+use crate::AnyResult;
 
 /// The thread pool task.
 pub type ThreadPoolTask<C> =
@@ -102,17 +104,7 @@ pub struct ThreadPoolTaskResolverState<T> {
 
 /// The thread pool.
 pub struct ThreadPool<C: ThreadPoolContext> {
-    /// Channel used by the pool.
-    ///
-    /// This channel is used to send tasks to threads.
-    tx: mpsc::UnboundedSender<ThreadPoolTask<C>>,
-
-    /// Channel used by threads.
-    ///
-    /// Only one thread can receive a task at a time. When a thread
-    /// receives a task, it releases the lock and a new thread can
-    /// receive the next task.
-    rx: Arc<Mutex<mpsc::UnboundedReceiver<ThreadPoolTask<C>>>>,
+    tasks: Arc<Mutex<Vec<ThreadPoolTask<C>>>>,
 
     /// The list of threads spawned by the pool.
     threads: Vec<JoinHandle<Result<()>>>,
@@ -140,18 +132,45 @@ where
             Box::pin(task)
         });
 
-        self.tx.send(task).unwrap();
+        {
+            let mut tasks = self.tasks.lock().await;
+            tasks.push(task);
+        }
 
         resolver.await
     }
 
     /// Abort pool threads and close the channel.
     pub async fn close(self) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("closing pool…");
+
         for thread in &self.threads {
             thread.abort()
         }
 
-        self.rx.lock().await.close();
+        for (id, thread) in self.threads.into_iter().enumerate() {
+            let id = id + 1;
+
+            #[cfg(not(feature = "tracing"))]
+            let _ = thread.await;
+
+            #[cfg(feature = "tracing")]
+            match thread.await {
+                Ok(_) => tracing::debug!(id, "thread aborted"),
+                Err(err) => tracing::debug!(id, info = err.to_string(), "thread aborted"),
+            }
+        }
+
+        let mut tasks = self.tasks.lock().await;
+
+        #[cfg(feature = "tracing")]
+        tracing::debug!(size = tasks.len(), "cleaning remaining tasks");
+
+        tasks.clear();
+
+        #[cfg(feature = "tracing")]
+        tracing::debug!("pool closed");
     }
 }
 
@@ -166,7 +185,7 @@ pub struct ThreadPoolBuilder<B: ThreadPoolContextBuilder> {
     /// The size of the pool.
     ///
     /// Represents the number of threads that will be spawn in
-    /// parallel. Defaults to 8.
+    /// parallel. Defaults to the number of available CPUs.
     size: usize,
 }
 
@@ -175,7 +194,7 @@ impl<B: ThreadPoolContextBuilder + 'static> ThreadPoolBuilder<B> {
     pub fn new(ctx_builder: B) -> Self {
         Self {
             ctx_builder,
-            size: num_cpus::get(),
+            size: available_parallelism().map_or(1, NonZeroUsize::get),
         }
     }
 
@@ -205,8 +224,7 @@ impl<B: ThreadPoolContextBuilder + 'static> ThreadPoolBuilder<B> {
 
     /// Build the final thread pool.
     pub async fn build(self) -> Result<ThreadPool<B::Context>> {
-        let (tx, rx) = mpsc::unbounded_channel::<ThreadPoolTask<B::Context>>();
-        let rx = Arc::new(Mutex::new(rx));
+        let tasks = Arc::new(Mutex::new(Vec::<ThreadPoolTask<B::Context>>::new()));
 
         #[cfg(feature = "tracing")]
         tracing::debug!(size = self.size, "creating pool");
@@ -218,44 +236,46 @@ impl<B: ThreadPoolContextBuilder + 'static> ThreadPoolBuilder<B> {
         .await;
 
         let mut threads = Vec::with_capacity(self.size);
-        for (i, ctx) in ctxs.into_iter().enumerate() {
-            let thread_id = i + 1;
-            let ctx = ctx?.map_err(|err| Error::BuildContextError(err, thread_id, self.size))?;
-            let rx = rx.clone();
+
+        for (id, ctx) in ctxs.into_iter().enumerate() {
+            let id = id + 1;
+            let tasks = tasks.clone();
+
+            let ctx = ctx?.map_err(|err| Error::BuildContextError(err, id, self.size))?;
+            let ctx = Arc::new(ctx);
 
             threads.push(tokio::spawn(async move {
-                let ctx = Arc::new(ctx);
+                let ctx = ctx.clone();
 
                 loop {
-                    let mut lock = rx.lock().await;
+                    #[cfg(feature = "tracing")]
+                    tracing::trace!(id, "thread looking for a task");
 
-                    debug!("thread {thread_id} waiting for a task…");
-                    match timeout(Duration::from_secs(5), lock.recv()).await {
-                        Err(_) => {
-                            debug!("no task found for thread {thread_id} after 5s");
-                            continue;
-                        }
-                        Ok(None) => {
-                            drop(lock);
-                            break;
-                        }
-                        Ok(Some(task)) => {
-                            drop(lock);
+                    let mut lock = tasks.try_lock();
+                    let task = lock.as_mut().and_then(|tasks| tasks.pop());
+                    drop(lock);
 
-                            debug!("thread {thread_id} received a task, executing it…");
+                    match task {
+                        None => {
+                            #[cfg(feature = "tracing")]
+                            tracing::debug!(id, "no task available, sleeping for 1s");
+                            sleep(Duration::from_secs(1)).await;
+                        }
+                        Some(task) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::debug!(id, "thread executing task…");
+
                             task(ctx.clone()).await;
-                            debug!("thread {thread_id} successfully executed task!");
+
+                            #[cfg(feature = "tracing")]
+                            tracing::debug!(id, "thread successfully executed task");
                         }
                     }
                 }
-
-                debug!("no more task for thread {thread_id}, exitting");
-
-                Result::Ok(())
             }));
         }
 
-        Ok(ThreadPool { tx, rx, threads })
+        Ok(ThreadPool { tasks, threads })
     }
 }
 
