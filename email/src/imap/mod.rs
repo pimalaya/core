@@ -538,9 +538,20 @@ pub struct ImapContextSync {
 }
 
 impl ImapContextSync {
+    #[cfg(not(feature = "tracing"))]
     pub async fn client(&self) -> MutexGuard<'_, ImapContext> {
-        #[cfg(feature = "tracing")]
-        tracing::debug!(size = self.contexts.len(), "asking for a client");
+        loop {
+            match self.contexts.iter().find_map(|ctx| ctx.try_lock().ok()) {
+                Some(ctx) => break ctx,
+                None => sleep(Duration::from_secs(1)).await,
+            }
+        }
+    }
+
+    #[cfg(feature = "tracing")]
+    pub async fn client(&self) -> MutexGuard<'_, ImapContext> {
+        let available = self.contexts.len();
+        tracing::trace!(available, "client requested");
 
         loop {
             let lock = self
@@ -549,20 +560,13 @@ impl ImapContextSync {
                 .enumerate()
                 .find_map(|(i, ctx)| Some((i + 1, ctx.try_lock().ok()?)));
 
-            #[cfg(not(feature = "tracing"))]
-            if let Some((_, ctx)) = lock {
-                break ctx;
-            }
-
-            #[cfg(feature = "tracing")]
             if let Some((id, ctx)) = lock {
-                tracing::debug!(id, "found available client");
+                tracing::debug!("client {id}/{available} is free, locking it");
                 break ctx;
+            } else {
+                tracing::trace!("no free client, sleeping for 1s");
+                sleep(Duration::from_secs(1)).await;
             }
-
-            #[cfg(feature = "tracing")]
-            tracing::debug!("cannot find available client, sleeping for 1s");
-            sleep(Duration::from_secs(1)).await;
         }
     }
 }
@@ -586,11 +590,13 @@ pub struct ImapContextBuilder {
 
 impl ImapContextBuilder {
     pub fn new(account_config: Arc<AccountConfig>, imap_config: Arc<ImapConfig>) -> Self {
+        let pool_size = imap_config.clients_pool_size();
+
         Self {
             account_config,
             imap_config,
             prebuilt_credentials: None,
-            pool_size: 1,
+            pool_size,
         }
     }
 
@@ -604,7 +610,7 @@ impl ImapContextBuilder {
         Ok(self)
     }
 
-    pub async fn with_pool_size(mut self, pool_size: u8) -> Self {
+    pub fn with_pool_size(mut self, pool_size: u8) -> Self {
         self.pool_size = pool_size;
         self
     }
@@ -706,6 +712,9 @@ impl BackendContextBuilder for ImapContextBuilder {
     async fn build(self) -> AnyResult<Self::Context> {
         let client_builder =
             ImapClientBuilder::new(self.imap_config.clone(), self.prebuilt_credentials);
+
+        #[cfg(feature = "tracing")]
+        tracing::debug!("building {} IMAP clients", self.pool_size);
 
         let contexts = FuturesUnordered::from_iter((0..self.pool_size).map(move |_| {
             let mut client_builder = client_builder.clone();

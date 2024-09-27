@@ -20,6 +20,20 @@ pub type Result<T> = result::Result<T, Error>;
 #[derive(Debug, Error)]
 pub enum Error {
     #[cfg(feature = "imap")]
+    #[error("cannot sort IMAP ids using {1:?} and {2:?}")]
+    SortUidsError(
+        #[source] imap_client::ClientError,
+        imap_next::imap_types::core::Vec1<imap_next::imap_types::search::SearchKey<'static>>,
+        imap_next::imap_types::core::Vec1<imap_next::imap_types::extensions::sort::SortCriterion>,
+    ),
+    #[cfg(feature = "imap")]
+    #[error("cannot search IMAP ids using {1:?}")]
+    SearchUidsError(
+        #[source] imap_client::ClientError,
+        imap_next::imap_types::core::Vec1<imap_next::imap_types::search::SearchKey<'static>>,
+    ),
+
+    #[cfg(feature = "imap")]
     #[error("cannot parse IMAP sequence")]
     ParseSequenceError(#[source] ValidationError),
     #[cfg(feature = "maildir")]
@@ -138,7 +152,7 @@ pub enum Error {
     #[error("invalid input: {0}")]
     InvalidInput(String),
     #[error("failed to get envelopes: {0}")]
-    FailedToGetEnvelopes(JoinError),
+    FailedToGetEnvelopes(#[source] JoinError),
     #[cfg(feature = "notmuch")]
     #[error("notmuch failed: {0}")]
     NotMuchFailure(notmuch::Error),

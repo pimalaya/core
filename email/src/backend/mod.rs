@@ -635,6 +635,14 @@ where
         self
     }
 
+    pub async fn check_up(self) -> AnyResult<()> {
+        let ctx = self.ctx_builder.clone().build().await?;
+        match self.get_check_up().and_then(move |f| f(&ctx)) {
+            Some(f) => f.check_up().await,
+            None => Ok(()),
+        }
+    }
+
     pub async fn build(self) -> AnyResult<Backend<CB::Context>> {
         let add_folder = self.get_add_folder();
         let list_folders = self.get_list_folders();

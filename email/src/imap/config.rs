@@ -58,9 +58,19 @@ pub struct ImapConfig {
     /// Defines the command used to notify the user when a new email is available.
     /// Defaults to `notify-send "📫 <sender>" "<subject>"`.
     pub watch: Option<ImapWatchConfig>,
+
+    /// The IMAP clients pool size.
+    ///
+    /// Defines the number of clients that are created and managed
+    /// simultaneously by the IMAP context. Defaults to 1.
+    pub clients_pool_size: Option<u8>,
 }
 
 impl ImapConfig {
+    pub fn clients_pool_size(&self) -> u8 {
+        self.clients_pool_size.unwrap_or(1)
+    }
+
     pub fn send_id_after_auth(&self) -> bool {
         self.extensions
             .as_ref()

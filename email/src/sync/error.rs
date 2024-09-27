@@ -33,4 +33,6 @@ pub enum Error {
     LeftContextNotConfiguredError(#[source] AnyBoxedError),
     #[error("cannot sync: right context is not configured")]
     RightContextNotConfiguredError(#[source] AnyBoxedError),
+    #[error("cannot build sync pool context")]
+    BuildSyncPoolContextError(#[source] AnyBoxedError),
 }
