@@ -176,6 +176,8 @@ static ID_PARAMS: Lazy<Vec<(IString<'static>, NString<'static>)>> = Lazy::new(||
 /// This context is unsync, which means it cannot be shared between
 /// threads. For the sync version, see [`ImapContextSync`].
 pub struct ImapContext {
+    pub id: u8,
+
     /// The account configuration.
     pub account_config: Arc<AccountConfig>,
 
@@ -201,32 +203,38 @@ impl fmt::Debug for ImapContext {
 }
 
 impl ImapContext {
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn select_mailbox(&mut self, mbox: impl ToString) -> Result<SelectDataUnvalidated> {
         let data = retry!(self, self.client.select(mbox.to_string()), SelectMailbox)?;
         self.mailbox = Some(mbox.to_string());
         Ok(data)
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn examine_mailbox(&mut self, mbox: impl ToString) -> Result<SelectDataUnvalidated> {
         retry!(self, self.client.examine(mbox.to_string()), ExamineMailbox)
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn create_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
         retry!(self, self.client.create(mbox.to_string()), CreateMailbox)
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn list_all_mailboxes(&mut self, config: &AccountConfig) -> Result<Folders> {
         let mboxes = retry!(self, self.client.list("", "*"), ListMailboxes)?;
         let folders = Folders::from_imap_mailboxes(config, mboxes);
         Ok(folders)
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn expunge_mailbox(&mut self, mbox: impl ToString) -> Result<usize> {
         self.select_mailbox(mbox).await?;
         let expunged = retry!(self, self.client.expunge(), ExpungeMailbox)?;
         Ok(expunged.len())
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn purge_mailbox(&mut self, mbox: impl ToString) -> Result<usize> {
         self.select_mailbox(mbox).await?;
         self.add_deleted_flag_silently("1:*".try_into().unwrap())
@@ -235,10 +243,12 @@ impl ImapContext {
         Ok(expunged.len())
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn delete_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
         retry!(self, self.client.delete(mbox.to_string()), DeleteMailbox)
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn fetch_envelopes(&mut self, uids: SequenceSet) -> Result<Envelopes> {
         let fetches = retry!(
             self,
@@ -249,6 +259,7 @@ impl ImapContext {
         Ok(Envelopes::from_imap_data_items(fetches))
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn fetch_envelopes_map(
         &mut self,
         uids: SequenceSet,
@@ -270,6 +281,7 @@ impl ImapContext {
         Ok(map)
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn fetch_first_envelope(&mut self, uid: u32) -> Result<Envelope> {
         let items = retry!(
             self,
@@ -281,6 +293,7 @@ impl ImapContext {
         Ok(Envelope::from_imap_data_items(items.as_ref()))
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn fetch_envelopes_by_sequence(&mut self, seq: SequenceSet) -> Result<Envelopes> {
         let fetches = retry!(
             self,
@@ -291,11 +304,13 @@ impl ImapContext {
         Ok(Envelopes::from_imap_data_items(fetches))
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn fetch_all_envelopes(&mut self) -> Result<Envelopes> {
         self.fetch_envelopes_by_sequence("1:*".try_into().unwrap())
             .await
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn sort_envelopes(
         &mut self,
         sort_criteria: impl IntoIterator<Item = SortCriterion> + Clone,
@@ -314,6 +329,7 @@ impl ImapContext {
         Ok(Envelopes::from(fetches))
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn thread_envelopes(
         &mut self,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
@@ -326,6 +342,7 @@ impl ImapContext {
         )
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn idle(
         &mut self,
         wait_for_shutdown_request: &mut oneshot::Receiver<()>,
@@ -345,6 +362,7 @@ impl ImapContext {
         }
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn add_flags(
         &mut self,
         uids: SequenceSet,
@@ -358,6 +376,7 @@ impl ImapContext {
         )
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn add_deleted_flag(
         &mut self,
         uids: SequenceSet,
@@ -370,6 +389,7 @@ impl ImapContext {
         )
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn add_deleted_flag_silently(&mut self, uids: SequenceSet) -> Result<()> {
         retry!(
             self,
@@ -379,6 +399,7 @@ impl ImapContext {
         )
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn add_flags_silently(
         &mut self,
         uids: SequenceSet,
@@ -392,6 +413,7 @@ impl ImapContext {
         )
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn set_flags(
         &mut self,
         uids: SequenceSet,
@@ -405,6 +427,7 @@ impl ImapContext {
         )
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn set_flags_silently(
         &mut self,
         uids: SequenceSet,
@@ -418,6 +441,7 @@ impl ImapContext {
         )
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn remove_flags(
         &mut self,
         uids: SequenceSet,
@@ -431,6 +455,7 @@ impl ImapContext {
         )
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn remove_flags_silently(
         &mut self,
         uids: SequenceSet,
@@ -444,6 +469,7 @@ impl ImapContext {
         )
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn add_message(
         &mut self,
         mbox: impl ToString,
@@ -460,6 +486,7 @@ impl ImapContext {
         id.ok_or(Error::FindAppendedMessageUidError)
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn fetch_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
         let mut fetches = retry!(
             self,
@@ -475,6 +502,7 @@ impl ImapContext {
         Ok(Messages::from(fetches))
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn peek_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
         let mut fetches = retry!(
             self,
@@ -490,6 +518,7 @@ impl ImapContext {
         Ok(Messages::from(fetches))
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn copy_messages(&mut self, uids: SequenceSet, mbox: impl ToString) -> Result<()> {
         retry!(
             self,
@@ -498,6 +527,7 @@ impl ImapContext {
         )
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn move_messages(&mut self, uids: SequenceSet, mbox: impl ToString) -> Result<()> {
         retry!(
             self,
@@ -548,22 +578,21 @@ impl ImapContextSync {
         }
     }
 
-    #[cfg(feature = "tracing")]
     pub async fn client(&self) -> MutexGuard<'_, ImapContext> {
-        let available = self.contexts.len();
-        tracing::trace!(available, "client requested");
-
         loop {
-            let lock = self
-                .contexts
-                .iter()
-                .enumerate()
-                .find_map(|(i, ctx)| Some((i + 1, ctx.try_lock().ok()?)));
+            let lock = self.contexts.iter().find_map(|ctx| ctx.try_lock().ok());
 
-            if let Some((id, ctx)) = lock {
-                tracing::debug!("client {id}/{available} is free, locking it");
+            if let Some(ctx) = lock {
+                #[cfg(feature = "tracing")]
+                {
+                    let total = self.contexts.len();
+                    let id = ctx.id;
+                    tracing::debug!("client {id}/{total} is free, locking it");
+                }
+
                 break ctx;
             } else {
+                #[cfg(feature = "tracing")]
                 tracing::trace!("no free client, sleeping for 1s");
                 sleep(Duration::from_secs(1)).await;
             }
@@ -716,17 +745,18 @@ impl BackendContextBuilder for ImapContextBuilder {
         #[cfg(feature = "tracing")]
         tracing::debug!("building {} IMAP clients", self.pool_size);
 
-        let contexts = FuturesUnordered::from_iter((0..self.pool_size).map(move |_| {
+        let contexts = FuturesUnordered::from_iter((0..self.pool_size).map(move |i| {
             let mut client_builder = client_builder.clone();
             tokio::spawn(async move {
                 let client = client_builder.build().await?;
-                Ok((client_builder, client))
+                Ok((i + 1, client_builder, client))
             })
         }))
         .map(|res| match res {
             Err(err) => Err(Error::JoinClientError(err)),
             Ok(Err(err)) => Err(Error::BuildClientError(Box::new(err))),
-            Ok(Ok((client_builder, client))) => Ok(Arc::new(Mutex::new(ImapContext {
+            Ok(Ok((id, client_builder, client))) => Ok(Arc::new(Mutex::new(ImapContext {
+                id,
                 account_config: self.account_config.clone(),
                 imap_config: self.imap_config.clone(),
                 client_builder,

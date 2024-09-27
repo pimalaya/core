@@ -50,6 +50,7 @@ impl ListImapEnvelopes {
 
 #[async_trait]
 impl ListEnvelopes for ListImapEnvelopes {
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self), level = "trace"))]
     async fn list_envelopes(
         &self,
         folder: &str,
