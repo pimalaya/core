@@ -1,12 +1,13 @@
-use std::{num::NonZeroU32, result};
+use std::{collections::HashMap, num::NonZeroU32, result};
 
 use async_trait::async_trait;
 use chrono::TimeDelta;
+use futures::{stream::FuturesUnordered, StreamExt};
 use imap_next::imap_types::{
     core::Vec1,
     extensions::sort::{SortCriterion, SortKey},
     search::SearchKey,
-    sequence::{SeqOrUid, Sequence},
+    sequence::{SeqOrUid, Sequence, SequenceSet},
 };
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
@@ -14,7 +15,9 @@ use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 use crate::{
     debug,
     email::error::Error,
-    imap::ImapContextSync,
+    envelope::Envelope,
+    imap,
+    imap::ImapContext,
     info,
     search_query::{
         filter::SearchEmailsFilterQuery,
@@ -24,60 +27,141 @@ use crate::{
     trace, AnyResult, Result,
 };
 
+static MAX_SEQUENCE_SIZE: u8 = u8::MAX; // 255
+
 #[derive(Clone, Debug)]
 pub struct ListImapEnvelopes {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl ListImapEnvelopes {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn ListEnvelopes> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn ListEnvelopes> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn ListEnvelopes>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn ListEnvelopes>> {
         Some(Self::new_boxed(ctx))
     }
 }
 
 #[async_trait]
 impl ListEnvelopes for ListImapEnvelopes {
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self), level = "trace"))]
     async fn list_envelopes(
         &self,
         folder: &str,
         opts: ListEnvelopesOptions,
     ) -> AnyResult<Envelopes> {
-        info!("listing imap envelopes from folder {folder}");
+        info!("listing IMAP envelopes from mailbox {folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let config = &self.ctx.account_config;
+        let mut client = self.ctx.client().await;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
-        debug!("utf7 encoded folder: {folder_encoded}");
+        debug!(name = folder_encoded, "UTF7-encoded mailbox");
 
-        let folder_size = ctx.select_mailbox(folder_encoded).await?.exists.unwrap() as usize;
-        debug!("folder size: {folder_size}");
+        let data = client.select_mailbox(folder_encoded.clone()).await?;
+        let folder_size = data.exists.unwrap_or_default() as usize;
+        debug!(name = folder_encoded, ?data, "mailbox selected");
 
         if folder_size == 0 {
             return Ok(Envelopes::default());
         }
 
         let envelopes = if let Some(query) = opts.query.as_ref() {
-            let search_criteria = query.to_imap_search_criteria();
+            let sort_supported = client.ext_sort_supported();
             let sort_criteria = query.to_imap_sort_criteria();
+            let search_criteria = query.to_imap_search_criteria();
 
-            let mut envelopes = ctx.sort_envelopes(sort_criteria, search_criteria).await?;
+            let uids = if sort_supported {
+                client
+                    .sort_uids(sort_criteria.clone(), search_criteria.clone())
+                    .await
+            } else {
+                client.search_uids(search_criteria.clone()).await
+            }?;
 
-            apply_pagination(&mut envelopes, opts.page, opts.page_size)?;
+            // this client is not used anymore, so we can drop it now
+            // in order to free one client slot from the clients
+            // connection pool
+            drop(client);
+
+            // if the SORT extension is supported by the client,
+            // envelopes can be paginated straight away
+            let uids = if sort_supported {
+                paginate(&uids, opts.page, opts.page_size)?
+            } else {
+                &uids
+            };
+
+            let uids_chunks = uids.chunks(MAX_SEQUENCE_SIZE as usize);
+            let uids_chunks_len = uids_chunks.len();
+
+            #[cfg(feature = "tracing")]
+            tracing::debug!(?uids, "fetching envelopes using {uids_chunks_len} chunks");
+
+            let mut fetches = FuturesUnordered::from_iter(uids_chunks.map(|uids| {
+                let ctx = self.ctx.clone();
+                let mbox = folder_encoded.clone();
+                let uids = SequenceSet::try_from(uids.to_vec()).unwrap();
+
+                tokio::spawn(async move {
+                    let mut client = ctx.client().await;
+                    client.select_mailbox(mbox).await?;
+                    client.fetch_envelopes(uids).await
+                })
+            }))
+            .enumerate()
+            .fold(
+                Ok(HashMap::<String, Envelope>::default()),
+                |all_envelopes, (n, envelopes)| async move {
+                    let Ok(mut all_envelopes) = all_envelopes else {
+                        return all_envelopes;
+                    };
+
+                    match envelopes {
+                        Err(err) => {
+                            return Err(imap::Error::JoinClientError(err));
+                        }
+                        Ok(Err(err)) => {
+                            return Err(err);
+                        }
+                        Ok(Ok(envelopes)) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::debug!("fetched envelopes chunk {}/{uids_chunks_len}", n + 1);
+
+                            for envelope in envelopes {
+                                all_envelopes.insert(envelope.id.clone(), envelope);
+                            }
+
+                            Ok(all_envelopes)
+                        }
+                    }
+                },
+            )
+            .await?;
+
+            let mut envelopes: Envelopes = uids
+                .iter()
+                .flat_map(|uid| fetches.remove(&uid.to_string()))
+                .collect();
+
+            // if the SORT extension is NOT supported by the client,
+            // envelopes are sorted and paginated only now
+            if !sort_supported {
+                opts.sort_envelopes(&mut envelopes);
+                apply_pagination(&mut envelopes, opts.page, opts.page_size)?;
+            }
 
             envelopes
         } else {
             let seq = build_sequence(opts.page, opts.page_size, folder_size)?;
-            let mut envelopes = ctx.fetch_envelopes_by_sequence(seq.into()).await?;
+            let mut envelopes = client.fetch_envelopes_by_sequence(seq.into()).await?;
             envelopes.sort_by(|a, b| b.date.cmp(&a.date));
             envelopes
         };
@@ -205,6 +289,20 @@ impl SearchEmailsSorter {
             },
         }
     }
+}
+
+fn paginate<T>(items: &[T], page: usize, page_size: usize) -> Result<&[T]> {
+    if page_size == 0 {
+        return Ok(items);
+    }
+
+    let total = items.len();
+    let page_cursor = page * page_size;
+    if page_cursor >= total {
+        Err(Error::BuildPageRangeOutOfBoundsImapError(page + 1))?
+    }
+
+    Ok(&items[0..page_size.min(total)])
 }
 
 fn apply_pagination(

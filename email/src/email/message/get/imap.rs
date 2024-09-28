@@ -3,23 +3,23 @@ use imap_next::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{GetMessages, Messages};
-use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, envelope::Id, imap::ImapContext, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct GetImapMessages {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl GetImapMessages {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn GetMessages> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn GetMessages> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn GetMessages>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn GetMessages>> {
         Some(Self::new_boxed(ctx))
     }
 }
@@ -29,8 +29,8 @@ impl GetMessages for GetImapMessages {
     async fn get_messages(&self, folder: &str, id: &Id) -> AnyResult<Messages> {
         info!("getting messages {id} from folder {folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
@@ -46,8 +46,8 @@ impl GetMessages for GetImapMessages {
                 .unwrap(),
         };
 
-        ctx.select_mailbox(&folder_encoded).await?;
-        let msgs = ctx.fetch_messages(uids).await?;
+        client.select_mailbox(&folder_encoded).await?;
+        let msgs = client.fetch_messages(uids).await?;
 
         Ok(msgs)
     }

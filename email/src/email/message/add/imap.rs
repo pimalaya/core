@@ -4,23 +4,23 @@ use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{AddMessage, Flags};
-use crate::{debug, envelope::SingleId, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, envelope::SingleId, imap::ImapContext, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct AddImapMessage {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl AddImapMessage {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn AddMessage> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn AddMessage> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn AddMessage>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn AddMessage>> {
         Some(Self::new_boxed(ctx))
     }
 }
@@ -35,14 +35,14 @@ impl AddMessage for AddImapMessage {
     ) -> AnyResult<SingleId> {
         info!("adding imap message to folder {folder} with flags {flags}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
         debug!("utf7 encoded folder: {folder_encoded}");
 
-        let uid = ctx
+        let uid = client
             .add_message(
                 &folder_encoded,
                 flags.to_imap_flags_iter(),

@@ -7,6 +7,7 @@ use imap_next::{
     stream::Error as StreamError,
 };
 use thiserror::Error;
+use tokio::task::JoinError;
 
 use crate::{account, AnyBoxedError, AnyError};
 
@@ -16,6 +17,10 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot build IMAP client")]
+    JoinClientError(#[source] JoinError),
+    #[error("cannot build IMAP client")]
+    BuildClientError(#[source] Box<Error>),
     #[error("cannot connect to IMAP server {1}:{2} using TCP")]
     BuildInsecureClientError(#[source] ClientError, String, u16),
     #[error("cannot connect to IMAP server {1}:{2} using STARTTLS")]
@@ -124,6 +129,10 @@ pub enum Error {
     MoveMessagesError(#[source] ClientError),
     #[error("cannot move IMAP message(s): request timed out")]
     MoveMessagesTimedOutError,
+    #[error("cannot execute no-operation")]
+    NoOpError(#[source] ClientError),
+    #[error("cannot execute no-operation: request timed out")]
+    NoOpTimedOutError,
 
     #[error("cannot exchange IMAP client/server ids")]
     ExchangeIdsError(#[source] ClientError),
@@ -131,6 +140,14 @@ pub enum Error {
     SearchMessagesError(#[source] ClientError),
     #[error("cannot sort IMAP messages")]
     SortMessagesError(#[source] ClientError),
+    #[error("cannot sort IMAP envelope UIDs")]
+    SortUidsError(#[source] ClientError),
+    #[error("cannot sort IMAP envelope UIDs: request timed out")]
+    SortUidsTimedOutError,
+    #[error("cannot search IMAP envelope UIDs")]
+    SearchUidsError(#[source] ClientError),
+    #[error("cannot search IMAP envelope UIDs: request timed out")]
+    SearchUidsTimedOutError,
     #[error("cannot start IMAP IDLE mode")]
     StartIdleError(#[source] StreamError<ClientFlowError>),
     #[error("cannot stop IMAP IDLE mode")]

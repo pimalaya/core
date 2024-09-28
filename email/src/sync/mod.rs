@@ -43,7 +43,7 @@ use crate::{
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder},
     message::sync::config::MessageSyncPermissions,
-    sync::pool::SyncPoolConfig,
+    sync::pool::{SyncPoolConfig, SyncPoolContextBuilder},
     trace,
 };
 
@@ -111,26 +111,6 @@ where
 
     pub fn with_cache_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.set_cache_dir(dir);
-        self
-    }
-
-    // pool size setters
-
-    pub fn set_some_pool_size(&mut self, size: Option<usize>) {
-        self.config.pool_size = size;
-    }
-
-    pub fn set_pool_size(&mut self, size: usize) {
-        self.set_some_pool_size(Some(size));
-    }
-
-    pub fn with_some_pool_size(mut self, size: Option<usize>) -> Self {
-        self.set_some_pool_size(size);
-        self
-    }
-
-    pub fn with_pool_size(mut self, size: usize) -> Self {
-        self.set_pool_size(size);
         self
     }
 
@@ -516,29 +496,29 @@ where
             }
         }?;
 
-        let pool = Arc::new(
-            pool::new(
+        let ctx = Arc::new(
+            SyncPoolContextBuilder::new(
                 self.config,
                 left_cache_builder,
                 left_builder,
                 right_cache_builder,
                 right_builder,
             )
-            .await?,
+            .build()
+            .await
+            .map_err(Error::BuildSyncPoolContextError)?,
         );
 
         let mut report = SyncReport::default();
 
-        report.folder = folder::sync::<L, R>(pool.clone())
+        report.folder = folder::sync::<L, R>(ctx.clone())
             .await
             .map_err(Error::SyncFoldersError)?;
-        report.email = email::sync::<L, R>(pool.clone(), &report.folder.names)
+        report.email = email::sync::<L, R>(ctx.clone(), &report.folder.names)
             .await
             .map_err(Error::SyncEmailsError)?;
 
-        folder::sync::expunge::<L, R>(pool.clone(), &report.folder.names).await;
-
-        Arc::into_inner(pool).unwrap().close().await;
+        folder::sync::expunge::<L, R>(ctx.clone(), &report.folder.names).await;
 
         debug!("unlocking sync files");
         left_lock_file

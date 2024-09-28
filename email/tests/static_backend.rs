@@ -12,7 +12,7 @@ use email::{
     },
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder, ImapContextSync,
+        ImapContext, ImapContextBuilder,
     },
     message::send::{smtp::SendSmtpMessage, SendMessage},
     smtp::{
@@ -52,7 +52,7 @@ async fn test_static_backend() {
 
         #[derive(BackendContext)]
         struct StaticContext {
-            imap: ImapContextSync,
+            imap: ImapContext,
             smtp: SmtpContextSync,
         }
 

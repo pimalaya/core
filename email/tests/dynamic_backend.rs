@@ -12,7 +12,7 @@ use email::{
     folder::{list::ListFolders, Folder, FolderKind},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder, ImapContextSync,
+        ImapContext, ImapContextBuilder,
     },
     smtp::{SmtpContextBuilder, SmtpContextSync},
     AnyResult,
@@ -40,14 +40,14 @@ async fn test_dynamic_backend() {
 
         #[derive(BackendContext)]
         struct DynamicContext {
-            imap: Option<ImapContextSync>,
+            imap: Option<ImapContext>,
             smtp: Option<SmtpContextSync>,
         }
 
         // 2. implement AsRef for mapping features
 
-        impl AsRef<Option<ImapContextSync>> for DynamicContext {
-            fn as_ref(&self) -> &Option<ImapContextSync> {
+        impl AsRef<Option<ImapContext>> for DynamicContext {
+            fn as_ref(&self) -> &Option<ImapContext> {
                 &self.imap
             }
         }

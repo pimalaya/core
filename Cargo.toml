@@ -26,5 +26,6 @@ secret-lib = { path = "./secret" }
 shellexpand-utils = { path = "./shellexpand-utils" }
 time-lib = { path = "./time" }
 
+# IMAP
 imap-next = { git = "https://github.com/duesee/imap-next" }
 imap-client = { git = "https://github.com/pimalaya/imap-client" }

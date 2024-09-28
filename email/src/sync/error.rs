@@ -3,7 +3,7 @@ use std::{io, path::PathBuf, result};
 use advisory_lock::FileLockError;
 use thiserror::Error;
 
-use crate::{email, folder, thread_pool, AnyBoxedError};
+use crate::{email, folder, AnyBoxedError};
 
 /// The global `Result` alias of the module.
 pub type Result<T> = result::Result<T, Error>;
@@ -19,8 +19,6 @@ pub enum Error {
     UnlockFileError(#[source] FileLockError, PathBuf),
     #[error("cannot get sync cache directory")]
     GetCacheDirectorySyncError,
-    #[error("cannot build sync thread pool")]
-    BuildThreadPoolError(#[source] thread_pool::Error),
     #[error("cannot sync folders")]
     SyncFoldersError(#[source] folder::Error),
     #[error("cannot expunge folders after sync")]
@@ -35,4 +33,6 @@ pub enum Error {
     LeftContextNotConfiguredError(#[source] AnyBoxedError),
     #[error("cannot sync: right context is not configured")]
     RightContextNotConfiguredError(#[source] AnyBoxedError),
+    #[error("cannot build sync pool context")]
+    BuildSyncPoolContextError(#[source] AnyBoxedError),
 }

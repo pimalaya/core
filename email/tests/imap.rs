@@ -11,7 +11,7 @@ use email::{
     folder::{add::AddFolder, config::FolderConfig, expunge::ExpungeFolder, SENT},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder, ImapContextSync,
+        ImapContext, ImapContextBuilder,
     },
     message::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,

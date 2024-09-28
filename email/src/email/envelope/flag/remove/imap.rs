@@ -3,23 +3,23 @@ use imap_next::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{Flags, RemoveFlags};
-use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult, Error};
+use crate::{debug, envelope::Id, imap::ImapContext, info, AnyResult, Error};
 
 #[derive(Clone, Debug)]
 pub struct RemoveImapFlags {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl RemoveImapFlags {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn RemoveFlags> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn RemoveFlags> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn RemoveFlags>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn RemoveFlags>> {
         Some(Self::new_boxed(ctx))
     }
 }
@@ -29,8 +29,8 @@ impl RemoveFlags for RemoveImapFlags {
     async fn remove_flags(&self, folder: &str, id: &Id, flags: &Flags) -> AnyResult<()> {
         info!("removing imap flag(s) {flags} to envelope {id} from folder {folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
@@ -57,8 +57,10 @@ impl RemoveFlags for RemoveImapFlags {
                 .map_err(Error::ParseSequenceError)?,
         };
 
-        ctx.select_mailbox(&folder_encoded).await?;
-        ctx.remove_flags(uids, flags.to_imap_flags_iter()).await?;
+        client.select_mailbox(&folder_encoded).await?;
+        client
+            .remove_flags(uids, flags.to_imap_flags_iter())
+            .await?;
 
         Ok(())
     }

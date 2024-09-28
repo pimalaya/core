@@ -19,7 +19,7 @@ rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
 name = "email"
 
 [features]
-default = []
+default = ["full"]
 full = [
   # Enables the IMAP backend, which allows management of local or
   # remote mailboxes and emails located on any IMAP server. Paired
@@ -78,11 +78,6 @@ full = [
   # Enables OAuth 2.0 support.
   #
   "oauth2",
-
-  # Enables thread pool system, for opening batch of connections
-  # (mostly useful for IMAP and SMTP).
-  #
-  "pool",
 
   # Enables mailbox and emails synchronization.
   #
@@ -176,10 +171,6 @@ notify = [
 oauth2 = [
   "dep:oauth-lib",
   "keyring", # TODO: make this dep optional
-]
-
-pool = [
-  "dep:futures",
 ]
 
 sync = [

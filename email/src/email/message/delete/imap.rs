@@ -8,7 +8,7 @@ use crate::{
         add::{imap::AddImapFlags, AddFlags},
         Flags,
     },
-    imap::ImapContextSync,
+    imap::ImapContext,
     message::r#move::{imap::MoveImapMessages, MoveMessages},
     AnyResult,
 };
@@ -20,18 +20,18 @@ pub struct DeleteImapMessages {
 }
 
 impl DeleteImapMessages {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self {
             move_messages: MoveImapMessages::new(ctx),
             add_flags: AddImapFlags::new(ctx),
         }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn DeleteMessages> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn DeleteMessages> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn DeleteMessages>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn DeleteMessages>> {
         Some(Self::new_boxed(ctx))
     }
 }

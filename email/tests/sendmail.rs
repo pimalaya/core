@@ -13,7 +13,7 @@ use email::{
     folder::{delete::DeleteFolder, list::ListFolders, purge::PurgeFolder},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder, ImapContextSync,
+        ImapContext, ImapContextBuilder,
     },
     message::send::SendMessage,
     sendmail::{config::SendmailConfig, SendmailContext, SendmailContextBuilder},

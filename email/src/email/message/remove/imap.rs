@@ -3,23 +3,23 @@ use imap_next::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::RemoveMessages;
-use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, envelope::Id, imap::ImapContext, info, AnyResult};
 
 #[derive(Clone)]
 pub struct RemoveImapMessages {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl RemoveImapMessages {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn RemoveMessages> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn RemoveMessages> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn RemoveMessages>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn RemoveMessages>> {
         Some(Self::new_boxed(ctx))
     }
 }
@@ -29,8 +29,8 @@ impl RemoveMessages for RemoveImapMessages {
     async fn remove_messages(&self, folder: &str, id: &Id) -> AnyResult<()> {
         info!("removing imap messages {id} from folder {folder}");
 
-        let mut ctx = self.ctx.lock().await;
-        let config = &ctx.account_config;
+        let mut client = self.ctx.client().await;
+        let config = &client.account_config;
 
         let folder = config.get_folder_alias(folder);
         let folder_encoded = encode_utf7(folder.clone());
@@ -46,8 +46,8 @@ impl RemoveMessages for RemoveImapMessages {
                 .unwrap(),
         };
 
-        ctx.select_mailbox(&folder_encoded).await?;
-        ctx.add_deleted_flag(uids).await?;
+        client.select_mailbox(&folder_encoded).await?;
+        client.add_deleted_flag(uids).await?;
 
         Ok(())
     }
