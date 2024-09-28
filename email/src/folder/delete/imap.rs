@@ -2,23 +2,23 @@ use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::DeleteFolder;
-use crate::{debug, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, imap::ImapContext, info, AnyResult};
 
 #[derive(Debug)]
 pub struct DeleteImapFolder {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl DeleteImapFolder {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn DeleteFolder> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn DeleteFolder> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn DeleteFolder>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn DeleteFolder>> {
         Some(Self::new_boxed(ctx))
     }
 }

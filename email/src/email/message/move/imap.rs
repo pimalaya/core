@@ -3,23 +3,23 @@ use imap_next::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::MoveMessages;
-use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, envelope::Id, imap::ImapContext, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct MoveImapMessages {
-    pub(crate) ctx: ImapContextSync,
+    pub(crate) ctx: ImapContext,
 }
 
 impl MoveImapMessages {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn MoveMessages> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn MoveMessages> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn MoveMessages>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn MoveMessages>> {
         Some(Self::new_boxed(ctx))
     }
 }

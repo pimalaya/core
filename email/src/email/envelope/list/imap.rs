@@ -17,7 +17,7 @@ use crate::{
     email::error::Error,
     envelope::Envelope,
     imap,
-    imap::ImapContextSync,
+    imap::ImapContext,
     info,
     search_query::{
         filter::SearchEmailsFilterQuery,
@@ -31,19 +31,19 @@ static MAX_SEQUENCE_SIZE: u8 = u8::MAX; // 255
 
 #[derive(Clone, Debug)]
 pub struct ListImapEnvelopes {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl ListImapEnvelopes {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn ListEnvelopes> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn ListEnvelopes> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn ListEnvelopes>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn ListEnvelopes>> {
         Some(Self::new_boxed(ctx))
     }
 }
@@ -65,7 +65,7 @@ impl ListEnvelopes for ListImapEnvelopes {
         let folder_encoded = encode_utf7(folder.clone());
         debug!(name = folder_encoded, "UTF7-encoded mailbox");
 
-        let data = client.select(folder_encoded.clone()).await.unwrap();
+        let data = client.select_mailbox(folder_encoded.clone()).await?;
         let folder_size = data.exists.unwrap_or_default() as usize;
         debug!(name = folder_encoded, ?data, "mailbox selected");
 
@@ -80,15 +80,11 @@ impl ListEnvelopes for ListImapEnvelopes {
 
             let uids = if sort_supported {
                 client
-                    .uid_sort(sort_criteria.clone(), search_criteria.clone())
+                    .sort_uids(sort_criteria.clone(), search_criteria.clone())
                     .await
-                    .map_err(|err| Error::SortUidsError(err, search_criteria, sort_criteria))?
             } else {
-                client
-                    .uid_search(search_criteria.clone())
-                    .await
-                    .map_err(|err| Error::SearchUidsError(err, search_criteria))?
-            };
+                client.search_uids(search_criteria.clone()).await
+            }?;
 
             // this client is not used anymore, so we can drop it now
             // in order to free one client slot from the clients
@@ -109,7 +105,7 @@ impl ListEnvelopes for ListImapEnvelopes {
             #[cfg(feature = "tracing")]
             tracing::debug!(?uids, "fetching envelopes using {uids_chunks_len} chunks");
 
-            let mut fetches = FuturesUnordered::from_iter(uids_chunks.map(move |uids| {
+            let mut fetches = FuturesUnordered::from_iter(uids_chunks.map(|uids| {
                 let ctx = self.ctx.clone();
                 let mbox = folder_encoded.clone();
                 let uids = SequenceSet::try_from(uids.to_vec()).unwrap();

@@ -3,23 +3,23 @@ use imap_next::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{Flags, SetFlags};
-use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult, Error};
+use crate::{debug, envelope::Id, imap::ImapContext, info, AnyResult, Error};
 
 #[derive(Clone, Debug)]
 pub struct SetImapFlags {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl SetImapFlags {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn SetFlags> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn SetFlags> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn SetFlags>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn SetFlags>> {
         Some(Self::new_boxed(ctx))
     }
 }

@@ -8,7 +8,7 @@ use email::{
     envelope::list::ListEnvelopes,
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder, ImapContextSync,
+        ImapContext, ImapContextBuilder,
     },
     message::send::SendMessage,
     smtp::{

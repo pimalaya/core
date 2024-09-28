@@ -20,7 +20,7 @@ use email::{
     folder::INBOX,
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder, ImapContextSync,
+        ImapContext, ImapContextBuilder,
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
     message::add::AddMessage,

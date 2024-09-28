@@ -129,6 +129,10 @@ pub enum Error {
     MoveMessagesError(#[source] ClientError),
     #[error("cannot move IMAP message(s): request timed out")]
     MoveMessagesTimedOutError,
+    #[error("cannot execute no-operation")]
+    NoOpError(#[source] ClientError),
+    #[error("cannot execute no-operation: request timed out")]
+    NoOpTimedOutError,
 
     #[error("cannot exchange IMAP client/server ids")]
     ExchangeIdsError(#[source] ClientError),
@@ -136,6 +140,14 @@ pub enum Error {
     SearchMessagesError(#[source] ClientError),
     #[error("cannot sort IMAP messages")]
     SortMessagesError(#[source] ClientError),
+    #[error("cannot sort IMAP envelope UIDs")]
+    SortUidsError(#[source] ClientError),
+    #[error("cannot sort IMAP envelope UIDs: request timed out")]
+    SortUidsTimedOutError,
+    #[error("cannot search IMAP envelope UIDs")]
+    SearchUidsError(#[source] ClientError),
+    #[error("cannot search IMAP envelope UIDs: request timed out")]
+    SearchUidsTimedOutError,
     #[error("cannot start IMAP IDLE mode")]
     StartIdleError(#[source] StreamError<ClientFlowError>),
     #[error("cannot stop IMAP IDLE mode")]

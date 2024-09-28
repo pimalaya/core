@@ -3,23 +3,23 @@ use imap_next::imap_types::sequence::{Sequence, SequenceSet};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{GetMessages, Messages};
-use crate::{debug, envelope::Id, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, envelope::Id, imap::ImapContext, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct GetImapMessages {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl GetImapMessages {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn GetMessages> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn GetMessages> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn GetMessages>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn GetMessages>> {
         Some(Self::new_boxed(ctx))
     }
 }

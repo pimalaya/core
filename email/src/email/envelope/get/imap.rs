@@ -2,23 +2,23 @@ use async_trait::async_trait;
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{Envelope, GetEnvelope};
-use crate::{debug, envelope::SingleId, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, envelope::SingleId, imap::ImapContext, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct GetImapEnvelope {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl GetImapEnvelope {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn GetEnvelope> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn GetEnvelope> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn GetEnvelope>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn GetEnvelope>> {
         Some(Self::new_boxed(ctx))
     }
 }

@@ -7,7 +7,7 @@ use email::{
     envelope::list::{ListEnvelopes, ListEnvelopesOptions},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContextBuilder, ImapContextSync,
+        ImapContext, ImapContextBuilder,
     },
     search_query::{
         filter::SearchEmailsFilterQuery,
@@ -33,7 +33,7 @@ pub async fn main() {
         });
         let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config.clone());
         let imap = BackendBuilder::new(account_config, imap_ctx)
-            .build::<Backend<ImapContextSync>>()
+            .build::<Backend<ImapContext>>()
             .await
             .unwrap();
 

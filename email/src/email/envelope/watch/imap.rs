@@ -5,23 +5,23 @@ use tokio::sync::oneshot::{Receiver, Sender};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::WatchEnvelopes;
-use crate::{debug, envelope::Envelope, imap::ImapContextSync, info, AnyResult};
+use crate::{debug, envelope::Envelope, imap::ImapContext, info, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct WatchImapEnvelopes {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl WatchImapEnvelopes {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn WatchEnvelopes> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn WatchEnvelopes> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn WatchEnvelopes>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn WatchEnvelopes>> {
         Some(Self::new_boxed(ctx))
     }
 

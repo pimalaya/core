@@ -13,25 +13,25 @@ use super::ThreadEnvelopes;
 use crate::{
     debug,
     envelope::{list::ListEnvelopesOptions, SingleId, ThreadedEnvelope, ThreadedEnvelopes},
-    imap::ImapContextSync,
+    imap::ImapContext,
     AnyResult,
 };
 
 #[derive(Clone, Debug)]
 pub struct ThreadImapEnvelopes {
-    ctx: ImapContextSync,
+    ctx: ImapContext,
 }
 
 impl ThreadImapEnvelopes {
-    pub fn new(ctx: &ImapContextSync) -> Self {
+    pub fn new(ctx: &ImapContext) -> Self {
         Self { ctx: ctx.clone() }
     }
 
-    pub fn new_boxed(ctx: &ImapContextSync) -> Box<dyn ThreadEnvelopes> {
+    pub fn new_boxed(ctx: &ImapContext) -> Box<dyn ThreadEnvelopes> {
         Box::new(Self::new(ctx))
     }
 
-    pub fn some_new_boxed(ctx: &ImapContextSync) -> Option<Box<dyn ThreadEnvelopes>> {
+    pub fn some_new_boxed(ctx: &ImapContext) -> Option<Box<dyn ThreadEnvelopes>> {
         Some(Self::new_boxed(ctx))
     }
 }
