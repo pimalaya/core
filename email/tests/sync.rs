@@ -1,4 +1,4 @@
-#![cfg(all(feature = "maildir", feature = "pool", feature = "sync"))]
+#![cfg(all(feature = "maildir", feature = "sync"))]
 
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
@@ -8,7 +8,7 @@ use std::{
 use chrono::NaiveDate;
 use email::{
     account::config::AccountConfig,
-    backend::{context::BackendContextBuilder, Backend, BackendBuilder},
+    backend::{context::BackendContextBuilder, BackendBuilder},
     email::sync::hunk::EmailSyncHunk,
     envelope::{list::ListEnvelopes, sync::config::EnvelopeSyncFilters, Envelope, Id},
     flag::{add::AddFlags, Flag, Flags},
@@ -23,7 +23,7 @@ use email::{
         },
         Folder, FolderKind, DRAFTS, INBOX, SENT, TRASH,
     },
-    maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
+    maildir::{config::MaildirConfig, MaildirContextBuilder},
     message::{add::AddMessage, delete::DeleteMessages, peek::PeekMessages},
     sync::{SyncBuilder, SyncDestination, SyncEvent},
 };
@@ -61,11 +61,7 @@ async fn test_sync() {
 
     let left_ctx = MaildirContextBuilder::new(left_account_config.clone(), left_config);
     let left_builder = BackendBuilder::new(left_account_config.clone(), left_ctx);
-    let left = left_builder
-        .clone()
-        .build::<Backend<MaildirContextSync>>()
-        .await
-        .unwrap();
+    let left = left_builder.clone().build().await.unwrap();
 
     // set up right
 
@@ -93,11 +89,7 @@ async fn test_sync() {
     right_ctx.configure().await.unwrap();
 
     let right_builder = BackendBuilder::new(right_account_config.clone(), right_ctx);
-    let right = right_builder
-        .clone()
-        .build::<Backend<MaildirContextSync>>()
-        .await
-        .unwrap();
+    let right = right_builder.clone().build().await.unwrap();
 
     right.add_folder("INBOX").await.unwrap();
     right.add_folder("Sent Items").await.unwrap();
@@ -197,7 +189,6 @@ async fn test_sync() {
 
     let sync_builder = SyncBuilder::new(left_builder.clone(), right_builder.clone())
         .with_cache_dir(tmp.join("cache"))
-        .with_pool_size(1)
         .with_handler(|evt| async {
             let mut stack = EVENTS_STACK.lock().await;
             stack.insert(evt);
@@ -207,14 +198,14 @@ async fn test_sync() {
     let left_cache = sync_builder
         .get_left_cache_builder()
         .unwrap()
-        .build::<Backend<MaildirContextSync>>()
+        .build()
         .await
         .unwrap();
 
     let right_cache = sync_builder
         .get_right_cache_builder()
         .unwrap()
-        .build::<Backend<MaildirContextSync>>()
+        .build()
         .await
         .unwrap();
 
