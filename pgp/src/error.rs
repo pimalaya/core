@@ -1,3 +1,4 @@
+#[cfg(feature = "key-discovery")]
 use hyper::Uri;
 use pgp_native::{SecretKeyParamsBuilderError, SubkeyParamsBuilderError};
 use std::{
@@ -39,10 +40,13 @@ pub enum Error {
     ExportEncryptedMessageToArmorError(#[source] pgp_native::errors::Error),
     #[error("cannot compress pgp message")]
     CompressMessageError(#[source] pgp_native::errors::Error),
+    #[cfg(feature = "key-discovery")]
     #[error("cannot parse body from {1}")]
     ParseBodyWithUriError(#[source] hyper::Error, Uri),
+    #[cfg(feature = "key-discovery")]
     #[error("cannot parse response from {1}")]
     FetchResponseError(#[source] hyper::Error, Uri),
+    #[cfg(feature = "key-discovery")]
     #[error("cannot parse pgp public key from {1}")]
     ParsePublicKeyError(#[source] pgp_native::errors::Error, Uri),
     #[error("cannot find pgp public key for email {0}")]
@@ -82,16 +86,20 @@ pub enum Error {
     VerifySignatureError(#[source] pgp_native::errors::Error),
     #[error("cannot parse email address {0}")]
     ParseEmailAddressError(String),
+    #[cfg(feature = "key-discovery")]
     #[error("cannot parse url {1}")]
     ParseUrlError(#[source] url::ParseError, String),
+    #[cfg(feature = "key-discovery")]
     #[error("cannot parse uri {1}")]
     ParseUriError(#[source] hyper::http::uri::InvalidUri, String),
     #[error("cannot parse path {1}")]
     ParseFilePathError(path::StripPrefixError, url::Url),
+    #[cfg(feature = "key-discovery")]
     #[error("cannot parse response")]
     ParseResponseError(#[source] hyper::Error),
     #[error("cannot parse response: too many redirect")]
     RedirectOverflowError,
+    #[cfg(feature = "key-discovery")]
     #[error("cannot parse body")]
     ParseBodyError(#[source] hyper::Error),
     #[error("cannot parse certificate")]

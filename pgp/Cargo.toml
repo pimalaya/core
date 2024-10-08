@@ -13,7 +13,19 @@ keywords = ["pgp", "openpgp", "encrypt", "decrypt", "sign"]
 
 [package.metadata.docs.rs]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docs_rs"]
+
+[features]
+default = []
+key-discovery = [
+    "dep:async-recursion",
+    "dep:futures",
+    "dep:hyper",
+    "dep:hyper-rustls",
+    "dep:log",
+    "dep:sha1",
+    "dep:z-base-32",
+]
 
 [lib]
 name = "pgp"
@@ -25,16 +37,18 @@ tempfile = "3.3"
 tokio = { version = "1.23", default-features = false, features = ["macros", "rt"] }
 
 [dependencies]
-async-recursion = "1"
-futures = "0.3"
-hyper = { version = "0.14", default-features = false, features = [ "http1", "http2" ] }
-hyper-rustls = "0.24"
-log = "0.4"
 pgp_native = { version = "0.10", package = "pgp" }
 rand = "0.8"
-sha1 = "0.10"
 smallvec = "1"
 thiserror = "1"
 tokio = { version = "1.23", default-features = false, features = ["rt"] }
 url = "2.4"
-z-base-32 = "0.1"
+
+# Optional deps - 'http'
+async-recursion = { version = "1",  optional = true }
+futures = { version = "0.3", optional = true }
+hyper = { version = "0.14", default-features = false, features = [ "http1", "http2" ], optional = true }
+hyper-rustls = { version = "0.24", optional = true }
+log = { version = "0.4", optional = true }
+sha1 = { version = "0.10", optional = true }
+z-base-32 = { version = "0.1", optional = true }
