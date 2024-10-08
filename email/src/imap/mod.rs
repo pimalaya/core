@@ -102,26 +102,36 @@ macro_rules! retry {
                     RetryState::Ok(Ok(res)) => {
                         break Ok(res);
                     }
-                    RetryState::Ok(Err(ClientError::Stream(StreamError::State(SchedulerError::UnexpectedByeResponse(bye))))) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::debug!(reason = bye.text.to_string(), "connection closed");
+                    RetryState::Ok(Err(ClientError::Stream(err))) => {
+                        match err {
+                            StreamError::State(SchedulerError::UnexpectedByeResponse(bye)) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::debug!(reason = bye.text.to_string(), "connection closed");
+                            }
+                            StreamError::Closed => {
+                                tracing::debug!("stream closed");
+                            }
+                            // FIXME This match is broken
+                            _ => break Err(ClientError::Stream(err))
+                        }
 
                         #[cfg(feature = "tracing")]
-			tracing::debug!("re-connecting…");
+             			tracing::debug!("re-connecting…");
 
-			$self.inner = $self.client_builder.build().await?;
+             			$self.inner = $self.client_builder.build().await?;
 
-			if let Some(mbox) = &$self.mailbox {
-			    $self.inner.select(mbox.clone()).await.map_err(Error::SelectMailboxError)?;
-			}
+             			if let Some(mbox) = &$self.mailbox {
+             			    $self.inner.select(mbox.clone()).await.map_err(Error::SelectMailboxError)?;
+             			}
 
-			retry.attempts = 0;
-			continue;
+             			retry.attempts = 0;
+             			continue;
                     }
+                    #[cfg(feature = "imap")]
                     RetryState::Ok(Err(err)) => {
-			break Err(Error::[<$err Error>](err));
+             			break Err(Error::[<$err Error>](err));
                     }
-		}
+                }
             }
         }}
     };
