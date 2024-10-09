@@ -106,30 +106,32 @@ macro_rules! retry {
                         match err {
                             StreamError::State(SchedulerError::UnexpectedByeResponse(bye)) => {
                                 #[cfg(feature = "tracing")]
-                                tracing::debug!(reason = bye.text.to_string(), "connection closed");
+                                tracing::debug!(reason = bye.text.to_string(), "stream closed");
                             }
                             StreamError::Closed => {
+                                #[cfg(feature = "tracing")]
                                 tracing::debug!("stream closed");
                             }
-                            // FIXME This match is broken
-                            _ => break Err(ClientError::Stream(err))
-                        }
+                            err => {
+                                let err = ClientError::Stream(err);
+                                break Err(Error::[<$err Error>](err));
+                            }
+                        };
 
                         #[cfg(feature = "tracing")]
-             			tracing::debug!("re-connecting…");
+                        tracing::debug!("re-connecting…");
 
-             			$self.inner = $self.client_builder.build().await?;
+                        $self.inner = $self.client_builder.build().await?;
 
-             			if let Some(mbox) = &$self.mailbox {
-             			    $self.inner.select(mbox.clone()).await.map_err(Error::SelectMailboxError)?;
-             			}
+                        if let Some(mbox) = &$self.mailbox {
+                            $self.inner.select(mbox.clone()).await.map_err(Error::SelectMailboxError)?;
+                        }
 
-             			retry.attempts = 0;
-             			continue;
+                        retry.attempts = 0;
+                        continue;
                     }
-                    #[cfg(feature = "imap")]
                     RetryState::Ok(Err(err)) => {
-             			break Err(Error::[<$err Error>](err));
+                        break Err(Error::[<$err Error>](err));
                     }
                 }
             }
