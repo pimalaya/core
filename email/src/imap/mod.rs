@@ -25,7 +25,6 @@ use imap_next::{
     stream::Error as StreamError,
 };
 use once_cell::sync::Lazy;
-use paste::paste;
 use tokio::{
     select,
     sync::{oneshot, Mutex, MutexGuard},
@@ -81,63 +80,9 @@ use crate::{
         remove::{imap::RemoveImapMessages, RemoveMessages},
         Messages,
     },
-    retry::{Retry, RetryState},
+    retry::{self, Retry, RetryState},
     AnyResult,
 };
-
-macro_rules! retry {
-    ($self:ident, $task:expr, $err:ident) => {
-        paste! {{
-            let mut retry = Retry::default();
-
-            loop {
-                match retry.next(retry.timeout($task).await) {
-                    RetryState::Retry => {
-                        debug!(attempt = retry.attempts, "request timed out");
-                        continue;
-                    }
-                    RetryState::TimedOut => {
-                        break Err(Error::[<$err TimedOutError>]);
-                    }
-                    RetryState::Ok(Ok(res)) => {
-                        break Ok(res);
-                    }
-                    RetryState::Ok(Err(ClientError::Stream(err))) => {
-                        match err {
-                            StreamError::State(SchedulerError::UnexpectedByeResponse(bye)) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::debug!(reason = bye.text.to_string(), "stream closed");
-                            }
-                            StreamError::Closed => {
-                                #[cfg(feature = "tracing")]
-                                tracing::debug!("stream closed");
-                            }
-                            err => {
-                                let err = ClientError::Stream(err);
-                                break Err(Error::[<$err Error>](err));
-                            }
-                        };
-
-                        #[cfg(feature = "tracing")]
-                        tracing::debug!("re-connecting…");
-
-                        $self.inner = $self.client_builder.build().await?;
-
-                        if let Some(mbox) = &$self.mailbox {
-                            $self.inner.select(mbox.clone()).await.map_err(Error::SelectMailboxError)?;
-                        }
-
-                        retry.attempts = 0;
-                        continue;
-                    }
-                    RetryState::Ok(Err(err)) => {
-                        break Err(Error::[<$err Error>](err));
-                    }
-                }
-            }
-        }}
-    };
-}
 
 static ID_PARAMS: Lazy<Vec<(IString<'static>, NString<'static>)>> = Lazy::new(|| {
     vec![
@@ -176,6 +121,12 @@ static ID_PARAMS: Lazy<Vec<(IString<'static>, NString<'static>)>> = Lazy::new(||
     ]
 });
 
+enum ImapRetryState<T> {
+    Retry,
+    TimedOut,
+    Ok(std::result::Result<T, ClientError>),
+}
+
 /// The IMAP backend context.
 ///
 /// This context is unsync, which means it cannot be shared between
@@ -197,70 +148,229 @@ pub struct ImapClient {
 
     /// The selected mailbox.
     mailbox: Option<String>,
+
+    retry: Retry,
 }
 
 impl ImapClient {
+    async fn retry<T>(
+        &mut self,
+        res: retry::Result<std::result::Result<T, ClientError>>,
+    ) -> Result<ImapRetryState<T>> {
+        match self.retry.next(res) {
+            RetryState::Retry => {
+                debug!(attempt = self.retry.attempts, "request timed out");
+                Ok(ImapRetryState::Retry)
+            }
+            RetryState::TimedOut => {
+                return Ok(ImapRetryState::TimedOut);
+            }
+            RetryState::Ok(Err(ClientError::Stream(err))) => {
+                match err {
+                    StreamError::State(SchedulerError::UnexpectedByeResponse(bye)) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!(reason = bye.text.to_string(), "stream closed");
+                    }
+                    StreamError::Closed => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("stream closed");
+                    }
+                    err => {
+                        let err = ClientError::Stream(err);
+                        return Ok(ImapRetryState::Ok(Err(err)));
+                    }
+                };
+
+                #[cfg(feature = "tracing")]
+                tracing::debug!("re-connecting…");
+
+                self.inner = self.client_builder.build().await?;
+
+                if let Some(mbox) = &self.mailbox {
+                    self.inner
+                        .select(mbox.clone())
+                        .await
+                        .map_err(Error::SelectMailboxError)?;
+                }
+
+                self.retry.attempts = 0;
+                Ok(ImapRetryState::Retry)
+            }
+            RetryState::Ok(res) => {
+                return Ok(ImapRetryState::Ok(res));
+            }
+        }
+    }
+
     pub fn ext_sort_supported(&self) -> bool {
         self.inner.ext_sort_supported()
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn noop(&mut self) -> Result<()> {
-        retry!(self, self.inner.noop(), NoOp)
+        self.retry.reset();
+
+        loop {
+            let res = self.retry.timeout(self.inner.noop()).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::NoOpTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::NoOpError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn select_mailbox(&mut self, mbox: impl ToString) -> Result<SelectDataUnvalidated> {
-        let data = retry!(self, self.inner.select(mbox.to_string()), SelectMailbox)?;
+        self.retry.reset();
+
+        let data = loop {
+            let res = self
+                .retry
+                .timeout(self.inner.select(mbox.to_string()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::SelectMailboxTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::SelectMailboxError),
+            }
+        }?;
+
         self.mailbox = Some(mbox.to_string());
+
         Ok(data)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn examine_mailbox(&mut self, mbox: impl ToString) -> Result<SelectDataUnvalidated> {
-        retry!(self, self.inner.examine(mbox.to_string()), ExamineMailbox)
+        self.retry.reset();
+
+        loop {
+            let res = self
+                .retry
+                .timeout(self.inner.examine(mbox.to_string()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::ExamineMailboxTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::ExamineMailboxError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn create_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
-        retry!(self, self.inner.create(mbox.to_string()), CreateMailbox)
+        self.retry.reset();
+
+        loop {
+            let res = self
+                .retry
+                .timeout(self.inner.create(mbox.to_string()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::CreateMailboxTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::CreateMailboxError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn list_all_mailboxes(&mut self, config: &AccountConfig) -> Result<Folders> {
-        let mboxes = retry!(self, self.inner.list("", "*"), ListMailboxes)?;
+        self.retry.reset();
+
+        let mboxes = loop {
+            let res = self.retry.timeout(self.inner.list("", "*")).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::ListMailboxesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::ListMailboxesError),
+            }
+        }?;
+
         let folders = Folders::from_imap_mailboxes(config, mboxes);
+
         Ok(folders)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn expunge_mailbox(&mut self, mbox: impl ToString) -> Result<usize> {
         self.select_mailbox(mbox).await?;
-        let expunged = retry!(self, self.inner.expunge(), ExpungeMailbox)?;
+
+        self.retry.reset();
+
+        let expunged = loop {
+            let res = self.retry.timeout(self.inner.expunge()).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::ExpungeMailboxTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::ExpungeMailboxError),
+            }
+        }?;
+
         Ok(expunged.len())
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn purge_mailbox(&mut self, mbox: impl ToString) -> Result<usize> {
         self.select_mailbox(mbox).await?;
+
         self.add_deleted_flag_silently("1:*".try_into().unwrap())
             .await?;
-        let expunged = retry!(self, self.inner.expunge(), ExpungeMailbox)?;
+
+        let expunged = loop {
+            let res = self.retry.timeout(self.inner.expunge()).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::ExpungeMailboxTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::ExpungeMailboxError),
+            }
+        }?;
+
         Ok(expunged.len())
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn delete_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
-        retry!(self, self.inner.delete(mbox.to_string()), DeleteMailbox)
+        self.retry.reset();
+
+        loop {
+            let res = self
+                .retry
+                .timeout(self.inner.delete(mbox.to_string()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::DeleteMailboxTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::DeleteMailboxError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn fetch_envelopes(&mut self, uids: SequenceSet) -> Result<Envelopes> {
-        let fetches = retry!(
-            self,
-            self.inner.uid_fetch(uids.clone(), FETCH_ENVELOPES.clone()),
-            FetchMessages
-        )?;
+        self.retry.reset();
+
+        let fetches = loop {
+            let res = self
+                .retry
+                .timeout(self.inner.uid_fetch(uids.clone(), FETCH_ENVELOPES.clone()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::FetchMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::FetchMessagesError),
+            }
+        }?;
 
         Ok(Envelopes::from_imap_data_items(fetches))
     }
@@ -270,11 +380,18 @@ impl ImapClient {
         &mut self,
         uids: SequenceSet,
     ) -> Result<HashMap<String, Envelope>> {
-        let fetches = retry!(
-            self,
-            self.inner.uid_fetch(uids.clone(), FETCH_ENVELOPES.clone()),
-            FetchMessages
-        )?;
+        let fetches = loop {
+            let res = self
+                .retry
+                .timeout(self.inner.uid_fetch(uids.clone(), FETCH_ENVELOPES.clone()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::FetchMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::FetchMessagesError),
+            }
+        }?;
 
         let map = fetches
             .into_values()
@@ -289,23 +406,37 @@ impl ImapClient {
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn fetch_first_envelope(&mut self, uid: u32) -> Result<Envelope> {
-        let items = retry!(
-            self,
-            self.inner
-                .uid_fetch_first(uid.try_into().unwrap(), FETCH_ENVELOPES.clone()),
-            FetchMessages
-        )?;
+        let items = loop {
+            let task = self
+                .inner
+                .uid_fetch_first(uid.try_into().unwrap(), FETCH_ENVELOPES.clone());
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::FetchMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::FetchMessagesError),
+            }
+        }?;
 
         Ok(Envelope::from_imap_data_items(items.as_ref()))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn fetch_envelopes_by_sequence(&mut self, seq: SequenceSet) -> Result<Envelopes> {
-        let fetches = retry!(
-            self,
-            self.inner.fetch(seq.clone(), FETCH_ENVELOPES.clone()),
-            FetchMessages
-        )?;
+        let fetches = loop {
+            let res = self
+                .retry
+                .timeout(self.inner.fetch(seq.clone(), FETCH_ENVELOPES.clone()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::FetchMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::FetchMessagesError),
+            }
+        }?;
 
         Ok(Envelopes::from_imap_data_items(fetches))
     }
@@ -322,12 +453,19 @@ impl ImapClient {
         sort_criteria: impl IntoIterator<Item = SortCriterion> + Clone,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
     ) -> Result<Vec<NonZeroU32>> {
-        retry!(
-            self,
-            self.inner
-                .uid_sort(sort_criteria.clone(), search_criteria.clone()),
-            SortUids
-        )
+        loop {
+            let task = self
+                .inner
+                .uid_sort(sort_criteria.clone(), search_criteria.clone());
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::SortUidsTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::SortUidsError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
@@ -335,11 +473,18 @@ impl ImapClient {
         &mut self,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
     ) -> Result<Vec<NonZeroU32>> {
-        retry!(
-            self,
-            self.inner.uid_search(search_criteria.clone()),
-            SearchUids
-        )
+        loop {
+            let res = self
+                .retry
+                .timeout(self.inner.uid_search(search_criteria.clone()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::SearchUidsTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::SearchUidsError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
@@ -348,15 +493,21 @@ impl ImapClient {
         sort_criteria: impl IntoIterator<Item = SortCriterion> + Clone,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
     ) -> Result<Envelopes> {
-        let fetches = retry!(
-            self,
-            self.inner.uid_sort_or_fallback(
+        let fetches = loop {
+            let task = self.inner.uid_sort_or_fallback(
                 sort_criteria.clone(),
                 search_criteria.clone(),
                 FETCH_ENVELOPES.clone(),
-            ),
-            FetchMessages
-        )?;
+            );
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::FetchMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::FetchMessagesError),
+            }
+        }?;
 
         Ok(Envelopes::from(fetches))
     }
@@ -366,12 +517,19 @@ impl ImapClient {
         &mut self,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
     ) -> Result<Vec<Thread>> {
-        retry!(
-            self,
-            self.inner
-                .uid_thread(ThreadingAlgorithm::References, search_criteria.clone(),),
-            ThreadMessages
-        )
+        loop {
+            let task = self
+                .inner
+                .uid_thread(ThreadingAlgorithm::References, search_criteria.clone());
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::ThreadMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::ThreadMessagesError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
@@ -400,12 +558,19 @@ impl ImapClient {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
-        retry!(
-            self,
-            self.inner
-                .uid_store(uids.clone(), StoreType::Add, flags.clone()),
-            StoreFlags
-        )
+        loop {
+            let task = self
+                .inner
+                .uid_store(uids.clone(), StoreType::Add, flags.clone());
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::StoreFlagsTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::StoreFlagsError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
@@ -413,22 +578,36 @@ impl ImapClient {
         &mut self,
         uids: SequenceSet,
     ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
-        retry!(
-            self,
-            self.inner
-                .uid_store(uids.clone(), StoreType::Add, Some(Flag::Deleted)),
-            StoreFlags
-        )
+        loop {
+            let task = self
+                .inner
+                .uid_store(uids.clone(), StoreType::Add, Some(Flag::Deleted));
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::StoreFlagsTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::StoreFlagsError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn add_deleted_flag_silently(&mut self, uids: SequenceSet) -> Result<()> {
-        retry!(
-            self,
-            self.inner
-                .uid_silent_store(uids.clone(), StoreType::Add, Some(Flag::Deleted)),
-            StoreFlags
-        )
+        loop {
+            let task =
+                self.inner
+                    .uid_silent_store(uids.clone(), StoreType::Add, Some(Flag::Deleted));
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::StoreFlagsTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::StoreFlagsError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
@@ -437,12 +616,19 @@ impl ImapClient {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<()> {
-        retry!(
-            self,
-            self.inner
-                .uid_silent_store(uids.clone(), StoreType::Add, flags.clone()),
-            StoreFlags
-        )
+        loop {
+            let task = self
+                .inner
+                .uid_silent_store(uids.clone(), StoreType::Add, flags.clone());
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::StoreFlagsTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::StoreFlagsError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
@@ -451,12 +637,19 @@ impl ImapClient {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
-        retry!(
-            self,
-            self.inner
-                .uid_store(uids.clone(), StoreType::Replace, flags.clone()),
-            StoreFlags
-        )
+        loop {
+            let task = self
+                .inner
+                .uid_store(uids.clone(), StoreType::Replace, flags.clone());
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::StoreFlagsTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::StoreFlagsError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
@@ -465,12 +658,19 @@ impl ImapClient {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<()> {
-        retry!(
-            self,
-            self.inner
-                .uid_silent_store(uids.clone(), StoreType::Replace, flags.clone()),
-            StoreFlags
-        )
+        loop {
+            let task = self
+                .inner
+                .uid_silent_store(uids.clone(), StoreType::Replace, flags.clone());
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::StoreFlagsTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::StoreFlagsError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
@@ -479,12 +679,19 @@ impl ImapClient {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<HashMap<NonZeroU32, Vec1<MessageDataItem<'static>>>> {
-        retry!(
-            self,
-            self.inner
-                .uid_store(uids.clone(), StoreType::Remove, flags.clone()),
-            StoreFlags
-        )
+        loop {
+            let task = self
+                .inner
+                .uid_store(uids.clone(), StoreType::Remove, flags.clone());
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::StoreFlagsTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::StoreFlagsError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
@@ -493,12 +700,19 @@ impl ImapClient {
         uids: SequenceSet,
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
     ) -> Result<()> {
-        retry!(
-            self,
-            self.inner
-                .uid_silent_store(uids.clone(), StoreType::Remove, flags.clone()),
-            StoreFlags
-        )
+        loop {
+            let task = self
+                .inner
+                .uid_silent_store(uids.clone(), StoreType::Remove, flags.clone());
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::StoreFlagsTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::StoreFlagsError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
@@ -508,23 +722,37 @@ impl ImapClient {
         flags: impl IntoIterator<Item = Flag<'static>> + Clone,
         msg: impl AsRef<[u8]> + Clone,
     ) -> Result<NonZeroU32> {
-        let id = retry!(
-            self,
-            self.inner
-                .appenduid_or_fallback(mbox.to_string(), flags.clone(), msg.clone()),
-            StoreFlags
-        )?;
+        let id = loop {
+            let task =
+                self.inner
+                    .appenduid_or_fallback(mbox.to_string(), flags.clone(), msg.clone());
+
+            let res = self.retry.timeout(task).await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::AddMessageTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::AddMessageError),
+            }
+        }?;
 
         id.ok_or(Error::FindAppendedMessageUidError)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn fetch_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
-        let mut fetches = retry!(
-            self,
-            self.inner.uid_fetch(uids.clone(), FETCH_MESSAGES.clone()),
-            FetchMessages
-        )?;
+        let mut fetches = loop {
+            let res = self
+                .retry
+                .timeout(self.inner.uid_fetch(uids.clone(), FETCH_MESSAGES.clone()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::FetchMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::FetchMessagesError),
+            }
+        }?;
 
         let fetches: Vec<_> = uids
             .iter(NonZeroU32::MAX)
@@ -536,11 +764,18 @@ impl ImapClient {
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn peek_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
-        let mut fetches = retry!(
-            self,
-            self.inner.uid_fetch(uids.clone(), PEEK_MESSAGES.clone()),
-            FetchMessages
-        )?;
+        let mut fetches = loop {
+            let res = self
+                .retry
+                .timeout(self.inner.uid_fetch(uids.clone(), PEEK_MESSAGES.clone()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::FetchMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::FetchMessagesError),
+            }
+        }?;
 
         let fetches: Vec<_> = uids
             .iter(NonZeroU32::MAX)
@@ -552,21 +787,34 @@ impl ImapClient {
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn copy_messages(&mut self, uids: SequenceSet, mbox: impl ToString) -> Result<()> {
-        retry!(
-            self,
-            self.inner.uid_copy(uids.clone(), mbox.to_string()),
-            CopyMessages
-        )
+        loop {
+            let res = self
+                .retry
+                .timeout(self.inner.uid_copy(uids.clone(), mbox.to_string()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::CopyMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::CopyMessagesError),
+            }
+        }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
     pub async fn move_messages(&mut self, uids: SequenceSet, mbox: impl ToString) -> Result<()> {
-        retry!(
-            self,
-            self.inner
-                .uid_move_or_fallback(uids.clone(), mbox.to_string()),
-            MoveMessages
-        )
+        loop {
+            let res = self
+                .retry
+                .timeout(self.inner.uid_move(uids.clone(), mbox.to_string()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::MoveMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::MoveMessagesError),
+            }
+        }
     }
 }
 
@@ -782,7 +1030,8 @@ impl BackendContextBuilder for ImapContextBuilder {
                 imap_config: self.imap_config.clone(),
                 client_builder,
                 inner,
-                mailbox: None,
+                mailbox: Default::default(),
+                retry: Default::default(),
             }))),
         })
         .collect::<Vec<_>>()

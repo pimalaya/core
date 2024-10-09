@@ -121,6 +121,10 @@ pub enum Error {
     StoreFlagsError(#[source] ClientError),
     #[error("cannot store IMAP flag(s): request timed out")]
     StoreFlagsTimedOutError,
+    #[error("cannot add IMAP message")]
+    AddMessageError(#[source] ClientError),
+    #[error("cannot add IMAP message: request timed out")]
+    AddMessageTimedOutError,
     #[error("cannot copy IMAP message(s)")]
     CopyMessagesError(#[source] ClientError),
     #[error("cannot copy IMAP message(s): request timed out")]

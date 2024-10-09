@@ -1,6 +1,8 @@
 use std::{future::IntoFuture, time::Duration};
 
-use tokio::time::{error::Elapsed, Timeout};
+use tokio::time::{error::Elapsed, timeout, Timeout};
+
+pub type Result<T> = std::result::Result<T, Elapsed>;
 
 #[derive(Debug)]
 pub enum RetryState<T> {
@@ -20,10 +22,10 @@ impl Retry {
     }
 
     pub fn timeout<F: IntoFuture>(&self, f: F) -> Timeout<F::IntoFuture> {
-        tokio::time::timeout(Duration::from_secs(30), f)
+        timeout(Duration::from_secs(30), f)
     }
 
-    pub fn next<T>(&mut self, res: Result<T, Elapsed>) -> RetryState<T> {
+    pub fn next<T>(&mut self, res: Result<T>) -> RetryState<T> {
         match res.ok() {
             Some(res) => {
                 return RetryState::Ok(res);
