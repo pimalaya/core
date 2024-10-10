@@ -83,13 +83,17 @@ pub async fn from_addr(addr: impl AsRef<str>) -> Result<AutoConfig> {
         .map_err(|e| Error::ParsingEmailAddress(addr.as_ref().to_string(), e))?;
     let http = HttpClient::new()?;
 
-    match from_isps(&http, &addr).await {
+    let res = from_isps(&http, &addr).await;
+
+    #[cfg(feature = "tracing")]
+    if let Err(err) = &res {
+        let addr = addr.to_string();
+        tracing::debug!(addr, ?err, "ISP discovery failed, trying DNS…");
+    }
+
+    match res {
         Ok(config) => Ok(config),
-        Err(_err) => {
-            trace!("{_err}");
-            debug!("ISP discovery failed for {addr}, falling back to DNS");
-            from_dns(&http, &addr).await
-        }
+        Err(_) => from_dns(&http, &addr).await,
     }
 }
 
@@ -106,24 +110,35 @@ async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig>
         from_secure_main_isp(http, addr).boxed(),
     ];
 
-    match select_ok(from_main_isps).await {
-        Ok((config, _)) => Ok(config),
-        Err(_err) => {
-            trace!("{_err}");
-            debug!("main ISP discovery failed for {addr}, falling back to alternative ISP");
+    let res = select_ok(from_main_isps).await;
 
+    #[cfg(feature = "tracing")]
+    if let Err(err) = &res {
+        let log = "main ISP discovery failed, trying alternative ISP…";
+        let addr = addr.to_string();
+        tracing::debug!(addr, ?err, "{log}");
+    }
+
+    match res {
+        Ok((config, _)) => Ok(config),
+        Err(_) => {
             let from_alt_isps = [
                 from_plain_alt_isp(http, addr).boxed(),
                 from_secure_alt_isp(http, addr).boxed(),
             ];
 
-            match select_ok(from_alt_isps).await {
+            let res = select_ok(from_alt_isps).await;
+
+            #[cfg(feature = "tracing")]
+            if let Err(err) = &res {
+                let log = "alternative ISP discovery failed, trying ISPDB…";
+                let addr = addr.to_string();
+                tracing::debug!(addr, ?err, "{log}");
+            }
+
+            match res {
                 Ok((config, _)) => Ok(config),
-                Err(_err) => {
-                    trace!("{_err}");
-                    debug!("alternative ISP discovery failed for {addr}, falling back to ISPDB");
-                    from_ispdb(http, addr).await
-                }
+                Err(_) => from_ispdb(http, addr).await,
             }
         }
     }
@@ -205,18 +220,28 @@ async fn from_dns(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> 
     let domain = addr.domain().trim_matches('.');
     let dns = DnsClient::new();
 
-    match from_dns_mx(http, &dns, addr).await {
+    let res = from_dns_mx(http, &dns, addr).await;
+
+    #[cfg(feature = "tracing")]
+    if let Err(err) = &res {
+        let addr = addr.to_string();
+        tracing::debug!(addr, ?err, "MX discovery failed, trying TXT…");
+    }
+
+    match res {
         Ok(config) => Ok(config),
-        Err(_err) => {
-            trace!("{_err}");
-            debug!("MX discovery failed for {addr}, falling back to TXT records");
-            match from_dns_txt(http, &dns, domain).await {
+        Err(_) => {
+            let res = from_dns_txt(http, &dns, domain).await;
+
+            #[cfg(feature = "tracing")]
+            if let Err(err) = &res {
+                let addr = addr.to_string();
+                tracing::debug!(addr, ?err, "TXT discovery failed, trying SRV…");
+            }
+
+            match res {
                 Ok(config) => Ok(config),
-                Err(_err) => {
-                    trace!("{_err}");
-                    debug!("TXT discovery failed for {addr}, falling back to SRV records");
-                    from_dns_srv(&dns, domain).await
-                }
+                Err(_) => from_dns_srv(&dns, domain).await,
             }
         }
     }
@@ -234,13 +259,17 @@ async fn from_dns_mx(
     let domain = domain.trim_matches('.');
     let addr = EmailAddress::from_str(&format!("{local_part}@{domain}")).unwrap();
 
-    match from_isps(http, &addr).await {
+    let res = from_isps(http, &addr).await;
+
+    #[cfg(feature = "tracing")]
+    if let Err(err) = &res {
+        let addr = addr.to_string();
+        tracing::debug!(addr, ?err, "ISP discovery failed, trying TXT…");
+    }
+
+    match res {
         Ok(config) => Ok(config),
-        Err(_err) => {
-            trace!("{_err}");
-            debug!("ISP discovery failed for {domain}, falling back to TXT records");
-            from_dns_txt(http, dns, domain).await
-        }
+        Err(_) => from_dns_txt(http, dns, domain).await,
     }
 }
 
@@ -274,6 +303,9 @@ async fn from_dns_srv(
 
     #[cfg(feature = "imap")]
     if let Ok(record) = dns.get_imap_srv(domain).await {
+        let mut target = record.target().clone();
+        target.set_fqdn(false);
+
         use self::config::{
             AuthenticationType, EmailProviderProperty, SecurityType, Server, ServerProperty,
             ServerType,
@@ -285,7 +317,7 @@ async fn from_dns_srv(
             .push(EmailProviderProperty::IncomingServer(Server {
                 r#type: ServerType::Imap,
                 properties: vec![
-                    ServerProperty::Hostname(record.target().to_string()),
+                    ServerProperty::Hostname(target.to_string()),
                     ServerProperty::Port(record.port()),
                     ServerProperty::SocketType(SecurityType::Starttls),
                     ServerProperty::Authentication(AuthenticationType::PasswordCleartext),
@@ -295,6 +327,9 @@ async fn from_dns_srv(
 
     #[cfg(feature = "imap")]
     if let Ok(record) = dns.get_imaps_srv(domain).await {
+        let mut target = record.target().clone();
+        target.set_fqdn(false);
+
         use self::config::{
             AuthenticationType, EmailProviderProperty, SecurityType, Server, ServerProperty,
             ServerType,
@@ -306,7 +341,7 @@ async fn from_dns_srv(
             .push(EmailProviderProperty::IncomingServer(Server {
                 r#type: ServerType::Imap,
                 properties: vec![
-                    ServerProperty::Hostname(record.target().to_string()),
+                    ServerProperty::Hostname(target.to_string()),
                     ServerProperty::Port(record.port()),
                     ServerProperty::SocketType(SecurityType::Tls),
                     ServerProperty::Authentication(AuthenticationType::PasswordCleartext),
@@ -316,6 +351,9 @@ async fn from_dns_srv(
 
     #[cfg(feature = "smtp")]
     if let Ok(record) = dns.get_submission_srv(domain).await {
+        let mut target = record.target().clone();
+        target.set_fqdn(false);
+
         use self::config::{
             AuthenticationType, EmailProviderProperty, SecurityType, Server, ServerProperty,
             ServerType,
@@ -327,7 +365,7 @@ async fn from_dns_srv(
             .push(EmailProviderProperty::OutgoingServer(Server {
                 r#type: ServerType::Smtp,
                 properties: vec![
-                    ServerProperty::Hostname(record.target().to_string()),
+                    ServerProperty::Hostname(target.to_string()),
                     ServerProperty::Port(record.port()),
                     ServerProperty::SocketType(match record.port() {
                         25 => SecurityType::Plain,

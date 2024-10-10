@@ -323,6 +323,8 @@ pub enum ServerType {
     Imap,
     #[cfg(feature = "smtp")]
     Smtp,
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Deserialize)]

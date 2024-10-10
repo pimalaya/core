@@ -24,7 +24,7 @@ use crate::{
     debug, info,
     message::send::{smtp::SendSmtpMessage, SendMessage},
     retry::{Retry, RetryState},
-    warn, AnyResult,
+    AnyResult,
 };
 
 /// The SMTP backend context.
@@ -274,7 +274,8 @@ pub async fn build_client(
             match Ok(build_tcp_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
                 Err(Error::ConnectTcpSmtpError(mail_send::Error::AuthenticationFailed(_))) => {
-                    warn!("authentication failed, refreshing access token and retrying…");
+                    #[cfg(feature = "tracing")]
+                    tracing::warn!("authentication failed, refreshing access token and retrying…");
                     oauth2_config
                         .refresh_access_token()
                         .await
@@ -291,7 +292,8 @@ pub async fn build_client(
             match Ok(build_tls_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
                 Err(Error::ConnectTlsSmtpError(mail_send::Error::AuthenticationFailed(_))) => {
-                    warn!("authentication failed, refreshing access token and retrying…");
+                    #[cfg(feature = "tracing")]
+                    tracing::warn!("authentication failed, refreshing access token and retrying…");
                     oauth2_config
                         .refresh_access_token()
                         .await
