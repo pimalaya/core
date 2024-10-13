@@ -175,6 +175,12 @@ impl ImapClient {
                         #[cfg(feature = "tracing")]
                         tracing::debug!("stream closed");
                     }
+                    StreamError::Io(err)
+                        if err.kind() == futures::io::ErrorKind::ConnectionReset =>
+                    {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("connection reset");
+                    }
                     err => {
                         let err = ClientError::Stream(err);
                         return Ok(ImapRetryState::Ok(Err(err)));
