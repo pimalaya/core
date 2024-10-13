@@ -1,7 +1,10 @@
 pub mod config;
 mod error;
 
-use std::{collections::HashMap, env, fmt, num::NonZeroU32, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap, env, fmt, io::ErrorKind::ConnectionReset, num::NonZeroU32, sync::Arc,
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
@@ -174,6 +177,10 @@ impl ImapClient {
                     StreamError::Closed => {
                         #[cfg(feature = "tracing")]
                         tracing::debug!("stream closed");
+                    }
+                    StreamError::Io(err) if err.kind() == ConnectionReset => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("connection reset");
                     }
                     err => {
                         let err = ClientError::Stream(err);
