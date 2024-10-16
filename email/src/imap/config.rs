@@ -5,7 +5,7 @@
 
 use std::fmt;
 #[cfg(feature = "derive")]
-use std::{marker::PhantomData, result};
+use std::marker::PhantomData;
 
 #[doc(inline)]
 use super::{Error, Result};
@@ -162,7 +162,11 @@ impl From<bool> for ImapEncryptionKind {
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "lowercase", tag = "type")
+    serde(
+        rename_all = "lowercase",
+        tag = "type",
+        from = "ImapAuthConfigFeatureGuard",
+    )
 )]
 pub enum ImapAuthConfig {
     /// The password configuration.
@@ -172,6 +176,41 @@ pub enum ImapAuthConfig {
     /// The OAuth 2.0 configuration.
     #[cfg(feature = "oauth2")]
     OAuth2(OAuth2Config),
+}
+
+#[cfg(feature = "derive")]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase", tag = "type")]
+pub enum ImapAuthConfigFeatureGuard {
+    #[serde(alias = "password")]
+    Passwd(PasswdConfig),
+
+    #[cfg(feature = "oauth2")]
+    OAuth2(OAuth2Config),
+    #[cfg(not(feature = "oauth2"))]
+    #[serde(skip_serializing, deserialize_with = "missing_oauth2_feature")]
+    OAuth2,
+}
+
+#[cfg(all(feature = "derive", not(feature = "oauth2")))]
+fn missing_oauth2_feature<'de, D>(_: D) -> std::result::Result<(), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Err(serde::de::Error::custom("missing `oauth2` cargo feature"))
+}
+
+#[cfg(feature = "derive")]
+impl From<ImapAuthConfigFeatureGuard> for ImapAuthConfig {
+    fn from(config: ImapAuthConfigFeatureGuard) -> Self {
+        match config {
+            ImapAuthConfigFeatureGuard::Passwd(config) => Self::Passwd(config),
+            #[cfg(feature = "oauth2")]
+            ImapAuthConfigFeatureGuard::OAuth2(config) => Self::OAuth2(config),
+            #[cfg(not(feature = "oauth2"))]
+            ImapAuthConfigFeatureGuard::OAuth2 => unreachable!(),
+        }
+    }
 }
 
 impl Default for ImapAuthConfig {
@@ -275,7 +314,7 @@ impl ImapWatchConfig {
 #[cfg(feature = "derive")]
 fn some_bool_or_kind<'de, D>(
     deserializer: D,
-) -> result::Result<Option<ImapEncryptionKind>, D::Error>
+) -> std::result::Result<Option<ImapEncryptionKind>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -288,7 +327,7 @@ where
             formatter.write_str("some or none")
         }
 
-        fn visit_some<D>(self, deserializer: D) -> result::Result<Self::Value, D::Error>
+        fn visit_some<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
         where
             D: serde::Deserializer<'de>,
         {
@@ -301,14 +340,14 @@ where
                     formatter.write_str("boolean or string")
                 }
 
-                fn visit_bool<E>(self, v: bool) -> result::Result<Self::Value, E>
+                fn visit_bool<E>(self, v: bool) -> std::result::Result<Self::Value, E>
                 where
                     E: serde::de::Error,
                 {
                     Ok(v.into())
                 }
 
-                fn visit_str<E>(self, v: &str) -> result::Result<Self::Value, E>
+                fn visit_str<E>(self, v: &str) -> std::result::Result<Self::Value, E>
                 where
                     E: serde::de::Error,
                 {

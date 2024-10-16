@@ -174,6 +174,10 @@ impl ImapClient {
                         #[cfg(feature = "tracing")]
                         tracing::debug!(reason = bye.text.to_string(), "stream closed");
                     }
+                    StreamError::Io(err) if err.kind() == ConnectionReset => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("connection reset");
+                    }
                     StreamError::Closed => {
                         #[cfg(feature = "tracing")]
                         tracing::debug!("stream closed");
