@@ -5,6 +5,8 @@
 //! command or from a keyring entry. The associated structure is
 //! [`Secret`].
 
+#[cfg(feature = "derive")]
+pub mod derive;
 mod error;
 
 #[cfg(feature = "keyring")]
@@ -28,7 +30,8 @@ pub use crate::error::{Error, Result};
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
+    serde(rename_all = "kebab-case"),
+    serde(from = "derive::Secret")
 )]
 pub enum Secret {
     /// The secret is contained in a raw string, usually not safe to

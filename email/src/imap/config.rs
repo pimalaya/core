@@ -114,9 +114,11 @@ impl ImapConfig {
 #[cfg(feature = "sync")]
 impl crate::sync::hash::SyncHash for ImapConfig {
     fn sync_hash(&self, state: &mut std::hash::DefaultHasher) {
-        std::hash::Hash::hash(&self.host, state);
-        std::hash::Hash::hash(&self.port, state);
-        std::hash::Hash::hash(&self.login, state);
+        use std::hash::Hash;
+
+        Hash::hash(&self.host, state);
+        Hash::hash(&self.port, state);
+        Hash::hash(&self.login, state);
     }
 }
 
@@ -162,17 +164,13 @@ impl From<bool> for ImapEncryptionKind {
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(
-        rename_all = "lowercase",
-        tag = "type",
-        from = "ImapAuthConfigFeatureGuard",
-    )
+    serde(rename_all = "lowercase", tag = "type"),
+    serde(from = "ImapAuthConfigFeatureGuard")
 )]
 pub enum ImapAuthConfig {
     /// The password configuration.
     #[cfg_attr(feature = "derive", serde(alias = "password"))]
     Passwd(PasswdConfig),
-
     /// The OAuth 2.0 configuration.
     #[cfg(feature = "oauth2")]
     OAuth2(OAuth2Config),
@@ -184,7 +182,6 @@ pub enum ImapAuthConfig {
 pub enum ImapAuthConfigFeatureGuard {
     #[serde(alias = "password")]
     Passwd(PasswdConfig),
-
     #[cfg(feature = "oauth2")]
     OAuth2(OAuth2Config),
     #[cfg(not(feature = "oauth2"))]
