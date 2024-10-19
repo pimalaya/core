@@ -7,22 +7,16 @@
 //! The aim of this library is to provide a convenient wrapper around
 //! [keyring-rs](https://crates.io/crates/keyring), a cross-platform
 //! library to manage credentials. The main structure is
-//! [`KeyringEntry`]. Cache is enabled on Linux only, using the kernel
-//! [`keyutils`] keyring.
+//! [`KeyringEntry`].
 
 mod error;
-#[cfg(target_os = "linux")]
-mod keyutils;
 mod service;
 
-pub use keyring_native as native;
-use log::{debug, trace};
+pub use native;
 use std::sync::Arc;
 use tokio::task;
+use tracing::debug;
 
-#[cfg(target_os = "linux")]
-#[doc(inline)]
-pub use crate::keyutils::KeyutilsEntry;
 #[doc(inline)]
 pub use crate::{
     error::{Error, Result},
@@ -31,9 +25,9 @@ pub use crate::{
 
 /// The keyring entry.
 ///
-/// This struct is a simple wrapper around [`keyring_native::Entry`]
-/// that holds a keyring entry key, as well as a keyutils entry on
-/// Linux for cache.
+/// This struct is a simple wrapper around [`native::Entry`] that
+/// holds a keyring entry key, as well as a keyutils entry on Linux
+/// for cache.
 #[derive(Clone, Debug)]
 #[cfg_attr(
     feature = "derive",
@@ -45,11 +39,7 @@ pub struct KeyringEntry {
     pub key: String,
 
     /// The native keyring entry.
-    entry: Arc<keyring_native::Entry>,
-
-    /// The cache keyutils entry.
-    #[cfg(target_os = "linux")]
-    cache_entry: KeyutilsEntry,
+    entry: Arc<native::Entry>,
 }
 
 impl Eq for KeyringEntry {}
@@ -69,23 +59,7 @@ impl KeyringEntry {
     /// Get the secret of the keyring entry.
     pub async fn get_secret(&self) -> Result<String> {
         let key = &self.key;
-
-        #[cfg(target_os = "linux")]
-        match self.cache_entry.find_secret().await {
-            Ok(Some(secret)) => {
-                debug!("found secret from cache matching `{key}`");
-                return Ok(secret);
-            }
-            Ok(None) => {
-                debug!("no secret found from cache matching `{key}`");
-            }
-            Err(err) => {
-                debug!("cannot find secret from cache matching `{key}`");
-                trace!("{err:?}");
-            }
-        }
-
-        debug!("getting keyring secret for key `{key}`");
+        debug!(key, "get keyring secret");
 
         let entry = self.entry.clone();
         let secret = task::spawn_blocking(move || entry.get_password())
@@ -100,29 +74,13 @@ impl KeyringEntry {
     /// Returns `None` in case the secret is not found.
     pub async fn find_secret(&self) -> Result<Option<String>> {
         let key = &self.key;
-
-        #[cfg(target_os = "linux")]
-        match self.cache_entry.find_secret().await {
-            Ok(Some(secret)) => {
-                debug!("found secret from cache matching `{key}`");
-                return Ok(Some(secret));
-            }
-            Ok(None) => {
-                debug!("no secret found from cache matching `{key}`");
-            }
-            Err(err) => {
-                debug!("cannot find secret from cache matching `{key}`");
-                trace!("{err:?}");
-            }
-        }
-
-        debug!("finding keyring secret for key `{key}`");
+        debug!(key, "find keyring secret");
 
         let entry = self.entry.clone();
         let secret = task::spawn_blocking(move || entry.get_password()).await?;
 
         match secret {
-            Err(keyring_native::Error::NoEntry) => Ok(None),
+            Err(native::Error::NoEntry) => Ok(None),
             Err(err) => Err(Error::FindSecretError(err, key.clone())),
             Ok(secret) => Ok(Some(secret)),
         }
@@ -131,13 +89,9 @@ impl KeyringEntry {
     /// (Re)set the secret of the keyring entry.
     pub async fn set_secret(&self, secret: impl ToString) -> Result<()> {
         let key = &self.key;
+        debug!(key, "set keyring secret");
+
         let secret = secret.to_string();
-
-        debug!("setting keyring secret for key `{key}`");
-
-        #[cfg(target_os = "linux")]
-        self.cache_entry.set_secret(&secret).await?;
-
         let entry = self.entry.clone();
         task::spawn_blocking(move || entry.set_password(&secret))
             .await?
@@ -156,14 +110,10 @@ impl KeyringEntry {
     /// Delete the secret of the keyring entry.
     pub async fn delete_secret(&self) -> Result<()> {
         let key = &self.key;
-
-        debug!("deleting keyring secret for key `{key}`");
-
-        #[cfg(target_os = "linux")]
-        self.cache_entry.delete_secret().await?;
+        debug!(key, "delete keyring secret");
 
         let entry = self.entry.clone();
-        task::spawn_blocking(move || entry.delete_password())
+        task::spawn_blocking(move || entry.delete_credential())
             .await?
             .map_err(|err| Error::DeleteSecretError(err, key.clone()))?;
 
@@ -177,20 +127,12 @@ impl TryFrom<String> for KeyringEntry {
     fn try_from(key: String) -> Result<Self> {
         let service = get_global_service_name();
 
-        let entry = match keyring_native::Entry::new(service, &key) {
+        let entry = match native::Entry::new(service, &key) {
             Ok(entry) => Ok(Arc::new(entry)),
             Err(err) => Err(Error::BuildEntryError(err, key.clone())),
         }?;
 
-        #[cfg(target_os = "linux")]
-        let cache_entry = KeyutilsEntry::try_new(&key)?;
-
-        Ok(Self {
-            key,
-            entry,
-            #[cfg(target_os = "linux")]
-            cache_entry,
-        })
+        Ok(Self { key, entry })
     }
 }
 

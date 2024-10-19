@@ -4,8 +4,8 @@
 //! consumer of this crate should define his own service name at the
 //! beginning of their program.
 
-use log::debug;
 use once_cell::sync::OnceCell;
+use tracing::debug;
 
 /// The global service name, wrapped in a once cell.
 static SERVICE_NAME: OnceCell<&str> = OnceCell::new();
@@ -21,9 +21,9 @@ pub fn get_global_service_name() -> &'static str {
     match SERVICE_NAME.get() {
         Some(name) => name,
         None => {
-            let err = format!("service name not defined, defaults to `{DEFAULT_SERVICE_NAME}`");
-            debug!("cannot get global keyring service name: {err}");
-            DEFAULT_SERVICE_NAME
+            let name = DEFAULT_SERVICE_NAME;
+            debug!(name, "undefined global service name, using defaults");
+            name
         }
     }
 }
@@ -33,10 +33,9 @@ pub fn get_global_service_name() -> &'static str {
 /// This action as no effect if a global service name has already been
 /// defined.
 pub fn set_global_service_name(name: &'static str) {
-    debug!("setting global keyring service name `{name}`");
+    debug!(name, "define global service name");
 
     if let Err((prev, _)) = SERVICE_NAME.try_insert(name) {
-        let err = format!("service already named `{prev}`");
-        debug!("cannot set `{name}` as global keyring service name: {err}");
+        debug!(name = prev, "service name already defined, skipping it");
     }
 }

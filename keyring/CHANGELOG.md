@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `keyring-rs@v3`.
+- Replaced `log` by `tracing`.
+
+### Removed
+
+- Removed `keyutils` caching as it is now handled by `keyring-rs` internally [#222].
+
 ## [0.4.3] - 2024-06-03
 
 ### Fixed
@@ -119,3 +128,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Imported keyring code from `pimalaya-email`.
+
+[#222]: https://github.com/hwchen/keyring-rs/pull/222

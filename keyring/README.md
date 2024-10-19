@@ -1,16 +1,13 @@
 # 🔐 keyring-lib
 
-Manage credentials using OS-specific keyrings: `Secret Service` on Linux, `Security Framework` on MacOS and `Security Credentials` on Windows.
+Manage credentials using OS-specific keyrings: `Secret Service` + `keytulis` on Linux, `Security Framework` on MacOS and `Security Credentials` on Windows.
 
 This library aims to be a High-level API for [keyring](https://crates.io/crates/keyring), a cross-platform library to manage credentials, and can be seen as a convenient wrapper around it:
 
 - Made the lib async using `tokio`.
-- Simplified cargo features: `tokio` by default, `tokio-openssl`, `async-io` and `async-io-openssl` available.
-- Added the cargo feature `serde` that enables serialization and deserialization of a keyring entry from and to a `String`.
+- Added the cargo feature `derive` that enables serialization and deserialization of a keyring entry from and to a `String`.
 - Changed the way the service name is declared: instead of declaring it everytime you declare a keyring entry, you just need to declare it once at the beginning of you program, using the function `keyring::set_global_service_name`.
 - Added new function `find_secret` that returns a `Result<Option<String>>`.
-- Enabled logging using the [log](https://crates.io/crates/log) crate.
-- Added keyring cache based on the linux [keyutils](https://man7.org/linux/man-pages/man7/keyutils.7.html) keyring (only works on Linux machines).
 
 ```rust
 use keyring::{set_global_service_name, KeyringEntry};
@@ -39,26 +36,15 @@ async fn main() {
 
 *See the full API documentation on [docs.rs](https://docs.rs/keyring-lib/latest/keyring/).*
 
-## Development
-
-The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`…
-
-```shell
-# Start a Nix shell
-$ nix-shell
-
-# then build the lib
-$ cargo build -p keyring-lib
-```
-
 ## Sponsoring
 
-[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/project/Pimalaya/index.html)
+[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/)
 
-Special thanks to the [NLnet foundation](https://nlnet.nl/project/Pimalaya/index.html) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from:
+Special thanks to the [NLnet foundation](https://nlnet.nl/) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from various programs:
 
-- [NGI Assure](https://nlnet.nl/assure/) in 2022
-- [NGI Zero Entrust](https://nlnet.nl/entrust/) in 2023
+- [NGI Assure](https://nlnet.nl/project/Himalaya/) in 2022
+- [NGI Zero Entrust](https://nlnet.nl/project/Pimalaya/) in 2023
+- [NGI Zero Core](https://nlnet.nl/project/Pimalaya-PIM/) in 2024 *(still ongoing)*
 
 If you appreciate the project, feel free to donate using one of the following providers:
 
