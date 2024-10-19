@@ -1,13 +1,21 @@
 # 🔐 keyring-lib
 
-Manage credentials using OS-specific keyrings: `Secret Service` + `keytulis` on Linux, `Security Framework` on MacOS and `Security Credentials` on Windows.
+High-level *async* API for [`keyring-rs`](https://crates.io/crates/keyring), a cross-platform library to manage credentials.
 
-This library aims to be a High-level API for [keyring](https://crates.io/crates/keyring), a cross-platform library to manage credentials, and can be seen as a convenient wrapper around it:
+This library can be seen as a convenient wrapper around `keyring-rs`:
 
-- Made the lib async using `tokio`.
-- Added the cargo feature `derive` that enables serialization and deserialization of a keyring entry from and to a `String`.
-- Changed the way the service name is declared: instead of declaring it everytime you declare a keyring entry, you just need to declare it once at the beginning of you program, using the function `keyring::set_global_service_name`.
-- Added new function `find_secret` that returns a `Result<Option<String>>`.
+- Default keystore based on target OS:
+  - OpenBSD and FreeBSD: [Secret Service](https://specifications.freedesktop.org/secret-service-spec/latest/)
+  - Linux: Secret Service + [keyutils](https://man7.org/linux/man-pages/man7/keyutils.7.html) (secure in-memory kernel cache)
+  - MacOS and iOS: [Security framework](https://developer.apple.com/documentation/security/keychain-services)
+  - Windows: [Security credentials](https://developer.apple.com/documentation/security/keychain-services)
+- [Tokio](https://tokio.rs/) async runtime support (requires `tokio` feature)
+- [async-std](https://async.rs/) async runtime support(requires `async-std` feature)
+- [Rustls](https://github.com/rustls/rustls) rust crypto support (requires `rustls` feature)
+- [OpenSSL](https://openssl.org/) crypto support (requires `openssl` feature, and OpenSSL lib installed (or `vendored` feature))
+- [Serde](https://serde.rs/) de/serialization of the keyring entry from/to `String` (requires `derive` feature)
+- Global service name to avoid repetition
+- Convenient function to find a secret (`Entry::find_secret -> Result<Option<String>>`)
 
 ```rust
 use keyring::{set_global_service_name, KeyringEntry};
@@ -20,16 +28,16 @@ async fn main() {
     // create a keyring entry from a key string
     let entry = KeyringEntry::try_new("key").unwrap();
 
-	// define a secret
+    // define a secret
     entry.set_secret("secret").await.unwrap();
 
-	// get a secret
-	entry.get_secret().await.unwrap();
+    // get a secret
+    entry.get_secret().await.unwrap();
 
-	// find a secret
-	entry.find_secret().await.unwrap();
+    // find a secret
+    entry.find_secret().await.unwrap();
 
-	// deletea secret
+    // delete a secret entry
     entry.delete_secret().await.unwrap();
 }
 ```

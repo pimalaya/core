@@ -14,7 +14,6 @@ mod service;
 
 pub use native;
 use std::sync::Arc;
-use tokio::task;
 use tracing::debug;
 
 #[doc(inline)]
@@ -62,7 +61,7 @@ impl KeyringEntry {
         debug!(key, "get keyring secret");
 
         let entry = self.entry.clone();
-        let secret = task::spawn_blocking(move || entry.get_password())
+        let secret = spawn_blocking(move || entry.get_password())
             .await?
             .map_err(|err| Error::GetSecretError(err, key.clone()))?;
 
@@ -77,7 +76,7 @@ impl KeyringEntry {
         debug!(key, "find keyring secret");
 
         let entry = self.entry.clone();
-        let secret = task::spawn_blocking(move || entry.get_password()).await?;
+        let secret = spawn_blocking(move || entry.get_password()).await?;
 
         match secret {
             Err(native::Error::NoEntry) => Ok(None),
@@ -93,7 +92,7 @@ impl KeyringEntry {
 
         let secret = secret.to_string();
         let entry = self.entry.clone();
-        task::spawn_blocking(move || entry.set_password(&secret))
+        spawn_blocking(move || entry.set_password(&secret))
             .await?
             .map_err(|err| Error::SetSecretError(err, key.clone()))?;
 
@@ -113,7 +112,7 @@ impl KeyringEntry {
         debug!(key, "delete keyring secret");
 
         let entry = self.entry.clone();
-        task::spawn_blocking(move || entry.delete_credential())
+        spawn_blocking(move || entry.delete_credential())
             .await?
             .map_err(|err| Error::DeleteSecretError(err, key.clone()))?;
 
@@ -140,4 +139,14 @@ impl From<KeyringEntry> for String {
     fn from(entry: KeyringEntry) -> Self {
         entry.key
     }
+}
+
+#[cfg(feature = "async-std")]
+async fn spawn_blocking<T: Send + 'static>(f: impl Fn() -> T + Send + 'static) -> Result<T> {
+    Ok(async_std::task::spawn_blocking(f).await)
+}
+
+#[cfg(feature = "tokio")]
+async fn spawn_blocking<T: Send + 'static>(f: impl Fn() -> T + Send + 'static) -> Result<T> {
+    Ok(tokio::task::spawn_blocking(f).await?)
 }

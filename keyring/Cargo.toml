@@ -1,12 +1,12 @@
 [package]
 name = "keyring-lib"
-description = "High-level API for keyring-rs, a cross-platform library to manage credentials"
+description = "High-level async API for keyring-rs, a cross-platform library to manage credentials"
 version = "1.0.0"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
-categories = ["config", "database"]
-keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
+categories = ["asynchronous"]
+keywords = ["password", "credential", "keychain", "keyring", "secret"]
 homepage = "https://pimalaya.org/"
 documentation = "https://docs.rs/keyring-lib/latest/keyring/"
 repository = "https://github.com/pimalaya/core/tree/master/keyring/"
@@ -20,10 +20,18 @@ name = "keyring"
 
 [features]
 default = [
+  "tokio",
+  #"async-std",
   "rustls",
   #"openssl",
   #"derive",
+  #"vendored",
 ]
+
+# Async runtime
+#
+tokio = ["dep:tokio", "native/tokio"]
+async-std = ["dep:async-std", "native/async-io"]
 
 # Rust crypto
 #
@@ -34,14 +42,19 @@ openssl = ["native/crypto-openssl"]
 #
 derive = ["dep:serde"]
 
+# Vendored (mostly for OpenSSL)
+#
+vendored = ["native/vendored"]
+
 [dev-dependencies]
 test-log = { version = "0.2", default-features = false, features = ["color", "trace"] }
 tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]
-native = { package = "keyring", version = "3", git = "https://github.com/soywod/keyring-rs.git", branch = "secret-service-with-keyutils", default-features = false, features = ["linux-native-async-persistent", "apple-native", "windows-native", "tokio"] }
+async-std = { version = "1.13", optional = true }
+native = { package = "keyring", version = "3", git = "https://github.com/soywod/keyring-rs.git", branch = "secret-service-with-keyutils", default-features = false, features = ["linux-native-async-persistent", "apple-native", "windows-native"] }
 once_cell = "1"
 serde = { version = "1", optional = true, features = ["derive"] }
 thiserror = "1"
-tokio = { version = "1.23", default-features = false }
+tokio = { version = "1.23", optional = true, default-features = false }
 tracing = "0.1"

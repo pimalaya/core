@@ -1,5 +1,4 @@
 use thiserror::Error;
-use tokio::task::JoinError;
 
 /// The global `Result` alias of the library.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -18,6 +17,7 @@ pub enum Error {
     #[error("cannot delete secret from keyring matching `{1}`")]
     DeleteSecretError(#[source] native::Error, String),
 
+    #[cfg(feature = "tokio")]
     #[error(transparent)]
-    JoinError(#[from] JoinError),
+    JoinError(#[from] tokio::task::JoinError),
 }

@@ -7,14 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added cargo feature `vendored`
+
+  The feature is forwarded to `keyring-rs` in order to pack OpenSSL lib with this crate.
+
 ### Changed
 
+- Renamed cargo features:
+  - `tokio` has been splitted into `tokio` and `rustls` features
+  - `tokio-openssl` has been splitted into `tokio` and `openssl` features
+  - `async-io` has been splitted into `async-std` and `rustls` features
+  - `async-io-openssl` has been splitted into `async-std` and `openssl` features
 - Bumped `keyring-rs@v3`.
 - Replaced `log` by `tracing`.
 
+### Fixed
+
+- Fixed `async-std` support.
+
 ### Removed
 
-- Removed `keyutils` caching as it is now handled by `keyring-rs` internally [#222].
+- Removed `keyutils` caching as it is now handled by `keyring-rs@v3` internally [#222].
 
 ## [0.4.3] - 2024-06-03
 
