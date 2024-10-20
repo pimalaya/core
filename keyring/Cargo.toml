@@ -1,6 +1,6 @@
 [package]
 name = "keyring-lib"
-description = "High-level async API for keyring-rs, a cross-platform library to manage credentials"
+description = "High-level async API for keyring-rs, a cross-platform Rust library to manage credentials"
 version = "1.0.0"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"

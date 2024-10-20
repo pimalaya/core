@@ -1,6 +1,6 @@
 # 🔐 keyring-lib
 
-High-level *async* API for [`keyring-rs`](https://crates.io/crates/keyring), a cross-platform library to manage credentials.
+High-level *async* API for [`keyring-rs`](https://crates.io/crates/keyring), a cross-platform Rust library to manage credentials.
 
 This library can be seen as a convenient wrapper around `keyring-rs`:
 

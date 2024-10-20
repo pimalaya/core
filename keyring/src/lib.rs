@@ -1,19 +1,11 @@
-//! # Keyring
-//!
-//! Manage credentials using OS-specific keyrings: Secret Service and
-//! keyutils on Linux, Security Framework on MacOS and Security
-//! Credentials on Windows.
-//!
-//! The aim of this library is to provide a convenient wrapper around
-//! [keyring-rs](https://crates.io/crates/keyring), a cross-platform
-//! library to manage credentials. The main structure is
-//! [`KeyringEntry`].
+#![doc = include_str!("../README.md")]
 
 mod error;
 mod service;
 
-pub use native;
 use std::sync::Arc;
+
+pub use native;
 use tracing::debug;
 
 #[doc(inline)]
@@ -22,11 +14,22 @@ pub use crate::{
     service::{get_global_service_name, set_global_service_name},
 };
 
-/// The keyring entry.
+#[cfg(any(
+    all(feature = "tokio", feature = "async-std"),
+    not(any(feature = "tokio", feature = "async-std"))
+))]
+compile_error!("Either feature \"tokio\" or \"async-std\" must be enabled for this crate.");
+
+#[cfg(any(
+    all(feature = "rustls", feature = "openssl"),
+    not(any(feature = "rustls", feature = "openssl"))
+))]
+compile_error!("Either feature \"rustls\" or \"openssl\" must be enabled for this crate.");
+
+/// The representation of a keyring entry.
 ///
 /// This struct is a simple wrapper around [`native::Entry`] that
-/// holds a keyring entry key, as well as a keyutils entry on Linux
-/// for cache.
+/// holds a keyring entry key.
 #[derive(Clone, Debug)]
 #[cfg_attr(
     feature = "derive",
