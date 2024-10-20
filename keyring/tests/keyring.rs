@@ -1,7 +1,10 @@
+#[cfg(feature = "async-std")]
+use async_std::test;
 use keyring::{get_global_service_name, set_global_service_name, KeyringEntry};
-use test_log::test;
+#[cfg(feature = "tokio")]
+use tokio::test;
 
-#[test(tokio::test)]
+#[test_log::test(test)]
 async fn test_keyring_entry() {
     // test global keyring
     set_global_service_name("example");
