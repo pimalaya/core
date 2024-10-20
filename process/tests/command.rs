@@ -1,14 +1,16 @@
-use process::{Command, Error, SingleCommand};
+#[cfg(feature = "async-std")]
+use async_std::test;
+use process::{Command, Error};
+#[cfg(feature = "tokio")]
+use tokio::test;
 
-#[tokio::test]
-async fn test_single_command() {
-    env_logger::builder().is_test(true).init();
-
-    let cmd = SingleCommand::from("echo hello, world!");
+#[test_log::test(test)]
+async fn test_command() {
+    let cmd = Command::new("echo hello, world!");
     let out = cmd.run().await.unwrap().to_string_lossy();
     assert_eq!(out, "hello, world!\n");
 
-    match Command::from("bad").run().await.unwrap_err() {
+    match Command::new("bad").run().await.unwrap_err() {
         Error::GetExitStatusCodeNonZeroError(cmd, status, err) => {
             assert_eq!(cmd, "bad");
             assert_eq!(status, 127);

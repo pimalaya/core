@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added cargo feature `vendored`
+- Added `vendored` cargo feature.
 
   The feature is forwarded to `keyring-rs` in order to pack OpenSSL lib with this crate.
 

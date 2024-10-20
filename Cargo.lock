@@ -325,6 +325,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-attributes"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3203e79f4dd9bdda415ed03cf14dae5a2bf775c683a00f94e9cd1faf0f596e5"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "async-broadcast"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -538,10 +548,12 @@ version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c634475f29802fde2b8f0b505b1bd00dfe4df7d4a000f0b36f7671197d5c3615"
 dependencies = [
+ "async-attributes",
  "async-channel 1.9.0",
  "async-global-executor",
  "async-io 2.3.4",
  "async-lock 3.4.0",
+ "async-process 2.3.0",
  "crossbeam-utils",
  "futures-channel",
  "futures-core",
@@ -2136,10 +2148,10 @@ dependencies = [
  "paste",
  "petgraph",
  "pgp-lib",
- "process-lib",
+ "process-lib 0.4.2",
  "rayon",
  "regex",
- "secret-lib",
+ "secret-lib 0.4.6",
  "serde",
  "serde-xml-rs",
  "shellexpand-utils",
@@ -3101,7 +3113,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -3999,7 +4011,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -4382,8 +4394,8 @@ dependencies = [
  "mail-parser",
  "nanohtml2text",
  "pgp-lib",
- "process-lib",
- "secret-lib",
+ "process-lib 0.4.2",
+ "secret-lib 0.4.6",
  "serde",
  "shellexpand-utils",
  "tempfile",
@@ -5429,12 +5441,25 @@ dependencies = [
 [[package]]
 name = "process-lib"
 version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0600893efc62c84ded38fec2b022ada4d4d80e48a8df5bceb070c865bf8a33a9"
 dependencies = [
- "env_logger 0.10.2",
  "log",
  "serde",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "process-lib"
+version = "1.0.0"
+dependencies = [
+ "async-std",
+ "serde",
+ "test-log",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -6282,14 +6307,27 @@ dependencies = [
 [[package]]
 name = "secret-lib"
 version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3d34288431a1ca4930e49cca081ce9368dc457eda755289cedf8cf32464a25a"
 dependencies = [
- "env_logger 0.10.2",
  "keyring-lib 0.4.3",
  "log",
- "process-lib",
+ "process-lib 0.4.2",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "secret-lib"
+version = "1.0.0"
+dependencies = [
+ "keyring-lib 1.0.0",
+ "process-lib 1.0.0",
+ "serde",
+ "test-log",
+ "thiserror",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -7941,7 +7979,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

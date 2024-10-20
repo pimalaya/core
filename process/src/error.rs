@@ -1,8 +1,9 @@
-use std::{io, result, string::FromUtf8Error};
+use std::string::FromUtf8Error;
+
 use thiserror::Error;
 
 /// The global `Result` alias of the library.
-pub type Result<T> = result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// The global `Error` enum of the library.
 #[derive(Debug, Error)]
@@ -17,5 +18,5 @@ pub enum Error {
     ParseOutputAsUtf8StringError(#[source] FromUtf8Error),
 
     #[error(transparent)]
-    IoError(#[from] io::Error),
+    IoError(#[from] std::io::Error),
 }

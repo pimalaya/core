@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `tokio` and `async-std` cargo features (they are mutually exclusive).
+
+### Changed
+
+- Replaced `log` by `tracing`.
+- Renamed `SingleCommand` to `Command`.
+
+### Removed
+
+- Removed `Command` enum.
+
 ## [0.4.2] - 2024-04-06
 
 ### Changed
