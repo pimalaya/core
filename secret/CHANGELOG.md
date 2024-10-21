@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `vendored` cargo feature.
+
+  The feature is forwarded to `keyring-rs` in order to pack OpenSSL lib with this crate.
+
+### Changed
+
+- Renamed cargo features:
+  - `keyring-tokio` has been splitted into `keyring`, `tokio` and `rustls` features
+  - `keyring-tokio-openssl` has been splitted into `keyring`, `tokio` and `openssl` features
+  - `keyring-async-io` has been splitted into `keyring`, `async-std` and `rustls` features
+  - `keyring-async-io-openssl` has been splitted into `keyring`, `async-std` and `openssl` features
+- Replaced `log` by `tracing`.
+- Renamed `Secret::Undefined` with `Secret::Empty`.
+- Renamed `Secret::is_undefined` with `Secret::is_empty`.
+- Renamed `Secret::set_only_keyring` with `Secret::set_if_keyring`.
+- Renamed `Secret::delete_only_keyring` with `Secret::delete_if_keyring`.
+- Renamed `Secret::KeyringEntry` with `Secret::Keyring`.
+- Changed `Secret::replace_undefined_to_keyring` with `Secret::replace_if_empty`.
+
+  This function became more generic. It takes now a new `Secret` as argument instead of a keyring entry.
+
 ## [0.4.6] - 2024-08-16
 
 ### Fixed

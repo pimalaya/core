@@ -1,9 +1,18 @@
 # 🔐 secret-lib
 
-Rust library to retrieve secrets from different sources: from raw string, from shell commands using [process-lib](https://docs.rs/process-lib/latest/process/) or from global keyring using [keyring-lib](https://docs.rs/keyring-lib/latest/keyring/)
+Cross-platform, asynchronous Rust library to retrieve secrets from different sources.
 
-```rust
-use secret::{keyring, Secret};
+- From raw strings
+- From shell commands using [`process-lib`](https://crates.io/crates/process-lib) (requires `command` feature)
+- From user's global keyring using [`keyring-lib`](https://crates.io/crates/keyring-lib) (requires `keyring` feature)
+- [Tokio](https://tokio.rs/) async runtime support (requires `tokio` feature)
+- [async-std](https://async.rs/) async runtime support(requires `async-std` feature)
+- [Rustls](https://github.com/rustls/rustls) rust crypto support (requires `rustls` feature)
+- [OpenSSL](https://openssl.org/) crypto support (requires `openssl` feature, and OpenSSL lib installed (or `vendored` feature))
+- [Serde](https://serde.rs/) de/serialization of the secret enum (requires `derive` feature)
+
+```rust,ignore
+use secret::{keyring::KeyringEntry, Secret};
 
 #[tokio::main]
 async fn main() {
@@ -14,12 +23,12 @@ async fn main() {
 
     // shell command secret
 
-    let mut secret = Secret::new_cmd("echo 'secret'");
+    let mut secret = Secret::new_command("echo 'secret'");
     assert_eq!(secret.get().await.unwrap(), "secret");
 
     // keyring secret
 
-    let entry = keyring::KeyringEntry::try_new("key")
+    let entry = KeyringEntry::try_new("key")
         .unwrap()
         .try_with_secret("secret")
         .await
@@ -32,26 +41,15 @@ async fn main() {
 
 *See the full API documentation on [docs.rs](https://docs.rs/secret-lib/latest/secret/).*
 
-## Development
-
-The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`…
-
-```sh
-# Start a Nix shell
-$ nix-shell
-
-# then build the lib
-$ cargo build -p secret-lib
-```
-
 ## Sponsoring
 
-[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/project/Pimalaya/index.html)
+[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/)
 
-Special thanks to the [NLnet foundation](https://nlnet.nl/project/Pimalaya/index.html) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from:
+Special thanks to the [NLnet foundation](https://nlnet.nl/) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from various programs:
 
-- [NGI Assure](https://nlnet.nl/assure/) in 2022
-- [NGI Zero Entrust](https://nlnet.nl/entrust/) in 2023
+- [NGI Assure](https://nlnet.nl/project/Himalaya/) in 2022
+- [NGI Zero Entrust](https://nlnet.nl/project/Pimalaya/) in 2023
+- [NGI Zero Core](https://nlnet.nl/project/Pimalaya-PIM/) in 2024 *(still ongoing)*
 
 If you appreciate the project, feel free to donate using one of the following providers:
 

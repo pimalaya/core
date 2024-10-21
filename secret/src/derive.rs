@@ -7,8 +7,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Secret {
+    #[default]
+    Empty,
     Raw(String),
-
     #[cfg(feature = "command")]
     #[serde(alias = "cmd")]
     Command(Command),
@@ -16,35 +17,27 @@ pub enum Secret {
     #[serde(alias = "cmd")]
     #[serde(skip_serializing, deserialize_with = "missing_command_feature")]
     Command,
-
     #[cfg(feature = "keyring")]
-    #[serde(rename = "keyring")]
-    KeyringEntry(KeyringEntry),
+    Keyring(KeyringEntry),
     #[cfg(not(feature = "keyring"))]
-    #[serde(alias = "keyring")]
     #[serde(skip_serializing, deserialize_with = "missing_keyring_feature")]
-    KeyringEntry,
-
-    /// The secret is not defined.
-    #[default]
-    #[serde(skip_serializing)]
-    Undefined,
+    Keyring,
 }
 
 impl From<Secret> for crate::Secret {
     fn from(secret: Secret) -> Self {
         match secret {
+            Secret::Empty => Self::Empty,
             Secret::Raw(secret) => Self::Raw(secret),
             #[cfg(feature = "command")]
             Secret::Command(cmd) => Self::Command(cmd),
             #[cfg(not(feature = "command"))]
             #[serde(alias = "cmd")]
-            Command => Self::Undefined,
+            Command => Self::Empty,
             #[cfg(feature = "keyring")]
-            Secret::KeyringEntry(entry) => Self::KeyringEntry(entry),
+            Secret::Keyring(entry) => Self::Keyring(entry),
             #[cfg(not(feature = "keyring"))]
-            Secret::KeyringEntry => Self::Undefined,
-            Secret::Undefined => Self::Undefined,
+            Secret::Keyring => Self::Empty,
         }
     }
 }

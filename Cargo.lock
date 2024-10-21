@@ -6321,6 +6321,7 @@ dependencies = [
 name = "secret-lib"
 version = "1.0.0"
 dependencies = [
+ "async-std",
  "keyring-lib 1.0.0",
  "process-lib 1.0.0",
  "serde",

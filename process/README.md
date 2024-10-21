@@ -1,6 +1,34 @@
-# process-lib
+# ⚙️ process-lib
 
 Cross-platform, asynchronous Rust library to run commands in pipelines.
+
+This library can be seen as a convenient async wrapper around `std::process::Command`:
+
+- Cross-platform compatible by wrapping commands with `sh -c` or `cmd /C`
+- Pipeline support (previous command output sent as input for the next command)
+- Convenient functions to export output (as string lossy for example)
+- [Tokio](https://tokio.rs/) async runtime support (requires `tokio` feature)
+- [async-std](https://async.rs/) async runtime support(requires `async-std` feature)
+- [Serde](https://serde.rs/) de/serialization of `Command` and `Pipeline` structures (requires `derive` feature)
+
+```rust,ignore
+use process::{Command, Pipeline};
+
+#[tokio::main]
+async fn main() {
+    // run a single command
+	
+    let cmd = Command::new("echo hello, world!");
+    let out = cmd.run().await.unwrap().to_string_lossy();
+    assert_eq!(out, "hello, world!\n");
+	
+    // run a pipeline
+	
+    let cmd = Pipeline::new(vec!["echo hello", "cat"]);
+    let out = cmd.run().await.unwrap().to_string_lossy();
+    assert_eq!(out, "hello\n");
+}
+```
 
 *See the full API documentation on [docs.rs](https://docs.rs/process-lib/latest/process/).*
 

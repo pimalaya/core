@@ -1,8 +1,8 @@
 # 🔐 keyring-lib
 
-High-level *async* API for [`keyring-rs`](https://crates.io/crates/keyring), a cross-platform Rust library to manage credentials.
+High-level, asynchronous API for [`keyring-rs`](https://crates.io/crates/keyring), a cross-platform Rust library to manage credentials.
 
-This library can be seen as a convenient wrapper around `keyring-rs`:
+This library can be seen as a convenient async wrapper around `keyring-rs`:
 
 - Default keystore based on target OS:
   - OpenBSD and FreeBSD: [Secret Service](https://specifications.freedesktop.org/secret-service-spec/latest/)
@@ -17,7 +17,7 @@ This library can be seen as a convenient wrapper around `keyring-rs`:
 - Global service name to avoid repetition
 - Convenient function to find a secret (`Entry::find_secret -> Result<Option<String>>`)
 
-```rust
+```rust,ignore
 use keyring::{set_global_service_name, KeyringEntry};
 
 #[tokio::main]
