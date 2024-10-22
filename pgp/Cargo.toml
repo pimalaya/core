@@ -1,12 +1,12 @@
 [package]
 name = "pgp-lib"
 description = "Cross-platform, asynchronous Rust library to deal with PGP operations"
-version = "1.0.0"
+version = "0.3.0"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
 categories = ["asynchronous"]
-keywords = ["pgp", "openpgp", "encrypt", "decrypt", "sign"]
+keywords = ["openpgp", "encrypt", "decrypt", "sign", "verify"]
 homepage = "https://pimalaya.org/"
 documentation = "https://docs.rs/pgp-lib/latest/pgp/"
 repository = "https://github.com/pimalaya/core/tree/master/pgp/"

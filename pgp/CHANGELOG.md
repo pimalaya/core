@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2024-10-22
+
 ### Changed
 
 - Moved `http.rs` to `http/mod.rs`.
@@ -33,3 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added [Web Key Directory](https://wiki.gnupg.org/WKD) support.
 - Added [Key Server](https://en.wikipedia.org/wiki/Key_server_(cryptographic)) support (HTTP and HKP protocols).
 - Added utils to generate a key pair, to read secret/public keys from path and to read signature from bytes.
+
+[0.1.0]: https://crates.io/crates/pgp-lib/0.1.0
+[0.2.0]: https://crates.io/crates/pgp-lib/0.2.0
+[0.3.0]: https://crates.io/crates/pgp-lib/0.3.0
