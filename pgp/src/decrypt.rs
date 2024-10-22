@@ -3,11 +3,11 @@
 //! This module exposes a simple function [`decrypt`] and its
 //! associated [`Error`]s.
 
-use pgp_native::{Deserializable, Message, SignedSecretKey};
 use std::io::Cursor;
-use tokio::task;
 
-use crate::{Error, Result};
+use native::{Deserializable, Message, SignedSecretKey};
+
+use crate::{utils::spawn_blocking, Error, Result};
 
 /// Decrypts bytes using the given secret key and its passphrase.
 pub async fn decrypt(
@@ -16,14 +16,14 @@ pub async fn decrypt(
     encrypted_bytes: Vec<u8>,
 ) -> Result<Vec<u8>> {
     let passphrase = passphrase.to_string();
-    task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let (msg, _) = Message::from_armor_single(Cursor::new(&encrypted_bytes))
             .map_err(Error::ImportMessageFromArmorError)?;
         let (decryptor, _) = msg
             .decrypt(|| passphrase, &[&skey])
             .map_err(Error::DecryptMessageError)?;
         let msgs = decryptor
-            .collect::<pgp_native::errors::Result<Vec<_>>>()
+            .collect::<native::errors::Result<Vec<_>>>()
             .map_err(Error::DecryptMessageError)?;
         let msg = msgs.into_iter().next().ok_or(Error::GetMessageEmptyError)?;
         let msg = msg.decompress().map_err(Error::DecompressMessageError)?;
@@ -66,7 +66,7 @@ mod tests {
             .unwrap_err();
         assert!(matches!(
             carl_msg,
-            super::Error::DecryptMessageError(pgp_native::errors::Error::MissingKey),
+            super::Error::DecryptMessageError(native::errors::Error::MissingKey),
         ));
     }
 }

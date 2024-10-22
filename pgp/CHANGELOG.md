@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Moved `http.rs` to `http/mod.rs`.
+- Moved `hkp` and `wkd` modules inside `http` module.
+- Bumped `hyper@1.50` and `hyper-rustls@0.27.3`.
+
 ## [0.2.0] - 2024-04-06
 
 ### Changed

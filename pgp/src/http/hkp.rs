@@ -12,7 +12,7 @@ use hyper::http::{
 
 /// Formats the given URI to match the HKP specs.
 ///
-/// It basically add `/pks` plus few query params.
+/// It basically adds `/pks` plus few query params.
 pub(crate) fn format_key_server_uri(uri: Uri, email: &str) -> Result<Uri> {
     let authority = uri.host().unwrap_or("localhost");
     let scheme = match uri.scheme_str() {

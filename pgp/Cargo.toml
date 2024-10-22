@@ -1,54 +1,65 @@
 [package]
 name = "pgp-lib"
-version = "0.2.0"
-description = "Rust library to deal with PGP operations"
-homepage = "https://pimalaya.org/"
-documentation = "https://docs.rs/pgp-lib/latest/pgp/"
-repository = "https://git.sr.ht/~soywod/pimalaya/tree/master/item/pgp/README.md"
+description = "Cross-platform, asynchronous Rust library to deal with PGP operations"
+version = "1.0.0"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
-categories = []
+categories = ["asynchronous"]
 keywords = ["pgp", "openpgp", "encrypt", "decrypt", "sign"]
+homepage = "https://pimalaya.org/"
+documentation = "https://docs.rs/pgp-lib/latest/pgp/"
+repository = "https://github.com/pimalaya/core/tree/master/pgp/"
 
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docs_rs"]
 
 [features]
-default = []
-key-discovery = [
-    "dep:async-recursion",
-    "dep:futures",
-    "dep:hyper",
-    "dep:hyper-rustls",
-    "dep:log",
-    "dep:sha1",
-    "dep:z-base-32",
+default = [
+  #"key-discovery",
 ]
+
+# TODO: Async runtime
+#
+tokio = []
+async-std = []
+
+# TODO: Rust crypto
+#
+rustls = []
+native-tls = []
+
+# Public key discovery (WKD, HKP…)
+#
+key-discovery = ["dep:async-recursion", "dep:futures", "dep:http-body-util", "dep:hyper", "dep:hyper-rustls", "dep:hyper-util", "dep:sha1", "dep:url", "dep:z-base-32"]
+
+# TODO: Vendored (mostly for OpenSSL)
+#
+#vendored = []
 
 [lib]
 name = "pgp"
 
 [dev-dependencies]
 concat-with = "0.2"
-env_logger = "0.10"
 tempfile = "3.3"
-tokio = { version = "1.23", default-features = false, features = ["macros", "rt"] }
+test-log = { version = "0.2", default-features = false, features = ["color", "trace"] }
+tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]
-pgp_native = { version = "0.10", package = "pgp" }
+async-recursion = { version = "1",  optional = true }
+futures = { version = "0.3", optional = true }
+http-body-util = { version = "0.1", optional = true }
+hyper = { version = "1.4", optional = true, default-features = false, features = ["client", "http1", "http2"] }
+hyper-rustls = { version = "0.27", optional = true, default-features = false, features = ["native-tokio", "http1", "http2", "logging", "tls12", "ring"] }
+hyper-util = { version = "0.1", optional = true, default-features = false, features = ["client-legacy", "http1", "http2"] }
+native = { version = "0.10", package = "pgp" }
 rand = "0.8"
+sha1 = { version = "0.10", optional = true }
 smallvec = "1"
 thiserror = "1"
 tokio = { version = "1.23", default-features = false, features = ["rt"] }
-url = "2.4"
-
-# Optional deps - 'http'
-async-recursion = { version = "1",  optional = true }
-futures = { version = "0.3", optional = true }
-hyper = { version = "0.14", default-features = false, features = [ "http1", "http2" ], optional = true }
-hyper-rustls = { version = "0.24", optional = true }
-log = { version = "0.4", optional = true }
-sha1 = { version = "0.10", optional = true }
+tracing = "0.1"
+url = { version = "2.4", optional = true }
 z-base-32 = { version = "0.1", optional = true }

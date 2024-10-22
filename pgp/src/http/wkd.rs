@@ -12,17 +12,20 @@
 //! [Web Key Directory]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service
 //! [sequoia]: https://gitlab.com/sequoia-pgp/sequoia
 
+use std::fmt;
+
 use async_recursion::async_recursion;
 use futures::{stream, StreamExt};
-use hyper::{client::HttpConnector, http::Response, Body, Client, Uri};
-use hyper_rustls::HttpsConnector;
-use log::debug;
-use pgp_native::{Deserializable, SignedPublicKey};
+use http_body_util::BodyExt;
+use hyper::{body::Incoming, http::Response, Uri};
+use native::{Deserializable, SignedPublicKey};
 use sha1::{Digest, Sha1};
-use std::fmt;
 use tokio::task;
+use tracing::debug;
 
-use crate::{client, Error, Result};
+use crate::{Error, Result};
+
+use super::{new_http_client, HttpClient};
 
 struct EmailAddress {
     pub local_part: String,
@@ -169,10 +172,10 @@ fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
 
 #[async_recursion]
 async fn get_following_redirects(
-    client: &Client<HttpsConnector<HttpConnector>>,
+    client: &HttpClient,
     url: Uri,
     depth: i32,
-) -> Result<Response<Body>> {
+) -> Result<Response<Incoming>> {
     let response = client.get(url).await;
 
     if depth < 0 {
@@ -221,26 +224,34 @@ async fn get_following_redirects(
 /// ```
 ///
 /// [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service/#section-3.1
-async fn get(
-    client: &Client<HttpsConnector<HttpConnector>>,
-    email: &String,
-) -> Result<SignedPublicKey> {
+async fn get(client: &HttpClient, email: &String) -> Result<SignedPublicKey> {
     // First, prepare URIs and client.
     let wkd_url = Url::from(email)?;
-    let advanced_uri = wkd_url.to_uri(Variant::Advanced)?;
-    let direct_uri = wkd_url.to_uri(Variant::Direct)?;
+    let uri = wkd_url.to_uri(Variant::Advanced)?;
 
     const REDIRECT_LIMIT: i32 = 10;
 
     // First, try the Advanced Method.
-    let res = match get_following_redirects(client, advanced_uri, REDIRECT_LIMIT).await {
+    let res = match get_following_redirects(client, uri.clone(), REDIRECT_LIMIT).await {
         Ok(res) => Ok(res),
-        Err(_) => get_following_redirects(client, direct_uri, REDIRECT_LIMIT).await,
+        Err(_) => {
+            let uri = wkd_url.to_uri(Variant::Direct)?;
+            get_following_redirects(client, uri.clone(), REDIRECT_LIMIT).await
+        }
     }?;
 
-    let body = hyper::body::to_bytes(res.into_body())
+    let status = res.status();
+    let body = res
+        .into_body()
+        .collect()
         .await
-        .map_err(Error::ParseBodyError)?;
+        .map_err(Error::ParseBodyError)?
+        .to_bytes();
+
+    if !status.is_success() {
+        let err = String::from_utf8_lossy(&body).to_string();
+        return Err(Error::GetPublicKeyError(uri, status, err));
+    }
 
     let pkey = SignedPublicKey::from_bytes(&*body).map_err(Error::ParseCertError)?;
 
@@ -249,14 +260,15 @@ async fn get(
 
 /// Gets the public key associated to the given email.
 pub async fn get_one(email: String) -> Result<SignedPublicKey> {
-    let client = client::build();
+    let client = new_http_client()?;
     self::get(&client, &email).await
 }
 
 /// Gets public keys associated to the given emails.
-pub async fn get_all(emails: Vec<String>) -> Vec<(String, Result<SignedPublicKey>)> {
-    let client = client::build();
-    stream::iter(emails)
+pub async fn get_all(emails: Vec<String>) -> Result<Vec<(String, Result<SignedPublicKey>)>> {
+    let client = new_http_client()?;
+
+    let pkeys = stream::iter(emails)
         .map(|email| {
             let client = client.clone();
             task::spawn(async move { (email.clone(), self::get(&client, &email).await) })
@@ -266,12 +278,13 @@ pub async fn get_all(emails: Vec<String>) -> Vec<(String, Result<SignedPublicKey
             match res {
                 Ok(res) => Some(res),
                 Err(err) => {
-                    debug!("cannot join async task: {err}");
-                    debug!("{err:?}");
+                    debug!("cannot join async task: {err:?}");
                     None
                 }
             }
         })
         .collect()
-        .await
+        .await;
+
+    Ok(pkeys)
 }

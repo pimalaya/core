@@ -3,16 +3,16 @@
 //! This module exposes a simple function [`encrypt`] and its
 //! associated [`Error`]s.
 
-use pgp_native::{
+use std::io;
+
+use native::{
     crypto::{hash::HashAlgorithm, public_key::PublicKeyAlgorithm},
     types::{CompressionAlgorithm, KeyId, KeyTrait, Mpi, PublicKeyTrait},
     Message, SignedPublicKey, SignedPublicSubKey,
 };
 use rand::{thread_rng, CryptoRng, Rng};
-use std::io;
-use tokio::task;
 
-use crate::{Error, Result};
+use crate::{utils::spawn_blocking, Error, Result};
 
 /// Wrapper around [`pgp`] public key types.
 ///
@@ -53,7 +53,7 @@ impl PublicKeyTrait for SignedPublicKeyOrSubkey<'_> {
         hash: HashAlgorithm,
         data: &[u8],
         sig: &[Mpi],
-    ) -> pgp_native::errors::Result<()> {
+    ) -> native::errors::Result<()> {
         match self {
             Self::Key(k) => k.verify_signature(hash, data, sig),
             Self::Subkey(k) => k.verify_signature(hash, data, sig),
@@ -64,14 +64,14 @@ impl PublicKeyTrait for SignedPublicKeyOrSubkey<'_> {
         &self,
         rng: &mut R,
         plain: &[u8],
-    ) -> pgp_native::errors::Result<Vec<Mpi>> {
+    ) -> native::errors::Result<Vec<Mpi>> {
         match self {
             Self::Key(k) => k.encrypt(rng, plain),
             Self::Subkey(k) => k.encrypt(rng, plain),
         }
     }
 
-    fn to_writer_old(&self, writer: &mut impl io::Write) -> pgp_native::errors::Result<()> {
+    fn to_writer_old(&self, writer: &mut impl io::Write) -> native::errors::Result<()> {
         match self {
             Self::Key(k) => k.to_writer_old(writer),
             Self::Subkey(k) => k.to_writer_old(writer),
@@ -97,7 +97,7 @@ fn find_pkey_for_encryption(key: &SignedPublicKey) -> Option<SignedPublicKeyOrSu
 
 /// Encrypts given bytes using the given list of public keys.
 pub async fn encrypt(pkeys: Vec<SignedPublicKey>, plain_bytes: Vec<u8>) -> Result<Vec<u8>> {
-    task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let mut rng = thread_rng();
 
         let msg = Message::new_literal_bytes("", &plain_bytes);

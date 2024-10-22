@@ -1,3 +1,4 @@
+#![cfg_attr(docs_rs, feature(doc_cfg, doc_auto_cfg))]
 #![doc = include_str!("../README.md")]
 
 #[cfg(feature = "derive")]

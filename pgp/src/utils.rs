@@ -1,14 +1,14 @@
 //! Module dedicated to PGP helpers.
 
-use pgp_native::{
+use std::{fs, io::Cursor, path::PathBuf};
+
+use native::{
     crypto::{hash::HashAlgorithm, sym::SymmetricKeyAlgorithm},
     types::{CompressionAlgorithm, SecretKeyTrait},
     Deserializable, KeyType, SecretKeyParamsBuilder, SignedPublicKey, SignedSecretKey,
     StandaloneSignature, SubkeyParamsBuilder,
 };
 use smallvec::smallvec;
-use std::{fs, io::Cursor, path::PathBuf};
-use tokio::task;
 
 use crate::{Error, Result};
 
@@ -26,7 +26,7 @@ pub async fn gen_key_pair(
         Some(passphrase)
     };
 
-    task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let key_params = SecretKeyParamsBuilder::default()
             .key_type(KeyType::EdDSA)
             .can_create_certificates(true)
@@ -69,7 +69,7 @@ pub async fn gen_key_pair(
 /// The given path needs to contain a single armored secret key,
 /// otherwise it fails.
 pub async fn read_pkey_from_path(path: PathBuf) -> Result<SignedPublicKey> {
-    task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let data =
             fs::read(&path).map_err(|err| Error::ReadArmoredPublicKeyError(err, path.clone()))?;
         let (pkey, _) = SignedPublicKey::from_armor_single(Cursor::new(data))
@@ -84,7 +84,7 @@ pub async fn read_pkey_from_path(path: PathBuf) -> Result<SignedPublicKey> {
 /// The given path needs to contain a single armored secret key,
 /// otherwise it fails.
 pub async fn read_skey_from_file(path: PathBuf) -> Result<SignedSecretKey> {
-    task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let data = fs::read(&path)
             .map_err(|err| Error::ReadArmoredSecretKeyFromPathError(err, path.clone()))?;
         let (skey, _) = SignedSecretKey::from_armor_single(Cursor::new(data))
@@ -99,7 +99,7 @@ pub async fn read_skey_from_file(path: PathBuf) -> Result<SignedSecretKey> {
 /// The given raw string needs to contain a single armored secret key,
 /// otherwise it fails.
 pub async fn read_skey_from_string(string: String) -> Result<SignedSecretKey> {
-    task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let (skey, _) = SignedSecretKey::from_armor_single(Cursor::new(string))
             .map_err(Error::ParseArmoredSecretKeyFromStringError)?;
         Ok(skey)
@@ -112,10 +112,28 @@ pub async fn read_skey_from_string(string: String) -> Result<SignedSecretKey> {
 /// The given raw bytes needs to match a single armored signature,
 /// otherwise it fails.
 pub async fn read_sig_from_bytes(bytes: Vec<u8>) -> Result<StandaloneSignature> {
-    task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let (sig, _) = StandaloneSignature::from_armor_single(Cursor::new(&bytes))
             .map_err(Error::ReadStandaloneSignatureFromArmoredBytesError)?;
         Ok(sig)
     })
     .await?
+}
+
+// TODO
+// #[cfg(feature = "async-std")]
+// pub(crate) async fn spawn_blocking<F, T>(f: F) -> Result<T>
+// where
+//     F: FnOnce() -> T + Send + 'static,
+//     T: Send + 'static,
+// {
+//     Ok(async_std::task::spawn_blocking(f).await)
+// }
+
+pub(crate) async fn spawn_blocking<F, T>(f: F) -> Result<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    Ok(tokio::task::spawn_blocking(f).await?)
 }

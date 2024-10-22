@@ -1,22 +1,16 @@
 #![cfg_attr(docs_rs, feature(doc_cfg, doc_auto_cfg))]
 #![doc = include_str!("../README.md")]
 
-#[cfg(feature = "key-discovery")]
-pub(crate) mod client;
 pub mod decrypt;
 pub mod encrypt;
 mod error;
-#[cfg(feature = "key-discovery")]
-pub mod hkp;
 #[cfg(feature = "key-discovery")]
 pub mod http;
 pub mod sign;
 pub mod utils;
 pub mod verify;
-#[cfg(feature = "key-discovery")]
-pub mod wkd;
 
-pub use pgp_native as native;
+pub use native;
 
 #[doc(inline)]
 pub use crate::{

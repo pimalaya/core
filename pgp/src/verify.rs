@@ -3,10 +3,9 @@
 //! This module exposes a simple function [`verify`] and its
 //! associated [`Error`]s.
 
-use pgp_native::{SignedPublicKey, StandaloneSignature};
-use tokio::task;
+use native::{SignedPublicKey, StandaloneSignature};
 
-use crate::{Error, Result};
+use crate::{utils::spawn_blocking, Error, Result};
 
 /// Verifies given standalone signature using the given public key.
 pub async fn verify(
@@ -14,7 +13,7 @@ pub async fn verify(
     signature: StandaloneSignature,
     signed_bytes: Vec<u8>,
 ) -> Result<()> {
-    task::spawn_blocking(move || {
+    spawn_blocking(move || {
         signature
             .verify(&pkey, &signed_bytes)
             .map_err(Error::VerifySignatureError)?;

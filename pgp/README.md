@@ -1,38 +1,24 @@
 # 🔐 pgp-lib
 
-Rust library to deal with PGP operations, based on [rPGP](https://crates.io/crates/pgp)
+Cross-platform, asynchronous Rust library to deal with PGP operations, based on [rPGP](https://crates.io/crates/pgp).
+
+- Basic PGP operations: encrypt, decrypt, sign, verify
+- PGP helpers: generate a key pair, read secret/public keys from path, read signature from bytes etc
+- HTTP public key discovery via [WKD](https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service-18) and [HKP](https://datatracker.ietf.org/doc/html/draft-shaw-openpgp-hkp-00) (requires `key-discovery` feature)
+- [Tokio](https://crates.io/crates/tokio) async runtime ([async-std](https://crates.io/crates/async-std) planned)
+- [Rustls](https://crates.io/crates/rustls) rust crypto ([native-tls](https://crates.io/crates/native-tls) planned)
 
 *See the full API documentation on [docs.rs](https://docs.rs/pgp-lib/latest/pgp/).*
 
-## Features
-
-- Encrypts asynchronously bytes using multiple public keys
-- Decrypts asynchronously bytes using a secret key and its passphrase
-- Signs asynchronously bytes using a secret key and its passphrase
-- Verifies asynchronously bytes using a public key and a standalone signature
-- Finds public keys matching emails using [WKD](https://wiki.gnupg.org/WKD) and [Key Servers](https://en.wikipedia.org/wiki/Key_server_(cryptographic)) (HTTP and HKP protocols supported)
-- Provides helpers to generate a key pair, to read secret/public keys from path, to read signature from bytes etc.
-
-## Development
-
-The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`…
-
-```sh
-# Start a Nix shell
-$ nix-shell
-
-# then build the lib
-$ cargo build -p pgp-lib
-```
-
 ## Sponsoring
 
-[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/project/Pimalaya/index.html)
+[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/)
 
-Special thanks to the [NLnet foundation](https://nlnet.nl/project/Pimalaya/index.html) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from:
+Special thanks to the [NLnet foundation](https://nlnet.nl/) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from various programs:
 
-- [NGI Assure](https://nlnet.nl/assure/) in 2022
-- [NGI Zero Entrust](https://nlnet.nl/entrust/) in 2023
+- [NGI Assure](https://nlnet.nl/project/Himalaya/) in 2022
+- [NGI Zero Entrust](https://nlnet.nl/project/Pimalaya/) in 2023
+- [NGI Zero Core](https://nlnet.nl/project/Pimalaya-PIM/) in 2024 *(still ongoing)*
 
 If you appreciate the project, feel free to donate using one of the following providers:
 

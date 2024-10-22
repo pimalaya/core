@@ -3,23 +3,44 @@
 //! The main purpose of this module is to get public keys belonging to
 //! given emails by contacting key servers.
 
-use futures::{stream, StreamExt};
-use hyper::{client::HttpConnector, Client, Uri};
-use hyper_rustls::HttpsConnector;
-use log::{debug, warn};
-use pgp_native::{Deserializable, SignedPublicKey};
-use std::{io::Cursor, sync::Arc};
-use tokio::task;
+pub mod hkp;
+pub mod wkd;
 
-use crate::{client, hkp, Error, Result};
+use std::{io::Cursor, sync::Arc};
+
+use futures::{stream, StreamExt};
+use http_body_util::{BodyExt, Full};
+use hyper::{body::Bytes, Uri};
+use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use hyper_util::{
+    client::legacy::{connect::HttpConnector, Client},
+    rt::TokioExecutor,
+};
+use native::{Deserializable, SignedPublicKey};
+use tokio::task;
+use tracing::{debug, warn};
+
+use crate::{Error, Result};
+
+pub type HttpClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
+
+/// Builds a new HTTP client.
+pub(crate) fn new_http_client() -> Result<Arc<HttpClient>> {
+    let conn = HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .map_err(Error::CreateHttpConnectorError)?
+        .https_or_http()
+        .enable_http1()
+        .build();
+
+    let client = Client::builder(TokioExecutor::new()).build(conn);
+
+    Ok(Arc::new(client))
+}
 
 /// Calls the given key server in order to get the public key
 /// belonging to the given email address.
-async fn fetch(
-    client: &Client<HttpsConnector<HttpConnector>>,
-    email: &str,
-    key_server: &str,
-) -> Result<SignedPublicKey> {
+async fn fetch(client: &HttpClient, email: &str, key_server: &str) -> Result<SignedPublicKey> {
     let uri: Uri = key_server
         .replace("<email>", email)
         .parse()
@@ -36,9 +57,18 @@ async fn fetch(
         .await
         .map_err(|err| Error::FetchResponseError(err, uri.clone()))?;
 
-    let body = hyper::body::to_bytes(res.into_body())
+    let status = res.status();
+    let body = res
+        .into_body()
+        .collect()
         .await
-        .map_err(|err| Error::ParseBodyWithUriError(err, uri.clone()))?;
+        .map_err(|err| Error::ParseBodyWithUriError(err, uri.clone()))?
+        .to_bytes();
+
+    if !status.is_success() {
+        let err = String::from_utf8_lossy(&body).to_string();
+        return Err(Error::GetPublicKeyError(uri.clone(), status, err));
+    }
 
     let cursor = Cursor::new(&*body);
     let (pkey, _) = SignedPublicKey::from_armor_single(cursor)
@@ -53,7 +83,7 @@ async fn fetch(
 /// A better algorithm would be to contact asynchronously all key
 /// servers and to abort pending futures when a public key is found.
 async fn get(
-    client: &Client<HttpsConnector<HttpConnector>>,
+    client: &HttpClient,
     email: &String,
     key_servers: &[String],
 ) -> Result<SignedPublicKey> {
@@ -77,7 +107,7 @@ async fn get(
 
 /// Gets public key associated to the given email.
 pub async fn get_one(email: String, key_servers: Vec<String>) -> Result<SignedPublicKey> {
-    let client = client::build();
+    let client = new_http_client()?;
     self::get(&client, &email, &key_servers).await
 }
 
@@ -85,11 +115,11 @@ pub async fn get_one(email: String, key_servers: Vec<String>) -> Result<SignedPu
 pub async fn get_all(
     emails: Vec<String>,
     key_servers: Vec<String>,
-) -> Vec<(String, Result<SignedPublicKey>)> {
+) -> Result<Vec<(String, Result<SignedPublicKey>)>> {
     let key_servers = Arc::new(key_servers);
-    let client = client::build();
+    let client = new_http_client()?;
 
-    stream::iter(emails)
+    let pkeys = stream::iter(emails)
         .map(|email| {
             let key_servers = key_servers.clone();
             let client = client.clone();
@@ -106,12 +136,13 @@ pub async fn get_all(
                 Ok(res) => Some(res),
                 Err(err) => {
                     let msg = "cannot get pgp public keys as async stream".to_owned();
-                    warn!("{msg}: {err}");
                     debug!("{msg}: {err:?}");
                     None
                 }
             }
         })
         .collect()
-        .await
+        .await;
+
+    Ok(pkeys)
 }

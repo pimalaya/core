@@ -3,16 +3,16 @@
 //! This module exposes a simple function [`sign`] and its associated
 //! [`Error`]s.
 
-use pgp_native::{
+use std::io;
+
+use native::{
     crypto::{hash::HashAlgorithm, public_key::PublicKeyAlgorithm},
     types::{KeyId, KeyTrait, Mpi, PublicKeyTrait, SecretKeyRepr, SecretKeyTrait},
     Message, PublicKey, PublicSubkey, SignedSecretKey, SignedSecretSubKey,
 };
 use rand::{CryptoRng, Rng};
-use std::io;
-use tokio::task;
 
-use crate::{Error, Result};
+use crate::{utils::spawn_blocking, Error, Result};
 
 #[derive(Debug)]
 pub enum PublicKeyOrSubkey {
@@ -55,7 +55,7 @@ impl PublicKeyTrait for SignedSecretKeyOrSubkey<'_> {
         hash: HashAlgorithm,
         data: &[u8],
         sig: &[Mpi],
-    ) -> pgp_native::errors::Result<()> {
+    ) -> native::errors::Result<()> {
         match self {
             Self::Key(k) => k.verify_signature(hash, data, sig),
             Self::Subkey(k) => k.verify_signature(hash, data, sig),
@@ -66,14 +66,14 @@ impl PublicKeyTrait for SignedSecretKeyOrSubkey<'_> {
         &self,
         rng: &mut R,
         plain: &[u8],
-    ) -> pgp_native::errors::Result<Vec<Mpi>> {
+    ) -> native::errors::Result<Vec<Mpi>> {
         match self {
             Self::Key(k) => k.encrypt(rng, plain),
             Self::Subkey(k) => k.encrypt(rng, plain),
         }
     }
 
-    fn to_writer_old(&self, writer: &mut impl io::Write) -> pgp_native::errors::Result<()> {
+    fn to_writer_old(&self, writer: &mut impl io::Write) -> native::errors::Result<()> {
         match self {
             Self::Key(k) => k.to_writer_old(writer),
             Self::Subkey(k) => k.to_writer_old(writer),
@@ -84,10 +84,10 @@ impl PublicKeyTrait for SignedSecretKeyOrSubkey<'_> {
 impl<'a> SecretKeyTrait for SignedSecretKeyOrSubkey<'a> {
     type PublicKey = PublicKeyOrSubkey;
 
-    fn unlock<F, G>(&self, pw: F, work: G) -> pgp_native::errors::Result<()>
+    fn unlock<F, G>(&self, pw: F, work: G) -> native::errors::Result<()>
     where
         F: FnOnce() -> String,
-        G: FnOnce(&SecretKeyRepr) -> pgp_native::errors::Result<()>,
+        G: FnOnce(&SecretKeyRepr) -> native::errors::Result<()>,
     {
         match self {
             Self::Key(k) => k.unlock(pw, work),
@@ -100,7 +100,7 @@ impl<'a> SecretKeyTrait for SignedSecretKeyOrSubkey<'a> {
         key_pw: F,
         hash: HashAlgorithm,
         data: &[u8],
-    ) -> pgp_native::errors::Result<Vec<Mpi>>
+    ) -> native::errors::Result<Vec<Mpi>>
     where
         F: FnOnce() -> String,
     {
@@ -142,7 +142,7 @@ pub async fn sign(
 ) -> Result<Vec<u8>> {
     let passphrase = passphrase.to_string();
 
-    task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let skey = find_skey_for_signing(&skey).ok_or(Error::FindSignedSecretKeyForSigningError)?;
 
         let msg = Message::new_literal_bytes("", &plain_bytes)
