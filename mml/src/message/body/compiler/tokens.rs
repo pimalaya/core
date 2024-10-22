@@ -1,6 +1,7 @@
-use log::debug;
-use mail_builder::headers::content_type::ContentType;
 use std::collections::HashMap;
+
+use mail_builder::headers::content_type::ContentType;
+use tracing::debug;
 
 use super::TYPE;
 

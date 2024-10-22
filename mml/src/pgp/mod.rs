@@ -10,7 +10,7 @@ pub mod gpg;
 #[cfg(feature = "pgp-native")]
 pub mod native;
 
-use log::{debug, trace};
+use tracing::{debug, trace};
 
 use crate::Result;
 

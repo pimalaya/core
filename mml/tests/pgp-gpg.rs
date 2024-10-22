@@ -1,16 +1,19 @@
 #![cfg(feature = "pgp-gpg")]
 
+use std::path::PathBuf;
+
+#[cfg(feature = "async-std")]
+use async_std::test;
 use concat_with::concat_line;
 use mml::{
     pgp::{Gpg, Pgp},
     MimeInterpreterBuilder, MmlCompilerBuilder,
 };
-use std::path::PathBuf;
+#[cfg(feature = "tokio")]
+use tokio::test;
 
-#[tokio::test]
+#[test_log::test(test)]
 async fn pgp_gpg() {
-    env_logger::builder().is_test(true).init();
-
     let pgp = Pgp::Gpg(Gpg {
         home_dir: Some(PathBuf::from("./tests/gpg-home")),
     });

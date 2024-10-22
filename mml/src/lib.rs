@@ -1,30 +1,5 @@
-//! # 📫 MIME Meta Language
-//!
-//! Rust implementation of the Emacs MIME message Meta Language, as
-//! known as [MML].
-//!
-//! This library exposes a [MML to MIME](MmlCompilerBuilder) message
-//! compiler and a [MIME to MML](MimeInterpreterBuilder) message
-//! interpreter.
-//!
-//! For example:
-//!
-//! ```mml,ignore
-#![doc = include_str!("../examples/main.mml.eml")]
-//! ```
-//!
-//! compiles to:
-//!
-//! ```eml,ignore
-#![doc = include_str!("../examples/main.mime.eml")]
-//! ```
-//!
-//! See [more examples].
-//!
-//! [MML]: https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html
-//! [more examples]: https://git.sr.ht/~soywod/pimalaya/tree/master/item/mml/examples
-
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docs_rs, feature(doc_cfg, doc_auto_cfg))]
+#![doc = include_str!("../README.md")]
 
 mod error;
 pub mod message;
@@ -39,3 +14,17 @@ pub use crate::message::{MimeInterpreter, MimeInterpreterBuilder};
 #[cfg(feature = "compiler")]
 #[doc(inline)]
 pub use crate::message::{MmlCompileResult, MmlCompiler, MmlCompilerBuilder};
+
+#[cfg(any(feature = "pgp-commands", feature = "pgp-native"))]
+#[cfg(any(
+    all(feature = "tokio", feature = "async-std"),
+    not(any(feature = "tokio", feature = "async-std"))
+))]
+compile_error!("Either feature \"tokio\" or \"async-std\" must be enabled for this crate.");
+
+#[cfg(any(feature = "pgp-commands", feature = "pgp-native"))]
+#[cfg(any(
+    all(feature = "rustls", feature = "openssl"),
+    not(any(feature = "rustls", feature = "openssl"))
+))]
+compile_error!("Either feature \"rustls\" or \"openssl\" must be enabled for this crate.");

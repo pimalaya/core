@@ -1,5 +1,10 @@
+#[cfg(feature = "async-std")]
+use async_std::main;
+#[cfg(feature = "tokio")]
+use tokio::main;
+
 #[cfg(feature = "pgp-native")]
-#[tokio::main]
+#[test_log::test(main)]
 async fn main() {
     use mml::{
         pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
@@ -9,8 +14,6 @@ async fn main() {
     use secret::Secret;
     use tempfile::tempdir;
     use tokio::fs;
-
-    env_logger::builder().is_test(true).init();
 
     let dir = tempdir().unwrap();
 
@@ -54,7 +57,7 @@ async fn main() {
 }
 
 #[cfg(not(feature = "pgp-native"))]
-#[tokio::main]
+#[test_log::test(main)]
 async fn main() {
     panic!("The pgp-native cargo feature should be enabled to run this example.");
 }

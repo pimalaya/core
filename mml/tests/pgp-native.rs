@@ -1,5 +1,9 @@
 #![cfg(feature = "pgp-native")]
 
+use std::collections::HashMap;
+
+#[cfg(feature = "async-std")]
+use async_std::test;
 use concat_with::concat_line;
 use mml::{
     pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
@@ -7,8 +11,9 @@ use mml::{
 };
 use pgp::gen_key_pair;
 use secret::Secret;
-use std::collections::HashMap;
 use tempfile::tempdir;
+#[cfg(feature = "tokio")]
+use tokio::test;
 use tokio::{
     fs,
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -16,7 +21,7 @@ use tokio::{
     task,
 };
 
-#[tokio::test]
+#[test_log::test(test)]
 async fn pgp_native() {
     async fn spawn_fake_key_server(pkeys: HashMap<String, String>) -> String {
         let listener = TcpListener::bind(("localhost", 0)).await.unwrap();
@@ -52,8 +57,6 @@ async fn pgp_native() {
 
         uri
     }
-
-    env_logger::builder().is_test(true).init();
 
     let dir = tempdir().unwrap();
 

@@ -1,10 +1,39 @@
 # 📫 mml-lib
 
-Rust implementation of the **Emacs MIME message Meta Language**, as known as [MML](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html)
+Rust implementation of the **Emacs MIME message Meta Language**, as known as [MML](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html).
 
-This library exposes a MML to MIME message compiler and a MIME to MML message interpreter. See the [API documentation](https://docs.rs/mml-lib/latest/mml/) for more information.
+- MML to MIME messages compilation using [`MmlCompilerBuilder`](https://docs.rs/mml-lib/latest/mml/message/compiler/struct.MmlCompilerBuilder.html) (requires `compiler` feature)
+- MIME to MML messages interpretation using the [`MimeInterpreterBuilder`](https://docs.rs/mml-lib/latest/mml/message/interpreter/struct.MimeInterpreterBuilder.html) (requires `interpreter` feature)
+- Multiple parts support `<#multipart>…<#/multipart>`
+- Inline part support `<#part text=mime/type>…<#/part>`
+- Attachment support `<#part disposition=attachment filename=/path/to/attachment.ext><#/part>`
+- Comment support `<#!part>This will not be compiled<#!/part>`
+- PGP support:
+  - Shell commands (requires `pgp-commands` feature)
+  - GPG bindings (requires `pgp-gpg` feature and [`gpgme`](https://gnupg.org/software/gpgme/index.html) installed)
+  - Native Rust implementation (requires `pgp-native` feature)
+- [`secret-lib`](https://crates.io/crates/secret-lib) support for PGP native secret keys storage:
+  - From shell commands using [`process-lib`](https://crates.io/crates/process-lib) (requires `secret-command` feature)
+  - From user's global keyring using [`keyring-lib`](https://crates.io/crates/keyring-lib) (requires `secret-keyring` feature)
+- [Serde](https://serde.rs/) de/serialization of structs and enums (requires `derive` feature)
 
-For example:
+*See the full API documentation on [docs.rs](https://docs.rs/mml-lib/latest/mml/).*
+
+## Definition
+
+From the [Emacs documentation](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/MML-Definition.html):
+
+> Creating a MIME message is boring and non-trivial. Therefore, a library called mml has been defined that parses a language called MML (MIME Meta Language) and generates MIME messages.
+>
+> The MML language is very simple. It looks a bit like an SGML application, but it’s not.
+> 
+> The main concept of MML is the part. Each part can be of a different type or use a different charset. The way to delineate a part is with a ‘<#part ...>’ tag. Multipart parts can be introduced with the ‘<#multipart ...>’ tag. Parts are ended by the ‘<#/part>’ or ‘<#/multipart>’ tags. Parts started with the ‘<#part ...>’ tags are also closed by the next open tag.
+> 
+> […]
+> 
+> Each tag can contain zero or more parameters on the form ‘parameter=value’. The values may be enclosed in quotation marks, but that’s not necessary unless the value contains white space. So ‘filename=/home/user/#hello$^yes’ is perfectly valid.
+
+## Examples
 
 ```eml
 From: alice@localhost
@@ -55,63 +84,21 @@ iVBORw0KGgo…
 --17886a741fef2cb2_97a7dbff4c84bbac_3b41d60ef9e2fbfb--
 ```
 
-*See the full API documentation on [docs.rs](https://docs.rs/mml-lib/latest/mml/).*
-
-## Definition
-
-From the [Emacs documentation](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/MML-Definition.html):
-
-> Creating a MIME message is boring and non-trivial. Therefore, a library called mml has been defined that parses a language called MML (MIME Meta Language) and generates MIME messages.
->
-> The MML language is very simple. It looks a bit like an SGML application, but it’s not.
-> 
-> The main concept of MML is the part. Each part can be of a different type or use a different charset. The way to delineate a part is with a ‘<#part ...>’ tag. Multipart parts can be introduced with the ‘<#multipart ...>’ tag. Parts are ended by the ‘<#/part>’ or ‘<#/multipart>’ tags. Parts started with the ‘<#part ...>’ tags are also closed by the next open tag.
-> 
-> […]
-> 
-> Each tag can contain zero or more parameters on the form ‘parameter=value’. The values may be enclosed in quotation marks, but that’s not necessary unless the value contains white space. So ‘filename=/home/user/#hello$^yes’ is perfectly valid.
-
-## Features
-
-- MML to MIME messages compilation using [`MmlCompilerBuilder`](https://docs.rs/mml-lib/latest/mml/message/compiler/struct.MmlCompilerBuilder.html)  (cargo feature `compiler` required, enabled by default)
-- MIME to MML messages interpretation using the [`MimeInterpreterBuilder`](https://docs.rs/mml-lib/latest/mml/message/interpreter/struct.MimeInterpreterBuilder.html) (cargo feature `interpreter` required, activated by default)
-- Multiple parts support `<#multipart>…<#/multipart>`
-- Inline part support `<#part text=mime/type>…<#/part>`
-- Attachment support `<#part disposition=attachment filename=/path/to/attachment.ext><#/part>`
-- Comment support `<#!part>This will not be compiled<#!/part>`
-- PGP support:
-  - Shell commands (cargo feature `pgp-commands` required)
-  - GPG bindings (cargo feature `pgp-gpg` and [`gpgme`](https://gnupg.org/software/gpgme/index.html) lib required)
-  - Native Rust implementation (cargo feature `pgp-native` required)
-
-## Examples
-
-See [`./examples`](https://git.sr.ht/~soywod/pimalaya/tree/master/item/mml/examples):
+See other examples at [`./examples`](https://github.com/pimalaya/core/tree/master/mml/examples):
 
 ```sh
 cargo run --example
 ```
 
-## Development
-
-The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`…
-
-```sh
-# Start a Nix shell
-$ nix-shell
-
-# then build the lib
-$ cargo build -p mml-lib
-```
-
 ## Sponsoring
 
-[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/project/Pimalaya/index.html)
+[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/)
 
-Special thanks to the [NLnet foundation](https://nlnet.nl/project/Pimalaya/index.html) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from:
+Special thanks to the [NLnet foundation](https://nlnet.nl/) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from various programs:
 
-- [NGI Assure](https://nlnet.nl/assure/) in 2022
-- [NGI Zero Entrust](https://nlnet.nl/entrust/) in 2023
+- [NGI Assure](https://nlnet.nl/project/Himalaya/) in 2022
+- [NGI Zero Entrust](https://nlnet.nl/project/Pimalaya/) in 2023
+- [NGI Zero Core](https://nlnet.nl/project/Pimalaya-PIM/) in 2024 *(still ongoing)*
 
 If you appreciate the project, feel free to donate using one of the following providers:
 

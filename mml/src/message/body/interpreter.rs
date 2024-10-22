@@ -2,13 +2,14 @@
 //!
 //! Module dedicated to MIME → MML message body interpretation.
 
+use std::{env, fs, path::PathBuf};
+
 use async_recursion::async_recursion;
-#[allow(unused_imports)]
-use log::{debug, trace, warn};
 use mail_builder::MessageBuilder;
 use mail_parser::{Message, MessageParser, MessagePart, MimeHeaders, PartType};
 use nanohtml2text::html2text;
-use std::{env, fs, path::PathBuf};
+#[allow(unused_imports)]
+use tracing::{debug, trace, warn};
 
 #[cfg(feature = "pgp")]
 use crate::pgp::Pgp;

@@ -2,11 +2,12 @@
 //!
 //! This module contains the native PGP backend.
 
-use log::debug;
-pub use pgp::native::{SignedPublicKey, SignedSecretKey};
-use secret::{keyring::KeyringEntry, Secret};
-use shellexpand_utils::shellexpand_path;
 use std::{collections::HashSet, path::PathBuf};
+
+pub use pgp::native::{SignedPublicKey, SignedSecretKey};
+use secret::Secret;
+use shellexpand_utils::shellexpand_path;
+use tracing::debug;
 
 use crate::{Error, Result};
 
@@ -28,9 +29,10 @@ pub enum NativePgpSecretKey {
     /// The native PGP secret key is located at the given path.
     Path(PathBuf),
 
+    #[cfg(feature = "secret-keyring")]
     /// The native PGP secret key is located in the user's global
     /// keyring at the given entry.
-    Keyring(KeyringEntry),
+    Keyring(secret::keyring::KeyringEntry),
 }
 
 impl NativePgpSecretKey {
@@ -51,6 +53,7 @@ impl NativePgpSecretKey {
                     .map_err(Error::ReadNativePgpSecretKeyError)?;
                 Ok(skey)
             }
+            #[cfg(feature = "secret-keyring")]
             Self::Keyring(entry) => {
                 let data = entry
                     .get_secret()
@@ -126,7 +129,9 @@ impl NativePgp {
                 }
                 NativePgpPublicKeysResolver::Wkd => {
                     let recipients_clone = recipients.clone().into_iter().collect();
-                    let wkd_pkeys = pgp::wkd::get_all(recipients_clone).await;
+                    let wkd_pkeys = pgp::http::wkd::get_all(recipients_clone)
+                        .await
+                        .map_err(Error::GetAllPublicKeysUsingWkd)?;
 
                     pkeys.extend(wkd_pkeys.into_iter().fold(
                         Vec::new(),
@@ -150,8 +155,9 @@ impl NativePgp {
                 }
                 NativePgpPublicKeysResolver::KeyServers(key_servers) => {
                     let recipients_clone = recipients.clone().into_iter().collect();
-                    let http_pkeys =
-                        pgp::http::get_all(recipients_clone, key_servers.to_owned()).await;
+                    let http_pkeys = pgp::http::get_all(recipients_clone, key_servers.to_owned())
+                        .await
+                        .map_err(Error::GetAllPublicKeysUsingKeyServers)?;
 
                     pkeys.extend(http_pkeys.into_iter().fold(
                         Vec::default(),
@@ -234,17 +240,14 @@ impl NativePgp {
                     }
                 }
                 NativePgpPublicKeysResolver::Wkd => {
-                    let pkey = pgp::wkd::get_one(email.to_owned()).await;
-                    match pkey {
+                    match pgp::http::wkd::get_one(email.to_owned()).await {
                         Ok(pkey) => {
                             debug!("found pgp public key for {email} using wkd");
                             pkey_found = Some(pkey);
                             break;
                         }
                         Err(err) => {
-                            let msg = format!("cannot find pgp public key for {email}");
-                            debug!("{msg} using wkd: {err}");
-                            debug!("{err:?}");
+                            debug!(?err, "cannot find pgp public key for {email} using wkd");
                             continue;
                         }
                     }
@@ -259,8 +262,7 @@ impl NativePgp {
                         }
                         Err(err) => {
                             let msg = format!("cannot find pgp public key for {email}");
-                            debug!("{msg} using key servers: {err}");
-                            debug!("{err:?}");
+                            debug!(?err, "{msg} using key servers");
                             continue;
                         }
                     }

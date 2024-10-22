@@ -1,5 +1,10 @@
+#[cfg(feature = "async-std")]
+use async_std::main;
+#[cfg(feature = "tokio")]
+use tokio::main;
+
 #[cfg(feature = "pgp-gpg")]
-#[tokio::main]
+#[test_log::test(main)]
 async fn main() {
     use std::path::PathBuf;
 
@@ -7,8 +12,6 @@ async fn main() {
         pgp::{Gpg, Pgp},
         MmlCompilerBuilder,
     };
-
-    env_logger::builder().is_test(true).init();
 
     let mml = include_str!("./pgp.eml");
     let mml_compiler = MmlCompilerBuilder::new()
@@ -33,7 +36,7 @@ async fn main() {
 }
 
 #[cfg(not(feature = "pgp-gpg"))]
-#[tokio::main]
+#[test_log::test(main)]
 async fn main() {
     panic!("The pgp-gpg cargo feature should be enabled to run this example.");
 }

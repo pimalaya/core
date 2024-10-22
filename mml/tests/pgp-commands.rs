@@ -1,16 +1,18 @@
 #![cfg(feature = "pgp-commands")]
 
+#[cfg(feature = "async-std")]
+use async_std::test;
 use concat_with::concat_line;
 use mml::{
     pgp::{CmdsPgp, Pgp},
     MimeInterpreterBuilder, MmlCompilerBuilder,
 };
 use process::Command;
+#[cfg(feature = "tokio")]
+use tokio::test;
 
-#[tokio::test]
+#[test_log::test(test)]
 async fn pgp_cmds() {
-    env_logger::builder().is_test(true).init();
-
     let pgp = Pgp::Cmds(CmdsPgp {
         encrypt_cmd: Some(Command::from(
             "gpg --homedir ./tests/gpg-home -eqa <recipients>",

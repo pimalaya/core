@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `tokio` and `async-std` cargo features (they are both mutually exclusive).
+- Added `rustls` and `native-tls` cargo features (they are both mutually exclusive)
+- Added `secret-keyring` and `secret-command` cargo features (they are forwarded to the `secret-lib` crate)
+
 ## [1.0.14] - 2024-08-16
 
 ### Fixed

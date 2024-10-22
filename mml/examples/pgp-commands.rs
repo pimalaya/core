@@ -7,8 +7,6 @@ async fn main() {
     };
     use process::Command;
 
-    env_logger::builder().is_test(true).init();
-
     let mml = include_str!("./pgp.eml");
     let mml_compiler = MmlCompilerBuilder::new()
         .with_pgp(Pgp::Cmds(CmdsPgp {

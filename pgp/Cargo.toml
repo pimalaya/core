@@ -1,7 +1,7 @@
 [package]
 name = "pgp-lib"
 description = "Cross-platform, asynchronous Rust library to deal with PGP operations"
-version = "0.3.0"
+version = "1.0.0"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"

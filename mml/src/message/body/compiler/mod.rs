@@ -5,15 +5,16 @@
 mod parsers;
 mod tokens;
 
+use std::{ffi::OsStr, fs, ops::Deref};
+
 use async_recursion::async_recursion;
-#[allow(unused_imports)]
-use log::{debug, warn};
 use mail_builder::{
     mime::{BodyPart, MimePart},
     MessageBuilder,
 };
 use shellexpand_utils::shellexpand_path;
-use std::{ffi::OsStr, fs, ops::Deref};
+#[allow(unused_imports)]
+use tracing::{debug, warn};
 
 #[cfg(feature = "pgp")]
 use crate::pgp::Pgp;

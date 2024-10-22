@@ -1,10 +1,9 @@
-#[cfg(feature = "pgp-native")]
-use secret::keyring;
-use std::{io, path::PathBuf, result};
+use std::{io, path::PathBuf};
+
 use thiserror::Error;
 
 /// The global `Result` alias of the library.
-pub type Result<T> = result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// The global `Error` enum of the library.
 #[derive(Debug, Error)]
@@ -19,9 +18,9 @@ pub enum Error {
     #[error("cannot sign part using pgp: missing sender")]
     PgpSignMissingSenderError,
 
-    #[cfg(feature = "pgp-native")]
+    #[cfg(all(feature = "pgp-native", feature = "secret-keyring"))]
     #[error("cannot get pgp secret key from keyring")]
-    GetSecretKeyFromKeyringError(keyring::Error),
+    GetSecretKeyFromKeyringError(#[source] secret::keyring::Error),
 
     #[cfg(feature = "pgp-native")]
     #[error("cannot read pgp secret key from keyring")]
@@ -35,9 +34,15 @@ pub enum Error {
     #[error("cannot get pgp secret key passphrase from keyring")]
     GetSecretKeyPassphraseFromKeyringError(#[source] secret::Error),
 
-    #[cfg(feature = "pgp-native")]
+    #[cfg(all(feature = "pgp-native", feature = "secret-keyring"))]
     #[error("cannot get pgp secret key from keyring")]
-    GetPgpSecretKeyFromKeyringError(#[source] keyring::Error),
+    GetPgpSecretKeyFromKeyringError(#[source] secret::keyring::Error),
+    #[cfg(feature = "pgp-native")]
+    #[error("cannot get all public keys from WKD")]
+    GetAllPublicKeysUsingWkd(#[source] pgp::Error),
+    #[cfg(feature = "pgp-native")]
+    #[error("cannot get all public keys from key server")]
+    GetAllPublicKeysUsingKeyServers(#[source] pgp::Error),
 
     #[error("cannot get native pgp secret key of {0}")]
     GetNativePgpSecretKeyNoneError(String),

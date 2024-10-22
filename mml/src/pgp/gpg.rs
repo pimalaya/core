@@ -2,9 +2,10 @@
 //!
 //! This module contains the PGP backend based on GPG.
 
-use gpgme::{Context, Protocol};
-use log::{debug, trace};
 use std::path::PathBuf;
+
+use gpgme::{Context, Protocol};
+use tracing::{debug, trace};
 
 use crate::{Error, Result};
 
