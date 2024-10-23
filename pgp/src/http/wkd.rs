@@ -12,20 +12,16 @@
 //! [Web Key Directory]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service
 //! [sequoia]: https://gitlab.com/sequoia-pgp/sequoia
 
-use std::fmt;
+use std::{fmt, io::Read};
 
 use async_recursion::async_recursion;
-use futures::{stream, StreamExt};
-use http_body_util::BodyExt;
-use hyper::{body::Incoming, http::Response, Uri};
+use futures::{stream::FuturesUnordered, StreamExt};
+use http::{Body, Response, Uri};
 use native::{Deserializable, SignedPublicKey};
 use sha1::{Digest, Sha1};
-use tokio::task;
 use tracing::debug;
 
-use crate::{Error, Result};
-
-use super::{new_http_client, HttpClient};
+use crate::{utils::spawn, Error, Result};
 
 struct EmailAddress {
     pub local_part: String,
@@ -147,7 +143,7 @@ impl Url {
         let uri = url_string
             .as_str()
             .parse::<Uri>()
-            .map_err(|err| Error::ParseUriError(err, url_string.clone()))?;
+            .map_err(|err| Error::ParseUriError(err.into(), url_string.clone()))?;
         Ok(uri)
     }
 }
@@ -172,10 +168,10 @@ fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
 
 #[async_recursion]
 async fn get_following_redirects(
-    client: &HttpClient,
+    client: &http::Client,
     url: Uri,
     depth: i32,
-) -> Result<Response<Incoming>> {
+) -> Result<Response<Body>> {
     let response = client.get(url).await;
 
     if depth < 0 {
@@ -195,7 +191,7 @@ async fn get_following_redirects(
         }
     }
 
-    response.map_err(Error::ParseResponseError)
+    Ok(response?)
 }
 
 /// Retrieves the Certs that contain userids with a given email
@@ -224,7 +220,7 @@ async fn get_following_redirects(
 /// ```
 ///
 /// [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service/#section-3.1
-async fn get(client: &HttpClient, email: &String) -> Result<SignedPublicKey> {
+async fn get(client: &http::Client, email: &String) -> Result<SignedPublicKey> {
     // First, prepare URIs and client.
     let wkd_url = Url::from(email)?;
     let uri = wkd_url.to_uri(Variant::Advanced)?;
@@ -241,50 +237,46 @@ async fn get(client: &HttpClient, email: &String) -> Result<SignedPublicKey> {
     }?;
 
     let status = res.status();
-    let body = res
-        .into_body()
-        .collect()
-        .await
-        .map_err(Error::ParseBodyError)?
-        .to_bytes();
+    let mut body = res.into_body();
+    let mut body = body.as_reader();
 
     if !status.is_success() {
-        let err = String::from_utf8_lossy(&body).to_string();
-        return Err(Error::GetPublicKeyError(uri, status, err));
+        let mut err = String::new();
+        body.read_to_string(&mut err)
+            .map_err(|err| Error::ReadHttpError(err, uri.clone(), status))?;
+        return Err(Error::GetPublicKeyError(err, uri, status));
     }
 
-    let pkey = SignedPublicKey::from_bytes(&*body).map_err(Error::ParseCertError)?;
+    let pkey = SignedPublicKey::from_bytes(body).map_err(Error::ParseCertError)?;
 
     Ok(pkey)
 }
 
 /// Gets the public key associated to the given email.
 pub async fn get_one(email: String) -> Result<SignedPublicKey> {
-    let client = new_http_client()?;
+    let client = http::Client::new();
     self::get(&client, &email).await
 }
 
 /// Gets public keys associated to the given emails.
-pub async fn get_all(emails: Vec<String>) -> Result<Vec<(String, Result<SignedPublicKey>)>> {
-    let client = new_http_client()?;
+pub async fn get_all(emails: Vec<String>) -> Vec<(String, Result<SignedPublicKey>)> {
+    let client = http::Client::new();
 
-    let pkeys = stream::iter(emails)
-        .map(|email| {
-            let client = client.clone();
-            task::spawn(async move { (email.clone(), self::get(&client, &email).await) })
-        })
-        .buffer_unordered(8)
-        .filter_map(|res| async {
-            match res {
-                Ok(res) => Some(res),
-                Err(err) => {
-                    debug!("cannot join async task: {err:?}");
-                    None
-                }
+    FuturesUnordered::from_iter(emails.into_iter().map(|email| {
+        let client = client.clone();
+        spawn(async move { (email.clone(), self::get(&client, &email).await) })
+    }))
+    .filter_map(|res| async {
+        match res {
+            Ok(res) => {
+                return Some(res);
             }
-        })
-        .collect()
-        .await;
-
-    Ok(pkeys)
+            Err(err) => {
+                debug!(?err, "skipping failed task");
+                None
+            }
+        }
+    })
+    .collect()
+    .await
 }

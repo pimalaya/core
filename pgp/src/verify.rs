@@ -24,9 +24,14 @@ pub async fn verify(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "async-std")]
+    use async_std::test;
+    #[cfg(feature = "tokio")]
+    use tokio::test;
+
     use crate::{gen_key_pair, read_sig_from_bytes, sign, verify};
 
-    #[tokio::test]
+    #[test_log::test(test)]
     async fn sign_then_verify() {
         let (skey, pkey) = gen_key_pair("test@localhost", "").await.unwrap();
         let msg = b"signed message".to_vec();

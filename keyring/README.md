@@ -9,11 +9,11 @@ This library can be seen as a convenient async wrapper around `keyring-rs`:
   - Linux: Secret Service + [keyutils](https://man7.org/linux/man-pages/man7/keyutils.7.html) (secure in-memory kernel cache)
   - MacOS and iOS: [Security framework](https://developer.apple.com/documentation/security/keychain-services)
   - Windows: [Security credentials](https://developer.apple.com/documentation/security/keychain-services)
-- [Tokio](https://tokio.rs/) async runtime support (requires `tokio` feature)
-- [async-std](https://async.rs/) async runtime support(requires `async-std` feature)
-- [Rustls](https://github.com/rustls/rustls) rust crypto support (requires `rustls` feature)
-- [OpenSSL](https://openssl.org/) crypto support (requires `openssl` feature, and OpenSSL lib installed (or `vendored` feature))
-- [Serde](https://serde.rs/) de/serialization of the keyring entry from/to `String` (requires `derive` feature)
+- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
+- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
+- [rustls](https://crates.io/crates/rustls) crypto support (requires `rustls` feature)
+- [openssl](https://crates.io/crates/openssl) crypto support (requires `openssl` feature, and OpenSSL lib installed (or `vendored` feature))
+- [serde](https://crates.io/crates/serde) de/serialization of the keyring entry from/to `String` (requires `derive` feature)
 - Global service name to avoid repetition
 - Convenient function to find a secret (`Entry::find_secret -> Result<Option<String>>`)
 

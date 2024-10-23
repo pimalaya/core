@@ -7,9 +7,9 @@ This library can be seen as a convenient async wrapper around `std::process::Com
 - Cross-platform compatible by wrapping commands with `sh -c` or `cmd /C`
 - Pipeline support (previous command output sent as input for the next command)
 - Convenient functions to export output (as string lossy for example)
-- [Tokio](https://tokio.rs/) async runtime support (requires `tokio` feature)
-- [async-std](https://async.rs/) async runtime support(requires `async-std` feature)
-- [Serde](https://serde.rs/) de/serialization of `Command` and `Pipeline` structures (requires `derive` feature)
+- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
+- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
+- [serde](https://crates.io/crates/serde) de/serialization of `Command` and `Pipeline` structures (requires `derive` feature)
 
 ```rust,ignore
 use process::{Command, Pipeline};

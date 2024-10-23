@@ -40,9 +40,14 @@ pub async fn decrypt(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "async-std")]
+    use async_std::test;
+    #[cfg(feature = "tokio")]
+    use tokio::test;
+
     use crate::{decrypt, encrypt, gen_key_pair};
 
-    #[tokio::test]
+    #[test_log::test(test)]
     async fn encrypt_then_decrypt() {
         let (alice_skey, alice_pkey) = gen_key_pair("alice@localhost", "").await.unwrap();
         let (bob_skey, bob_pkey) = gen_key_pair("bob@localhost", "").await.unwrap();

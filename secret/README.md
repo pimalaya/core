@@ -5,11 +5,11 @@ Cross-platform, asynchronous Rust library to retrieve secrets from different sou
 - From raw strings
 - From shell commands using [`process-lib`](https://crates.io/crates/process-lib) (requires `command` feature)
 - From user's global keyring using [`keyring-lib`](https://crates.io/crates/keyring-lib) (requires `keyring` feature)
-- [Tokio](https://tokio.rs/) async runtime support (requires `tokio` feature)
-- [async-std](https://async.rs/) async runtime support(requires `async-std` feature)
-- [Rustls](https://github.com/rustls/rustls) rust crypto support (requires `rustls` feature)
-- [OpenSSL](https://openssl.org/) crypto support (requires `openssl` feature, and OpenSSL lib installed (or `vendored` feature))
-- [Serde](https://serde.rs/) de/serialization of the secret enum (requires `derive` feature)
+- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
+- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
+- [rustls](https://crates.io/crates/rustls) crypto support (requires `rustls` feature)
+- [openssl](https://crates.io/crates/openssl) crypto support (requires `openssl` feature, and OpenSSL lib installed (or `vendored` feature))
+- [serde](https://crates.io/crates/serde) de/serialization of the secret enum (requires `derive` feature)
 
 ```rust,ignore
 use secret::{keyring::KeyringEntry, Secret};

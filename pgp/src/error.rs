@@ -1,10 +1,7 @@
 use std::path::PathBuf;
 
-#[cfg(feature = "key-discovery")]
-use hyper::Uri;
 use native::{SecretKeyParamsBuilderError, SubkeyParamsBuilderError};
 use thiserror::Error;
-use tokio::task::JoinError;
 
 /// The global `Result` alias of the library.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -38,17 +35,20 @@ pub enum Error {
     #[error("cannot compress pgp message")]
     CompressMessageError(#[source] native::errors::Error),
     #[cfg(feature = "key-discovery")]
-    #[error("cannot parse body from {1}")]
-    ParseBodyWithUriError(#[source] hyper::Error, Uri),
+    #[error("cannot get public key at {1}: {2}: {0}")]
+    GetPublicKeyError(String, http::Uri, http::StatusCode),
     #[cfg(feature = "key-discovery")]
-    #[error("cannot get public key at {1}: {0}: {2}")]
-    GetPublicKeyError(Uri, hyper::StatusCode, String),
+    #[error("cannot read HTTP error from {1}: {2}")]
+    ReadHttpError(#[source] std::io::Error, http::Uri, http::StatusCode),
     #[cfg(feature = "key-discovery")]
-    #[error("cannot parse response from {1}")]
-    FetchResponseError(#[source] hyper_util::client::legacy::Error, Uri),
+    #[error("cannot read PGP public key from {1}")]
+    ReadPublicKeyError(#[source] std::io::Error, http::Uri),
     #[cfg(feature = "key-discovery")]
-    #[error("cannot parse pgp public key from {1}")]
-    ParsePublicKeyError(#[source] native::errors::Error, Uri),
+    #[error("cannot parse PGP armored public key from {1}")]
+    ParsePublicKeyError(#[source] native::errors::Error, http::Uri),
+    #[cfg(feature = "key-discovery")]
+    #[error(transparent)]
+    HttpError(#[from] http::Error),
     #[cfg(feature = "key-discovery")]
     #[error("cannot find pgp public key for email {0}")]
     FindPublicKeyError(String),
@@ -91,22 +91,17 @@ pub enum Error {
     #[error("cannot create HTTP connector")]
     CreateHttpConnectorError(#[source] std::io::Error),
     #[cfg(feature = "key-discovery")]
-    #[error("cannot parse url {1}")]
-    ParseUrlError(#[source] url::ParseError, String),
-    #[cfg(feature = "key-discovery")]
     #[error("cannot parse uri {1}")]
-    ParseUriError(#[source] hyper::http::uri::InvalidUri, String),
+    ParseUriError(#[source] http::Error, String),
     #[cfg(feature = "key-discovery")]
-    #[error("cannot parse response")]
-    ParseResponseError(#[source] hyper_util::client::legacy::Error),
+    #[error("cannot build key server URI from {1}")]
+    BuildKeyServerUriError(#[source] http::Error, http::Uri),
     #[error("cannot parse response: too many redirect")]
     RedirectOverflowError,
-    #[cfg(feature = "key-discovery")]
-    #[error("cannot parse body")]
-    ParseBodyError(#[source] hyper::Error),
     #[error("cannot parse certificate")]
     ParseCertError(#[source] native::errors::Error),
 
+    #[cfg(feature = "tokio")]
     #[error(transparent)]
-    JoinError(#[from] JoinError),
+    JoinError(#[from] tokio::task::JoinError),
 }

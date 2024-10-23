@@ -1,12 +1,14 @@
 # 🔐 pgp-lib
 
-Cross-platform, asynchronous Rust library to deal with PGP operations, based on [rPGP](https://crates.io/crates/pgp).
+High-level, asynchronous API for [rPGP](https://crates.io/crates/pgp), a pure Rust implementation of [OpenPGP](https://www.openpgp.org/).
 
 - Basic PGP operations: encrypt, decrypt, sign, verify
 - PGP helpers: generate a key pair, read secret/public keys from path, read signature from bytes etc
 - HTTP public key discovery via [WKD](https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service-18) and [HKP](https://datatracker.ietf.org/doc/html/draft-shaw-openpgp-hkp-00) (requires `key-discovery` feature)
-- [Tokio](https://crates.io/crates/tokio) async runtime ([async-std](https://crates.io/crates/async-std) planned)
-- [Rustls](https://crates.io/crates/rustls) rust crypto ([native-tls](https://crates.io/crates/native-tls) planned)
+- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
+- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
+- [rustls](https://crates.io/crates/rustls) crypto support (requires `rustls` feature)
+- [native-tls](https://crates.io/crates/native-tls) crypto support (requires `native-tls` feature, and OpenSSL lib installed (or `vendored` feature))
 
 *See the full API documentation on [docs.rs](https://docs.rs/pgp-lib/latest/pgp/).*
 

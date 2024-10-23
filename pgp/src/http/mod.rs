@@ -6,45 +6,25 @@
 pub mod hkp;
 pub mod wkd;
 
-use std::{io::Cursor, sync::Arc};
-
-use futures::{stream, StreamExt};
-use http_body_util::{BodyExt, Full};
-use hyper::{body::Bytes, Uri};
-use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use hyper_util::{
-    client::legacy::{connect::HttpConnector, Client},
-    rt::TokioExecutor,
+use std::{
+    io::{Cursor, Read},
+    sync::Arc,
 };
+
+use futures::{stream::FuturesUnordered, StreamExt};
+use http::Uri;
 use native::{Deserializable, SignedPublicKey};
-use tokio::task;
 use tracing::{debug, warn};
 
-use crate::{Error, Result};
-
-pub type HttpClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
-
-/// Builds a new HTTP client.
-pub(crate) fn new_http_client() -> Result<Arc<HttpClient>> {
-    let conn = HttpsConnectorBuilder::new()
-        .with_native_roots()
-        .map_err(Error::CreateHttpConnectorError)?
-        .https_or_http()
-        .enable_http1()
-        .build();
-
-    let client = Client::builder(TokioExecutor::new()).build(conn);
-
-    Ok(Arc::new(client))
-}
+use crate::{utils::spawn, Error, Result};
 
 /// Calls the given key server in order to get the public key
 /// belonging to the given email address.
-async fn fetch(client: &HttpClient, email: &str, key_server: &str) -> Result<SignedPublicKey> {
+async fn fetch(client: &http::Client, email: &str, key_server: &str) -> Result<SignedPublicKey> {
     let uri: Uri = key_server
         .replace("<email>", email)
         .parse()
-        .map_err(|err| Error::ParseUriError(err, key_server.to_owned()))?;
+        .map_err(http::Error::from)?;
 
     let uri = match uri.scheme_str() {
         Some("hkp") | Some("hkps") => hkp::format_key_server_uri(uri, email).unwrap(),
@@ -52,25 +32,23 @@ async fn fetch(client: &HttpClient, email: &str, key_server: &str) -> Result<Sig
         _ => uri,
     };
 
-    let res = client
-        .get(uri.clone())
-        .await
-        .map_err(|err| Error::FetchResponseError(err, uri.clone()))?;
+    let res = client.get(uri.clone()).await?;
 
     let status = res.status();
-    let body = res
-        .into_body()
-        .collect()
-        .await
-        .map_err(|err| Error::ParseBodyWithUriError(err, uri.clone()))?
-        .to_bytes();
+    let mut body = res.into_body();
+    let mut body = body.as_reader();
 
     if !status.is_success() {
-        let err = String::from_utf8_lossy(&body).to_string();
-        return Err(Error::GetPublicKeyError(uri.clone(), status, err));
+        let mut err = String::new();
+        body.read_to_string(&mut err)
+            .map_err(|err| Error::ReadHttpError(err, uri.clone(), status))?;
+        return Err(Error::GetPublicKeyError(err, uri, status));
     }
 
-    let cursor = Cursor::new(&*body);
+    let mut bytes = Vec::new();
+    body.read_to_end(&mut bytes)
+        .map_err(|err| Error::ReadPublicKeyError(err, uri.clone()))?;
+    let cursor = Cursor::new(bytes);
     let (pkey, _) = SignedPublicKey::from_armor_single(cursor)
         .map_err(|err| Error::ParsePublicKeyError(err, uri))?;
 
@@ -83,7 +61,7 @@ async fn fetch(client: &HttpClient, email: &str, key_server: &str) -> Result<Sig
 /// A better algorithm would be to contact asynchronously all key
 /// servers and to abort pending futures when a public key is found.
 async fn get(
-    client: &HttpClient,
+    client: &http::Client,
     email: &String,
     key_servers: &[String],
 ) -> Result<SignedPublicKey> {
@@ -107,7 +85,7 @@ async fn get(
 
 /// Gets public key associated to the given email.
 pub async fn get_one(email: String, key_servers: Vec<String>) -> Result<SignedPublicKey> {
-    let client = new_http_client()?;
+    let client = http::Client::new();
     self::get(&client, &email, &key_servers).await
 }
 
@@ -115,34 +93,31 @@ pub async fn get_one(email: String, key_servers: Vec<String>) -> Result<SignedPu
 pub async fn get_all(
     emails: Vec<String>,
     key_servers: Vec<String>,
-) -> Result<Vec<(String, Result<SignedPublicKey>)>> {
+) -> Vec<(String, Result<SignedPublicKey>)> {
     let key_servers = Arc::new(key_servers);
-    let client = new_http_client()?;
+    let client = http::Client::new();
 
-    let pkeys = stream::iter(emails)
-        .map(|email| {
-            let key_servers = key_servers.clone();
-            let client = client.clone();
-            task::spawn(async move {
-                (
-                    email.clone(),
-                    self::get(&client, &email, &key_servers).await,
-                )
-            })
+    FuturesUnordered::from_iter(emails.into_iter().map(|email| {
+        let key_servers = key_servers.clone();
+        let client = client.clone();
+        spawn(async move {
+            (
+                email.clone(),
+                self::get(&client, &email, &key_servers).await,
+            )
         })
-        .buffer_unordered(8)
-        .filter_map(|res| async {
-            match res {
-                Ok(res) => Some(res),
-                Err(err) => {
-                    let msg = "cannot get pgp public keys as async stream".to_owned();
-                    debug!("{msg}: {err:?}");
-                    None
-                }
+    }))
+    .filter_map(|res| async {
+        match res {
+            Ok(res) => {
+                return Some(res);
             }
-        })
-        .collect()
-        .await;
-
-    Ok(pkeys)
+            Err(err) => {
+                debug!(?err, "skipping failed task");
+                None
+            }
+        }
+    })
+    .collect()
+    .await
 }

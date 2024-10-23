@@ -120,16 +120,36 @@ pub async fn read_sig_from_bytes(bytes: Vec<u8>) -> Result<StandaloneSignature> 
     .await?
 }
 
-// TODO
-// #[cfg(feature = "async-std")]
-// pub(crate) async fn spawn_blocking<F, T>(f: F) -> Result<T>
-// where
-//     F: FnOnce() -> T + Send + 'static,
-//     T: Send + 'static,
-// {
-//     Ok(async_std::task::spawn_blocking(f).await)
-// }
+#[cfg(feature = "key-discovery")]
+#[cfg(feature = "async-std")]
+pub(crate) async fn spawn<F>(f: F) -> Result<F::Output>
+where
+    F: std::future::Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    Ok(async_std::task::spawn(f).await)
+}
 
+#[cfg(feature = "async-std")]
+pub(crate) async fn spawn_blocking<F, T>(f: F) -> Result<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    Ok(async_std::task::spawn_blocking(f).await)
+}
+
+#[cfg(feature = "key-discovery")]
+#[cfg(feature = "tokio")]
+pub(crate) async fn spawn<F>(f: F) -> Result<F::Output>
+where
+    F: std::future::Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    Ok(tokio::task::spawn(f).await?)
+}
+
+#[cfg(feature = "tokio")]
 pub(crate) async fn spawn_blocking<F, T>(f: F) -> Result<T>
 where
     F: FnOnce() -> T + Send + 'static,

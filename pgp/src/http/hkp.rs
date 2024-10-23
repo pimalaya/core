@@ -5,10 +5,9 @@
 //!
 //! [HKP specs]: https://datatracker.ietf.org/doc/html/draft-shaw-openpgp-hkp-00
 
-use hyper::http::{
-    uri::{Builder as UriBuilder, Uri},
-    Result,
-};
+use http::Uri;
+
+use crate::{Error, Result};
 
 /// Formats the given URI to match the HKP specs.
 ///
@@ -27,9 +26,12 @@ pub(crate) fn format_key_server_uri(uri: Uri, email: &str) -> Result<Uri> {
         uri.path().to_owned() + &pks_path
     };
 
-    UriBuilder::new()
+    let uri = Uri::builder()
         .scheme(scheme)
         .authority(authority)
         .path_and_query(path)
         .build()
+        .map_err(|err| Error::BuildKeyServerUriError(err.into(), uri))?;
+
+    Ok(uri)
 }
