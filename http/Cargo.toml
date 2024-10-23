@@ -1,0 +1,55 @@
+[package]
+name = "http-lib"
+description = "High-level, asynchronous API for ureq, a safe HTTP client"
+version = "0.1.0"
+authors = ["soywod <clement.douin@posteo.net>"]
+edition = "2021"
+license = "MIT"
+categories = ["api-bindings", "asynchronous", "network-programming"]
+keywords = ["http", "https", "async", "client", "ureq"]
+homepage = "https://pimalaya.org/"
+documentation = "https://docs.rs/http-lib/latest/http/"
+repository = "https://github.com/pimalaya/core/tree/master/http/"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
+
+[lib]
+name = "http"
+
+[features]
+default = [
+  "tokio",
+  #"async-std",
+  "rustls",
+  #"native-tls",
+  #"vendored",
+]
+
+# Async runtime
+#
+tokio = ["dep:tokio"]
+async-std = ["dep:async-std"]
+
+# Rust crypto
+#
+rustls = ["ureq/rustls"]
+native-tls = ["ureq/native-tls"]
+
+# TODO: ureq does not expose `vendored` cargo feature 
+# Vendored (mostly for OpenSSL)
+#
+vendored = []
+
+[dev-dependencies]
+async-std = { version = "1.13", features = ["attributes"] }
+test-log = { version = "0.2", default-features = false, features = ["color", "trace"] }
+tokio = { version = "1.23", features = ["full"] }
+
+[dependencies]
+async-std = { version = "1.13", optional = true }
+thiserror = "1"
+tokio = { version = "1.23", optional = true, default-features = false, features = ["rt"] }
+tracing = "0.1"
+ureq = { version = "3.0.0-rc.2", default-features = false, features = ["platform-verifier"] }

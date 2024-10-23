@@ -4,6 +4,7 @@ members = [
   "email",
   "email-macros",
   "email-testing-server",
+  "http",
   "keyring",
   "mml",
   "oauth",
@@ -17,6 +18,7 @@ members = [
 [patch.crates-io]
 email-lib = { path = "./email" }
 email-macros = { path = "./email-macros" }
+http-lib = { path = "./http" }
 keyring-lib = { path = "./keyring" }
 mml-lib = { path = "./mml" }
 oauth-lib = { path = "./oauth" }
