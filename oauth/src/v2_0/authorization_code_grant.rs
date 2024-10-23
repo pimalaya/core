@@ -1,16 +1,22 @@
 //! Authorization Grant Code flow helper, as defined in the
 //! [RFC6749](https://datatracker.ietf.org/doc/html/rfc6749#section-1.3.1)
 
-use oauth2::{
-    basic::BasicClient, url::Url, AuthorizationCode, CsrfToken, PkceCodeChallenge,
-    PkceCodeVerifier, RequestTokenError, Scope, TokenResponse,
+#[cfg(feature = "async-std")]
+use async_std::{
+    io::{BufReadExt, BufReader, WriteExt},
+    net::TcpListener,
 };
+use oauth2::{
+    url::Url, AuthorizationCode, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RequestTokenError,
+    Scope, TokenResponse,
+};
+#[cfg(feature = "tokio")]
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpListener,
 };
 
-use super::{Error, Result};
+use super::{Client, Error, Result};
 
 /// OAuth 2.0 Authorization Code Grant flow builder.
 ///
@@ -24,12 +30,10 @@ use super::{Error, Result};
 /// to click on the redirect URL in order to extract the access token
 /// and the refresh token by calling
 /// [`AuthorizationCodeGrant::wait_for_redirection`].
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AuthorizationCodeGrant {
     pub scopes: Vec<Scope>,
     pub pkce: Option<(PkceCodeChallenge, PkceCodeVerifier)>,
-    pub redirect_host: String,
-    pub redirect_port: u16,
 }
 
 impl AuthorizationCodeGrant {
@@ -50,25 +54,9 @@ impl AuthorizationCodeGrant {
         self
     }
 
-    pub fn with_redirect_host<T>(mut self, host: T) -> Self
-    where
-        T: ToString,
-    {
-        self.redirect_host = host.to_string();
-        self
-    }
-
-    pub fn with_redirect_port<T>(mut self, port: T) -> Self
-    where
-        T: Into<u16>,
-    {
-        self.redirect_port = port.into();
-        self
-    }
-
     /// Generate the redirect URL used to complete the OAuth 2.0
     /// Authorization Code Grant flow.
-    pub fn get_redirect_url(&self, client: &BasicClient) -> (Url, CsrfToken) {
+    pub fn get_redirect_url(&self, client: &Client) -> (Url, CsrfToken) {
         let mut redirect = client
             .authorize_url(CsrfToken::new_random)
             .add_scopes(self.scopes.clone());
@@ -86,19 +74,23 @@ impl AuthorizationCodeGrant {
     /// token.
     pub async fn wait_for_redirection(
         self,
-        client: &BasicClient,
+        client: &Client,
         csrf_state: CsrfToken,
     ) -> Result<(String, Option<String>)> {
-        let host = self.redirect_host;
-        let port = self.redirect_port;
-
         // listen for one single connection
-        let (mut stream, _) = TcpListener::bind((host.clone(), port))
-            .await
-            .map_err(|err| Error::BindRedirectServerError(host, port, err))?
-            .accept()
-            .await
-            .map_err(Error::AcceptRedirectServerError)?;
+        let (mut stream, _) =
+            TcpListener::bind((client.redirect_host.as_str(), client.redirect_port))
+                .await
+                .map_err(|err| {
+                    Error::BindRedirectServerError(
+                        client.redirect_host.clone(),
+                        client.redirect_port,
+                        err,
+                    )
+                })?
+                .accept()
+                .await
+                .map_err(Error::AcceptRedirectServerError)?;
 
         // extract the code from the url
         let code = {
@@ -153,7 +145,7 @@ impl AuthorizationCodeGrant {
         }
 
         let res = res
-            .request_async(oauth2::reqwest::async_http_client)
+            .request_async(&Client::send_oauth2_request)
             .await
             .map_err(|err| match err {
                 RequestTokenError::Request(req) => Error::ExchangeCodeError(req.to_string()),
@@ -166,16 +158,5 @@ impl AuthorizationCodeGrant {
         let refresh_token = res.refresh_token().map(|t| t.secret().clone());
 
         Ok((access_token, refresh_token))
-    }
-}
-
-impl Default for AuthorizationCodeGrant {
-    fn default() -> Self {
-        Self {
-            scopes: Vec::new(),
-            pkce: None,
-            redirect_host: String::from("localhost"),
-            redirect_port: 9999,
-        }
     }
 }

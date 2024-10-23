@@ -1,27 +1,28 @@
 //! Client builder, used by other flows to send requests and build
 //! URLs.
 
-use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
+use std::ops::Deref;
+
+use oauth2::{
+    http::Method, AuthUrl, ClientId, ClientSecret, EndpointNotSet, EndpointSet, HttpRequest,
+    HttpResponse, RedirectUrl, TokenUrl,
+};
 
 use super::{Error, Result};
 
+type BasicClient = oauth2::basic::BasicClient<
+    EndpointSet,
+    EndpointNotSet,
+    EndpointNotSet,
+    EndpointNotSet,
+    EndpointSet,
+>;
+
 /// Client builder, used by other flows to send requests and build
 /// URLs.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Client {
-    /// Client identifier issued to the client during the registration process described by
-    /// [Section 2.2](https://tools.ietf.org/html/rfc6749#section-2.2).
-    pub client_id: ClientId,
-
-    /// Client password issued to the client during the registration process described by
-    /// [Section 2.2](https://tools.ietf.org/html/rfc6749#section-2.2).
-    pub client_secret: ClientSecret,
-
-    /// URL of the authorization server's authorization endpoint.
-    pub auth_url: AuthUrl,
-
-    /// URL of the authorization server's token endpoint.
-    pub token_url: TokenUrl,
+    inner: BasicClient,
 
     /// Hostname of the client's redirection endpoint.
     pub redirect_host: String,
@@ -36,48 +37,89 @@ impl Client {
         client_secret: impl ToString,
         auth_url: impl ToString,
         token_url: impl ToString,
+        redirect_scheme: impl ToString,
+        redirect_host: impl ToString,
+        redirect_port: impl Into<u16>,
     ) -> Result<Self> {
+        let redirect_host = redirect_host.to_string();
+        let redirect_port = redirect_port.into();
+
+        let client = oauth2::basic::BasicClient::new(ClientId::new(client_id.to_string()))
+            .set_client_secret(ClientSecret::new(client_secret.to_string()))
+            .set_auth_uri(AuthUrl::new(auth_url.to_string()).map_err(Error::BuildAuthUrlError)?)
+            .set_token_uri(TokenUrl::new(token_url.to_string()).map_err(Error::BuildTokenUrlError)?)
+            .set_redirect_uri({
+                let scheme = redirect_scheme.to_string();
+                RedirectUrl::new(format!("{scheme}://{redirect_host}:{redirect_port}"))
+                    .map_err(Error::BuildRedirectUrlError)
+            }?);
+
         Ok(Self {
-            client_id: ClientId::new(client_id.to_string()),
-            client_secret: ClientSecret::new(client_secret.to_string()),
-            auth_url: AuthUrl::new(auth_url.to_string()).map_err(Error::BuildAuthUrlError)?,
-            token_url: TokenUrl::new(token_url.to_string()).map_err(Error::BuildTokenUrlError)?,
-            redirect_host: String::from("localhost"),
-            redirect_port: 9999,
+            inner: client,
+            redirect_host,
+            redirect_port,
         })
     }
 
-    pub fn with_redirect_host<T>(mut self, host: T) -> Self
-    where
-        T: ToString,
-    {
-        self.redirect_host = host.to_string();
-        self
+    pub(crate) async fn send_oauth2_request(oauth2_request: HttpRequest) -> Result<HttpResponse> {
+        let client = http::Client::new();
+
+        let response = client
+            .send(move |agent| match *oauth2_request.method() {
+                Method::GET => {
+                    let mut request = agent.get(&oauth2_request.uri().to_string());
+
+                    for (key, val) in oauth2_request.headers() {
+                        let Ok(val) = val.to_str() else {
+                            continue;
+                        };
+
+                        request = request.header(key, val);
+                    }
+
+                    Ok(request.call()?)
+                }
+                Method::POST => {
+                    let mut request = agent.post(&oauth2_request.uri().to_string());
+
+                    for (key, val) in oauth2_request.headers() {
+                        let Ok(val) = val.to_str() else {
+                            continue;
+                        };
+
+                        request = request.header(key, val);
+                    }
+
+                    Ok(request.send(oauth2_request.body())?)
+                }
+                _ => unreachable!(),
+            })
+            .await?;
+
+        let mut oauth2_response = http::Response::builder();
+
+        for (key, val) in response.headers() {
+            oauth2_response = oauth2_response.header(key, val);
+        }
+
+        let body = response
+            .into_body()
+            .read_to_vec()
+            .map_err(http::Error::from)?;
+
+        let oauth2_response = oauth2_response
+            .body(body)
+            .map_err(http::Error::from)
+            .map_err(Error::ReadResponseBodyError)?;
+
+        Ok(oauth2_response)
     }
+}
 
-    pub fn with_redirect_port<T>(mut self, port: T) -> Self
-    where
-        T: Into<u16>,
-    {
-        self.redirect_port = port.into();
-        self
-    }
+impl Deref for Client {
+    type Target = BasicClient;
 
-    /// Build the final client.
-    pub fn build(&self) -> Result<BasicClient> {
-        let host = &self.redirect_host;
-        let port = self.redirect_port;
-        let redirect_uri = RedirectUrl::new(format!("http://{host}:{port}"))
-            .map_err(Error::BuildRedirectUrlError)?;
-
-        let client = BasicClient::new(
-            self.client_id.clone(),
-            Some(self.client_secret.clone()),
-            self.auth_url.clone(),
-            Some(self.token_url.clone()),
-        )
-        .set_redirect_uri(redirect_uri);
-
-        Ok(client)
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }

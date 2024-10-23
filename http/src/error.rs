@@ -13,6 +13,8 @@ pub enum Error {
     SendGetRequestError(#[source] ureq::Error, Uri),
     #[error("error while sending POST request to {1}")]
     SendPostRequestError(#[source] ureq::Error, Uri),
+    #[error("error while sending request")]
+    SendRequestError(#[source] ureq::Error),
 
     #[error(transparent)]
     Error(#[from] ureq::Error),

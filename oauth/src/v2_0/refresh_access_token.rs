@@ -1,9 +1,9 @@
 //! Refresh Access Token flow helper, as defined in the
 //! [RFC6749](https://datatracker.ietf.org/doc/html/rfc6749#section-6)
 
-use oauth2::{basic::BasicClient, RefreshToken, TokenResponse};
+use oauth2::{RefreshToken, TokenResponse};
 
-use super::{Error, Result};
+use super::{Client, Error, Result};
 
 /// OAuth 2.0 Refresh Access Token flow builder. The builder is empty
 /// for now but scopes will be added in the future. This flow exchange
@@ -19,13 +19,14 @@ impl RefreshAccessToken {
 
     pub async fn refresh_access_token(
         &self,
-        client: &BasicClient,
+        client: &Client,
         refresh_token: impl ToString,
     ) -> Result<(String, Option<String>)> {
         let res = client
             .exchange_refresh_token(&RefreshToken::new(refresh_token.to_string()))
-            .request_async(oauth2::reqwest::async_http_client)
+            .request_async(&Client::send_oauth2_request)
             .await
+            .map_err(Box::new)
             .map_err(Error::RefreshAccessTokenError)?;
 
         let access_token = res.access_token().secret().to_owned();

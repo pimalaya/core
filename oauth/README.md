@@ -1,29 +1,31 @@
-# oauth-lib
+# 👤 oauth-lib
 
-Rust library to deal with OAuth flows
+Asynchronous Rust library to deal with OAuth flows.
+
+- OAuth 2.0 Authorization Code Grant flow support
+- OAuth 2.0 Refresh Access Token flow support
+- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
+- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
+- [rustls](https://crates.io/crates/rustls) crypto support (requires `rustls` feature)
+- [native-tls](https://crates.io/crates/native-tls) crypto support (requires `native-tls` feature, and OpenSSL lib installed (or `vendored` feature))
+
+See examples at [`./examples`](https://github.com/pimalaya/core/tree/master/oauth/examples):
+
+```sh
+cargo run --example
+```
 
 *See the full API documentation on [docs.rs](https://docs.rs/oauth-lib/latest/oauth/).*
 
-## Development
-
-The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`…
-
-```sh
-# Start a Nix shell
-$ nix-shell
-
-# then build the lib
-$ cargo build -p oauth-lib
-```
-
 ## Sponsoring
 
-[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/project/Pimalaya/index.html)
+[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/)
 
-Special thanks to the [NLnet foundation](https://nlnet.nl/project/Pimalaya/index.html) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from:
+Special thanks to the [NLnet foundation](https://nlnet.nl/) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from various programs:
 
-- [NGI Assure](https://nlnet.nl/assure/) in 2022
-- [NGI Zero Entrust](https://nlnet.nl/entrust/) in 2023
+- [NGI Assure](https://nlnet.nl/project/Himalaya/) in 2022
+- [NGI Zero Entrust](https://nlnet.nl/project/Pimalaya/) in 2023
+- [NGI Zero Core](https://nlnet.nl/project/Pimalaya-PIM/) in 2024 *(still ongoing)*
 
 If you appreciate the project, feel free to donate using one of the following providers:
 

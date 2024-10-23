@@ -3,7 +3,7 @@
 
 mod error;
 
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use ureq::{
     config::Config,
@@ -11,7 +11,7 @@ use ureq::{
     Agent, AsSendBody,
 };
 pub use ureq::{
-    http::{Response, StatusCode, Uri},
+    http::{Method, Request, Response, StatusCode, Uri},
     Body,
 };
 
@@ -32,7 +32,6 @@ compile_error!("Either feature `rustls` or `native-tls` must be enabled for this
 
 #[derive(Clone, Debug)]
 pub struct Client {
-    config: Config,
     // TODO: pool?
     agent: Arc<Agent>,
 }
@@ -51,7 +50,15 @@ impl Client {
         let config = Config::builder().tls_config(tls.build()).build();
         let agent = Arc::new(config.new_agent());
 
-        Self { config, agent }
+        Self { agent }
+    }
+
+    pub async fn send(
+        &self,
+        f: impl Fn(&Agent) -> Result<Response<Body>> + Send + Sync + 'static,
+    ) -> Result<Response<Body>> {
+        let agent = self.agent.clone();
+        spawn_blocking(move || f(&agent)).await?
     }
 
     pub async fn get<U>(&self, uri: U) -> Result<Response<Body>>
@@ -77,6 +84,14 @@ impl Client {
             .map_err(|err| Error::SendPostRequestError(err, uri.into()))?;
 
         Ok(res)
+    }
+}
+
+impl Deref for Client {
+    type Target = Arc<Agent>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.agent
     }
 }
 

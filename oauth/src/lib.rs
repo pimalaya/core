@@ -1,10 +1,12 @@
+#![cfg_attr(docs_rs, feature(doc_cfg, doc_auto_cfg))]
+#![doc = include_str!("../README.md")]
+
 pub mod v2_0;
 
-use std::result;
 use thiserror::Error;
 
 /// The global `Result` alias of the library.
-pub type Result<T> = result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// The global `Error` enum of the library.
 #[derive(Debug, Error)]

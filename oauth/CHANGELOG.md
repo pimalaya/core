@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `tokio` and `async-std` cargo features (they are both mutually exclusive).
+- Added `rustls` and `native-tls` cargo features (they are both mutually exclusive).
+- Added `vendored` cargo feature.
+
+### Changed
+
+- Replaced `reqwest` by Pimalaya core `http` crate.
+- Bumped `oauth2@v5.0.0-rc.1`.
+- Changed `Client::new` signature: it requires now 3 additional arguments `redirect_scheme: impl ToString`, `redirect_host: impl ToString` and `redirect_port: impl Into<u16>`.
+
+### Removed
+
+- Removed `Client::with_redirect_host`.
+- Removed `Client::with_redirect_port`.
+
 ## [0.1.1] - 2024-04-06
 
 ### Added

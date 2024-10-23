@@ -1,9 +1,16 @@
-use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use std::env;
 
-#[tokio::main]
+#[cfg(feature = "async-std")]
+use async_std::main;
+use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
+#[cfg(feature = "tokio")]
+use tokio::main;
+
+#[test_log::test(main)]
 pub async fn main() {
-    let port = env::var("PORT")
+    let scheme = env::var("REDIRECT_SCHEME").unwrap_or(String::from("http"));
+    let host = env::var("REDIRECT_HOST").unwrap_or(String::from("localhost"));
+    let port = env::var("REDIRECT_PORT")
         .unwrap_or(String::from("9999"))
         .parse::<u16>()
         .expect("Invalid port");
@@ -16,14 +23,13 @@ pub async fn main() {
         client_secret,
         "https://accounts.google.com/o/oauth2/v2/auth",
         "https://www.googleapis.com/oauth2/v3/token",
+        scheme,
+        host,
+        port,
     )
-    .unwrap()
-    .with_redirect_port(port)
-    .build()
     .unwrap();
 
     let auth_code_grant = AuthorizationCodeGrant::new()
-        .with_redirect_port(port)
         .with_pkce()
         .with_scope("https://mail.google.com/");
 
