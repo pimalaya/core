@@ -16,7 +16,10 @@ use std::{fmt, io::Read};
 
 use async_recursion::async_recursion;
 use futures::{stream::FuturesUnordered, StreamExt};
-use http::{Body, Response, Uri};
+use http::ureq::{
+    http::{Response, Uri},
+    Body,
+};
 use native::{Deserializable, SignedPublicKey};
 use sha1::{Digest, Sha1};
 use tracing::debug;
@@ -172,7 +175,7 @@ async fn get_following_redirects(
     url: Uri,
     depth: i32,
 ) -> Result<Response<Body>> {
-    let response = client.get(url).await;
+    let response = client.send(move |agent| agent.get(url).call()).await;
 
     if depth < 0 {
         return Err(Error::RedirectOverflowError);

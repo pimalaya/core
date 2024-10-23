@@ -5,7 +5,7 @@
 //!
 //! [HKP specs]: https://datatracker.ietf.org/doc/html/draft-shaw-openpgp-hkp-00
 
-use http::Uri;
+use http::ureq::http::Uri;
 
 use crate::{Error, Result};
 

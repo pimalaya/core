@@ -9,4 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initiated repository with `HttpClient` with basic `GET` and `POST` support.
+- Added `tokio` and `async-std` cargo features (they are both mutually exclusive).
+- Added `rustls` and `native-tls` cargo features (they are both mutually exclusive).
+- Added `vendored` cargo feature.
+- Added `Client` main structure with `new` and `send` functions.

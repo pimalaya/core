@@ -4,8 +4,9 @@
 use std::ops::Deref;
 
 use oauth2::{
-    http::Method, AuthUrl, ClientId, ClientSecret, EndpointNotSet, EndpointSet, HttpRequest,
-    HttpResponse, RedirectUrl, TokenUrl,
+    http::{Method, Response},
+    AuthUrl, ClientId, ClientSecret, EndpointNotSet, EndpointSet, HttpRequest, HttpResponse,
+    RedirectUrl, TokenUrl,
 };
 
 use super::{Error, Result};
@@ -96,7 +97,7 @@ impl Client {
             })
             .await?;
 
-        let mut oauth2_response = http::Response::builder();
+        let mut oauth2_response = Response::builder();
 
         for (key, val) in response.headers() {
             oauth2_response = oauth2_response.header(key, val);

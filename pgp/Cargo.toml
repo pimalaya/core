@@ -21,7 +21,7 @@ default = [
   #"async-std",
   "rustls",
   #"native-tls",
-  #"key-discovery",
+  "key-discovery",
   #"vendored",
 ]
 

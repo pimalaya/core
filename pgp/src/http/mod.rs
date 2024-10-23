@@ -12,7 +12,7 @@ use std::{
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
-use http::Uri;
+use http::ureq::http::Uri;
 use native::{Deserializable, SignedPublicKey};
 use tracing::{debug, warn};
 
@@ -32,7 +32,10 @@ async fn fetch(client: &http::Client, email: &str, key_server: &str) -> Result<S
         _ => uri,
     };
 
-    let res = client.get(uri.clone()).await?;
+    let uri_clone = uri.clone();
+    let res = client
+        .send(move |agent| agent.get(uri_clone).call())
+        .await?;
 
     let status = res.status();
     let mut body = res.into_body();

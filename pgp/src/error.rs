@@ -36,16 +36,20 @@ pub enum Error {
     CompressMessageError(#[source] native::errors::Error),
     #[cfg(feature = "key-discovery")]
     #[error("cannot get public key at {1}: {2}: {0}")]
-    GetPublicKeyError(String, http::Uri, http::StatusCode),
+    GetPublicKeyError(String, http::ureq::http::Uri, http::ureq::http::StatusCode),
     #[cfg(feature = "key-discovery")]
     #[error("cannot read HTTP error from {1}: {2}")]
-    ReadHttpError(#[source] std::io::Error, http::Uri, http::StatusCode),
+    ReadHttpError(
+        #[source] std::io::Error,
+        http::ureq::http::Uri,
+        http::ureq::http::StatusCode,
+    ),
     #[cfg(feature = "key-discovery")]
     #[error("cannot read PGP public key from {1}")]
-    ReadPublicKeyError(#[source] std::io::Error, http::Uri),
+    ReadPublicKeyError(#[source] std::io::Error, http::ureq::http::Uri),
     #[cfg(feature = "key-discovery")]
     #[error("cannot parse PGP armored public key from {1}")]
-    ParsePublicKeyError(#[source] native::errors::Error, http::Uri),
+    ParsePublicKeyError(#[source] native::errors::Error, http::ureq::http::Uri),
     #[cfg(feature = "key-discovery")]
     #[error(transparent)]
     HttpError(#[from] http::Error),
@@ -95,7 +99,7 @@ pub enum Error {
     ParseUriError(#[source] http::Error, String),
     #[cfg(feature = "key-discovery")]
     #[error("cannot build key server URI from {1}")]
-    BuildKeyServerUriError(#[source] http::Error, http::Uri),
+    BuildKeyServerUriError(#[source] http::Error, http::ureq::http::Uri),
     #[error("cannot parse response: too many redirect")]
     RedirectOverflowError,
     #[error("cannot parse certificate")]

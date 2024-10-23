@@ -3,16 +3,14 @@
 
 mod error;
 
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
 
+pub use ureq;
 use ureq::{
     config::Config,
+    http::Response,
     tls::{RootCerts, TlsConfig, TlsProvider},
-    Agent, AsSendBody,
-};
-pub use ureq::{
-    http::{Method, Request, Response, StatusCode, Uri},
-    Body,
+    Agent, Body,
 };
 
 #[doc(inline)]
@@ -55,43 +53,13 @@ impl Client {
 
     pub async fn send(
         &self,
-        f: impl Fn(&Agent) -> Result<Response<Body>> + Send + Sync + 'static,
+        f: impl FnOnce(&Agent) -> std::result::Result<Response<Body>, ureq::Error> + Send + 'static,
     ) -> Result<Response<Body>> {
         let agent = self.agent.clone();
-        spawn_blocking(move || f(&agent)).await?
-    }
 
-    pub async fn get<U>(&self, uri: U) -> Result<Response<Body>>
-    where
-        U: Into<Uri> + Clone,
-    {
-        let req = self.agent.get(uri.clone());
-        let res = spawn_blocking(move || req.call())
+        spawn_blocking(move || f(&agent))
             .await?
-            .map_err(|err| Error::SendGetRequestError(err, uri.into()))?;
-
-        Ok(res)
-    }
-
-    pub async fn post<U, B>(&self, uri: U, body: B) -> Result<Response<Body>>
-    where
-        U: Into<Uri> + Clone,
-        B: AsSendBody + Send + 'static,
-    {
-        let req = self.agent.post(uri.clone());
-        let res = spawn_blocking(move || req.send(body))
-            .await?
-            .map_err(|err| Error::SendPostRequestError(err, uri.into()))?;
-
-        Ok(res)
-    }
-}
-
-impl Deref for Client {
-    type Target = Arc<Agent>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.agent
+            .map_err(Error::SendRequestError)
     }
 }
 
