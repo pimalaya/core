@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use imap_next::imap_types::sequence::{Sequence, SequenceSet};
+use tracing::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::MoveMessages;
-use crate::{debug, envelope::Id, imap::ImapContext, info, AnyResult};
+use crate::{envelope::Id, imap::ImapContext, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct MoveImapMessages {

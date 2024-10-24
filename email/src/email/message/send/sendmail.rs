@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use mail_parser::MessageParser;
+use tracing::{debug, info};
 
 use super::SendMessage;
-use crate::{debug, email::error::Error, info, sendmail::SendmailContextSync, AnyResult};
+use crate::{email::error::Error, sendmail::SendmailContextSync, AnyResult};
 
 #[derive(Clone)]
 pub struct SendSendmailMessage {
@@ -52,7 +53,7 @@ impl SendMessage for SendSendmailMessage {
 
         self.ctx
             .sendmail_config
-            .cmd
+            .cmd()
             .run_with(msg.raw_message())
             .await
             .map_err(Error::RunSendmailCommandError)?;

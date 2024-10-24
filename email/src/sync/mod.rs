@@ -23,13 +23,13 @@ use std::{
 use advisory_lock::{AdvisoryFileLock, FileLockMode};
 use dirs::{cache_dir, runtime_dir};
 use once_cell::sync::Lazy;
+use tracing::debug;
 
 #[doc(inline)]
 pub use self::error::{Error, Result};
 use self::{hash::SyncHash, report::SyncReport};
 use crate::{
     backend::{context::BackendContextBuilder, BackendBuilder},
-    debug,
     email::{self, sync::hunk::EmailSyncHunk},
     envelope::sync::config::EnvelopeSyncFilters,
     flag::sync::config::FlagSyncPermissions,
@@ -44,7 +44,6 @@ use crate::{
     maildir::{config::MaildirConfig, MaildirContextBuilder},
     message::sync::config::MessageSyncPermissions,
     sync::pool::{SyncPoolConfig, SyncPoolContextBuilder},
-    trace,
 };
 
 static RUNTIME_DIR: Lazy<PathBuf> = Lazy::new(|| {
@@ -564,8 +563,7 @@ impl SyncEvent {
     pub async fn emit(&self, handler: &Option<Arc<SyncEventHandler>>) {
         if let Some(handler) = handler.as_ref() {
             if let Err(err) = handler(self.clone()).await {
-                debug!("error while emitting sync event: {err}");
-                trace!("{err:?}");
+                debug!(?err, "error while emitting sync event");
             } else {
                 debug!("emitted sync event {self:?}");
             }

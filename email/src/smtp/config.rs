@@ -8,12 +8,13 @@ use std::{fmt, io};
 use std::{marker::PhantomData, result};
 
 use mail_send::Credentials;
+use tracing::debug;
 
 #[doc(inline)]
 pub use super::{Error, Result};
 #[cfg(feature = "oauth2")]
 use crate::account::config::oauth2::{OAuth2Config, OAuth2Method};
-use crate::{account::config::passwd::PasswdConfig, debug};
+use crate::account::config::passwd::PasswdConfig;
 
 /// The SMTP sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -197,28 +198,28 @@ impl SmtpAuthConfig {
     }
 
     #[cfg(feature = "keyring")]
-    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
+    pub fn replace_empty_secrets(&mut self, name: impl AsRef<str>) -> Result<()> {
         let name = name.as_ref();
 
         match self {
             SmtpAuthConfig::Passwd(secret) => {
                 secret
-                    .replace_undefined_to_keyring(format!("{name}-smtp-passwd"))
+                    .replace_with_keyring_if_empty(format!("{name}-smtp-passwd"))
                     .map_err(Error::ReplacingKeyringFailed)?;
             }
             #[cfg(feature = "oauth2")]
             SmtpAuthConfig::OAuth2(config) => {
                 config
                     .client_secret
-                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-client-secret"))
+                    .replace_with_keyring_if_empty(format!("{name}-smtp-oauth2-client-secret"))
                     .map_err(Error::ReplacingKeyringFailed)?;
                 config
                     .access_token
-                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-access-token"))
+                    .replace_with_keyring_if_empty(format!("{name}-smtp-oauth2-access-token"))
                     .map_err(Error::ReplacingKeyringFailed)?;
                 config
                     .refresh_token
-                    .replace_undefined_to_keyring(format!("{name}-smtp-oauth2-refresh-token"))
+                    .replace_with_keyring_if_empty(format!("{name}-smtp-oauth2-refresh-token"))
                     .map_err(Error::ReplacingKeyringFailed)?;
             }
         }

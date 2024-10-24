@@ -24,30 +24,31 @@
 
 pub mod config;
 pub mod dns;
-pub mod http;
 
-use std::{io, result, str::FromStr};
+use std::str::FromStr;
 
 use email_address::EmailAddress;
 use futures::{future::select_ok, FutureExt};
-use hyper::{StatusCode, Uri};
+use http::{
+    ureq::http::{StatusCode, Uri},
+    Client as HttpClient,
+};
 use thiserror::Error;
+use tracing::{debug, trace};
 
 use self::{
     config::{AutoConfig, EmailProvider},
     dns::DnsClient,
-    http::HttpClient,
 };
-use crate::{debug, trace};
 
 /// The global `Result` alias of the module.
-pub type Result<T> = result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("cannot create autoconfig HTTP connector")]
-    CreateHttpConnectorError(#[source] io::Error),
+    CreateHttpConnectorError(#[source] std::io::Error),
     #[error("cannot find any MX record at {0}")]
     GetMxRecordNotFoundError(String),
     #[error("cannot find any mailconf TXT record at {0}")]
@@ -61,15 +62,11 @@ pub enum Error {
     #[error("cannot do srv lookup: {0}")]
     LookUpSrvError(#[source] hickory_resolver::error::ResolveError),
     #[error("cannot get autoconfig from {0}: {1}")]
-    GetAutoConfigError(Uri, StatusCode),
-    #[error("cannot do a get request for autoconfig from {0}: {1}")]
-    GetConnectionAutoConfigError(Uri, #[source] hyper_util::client::legacy::Error),
-    #[error("cannot do a get request for autoconfig from {0}: {1}")]
-    GetBodyAutoConfigError(Uri, #[source] hyper::Error),
-    #[error("cannot get the body of response for autoconfig from {0}: {1}")]
-    ToBytesAutoConfigError(Uri, #[source] hyper::Error),
-    #[error("cannot decode the body of response for autoconfig from {0}: {1}")]
-    SerdeXmlFailedForAutoConfig(Uri, #[source] serde_xml_rs::Error),
+    GetAutoConfigError(String, StatusCode, Uri),
+    #[error("error while getting autoconfig from {1}")]
+    SendGetRequestError(#[source] http::Error, Uri),
+    #[error("cannot decode autoconfig of HTTP response body from {1}")]
+    SerdeXmlFailedForAutoConfig(#[source] serde_xml_rs::Error, Uri),
     #[error("cannot parse email {0}: {1}")]
     ParsingEmailAddress(String, #[source] email_address::Error),
 }
@@ -81,19 +78,15 @@ pub enum Error {
 pub async fn from_addr(addr: impl AsRef<str>) -> Result<AutoConfig> {
     let addr = EmailAddress::from_str(addr.as_ref())
         .map_err(|e| Error::ParsingEmailAddress(addr.as_ref().to_string(), e))?;
-    let http = HttpClient::new()?;
+    let http = HttpClient::new();
 
-    let res = from_isps(&http, &addr).await;
-
-    #[cfg(feature = "tracing")]
-    if let Err(err) = &res {
-        let addr = addr.to_string();
-        tracing::debug!(addr, ?err, "ISP discovery failed, trying DNS…");
-    }
-
-    match res {
+    match from_isps(&http, &addr).await {
         Ok(config) => Ok(config),
-        Err(_) => from_dns(&http, &addr).await,
+        Err(err) => {
+            let log = "ISP discovery failed, trying DNS…";
+            debug!(addr = addr.to_string(), ?err, "{log}");
+            from_dns(&http, &addr).await
+        }
     }
 }
 
@@ -110,35 +103,24 @@ async fn from_isps(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig>
         from_secure_main_isp(http, addr).boxed(),
     ];
 
-    let res = select_ok(from_main_isps).await;
-
-    #[cfg(feature = "tracing")]
-    if let Err(err) = &res {
-        let log = "main ISP discovery failed, trying alternative ISP…";
-        let addr = addr.to_string();
-        tracing::debug!(addr, ?err, "{log}");
-    }
-
-    match res {
+    match select_ok(from_main_isps).await {
         Ok((config, _)) => Ok(config),
-        Err(_) => {
+        Err(err) => {
+            let log = "main ISP discovery failed, trying alternative ISP…";
+            debug!(addr = addr.to_string(), ?err, "{log}");
+
             let from_alt_isps = [
                 from_plain_alt_isp(http, addr).boxed(),
                 from_secure_alt_isp(http, addr).boxed(),
             ];
 
-            let res = select_ok(from_alt_isps).await;
-
-            #[cfg(feature = "tracing")]
-            if let Err(err) = &res {
-                let log = "alternative ISP discovery failed, trying ISPDB…";
-                let addr = addr.to_string();
-                tracing::debug!(addr, ?err, "{log}");
-            }
-
-            match res {
+            match select_ok(from_alt_isps).await {
                 Ok((config, _)) => Ok(config),
-                Err(_) => from_ispdb(http, addr).await,
+                Err(err) => {
+                    let log = "alternative ISP discovery failed, trying ISPDB…";
+                    debug!(addr = addr.to_string(), ?err, "{log}");
+                    from_ispdb(http, addr).await
+                }
             }
         }
     }
@@ -164,7 +146,7 @@ async fn from_main_isp(http: &HttpClient, scheme: &str, addr: &EmailAddress) -> 
         format!("{scheme}://autoconfig.{domain}/mail/config-v1.1.xml?emailaddress={addr}");
     let uri = Uri::from_str(&uri_str).unwrap();
 
-    let config = http.get_config(uri).await?;
+    let config = get_config(http, uri).await?;
     debug!("successfully discovered config from ISP at {uri_str}");
     trace!("{config:#?}");
 
@@ -190,7 +172,7 @@ async fn from_alt_isp(http: &HttpClient, scheme: &str, addr: &EmailAddress) -> R
     let uri_str = format!("{scheme}://{domain}/.well-known/autoconfig/mail/config-v1.1.xml");
     let uri = Uri::from_str(&uri_str).unwrap();
 
-    let config = http.get_config(uri).await?;
+    let config = get_config(http, uri).await?;
     debug!("successfully discovered config from ISP at {uri_str}");
     trace!("{config:#?}");
 
@@ -204,7 +186,7 @@ async fn from_ispdb(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig
     let uri_str = format!("https://autoconfig.thunderbird.net/v1.1/{domain}");
     let uri = Uri::from_str(&uri_str).unwrap();
 
-    let config = http.get_config(uri).await?;
+    let config = get_config(http, uri).await?;
     debug!("successfully discovered config from ISPDB at {uri_str}");
     trace!("{config:#?}");
 
@@ -220,28 +202,18 @@ async fn from_dns(http: &HttpClient, addr: &EmailAddress) -> Result<AutoConfig> 
     let domain = addr.domain().trim_matches('.');
     let dns = DnsClient::new();
 
-    let res = from_dns_mx(http, &dns, addr).await;
-
-    #[cfg(feature = "tracing")]
-    if let Err(err) = &res {
-        let addr = addr.to_string();
-        tracing::debug!(addr, ?err, "MX discovery failed, trying TXT…");
-    }
-
-    match res {
+    match from_dns_mx(http, &dns, addr).await {
         Ok(config) => Ok(config),
-        Err(_) => {
-            let res = from_dns_txt(http, &dns, domain).await;
-
-            #[cfg(feature = "tracing")]
-            if let Err(err) = &res {
-                let addr = addr.to_string();
-                tracing::debug!(addr, ?err, "TXT discovery failed, trying SRV…");
-            }
-
-            match res {
+        Err(err) => {
+            let addr = addr.to_string();
+            debug!(addr, ?err, "MX discovery failed, trying TXT…");
+            match from_dns_txt(http, &dns, domain).await {
                 Ok(config) => Ok(config),
-                Err(_) => from_dns_srv(&dns, domain).await,
+                Err(err) => {
+                    let addr = addr.to_string();
+                    debug!(addr, ?err, "TXT discovery failed, trying SRV…");
+                    from_dns_srv(&dns, domain).await
+                }
             }
         }
     }
@@ -259,17 +231,13 @@ async fn from_dns_mx(
     let domain = domain.trim_matches('.');
     let addr = EmailAddress::from_str(&format!("{local_part}@{domain}")).unwrap();
 
-    let res = from_isps(http, &addr).await;
-
-    #[cfg(feature = "tracing")]
-    if let Err(err) = &res {
-        let addr = addr.to_string();
-        tracing::debug!(addr, ?err, "ISP discovery failed, trying TXT…");
-    }
-
-    match res {
+    match from_isps(http, &addr).await {
         Ok(config) => Ok(config),
-        Err(_) => from_dns_txt(http, dns, domain).await,
+        Err(err) => {
+            let addr = addr.to_string();
+            debug!(addr, ?err, "ISP discovery failed, trying TXT…");
+            from_dns_txt(http, dns, domain).await
+        }
     }
 }
 
@@ -278,7 +246,7 @@ async fn from_dns_mx(
 async fn from_dns_txt(http: &HttpClient, dns: &DnsClient, domain: &str) -> Result<AutoConfig> {
     let uri = dns.get_mailconf_txt_uri(domain).await?;
 
-    let config = http.get_config(uri).await?;
+    let config = get_config(http, uri).await?;
     debug!("successfully discovered config from {domain} TXT record");
     trace!("{config:#?}");
 
@@ -381,4 +349,32 @@ async fn from_dns_srv(
     trace!("{config:#?}");
 
     Ok(config)
+}
+
+/// Send a GET request to the given URI and try to parse response
+/// as autoconfig.
+pub async fn get_config(http: &HttpClient, uri: Uri) -> Result<AutoConfig> {
+    let uri_clone = uri.clone();
+    let res = http
+        .send(move |agent| agent.get(uri_clone).call())
+        .await
+        .map_err(|err| Error::SendGetRequestError(err, uri.clone()))?;
+
+    let status = res.status();
+    let mut body = res.into_body();
+
+    // If we got an error response we return an error
+    if !status.is_success() {
+        let err = match body.read_to_string() {
+            Ok(err) => err,
+            Err(err) => {
+                format!("unparsable error: {err}")
+            }
+        };
+
+        return Err(Error::GetAutoConfigError(err, status, uri.clone()));
+    }
+
+    serde_xml_rs::from_reader(body.as_reader())
+        .map_err(|err| Error::SerdeXmlFailedForAutoConfig(err, uri))
 }

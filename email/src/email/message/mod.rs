@@ -192,9 +192,8 @@ impl Messages {
                 .iter()
                 .filter_map(|items| match Message::try_from(items.as_ref()) {
                     Ok(msg) => Some(msg),
-                    Err(_err) => {
-                        crate::debug!("cannot build imap message: {_err}");
-                        crate::trace!("{_err:#?}");
+                    Err(err) => {
+                        tracing::debug!(?err, "cannot build imap message");
                         None
                     }
                 })

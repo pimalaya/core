@@ -29,7 +29,7 @@ pub enum NativePgpSecretKey {
     /// The native PGP secret key is located at the given path.
     Path(PathBuf),
 
-    #[cfg(feature = "secret-keyring")]
+    #[cfg(feature = "keyring")]
     /// The native PGP secret key is located in the user's global
     /// keyring at the given entry.
     Keyring(secret::keyring::KeyringEntry),
@@ -53,7 +53,7 @@ impl NativePgpSecretKey {
                     .map_err(Error::ReadNativePgpSecretKeyError)?;
                 Ok(skey)
             }
-            #[cfg(feature = "secret-keyring")]
+            #[cfg(feature = "keyring")]
             Self::Keyring(entry) => {
                 let data = entry
                     .get_secret()
@@ -129,9 +129,7 @@ impl NativePgp {
                 }
                 NativePgpPublicKeysResolver::Wkd => {
                     let recipients_clone = recipients.clone().into_iter().collect();
-                    let wkd_pkeys = pgp::http::wkd::get_all(recipients_clone)
-                        .await
-                        .map_err(Error::GetAllPublicKeysUsingWkd)?;
+                    let wkd_pkeys = pgp::http::wkd::get_all(recipients_clone).await;
 
                     pkeys.extend(wkd_pkeys.into_iter().fold(
                         Vec::new(),
@@ -155,9 +153,8 @@ impl NativePgp {
                 }
                 NativePgpPublicKeysResolver::KeyServers(key_servers) => {
                     let recipients_clone = recipients.clone().into_iter().collect();
-                    let http_pkeys = pgp::http::get_all(recipients_clone, key_servers.to_owned())
-                        .await
-                        .map_err(Error::GetAllPublicKeysUsingKeyServers)?;
+                    let http_pkeys =
+                        pgp::http::get_all(recipients_clone, key_servers.to_owned()).await;
 
                     pkeys.extend(http_pkeys.into_iter().fold(
                         Vec::default(),

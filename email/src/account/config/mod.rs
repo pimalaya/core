@@ -27,6 +27,7 @@ use mml::MimeInterpreterBuilder;
 use notify_rust::Notification;
 use process::Command;
 use shellexpand_utils::{shellexpand_path, shellexpand_str, try_shellexpand_path};
+use tracing::debug;
 
 #[cfg(feature = "pgp")]
 use self::pgp::PgpConfig;
@@ -36,7 +37,6 @@ use super::sync::config::SyncConfig;
 pub use super::{Error, Result};
 use crate::{
     date::from_mail_parser_to_chrono_datetime,
-    debug,
     email::config::EmailTextPlainFormat,
     envelope::{config::EnvelopeConfig, Envelope},
     flag::config::FlagConfig,

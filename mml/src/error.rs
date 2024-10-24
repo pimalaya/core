@@ -18,7 +18,7 @@ pub enum Error {
     #[error("cannot sign part using pgp: missing sender")]
     PgpSignMissingSenderError,
 
-    #[cfg(all(feature = "pgp-native", feature = "secret-keyring"))]
+    #[cfg(all(feature = "pgp-native", feature = "keyring"))]
     #[error("cannot get pgp secret key from keyring")]
     GetSecretKeyFromKeyringError(#[source] secret::keyring::Error),
 
@@ -34,15 +34,9 @@ pub enum Error {
     #[error("cannot get pgp secret key passphrase from keyring")]
     GetSecretKeyPassphraseFromKeyringError(#[source] secret::Error),
 
-    #[cfg(all(feature = "pgp-native", feature = "secret-keyring"))]
+    #[cfg(all(feature = "pgp-native", feature = "keyring"))]
     #[error("cannot get pgp secret key from keyring")]
     GetPgpSecretKeyFromKeyringError(#[source] secret::keyring::Error),
-    #[cfg(feature = "pgp-native")]
-    #[error("cannot get all public keys from WKD")]
-    GetAllPublicKeysUsingWkd(#[source] pgp::Error),
-    #[cfg(feature = "pgp-native")]
-    #[error("cannot get all public keys from key server")]
-    GetAllPublicKeysUsingKeyServers(#[source] pgp::Error),
 
     #[error("cannot get native pgp secret key of {0}")]
     GetNativePgpSecretKeyNoneError(String),

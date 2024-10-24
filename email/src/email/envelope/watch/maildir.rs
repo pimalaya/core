@@ -3,15 +3,14 @@ use std::{collections::HashMap, sync::mpsc};
 use async_trait::async_trait;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::oneshot::{Receiver, Sender};
+use tracing::{debug, info, trace};
 
 use super::WatchEnvelopes;
 use crate::{
-    debug,
     email::error::Error,
     envelope::{Envelope, Envelopes},
-    info,
     maildir::MaildirContextSync,
-    trace, AnyResult,
+    AnyResult,
 };
 
 pub struct WatchMaildirEnvelopes {

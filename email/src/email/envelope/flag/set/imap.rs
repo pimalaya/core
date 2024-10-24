@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use imap_next::imap_types::sequence::{Sequence, SequenceSet};
+use tracing::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{Flags, SetFlags};
-use crate::{debug, envelope::Id, imap::ImapContext, info, AnyResult, Error};
+use crate::{envelope::Id, imap::ImapContext, AnyResult, Error};
 
 #[derive(Clone, Debug)]
 pub struct SetImapFlags {
@@ -45,9 +46,8 @@ impl SetFlags for SetImapFlags {
                 .filter_map(|id| {
                     let seq = Sequence::try_from(id.as_str());
 
-                    #[cfg(feature = "tracing")]
                     if let Err(err) = &seq {
-                        tracing::debug!(?id, ?err, "skipping invalid sequence");
+                        debug!(?id, ?err, "skipping invalid sequence");
                     }
 
                     seq.ok()

@@ -1,9 +1,10 @@
 use std::fs;
 
 use async_trait::async_trait;
+use tracing::info;
 
 use super::{Messages, PeekMessages};
-use crate::{email::error::Error, envelope::Id, info, notmuch::NotmuchContextSync, AnyResult};
+use crate::{email::error::Error, envelope::Id, notmuch::NotmuchContextSync, AnyResult};
 
 #[derive(Clone)]
 pub struct PeekNotmuchMessages {

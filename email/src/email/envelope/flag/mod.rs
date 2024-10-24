@@ -24,10 +24,12 @@ use std::{
     str::FromStr,
 };
 
+use tracing::debug;
+
 #[cfg(feature = "sync")]
 #[doc(inline)]
 pub use self::sync::sync;
-use crate::{debug, email::error::Error};
+use crate::email::error::Error;
 
 /// The email envelope flag.
 ///
@@ -175,7 +177,6 @@ impl From<&str> for Flags {
         s.split_whitespace()
             .filter_map(|flag| match flag.parse() {
                 Ok(flag) => Some(flag),
-                #[cfg_attr(not(feature = "tracing"), allow(unused_variables))]
                 Err(err) => {
                     debug!("cannot parse flag {flag}, skipping it: {err}");
                     debug!("{err:?}");

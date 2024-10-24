@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use maildirs::{Maildir, Maildirs};
 use shellexpand_utils::{shellexpand_path, try_shellexpand_path};
 use tokio::sync::Mutex;
+use tracing::info;
 
 use self::config::MaildirConfig;
 #[doc(inline)]
@@ -37,7 +38,6 @@ use crate::{
         list::{maildir::ListMaildirFolders, ListFolders},
         FolderKind,
     },
-    info,
     message::{
         add::{maildir::AddMaildirMessage, AddMessage},
         copy::{maildir::CopyMaildirMessages, CopyMessages},

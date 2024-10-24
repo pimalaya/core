@@ -1,7 +1,8 @@
 use async_trait::async_trait;
+use tracing::info;
 
 use super::ListFolders;
-use crate::{folder::Folders, info, maildir::MaildirContextSync, AnyResult};
+use crate::{folder::Folders, maildir::MaildirContextSync, AnyResult};
 
 pub struct ListMaildirFolders {
     ctx: MaildirContextSync,

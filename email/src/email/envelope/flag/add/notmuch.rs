@@ -1,10 +1,11 @@
 use async_trait::async_trait;
 use maildirs::MaildirEntry;
+use tracing::{debug, info};
 
 use super::{AddFlags, Flags};
 use crate::{
-    debug, email::error::Error, envelope::Id, flag::Flag, folder::FolderKind, info,
-    notmuch::NotmuchContextSync, AnyResult,
+    email::error::Error, envelope::Id, flag::Flag, folder::FolderKind, notmuch::NotmuchContextSync,
+    AnyResult,
 };
 
 #[derive(Clone)]

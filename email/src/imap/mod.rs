@@ -33,6 +33,7 @@ use tokio::{
     sync::{oneshot, Mutex, MutexGuard},
     time::sleep,
 };
+use tracing::{debug, instrument, trace, warn};
 
 use self::config::{ImapAuthConfig, ImapConfig};
 #[doc(inline)]
@@ -43,15 +44,12 @@ use crate::account::config::oauth2::OAuth2Method;
 use crate::envelope::thread::{imap::ThreadImapEnvelopes, ThreadEnvelopes};
 #[cfg(feature = "watch")]
 use crate::envelope::watch::{imap::WatchImapEnvelopes, WatchEnvelopes};
-#[cfg(feature = "oauth2")]
-use crate::warn;
 use crate::{
     account::config::AccountConfig,
     backend::{
         context::{BackendContext, BackendContextBuilder},
         feature::{BackendFeature, CheckUp},
     },
-    debug,
     envelope::{
         get::{imap::GetImapEnvelope, GetEnvelope},
         imap::FETCH_ENVELOPES,
@@ -171,20 +169,16 @@ impl ImapClient {
             RetryState::Ok(Err(ClientError::Stream(err))) => {
                 match err {
                     StreamError::State(SchedulerError::UnexpectedByeResponse(bye)) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::debug!(reason = bye.text.to_string(), "stream closed");
+                        debug!(reason = bye.text.to_string(), "stream closed");
                     }
                     StreamError::Io(err) if err.kind() == ConnectionReset => {
-                        #[cfg(feature = "tracing")]
-                        tracing::debug!("connection reset");
+                        debug!("connection reset");
                     }
                     StreamError::Closed => {
-                        #[cfg(feature = "tracing")]
-                        tracing::debug!("stream closed");
+                        debug!("stream closed");
                     }
                     StreamError::Io(err) if err.kind() == ConnectionReset => {
-                        #[cfg(feature = "tracing")]
-                        tracing::debug!("connection reset");
+                        debug!("connection reset");
                     }
                     err => {
                         let err = ClientError::Stream(err);
@@ -192,8 +186,7 @@ impl ImapClient {
                     }
                 };
 
-                #[cfg(feature = "tracing")]
-                tracing::debug!("re-connecting…");
+                debug!("re-connecting…");
 
                 self.inner = self.client_builder.build().await?;
 
@@ -217,7 +210,7 @@ impl ImapClient {
         self.inner.ext_sort_supported()
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn noop(&mut self) -> Result<()> {
         self.retry.reset();
 
@@ -232,7 +225,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn select_mailbox(&mut self, mbox: impl ToString) -> Result<SelectDataUnvalidated> {
         self.retry.reset();
 
@@ -254,7 +247,7 @@ impl ImapClient {
         Ok(data)
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn examine_mailbox(&mut self, mbox: impl ToString) -> Result<SelectDataUnvalidated> {
         self.retry.reset();
 
@@ -272,7 +265,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn create_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
         self.retry.reset();
 
@@ -290,7 +283,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn list_all_mailboxes(&mut self, config: &AccountConfig) -> Result<Folders> {
         self.retry.reset();
 
@@ -309,7 +302,7 @@ impl ImapClient {
         Ok(folders)
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn expunge_mailbox(&mut self, mbox: impl ToString) -> Result<usize> {
         self.select_mailbox(mbox).await?;
 
@@ -328,7 +321,7 @@ impl ImapClient {
         Ok(expunged.len())
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn purge_mailbox(&mut self, mbox: impl ToString) -> Result<usize> {
         self.select_mailbox(mbox).await?;
 
@@ -348,7 +341,7 @@ impl ImapClient {
         Ok(expunged.len())
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn delete_mailbox(&mut self, mbox: impl ToString) -> Result<()> {
         self.retry.reset();
 
@@ -366,7 +359,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn fetch_envelopes(&mut self, uids: SequenceSet) -> Result<Envelopes> {
         self.retry.reset();
 
@@ -386,7 +379,7 @@ impl ImapClient {
         Ok(Envelopes::from_imap_data_items(fetches))
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn fetch_envelopes_map(
         &mut self,
         uids: SequenceSet,
@@ -415,7 +408,7 @@ impl ImapClient {
         Ok(map)
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn fetch_first_envelope(&mut self, uid: u32) -> Result<Envelope> {
         let items = loop {
             let task = self
@@ -434,7 +427,7 @@ impl ImapClient {
         Ok(Envelope::from_imap_data_items(items.as_ref()))
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn fetch_envelopes_by_sequence(&mut self, seq: SequenceSet) -> Result<Envelopes> {
         let fetches = loop {
             let res = self
@@ -452,13 +445,13 @@ impl ImapClient {
         Ok(Envelopes::from_imap_data_items(fetches))
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn fetch_all_envelopes(&mut self) -> Result<Envelopes> {
         self.fetch_envelopes_by_sequence("1:*".try_into().unwrap())
             .await
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn sort_uids(
         &mut self,
         sort_criteria: impl IntoIterator<Item = SortCriterion> + Clone,
@@ -479,7 +472,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn search_uids(
         &mut self,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
@@ -498,7 +491,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn sort_envelopes(
         &mut self,
         sort_criteria: impl IntoIterator<Item = SortCriterion> + Clone,
@@ -523,7 +516,7 @@ impl ImapClient {
         Ok(Envelopes::from(fetches))
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn thread_envelopes(
         &mut self,
         search_criteria: impl IntoIterator<Item = SearchKey<'static>> + Clone,
@@ -543,7 +536,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn idle(
         &mut self,
         wait_for_shutdown_request: &mut oneshot::Receiver<()>,
@@ -563,7 +556,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn add_flags(
         &mut self,
         uids: SequenceSet,
@@ -584,7 +577,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn add_deleted_flag(
         &mut self,
         uids: SequenceSet,
@@ -604,7 +597,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn add_deleted_flag_silently(&mut self, uids: SequenceSet) -> Result<()> {
         loop {
             let task =
@@ -621,7 +614,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn add_flags_silently(
         &mut self,
         uids: SequenceSet,
@@ -642,7 +635,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn set_flags(
         &mut self,
         uids: SequenceSet,
@@ -663,7 +656,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn set_flags_silently(
         &mut self,
         uids: SequenceSet,
@@ -684,7 +677,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn remove_flags(
         &mut self,
         uids: SequenceSet,
@@ -705,7 +698,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn remove_flags_silently(
         &mut self,
         uids: SequenceSet,
@@ -726,7 +719,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn add_message(
         &mut self,
         mbox: impl ToString,
@@ -750,7 +743,7 @@ impl ImapClient {
         id.ok_or(Error::FindAppendedMessageUidError)
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn fetch_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
         let mut fetches = loop {
             let res = self
@@ -773,7 +766,7 @@ impl ImapClient {
         Ok(Messages::from(fetches))
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn peek_messages(&mut self, uids: SequenceSet) -> Result<Messages> {
         let mut fetches = loop {
             let res = self
@@ -796,7 +789,7 @@ impl ImapClient {
         Ok(Messages::from(fetches))
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn copy_messages(&mut self, uids: SequenceSet, mbox: impl ToString) -> Result<()> {
         loop {
             let res = self
@@ -812,7 +805,7 @@ impl ImapClient {
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(client = self.id)))]
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn move_messages(&mut self, uids: SequenceSet, mbox: impl ToString) -> Result<()> {
         loop {
             let res = self
@@ -863,17 +856,12 @@ impl ImapContext {
                 .find_map(|client| client.try_lock().ok());
 
             if let Some(ctx) = lock {
-                #[cfg(feature = "tracing")]
-                {
-                    let total = self.clients.len();
-                    let id = ctx.id;
-                    tracing::debug!("client {id}/{total} is free, locking it");
-                }
-
+                let total = self.clients.len();
+                let id = ctx.id;
+                debug!("client {id}/{total} is free, locking it");
                 break ctx;
             } else {
-                #[cfg(feature = "tracing")]
-                tracing::trace!("no free client, sleeping for 1s");
+                trace!("no free client, sleeping for 1s");
                 sleep(Duration::from_secs(1)).await;
             }
         }
@@ -1022,8 +1010,7 @@ impl BackendContextBuilder for ImapContextBuilder {
         let client_builder =
             ImapClientBuilder::new(self.imap_config.clone(), self.prebuilt_credentials);
 
-        #[cfg(feature = "tracing")]
-        tracing::debug!("building {} IMAP clients", self.pool_size);
+        debug!("building {} IMAP clients", self.pool_size);
 
         let clients = FuturesUnordered::from_iter((0..self.pool_size).map(move |i| {
             let mut client_builder = client_builder.clone();
@@ -1079,7 +1066,7 @@ impl CheckUpImap {
 
 #[async_trait]
 impl CheckUp for CheckUpImap {
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[instrument(skip_all)]
     async fn check_up(&self) -> AnyResult<()> {
         debug!("executing check up backend feature");
         Ok(self.ctx.client().await.noop().await?)
@@ -1107,10 +1094,7 @@ impl ImapClientBuilder {
     /// every time a new session is created. The main use case is for
     /// the synchronization, where multiple sessions can be created in
     /// a row.
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(name = "client::build", skip(self))
-    )]
+    #[instrument(name = "client::build", skip(self))]
     pub async fn build(&mut self) -> Result<Client> {
         let mut client = match &self.config.encryption {
             Some(ImapEncryptionKind::None) | None => {
@@ -1143,9 +1127,8 @@ impl ImapClientBuilder {
         client.set_some_idle_timeout(self.config.find_watch_timeout().map(Duration::from_secs));
 
         match &self.config.auth {
-            ImapAuthConfig::Passwd(passwd) => {
-                #[cfg(feature = "tracing")]
-                tracing::debug!("using password authentication");
+            ImapAuthConfig::Password(passwd) => {
+                debug!("using password authentication");
 
                 let passwd = match self.credentials.as_ref() {
                     Some(passwd) => passwd.to_string(),
@@ -1162,12 +1145,10 @@ impl ImapClientBuilder {
                 let mechanisms: Vec<_> = client.supported_auth_mechanisms().cloned().collect();
                 let mut authenticated = false;
 
-                #[cfg(feature = "tracing")]
-                tracing::debug!(?mechanisms, "supported auth mechanisms");
+                debug!(?mechanisms, "supported auth mechanisms");
 
                 for mechanism in mechanisms {
-                    #[cfg(feature = "tracing")]
-                    tracing::debug!(?mechanism, "trying auth mechanism…");
+                    debug!(?mechanism, "trying auth mechanism…");
 
                     let auth = match mechanism {
                         AuthMechanism::Plain => {
@@ -1186,14 +1167,12 @@ impl ImapClientBuilder {
                         }
                     };
 
-                    #[cfg(feature = "tracing")]
                     if let Err(ref err) = auth {
-                        tracing::warn!(?mechanism, ?err, "authentication failed");
+                        warn!(?mechanism, ?err, "authentication failed");
                     }
 
                     if auth.is_ok() {
-                        #[cfg(feature = "tracing")]
-                        tracing::debug!(?mechanism, "authentication succeeded!");
+                        debug!(?mechanism, "authentication succeeded!");
                         authenticated = true;
                         break;
                     }
@@ -1204,22 +1183,19 @@ impl ImapClientBuilder {
                         return Err(Error::LoginNotSupportedError);
                     }
 
-                    #[cfg(feature = "tracing")]
-                    tracing::debug!("trying login…");
+                    debug!("trying login…");
 
                     client
                         .login(self.config.login.as_str(), passwd.as_str())
                         .await
                         .map_err(Error::LoginError)?;
 
-                    #[cfg(feature = "tracing")]
-                    tracing::debug!("login succeeded!");
+                    debug!("login succeeded!");
                 }
             }
             #[cfg(feature = "oauth2")]
             ImapAuthConfig::OAuth2(oauth2) => {
-                #[cfg(feature = "tracing")]
-                tracing::debug!("using OAuth 2.0 authentication");
+                debug!("using OAuth 2.0 authentication");
 
                 match oauth2.method {
                     OAuth2Method::XOAuth2 => {
@@ -1312,13 +1288,9 @@ impl ImapClientBuilder {
         };
 
         if self.config.send_id_after_auth() {
-            #[cfg(feature = "tracing")]
-            {
-                let params = ID_PARAMS.clone();
-                tracing::debug!(?params, "client identity");
-            }
+            let params = ID_PARAMS.clone();
+            debug!(?params, "client identity");
 
-            #[cfg_attr(not(feature = "tracing"), allow(unused_variables))]
             let params = client
                 .id(Some(ID_PARAMS.clone()))
                 .await
@@ -1329,8 +1301,7 @@ impl ImapClientBuilder {
 
         // TODO: make it customizable
         //
-        // #[cfg(feature = "tracing")]
-        // tracing::debug!("enabling UTF8 capability…");
+        // debug!("enabling UTF8 capability…");
         //
         // client
         //     .enable(Some(CapabilityEnable::Utf8(Utf8Kind::Accept)))

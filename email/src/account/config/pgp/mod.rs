@@ -3,6 +3,8 @@
 //! This module contains everything related to PGP configuration.
 #[cfg(feature = "pgp-commands")]
 pub mod cmds;
+#[cfg(feature = "derive")]
+pub mod derive;
 #[cfg(feature = "pgp-gpg")]
 pub mod gpg;
 #[cfg(feature = "pgp-native")]
@@ -29,14 +31,12 @@ pub use super::{Error, Result};
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case", tag = "backend")
+    serde(rename_all = "kebab-case", tag = "backend"),
+    serde(from = "derive::PgpConfig")
 )]
 pub enum PgpConfig {
     #[cfg(feature = "pgp-commands")]
-    #[cfg_attr(
-        feature = "derive",
-        serde(alias = "cmd", alias = "command", alias = "commands")
-    )]
+    #[cfg_attr(feature = "derive", serde(rename = "commands"))]
     /// Commands configuration.
     Cmds(CmdsPgpConfig),
 

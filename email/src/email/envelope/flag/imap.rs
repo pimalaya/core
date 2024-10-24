@@ -10,9 +10,10 @@ use imap_next::imap_types::{
     flag::{Flag as ImapFlag, FlagFetch},
     search::SearchKey,
 };
+use tracing::{debug, trace};
 
 use super::{Flag, Flags};
-use crate::{debug, email::error::Error, trace};
+use crate::email::error::Error;
 
 impl Flags {
     pub fn from_imap_flag_fetches(fetches: &[FlagFetch<'_>]) -> Self {

@@ -247,4 +247,16 @@ impl Secret {
             *self = new
         }
     }
+
+    /// Replace empty secret variant with a keyring one.
+    ///
+    /// This function has no effect on other variants.
+    #[cfg(feature = "keyring")]
+    pub fn replace_with_keyring_if_empty(&mut self, entry: impl ToString) -> Result<()> {
+        if self.is_empty() {
+            *self = Self::try_new_keyring_entry(entry.to_string())?;
+        }
+
+        Ok(())
+    }
 }

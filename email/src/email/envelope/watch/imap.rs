@@ -2,10 +2,11 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tokio::sync::oneshot::{Receiver, Sender};
+use tracing::{debug, info};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::WatchEnvelopes;
-use crate::{debug, envelope::Envelope, imap::ImapContext, info, AnyResult};
+use crate::{envelope::Envelope, imap::ImapContext, AnyResult};
 
 #[derive(Clone, Debug)]
 pub struct WatchImapEnvelopes {

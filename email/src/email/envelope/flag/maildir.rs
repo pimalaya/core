@@ -6,12 +6,10 @@
 use std::collections::HashSet;
 
 use maildirs::MaildirEntry;
+use tracing::debug;
 
 use super::{Flag, Flags};
-use crate::{
-    debug,
-    email::error::{Error, Result},
-};
+use crate::email::error::{Error, Result};
 
 impl TryFrom<MaildirEntry> for Flags {
     type Error = Error;

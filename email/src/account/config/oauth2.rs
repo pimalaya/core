@@ -7,10 +7,10 @@ use std::{fmt, io, net::TcpListener, vec};
 
 use oauth::v2_0::{AuthorizationCodeGrant, Client, RefreshAccessToken};
 use secret::Secret;
+use tracing::debug;
 
 #[doc(inline)]
 pub use super::{Error, Result};
-use crate::debug;
 
 /// The OAuth 2.0 configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -32,7 +32,7 @@ pub struct OAuth2Config {
     /// [Section 2.2](https://datatracker.ietf.org/doc/html/rfc6749#section-2.2).
     #[cfg_attr(
         feature = "derive",
-        serde(default, skip_serializing_if = "Secret::is_undefined")
+        serde(default, skip_serializing_if = "Secret::is_empty")
     )]
     pub client_secret: Secret,
 
@@ -46,7 +46,7 @@ pub struct OAuth2Config {
     /// protected resources.
     #[cfg_attr(
         feature = "derive",
-        serde(default, skip_serializing_if = "Secret::is_undefined")
+        serde(default, skip_serializing_if = "Secret::is_empty")
     )]
     pub access_token: Secret,
 
@@ -54,7 +54,7 @@ pub struct OAuth2Config {
     /// by the authorization server).
     #[cfg_attr(
         feature = "derive",
-        serde(default, skip_serializing_if = "Secret::is_undefined")
+        serde(default, skip_serializing_if = "Secret::is_empty")
     )]
     pub refresh_token: Secret,
 
@@ -63,6 +63,7 @@ pub struct OAuth2Config {
     /// Each character must be ASCII alphanumeric or one of the characters “-” / “.” / “_” / “~”.
     pub pkce: bool,
 
+    pub redirect_scheme: Option<String>,
     pub redirect_host: Option<String>,
     pub redirect_port: Option<u16>,
 
@@ -84,15 +85,15 @@ impl OAuth2Config {
     /// Resets the three secrets of the OAuth 2.0 configuration.
     pub async fn reset(&self) -> Result<()> {
         self.client_secret
-            .delete_only_keyring()
+            .delete_if_keyring()
             .await
             .map_err(Error::DeleteClientSecretOauthError)?;
         self.access_token
-            .delete_only_keyring()
+            .delete_if_keyring()
             .await
             .map_err(Error::DeleteAccessTokenOauthError)?;
         self.refresh_token
-            .delete_only_keyring()
+            .delete_if_keyring()
             .await
             .map_err(Error::DeleteRefreshTokenOauthError)?;
         Ok(())
@@ -109,6 +110,11 @@ impl OAuth2Config {
             return Ok(());
         }
 
+        let redirect_scheme = match self.redirect_scheme.as_ref() {
+            Some(scheme) => scheme.clone(),
+            None => "http".into(),
+        };
+
         let redirect_host = match self.redirect_host.as_ref() {
             Some(host) => host.clone(),
             None => OAuth2Config::LOCALHOST.to_owned(),
@@ -123,7 +129,7 @@ impl OAuth2Config {
             Ok(None) => {
                 debug!("cannot find oauth2 client secret from keyring, setting it");
                 self.client_secret
-                    .set_only_keyring(
+                    .set_if_keyring(
                         get_client_secret().map_err(Error::GetClientSecretFromUserOauthError)?,
                     )
                     .await
@@ -138,16 +144,13 @@ impl OAuth2Config {
             client_secret,
             self.auth_url.clone(),
             self.token_url.clone(),
+            redirect_scheme,
+            redirect_host,
+            redirect_port,
         )
-        .map_err(Error::InitOauthClientError)?
-        .with_redirect_host(redirect_host)
-        .with_redirect_port(redirect_port)
-        .build()
         .map_err(Error::BuildOauthClientError)?;
 
-        let mut auth_code_grant = AuthorizationCodeGrant::new()
-            .with_redirect_host(OAuth2Config::LOCALHOST.to_owned())
-            .with_redirect_port(redirect_port);
+        let mut auth_code_grant = AuthorizationCodeGrant::new();
 
         if self.pkce {
             auth_code_grant = auth_code_grant.with_pkce();
@@ -169,13 +172,13 @@ impl OAuth2Config {
             .map_err(Error::WaitForOauthRedirectionError)?;
 
         self.access_token
-            .set_only_keyring(access_token)
+            .set_if_keyring(access_token)
             .await
             .map_err(Error::SetAccessTokenOauthError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
-                .set_only_keyring(refresh_token)
+                .set_if_keyring(refresh_token)
                 .await
                 .map_err(Error::SetRefreshTokenOauthError)?;
         }
@@ -186,7 +189,20 @@ impl OAuth2Config {
     /// Runs the refresh access token OAuth 2.0 flow by exchanging a
     /// refresh token with a new pair of access/refresh token.
     pub async fn refresh_access_token(&self) -> Result<String> {
-        let redirect_port = OAuth2Config::get_first_available_port()?;
+        let redirect_scheme = match self.redirect_scheme.as_ref() {
+            Some(scheme) => scheme.clone(),
+            None => "http".into(),
+        };
+
+        let redirect_host = match self.redirect_host.as_ref() {
+            Some(host) => host.clone(),
+            None => OAuth2Config::LOCALHOST.to_owned(),
+        };
+
+        let redirect_port = match self.redirect_port {
+            Some(port) => port,
+            None => OAuth2Config::get_first_available_port()?,
+        };
 
         let client_secret = self
             .client_secret
@@ -199,11 +215,10 @@ impl OAuth2Config {
             client_secret,
             self.auth_url.clone(),
             self.token_url.clone(),
+            redirect_scheme,
+            redirect_host,
+            redirect_port,
         )
-        .map_err(Error::InitOauthClientError)?
-        .with_redirect_host(OAuth2Config::LOCALHOST.to_owned())
-        .with_redirect_port(redirect_port)
-        .build()
         .map_err(Error::BuildOauthClientError)?;
 
         let refresh_token = self
@@ -218,13 +233,13 @@ impl OAuth2Config {
             .map_err(Error::RefreshAccessTokenOauthError)?;
 
         self.access_token
-            .set_only_keyring(&access_token)
+            .set_if_keyring(&access_token)
             .await
             .map_err(Error::SetAccessTokenOauthError)?;
 
         if let Some(refresh_token) = &refresh_token {
             self.refresh_token
-                .set_only_keyring(refresh_token)
+                .set_if_keyring(refresh_token)
                 .await
                 .map_err(Error::SetRefreshTokenOauthError)?;
         }

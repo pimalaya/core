@@ -47,7 +47,7 @@ derive = ["dep:serde"]
 vendored = ["native/vendored"]
 
 [dev-dependencies]
-async-std = { version = "1.13", features = ["unstable", "attributes"] }
+async-std = { version = "1.13", features = ["attributes"] }
 test-log = { version = "0.2", default-features = false, features = ["color", "trace"] }
 tokio = { version = "1.23", features = ["full"] }
 

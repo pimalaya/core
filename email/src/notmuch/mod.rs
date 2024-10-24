@@ -8,6 +8,7 @@ use maildirs::Maildirs;
 use notmuch::{Database, DatabaseMode};
 use shellexpand_utils::shellexpand_path;
 use tokio::sync::Mutex;
+use tracing::info;
 
 use self::config::NotmuchConfig;
 #[doc(inline)]
@@ -31,7 +32,6 @@ use crate::{
         add::{notmuch::AddNotmuchFolder, AddFolder},
         list::{notmuch::ListNotmuchFolders, ListFolders},
     },
-    info,
     maildir::{config::MaildirConfig, MaildirContext},
     message::{
         add::{notmuch::AddNotmuchMessage, AddMessage},

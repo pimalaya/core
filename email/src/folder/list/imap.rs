@@ -1,7 +1,8 @@
 use async_trait::async_trait;
+use tracing::info;
 
 use super::{Folders, ListFolders};
-use crate::{imap::ImapContext, info, AnyResult};
+use crate::{imap::ImapContext, AnyResult};
 
 #[derive(Debug, Clone)]
 pub struct ListImapFolders {

@@ -11,6 +11,7 @@ pub mod report;
 use std::{collections::HashSet, sync::Arc};
 
 use futures::{stream::FuturesUnordered, StreamExt};
+use tracing::{debug, trace};
 
 use self::{hunk::FolderSyncHunk, report::FolderSyncReport};
 use super::{
@@ -20,9 +21,7 @@ use super::{
 pub use super::{Error, Result};
 use crate::{
     backend::context::BackendContextBuilder,
-    debug,
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
-    trace,
 };
 
 pub(crate) async fn sync<L, R>(

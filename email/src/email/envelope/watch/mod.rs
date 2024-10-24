@@ -8,8 +8,9 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tokio::sync::oneshot::{Receiver, Sender};
+use tracing::debug;
 
-use crate::{account::config::AccountConfig, debug, envelope::Envelope, AnyResult};
+use crate::{account::config::AccountConfig, envelope::Envelope, AnyResult};
 
 #[async_trait]
 pub trait WatchEnvelopes: Send + Sync {

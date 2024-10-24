@@ -118,10 +118,10 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
 
         use dirs::data_dir;
         use shellexpand_utils::try_shellexpand_path;
+        use tracing::debug;
 
         use crate::{
             account::{config::AccountConfig, Error},
-            debug,
             maildir::{config::MaildirConfig, MaildirContextBuilder},
         };
 
@@ -132,20 +132,20 @@ pub trait BackendContextBuilder: Clone + Send + Sync {
         let sync_dir = account_config.sync.as_ref().and_then(|c| c.dir.as_ref());
         let root_dir = match sync_dir {
             Some(dir) => {
-                let sync_dir = try_shellexpand_path(dir)
+                let dir = try_shellexpand_path(dir)
                     .map_err(|err| Error::GetSyncDirInvalidError(err, dir.clone()))?;
-                debug!("using custom sync dir {sync_dir:?}");
-                sync_dir
+                debug!(?dir, "using custom sync directory");
+                dir
             }
             None => {
-                let sync_dir = data_dir()
+                let dir = data_dir()
                     .ok_or(Error::GetXdgDataDirSyncError)?
                     .join("pimalaya")
                     .join("email")
                     .join("sync")
                     .join(&hash);
-                debug!("using default sync dir {sync_dir:?}");
-                sync_dir
+                debug!(?dir, "using default sync directory");
+                dir
             }
         };
 

@@ -1,9 +1,9 @@
 use async_trait::async_trait;
+use tracing::{debug, info};
 
 use super::RemoveMessages;
 use crate::{
-    debug, email::error::Error, envelope::Id, folder::FolderKind, info,
-    notmuch::NotmuchContextSync, AnyResult,
+    email::error::Error, envelope::Id, folder::FolderKind, notmuch::NotmuchContextSync, AnyResult,
 };
 
 #[derive(Clone)]
@@ -51,11 +51,8 @@ impl RemoveMessages for RemoveNotmuchMessages {
 
         for msg in msgs {
             let Some(filename) = msg.filenames().find(|f| f.is_file()) else {
-                #[cfg(feature = "tracing")]
-                {
-                    let id = msg.id();
-                    tracing::debug!(?id, "skipping notmuch message with invalid filename");
-                }
+                let id = msg.id();
+                debug!(?id, "skipping notmuch message with invalid filename");
 
                 continue;
             };

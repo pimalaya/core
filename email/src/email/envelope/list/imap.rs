@@ -9,22 +9,21 @@ use imap_next::imap_types::{
     search::SearchKey,
     sequence::{SeqOrUid, Sequence, SequenceSet},
 };
+use tracing::{debug, info, instrument, trace};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 use crate::{
-    debug,
     email::error::Error,
     envelope::Envelope,
     imap,
     imap::ImapContext,
-    info,
     search_query::{
         filter::SearchEmailsFilterQuery,
         sort::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder},
         SearchEmailsQuery,
     },
-    trace, AnyResult, Result,
+    AnyResult, Result,
 };
 
 static MAX_SEQUENCE_SIZE: u8 = u8::MAX; // 255
@@ -50,7 +49,7 @@ impl ListImapEnvelopes {
 
 #[async_trait]
 impl ListEnvelopes for ListImapEnvelopes {
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self), level = "trace"))]
+    #[instrument(skip(self), level = "trace")]
     async fn list_envelopes(
         &self,
         folder: &str,
@@ -102,8 +101,7 @@ impl ListEnvelopes for ListImapEnvelopes {
             let uids_chunks = uids.chunks(MAX_SEQUENCE_SIZE as usize);
             let uids_chunks_len = uids_chunks.len();
 
-            #[cfg(feature = "tracing")]
-            tracing::debug!(?uids, "fetching envelopes using {uids_chunks_len} chunks");
+            debug!(?uids, "fetching envelopes using {uids_chunks_len} chunks");
 
             let mut fetches = FuturesUnordered::from_iter(uids_chunks.map(|uids| {
                 let ctx = self.ctx.clone();
@@ -132,8 +130,7 @@ impl ListEnvelopes for ListImapEnvelopes {
                             return Err(err);
                         }
                         Ok(Ok(envelopes)) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::debug!("fetched envelopes chunk {}/{uids_chunks_len}", n + 1);
+                            debug!("fetched envelopes chunk {}/{uids_chunks_len}", n + 1);
 
                             for envelope in envelopes {
                                 all_envelopes.insert(envelope.id.clone(), envelope);

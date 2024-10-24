@@ -1,7 +1,8 @@
 use async_trait::async_trait;
+use tracing::info;
 
 use super::{Messages, PeekMessages};
-use crate::{envelope::Id, info, maildir::MaildirContextSync, AnyResult, Error};
+use crate::{envelope::Id, maildir::MaildirContextSync, AnyResult, Error};
 
 #[derive(Clone)]
 pub struct PeekMaildirMessages {

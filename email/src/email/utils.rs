@@ -2,7 +2,7 @@
 
 use std::{env, fs, io, path::PathBuf};
 
-use crate::debug;
+use tracing::debug;
 
 /// Gets the local draft file path.
 pub fn local_draft_path() -> PathBuf {

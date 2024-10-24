@@ -3,11 +3,11 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use tracing::info;
 
 use super::{AddMessage, Flags};
 use crate::{
-    email::error::Error, envelope::SingleId, flag::Flag, info, notmuch::NotmuchContextSync,
-    AnyResult,
+    email::error::Error, envelope::SingleId, flag::Flag, notmuch::NotmuchContextSync, AnyResult,
 };
 
 static EXTRACT_FOLDER_FROM_QUERY: Lazy<Regex> =

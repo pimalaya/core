@@ -2,16 +2,15 @@ use std::{fs, path::Path};
 
 use async_trait::async_trait;
 use mail_parser::MessageParser;
+use tracing::{debug, info, trace, warn};
 
 use super::{Envelopes, ListEnvelopes, ListEnvelopesOptions};
 use crate::{
-    debug,
     email::error::Error,
     envelope::Envelope,
-    info,
     maildir::MaildirContextSync,
     search_query::{filter::SearchEmailsFilterQuery, SearchEmailsQuery},
-    trace, warn, AnyResult,
+    AnyResult,
 };
 
 #[cfg(test)]

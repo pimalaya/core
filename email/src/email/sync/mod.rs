@@ -13,13 +13,13 @@ use std::{
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
+use tracing::{debug, trace};
 
 use self::{hunk::EmailSyncHunk, report::EmailSyncReport};
 #[doc(inline)]
 pub use super::{Error, Result};
 use crate::{
     backend::context::BackendContextBuilder,
-    debug,
     envelope::{
         get::GetEnvelope,
         list::{ListEnvelopes, ListEnvelopesOptions},
@@ -29,7 +29,7 @@ use crate::{
     message::{add::AddMessage, peek::PeekMessages},
     search_query::SearchEmailsQuery,
     sync::{pool::SyncPoolContext, SyncDestination, SyncEvent},
-    trace, AnyBoxedError,
+    AnyBoxedError,
 };
 
 /// Errors related to email synchronization.

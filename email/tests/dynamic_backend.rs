@@ -32,7 +32,7 @@ async fn test_dynamic_backend() {
             port: ports.imap,
             encryption: Some(ImapEncryptionKind::None),
             login: "bob".into(),
-            auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
+            auth: ImapAuthConfig::Password(PasswdConfig(Secret::new_raw("password"))),
             ..Default::default()
         });
 

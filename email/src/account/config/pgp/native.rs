@@ -5,10 +5,10 @@ use mml::pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
 use secret::Secret;
 use shellexpand_utils::shellexpand_path;
 use tokio::fs;
+use tracing::debug;
 
 #[doc(inline)]
 pub use super::{Error, Result};
-use crate::debug;
 
 /// The native PGP configuration.
 ///
@@ -54,6 +54,7 @@ impl NativePgpConfig {
                     debug!("cannot delete pgp key file at {path:?}: file not found");
                 }
             }
+            #[cfg(feature = "keyring")]
             NativePgpSecretKey::Keyring(entry) => entry
                 .delete_secret()
                 .await

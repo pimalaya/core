@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use petgraph::{algo::astar, graphmap::DiGraphMap, Direction};
+use tracing::instrument;
 
 use super::ThreadEnvelopes;
 use crate::{
@@ -33,7 +34,7 @@ impl ThreadMaildirEnvelopes {
 
 #[async_trait]
 impl ThreadEnvelopes for ThreadMaildirEnvelopes {
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self, opts)))]
+    #[instrument(skip(self, opts))]
     async fn thread_envelopes(
         &self,
         folder: &str,
@@ -110,7 +111,7 @@ impl ThreadEnvelopes for ThreadMaildirEnvelopes {
         Ok(envelopes)
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self, opts)))]
+    #[instrument(skip(self, opts))]
     async fn thread_envelope(
         &self,
         folder: &str,

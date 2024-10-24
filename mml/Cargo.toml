@@ -29,9 +29,10 @@ default = [
   #"pgp-commands",
   #"pgp-gpg",
   #"pgp-native",
-  #"secret-keyring",
-  #"secret-command",
+  #"keyring",
+  #"command",
   #"derive",
+  #"vendored",
 ]
 
 # Async runtime (for PGP public key discovery)
@@ -61,8 +62,12 @@ pgp-native = ["dep:pgp-lib", "dep:secret-lib", "dep:shellexpand-utils", "pgp"]
 
 # Secret backends
 #
-secret-command = ["secret-lib?/command"]
-secret-keyring = ["secret-lib?/keyring"]
+command = ["secret-lib?/command"]
+keyring = ["secret-lib?/keyring"]
+
+# Vendored (mostly for OpenSSL)
+#
+vendored = ["pgp-lib?/vendored", "secret-lib?/vendored"]
 
 # Serde (de)serialization
 #

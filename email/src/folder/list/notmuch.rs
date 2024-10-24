@@ -1,7 +1,8 @@
 use async_trait::async_trait;
+use tracing::info;
 
 use super::ListFolders;
-use crate::{folder::Folders, info, notmuch::NotmuchContextSync, AnyResult};
+use crate::{folder::Folders, notmuch::NotmuchContextSync, AnyResult};
 
 pub struct ListNotmuchFolders {
     ctx: NotmuchContextSync,

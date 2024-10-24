@@ -57,7 +57,7 @@ tokio = { version = "1.23", features = ["full"] }
 async-recursion = { version = "1", optional = true }
 async-std = { version = "1.13", optional = true }
 futures = { version = "0.3", optional = true }
-http-lib = { version = "0.1", optional = true, default-features = false, path = "../http" }
+http-lib = { version = "1", optional = true, default-features = false, path = "../http" }
 native = { version = "0.10", package = "pgp" }
 rand = "0.8"
 sha1 = { version = "0.10", optional = true }

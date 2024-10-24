@@ -7,11 +7,11 @@ use imap_next::imap_types::{
     sequence::{Sequence, SequenceSet},
 };
 use petgraph::{graphmap::DiGraphMap, Direction};
+use tracing::{debug, instrument};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
 use super::ThreadEnvelopes;
 use crate::{
-    debug,
     envelope::{list::ListEnvelopesOptions, SingleId, ThreadedEnvelope, ThreadedEnvelopes},
     imap::ImapContext,
     AnyResult,
@@ -38,7 +38,7 @@ impl ThreadImapEnvelopes {
 
 #[async_trait]
 impl ThreadEnvelopes for ThreadImapEnvelopes {
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self, opts)))]
+    #[instrument(skip(self, opts))]
     async fn thread_envelopes(
         &self,
         folder: &str,
@@ -112,7 +112,7 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
         Ok(envelopes)
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[instrument(skip_all)]
     async fn thread_envelope(
         &self,
         folder: &str,

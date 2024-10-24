@@ -1,9 +1,8 @@
 use async_trait::async_trait;
+use tracing::{info, trace};
 
 use super::{Envelope, GetEnvelope};
-use crate::{
-    email::error::Error, envelope::SingleId, info, notmuch::NotmuchContextSync, trace, AnyResult,
-};
+use crate::{email::error::Error, envelope::SingleId, notmuch::NotmuchContextSync, AnyResult};
 
 #[derive(Clone)]
 pub struct GetNotmuchEnvelope {

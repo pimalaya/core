@@ -1,7 +1,8 @@
 use async_trait::async_trait;
+use tracing::{info, trace};
 
 use super::{Envelope, GetEnvelope};
-use crate::{envelope::SingleId, info, maildir::MaildirContextSync, trace, AnyResult, Error};
+use crate::{envelope::SingleId, maildir::MaildirContextSync, AnyResult, Error};
 
 #[derive(Clone)]
 pub struct GetMaildirEnvelope {

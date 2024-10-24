@@ -34,6 +34,7 @@ use std::{
 use chrono::{DateTime, FixedOffset, Local};
 #[cfg(feature = "thread")]
 use petgraph::graphmap::DiGraphMap;
+use tracing::{debug, trace};
 
 #[doc(inline)]
 pub use self::{
@@ -42,8 +43,7 @@ pub use self::{
     id::{Id, MultipleIds, SingleId},
 };
 use crate::{
-    account::config::AccountConfig, date::from_mail_parser_to_chrono_datetime, debug,
-    message::Message, trace,
+    account::config::AccountConfig, date::from_mail_parser_to_chrono_datetime, message::Message,
 };
 
 /// The email envelope.

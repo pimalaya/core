@@ -20,11 +20,7 @@ pub use super::{Error, Result};
     serde(transparent)
 )]
 pub struct PasswdConfig(
-    #[cfg_attr(
-        feature = "derive",
-        serde(skip_serializing_if = "Secret::is_undefined")
-    )]
-    pub Secret,
+    #[cfg_attr(feature = "derive", serde(skip_serializing_if = "Secret::is_empty"))] pub Secret,
 );
 
 impl Deref for PasswdConfig {
@@ -45,7 +41,7 @@ impl PasswdConfig {
     /// If the current password secret is a keyring entry, delete it.
     pub async fn reset(&self) -> Result<()> {
         #[cfg(feature = "keyring")]
-        self.delete_only_keyring()
+        self.delete_if_keyring()
             .await
             .map_err(Error::DeletePasswordFromKeyringError)?;
 
@@ -63,11 +59,11 @@ impl PasswdConfig {
         match self.find().await {
             #[cfg(feature = "keyring")]
             Ok(None) => {
-                crate::debug!("cannot find imap password from keyring, setting it");
+                tracing::debug!("cannot find imap password from keyring, setting it");
 
                 let passwd = get_passwd().map_err(Error::GetFromUserError)?;
 
-                self.set_only_keyring(passwd)
+                self.set_if_keyring(passwd)
                     .await
                     .map_err(Error::SetIntoKeyringError)?;
 

@@ -1,9 +1,8 @@
 use async_trait::async_trait;
+use tracing::info;
 
 use super::{AddMessage, Flags};
-use crate::{
-    email::error::Error, envelope::SingleId, info, maildir::MaildirContextSync, AnyResult,
-};
+use crate::{email::error::Error, envelope::SingleId, maildir::MaildirContextSync, AnyResult};
 
 #[derive(Clone)]
 pub struct AddMaildirMessage {

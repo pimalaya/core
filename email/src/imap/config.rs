@@ -164,13 +164,13 @@ impl From<bool> for ImapEncryptionKind {
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "lowercase", tag = "type"),
-    serde(from = "ImapAuthConfigFeatureGuard")
+    serde(rename_all = "lowercase"),
+    serde(from = "ImapAuthConfigDerive")
 )]
 pub enum ImapAuthConfig {
     /// The password configuration.
-    #[cfg_attr(feature = "derive", serde(alias = "password"))]
-    Passwd(PasswdConfig),
+    #[cfg_attr(feature = "derive", serde(alias = "passwd", alias = "pass"))]
+    Password(PasswdConfig),
     /// The OAuth 2.0 configuration.
     #[cfg(feature = "oauth2")]
     OAuth2(OAuth2Config),
@@ -178,10 +178,10 @@ pub enum ImapAuthConfig {
 
 #[cfg(feature = "derive")]
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "lowercase", tag = "type")]
-pub enum ImapAuthConfigFeatureGuard {
-    #[serde(alias = "password")]
-    Passwd(PasswdConfig),
+#[serde(rename_all = "lowercase")]
+pub enum ImapAuthConfigDerive {
+    #[serde(alias = "passwd", alias = "pass")]
+    Password(PasswdConfig),
     #[cfg(feature = "oauth2")]
     OAuth2(OAuth2Config),
     #[cfg(not(feature = "oauth2"))]
@@ -198,21 +198,21 @@ where
 }
 
 #[cfg(feature = "derive")]
-impl From<ImapAuthConfigFeatureGuard> for ImapAuthConfig {
-    fn from(config: ImapAuthConfigFeatureGuard) -> Self {
+impl From<ImapAuthConfigDerive> for ImapAuthConfig {
+    fn from(config: ImapAuthConfigDerive) -> Self {
         match config {
-            ImapAuthConfigFeatureGuard::Passwd(config) => Self::Passwd(config),
+            ImapAuthConfigDerive::Password(config) => Self::Password(config),
             #[cfg(feature = "oauth2")]
-            ImapAuthConfigFeatureGuard::OAuth2(config) => Self::OAuth2(config),
+            ImapAuthConfigDerive::OAuth2(config) => Self::OAuth2(config),
             #[cfg(not(feature = "oauth2"))]
-            ImapAuthConfigFeatureGuard::OAuth2 => unreachable!(),
+            ImapAuthConfigDerive::OAuth2 => unreachable!(),
         }
     }
 }
 
 impl Default for ImapAuthConfig {
     fn default() -> Self {
-        Self::Passwd(Default::default())
+        Self::Password(Default::default())
     }
 }
 
@@ -220,7 +220,7 @@ impl ImapAuthConfig {
     /// Reset IMAP secrets (password or OAuth 2.0 tokens).
     pub async fn reset(&self) -> Result<()> {
         match self {
-            ImapAuthConfig::Passwd(config) => {
+            ImapAuthConfig::Password(config) => {
                 config.reset().await.map_err(Error::ResetPasswordError)
             }
             #[cfg(feature = "oauth2")]
@@ -236,7 +236,7 @@ impl ImapAuthConfig {
     /// OAuth 2.0 access token.
     pub async fn build_credentials(&self) -> Result<String> {
         match self {
-            ImapAuthConfig::Passwd(passwd) => {
+            ImapAuthConfig::Password(passwd) => {
                 let passwd = passwd.get().await.map_err(Error::GetPasswdImapError)?;
                 let passwd = passwd
                     .lines()
@@ -253,28 +253,28 @@ impl ImapAuthConfig {
     }
 
     #[cfg(feature = "keyring")]
-    pub fn replace_undefined_keyring_entries(&mut self, name: impl AsRef<str>) -> Result<()> {
+    pub fn replace_empty_secrets(&mut self, name: impl AsRef<str>) -> Result<()> {
         let name = name.as_ref();
 
         match self {
-            Self::Passwd(secret) => {
+            Self::Password(secret) => {
                 secret
-                    .replace_undefined_to_keyring(format!("{name}-imap-passwd"))
+                    .replace_with_keyring_if_empty(format!("{name}-imap-passwd"))
                     .map_err(Error::ReplacingUnidentifiedFailed)?;
             }
             #[cfg(feature = "oauth2")]
             Self::OAuth2(config) => {
                 config
                     .client_secret
-                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-client-secret"))
+                    .replace_with_keyring_if_empty(format!("{name}-imap-oauth2-client-secret"))
                     .map_err(Error::ReplacingUnidentifiedFailed)?;
                 config
                     .access_token
-                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-access-token"))
+                    .replace_with_keyring_if_empty(format!("{name}-imap-oauth2-access-token"))
                     .map_err(Error::ReplacingUnidentifiedFailed)?;
                 config
                     .refresh_token
-                    .replace_undefined_to_keyring(format!("{name}-imap-oauth2-refresh-token"))
+                    .replace_with_keyring_if_empty(format!("{name}-imap-oauth2-refresh-token"))
                     .map_err(Error::ReplacingUnidentifiedFailed)?;
             }
         }

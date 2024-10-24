@@ -4,13 +4,19 @@ mod error;
 use std::{collections::HashSet, sync::Arc};
 
 use async_trait::async_trait;
+use futures::lock::Mutex;
 use mail_parser::{Addr, Address, HeaderName, HeaderValue, Message, MessageParser};
 use mail_send::{
     smtp::message::{Address as SmtpAddress, IntoMessage, Message as SmtpMessage},
     SmtpClientBuilder,
 };
-use tokio::{net::TcpStream, sync::Mutex};
+#[cfg(feature = "tokio")]
+use tokio::net::TcpStream;
+#[cfg(feature = "tokio-native-tls")]
+use tokio_native_tls::TlsStream;
+#[cfg(feature = "tokio-rustls")]
 use tokio_rustls::client::TlsStream;
+use tracing::{debug, info, warn};
 
 use self::config::{SmtpAuthConfig, SmtpConfig};
 #[doc(inline)]
@@ -21,7 +27,6 @@ use crate::{
         context::{BackendContext, BackendContextBuilder},
         feature::{BackendFeature, CheckUp},
     },
-    debug, info,
     message::send::{smtp::SendSmtpMessage, SendMessage},
     retry::{Retry, RetryState},
     AnyResult,
@@ -77,11 +82,8 @@ impl SmtpContext {
             let msg = into_smtp_msg(msg.clone())?;
 
             match retry.next(retry.timeout(self.client.send(msg)).await) {
-                #[cfg(not(feature = "tracing"))]
-                RetryState::Retry => continue,
-                #[cfg(feature = "tracing")]
                 RetryState::Retry => {
-                    tracing::debug!(attempt = retry.attempts, "request timed out");
+                    debug!(attempt = retry.attempts, "request timed out");
                     continue;
                 }
                 RetryState::TimedOut => {
@@ -92,33 +94,24 @@ impl SmtpContext {
                 }
                 RetryState::Ok(Err(err)) => {
                     match err {
-                        #[cfg(not(feature = "tracing"))]
-                        mail_send::Error::Timeout => (),
-                        #[cfg(feature = "tracing")]
                         mail_send::Error::Timeout => {
-                            tracing::warn!("connection timed out");
+                            warn!("connection timed out");
                         }
-                        #[cfg(not(feature = "tracing"))]
-                        mail_send::Error::Io(_) => (),
-                        #[cfg(feature = "tracing")]
                         mail_send::Error::Io(err) => {
                             let reason = err.to_string();
-                            tracing::warn!(reason, "connection broke");
+                            warn!(reason, "connection broke");
                         }
-                        #[cfg(not(feature = "tracing"))]
-                        mail_send::Error::UnexpectedReply(_) => (),
-                        #[cfg(feature = "tracing")]
                         mail_send::Error::UnexpectedReply(reply) => {
                             let reason = reply.message;
                             let code = reply.code;
-                            tracing::warn!(reason, "server replied with code {code}");
+                            warn!(reason, "server replied with code {code}");
                         }
                         err => {
                             break Err(Error::SendMessageError(err));
                         }
                     };
 
-                    tracing::debug!("re-connecting…");
+                    debug!("re-connecting…");
 
                     self.client = if self.smtp_config.is_encryption_enabled() {
                         build_tls_client(&self.client_builder).await
@@ -274,8 +267,7 @@ pub async fn build_client(
             match Ok(build_tcp_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
                 Err(Error::ConnectTcpSmtpError(mail_send::Error::AuthenticationFailed(_))) => {
-                    #[cfg(feature = "tracing")]
-                    tracing::warn!("authentication failed, refreshing access token and retrying…");
+                    warn!("authentication failed, refreshing access token and retrying…");
                     oauth2_config
                         .refresh_access_token()
                         .await
@@ -292,8 +284,7 @@ pub async fn build_client(
             match Ok(build_tls_client(&client_builder).await?) {
                 Ok(client) => Ok((client_builder, client)),
                 Err(Error::ConnectTlsSmtpError(mail_send::Error::AuthenticationFailed(_))) => {
-                    #[cfg(feature = "tracing")]
-                    tracing::warn!("authentication failed, refreshing access token and retrying…");
+                    warn!("authentication failed, refreshing access token and retrying…");
                     oauth2_config
                         .refresh_access_token()
                         .await

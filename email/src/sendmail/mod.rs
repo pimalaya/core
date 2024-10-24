@@ -4,6 +4,7 @@ mod error;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use tracing::info;
 
 use self::config::SendmailConfig;
 #[doc(inline)]
@@ -14,7 +15,6 @@ use crate::{
         context::{BackendContext, BackendContextBuilder},
         feature::{BackendFeature, CheckUp},
     },
-    info,
     message::send::{sendmail::SendSendmailMessage, SendMessage},
     AnyResult,
 };
@@ -107,7 +107,7 @@ impl CheckUp for CheckUpSendmail {
     async fn check_up(&self) -> AnyResult<()> {
         self.ctx
             .sendmail_config
-            .cmd
+            .cmd()
             .run()
             .await
             .map_err(Error::ExecuteCommandError)?;

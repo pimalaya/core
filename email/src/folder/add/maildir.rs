@@ -1,7 +1,8 @@
 use async_trait::async_trait;
+use tracing::info;
 
 use super::AddFolder;
-use crate::{folder::error::Error, info, maildir::MaildirContextSync, AnyResult};
+use crate::{folder::error::Error, maildir::MaildirContextSync, AnyResult};
 
 pub struct AddMaildirFolder {
     ctx: MaildirContextSync,

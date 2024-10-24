@@ -28,7 +28,7 @@ pub async fn main() {
             port: ports.imap,
             encryption: Some(ImapEncryptionKind::None),
             login: "alice".into(),
-            auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
+            auth: ImapAuthConfig::Password(PasswdConfig(Secret::new_raw("password"))),
             ..Default::default()
         });
         let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config.clone());

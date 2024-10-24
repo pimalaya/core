@@ -3,12 +3,12 @@ use imap_next::imap_types::{
     flag::FlagNameAttribute,
     mailbox::Mailbox,
 };
+use tracing::debug;
 use utf7_imap::decode_utf7_imap as decode_utf7;
 
 use super::{Error, FolderKind, Result};
 use crate::{
     account::config::AccountConfig,
-    debug,
     folder::{Folder, Folders},
 };
 

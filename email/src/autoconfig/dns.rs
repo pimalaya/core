@@ -9,13 +9,13 @@ use hickory_resolver::{
     proto::rr::rdata::{MX, SRV},
     TokioAsyncResolver,
 };
-use hyper::Uri;
+use http::ureq::http::Uri;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use tracing::{debug, trace};
 
 #[doc(inline)]
 pub use super::{Error, Result};
-use crate::{debug, trace};
 
 /// Regular expression used to extract the URI of a mailconf TXT
 /// record.
