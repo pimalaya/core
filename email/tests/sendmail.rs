@@ -36,7 +36,7 @@ async fn test_sendmail_features() {
         let sendmail_config = Arc::new(SendmailConfig {
             cmd: Some(Command::new(
                 [
-                    "msmtp",
+                    "sendmail",
                     "--host localhost",
                     &format!("--port {}", ports.smtp),
                     "--user=alice@localhost",
