@@ -16,14 +16,14 @@ use crate::{Error, Result};
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
-pub struct Gpg {
+pub struct PgpGpg {
     /// The GPG home directory.
     ///
     /// Defaults to GPG default home directory (~/.gpg).
     pub home_dir: Option<PathBuf>,
 }
 
-impl Gpg {
+impl PgpGpg {
     pub fn get_context(&self) -> Result<Context> {
         let mut ctx = Context::from_protocol(Protocol::OpenPgp).map_err(Error::GetContextError)?;
 

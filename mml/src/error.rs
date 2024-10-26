@@ -8,6 +8,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// The global `Error` enum of the library.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("missing PGP configuration")]
+    PgpMissingConfigurationError,
+
     #[error("cannot parse MML body")]
     ParseMmlError(Vec<chumsky::error::Rich<'static, char>>, String),
     #[error("cannot compile template")]

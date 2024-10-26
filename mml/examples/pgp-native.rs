@@ -7,7 +7,7 @@ use tokio::main;
 #[test_log::test(main)]
 async fn main() {
     use mml::{
-        pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
+        pgp::{NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp, PgpNative},
         MmlCompilerBuilder,
     };
     use pgp::gen_key_pair;
@@ -31,7 +31,7 @@ async fn main() {
 
     let mml = include_str!("./pgp.eml");
     let mml_compiler = MmlCompilerBuilder::new()
-        .with_pgp(Pgp::Native(NativePgp {
+        .with_pgp(Pgp::Native(PgpNative {
             secret_key: NativePgpSecretKey::Path(alice_skey_path.clone()),
             secret_key_passphrase: Secret::new_raw(""),
             public_keys_resolvers: vec![NativePgpPublicKeysResolver::Raw(

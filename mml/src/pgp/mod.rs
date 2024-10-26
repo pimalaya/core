@@ -12,37 +12,40 @@ pub mod native;
 
 use tracing::{debug, trace};
 
-use crate::Result;
+use crate::{Error, Result};
 
 #[cfg(feature = "pgp-commands")]
 #[doc(inline)]
-pub use self::commands::CmdsPgp;
+pub use self::commands::PgpCommands;
 #[cfg(feature = "pgp-gpg")]
 #[doc(inline)]
-pub use self::gpg::Gpg;
+pub use self::gpg::PgpGpg;
 #[cfg(feature = "pgp-native")]
 #[doc(inline)]
 pub use self::native::{
-    NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, SignedPublicKey, SignedSecretKey,
+    NativePgpPublicKeysResolver, NativePgpSecretKey, PgpNative, SignedPublicKey, SignedSecretKey,
 };
 
 /// The PGP backends.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum Pgp {
+    #[default]
+    None,
+
     /// Use shell commands to perform PGP actions.
     #[cfg(feature = "pgp-commands")]
-    Cmds(CmdsPgp),
+    Commands(PgpCommands),
 
     /// Use GPG to perform PGP actions.
     ///
     /// GPG needs to be installed on the system as well as its
     /// associated library `gpgme`.
     #[cfg(feature = "pgp-gpg")]
-    Gpg(Gpg),
+    Gpg(PgpGpg),
 
     /// Use native Rust implementation of PGP to perform PGP actions.
     #[cfg(feature = "pgp-native")]
-    Native(NativePgp),
+    Native(PgpNative),
 }
 
 impl Pgp {
@@ -57,8 +60,9 @@ impl Pgp {
         trace!("plain bytes: {plain_str}");
 
         match self {
+            Self::None => Err(Error::PgpMissingConfigurationError),
             #[cfg(feature = "pgp-commands")]
-            Self::Cmds(cmds) => cmds.encrypt(recipients, plain_bytes).await,
+            Self::Commands(cmds) => cmds.encrypt(recipients, plain_bytes).await,
             #[cfg(feature = "pgp-native")]
             Self::Native(native) => native.encrypt(recipients, plain_bytes).await,
             #[cfg(feature = "pgp-gpg")]
@@ -78,8 +82,9 @@ impl Pgp {
         trace!("encrypted bytes: {encrypted_str}");
 
         match self {
+            Self::None => Err(Error::PgpMissingConfigurationError),
             #[cfg(feature = "pgp-commands")]
-            Self::Cmds(cmds) => cmds.decrypt(encrypted_bytes).await,
+            Self::Commands(cmds) => cmds.decrypt(encrypted_bytes).await,
             #[cfg(feature = "pgp-native")]
             Self::Native(native) => native.decrypt(recipient, encrypted_bytes).await,
             #[cfg(feature = "pgp-gpg")]
@@ -95,8 +100,9 @@ impl Pgp {
         trace!("plain bytes: {plain_str}");
 
         match self {
+            Self::None => Err(Error::PgpMissingConfigurationError),
             #[cfg(feature = "pgp-commands")]
-            Self::Cmds(cmds) => cmds.sign(plain_bytes).await,
+            Self::Commands(cmds) => cmds.sign(plain_bytes).await,
             #[cfg(feature = "pgp-native")]
             Self::Native(native) => native.sign(recipient, plain_bytes).await,
             #[cfg(feature = "pgp-gpg")]
@@ -120,8 +126,9 @@ impl Pgp {
         trace!("signed bytes: {signed_str}");
 
         match self {
+            Self::None => Err(Error::PgpMissingConfigurationError),
             #[cfg(feature = "pgp-commands")]
-            Self::Cmds(cmds) => cmds.verify(signature_bytes, signed_bytes).await,
+            Self::Commands(cmds) => cmds.verify(signature_bytes, signed_bytes).await,
             #[cfg(feature = "pgp-native")]
             Self::Native(native) => {
                 native

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use async_std::test;
 use concat_with::concat_line;
 use mml::{
-    pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp},
+    pgp::{NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp, PgpNative},
     MimeInterpreterBuilder, MmlCompilerBuilder,
 };
 use pgp::gen_key_pair;
@@ -95,7 +95,7 @@ async fn pgp_native() {
     );
 
     let mml_compiler = MmlCompilerBuilder::new()
-        .with_pgp(Pgp::Native(NativePgp {
+        .with_pgp(Pgp::Native(PgpNative {
             secret_key: NativePgpSecretKey::Path(alice_skey_path.clone()),
             secret_key_passphrase: Secret::new_raw(""),
             public_keys_resolvers: vec![NativePgpPublicKeysResolver::KeyServers(vec![
@@ -108,7 +108,7 @@ async fn pgp_native() {
 
     let mml = MimeInterpreterBuilder::new()
         .with_show_only_headers(["From", "To", "Subject"])
-        .with_pgp(Pgp::Native(NativePgp {
+        .with_pgp(Pgp::Native(PgpNative {
             secret_key: NativePgpSecretKey::Raw(bob_skey.clone()),
             secret_key_passphrase: Secret::new_raw(""),
             public_keys_resolvers: vec![NativePgpPublicKeysResolver::Raw(

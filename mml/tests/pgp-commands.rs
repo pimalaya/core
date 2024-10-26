@@ -4,7 +4,7 @@
 use async_std::test;
 use concat_with::concat_line;
 use mml::{
-    pgp::{CmdsPgp, Pgp},
+    pgp::{Pgp, PgpCommands},
     MimeInterpreterBuilder, MmlCompilerBuilder,
 };
 use process::Command;
@@ -13,12 +13,12 @@ use tokio::test;
 
 #[test_log::test(test)]
 async fn pgp_cmds() {
-    let pgp = Pgp::Cmds(CmdsPgp {
+    let pgp = Pgp::Commands(PgpCommands {
         encrypt_cmd: Some(Command::from(
             "gpg --homedir ./tests/gpg-home -eqa <recipients>",
         )),
-        encrypt_recipient_fmt: Some(CmdsPgp::default_encrypt_recipient_fmt()),
-        encrypt_recipients_sep: Some(CmdsPgp::default_encrypt_recipients_sep()),
+        encrypt_recipient_fmt: Some(PgpCommands::default_encrypt_recipient_fmt()),
+        encrypt_recipients_sep: Some(PgpCommands::default_encrypt_recipients_sep()),
         decrypt_cmd: Some(Command::from("gpg --homedir ./tests/gpg-home -dq")),
         sign_cmd: Some(Command::from("gpg --homedir ./tests/gpg-home -saq")),
         verify_cmd: Some(Command::from("gpg --homedir ./tests/gpg-home --verify -q")),

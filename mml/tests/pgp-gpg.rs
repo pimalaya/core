@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use async_std::test;
 use concat_with::concat_line;
 use mml::{
-    pgp::{Gpg, Pgp},
+    pgp::{Pgp, PgpGpg},
     MimeInterpreterBuilder, MmlCompilerBuilder,
 };
 #[cfg(feature = "tokio")]
@@ -14,7 +14,7 @@ use tokio::test;
 
 #[test_log::test(test)]
 async fn pgp_gpg() {
-    let pgp = Pgp::Gpg(Gpg {
+    let pgp = Pgp::Gpg(PgpGpg {
         home_dir: Some(PathBuf::from("./tests/gpg-home")),
     });
 

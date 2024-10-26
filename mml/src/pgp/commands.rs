@@ -13,7 +13,7 @@ use crate::{Error, Result};
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
-pub struct CmdsPgp {
+pub struct PgpCommands {
     /// The PGP encrypt command.
     ///
     /// A special placeholder `<recipients>` is available to represent
@@ -53,7 +53,7 @@ pub struct CmdsPgp {
     pub verify_cmd: Option<Command>,
 }
 
-impl CmdsPgp {
+impl PgpCommands {
     pub fn default_encrypt_cmd() -> Command {
         Command::from("gpg --encrypt --quiet --armor <recipients>")
     }

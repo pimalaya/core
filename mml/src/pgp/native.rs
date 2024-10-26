@@ -98,7 +98,7 @@ pub enum NativePgpPublicKeysResolver {
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
-pub struct NativePgp {
+pub struct PgpNative {
     /// The secret key of the sender.
     pub secret_key: NativePgpSecretKey,
 
@@ -109,7 +109,7 @@ pub struct NativePgp {
     pub public_keys_resolvers: Vec<NativePgpPublicKeysResolver>,
 }
 
-impl NativePgp {
+impl PgpNative {
     /// Encrypts the given plain bytes using the given recipients.
     pub async fn encrypt(
         &self,

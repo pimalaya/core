@@ -9,13 +9,13 @@ async fn main() {
     use std::path::PathBuf;
 
     use mml::{
-        pgp::{Gpg, Pgp},
+        pgp::{Pgp, PgpGpg},
         MmlCompilerBuilder,
     };
 
     let mml = include_str!("./pgp.eml");
     let mml_compiler = MmlCompilerBuilder::new()
-        .with_pgp(Pgp::Gpg(Gpg {
+        .with_pgp(Pgp::Gpg(PgpGpg {
             home_dir: Some(PathBuf::from("./tests/gpg-home")),
         }))
         .build(mml)
