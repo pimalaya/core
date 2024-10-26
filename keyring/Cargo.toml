@@ -1,7 +1,7 @@
 [package]
 name = "keyring-lib"
 description = "High-level, asynchronous API for keyring-rs, a cross-platform Rust library to manage credentials"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
@@ -12,7 +12,7 @@ documentation = "https://docs.rs/keyring-lib/latest/keyring/"
 repository = "https://github.com/pimalaya/core/tree/master/keyring/"
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["derive"]
 rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
 
 [lib]
