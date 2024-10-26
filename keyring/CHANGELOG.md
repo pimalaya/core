@@ -144,4 +144,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Imported keyring code from `pimalaya-email`.
 
+[1.0.0]: https://crates.io/crates/keyring-lib/1.0.0
+[0.4.3]: https://crates.io/crates/keyring-lib/0.4.3
+[0.4.2]: https://crates.io/crates/keyring-lib/0.4.2
+[0.4.1]: https://crates.io/crates/keyring-lib/0.4.1
+[0.4.0]: https://crates.io/crates/keyring-lib/0.4.0
+[0.3.2]: https://crates.io/crates/keyring-lib/0.3.2
+[0.3.1]: https://crates.io/crates/keyring-lib/0.3.1
+[0.3.0]: https://crates.io/crates/keyring-lib/0.3.0
+[0.2.0]: https://crates.io/crates/keyring-lib/0.2.0
+[0.1.0]: https://crates.io/crates/keyring-lib/0.1.0
+[0.0.5]: https://crates.io/crates/pimalaya-keyring/0.0.5
+[0.0.4]: https://crates.io/crates/pimalaya-keyring/0.0.4
+[0.0.3]: https://crates.io/crates/pimalaya-keyring/0.0.3
+[0.0.2]: https://crates.io/crates/pimalaya-keyring/0.0.2
+[0.0.1]: https://crates.io/crates/pimalaya-keyring/0.0.1
+
 [#222]: https://github.com/hwchen/keyring-rs/pull/222
