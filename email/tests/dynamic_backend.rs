@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use email::{
-    account::config::{passwd::PasswdConfig, AccountConfig},
+    account::config::{passwd::PasswordConfig, AccountConfig},
     backend::{
         context::BackendContextBuilder, feature::BackendFeature, macros::BackendContext,
         mapper::SomeBackendContextBuilderMapper, Backend, BackendBuilder,
@@ -32,7 +32,7 @@ async fn test_dynamic_backend() {
             port: ports.imap,
             encryption: Some(ImapEncryptionKind::None),
             login: "bob".into(),
-            auth: ImapAuthConfig::Password(PasswdConfig(Secret::new_raw("password"))),
+            auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
             ..Default::default()
         });
 

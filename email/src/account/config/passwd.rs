@@ -19,11 +19,11 @@ pub use super::{Error, Result};
     derive(serde::Serialize, serde::Deserialize),
     serde(transparent)
 )]
-pub struct PasswdConfig(
+pub struct PasswordConfig(
     #[cfg_attr(feature = "derive", serde(skip_serializing_if = "Secret::is_empty"))] pub Secret,
 );
 
-impl Deref for PasswdConfig {
+impl Deref for PasswordConfig {
     type Target = Secret;
 
     fn deref(&self) -> &Self::Target {
@@ -31,13 +31,13 @@ impl Deref for PasswdConfig {
     }
 }
 
-impl DerefMut for PasswdConfig {
+impl DerefMut for PasswordConfig {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl PasswdConfig {
+impl PasswordConfig {
     /// If the current password secret is a keyring entry, delete it.
     pub async fn reset(&self) -> Result<()> {
         #[cfg(feature = "keyring")]

@@ -4,7 +4,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use concat_with::concat_line;
 use email::{
-    account::config::{passwd::PasswdConfig, AccountConfig},
+    account::config::{passwd::PasswordConfig, AccountConfig},
     backend::{Backend, BackendBuilder},
     envelope::{list::ListEnvelopes, Id},
     flag::{add::AddFlags, Flag},

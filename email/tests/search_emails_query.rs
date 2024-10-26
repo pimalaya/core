@@ -10,7 +10,7 @@
 use std::{iter::FromIterator, sync::Arc};
 
 use email::{
-    account::config::{passwd::PasswdConfig, AccountConfig},
+    account::config::{passwd::PasswordConfig, AccountConfig},
     backend::{Backend, BackendBuilder},
     envelope::{
         list::{ListEnvelopes, ListEnvelopesOptions},

@@ -14,7 +14,7 @@ use tracing::debug;
 pub use super::{Error, Result};
 #[cfg(feature = "oauth2")]
 use crate::account::config::oauth2::{OAuth2Config, OAuth2Method};
-use crate::account::config::passwd::PasswdConfig;
+use crate::account::config::passwd::PasswordConfig;
 
 /// The SMTP sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -78,7 +78,7 @@ impl SmtpConfig {
     /// then creates credentials from access token.
     pub async fn credentials(&self) -> Result<Credentials<String>> {
         Ok(match &self.auth {
-            SmtpAuthConfig::Passwd(passwd) => {
+            SmtpAuthConfig::Password(passwd) => {
                 let passwd = passwd.get().await.map_err(Error::GetPasswdSmtpError)?;
                 let passwd = passwd
                     .lines()
@@ -111,12 +111,11 @@ impl SmtpConfig {
     serde(rename_all = "kebab-case")
 )]
 pub enum SmtpEncryptionKind {
+    None,
     #[default]
     #[cfg_attr(feature = "derive", serde(alias = "ssl"))]
     Tls,
-    #[cfg_attr(feature = "derive", serde(alias = "starttls"))]
     StartTls,
-    None,
 }
 
 impl fmt::Display for SmtpEncryptionKind {
@@ -144,22 +143,17 @@ impl From<bool> for SmtpEncryptionKind {
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "lowercase", tag = "type")
+    serde(rename_all = "lowercase"),
+    serde(tag = "type"),
+    serde(from = "SmtpAuthConfigDerive")
 )]
 pub enum SmtpAuthConfig {
     /// The password authentication mechanism.
-    #[cfg_attr(feature = "derive", serde(alias = "password"))]
-    Passwd(PasswdConfig),
+    Password(PasswordConfig),
 
     /// The OAuth 2.0 authentication mechanism.
     #[cfg(feature = "oauth2")]
     OAuth2(OAuth2Config),
-}
-
-impl Default for SmtpAuthConfig {
-    fn default() -> Self {
-        Self::Passwd(PasswdConfig::default())
-    }
 }
 
 impl SmtpAuthConfig {
@@ -202,7 +196,7 @@ impl SmtpAuthConfig {
         let name = name.as_ref();
 
         match self {
-            SmtpAuthConfig::Passwd(secret) => {
+            SmtpAuthConfig::Password(secret) => {
                 secret
                     .replace_with_keyring_if_empty(format!("{name}-smtp-passwd"))
                     .map_err(Error::ReplacingKeyringFailed)?;
@@ -225,6 +219,45 @@ impl SmtpAuthConfig {
         }
 
         Ok(())
+    }
+}
+
+impl Default for SmtpAuthConfig {
+    fn default() -> Self {
+        Self::Password(PasswordConfig::default())
+    }
+}
+
+#[cfg(feature = "derive")]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase", tag = "type")]
+pub enum SmtpAuthConfigDerive {
+    Password(PasswordConfig),
+    #[cfg(feature = "oauth2")]
+    OAuth2(OAuth2Config),
+    #[cfg(not(feature = "oauth2"))]
+    #[serde(skip_serializing, deserialize_with = "missing_oauth2_feature")]
+    OAuth2,
+}
+
+#[cfg(all(feature = "derive", not(feature = "oauth2")))]
+fn missing_oauth2_feature<'de, D>(_: D) -> std::result::Result<(), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Err(serde::de::Error::custom("missing `oauth2` cargo feature"))
+}
+
+#[cfg(feature = "derive")]
+impl From<SmtpAuthConfigDerive> for SmtpAuthConfig {
+    fn from(config: SmtpAuthConfigDerive) -> Self {
+        match config {
+            SmtpAuthConfigDerive::Password(config) => Self::Password(config),
+            #[cfg(feature = "oauth2")]
+            SmtpAuthConfigDerive::OAuth2(config) => Self::OAuth2(config),
+            #[cfg(not(feature = "oauth2"))]
+            SmtpAuthConfigDerive::OAuth2 => unreachable!(),
+        }
     }
 }
 

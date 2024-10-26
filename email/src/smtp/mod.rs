@@ -254,11 +254,11 @@ pub async fn build_client(
     mut client_builder: mail_send::SmtpClientBuilder<String>,
 ) -> Result<(mail_send::SmtpClientBuilder<String>, SmtpClientStream)> {
     match (&smtp_config.auth, smtp_config.is_encryption_enabled()) {
-        (SmtpAuthConfig::Passwd(_), false) => {
+        (SmtpAuthConfig::Password(_), false) => {
             let client = build_tcp_client(&client_builder).await?;
             Ok((client_builder, client))
         }
-        (SmtpAuthConfig::Passwd(_), true) => {
+        (SmtpAuthConfig::Password(_), true) => {
             let client = build_tls_client(&client_builder).await?;
             Ok((client_builder, client))
         }

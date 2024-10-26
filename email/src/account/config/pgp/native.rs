@@ -1,7 +1,7 @@
 use std::io;
 
 use keyring::KeyringEntry;
-use mml::pgp::{NativePgp, NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp};
+use mml::pgp::{NativePgpPublicKeysResolver, NativePgpSecretKey, Pgp, PgpNative};
 use secret::Secret;
 use shellexpand_utils::shellexpand_path;
 use tokio::fs;
@@ -20,14 +20,14 @@ pub use super::{Error, Result};
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case")
 )]
-pub struct NativePgpConfig {
+pub struct PgpNativeConfig {
     pub secret_key: NativePgpSecretKey,
     pub secret_key_passphrase: Secret,
     pub wkd: bool,
     pub key_servers: Vec<String>,
 }
 
-impl NativePgpConfig {
+impl PgpNativeConfig {
     pub fn default_wkd() -> bool {
         true
     }
@@ -116,7 +116,7 @@ impl NativePgpConfig {
     }
 }
 
-impl Default for NativePgpConfig {
+impl Default for PgpNativeConfig {
     fn default() -> Self {
         Self {
             secret_key: Default::default(),
@@ -127,23 +127,23 @@ impl Default for NativePgpConfig {
     }
 }
 
-impl From<NativePgpConfig> for Pgp {
-    fn from(val: NativePgpConfig) -> Self {
+impl From<PgpNativeConfig> for Pgp {
+    fn from(config: PgpNativeConfig) -> Self {
         let public_keys_resolvers = {
             let mut resolvers = vec![];
 
-            if val.wkd {
+            if config.wkd {
                 resolvers.push(NativePgpPublicKeysResolver::Wkd)
             }
 
-            resolvers.push(NativePgpPublicKeysResolver::KeyServers(val.key_servers));
+            resolvers.push(NativePgpPublicKeysResolver::KeyServers(config.key_servers));
 
             resolvers
         };
 
-        Pgp::Native(NativePgp {
-            secret_key: val.secret_key,
-            secret_key_passphrase: val.secret_key_passphrase,
+        Pgp::Native(PgpNative {
+            secret_key: config.secret_key,
+            secret_key_passphrase: config.secret_key_passphrase,
             public_keys_resolvers,
         })
     }

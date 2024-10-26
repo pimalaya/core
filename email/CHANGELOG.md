@@ -7,16 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `tokio-rustls` cargo feature. The aim is to be able, one day, to compile `email-lib` with other async runtimes and other TLS options.
+
 ### Changed
 
 - Removed `serde::flatten` from `ImapConfig::auth` and `SmtpConfig::auth`.
 - Added `serde::tag = "type"` to `ImapAuthConfig` and `SmtpAuthConfig`.
-- Added `OAuth2Config::redirect_host` and `OAuth2Config::redirect_port` so that they can be customized.
+- Added `OAuth2Config::redirect_{scheme,host,port}`.
 - Added new boolean `Envelope::has_attachment` to determine if an envelope has at least one attachment.
 - Added `ImapConfig::extensions` of type `Option<ImapExtensionsConfig>`.
-- Changed the way `ID` command is automatically sent after authentication.
-
-  The `ID` command is now sent if and only if `ImapConfig.extensions.id.send_after_auth` is `true`. See [#25](https://github.com/modern-email/defects/issues/25) for more information.
+- Changed the way `ID` command is automatically sent after authentication. The `ID` command is now sent if and only if `ImapConfig.extensions.id.send_after_auth` is `true`. See [#25](https://github.com/modern-email/defects/issues/25) for more information.
+- Renamed `Pgp` variants according to `mml` module.
 
 ## [0.25.0] - 2024-08-16
 

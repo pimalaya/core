@@ -16,48 +16,48 @@ use mml::pgp::Pgp;
 
 #[cfg(feature = "pgp-commands")]
 #[doc(inline)]
-pub use self::cmds::CmdsPgpConfig;
+pub use self::cmds::PgpCommandsConfig;
 #[cfg(feature = "pgp-gpg")]
 #[doc(inline)]
-pub use self::gpg::GpgConfig;
+pub use self::gpg::PgpGpgConfig;
 #[cfg(feature = "pgp-native")]
 #[doc(inline)]
-pub use self::native::NativePgpConfig;
+pub use self::native::PgpNativeConfig;
 #[doc(inline)]
 pub use super::{Error, Result};
 
 /// The PGP configuration.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case", tag = "backend"),
+    serde(rename_all = "kebab-case", tag = "type"),
     serde(from = "derive::PgpConfig")
 )]
 pub enum PgpConfig {
-    #[cfg(feature = "pgp-commands")]
-    #[cfg_attr(feature = "derive", serde(rename = "commands"))]
+    #[default]
+    None,
     /// Commands configuration.
-    Cmds(CmdsPgpConfig),
-
-    #[cfg(feature = "pgp-gpg")]
+    #[cfg(feature = "pgp-commands")]
+    Commands(PgpCommandsConfig),
     /// GPG configuration.
-    Gpg(GpgConfig),
-
-    #[cfg(feature = "pgp-native")]
+    #[cfg(feature = "pgp-gpg")]
+    Gpg(PgpGpgConfig),
     /// Native configuration.
-    Native(NativePgpConfig),
+    #[cfg(feature = "pgp-native")]
+    Native(PgpNativeConfig),
 }
 
 impl From<PgpConfig> for Pgp {
-    fn from(val: PgpConfig) -> Self {
-        match val {
+    fn from(config: PgpConfig) -> Self {
+        match config {
+            PgpConfig::None => Pgp::None,
             #[cfg(feature = "pgp-commands")]
-            PgpConfig::Cmds(config) => config.into(),
+            PgpConfig::Commands(config) => Pgp::from(config),
             #[cfg(feature = "pgp-gpg")]
-            PgpConfig::Gpg(config) => config.into(),
+            PgpConfig::Gpg(config) => Pgp::from(config),
             #[cfg(feature = "pgp-native")]
-            PgpConfig::Native(config) => config.into(),
+            PgpConfig::Native(config) => Pgp::from(config),
         }
     }
 }
@@ -65,8 +65,9 @@ impl From<PgpConfig> for Pgp {
 impl PgpConfig {
     pub async fn reset(&self) -> Result<()> {
         match self {
+            Self::None => Ok(()),
             #[cfg(feature = "pgp-commands")]
-            Self::Cmds(..) => Ok(()),
+            Self::Commands(..) => Ok(()),
             #[cfg(feature = "pgp-gpg")]
             Self::Gpg(..) => Ok(()),
             #[cfg(feature = "pgp-native")]
@@ -81,8 +82,9 @@ impl PgpConfig {
         passwd: impl Fn() -> io::Result<String>,
     ) -> Result<()> {
         match self {
+            Self::None => Ok(()),
             #[cfg(feature = "pgp-commands")]
-            Self::Cmds(..) => Ok(()),
+            Self::Commands(..) => Ok(()),
             #[cfg(feature = "pgp-gpg")]
             Self::Gpg(..) => Ok(()),
             #[cfg(feature = "pgp-native")]

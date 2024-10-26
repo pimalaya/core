@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::NaiveDate;
 use email::{
-    account::config::{passwd::PasswdConfig, AccountConfig},
+    account::config::{passwd::PasswordConfig, AccountConfig},
     backend::{Backend, BackendBuilder},
     envelope::list::{ListEnvelopes, ListEnvelopesOptions},
     imap::{
@@ -28,7 +28,7 @@ pub async fn main() {
             port: ports.imap,
             encryption: Some(ImapEncryptionKind::None),
             login: "alice".into(),
-            auth: ImapAuthConfig::Password(PasswdConfig(Secret::new_raw("password"))),
+            auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
             ..Default::default()
         });
         let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config.clone());

@@ -3,7 +3,7 @@
 use std::{sync::Arc, time::Duration};
 
 use email::{
-    account::config::{passwd::PasswdConfig, AccountConfig},
+    account::config::{passwd::PasswordConfig, AccountConfig},
     backend::{Backend, BackendBuilder},
     envelope::list::ListEnvelopes,
     imap::{

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use email::{
-    account::config::{passwd::PasswdConfig, AccountConfig},
+    account::config::{passwd::PasswordConfig, AccountConfig},
     backend::{context::BackendContextBuilder, macros::BackendContext},
     folder::{
         list::{imap::ListImapFolders, ListFolders},
@@ -36,7 +36,7 @@ async fn test_static_backend() {
             port: ports.imap,
             encryption: Some(ImapEncryptionKind::None),
             login: "bob".into(),
-            auth: ImapAuthConfig::Password(PasswdConfig(Secret::new_raw("password"))),
+            auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
             ..Default::default()
         });
 
@@ -45,7 +45,7 @@ async fn test_static_backend() {
             port: ports.smtp,
             encryption: Some(SmtpEncryptionKind::None),
             login: "alice".into(),
-            auth: SmtpAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
+            auth: SmtpAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
         });
 
         // 1. define custom context made of subcontexts

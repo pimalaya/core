@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use super::{Error, Result};
 #[cfg(feature = "oauth2")]
 use crate::account::config::oauth2::OAuth2Config;
-use crate::account::config::passwd::PasswdConfig;
+use crate::account::config::passwd::PasswordConfig;
 
 /// Errors related to the IMAP backend configuration.
 
@@ -129,12 +129,11 @@ impl crate::sync::hash::SyncHash for ImapConfig {
     serde(rename_all = "kebab-case")
 )]
 pub enum ImapEncryptionKind {
+    None,
     #[default]
     #[cfg_attr(feature = "derive", serde(alias = "ssl"))]
     Tls,
-    #[cfg_attr(feature = "derive", serde(alias = "starttls"))]
     StartTls,
-    None,
 }
 
 impl fmt::Display for ImapEncryptionKind {
@@ -165,55 +164,15 @@ impl From<bool> for ImapEncryptionKind {
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "lowercase"),
+    serde(tag = "type"),
     serde(from = "ImapAuthConfigDerive")
 )]
 pub enum ImapAuthConfig {
     /// The password configuration.
-    #[cfg_attr(feature = "derive", serde(alias = "passwd", alias = "pass"))]
-    Password(PasswdConfig),
+    Password(PasswordConfig),
     /// The OAuth 2.0 configuration.
     #[cfg(feature = "oauth2")]
     OAuth2(OAuth2Config),
-}
-
-#[cfg(feature = "derive")]
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ImapAuthConfigDerive {
-    #[serde(alias = "passwd", alias = "pass")]
-    Password(PasswdConfig),
-    #[cfg(feature = "oauth2")]
-    OAuth2(OAuth2Config),
-    #[cfg(not(feature = "oauth2"))]
-    #[serde(skip_serializing, deserialize_with = "missing_oauth2_feature")]
-    OAuth2,
-}
-
-#[cfg(all(feature = "derive", not(feature = "oauth2")))]
-fn missing_oauth2_feature<'de, D>(_: D) -> std::result::Result<(), D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    Err(serde::de::Error::custom("missing `oauth2` cargo feature"))
-}
-
-#[cfg(feature = "derive")]
-impl From<ImapAuthConfigDerive> for ImapAuthConfig {
-    fn from(config: ImapAuthConfigDerive) -> Self {
-        match config {
-            ImapAuthConfigDerive::Password(config) => Self::Password(config),
-            #[cfg(feature = "oauth2")]
-            ImapAuthConfigDerive::OAuth2(config) => Self::OAuth2(config),
-            #[cfg(not(feature = "oauth2"))]
-            ImapAuthConfigDerive::OAuth2 => unreachable!(),
-        }
-    }
-}
-
-impl Default for ImapAuthConfig {
-    fn default() -> Self {
-        Self::Password(Default::default())
-    }
 }
 
 impl ImapAuthConfig {
@@ -280,6 +239,45 @@ impl ImapAuthConfig {
         }
 
         Ok(())
+    }
+}
+
+impl Default for ImapAuthConfig {
+    fn default() -> Self {
+        Self::Password(Default::default())
+    }
+}
+
+#[cfg(feature = "derive")]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase", tag = "type")]
+pub enum ImapAuthConfigDerive {
+    Password(PasswordConfig),
+    #[cfg(feature = "oauth2")]
+    OAuth2(OAuth2Config),
+    #[cfg(not(feature = "oauth2"))]
+    #[serde(skip_serializing, deserialize_with = "missing_oauth2_feature")]
+    OAuth2,
+}
+
+#[cfg(all(feature = "derive", not(feature = "oauth2")))]
+fn missing_oauth2_feature<'de, D>(_: D) -> std::result::Result<(), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Err(serde::de::Error::custom("missing `oauth2` cargo feature"))
+}
+
+#[cfg(feature = "derive")]
+impl From<ImapAuthConfigDerive> for ImapAuthConfig {
+    fn from(config: ImapAuthConfigDerive) -> Self {
+        match config {
+            ImapAuthConfigDerive::Password(config) => Self::Password(config),
+            #[cfg(feature = "oauth2")]
+            ImapAuthConfigDerive::OAuth2(config) => Self::OAuth2(config),
+            #[cfg(not(feature = "oauth2"))]
+            ImapAuthConfigDerive::OAuth2 => unreachable!(),
+        }
     }
 }
 

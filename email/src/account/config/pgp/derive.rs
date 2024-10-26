@@ -1,26 +1,23 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "backend")]
+#[serde(rename_all = "kebab-case", tag = "type")]
 pub enum PgpConfig {
     #[cfg(feature = "pgp-commands")]
-    #[serde(alias = "cmd", alias = "cmds", alias = "command")]
-    Commands(super::CmdsPgpConfig),
+    Commands(super::PgpCommandsConfig),
     #[cfg(not(feature = "pgp-commands"))]
-    #[serde(alias = "cmd", alias = "cmds", alias = "command")]
     #[serde(skip_serializing, deserialize_with = "missing_commands_feature")]
     Commands,
 
     #[cfg(feature = "pgp-gpg")]
-    Gpg(super::GpgConfig),
+    Gpg(super::PgpGpgConfig),
     #[cfg(not(feature = "pgp-gpg"))]
     #[serde(skip_serializing, deserialize_with = "missing_gpg_feature")]
     Gpg,
 
     #[cfg(feature = "pgp-native")]
-    Native(super::NativePgpConfig),
+    Native(super::PgpNativeConfig),
     #[cfg(not(feature = "pgp-native"))]
-    #[serde(alias = "cmd", alias = "cmds", alias = "command")]
     #[serde(skip_serializing, deserialize_with = "missing_native_feature")]
     Native,
 }
@@ -48,19 +45,19 @@ impl From<PgpConfig> for super::PgpConfig {
     fn from(config: PgpConfig) -> Self {
         match config {
             #[cfg(feature = "pgp-commands")]
-            PgpConfig::Commands(config) => super::PgpConfig::Cmds(config),
+            PgpConfig::Commands(config) => super::PgpConfig::Commands(config),
             #[cfg(not(feature = "pgp-commands"))]
-            PgpConfig::Commands => unreachable!(),
+            PgpConfig::Commands => super::PgpConfig::None,
 
             #[cfg(feature = "pgp-gpg")]
             PgpConfig::Gpg(config) => super::PgpConfig::Gpg(config),
             #[cfg(not(feature = "pgp-gpg"))]
-            PgpConfig::Gpg => unreachable!(),
+            PgpConfig::Gpg => super::PgpConfig::None,
 
             #[cfg(feature = "pgp-native")]
             PgpConfig::Native(config) => super::PgpConfig::Native(config),
             #[cfg(not(feature = "pgp-native"))]
-            PgpConfig::Native => unreachable!(),
+            PgpConfig::Native => super::PgpConfig::None,
         }
     }
 }
