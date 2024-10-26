@@ -1,31 +1,26 @@
-#![cfg(all(
-    feature = "sendmail",
-    feature = "imap",
-    feature = "email-testing-server"
-))]
+#![cfg(all(feature = "imap", feature = "sendmail"))]
 
 use std::{sync::Arc, time::Duration};
 
 use email::{
     account::config::{passwd::PasswordConfig, AccountConfig},
-    backend::{Backend, BackendBuilder},
+    backend::BackendBuilder,
     envelope::list::ListEnvelopes,
     folder::{delete::DeleteFolder, list::ListFolders, purge::PurgeFolder},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContext, ImapContextBuilder,
+        ImapContextBuilder,
     },
     message::send::SendMessage,
-    sendmail::{config::SendmailConfig, SendmailContext, SendmailContextBuilder},
+    sendmail::{config::SendmailConfig, SendmailContextBuilder},
 };
 use email_testing_server::with_email_testing_server;
 use mail_builder::MessageBuilder;
+use process::Command;
 use secret::Secret;
 
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn test_sendmail_features() {
-    env_logger::builder().is_test(true).init();
-
     with_email_testing_server(|ports| async move {
         let account_config = Arc::new(AccountConfig::default());
 
@@ -34,33 +29,34 @@ async fn test_sendmail_features() {
             port: ports.imap,
             encryption: Some(ImapEncryptionKind::None),
             login: "bob".into(),
-            auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
+            auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
             ..Default::default()
         });
 
         let sendmail_config = Arc::new(SendmailConfig {
-            cmd: [
-                "msmtp",
-                "--host localhost",
-                &format!("--port {}", ports.smtp),
-                "--user=alice@localhost",
-                "--passwordeval='echo password'",
-                "--read-envelope-from",
-                "--read-recipients",
-            ]
-            .join(" ")
-            .into(),
+            cmd: Some(Command::new(
+                [
+                    "msmtp",
+                    "--host localhost",
+                    &format!("--port {}", ports.smtp),
+                    "--user=alice@localhost",
+                    "--passwordeval='echo password'",
+                    "--read-envelope-from",
+                    "--read-recipients",
+                ]
+                .join(" "),
+            )),
         });
 
         let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
         let imap = BackendBuilder::new(account_config.clone(), imap_ctx)
-            .build::<Backend<ImapContextSync>>()
+            .build()
             .await
             .unwrap();
 
         let sendmail_ctx = SendmailContextBuilder::new(account_config.clone(), sendmail_config);
         let sendmail = BackendBuilder::new(account_config, sendmail_ctx)
-            .build::<Backend<SendmailContext>>()
+            .build()
             .await
             .unwrap();
 

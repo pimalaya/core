@@ -5,22 +5,20 @@ use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
 use concat_with::concat_line;
 use email::{
     account::config::AccountConfig,
-    backend::{Backend, BackendBuilder},
+    backend::BackendBuilder,
     envelope::{list::ListEnvelopes, Id},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag, Flags},
     folder::{config::FolderConfig, INBOX},
     message::{add::AddMessage, copy::CopyMessages, get::GetMessages, r#move::MoveMessages},
-    notmuch::{config::NotmuchConfig, NotmuchContextBuilder, NotmuchContextSync},
+    notmuch::{config::NotmuchConfig, NotmuchContextBuilder},
 };
 use mail_builder::MessageBuilder;
 use maildirs::Maildir;
 use notmuch::Database;
 use tempfile::tempdir;
 
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn test_notmuch_features() {
-    env_logger::builder().is_test(true).init();
-
     // set up maildir folders and notmuch database
 
     let mdir: Maildir = tempdir().unwrap().path().to_owned().into();
@@ -57,7 +55,7 @@ async fn test_notmuch_features() {
 
     let notmuch_ctx = NotmuchContextBuilder::new(account_config.clone(), notmuch_config.clone());
     let notmuch = BackendBuilder::new(account_config.clone(), notmuch_ctx)
-        .build::<Backend<NotmuchContextSync>>()
+        .build()
         .await
         .unwrap();
 

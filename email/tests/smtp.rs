@@ -1,29 +1,27 @@
-#![cfg(all(feature = "smtp", feature = "imap", feature = "email-testing-server"))]
+#![cfg(all(feature = "smtp", feature = "imap"))]
 
 use std::{sync::Arc, time::Duration};
 
 use email::{
     account::config::{passwd::PasswordConfig, AccountConfig},
-    backend::{Backend, BackendBuilder},
+    backend::BackendBuilder,
     envelope::list::ListEnvelopes,
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContext, ImapContextBuilder,
+        ImapContextBuilder,
     },
     message::send::SendMessage,
     smtp::{
         config::{SmtpAuthConfig, SmtpConfig, SmtpEncryptionKind},
-        SmtpContextBuilder, SmtpContextSync,
+        SmtpContextBuilder,
     },
 };
 use email_testing_server::with_email_testing_server;
 use mail_builder::MessageBuilder;
 use secret::Secret;
 
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn test_smtp_features() {
-    env_logger::builder().is_test(true).init();
-
     with_email_testing_server(|ports| async move {
         let account_config = Arc::new(AccountConfig::default());
 
@@ -32,7 +30,7 @@ async fn test_smtp_features() {
             port: ports.imap,
             encryption: Some(ImapEncryptionKind::None),
             login: "bob".into(),
-            auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_command("echo 'password'"))),
+            auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_command("echo 'password'"))),
             ..Default::default()
         });
 
@@ -41,18 +39,18 @@ async fn test_smtp_features() {
             port: ports.smtp,
             encryption: Some(SmtpEncryptionKind::None),
             login: "alice".into(),
-            auth: SmtpAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
+            auth: SmtpAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
         });
 
         let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config);
         let imap = BackendBuilder::new(account_config.clone(), imap_ctx)
-            .build::<Backend<ImapContextSync>>()
+            .build()
             .await
             .unwrap();
 
         let smtp_ctx = SmtpContextBuilder::new(account_config.clone(), smtp_config);
         let smtp = BackendBuilder::new(account_config.clone(), smtp_ctx)
-            .build::<Backend<SmtpContextSync>>()
+            .build()
             .await
             .unwrap();
 

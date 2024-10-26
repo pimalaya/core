@@ -5,14 +5,14 @@ use std::{collections::HashMap, iter::FromIterator, sync::Arc};
 use concat_with::concat_line;
 use email::{
     account::config::AccountConfig,
-    backend::{Backend, BackendBuilder},
+    backend::BackendBuilder,
     envelope::{list::ListEnvelopes, Id},
     flag::{add::AddFlags, remove::RemoveFlags, set::SetFlags, Flag},
     folder::{
         add::AddFolder, config::FolderConfig, delete::DeleteFolder, expunge::ExpungeFolder,
         list::ListFolders, Folder, FolderKind, Folders,
     },
-    maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
+    maildir::{config::MaildirConfig, MaildirContextBuilder},
     message::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
         r#move::MoveMessages,
@@ -21,10 +21,8 @@ use email::{
 use mail_builder::MessageBuilder;
 use tempfile::tempdir;
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn test_maildir_features() {
-    env_logger::builder().is_test(true).init();
-
     let tmp_dir = tempdir().unwrap().path().to_owned();
 
     let account_config = Arc::new(AccountConfig {
@@ -47,7 +45,7 @@ async fn test_maildir_features() {
 
     let mdir_ctx = MaildirContextBuilder::new(account_config.clone(), mdir_config.clone());
     let mdir = BackendBuilder::new(account_config.clone(), mdir_ctx)
-        .build::<Backend<MaildirContextSync>>()
+        .build()
         .await
         .unwrap();
 

@@ -20,10 +20,8 @@ use email::{
 use email_testing_server::with_email_testing_server;
 use secret::Secret;
 
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn test_dynamic_backend() {
-    env_logger::builder().is_test(true).init();
-
     with_email_testing_server(|ports| async move {
         let account_config = Arc::new(AccountConfig::default());
 

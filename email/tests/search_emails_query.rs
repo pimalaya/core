@@ -1,17 +1,15 @@
 #![cfg(all(
-    feature = "email-testing-server",
     feature = "imap",
     feature = "maildir",
     feature = "notmuch",
     feature = "sync",
-    feature = "pool",
 ))]
 
 use std::{iter::FromIterator, sync::Arc};
 
 use email::{
     account::config::{passwd::PasswordConfig, AccountConfig},
-    backend::{Backend, BackendBuilder},
+    backend::BackendBuilder,
     envelope::{
         list::{ListEnvelopes, ListEnvelopesOptions},
         Envelope, Envelopes,
@@ -20,11 +18,11 @@ use email::{
     folder::INBOX,
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContext, ImapContextBuilder,
+        ImapContextBuilder,
     },
-    maildir::{config::MaildirConfig, MaildirContextBuilder, MaildirContextSync},
+    maildir::{config::MaildirConfig, MaildirContextBuilder},
     message::add::AddMessage,
-    notmuch::{config::NotmuchConfig, NotmuchContextBuilder, NotmuchContextSync},
+    notmuch::{config::NotmuchConfig, NotmuchContextBuilder},
     sync::SyncBuilder,
 };
 use email_testing_server::start_email_testing_server;
@@ -32,10 +30,8 @@ use mail_builder::MessageBuilder;
 use secret::Secret;
 use tempfile::tempdir;
 
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn test_search_emails_query() {
-    env_logger::builder().is_test(true).init();
-
     let (ports, shutdown) = start_email_testing_server().await;
 
     let tmp = tempdir().unwrap();
@@ -53,17 +49,13 @@ async fn test_search_emails_query() {
         port: ports.imap,
         encryption: Some(ImapEncryptionKind::None),
         login: "alice".into(),
-        auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
+        auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
         ..Default::default()
     });
 
     let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config.clone());
     let imap_builder = BackendBuilder::new(account_config.clone(), imap_ctx);
-    let imap = imap_builder
-        .clone()
-        .build::<Backend<ImapContextSync>>()
-        .await
-        .unwrap();
+    let imap = imap_builder.clone().build().await.unwrap();
 
     imap.add_message_with_flag(
         INBOX,
@@ -126,11 +118,7 @@ async fn test_search_emails_query() {
 
     let mdir_ctx = MaildirContextBuilder::new(account_config.clone(), mdir_config.clone());
     let mdir_builder = BackendBuilder::new(account_config.clone(), mdir_ctx);
-    let mdir = mdir_builder
-        .clone()
-        .build::<Backend<MaildirContextSync>>()
-        .await
-        .unwrap();
+    let mdir = mdir_builder.clone().build().await.unwrap();
 
     // set up Notmuch
 
@@ -145,27 +133,19 @@ async fn test_search_emails_query() {
 
     let notmuch_ctx = NotmuchContextBuilder::new(account_config.clone(), notmuch_config.clone());
     let notmuch_builder = BackendBuilder::new(account_config.clone(), notmuch_ctx);
-    let notmuch = notmuch_builder
-        .clone()
-        .build::<Backend<NotmuchContextSync>>()
-        .await
-        .unwrap();
+    let notmuch = notmuch_builder.clone().build().await.unwrap();
 
     // sync IMAP with Notmuch
 
     SyncBuilder::new(notmuch_builder.clone(), imap_builder.clone())
         .with_cache_dir(tmp.join("sync-cache"))
-        .with_pool_size(1)
         .sync()
         .await
         .unwrap();
 
     // test query
 
-    let imap = imap_builder
-        .build::<Backend<ImapContextSync>>()
-        .await
-        .unwrap();
+    let imap = imap_builder.build().await.unwrap();
 
     let query = "order by date";
     let expected_msg_ids = ["a", "b", "c"];

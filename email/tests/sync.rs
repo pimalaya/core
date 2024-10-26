@@ -32,10 +32,8 @@ use once_cell::sync::Lazy;
 use tempfile::tempdir;
 use tokio::sync::Mutex;
 
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn test_sync() {
-    env_logger::builder().is_test(true).init();
-
     let tmp = tempdir().unwrap().path().to_owned();
 
     // set up left

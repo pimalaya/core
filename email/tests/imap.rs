@@ -1,17 +1,17 @@
-#![cfg(all(feature = "imap", feature = "email-testing-server"))]
+#![cfg(feature = "imap")]
 
 use std::{collections::HashMap, sync::Arc};
 
 use concat_with::concat_line;
 use email::{
     account::config::{passwd::PasswordConfig, AccountConfig},
-    backend::{Backend, BackendBuilder},
+    backend::BackendBuilder,
     envelope::{list::ListEnvelopes, Id},
     flag::{add::AddFlags, Flag},
     folder::{add::AddFolder, config::FolderConfig, expunge::ExpungeFolder, SENT},
     imap::{
         config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContext, ImapContextBuilder,
+        ImapContextBuilder,
     },
     message::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
@@ -22,10 +22,8 @@ use email_testing_server::with_email_testing_server;
 use mml::MmlCompilerBuilder;
 use secret::Secret;
 
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn test_imap_features() {
-    env_logger::builder().is_test(true).init();
-
     with_email_testing_server(|ports| async move {
         let account_config = Arc::new(AccountConfig {
             folder: Some(FolderConfig {
@@ -40,13 +38,13 @@ async fn test_imap_features() {
             port: ports.imap,
             encryption: Some(ImapEncryptionKind::None),
             login: "bob".into(),
-            auth: ImapAuthConfig::Passwd(PasswdConfig(Secret::new_raw("password"))),
+            auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
             ..Default::default()
         });
 
         let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config.clone());
         let imap = BackendBuilder::new(account_config.clone(), imap_ctx)
-            .build::<Backend<ImapContextSync>>()
+            .build()
             .await
             .unwrap();
 
