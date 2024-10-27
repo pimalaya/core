@@ -3697,7 +3697,7 @@ dependencies = [
 
 [[package]]
 name = "keyring-lib"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "async-std",
  "keyring",

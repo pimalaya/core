@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2024-10-27
+
+### Changed
+
+- Improved inline docs and README.
+- Renamed cargo `native` dependency by `keyring-native`.
+
 ## [1.0.1] - 2024-10-26
 
 ### Fixed
