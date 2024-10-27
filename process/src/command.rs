@@ -1,20 +1,24 @@
+//! # Command
+//!
+//! Module dedicated to commands. It only exposes the [`Command`]
+//! struct, and various implementations of transformation.
+
 use std::{
-    borrow::Cow,
     ops::{Deref, DerefMut},
     process::Stdio,
 };
 
 #[cfg(feature = "async-std")]
-use async_std::{io::WriteExt as _, process::Command as AsyncCommand};
+use async_std::{io::WriteExt, process::Command as AsyncCommand};
 #[cfg(feature = "tokio")]
-use tokio::{io::AsyncWriteExt as _, process::Command as AsyncCommand};
+use tokio::{io::AsyncWriteExt, process::Command as AsyncCommand};
 use tracing::{debug, info};
 
 use crate::{Error, Output, Result};
 
-/// The single command structure.
+/// The command structure.
 ///
-/// Represents commands that are composed of one single command.
+/// The structure is just a simple `String` wrapper.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(
     feature = "derive",
@@ -22,12 +26,21 @@ use crate::{Error, Output, Result};
     serde(from = "String", into = "String")
 )]
 pub struct Command {
+    /// The inner command.
     inner: String,
+
+    /// Whenever the output should be piped or not.
+    ///
+    /// Defaults to `true`.
     #[cfg_attr(feature = "derive", serde(skip))]
     piped: bool,
 }
 
 impl Command {
+    /// Creates a new command from a string.
+    ///
+    /// By default, the output is piped. Use
+    /// [`Command::with_output_piped`] to control this behaviour.
     pub fn new(cmd: impl ToString) -> Self {
         Self {
             inner: cmd.to_string(),
@@ -35,27 +48,42 @@ impl Command {
         }
     }
 
-    pub fn with_output_piped(mut self, piped: bool) -> Self {
+    /// Defines whenever the output should be piped or not.
+    ///
+    /// See [`Command::with_output_piped`] for the builder pattern
+    /// alternative.
+    pub fn set_output_piped(&mut self, piped: bool) {
         self.piped = piped;
+    }
+
+    /// Defines whenever the output should be piped or not, using the
+    /// builder pattern.
+    ///
+    /// See [`Command::set_output_piped`] for the setter alternative.
+    pub fn with_output_piped(mut self, piped: bool) -> Self {
+        self.set_output_piped(piped);
         self
     }
 
     /// Wrapper around [`alloc::str::replace`].
     ///
     /// This function is particularly useful when you need to replace
-    /// placeholders on all inner commands.
+    /// placeholders.
     pub fn replace(mut self, from: impl AsRef<str>, to: impl AsRef<str>) -> Self {
         self.inner = self.inner.replace(from.as_ref(), to.as_ref());
         self
     }
 
+    /// Runs the current command without input.
+    ///
+    /// See [`Command::run_with`] to run command with output.
     pub async fn run(&self) -> Result<Output> {
         self.run_with([]).await
     }
 
     /// Run the command with the given input.
     ///
-    /// If the given input is empty, the command gets straight the
+    /// If the given input is empty, the command returns straight the
     /// output. Otherwise the commands pipes this input to the
     /// standard input channel then waits for the output on the
     /// standard output channel.
@@ -142,24 +170,6 @@ impl From<String> for Command {
     }
 }
 
-impl From<&String> for Command {
-    fn from(cmd: &String) -> Self {
-        Self::new(cmd)
-    }
-}
-
-impl From<&str> for Command {
-    fn from(cmd: &str) -> Self {
-        Self::new(cmd)
-    }
-}
-
-impl From<Cow<'_, str>> for Command {
-    fn from(cmd: Cow<str>) -> Self {
-        Self::new(cmd)
-    }
-}
-
 impl From<Command> for String {
     fn from(cmd: Command) -> Self {
         cmd.inner
@@ -172,13 +182,14 @@ impl ToString for Command {
     }
 }
 
+/// Prepares a new async command.
 fn new_async_command() -> AsyncCommand {
+    #[cfg(not(windows))]
+    let windows = false;
     #[cfg(windows)]
     let windows = !std::env::var("MSYSTEM")
         .map(|env| env.starts_with("MINGW"))
         .unwrap_or_default();
-    #[cfg(not(windows))]
-    let windows = false;
 
     let (shell, arg) = if windows { ("cmd", "/C") } else { ("sh", "-c") };
 

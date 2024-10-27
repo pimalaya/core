@@ -1,3 +1,8 @@
+//! # Output
+//!
+//! Module dedicated to command output. It only exposes an [`Output`]
+//! struct, a wrapper around raw `Vec<u8>` output.
+
 use std::ops::{Deref, DerefMut};
 
 use crate::{Error, Result};
@@ -5,7 +10,7 @@ use crate::{Error, Result};
 /// Wrapper around command output.
 ///
 /// The only role of this struct is to provide convenient functions to
-/// export command output as string.
+/// export command output.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Output(Vec<u8>);
 

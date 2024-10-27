@@ -1,3 +1,8 @@
+//! # Pipeline of commands
+//!
+//! Module dedicated to pipelines. It only exposes the [`Pipeline`]
+//! struct, and various implementations of transformation.
+
 use std::{
     fmt,
     ops::{Deref, DerefMut},
@@ -9,10 +14,8 @@ use crate::{Command, Output, Result};
 
 /// The command pipeline structure.
 ///
-/// Represents commands that are composed of multiple single
-/// commands. Commands are run in a pipeline, which means the output
-/// of the previous command is piped to the input of the next one, and
-/// so on.
+/// A pipeline represents a list of [`Command`]s where the output of
+/// the previous command is piped to the input of the next one.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(
     feature = "derive",
@@ -22,8 +25,9 @@ use crate::{Command, Output, Result};
 pub struct Pipeline(Vec<Command>);
 
 impl Pipeline {
-    pub fn new(cmds: impl IntoIterator<Item = impl Into<Command>>) -> Self {
-        Self(cmds.into_iter().map(Into::into).collect())
+    /// Creates a new pipeline from the given iterator.
+    pub fn new(cmds: impl IntoIterator<Item = impl ToString>) -> Self {
+        Self(cmds.into_iter().map(Command::new).collect())
     }
 
     /// Wrapper around [`alloc::str::replace`].
@@ -38,11 +42,17 @@ impl Pipeline {
         self
     }
 
+    /// Runs the current pipeline without initial input.
+    ///
+    /// See [`Pipeline::run_with`] to run command with output.
     pub async fn run(&self) -> Result<Output> {
         self.run_with([]).await
     }
 
-    /// Run the command pipeline with the given input.
+    /// Run the command pipeline with the given initial input.
+    ///
+    /// After the first command executes, the input is replaced with
+    /// its output.
     pub async fn run_with(&self, input: impl IntoIterator<Item = u8>) -> Result<Output> {
         info!("run pipeline of {} commands", self.len());
 

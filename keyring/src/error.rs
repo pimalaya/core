@@ -1,4 +1,4 @@
-//! # Keyring errors
+//! # Error
 //!
 //! Module dedicated to keyring errors. It contains an [`Error`] enum
 //! based on [`thiserror::Error`] and a type alias [`Result`].

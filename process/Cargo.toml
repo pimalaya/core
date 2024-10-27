@@ -12,8 +12,8 @@ documentation = "https://docs.rs/process-lib/latest/process/"
 repository = "https://github.com/pimalaya/core/tree/master/process/"
 
 [package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
+features = ["derive"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [lib]
 name = "process"

@@ -2,28 +2,35 @@
 
 Cross-platform, asynchronous Rust library to run commands in pipelines.
 
+## Features
+
 This library can be seen as a convenient async wrapper around `std::process::Command`:
 
-- Cross-platform compatible by wrapping commands with `sh -c` or `cmd /C`
-- Pipeline support (previous command output sent as input for the next command)
-- Convenient functions to export output (as string lossy for example)
-- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
-- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
-- [serde](https://crates.io/crates/serde) de/serialization of `Command` and `Pipeline` structures (requires `derive` feature)
+- Wraps commands by default with `sh -c` or `cmd /C`
+- Supports pipeline (previous command output sent as input for the next command)
+- Exposes convenient functions to export output (as string lossy for example)
+- Supports **tokio** and **async-std** async runtimes
+- Supports **serde** (de)serialization
 
-```rust,ignore
+The library comes with 3 [cargo features](https://doc.rust-lang.org/cargo/reference/features.html), including 1 default one:
+
+- **`tokio`**: enables the [tokio](https://crates.io/crates/tokio) async runtime
+- `async-std`: enables the [async-std](https://crates.io/crates/async-std) async runtime
+- `derive`: enables [serde](https://crates.io/crates/serde) support
+
+## Example
+
+```rust
 use process::{Command, Pipeline};
 
 #[tokio::main]
 async fn main() {
-    // run a single command
-	
+    // run a single command	
     let cmd = Command::new("echo hello, world!");
     let out = cmd.run().await.unwrap().to_string_lossy();
     assert_eq!(out, "hello, world!\n");
 	
     // run a pipeline
-	
     let cmd = Pipeline::new(vec!["echo hello", "cat"]);
     let out = cmd.run().await.unwrap().to_string_lossy();
     assert_eq!(out, "hello\n");

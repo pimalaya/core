@@ -1,4 +1,4 @@
-//! # Keyring service name
+//! # Global service name
 //!
 //! Module dedicated to global keyring service name management. Every
 //! consumer of this crate should define his own service name at the

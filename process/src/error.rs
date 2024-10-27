@@ -1,3 +1,8 @@
+//! # Error
+//!
+//! Module dedicated to process errors. It contains an [`Error`] enum
+//! based on [`thiserror::Error`] and a type alias [`Result`].
+
 use std::string::FromUtf8Error;
 
 use thiserror::Error;

@@ -18,4 +18,4 @@ pub use crate::{
     all(feature = "tokio", feature = "async-std"),
     not(any(feature = "tokio", feature = "async-std"))
 ))]
-compile_error!("Either feature \"tokio\" or \"async-std\" must be enabled for this crate.");
+compile_error!("Either feature `tokio` or `async-std` must be enabled for this crate.");
