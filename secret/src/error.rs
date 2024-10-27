@@ -1,3 +1,8 @@
+//! # Error
+//!
+//! Module dedicated to secret errors. It contains an [`Error`] enum
+//! based on [`thiserror::Error`] and a type alias [`Result`].
+
 use thiserror::Error;
 
 /// The global `Result` alias of the library.

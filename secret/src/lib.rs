@@ -22,13 +22,13 @@ pub use crate::error::{Error, Result};
     all(feature = "tokio", feature = "async-std"),
     not(any(feature = "tokio", feature = "async-std"))
 ))]
-compile_error!("Either feature \"tokio\" or \"async-std\" must be enabled for this crate.");
+compile_error!("Either feature `tokio` or `async-std` must be enabled for this crate.");
 
 #[cfg(any(
     all(feature = "rustls", feature = "openssl"),
     not(any(feature = "rustls", feature = "openssl"))
 ))]
-compile_error!("Either feature \"rustls\" or \"openssl\" must be enabled for this crate.");
+compile_error!("Either feature `rustls` or `openssl` must be enabled for this crate.");
 
 /// The secret.
 ///
@@ -38,8 +38,7 @@ compile_error!("Either feature \"rustls\" or \"openssl\" must be enabled for thi
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
-    serde(from = "derive::Secret"),
-    serde(rename_all = "kebab-case")
+    serde(rename_all = "kebab-case", from = "derive::Secret")
 )]
 pub enum Secret {
     /// The secret is empty.
@@ -71,29 +70,29 @@ pub enum Secret {
 }
 
 impl Secret {
-    /// Create a new empty secret.
+    /// Creates a new empty secret.
     pub fn new() -> Self {
         Default::default()
     }
 
-    /// Create a new secret from the given raw string.
+    /// Creates a new secret from the given raw string.
     pub fn new_raw(raw: impl ToString) -> Self {
         Self::Raw(raw.to_string())
     }
 
-    /// Create a new secret from the given shell command.
+    /// Creates a new secret from the given shell command.
     #[cfg(feature = "command")]
-    pub fn new_command(cmd: impl Into<Command>) -> Self {
-        Self::Command(cmd.into())
+    pub fn new_command(cmd: impl ToString) -> Self {
+        Self::Command(Command::new(cmd))
     }
 
-    /// Create a new secret from the given keyring entry.
+    /// Creates a new secret from the given keyring entry.
     #[cfg(feature = "keyring")]
     pub fn new_keyring_entry(entry: KeyringEntry) -> Self {
         Self::Keyring(entry)
     }
 
-    /// Try to create a new secret from the given entry.
+    /// Tries to create a new secret from the given entry.
     #[cfg(feature = "keyring")]
     pub fn try_new_keyring_entry(
         entry: impl TryInto<KeyringEntry, Error = keyring::Error>,
@@ -102,12 +101,12 @@ impl Secret {
         Ok(Self::new_keyring_entry(entry))
     }
 
-    /// Return `true` if the secret is empty.
+    /// Returns `true` if the secret is empty.
     pub fn is_empty(&self) -> bool {
         *self == Self::Empty
     }
 
-    /// Get the secret value.
+    /// Gets the secret value.
     ///
     /// The command-based secret execute its shell command and returns
     /// the output, and the keyring-based secret retrieves the value
@@ -145,10 +144,10 @@ impl Secret {
         }
     }
 
-    /// Find the secret value.
+    /// Finds the secret value.
     ///
-    /// Like [`get`], but returns [`None`] if the secret value is not
-    /// found or empty.
+    /// Like [`Secret::get`], but returns [`None`] if the secret value
+    /// is not found or empty.
     pub async fn find(&self) -> Result<Option<String>> {
         match self {
             Self::Empty => {
@@ -177,7 +176,7 @@ impl Secret {
         }
     }
 
-    /// Change the secret value.
+    /// Updates the secret value.
     ///
     /// This is only applicable for raw secrets and keyring-based
     /// secrets. A secret value cannot be changed for command-base
@@ -201,7 +200,7 @@ impl Secret {
         Ok(secret.to_string())
     }
 
-    /// Change the secret value of the keyring-based secret only.
+    /// Updates the secret value of the keyring-based secret only.
     ///
     /// This function as no effect on other secret variants.
     #[cfg(feature = "keyring")]
@@ -215,7 +214,7 @@ impl Secret {
         Ok(secret.to_string())
     }
 
-    /// Delete the secret value and make the current secret empty.
+    /// Deletes the secret value and make the current secret empty.
     pub async fn delete(&mut self) -> Result<()> {
         #[cfg(feature = "keyring")]
         if let Self::Keyring(entry) = self {
@@ -227,7 +226,7 @@ impl Secret {
         Ok(())
     }
 
-    /// Delete the secret value of keyring-based secrets only.
+    /// Deletes the secret value of keyring-based secrets only.
     ///
     /// This function has no effect on other variants.
     #[cfg(feature = "keyring")]
@@ -239,7 +238,7 @@ impl Secret {
         Ok(())
     }
 
-    /// Replace empty secret variant with the given one.
+    /// Replaces empty secret variant with the given one.
     ///
     /// This function has no effect on other variants.
     pub fn replace_if_empty(&mut self, new: Self) {
@@ -248,7 +247,7 @@ impl Secret {
         }
     }
 
-    /// Replace empty secret variant with a keyring one.
+    /// Replaces empty secret variant with a keyring one.
     ///
     /// This function has no effect on other variants.
     #[cfg(feature = "keyring")]

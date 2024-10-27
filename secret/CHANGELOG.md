@@ -9,9 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `vendored` cargo feature.
-
-  The feature is forwarded to `keyring-rs` in order to pack OpenSSL lib with this crate.
+- Added `vendored` cargo feature. The feature is forwarded to `keyring-rs` in order to pack OpenSSL lib with this crate.
 
 ### Changed
 
@@ -26,9 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `Secret::set_only_keyring` with `Secret::set_if_keyring`.
 - Renamed `Secret::delete_only_keyring` with `Secret::delete_if_keyring`.
 - Renamed `Secret::KeyringEntry` with `Secret::Keyring`.
-- Changed `Secret::replace_undefined_to_keyring` with `Secret::replace_if_empty`.
-
-  This function became more generic. It takes now a new `Secret` as argument instead of a keyring entry.
+- Changed `Secret::replace_undefined_to_keyring` with `Secret::replace_if_empty`. This function became more generic. It takes now a new `Secret` as argument instead of a keyring entry.
 
 ## [0.4.6] - 2024-08-16
 
@@ -168,3 +164,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Imported process code from `pimalaya-email`.
+
+[1.0.0]: https://crates.io/crates/secret-lib/1.0.0
+[0.4.6]: https://crates.io/crates/secret-lib/0.4.6
+[0.4.5]: https://crates.io/crates/secret-lib/0.4.5
+[0.4.4]: https://crates.io/crates/secret-lib/0.4.4
+[0.4.3]: https://crates.io/crates/secret-lib/0.4.3
+[0.4.2]: https://crates.io/crates/secret-lib/0.4.2
+[0.4.1]: https://crates.io/crates/secret-lib/0.4.1
+[0.4.0]: https://crates.io/crates/secret-lib/0.4.0
+[0.3.3]: https://crates.io/crates/secret-lib/0.3.3
+[0.3.2]: https://crates.io/crates/secret-lib/0.3.2
+[0.3.1]: https://crates.io/crates/secret-lib/0.3.1
+[0.3.0]: https://crates.io/crates/secret-lib/0.3.0
+[0.2.0]: https://crates.io/crates/secret-lib/0.2.0
+[0.1.0]: https://crates.io/crates/secret-lib/0.1.0
+[0.0.5]: https://crates.io/crates/pimalaya-secret/0.0.5
+[0.0.4]: https://crates.io/crates/pimalaya-secret/0.0.4
+[0.0.3]: https://crates.io/crates/pimalaya-secret/0.0.3
+[0.0.2]: https://crates.io/crates/pimalaya-secret/0.0.2
+[0.0.1]: https://crates.io/crates/pimalaya-secret/0.0.1

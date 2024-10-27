@@ -2,16 +2,29 @@
 
 Cross-platform, asynchronous Rust library to retrieve secrets from different sources.
 
-- From raw strings
-- From shell commands using [`process-lib`](https://crates.io/crates/process-lib) (requires `command` feature)
-- From user's global keyring using [`keyring-lib`](https://crates.io/crates/keyring-lib) (requires `keyring` feature)
-- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
-- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
-- [rustls](https://crates.io/crates/rustls) crypto support (requires `rustls` feature)
-- [openssl](https://crates.io/crates/openssl) crypto support (requires `openssl` feature, and OpenSSL lib installed (or `vendored` feature))
-- [serde](https://crates.io/crates/serde) de/serialization of the secret enum (requires `derive` feature)
+## Features
 
-```rust,ignore
+- Can retrieve secret from shell commands using [`process-lib`](https://crates.io/crates/process-lib)
+- Can retrieve secret from users' global keyring using [`process-lib`](https://crates.io/crates/process-lib)
+- Can retrieve secret from raw strings (not safe, for testing purpose)
+- Supports **tokio** and **async-std** async runtimes
+- Supports **rustls** and **openssl** crypto libs
+- Supports **serde** (de)serialization from/to `String`
+
+The library comes with 8 [cargo features](https://doc.rust-lang.org/cargo/reference/features.html), including 4 default ones:
+
+- **`tokio`**: enables the [tokio](https://crates.io/crates/tokio) async runtime
+- `async-std`: enables the [async-std](https://crates.io/crates/async-std) async runtime
+- **`rustls`**: enables the [rustls](https://crates.io/crates/rustls) crypto
+- `openssl`: enables the [openssl](https://crates.io/crates/openssl) crypto
+- **`command`**: enables the [command-based](https://crates.io/crates/process-lib) secret backend
+- **`keyring`**: enables the [keyring-based](https://crates.io/crates/keyring-lib) secret backend
+- `derive`: enables [serde](https://crates.io/crates/serde) support
+- `vendored`: compiles and statically link to a copy of non-Rust vendors like OpenSSL
+
+## Example
+
+```rust
 use secret::{keyring::KeyringEntry, Secret};
 
 #[tokio::main]
@@ -36,7 +49,6 @@ async fn main() {
     let mut secret = Secret::new_keyring_entry(entry);
     assert_eq!(secret.get().await.unwrap(), "secret");
 }
-
 ```
 
 *See the full API documentation on [docs.rs](https://docs.rs/secret-lib/latest/secret/).*
