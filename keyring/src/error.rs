@@ -1,4 +1,11 @@
+//! # Keyring errors
+//!
+//! Module dedicated to keyring errors. It contains an [`Error`] enum
+//! based on [`thiserror::Error`] and a type alias [`Result`].
+
 use thiserror::Error;
+
+use crate::native;
 
 /// The global `Result` alias of the library.
 pub type Result<T> = std::result::Result<T, Error>;

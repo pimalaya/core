@@ -13,10 +13,10 @@ static SERVICE_NAME: OnceCell<&str> = OnceCell::new();
 /// The default global service name.
 static DEFAULT_SERVICE_NAME: &str = "keyring-lib";
 
-/// Get the global keyring service name.
+/// Gets the global keyring service name.
 ///
 /// If the service name is not defined, returns the default global
-/// service name `keyring-lib`.
+/// service name as defined in [`DEFAULT_SERVICE_NAME`].
 pub fn get_global_service_name() -> &'static str {
     match SERVICE_NAME.get() {
         Some(name) => name,
@@ -28,10 +28,10 @@ pub fn get_global_service_name() -> &'static str {
     }
 }
 
-/// Replace the global keyring service name.
+/// Replaces the global keyring service name.
 ///
-/// This action as no effect if a global service name has already been
-/// defined.
+/// This function has no effect if a global service name has already
+/// been defined.
 pub fn set_global_service_name(name: &'static str) {
     debug!(name, "define global service name");
 

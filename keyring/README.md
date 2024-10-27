@@ -2,20 +2,25 @@
 
 High-level, asynchronous API for [`keyring-rs`](https://crates.io/crates/keyring), a cross-platform Rust library to manage credentials.
 
-This library can be seen as a convenient async wrapper around `keyring-rs`:
+## Features
 
-- Default keystore based on target OS:
-  - OpenBSD and FreeBSD: [Secret Service](https://specifications.freedesktop.org/secret-service-spec/latest/)
-  - Linux: Secret Service + [keyutils](https://man7.org/linux/man-pages/man7/keyutils.7.html) (secure in-memory kernel cache)
-  - MacOS and iOS: [Security framework](https://developer.apple.com/documentation/security/keychain-services)
-  - Windows: [Security credentials](https://learn.microsoft.com/en-us/uwp/api/windows.security.credentials)
-- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
-- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
-- [rustls](https://crates.io/crates/rustls) crypto support (requires `rustls` feature)
-- [openssl](https://crates.io/crates/openssl) crypto support (requires `openssl` feature, and OpenSSL lib installed (or `vendored` feature))
-- [serde](https://crates.io/crates/serde) de/serialization of the keyring entry from/to `String` (requires `derive` feature)
-- Global service name to avoid repetition
-- Convenient function to find a secret (`Entry::find_secret -> Result<Option<String>>`)
+- Uses [Secret Service](https://specifications.freedesktop.org/secret-service-spec/latest/) on *Linux*
+- Uses the [keyutils](https://man7.org/linux/man-pages/man7/keyutils.7.html) secure, in-memory *Linux* kernel cache (if available)
+- Uses default system security credential on *MacOS* and *Windows*
+- Supports **tokio** and **async-std** async runtimes
+- Supports **rustls** and **openssl** crypto libs
+- Supports **serde** (de)serialization from/to `String`
+
+The library comes with 6 [cargo features](https://doc.rust-lang.org/cargo/reference/features.html), including 2 default ones:
+
+- **`tokio`**: enables the [tokio](https://crates.io/crates/tokio) async runtime
+- `async-std`: enables the [async-std](https://crates.io/crates/async-std) async runtime
+- **`rustls`**: enables the [rustls](https://crates.io/crates/rustls) crypto
+- `openssl`: enables the [openssl](https://crates.io/crates/openssl) crypto
+- `derive`: enables [serde](https://crates.io/crates/serde) support
+- `vendored`: compiles and statically link to a copy of non-Rust vendors like OpenSSL
+
+## Example
 
 ```rust
 use keyring::{set_global_service_name, KeyringEntry};
@@ -44,6 +49,14 @@ async fn main() {
 
 *See the full API documentation on [docs.rs](https://docs.rs/keyring-lib/latest/keyring/).*
 
+## FAQ
+
+<details>
+  <summary>Why not using <code>keyring-rs</code> directly?</summary>
+
+  This library can be seen as a *convenient async wrapper* around `keyring-rs`. If you have an async app and just want to have a default keystore for any target OS, then `keyring-lib` is the right choice. If you do not have an async app, or you want more control over keystores, using `keyring-rs` is a much better choice.
+</details>
+
 ## Sponsoring
 
 [![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/)
@@ -54,7 +67,9 @@ Special thanks to the [NLnet foundation](https://nlnet.nl/) and the [European Co
 - [NGI Zero Entrust](https://nlnet.nl/project/Pimalaya/) in 2023
 - [NGI Zero Core](https://nlnet.nl/project/Pimalaya-PIM/) in 2024 *(still ongoing)*
 
-If you appreciate the project, feel free to donate using one of the following providers:
+All the credits go to [`keyring-rs`](https://github.com/hwchen/keyring-rs). The maintainers are doing a great job there, consider supporting them first.
+
+That said, if you appreciate this project, feel free to donate using one of the following providers:
 
 [![GitHub](https://img.shields.io/badge/-GitHub%20Sponsors-fafbfc?logo=GitHub%20Sponsors)](https://github.com/sponsors/soywod)
 [![Ko-fi](https://img.shields.io/badge/-Ko--fi-ff5e5a?logo=Ko-fi&logoColor=ffffff)](https://ko-fi.com/soywod)

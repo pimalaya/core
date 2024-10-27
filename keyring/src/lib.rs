@@ -6,7 +6,7 @@ mod service;
 
 use std::sync::Arc;
 
-pub use native;
+pub use keyring_native as native;
 use tracing::debug;
 
 #[doc(inline)]
@@ -38,7 +38,7 @@ compile_error!("Either feature `rustls` or `openssl` must be enabled for this cr
     serde(try_from = "String", into = "String")
 )]
 pub struct KeyringEntry {
-    /// The key of the keyring entry.
+    /// The key used to identify the current keyring entry.
     pub key: String,
 
     /// The native keyring entry.
@@ -48,18 +48,20 @@ pub struct KeyringEntry {
 impl Eq for KeyringEntry {}
 
 impl PartialEq for KeyringEntry {
+    /// Two keyring entries are considered equal if their key are
+    /// equal.
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
     }
 }
 
 impl KeyringEntry {
-    /// Create a new keyring entry from a key.
+    /// Creates a new keyring entry from a key.
     pub fn try_new(key: impl ToString) -> Result<Self> {
         Self::try_from(key.to_string())
     }
 
-    /// Get the secret of the keyring entry.
+    /// Gets the secret of the keyring entry.
     pub async fn get_secret(&self) -> Result<String> {
         let key = &self.key;
         debug!(key, "get keyring secret");
@@ -72,9 +74,10 @@ impl KeyringEntry {
         Ok(secret)
     }
 
-    /// Find the secret of the keyring entry.
+    /// Finds the secret of the keyring entry.
     ///
-    /// Returns `None` in case the secret is not found.
+    /// This function is like [`KeyringEntry::get_secret`], except
+    /// that it returns `None` in case the secret cannot be found.
     pub async fn find_secret(&self) -> Result<Option<String>> {
         let key = &self.key;
         debug!(key, "find keyring secret");
@@ -89,7 +92,7 @@ impl KeyringEntry {
         }
     }
 
-    /// (Re)set the secret of the keyring entry.
+    /// (Re)sets the secret of the keyring entry.
     pub async fn set_secret(&self, secret: impl ToString) -> Result<()> {
         let key = &self.key;
         debug!(key, "set keyring secret");
@@ -103,14 +106,17 @@ impl KeyringEntry {
         Ok(())
     }
 
-    /// (Re)set the secret of the keyring entry, using the builder
+    /// (Re)sets the secret of the keyring entry, using the builder
     /// pattern.
+    ///
+    /// This function acts like [`KeyringEntry::set_secret`], except
+    /// that it returns [`Self`] instead of `()`.
     pub async fn try_with_secret(self, secret: impl ToString) -> Result<Self> {
         self.set_secret(secret).await?;
         Ok(self)
     }
 
-    /// Delete the secret of the keyring entry.
+    /// Deletes the secret of the keyring entry.
     pub async fn delete_secret(&self) -> Result<()> {
         let key = &self.key;
         debug!(key, "delete keyring secret");
@@ -127,6 +133,11 @@ impl KeyringEntry {
 impl TryFrom<String> for KeyringEntry {
     type Error = Error;
 
+    /// Creates a new keyring entry from a `String`.
+    ///
+    /// This implementation is a wrapper around
+    /// [`native::Entry::new`], where the service name is taken
+    /// globally from [`get_global_service_name`].
     fn try_from(key: String) -> Result<Self> {
         let service = get_global_service_name();
 
@@ -140,16 +151,19 @@ impl TryFrom<String> for KeyringEntry {
 }
 
 impl From<KeyringEntry> for String {
+    /// Returns the key of the current keyring entry.
     fn from(entry: KeyringEntry) -> Self {
         entry.key
     }
 }
 
+/// Spawns a blocking task using [`async_std`].
 #[cfg(feature = "async-std")]
 async fn spawn_blocking<T: Send + 'static>(f: impl Fn() -> T + Send + 'static) -> Result<T> {
     Ok(async_std::task::spawn_blocking(f).await)
 }
 
+/// Spawns a blocking task using [`tokio`].
 #[cfg(feature = "tokio")]
 async fn spawn_blocking<T: Send + 'static>(f: impl Fn() -> T + Send + 'static) -> Result<T> {
     Ok(tokio::task::spawn_blocking(f).await?)
