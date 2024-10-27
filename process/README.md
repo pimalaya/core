@@ -31,7 +31,7 @@ async fn main() {
     assert_eq!(out, "hello, world!\n");
 	
     // run a pipeline
-    let cmd = Pipeline::new(vec!["echo hello", "cat"]);
+    let cmd = Pipeline::new(["echo hello", "cat"]);
     let out = cmd.run().await.unwrap().to_string_lossy();
     assert_eq!(out, "hello\n");
 }
