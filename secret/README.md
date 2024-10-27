@@ -5,11 +5,11 @@ Cross-platform, asynchronous Rust library to retrieve secrets from different sou
 ## Features
 
 - Can retrieve secret from shell commands using [`process-lib`](https://crates.io/crates/process-lib)
-- Can retrieve secret from users' global keyring using [`process-lib`](https://crates.io/crates/process-lib)
+- Can retrieve secret from users' global keyring using [`keyring-lib`](https://crates.io/crates/keyring-lib)
 - Can retrieve secret from raw strings (not safe, for testing purpose)
 - Supports **tokio** and **async-std** async runtimes
 - Supports **rustls** and **openssl** crypto libs
-- Supports **serde** (de)serialization from/to `String`
+- Supports **serde** (de)serialization
 
 The library comes with 8 [cargo features](https://doc.rust-lang.org/cargo/reference/features.html), including 4 default ones:
 
