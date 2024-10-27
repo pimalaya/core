@@ -2,10 +2,33 @@
 
 High-level, asynchronous API for [`ureq`](https://crates.io/crates/ureq), a safe HTTP client.
 
-- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
-- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
-- [rustls](https://crates.io/crates/rustls) crypto support (requires `rustls` feature)
-- [native-tls](https://crates.io/crates/native-tls) crypto support (requires `native-tls` feature, and OpenSSL lib installed (or `vendored` feature))
+## Features
+
+- Wraps HTTP agent with sane defaults
+- Supports pool of agent *(soon)*
+- Supports **tokio** and **async-std** async runtimes
+- Supports **rustls** and **openssl** crypto libs
+
+The library comes with 5 [cargo features](https://doc.rust-lang.org/cargo/reference/features.html), including 2 default ones:
+
+- **`tokio`**: enables the [tokio](https://crates.io/crates/tokio) async runtime
+- `async-std`: enables the [async-std](https://crates.io/crates/async-std) async runtime
+- **`rustls`**: enables the [rustls](https://crates.io/crates/rustls) crypto
+- `native-tls`: enables the [native-tls](https://crates.io/crates/native-tls) crypto
+- `vendored`: compiles and statically link to a copy of non-Rust vendors like OpenSSL
+
+## Example
+
+```rust
+use http::Client;
+
+#[tokio::main]
+async fn main() {
+    let client = Client::new();
+	let res = client.send(|agent| agent.get("https://crates.io").call()).await.unwrap();
+	assert_eq!(200, res.status());
+}
+```
 
 *See the full API documentation on [docs.rs](https://docs.rs/http-lib/latest/http/).*
 

@@ -1,7 +1,7 @@
 [package]
 name = "http-lib"
 description = "High-level, asynchronous API for ureq, a safe HTTP client"
-version = "1.0.0"
+version = "0.1.0"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
@@ -12,8 +12,8 @@ documentation = "https://docs.rs/http-lib/latest/http/"
 repository = "https://github.com/pimalaya/core/tree/master/http/"
 
 [package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
+features = []
+rustdoc-args = ["--cfg", "docsrs"]
 
 [lib]
 name = "http"
@@ -37,9 +37,10 @@ async-std = ["dep:async-std"]
 rustls = ["ureq/rustls"]
 native-tls = ["ureq/native-tls"]
 
-# TODO: ureq does not expose `vendored` cargo feature 
 # Vendored (mostly for OpenSSL)
 #
+# TODO: waiting for <https://github.com/algesten/ureq/pull/866>
+#vendored = ["ureq/vendored"]
 vendored = []
 
 [dev-dependencies]
@@ -52,4 +53,4 @@ async-std = { version = "1.13", optional = true }
 thiserror = "1"
 tokio = { version = "1.23", optional = true, default-features = false, features = ["rt"] }
 tracing = "0.1"
-ureq = { version = "3.0.0-rc.2", default-features = false, features = ["platform-verifier"] }
+ureq = { version = "3.0.0-rc.2", default-features = false, features = ["gzip", "platform-verifier"] }

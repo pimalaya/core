@@ -1,3 +1,8 @@
+//! # Error
+//!
+//! Module dedicated to keyring errors. It contains an [`Error`] enum
+//! based on [`thiserror::Error`] and a type alias [`Result`].
+
 use thiserror::Error;
 use ureq::http::Uri;
 
@@ -17,12 +22,11 @@ pub enum Error {
     SendRequestError(#[source] ureq::Error),
 
     #[error(transparent)]
-    Error(#[from] ureq::Error),
+    UreqError(#[from] ureq::Error),
     #[error(transparent)]
     HttpError(#[from] ureq::http::Error),
     #[error(transparent)]
-    InvalidUriError(#[from] ureq::http::uri::InvalidUri),
-
+    UriError(#[from] ureq::http::uri::InvalidUri),
     #[cfg(feature = "tokio")]
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),

@@ -28,13 +28,19 @@ compile_error!("Either feature `tokio` or `async-std` must be enabled for this c
 ))]
 compile_error!("Either feature `rustls` or `native-tls` must be enabled for this crate.");
 
+/// The HTTP client structure.
+///
+/// This structure wraps a HTTP agent, which is used by the
+/// [`Client::send`] function.
 #[derive(Clone, Debug)]
 pub struct Client {
-    // TODO: pool?
+    /// The HTTP agent used to perform calls.
+    // TODO: agent pool?
     agent: Arc<Agent>,
 }
 
 impl Client {
+    /// Creates a new HTTP client with sane defaults.
     pub fn new() -> Self {
         let tls = TlsConfig::builder()
             .root_certs(RootCerts::PlatformVerifier)
@@ -51,6 +57,11 @@ impl Client {
         Self { agent }
     }
 
+    /// Sends a request.
+    ///
+    /// This function takes a callback that tells how the request
+    /// looks like. It takes a reference to the inner HTTP agent as
+    /// parameter.
     pub async fn send(
         &self,
         f: impl FnOnce(&Agent) -> std::result::Result<Response<Body>, ureq::Error> + Send + 'static,
@@ -63,6 +74,7 @@ impl Client {
     }
 }
 
+/// Spawns a blocking task using [`async_std`].
 #[cfg(feature = "async-std")]
 async fn spawn_blocking<F, T>(f: F) -> Result<T>
 where
@@ -72,6 +84,7 @@ where
     Ok(async_std::task::spawn_blocking(f).await)
 }
 
+/// Spawns a blocking task using [`tokio`].
 #[cfg(feature = "tokio")]
 async fn spawn_blocking<F, T>(f: F) -> Result<T>
 where

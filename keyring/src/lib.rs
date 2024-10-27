@@ -159,12 +159,20 @@ impl From<KeyringEntry> for String {
 
 /// Spawns a blocking task using [`async_std`].
 #[cfg(feature = "async-std")]
-async fn spawn_blocking<T: Send + 'static>(f: impl Fn() -> T + Send + 'static) -> Result<T> {
+async fn spawn_blocking<F, T>(f: F) -> Result<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
     Ok(async_std::task::spawn_blocking(f).await)
 }
 
 /// Spawns a blocking task using [`tokio`].
 #[cfg(feature = "tokio")]
-async fn spawn_blocking<T: Send + 'static>(f: impl Fn() -> T + Send + 'static) -> Result<T> {
+async fn spawn_blocking<F, T>(f: F) -> Result<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
     Ok(tokio::task::spawn_blocking(f).await?)
 }
