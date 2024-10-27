@@ -12,8 +12,8 @@ documentation = "https://docs.rs/mml-lib/latest/mml/"
 repository = "https://github.com/pimalaya/core/tree/master/mml/"
 
 [package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
+features = ["command", "keyring", "derive"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [lib]
 name = "mml"
@@ -26,21 +26,21 @@ default = [
   #"native-tls",
   "compiler",
   "interpreter",
-  #"pgp-commands",
+  "pgp-commands",
   #"pgp-gpg",
   #"pgp-native",
-  #"keyring",
   #"command",
+  #"keyring",
   #"derive",
   #"vendored",
 ]
 
-# Async runtime (for PGP public key discovery)
+# Async runtime (for native PGP public key discovery)
 #
 tokio = ["pgp-lib?/tokio", "process-lib?/tokio", "secret-lib?/tokio"]
 async-std = ["pgp-lib?/async-std", "process-lib?/async-std", "secret-lib?/async-std"]
 
-# Rust crypto (for PGP public key discovery)
+# Rust crypto (for native PGP public key discovery)
 #
 rustls = ["pgp-lib?/rustls", "secret-lib?/rustls"]
 native-tls = ["pgp-lib?/native-tls", "secret-lib?/openssl"]
@@ -65,13 +65,13 @@ pgp-native = ["dep:pgp-lib", "dep:secret-lib", "dep:shellexpand-utils", "pgp"]
 command = ["secret-lib?/command"]
 keyring = ["secret-lib?/keyring"]
 
-# Vendored (mostly for OpenSSL)
-#
-vendored = ["pgp-lib?/vendored", "secret-lib?/vendored"]
-
 # Serde (de)serialization
 #
 derive = ["dep:serde", "process-lib?/derive", "secret-lib?/derive"]
+
+# Vendored (mostly for OpenSSL)
+#
+vendored = ["pgp-lib?/vendored", "secret-lib?/vendored"]
 
 [dev-dependencies]
 concat-with = "0.2"
@@ -86,7 +86,7 @@ gpgme = { version = "0.11", optional = true }
 mail-builder = "0.3"
 mail-parser = "0.9"
 nanohtml2text = { version = "0.1", optional = true }
-pgp-lib = { version = "1", optional = true, features = ["key-discovery"], path = "../pgp" }
+pgp-lib = { version = "1", optional = true, default-features = false, features = ["key-discovery"], path = "../pgp" }
 process-lib = { version = "1", optional = true, default-features = false, path = "../process" }
 secret-lib = { version = "1", optional = true, default-features = false, path = "../secret" }
 serde = { version = "1", optional = true, features = ["derive"] }

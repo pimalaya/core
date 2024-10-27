@@ -55,7 +55,7 @@ pub struct PgpCommands {
 
 impl PgpCommands {
     pub fn default_encrypt_cmd() -> Command {
-        Command::from("gpg --encrypt --quiet --armor <recipients>")
+        Command::new("gpg --encrypt --quiet --armor <recipients>")
     }
 
     pub fn default_encrypt_recipient_fmt() -> String {
@@ -67,15 +67,15 @@ impl PgpCommands {
     }
 
     pub fn default_decrypt_cmd() -> Command {
-        Command::from("gpg --decrypt --quiet")
+        Command::new("gpg --decrypt --quiet")
     }
 
     pub fn default_sign_cmd() -> Command {
-        Command::from("gpg --sign --quiet --armor")
+        Command::new("gpg --sign --quiet --armor")
     }
 
     pub fn default_verify_cmd() -> Command {
-        Command::from("gpg --verify --quiet")
+        Command::new("gpg --verify --quiet")
     }
 
     /// Encrypts the given plain bytes using the given recipients.

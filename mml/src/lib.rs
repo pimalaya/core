@@ -20,11 +20,11 @@ pub use crate::message::{MmlCompileResult, MmlCompiler, MmlCompilerBuilder};
     all(feature = "tokio", feature = "async-std"),
     not(any(feature = "tokio", feature = "async-std"))
 ))]
-compile_error!("Either feature \"tokio\" or \"async-std\" must be enabled for this crate.");
+compile_error!("Either feature `tokio` or `async-std` must be enabled for this crate.");
 
 #[cfg(any(feature = "pgp-commands", feature = "pgp-native"))]
 #[cfg(any(
-    all(feature = "rustls", feature = "openssl"),
-    not(any(feature = "rustls", feature = "openssl"))
+    all(feature = "rustls", feature = "native-tls"),
+    not(any(feature = "rustls", feature = "native-tls"))
 ))]
-compile_error!("Either feature \"rustls\" or \"openssl\" must be enabled for this crate.");
+compile_error!("Either feature `rustls` or `native-tls` must be enabled for this crate.");

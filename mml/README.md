@@ -1,23 +1,36 @@
 # 📫 mml-lib
 
-Rust implementation of the **Emacs MIME message Meta Language**, as known as [MML](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html).
+Rust implementation of the *Emacs MIME message Meta Language*, as known as [MML](https://www.gnu.org/software/emacs/manual/html_node/emacs-mime/Composing.html).
 
-- MML to MIME messages compilation using [`MmlCompilerBuilder`](https://docs.rs/mml-lib/latest/mml/message/compiler/struct.MmlCompilerBuilder.html) (requires `compiler` feature)
-- MIME to MML messages interpretation using the [`MimeInterpreterBuilder`](https://docs.rs/mml-lib/latest/mml/message/interpreter/struct.MimeInterpreterBuilder.html) (requires `interpreter` feature)
-- Multiple parts support `<#multipart>…<#/multipart>`
-- Inline part support `<#part text=mime/type>…<#/part>`
-- Attachment support `<#part disposition=attachment filename=/path/to/attachment.ext><#/part>`
-- Comment support `<#!part>This will not be compiled<#!/part>`
-- PGP support:
-  - Shell commands (requires `pgp-commands` feature)
-  - GPG bindings (requires `pgp-gpg` feature and [`gpgme`](https://gnupg.org/software/gpgme/index.html) installed)
-  - Native Rust implementation (requires `pgp-native` feature)
-- [`secret-lib`](https://crates.io/crates/secret-lib) support for PGP native secret keys storage:
-  - From shell commands using [`process-lib`](https://crates.io/crates/process-lib) (requires `secret-command` feature)
-  - From user's global keyring using [`keyring-lib`](https://crates.io/crates/keyring-lib) (requires `secret-keyring` feature)
-- [Serde](https://serde.rs/) de/serialization of structs and enums (requires `derive` feature)
+## Features
 
-*See the full API documentation on [docs.rs](https://docs.rs/mml-lib/latest/mml/).*
+- Compiles MML to MIME messages
+- Interprets MIME messages as MML
+- Supports multiple parts `<#multipart>…<#/multipart>`
+- Supports inline part `<#part text=mime/type>…<#/part>`
+- Supports attachment `<#part disposition=attachment filename=/path/to/attachment.ext><#/part>`
+- Supports comment `<#!part>This will not be compiled<#!/part>`
+- Supports **tokio** and **async-std** async runtimes
+- Supports **rustls** and **native-tls** crypto libs
+- Supports **PGP**: shell commands, GPG bindings or native implem with [`pgp-lib`](https://crates.io/crates/pgp-lib)
+- Retrieves PGP secret keys and passphrases from shell commands or global keyring via [`secret-lib`](https://crates.io/crates/secret-lib)
+- Supports **serde** (de)serialization
+
+The library comes with 13 [cargo features](https://doc.rust-lang.org/cargo/reference/features.html), including 4 default ones:
+
+- **`tokio`**: enables the [tokio](https://crates.io/crates/tokio) async runtime
+- `async-std`: enables the [async-std](https://crates.io/crates/async-std) async runtime
+- **`rustls`**: enables the [rustls](https://crates.io/crates/rustls) crypto
+- `native-tls`: enables the [native-tls](https://crates.io/crates/native-tls) crypto
+- **`compiler`**: enables MML to MIME compilation
+- **`interpreter`**: enables MIME to MML interpretation
+- `pgp-commands`: enables PGP using [shell commands](https://crates.io/crates/process-lib)
+- `pgp-gpg`: enables PGP using [GPG bindings](https://crates.io/crates/gpgme)
+- `pgp-native`: enables native PGP using [`pgp-lib`](https://crates.io/crates/pgp-lib)
+- `command`: enables command-based [secrets](https://crates.io/crates/secret-lib) for `pgp-native`
+- `keyring`: enables keyring-based [secrets](https://crates.io/crates/secret-lib) for `pgp-native`
+- `derive`: enables [serde](https://crates.io/crates/serde) support
+- `vendored`: compiles and statically link to a copy of non-Rust vendors like OpenSSL
 
 ## Definition
 
@@ -84,11 +97,13 @@ iVBORw0KGgo…
 --17886a741fef2cb2_97a7dbff4c84bbac_3b41d60ef9e2fbfb--
 ```
 
-See other examples at [`./examples`](https://github.com/pimalaya/core/tree/master/mml/examples):
+Other examples can be found at [`./examples`](https://github.com/pimalaya/core/tree/master/mml/examples):
 
 ```sh
 cargo run --example
 ```
+
+*See the full API documentation on [docs.rs](https://docs.rs/mml-lib/latest/mml/).*
 
 ## Sponsoring
 
