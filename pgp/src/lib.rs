@@ -10,7 +10,7 @@ pub mod sign;
 pub mod utils;
 pub mod verify;
 
-pub use native;
+pub use pgp_native as native;
 
 #[doc(inline)]
 pub use crate::{

@@ -1,7 +1,8 @@
-//! Module dedicated to Web Key Directory.
+//! # WKD key discovery
 //!
-//! Since HKP is just HTTP, this module only contains a function that
-//! formats a given URI to match [HKP specs].
+//! Module dedicated to Web Key Directory. Since HKP is just HTTP,
+//! this module only contains a function that formats a given URI to
+//! match [HKP specs].
 //!
 //! A [Web Key Directory] is a Web service that can be queried with
 //! email addresses to obtain the associated OpenPGP keys.
@@ -20,11 +21,14 @@ use http::ureq::{
     http::{Response, Uri},
     Body,
 };
-use native::{Deserializable, SignedPublicKey};
 use sha1::{Digest, Sha1};
 use tracing::debug;
 
-use crate::{utils::spawn, Error, Result};
+use crate::{
+    native::{Deserializable, SignedPublicKey},
+    utils::spawn,
+    Error, Result,
+};
 
 struct EmailAddress {
     pub local_part: String,

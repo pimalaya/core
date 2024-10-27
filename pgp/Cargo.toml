@@ -12,7 +12,7 @@ documentation = "https://docs.rs/pgp-lib/latest/pgp/"
 repository = "https://github.com/pimalaya/core/tree/master/pgp/"
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["key-discovery"]
 rustdoc-args = ["--cfg", "docs_rs"]
 
 [features]
@@ -21,7 +21,7 @@ default = [
   #"async-std",
   "rustls",
   #"native-tls",
-  "key-discovery",
+  #"key-discovery",
   #"vendored",
 ]
 
@@ -58,7 +58,7 @@ async-recursion = { version = "1", optional = true }
 async-std = { version = "1.13", optional = true }
 futures = { version = "0.3", optional = true }
 http-lib = { version = "0.1", optional = true, default-features = false, path = "../http" }
-native = { version = "0.10", package = "pgp" }
+pgp-native = { version = "0.10", package = "pgp" }
 rand = "0.8"
 sha1 = { version = "0.10", optional = true }
 smallvec = "1"

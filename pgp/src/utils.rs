@@ -1,16 +1,20 @@
+//! # Utils
+//!
 //! Module dedicated to PGP helpers.
 
 use std::{fs, io::Cursor, path::PathBuf};
 
-use native::{
-    crypto::{hash::HashAlgorithm, sym::SymmetricKeyAlgorithm},
-    types::{CompressionAlgorithm, SecretKeyTrait},
-    Deserializable, KeyType, SecretKeyParamsBuilder, SignedPublicKey, SignedSecretKey,
-    StandaloneSignature, SubkeyParamsBuilder,
-};
 use smallvec::smallvec;
 
-use crate::{Error, Result};
+use crate::{
+    native::{
+        crypto::{hash::HashAlgorithm, sym::SymmetricKeyAlgorithm},
+        types::{CompressionAlgorithm, SecretKeyTrait},
+        Deserializable, KeyType, SecretKeyParamsBuilder, SignedPublicKey, SignedSecretKey,
+        StandaloneSignature, SubkeyParamsBuilder,
+    },
+    Error, Result,
+};
 
 /// Generates a new pair of secret and public keys for the given email
 /// address and passphrase.

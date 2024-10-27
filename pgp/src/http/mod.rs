@@ -1,7 +1,8 @@
-//! Module dedicated to HTTP.
+//! # HTTP key discovery
 //!
-//! The main purpose of this module is to get public keys belonging to
-//! given emails by contacting key servers.
+//! Module dedicated to HTTP public key discovery. The main purpose of
+//! this module is to get public keys belonging to given emails by
+//! contacting key servers.
 
 pub mod hkp;
 pub mod wkd;
@@ -13,10 +14,13 @@ use std::{
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use http::ureq::http::Uri;
-use native::{Deserializable, SignedPublicKey};
 use tracing::{debug, warn};
 
-use crate::{utils::spawn, Error, Result};
+use crate::{
+    native::{Deserializable, SignedPublicKey},
+    utils::spawn,
+    Error, Result,
+};
 
 /// Calls the given key server in order to get the public key
 /// belonging to the given email address.

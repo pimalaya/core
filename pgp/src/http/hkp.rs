@@ -1,7 +1,8 @@
-//! Module dedicated to HTTP Keyserver Protocol.
+//! # HKP key discovery
 //!
-//! Since HKP is just HTTP, this module only contains a function that
-//! formats a given URI to match [HKP specs].
+//! Module dedicated to HTTP Keyserver Protocol. Since HKP is just
+//! HTTP, this module only contains a function that formats a given
+//! URI to match [HKP specs].
 //!
 //! [HKP specs]: https://datatracker.ietf.org/doc/html/draft-shaw-openpgp-hkp-00
 

@@ -2,13 +2,56 @@
 
 High-level, asynchronous API for [rPGP](https://crates.io/crates/pgp), a pure Rust implementation of [OpenPGP](https://www.openpgp.org/).
 
-- Basic PGP operations: encrypt, decrypt, sign, verify
-- PGP helpers: generate a key pair, read secret/public keys from path, read signature from bytes etc
-- HTTP public key discovery via [WKD](https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service-18) and [HKP](https://datatracker.ietf.org/doc/html/draft-shaw-openpgp-hkp-00) (requires `key-discovery` feature)
-- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
-- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
-- [rustls](https://crates.io/crates/rustls) crypto support (requires `rustls` feature)
-- [native-tls](https://crates.io/crates/native-tls) crypto support (requires `native-tls` feature, and OpenSSL lib installed (or `vendored` feature))
+## Features
+
+- Exports basic PGP operations: encrypt, decrypt, sign, verify
+- Exposes PGP helpers: generate a key pair, read secret/public keys from path, read signature from bytes etc
+- Proposes HTTP public key discovery via [WKD](https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service-18) and [HKP](https://datatracker.ietf.org/doc/html/draft-shaw-openpgp-hkp-00)
+- Supports **tokio** and **async-std** async runtimes
+- Supports **rustls** and **native-tls** crypto libs
+
+The library comes with 6 [cargo features](https://doc.rust-lang.org/cargo/reference/features.html), including 2 default ones:
+
+- **`tokio`**: enables the [tokio](https://crates.io/crates/tokio) async runtime
+- `async-std`: enables the [async-std](https://crates.io/crates/async-std) async runtime
+- **`rustls`**: enables the [rustls](https://crates.io/crates/rustls) crypto
+- `native-tls`: enables the [native-tls](https://crates.io/crates/native-tls) crypto
+- `key-discovery`: enables public key discovery mechanisms
+- `vendored`: compiles and statically link to a copy of non-Rust vendors like OpenSSL
+
+## Example
+
+```rust
+use pgp::{decrypt, encrypt, gen_key_pair, read_sig_from_bytes, sign, verify};
+
+#[tokio::main]
+async fn main() {
+    let (alice_skey, alice_pkey) = gen_key_pair("alice@localhost", "").await.unwrap();
+    let (bob_skey, bob_pkey) = gen_key_pair("bob@localhost", "").await.unwrap();
+
+    let msg = b"message".to_vec();
+	
+	// encrypt message with multiple recipients
+	
+    let encrypted_msg = encrypt(vec![alice_pkey.clone(), bob_pkey], msg.clone())
+        .await
+        .unwrap();
+	
+	// decrypt message
+	
+    assert_eq!(msg, decrypt(alice_skey.clone(), "", encrypted_msg.clone()).await.unwrap());
+    assert_eq!(msg, decrypt(bob_skey, "", encrypted_msg.clone()).await.unwrap());
+
+    // sign message
+	
+    let raw_sig = sign(alice_skey, "", msg.clone()).await.unwrap();
+    let sig = read_sig_from_bytes(raw_sig).await.unwrap();
+	
+	// verify message
+	
+    assert!(verify(alice_pkey, sig, msg).await.is_ok());
+}
+```
 
 *See the full API documentation on [docs.rs](https://docs.rs/pgp-lib/latest/pgp/).*
 

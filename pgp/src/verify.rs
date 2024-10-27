@@ -1,11 +1,13 @@
-//! Module dedicated to PGP verification.
+//! # Verify
 //!
-//! This module exposes a simple function [`verify`] and its
-//! associated [`Error`]s.
+//! Module dedicated to PGP verification. This module exposes a simple
+//! function [`verify`] and its associated [`Error`]s.
 
-use native::{SignedPublicKey, StandaloneSignature};
-
-use crate::{utils::spawn_blocking, Error, Result};
+use crate::{
+    native::{SignedPublicKey, StandaloneSignature},
+    utils::spawn_blocking,
+    Error, Result,
+};
 
 /// Verifies given standalone signature using the given public key.
 pub async fn verify(

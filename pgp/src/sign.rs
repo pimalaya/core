@@ -1,18 +1,22 @@
-//! Module dedicated to PGP signing.
+//! # Sign
 //!
-//! This module exposes a simple function [`sign`] and its associated
-//! [`Error`]s.
+//! Module dedicated to PGP signing. This module exposes a simple
+//! function [`sign`] and its associated [`Error`]s.
 
 use std::io;
 
-use native::{
-    crypto::{hash::HashAlgorithm, public_key::PublicKeyAlgorithm},
-    types::{KeyId, KeyTrait, Mpi, PublicKeyTrait, SecretKeyRepr, SecretKeyTrait},
-    Message, PublicKey, PublicSubkey, SignedSecretKey, SignedSecretSubKey,
-};
 use rand::{CryptoRng, Rng};
 
-use crate::{utils::spawn_blocking, Error, Result};
+use crate::{
+    native::{
+        self,
+        crypto::{hash::HashAlgorithm, public_key::PublicKeyAlgorithm},
+        types::{KeyId, KeyTrait, Mpi, PublicKeyTrait, SecretKeyRepr, SecretKeyTrait},
+        Message, PublicKey, PublicSubkey, SignedSecretKey, SignedSecretSubKey,
+    },
+    utils::spawn_blocking,
+    Error, Result,
+};
 
 #[derive(Debug)]
 pub enum PublicKeyOrSubkey {

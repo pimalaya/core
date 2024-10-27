@@ -1,18 +1,22 @@
-//! Module dedicated to PGP encryption.
+//! # Encrypt
 //!
-//! This module exposes a simple function [`encrypt`] and its
-//! associated [`Error`]s.
+//! Module dedicated to PGP encryption. This module exposes a simple
+//! function [`encrypt`] and its associated [`Error`]s.
 
 use std::io;
 
-use native::{
-    crypto::{hash::HashAlgorithm, public_key::PublicKeyAlgorithm},
-    types::{CompressionAlgorithm, KeyId, KeyTrait, Mpi, PublicKeyTrait},
-    Message, SignedPublicKey, SignedPublicSubKey,
-};
 use rand::{thread_rng, CryptoRng, Rng};
 
-use crate::{utils::spawn_blocking, Error, Result};
+use crate::{
+    native::{
+        self,
+        crypto::{hash::HashAlgorithm, public_key::PublicKeyAlgorithm},
+        types::{CompressionAlgorithm, KeyId, KeyTrait, Mpi, PublicKeyTrait},
+        Message, SignedPublicKey, SignedPublicSubKey,
+    },
+    utils::spawn_blocking,
+    Error, Result,
+};
 
 /// Wrapper around [`pgp`] public key types.
 ///

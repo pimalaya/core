@@ -1,13 +1,15 @@
-//! Module dedicated to PGP decryption.
+//! # Decrypt
 //!
-//! This module exposes a simple function [`decrypt`] and its
-//! associated [`Error`]s.
+//! Module dedicated to PGP decryption. This module exposes a simple
+//! function [`decrypt`] and its associated [`Error`]s.
 
 use std::io::Cursor;
 
-use native::{Deserializable, Message, SignedSecretKey};
-
-use crate::{utils::spawn_blocking, Error, Result};
+use crate::{
+    native::{self, Deserializable, Message, SignedSecretKey},
+    utils::spawn_blocking,
+    Error, Result,
+};
 
 /// Decrypts bytes using the given secret key and its passphrase.
 pub async fn decrypt(
@@ -45,7 +47,7 @@ mod tests {
     #[cfg(feature = "tokio")]
     use tokio::test;
 
-    use crate::{decrypt, encrypt, gen_key_pair};
+    use crate::{decrypt, encrypt, gen_key_pair, native};
 
     #[test_log::test(test)]
     async fn encrypt_then_decrypt() {

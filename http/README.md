@@ -7,7 +7,7 @@ High-level, asynchronous API for [`ureq`](https://crates.io/crates/ureq), a safe
 - Wraps HTTP agent with sane defaults
 - Supports pool of agent *(soon)*
 - Supports **tokio** and **async-std** async runtimes
-- Supports **rustls** and **openssl** crypto libs
+- Supports **rustls** and **native-tls** crypto libs
 
 The library comes with 5 [cargo features](https://doc.rust-lang.org/cargo/reference/features.html), including 2 default ones:
 

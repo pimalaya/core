@@ -1,7 +1,13 @@
+//! # Error
+//!
+//! Module dedicated to pgp errors. It contains an [`Error`] enum
+//! based on [`thiserror::Error`] and a type alias [`Result`].
+
 use std::path::PathBuf;
 
-use native::{SecretKeyParamsBuilderError, SubkeyParamsBuilderError};
 use thiserror::Error;
+
+use crate::native::{self, SecretKeyParamsBuilderError, SubkeyParamsBuilderError};
 
 /// The global `Result` alias of the library.
 pub type Result<T> = std::result::Result<T, Error>;
