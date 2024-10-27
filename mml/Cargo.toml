@@ -26,7 +26,7 @@ default = [
   #"native-tls",
   "compiler",
   "interpreter",
-  "pgp-commands",
+  #"pgp-commands",
   #"pgp-gpg",
   #"pgp-native",
   #"command",
