@@ -160,7 +160,7 @@ email_address = { version = "0.2", optional = true, default-features = false }
 futures = "0.3"
 hickory-resolver = { version = "0.24", optional = true }
 http-lib = { version = "0.1", optional = true, default-features = false, path = "../http" }
-imap-client = { version = "=0.1.4", optional = true }
+imap-client = { version = "=0.1.5", optional = true }
 imap-next = { version = "0.2", optional = true, features = ["expose_stream", "tag_generator", "starttls", "ext_id", "ext_metadata"] }
 keyring-lib = { version = "1", optional = true, default-features = false, path = "../keyring" }
 mail-builder = "0.3"
