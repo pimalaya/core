@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed missing `compiler` feature guard on error variants.
+
 ## [1.1.0] - 2024-10-27
 
 ### Added

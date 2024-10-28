@@ -11,12 +11,16 @@ pub enum Error {
     #[error("missing PGP configuration")]
     PgpMissingConfigurationError,
 
+    #[cfg(feature = "compiler")]
     #[error("cannot parse MML body")]
     ParseMmlError(Vec<chumsky::error::Rich<'static, char>>, String),
+    #[cfg(feature = "compiler")]
     #[error("cannot compile template")]
     WriteCompiledPartToVecError(#[source] io::Error),
+    #[cfg(feature = "compiler")]
     #[error("cannot read attachment at {1:?}")]
     ReadAttachmentError(#[source] io::Error, PathBuf),
+
     #[cfg(feature = "pgp")]
     #[error("cannot sign part using pgp: missing sender")]
     PgpSignMissingSenderError,
