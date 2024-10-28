@@ -2062,7 +2062,7 @@ dependencies = [
 
 [[package]]
 name = "email-lib"
-version = "1.0.0"
+version = "0.26.0"
 dependencies = [
  "advisory-lock",
  "async-std",
@@ -3679,9 +3679,9 @@ dependencies = [
 
 [[package]]
 name = "keyring"
-version = "3.6.0"
+version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07fcc6bcd4168febe3f0b23e2aa579c8e46e34a73474f948b1f5c3f6dfe76a75"
+checksum = "2f8fe839464d4e4b37d756d7e910063696af79a7e877282cb1825e4ec5f10833"
 dependencies = [
  "byteorder",
  "dbus-secret-service",
@@ -3879,9 +3879,9 @@ dependencies = [
 
 [[package]]
 name = "libm"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bda4c6077b0b08da2c48b172195795498381a7c8988c9e6212a6c55c5b9bd70"
+checksum = "a00419de735aac21d53b0de5ce2c03bd3627277cf471300f27ebc89f7d828047"
 
 [[package]]
 name = "libredox"
@@ -5884,9 +5884,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.37"
+version = "0.38.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8acb788b847c24f28525660c4d7758620a7210875711f79e7f663cc152726811"
+checksum = "aa260229e6538e52293eeb577aabd09945a09d6d9cc0fc550ed7529056c2e32a"
 dependencies = [
  "bitflags 2.6.0",
  "errno",
