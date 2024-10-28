@@ -12,7 +12,7 @@ use mail_builder::{
     MessageBuilder,
 };
 use mail_parser::{Addr, HeaderValue};
-use mml::MimeInterpreterBuilder;
+use mml::{message::FilterParts, MimeInterpreterBuilder};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -89,6 +89,7 @@ impl<'a> ReplyTemplateBuilder<'a> {
             .generate_tpl_interpreter()
             .with_hide_all_headers()
             .with_show_plain_texts_signature(false)
+            .with_filter_parts(FilterParts::Only("text".into()))
             .with_show_attachments(false);
 
         Self {
@@ -1378,6 +1379,44 @@ mod tests {
         assert_eq!(
             super::trim_prefix("  RE:  re  :Hello, world!"),
             "Hello, world!"
+        );
+    }
+
+    #[tokio::test]
+    async fn html_part_only() {
+        let config = Arc::new(AccountConfig {
+            display_name: Some("Me".into()),
+            email: "me@localhost".into(),
+            ..Default::default()
+        });
+
+        let msg = &Message::from(concat_line!(
+            "Content-Type: text/html",
+            "From: sender@localhost",
+            "To: me@localhost",
+            "Subject: subject",
+            "",
+            "<h1>Hello!</h1>",
+            "",
+        ));
+
+        assert_eq!(
+            ReplyTemplateBuilder::new(msg, config)
+                .build()
+                .await
+                .unwrap(),
+            Template::new_with_cursor(
+                concat_line!(
+                    "From: Me <me@localhost>",
+                    "To: sender@localhost",
+                    "Subject: Re: subject",
+                    "",
+                    "", // cursor here
+                    "",
+                    "> Hello!",
+                ),
+                (5, 0),
+            ),
         );
     }
 }

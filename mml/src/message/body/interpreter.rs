@@ -47,21 +47,23 @@ pub enum FilterParts {
 }
 
 impl FilterParts {
-    pub fn only(&self, ctype: impl AsRef<str>) -> bool {
+    pub fn only(&self, that: impl AsRef<str>) -> bool {
         match self {
             Self::All => false,
-            Self::Only(this_ctype) => this_ctype == ctype.as_ref(),
+            Self::Only(this) => this == that.as_ref(),
             Self::Include(_) => false,
             Self::Exclude(_) => false,
         }
     }
 
-    pub fn contains(&self, ctype: impl ToString + AsRef<str>) -> bool {
+    pub fn contains(&self, that: impl AsRef<str>) -> bool {
+        let that = that.as_ref();
+
         match self {
             Self::All => true,
-            Self::Only(this_ctype) => this_ctype == ctype.as_ref(),
-            Self::Include(ctypes) => ctypes.contains(&ctype.to_string()),
-            Self::Exclude(ctypes) => !ctypes.contains(&ctype.to_string()),
+            Self::Only(this) => that.starts_with(this),
+            Self::Include(this) => this.iter().any(|this| that.starts_with(this)),
+            Self::Exclude(this) => this.iter().all(|this| !that.starts_with(this)),
         }
     }
 }
@@ -328,7 +330,7 @@ impl MimeBodyInterpreter {
             let text = text.replace('\r', "");
             let text = Self::escape_mml_markup(text);
 
-            if self.filter_parts.only(ctype) {
+            if self.filter_parts.only(ctype) || self.filter_parts.only("text") {
                 tpl.push_str(&text);
             } else {
                 tpl.push_str(&format!("<#part type={ctype}>\n"));
@@ -368,8 +370,13 @@ impl MimeBodyInterpreter {
                 let html = html.replace('\r', "");
                 let html = Self::escape_mml_markup(html);
                 tpl.push_str(&html);
+            } else if self.filter_parts.only("text") {
+                let html = html2text(&html);
+                let html = html.replace('\r', "");
+                let html = Self::escape_mml_markup(html);
+                tpl.push_str(&html);
             } else {
-                let html = html2text(html);
+                let html = html2text(&html);
                 let html = Self::escape_mml_markup(html);
                 tpl.push_str("<#part type=text/html>\n");
                 tpl.push_str(&html);
@@ -899,6 +906,52 @@ mod tests {
 
         let expected_tpl = concat_line!(
             "<#part type=application/octet-stream filename=\"~/Downloads/attachment.txt\"><#/part>",
+            "",
+        );
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[tokio::test]
+    async fn single_part_only_text() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "text/html",
+            "<h1>This is a &lt;HTML&gt; text part.</h1>\n",
+        ));
+
+        let tpl = MimeBodyInterpreter::new()
+            .with_filter_parts(FilterParts::Only("text".into()))
+            .interpret_msg_builder(builder.clone())
+            .await
+            .unwrap();
+
+        let expected_tpl = concat_line!("This is a <HTML> text part.", "", "");
+
+        assert_eq!(tpl, expected_tpl);
+    }
+
+    #[tokio::test]
+    async fn multi_part_only_text() {
+        let builder = MessageBuilder::new().body(MimePart::new(
+            "multipart/mixed",
+            vec![
+                MimePart::new("text/plain", "This is a plain text part.\n"),
+                MimePart::new("text/html", "<h1>This is a &lt;HTML&gt; text part.</h1>\n"),
+                MimePart::new("text/json", "{\"type\": \"This is a JSON text part.\"}\n"),
+            ],
+        ));
+
+        let tpl = MimeBodyInterpreter::new()
+            .with_filter_parts(FilterParts::Only("text".into()))
+            .interpret_msg_builder(builder.clone())
+            .await
+            .unwrap();
+
+        let expected_tpl = concat_line!(
+            "This is a plain text part.",
+            "This is a <HTML> text part.",
+            "",
+            "{\"type\": \"This is a JSON text part.\"}",
             "",
         );
 
