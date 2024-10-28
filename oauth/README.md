@@ -2,14 +2,24 @@
 
 Asynchronous Rust library to deal with OAuth flows.
 
-- OAuth 2.0 Authorization Code Grant flow support
-- OAuth 2.0 Refresh Access Token flow support
-- [tokio](https://crates.io/crates/tokio) async runtime support (requires `tokio` feature)
-- [async-std](https://crates.io/crates/async-std) async runtime support(requires `async-std` feature)
-- [rustls](https://crates.io/crates/rustls) crypto support (requires `rustls` feature)
-- [native-tls](https://crates.io/crates/native-tls) crypto support (requires `native-tls` feature, and OpenSSL lib installed (or `vendored` feature))
+## Features
 
-See examples at [`./examples`](https://github.com/pimalaya/core/tree/master/oauth/examples):
+- Implements the ***OAuth 2.0** Authorization Code Grant* flow from [RFC6749](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1)
+- Implements the ***OAuth 2.0** Refresh Access Token* flow from [RFC6749](https://datatracker.ietf.org/doc/html/rfc6749#section-6)
+- Supports **tokio** and **async-std** async runtimes
+- Supports **rustls** and **native-tls** crypto libs
+
+The library comes with 5 [cargo features](https://doc.rust-lang.org/cargo/reference/features.html), including 2 default ones:
+
+- **`tokio`**: enables the [tokio](https://crates.io/crates/tokio) async runtime
+- `async-std`: enables the [async-std](https://crates.io/crates/async-std) async runtime
+- **`rustls`**: enables the [rustls](https://crates.io/crates/rustls) crypto
+- `native-tls`: enables the [native-tls](https://crates.io/crates/native-tls) crypto
+- `vendored`: compiles and statically link to a copy of non-Rust vendors like OpenSSL
+
+## Examples
+
+Examples can be found at [`./examples`](https://github.com/pimalaya/core/tree/master/oauth/examples):
 
 ```sh
 cargo run --example

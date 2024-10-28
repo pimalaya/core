@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2024-10-28
+
 ### Added
 
 - Added `tokio` and `async-std` cargo features (they are both mutually exclusive).
@@ -68,3 +70,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Imported process code from `pimalaya-email`.
+
+[1.0.0]: https://crates.io/crates/oauth-lib/1.0.0
+[0.1.1]: https://crates.io/crates/oauth-lib/0.1.1
+[0.1.0]: https://crates.io/crates/oauth-lib/0.1.0
+[0.0.4]: https://crates.io/crates/pimalaya-oauth2/0.0.4
+[0.0.3]: https://crates.io/crates/pimalaya-oauth2/0.0.3
+[0.0.2]: https://crates.io/crates/pimalaya-oauth2/0.0.2
+[0.0.1]: https://crates.io/crates/pimalaya-oauth2/0.0.1

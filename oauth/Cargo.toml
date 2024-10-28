@@ -12,8 +12,8 @@ documentation = "https://docs.rs/oauth-lib/latest/oauth/"
 repository = "https://github.com/pimalaya/core/tree/master/oauth/"
 
 [package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
+features = []
+rustdoc-args = ["--cfg", "docsrs"]
 
 [lib]
 name = "oauth"
