@@ -3320,7 +3320,8 @@ dependencies = [
 [[package]]
 name = "imap-client"
 version = "0.1.5"
-source = "git+https://github.com/pimalaya/imap-client#d888c5ae30a327ff93d3912a99145fcf9918ec52"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e667382fe3b5f75c78af4f7028a44435ed5f6da8e91500037115cee1569d8c5"
 dependencies = [
  "imap-next",
  "once_cell",
@@ -3347,8 +3348,9 @@ dependencies = [
 
 [[package]]
 name = "imap-next"
-version = "0.2.0"
-source = "git+https://github.com/duesee/imap-next#7e120f40cb30cef0f761c0efd44a4846234e9e91"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "793a41b36eb0fbe7eff9d8715717be264c9429d1989a60fd3d7893476b966506"
 dependencies = [
  "bytes",
  "imap-codec",
