@@ -56,14 +56,12 @@ impl FilterParts {
         }
     }
 
-    pub fn contains(&self, that: impl AsRef<str>) -> bool {
-        let that = that.as_ref();
-
+    pub fn contains(&self, that: impl ToString + AsRef<str>) -> bool {
         match self {
             Self::All => true,
-            Self::Only(this) => that.starts_with(this),
-            Self::Include(this) => this.iter().any(|this| that.starts_with(this)),
-            Self::Exclude(this) => this.iter().all(|this| !that.starts_with(this)),
+            Self::Only(this) => this == that.as_ref(),
+            Self::Include(this) => this.contains(&that.to_string()),
+            Self::Exclude(this) => !this.contains(&that.to_string()),
         }
     }
 }
@@ -74,38 +72,81 @@ impl FilterParts {
 /// is named `interpret_*`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MimeBodyInterpreter {
-    /// Show multipart structure when true.
+    /// Defines visibility of the multipart markup `<#multipart>`.
     ///
-    /// It is useful to see how nested parts are structured. If
-    /// `false` then multipart structure is flatten, which means all
-    /// parts and subparts are shown at the same top level.
+    /// When `true`, multipart markup is visible. This is useful when
+    /// you need to see multiparts nested structure.
+    ///
+    /// When `false`, multipart markup is hidden. The structure is
+    /// flatten, which means all parts and subparts are shown at the
+    /// same top level.
+    ///
+    /// This option shows or hides the multipart markup, not their
+    /// content. The content is always shown. To filter parts with
+    /// their content, see [`MimeBodyInterpreter::filter_parts`] and
+    /// [`FilterParts`].
     show_multiparts: bool,
 
-    /// Filter parts to show by MIME type.
-    filter_parts: FilterParts,
+    /// Defines visibility of the part markup `<#part>`.
+    ///
+    /// When `true`, part markup is visible. This is useful when you
+    /// want to get more information about parts being interpreted
+    /// (MIME type, description etc).
+    ///
+    /// When `false`, part markup is hidden. Only the content is
+    /// shown.
+    ///
+    /// This option shows or hides the part markup, not their
+    /// content. The content is always shown. To filter parts with
+    /// their content, see [`MimeBodyInterpreter::filter_parts`] and
+    /// [`FilterParts`].
+    show_parts: bool,
 
-    /// If `false` then tries to remove signatures for text plain
-    /// parts starting by the standard delimiter `-- \n`.
-    show_plain_texts_signature: bool,
-
-    /// If `true` then shows attachments at the end of the body as MML
-    /// part.
+    /// Defines visibility of the part markup `<#part
+    /// disposition=attachment>`.
+    ///
+    /// This option is dedicated to attachment parts, and it overrides
+    /// [`Self::show_parts`].
     show_attachments: bool,
 
-    /// If `true` then shows inline attachments at the end of the body
-    /// as MML part.
+    /// Defines visibility of the part markup `<#part
+    /// disposition=inline>`.
+    ///
+    /// This option is dedicated to inline attachment parts, and it
+    /// overrides [`Self::show_parts`].
     show_inline_attachments: bool,
 
+    /// Defines parts visibility.
+    ///
+    /// This option filters parts to show or hide by their MIME
+    /// type. If you want to show or hide MML markup instead, see
+    /// [`Self::show_multiparts`], [`Self::show_parts`],
+    /// [`Self::show_attachments`] and
+    /// [`Self::show_inline_attachments`].
+    filter_parts: FilterParts,
+
+    /// Defines visibility of signatures in `text/plain` parts.
+    ///
+    /// When `false`, this option tries to remove signatures from
+    /// plain text parts starting by the standard delimiter `-- \n`.
+    show_plain_texts_signature: bool,
+
+    /// Defines the saving strategy of attachments content.
+    ///
     /// An attachment is interpreted this way: `<#part
-    /// filename=attachment.ext>`. If `true` then the file (with its
-    /// content) is automatically created at the given
-    /// filename. Directory can be customized via
-    /// `save_attachments_dir`. This option is particularly useful
-    /// when transferring an email with its attachments.
+    /// filename=attachment.ext>`.
+    ///
+    /// When `true`, the file (with its content) is automatically
+    /// created at the given filename. Directory can be customized via
+    /// [`Self::save_attachments_dir`]. This option is particularly
+    /// useful when transferring a message with its attachments.
     save_attachments: bool,
 
-    /// Saves attachments to the given directory instead of the
-    /// default temporary one given by [`std::env::temp_dir()`].
+    /// Defines the directory for [`Self::save_attachments`] strategy.
+    ///
+    /// This option saves attachments to the given directory instead
+    /// of the default temporary one given by
+    /// [`std::env::temp_dir()`].
     save_attachments_dir: PathBuf,
 
     #[cfg(feature = "pgp")]
@@ -120,10 +161,11 @@ impl Default for MimeBodyInterpreter {
     fn default() -> Self {
         Self {
             show_multiparts: false,
-            filter_parts: Default::default(),
-            show_plain_texts_signature: true,
+            show_parts: true,
             show_attachments: true,
             show_inline_attachments: true,
+            filter_parts: Default::default(),
+            show_plain_texts_signature: true,
             save_attachments: Default::default(),
             save_attachments_dir: Self::default_save_attachments_dir(),
             #[cfg(feature = "pgp")]
@@ -145,33 +187,38 @@ impl MimeBodyInterpreter {
         Self::default()
     }
 
-    pub fn with_show_multiparts(mut self, b: bool) -> Self {
-        self.show_multiparts = b;
+    pub fn with_show_multiparts(mut self, visibility: bool) -> Self {
+        self.show_multiparts = visibility;
         self
     }
 
-    pub fn with_filter_parts(mut self, f: FilterParts) -> Self {
-        self.filter_parts = f;
+    pub fn with_show_parts(mut self, visibility: bool) -> Self {
+        self.show_parts = visibility;
         self
     }
 
-    pub fn with_show_plain_texts_signature(mut self, b: bool) -> Self {
-        self.show_plain_texts_signature = b;
+    pub fn with_filter_parts(mut self, filter: FilterParts) -> Self {
+        self.filter_parts = filter;
         self
     }
 
-    pub fn with_show_attachments(mut self, b: bool) -> Self {
-        self.show_attachments = b;
+    pub fn with_show_plain_texts_signature(mut self, visibility: bool) -> Self {
+        self.show_plain_texts_signature = visibility;
         self
     }
 
-    pub fn with_show_inline_attachments(mut self, b: bool) -> Self {
-        self.show_inline_attachments = b;
+    pub fn with_show_attachments(mut self, visibility: bool) -> Self {
+        self.show_attachments = visibility;
         self
     }
 
-    pub fn with_save_attachments(mut self, b: bool) -> Self {
-        self.save_attachments = b;
+    pub fn with_show_inline_attachments(mut self, visibility: bool) -> Self {
+        self.show_inline_attachments = visibility;
+        self
+    }
+
+    pub fn with_save_attachments(mut self, visibility: bool) -> Self {
+        self.save_attachments = visibility;
         self
     }
 
@@ -330,7 +377,7 @@ impl MimeBodyInterpreter {
             let text = text.replace('\r', "");
             let text = Self::escape_mml_markup(text);
 
-            if self.filter_parts.only(ctype) || self.filter_parts.only("text") {
+            if !self.show_parts || self.filter_parts.only(ctype) {
                 tpl.push_str(&text);
             } else {
                 tpl.push_str(&format!("<#part type={ctype}>\n"));
@@ -370,17 +417,19 @@ impl MimeBodyInterpreter {
                 let html = html.replace('\r', "");
                 let html = Self::escape_mml_markup(html);
                 tpl.push_str(&html);
-            } else if self.filter_parts.only("text") {
-                let html = html2text(&html);
-                let html = html.replace('\r', "");
-                let html = Self::escape_mml_markup(html);
-                tpl.push_str(&html);
             } else {
                 let html = html2text(&html);
                 let html = Self::escape_mml_markup(html);
-                tpl.push_str("<#part type=text/html>\n");
+
+                if self.show_parts {
+                    tpl.push_str("<#part type=text/html>\n");
+                }
+
                 tpl.push_str(&html);
-                tpl.push_str("<#/part>\n");
+
+                if self.show_parts {
+                    tpl.push_str("<#/part>\n");
+                }
             }
         }
 
@@ -455,7 +504,10 @@ impl MimeBodyInterpreter {
                         }
                     }
                     FilterParts::Only(ctype) => {
-                        match parts.clone().find(|part| &get_ctype(part) == ctype) {
+                        match parts
+                            .clone()
+                            .find(|part| get_ctype(part).starts_with(ctype))
+                        {
                             Some(part) => Some(self.interpret_part(msg, part).await),
                             None => None,
                         }
@@ -913,25 +965,25 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn single_part_only_text() {
+    async fn hide_parts_single_html() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "text/html",
             "<h1>This is a &lt;HTML&gt; text part.</h1>\n",
         ));
 
         let tpl = MimeBodyInterpreter::new()
-            .with_filter_parts(FilterParts::Only("text".into()))
+            .with_show_parts(false)
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
 
-        let expected_tpl = concat_line!("This is a <HTML> text part.", "", "");
+        let expected_tpl = concat_line!("This is a <HTML> text part.\r", "\r", "");
 
         assert_eq!(tpl, expected_tpl);
     }
 
     #[tokio::test]
-    async fn multi_part_only_text() {
+    async fn hide_parts_multipart_mixed() {
         let builder = MessageBuilder::new().body(MimePart::new(
             "multipart/mixed",
             vec![
@@ -942,16 +994,19 @@ mod tests {
         ));
 
         let tpl = MimeBodyInterpreter::new()
-            .with_filter_parts(FilterParts::Only("text".into()))
+            .with_show_parts(false)
+            .with_filter_parts(FilterParts::Include(vec![
+                "text/plain".into(),
+                "text/html".into(),
+            ]))
             .interpret_msg_builder(builder.clone())
             .await
             .unwrap();
 
         let expected_tpl = concat_line!(
             "This is a plain text part.",
-            "This is a <HTML> text part.",
-            "",
-            "{\"type\": \"This is a JSON text part.\"}",
+            "This is a <HTML> text part.\r",
+            "\r",
             "",
         );
 

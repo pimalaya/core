@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed MML markup shown in reply threads. [himalaya#487]
+
 ## [0.26.0] - 2024-10-28
 
 ### Added
@@ -960,3 +964,5 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#179]: https://todo.sr.ht/~soywod/pimalaya/179
 [#187]: https://todo.sr.ht/~soywod/pimalaya/187
 [#195]: https://todo.sr.ht/~soywod/pimalaya/195
+
+[himalaya#487]: https://github.com/pimalaya/himalaya/issues/487

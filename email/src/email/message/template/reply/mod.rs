@@ -88,9 +88,14 @@ impl<'a> ReplyTemplateBuilder<'a> {
         let thread_interpreter = config
             .generate_tpl_interpreter()
             .with_hide_all_headers()
+            .with_show_parts(false)
+            .with_show_attachments(false)
+            .with_show_inline_attachments(false)
             .with_show_plain_texts_signature(false)
-            .with_filter_parts(FilterParts::Only("text".into()))
-            .with_show_attachments(false);
+            .with_filter_parts(FilterParts::Include(vec![
+                "text/plain".into(),
+                "text/html".into(),
+            ]));
 
         Self {
             config,
@@ -1383,7 +1388,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn html_part_only() {
+    async fn should_hide_part_markup_in_html_reply_thread() {
         let config = Arc::new(AccountConfig {
             display_name: Some("Me".into()),
             email: "me@localhost".into(),
@@ -1396,7 +1401,7 @@ mod tests {
             "To: me@localhost",
             "Subject: subject",
             "",
-            "<h1>Hello!</h1>",
+            "<h1>Hello, world!</h1>",
             "",
         ));
 
@@ -1413,7 +1418,7 @@ mod tests {
                     "",
                     "", // cursor here
                     "",
-                    "> Hello!",
+                    "> Hello, world!",
                 ),
                 (5, 0),
             ),

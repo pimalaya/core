@@ -127,6 +127,12 @@ impl MimeInterpreterBuilder {
         self
     }
 
+    /// Show MML parts tags.
+    pub fn with_show_parts(mut self, visibility: bool) -> Self {
+        self.mime_body_interpreter = self.mime_body_interpreter.with_show_parts(visibility);
+        self
+    }
+
     /// Filter parts using the given strategy.
     pub fn with_filter_parts(mut self, f: FilterParts) -> Self {
         self.mime_body_interpreter = self.mime_body_interpreter.with_filter_parts(f);

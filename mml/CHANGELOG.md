@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+### Added
 
-- Improved the way `FilterParts::Only` works: it can now take a subpart (especially the `text` subpart). When `FilterParts::Only("text")` is given, all text parts are shown as they are, without MML markup (except HTML parts, they are textified). [#487]
+- Added `MimeBodyInterpreter::show_parts` to customize whenever MML markup should be shown or not for basic parts.
 
 ### Fixed
 
