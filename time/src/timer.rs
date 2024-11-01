@@ -5,12 +5,14 @@
 //! cycles count (infinite or finite). During the lifetime of the
 //! timer, timer events are triggered.
 
-use log::debug;
+#[cfg(feature = "server")]
+use std::io::{Error, ErrorKind};
+
+#[cfg(feature = "server")]
+use futures::lock::Mutex;
 #[cfg(all(feature = "server", test))]
 use mock_instant::Instant;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "server")]
-use std::io::{Error, ErrorKind};
 #[cfg(all(feature = "server", not(test)))]
 use std::time::Instant;
 use std::{
@@ -19,8 +21,7 @@ use std::{
     ops::{Deref, DerefMut},
     sync::Arc,
 };
-#[cfg(feature = "server")]
-use tokio::sync::Mutex;
+use tracing::debug;
 
 use crate::handler::{self, Handler};
 
@@ -446,9 +447,14 @@ impl DerefMut for ThreadSafeTimer {
 
 #[cfg(test)]
 mod tests {
+    use std::{sync::Arc, time::Duration};
+
+    #[cfg(feature = "async-std")]
+    use async_std::test;
     use mock_instant::{Instant, MockClock};
     use once_cell::sync::Lazy;
-    use std::{sync::Arc, time::Duration};
+    #[cfg(feature = "tokio")]
+    use tokio::test;
 
     use super::*;
 
@@ -469,7 +475,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[test_log::test(test)]
     async fn running_infinite_timer() {
         let mut timer = testing_timer();
 
@@ -514,9 +520,9 @@ mod tests {
         assert_eq!(timer.cycle, TimerCycle::new("a", 3));
     }
 
-    #[tokio::test]
+    #[test_log::test(test)]
     async fn running_timer_events() {
-        static EVENTS: Lazy<Mutex<Vec<TimerEvent>>> = Lazy::new(|| Mutex::const_new(Vec::new()));
+        static EVENTS: Lazy<Mutex<Vec<TimerEvent>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
         let mut timer = testing_timer();
 
@@ -550,7 +556,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[test_log::test(test)]
     async fn paused_timer_not_impacted_by_iterator() {
         let mut timer = testing_timer();
         timer.state = TimerState::Paused;
@@ -559,7 +565,7 @@ mod tests {
         assert_eq!(prev_timer, timer);
     }
 
-    #[tokio::test]
+    #[test_log::test(test)]
     async fn stopped_timer_not_impacted_by_iterator() {
         let mut timer = testing_timer();
         timer.state = TimerState::Stopped;
@@ -569,10 +575,10 @@ mod tests {
     }
 
     #[cfg(feature = "server")]
-    #[tokio::test]
+    #[test_log::test(test)]
     async fn thread_safe_timer() {
         let mut timer = testing_timer();
-        static EVENTS: Lazy<Mutex<Vec<TimerEvent>>> = Lazy::new(|| Mutex::const_new(Vec::new()));
+        static EVENTS: Lazy<Mutex<Vec<TimerEvent>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
         timer.config.handler = Arc::new(move |evt| {
             Box::pin(async {

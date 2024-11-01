@@ -1,44 +1,117 @@
 # ⏳ time-lib
 
-Rust library to manage time
-
-*See the full API documentation on [docs.rs](https://docs.rs/time-lib/latest/time/).*
+Asynchronous Rust library to manage synchronized timers.
 
 ## Features
 
-- Custom timers using cycles and handlers
-- Client/server pattern:
-  - Server can bind to multiple protocols simultaneously (TCP, custom)
-  - Clients can connect simultaneously to the same server (TCP, custom)
+- Create custom timers using cycles and handlers.
+- Use pre-defined timers like [Pomodoro](https://en.wikipedia.org/wiki/Pomodoro_Technique) or [52/17](https://en.wikipedia.org/wiki/52/17_rule).
+- Servers control the timer and can bind to multiple protocols simultaneously
+- Clients can connect simultaneously to the same server
+- Supports **tokio** and **async-std** async runtimes
+
+*See the full API documentation on [docs.rs](https://docs.rs/time-lib/latest/time/).*
+
+## Concept
+
+The core concept is the *timer*, which contains information about the time cycle and the state.
+
+The *server* runs the timer and accepts connections from *clients* using *binders*. It can bind using multiple binders, using different protocols (the default one is TCP, but you can create your own).
+
+The *client* controls the server's timer using *requests* and *responses*. Multiple clients can connect to the same server.
+
+```text,ignore
+┌────────────────────────┐
+│Server                  │
+│             ┌────────┐ │ Request ┌────────┐
+│             │        │◄├─────────┤        │
+│    ┌────────┤Binder A│ │         │Client A│
+│    │        │        ├─┼────────►│        │
+│    │        └────────┘ │Response └────────┘
+│    │                   │
+│    ▼        ┌────────┐ │         ┌────────┐
+│ ┌─────┐     │        │◄├─────────┤        │
+│ │Timer│◄────┤Binder B│ │         │Client B│
+│ └─────┘     │        ├─┼────────►│        │
+│    ▲        └────────┘ │         └────────┘
+│    │                   │
+│    │        ┌────────┐ │         ┌────────┐
+│    │        │        │◄├─────────┤        │
+│    └────────┤Binder C│ │         │Client C│
+│             │        ├─┼────────►│        │
+│             └────────┘ │         └────────┘
+│                        │
+└────────────────────────┘
+```
 
 ## Examples
 
-See [`./examples`](https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/examples):
+```rust,ignore
+use std::time::Duration;
+
+use time::{
+    client::tcp::TcpClient,
+    server::{tcp::TcpBind, ServerBuilder, ServerEvent},
+    timer::TimerEvent,
+};
+
+static HOST: &str = "127.0.0.1";
+static PORT: u16 = 3000;
+
+#[tokio::main]
+async fn main() {
+    let server = ServerBuilder::new()
+        .with_server_handler(|event: ServerEvent| async move {
+            println!("server event: {event:?}");
+            Ok(())
+        })
+        .with_timer_handler(|event: TimerEvent| async move {
+            println!("timer event: {event:?}");
+            Ok(())
+        })
+        .with_binder(TcpBind::new(HOST, PORT))
+        .with_pomodoro_config()
+        .build()
+        .unwrap();
+
+    server
+        .bind_with(|| async {
+            // wait for the binder to be ready
+            tokio::time::sleep(Duration::from_secs(1)).await;
+
+            let client = TcpClient::new_boxed(HOST, PORT);
+
+            client.start().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(1)).await;
+
+            client.pause().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(1)).await;
+
+            let timer = client.get().await.unwrap();
+            println!("current timer: {timer:?}");
+
+            Ok(())
+        })
+        .await
+        .unwrap();
+}
+```
+
+Other examples can be found at [`./examples`](https://github.com/pimalaya/core/tree/master/time/examples):
 
 ```sh
 cargo run --example
 ```
 
-## Development
-
-The development environment is managed by [Nix](https://nixos.org/download.html). Running `nix-shell` will spawn a shell with everything you need to get started with the lib: `cargo`, `cargo-watch`, `rust-bin`, `rust-analyzer`…
-
-```sh
-# Start a Nix shell
-$ nix-shell
-
-# then build the lib
-$ cargo build -p time-lib
-```
-
 ## Sponsoring
 
-[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/project/Pimalaya/index.html)
+[![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/)
 
-Special thanks to the [NLnet foundation](https://nlnet.nl/project/Pimalaya/index.html) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from:
+Special thanks to the [NLnet foundation](https://nlnet.nl/) and the [European Commission](https://www.ngi.eu/) that helped the project to receive financial support from various programs:
 
-- [NGI Assure](https://nlnet.nl/assure/) in 2022
-- [NGI Zero Entrust](https://nlnet.nl/entrust/) in 2023
+- [NGI Assure](https://nlnet.nl/project/Himalaya/) in 2022
+- [NGI Zero Entrust](https://nlnet.nl/project/Pimalaya/) in 2023
+- [NGI Zero Core](https://nlnet.nl/project/Pimalaya-PIM/) in 2024 *(still ongoing)*
 
 If you appreciate the project, feel free to donate using one of the following providers:
 

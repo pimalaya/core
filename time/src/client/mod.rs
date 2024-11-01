@@ -8,9 +8,10 @@
 #[cfg(feature = "tcp-client")]
 pub mod tcp;
 
-use async_trait::async_trait;
-use log::{info, trace};
 use std::io::{Error, ErrorKind, Result};
+
+use async_trait::async_trait;
+use tracing::{info, trace};
 
 use crate::{
     request::{Request, RequestWriter},

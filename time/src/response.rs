@@ -4,8 +4,9 @@
 //! module contains the response structure as well as traits to read
 //! and write a response.
 
-use async_trait::async_trait;
 use std::io::Result;
+
+use async_trait::async_trait;
 
 use crate::timer::Timer;
 

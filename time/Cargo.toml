@@ -1,47 +1,61 @@
 [package]
 name = "time-lib"
-version = "0.2.1"
-description = "Rust library to manage personal time"
-homepage = "https://pimalaya.org/"
-documentation = "https://docs.rs/time-lib/latest/time/"
-repository = "https://git.sr.ht/~soywod/pimalaya/tree/master/item/time/README.md"
+description = "Asynchronous Rust library to manage synchronized timers"
+version = "1.0.0"
 authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
 license = "MIT"
-categories = ["network-programming"]
+categories = ["asynchronous", "network-programming"]
 keywords = ["pim", "pomodoro", "time", "management", "technique"]
+homepage = "https://pimalaya.org/"
+documentation = "https://docs.rs/time-lib/latest/time/"
+repository = "https://github.com/pimalaya/core/tree/master/time/"
 
 [package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs", "--document-private-items"]
+features = ["tokio", "client", "server", "tcp"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [lib]
 name = "time"
 
 [features]
 default = [
-  "server",
+  "tokio",
+  #"async-std",
   "client",
+  "server",
   "tcp",
 ]
 
-server = ["tokio/sync", "tokio/rt", "tokio/time"]
+# Async runtime
+#
+tokio = ["dep:tokio"]
+async-std = ["dep:async-std"]
+
+# Client/server
+#
+server = ["tokio?/sync", "tokio?/rt", "tokio?/time"]
 client = []
 
-tcp-any = ["tokio/net", "tokio/io-util"]
+# TCP backend
+#
+tcp-any = ["tokio?/net", "tokio?/io-util"] # internal feature
 tcp-binder = ["server", "tcp-any"]
 tcp-client = ["client", "tcp-any"]
 tcp = ["tcp-binder", "tcp-client"]
 
 [dev-dependencies]
-env_logger = "0.10"
+async-std = { version = "1.13", features = ["attributes"] }
 mock_instant = "0.3"
 once_cell = "1"
+test-log = { version = "0.2", default-features = false, features = ["color", "trace"] }
 tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]
+async-std = { version = "1.13", optional = true }
 async-trait = "0.1"
-log = "0.4"
+futures = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1.23", optional = true, default-features = false }
+tracing = "0.1"

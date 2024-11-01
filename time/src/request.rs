@@ -4,8 +4,9 @@
 //! receive back a response. This module contains the request
 //! structure as well as trait to read and write a request.
 
-use async_trait::async_trait;
 use std::io::Result;
+
+use async_trait::async_trait;
 
 /// The client request struct.
 ///

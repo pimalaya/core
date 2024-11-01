@@ -10,17 +10,22 @@
 #[cfg(feature = "tcp-binder")]
 pub mod tcp;
 
-use async_trait::async_trait;
-use log::{debug, trace};
 use std::{
     fmt::Debug,
     future::Future,
-    io::{Error, ErrorKind, Result},
+    io::Result,
     ops::{Deref, DerefMut},
     sync::Arc,
     time::Duration,
 };
-use tokio::{sync::Mutex, task, time};
+
+#[cfg(feature = "async-std")]
+use async_std::task::sleep;
+use async_trait::async_trait;
+use futures::{lock::Mutex, select, stream::FuturesUnordered, FutureExt, StreamExt};
+#[cfg(feature = "tokio")]
+use tokio::time::sleep;
+use tracing::{debug, trace};
 
 use crate::{
     handler::{self, Handler},
@@ -198,7 +203,7 @@ impl Server {
     /// well as all the binders in dedicated threads.
     ///
     /// The main thread is then blocked by the given `wait` closure.
-    pub async fn bind_with<F: Future<Output = Result<()>>>(
+    pub async fn bind_with<F: Future<Output = Result<()>> + Send + 'static>(
         self,
         wait: impl FnOnce() -> F + Send + Sync + 'static,
     ) -> Result<()> {
@@ -207,6 +212,7 @@ impl Server {
         let handler = &self.config.handler;
         let fire_event = |event: ServerEvent| async move {
             debug!("firing server event {event:?}");
+
             if let Err(err) = handler(event.clone()).await {
                 debug!("error while firing server event, skipping it");
                 debug!("{err:?}");
@@ -219,7 +225,7 @@ impl Server {
         // the tick represents the timer running in a separated thread
         let state = self.state.clone();
         let timer = self.timer.clone();
-        let tick = task::spawn(async move {
+        let tick = spawn(async move {
             loop {
                 let mut state = state.lock().await;
                 match *state {
@@ -236,33 +242,48 @@ impl Server {
                 };
                 drop(state);
 
-                time::sleep(Duration::from_secs(1)).await;
+                sleep(Duration::from_secs(1)).await;
             }
         });
 
         // start all binders in dedicated threads in order not to
         // block the main thread
-        for binder in self.config.binders {
+
+        let binders = FuturesUnordered::from_iter(self.config.binders.into_iter().map(|binder| {
             let timer = self.timer.clone();
-            task::spawn(async move {
+            spawn(async move {
                 debug!("binding {binder:?}");
                 if let Err(err) = binder.bind(timer).await {
                     debug!("error while binding, skipping it");
                     debug!("{err:?}");
                 }
-            });
-        }
+            })
+        }))
+        .filter_map(|res| async {
+            match res {
+                Ok(res) => Some(res),
+                Err(err) => {
+                    debug!(?err, "skipping failed task");
+                    None
+                }
+            }
+        })
+        .collect::<()>();
 
         debug!("main loop started");
-        wait().await?;
+        select! {
+            _ = tick.fuse() => (),
+            _ = binders.fuse() => (),
+            _ = wait().fuse() => (),
+        };
         debug!("main loop stopped");
 
         self.state.set_stopping().await;
         fire_event(ServerEvent::Stopping).await;
 
         // wait for the timer thread to stop before exiting
-        tick.await
-            .map_err(|_| Error::new(ErrorKind::Other, "cannot wait for timer thread"))?;
+        // tick.await
+        //     .map_err(|_| Error::new(ErrorKind::Other, "cannot wait for timer thread"))?;
         fire_event(ServerEvent::Stopped).await;
 
         Ok(())
@@ -273,7 +294,7 @@ impl Server {
     pub async fn bind(self) -> Result<()> {
         self.bind_with(|| async {
             loop {
-                time::sleep(Duration::from_secs(1)).await;
+                sleep(Duration::from_secs(1)).await;
             }
         })
         .await
@@ -405,4 +426,22 @@ impl ServerBuilder {
             timer: ThreadSafeTimer::new(self.timer_config)?,
         })
     }
+}
+
+#[cfg(feature = "async-std")]
+pub(crate) async fn spawn<F>(f: F) -> Result<F::Output>
+where
+    F: std::future::Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    Ok(async_std::task::spawn(f).await)
+}
+
+#[cfg(feature = "tokio")]
+pub(crate) async fn spawn<F>(f: F) -> Result<F::Output>
+where
+    F: std::future::Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    Ok(tokio::task::spawn(f).await?)
 }

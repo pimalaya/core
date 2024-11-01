@@ -3,17 +3,16 @@
 //! This module contains the implementation of the TCP client, based
 //! on [`tokio::net::TcpStream`].
 
-use async_trait::async_trait;
 use std::io::{Error, ErrorKind, Result};
-use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt},
-    net::TcpStream,
-};
+
+use async_trait::async_trait;
+use futures::{AsyncBufReadExt, AsyncWriteExt};
+use tracing::debug;
 
 use crate::{
     request::{Request, RequestWriter},
     response::{Response, ResponseReader},
-    tcp::TcpHandler,
+    tcp::{TcpHandler, TcpStream},
     timer::Timer,
 };
 
@@ -45,8 +44,9 @@ impl TcpClient {
 impl Client for TcpClient {
     /// Send the given request to the TCP server.
     async fn send(&self, req: Request) -> Result<Response> {
+        debug!("TCP connection accepted");
         let stream = TcpStream::connect((self.host.as_str(), self.port)).await?;
-        let mut handler = TcpHandler::from(stream);
+        let mut handler = TcpHandler::new(stream);
         handler.handle(req).await
     }
 }

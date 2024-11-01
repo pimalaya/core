@@ -3,13 +3,15 @@
 //! This module contains the implementation of the TCP server binder,
 //! based on [`tokio::net::TcpStream`].
 
-use async_trait::async_trait;
-use log::debug;
 use std::io;
-use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt},
-    net::TcpListener,
-};
+
+#[cfg(feature = "async-std")]
+use async_std::net::TcpListener;
+use async_trait::async_trait;
+use futures::{AsyncBufReadExt, AsyncWriteExt};
+#[cfg(feature = "tokio")]
+use tokio::net::TcpListener;
+use tracing::debug;
 
 use crate::{
     request::{Request, RequestReader},
@@ -51,7 +53,9 @@ impl ServerBind for TcpBind {
         loop {
             match listener.accept().await {
                 Ok((stream, _)) => {
-                    let mut handler = TcpHandler::from(stream);
+                    debug!("TCP connection accepted");
+
+                    let mut handler = TcpHandler::new(stream);
                     if let Err(err) = handler.handle(timer.clone()).await {
                         debug!("cannot handle request");
                         debug!("{err:?}");

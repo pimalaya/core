@@ -1,17 +1,20 @@
 use std::time::Duration;
+
+#[cfg(feature = "async-std")]
+use async_std::{task::sleep, test};
 use time::{
     client::tcp::TcpClient,
     server::{tcp::TcpBind, ServerBuilder, ServerEvent},
     timer::{Timer, TimerCycle, TimerEvent, TimerState},
 };
+#[cfg(feature = "tokio")]
+use tokio::{test, time::sleep};
 
 static HOST: &str = "127.0.0.1";
-static PORT: u16 = 3000;
+static PORT: u16 = 1234;
 
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(test)]
 async fn multiple_tcp_clients() {
-    env_logger::builder().is_test(true).init();
-
     let server = ServerBuilder::new()
         .with_server_handler(|event: ServerEvent| async move {
             println!("server event: {event:?}");
@@ -29,14 +32,13 @@ async fn multiple_tcp_clients() {
 
     server
         .bind_with(|| async {
-            // wait for the binder to be ready
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_secs(1)).await;
 
             let client1 = TcpClient::new_boxed(HOST, PORT);
             let client2 = TcpClient::new_boxed(HOST, PORT);
 
             client1.start().await.unwrap();
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            sleep(Duration::from_secs(2)).await;
 
             assert_eq!(
                 client1.get().await.unwrap(),
@@ -48,7 +50,7 @@ async fn multiple_tcp_clients() {
             );
 
             client1.pause().await.unwrap();
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            sleep(Duration::from_secs(2)).await;
 
             assert_eq!(
                 client2.get().await.unwrap(),
@@ -61,25 +63,25 @@ async fn multiple_tcp_clients() {
             );
 
             client1.resume().await.unwrap();
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            sleep(Duration::from_secs(2)).await;
 
             assert_eq!(
                 client1.get().await.unwrap(),
                 Timer {
                     state: TimerState::Running,
-                    cycle: TimerCycle::new("Break", 4),
+                    cycle: TimerCycle::new("Break", 5),
                     elapsed: 2,
                     ..Timer::default()
                 }
             );
 
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            sleep(Duration::from_secs(2)).await;
 
             assert_eq!(
                 client1.get().await.unwrap(),
                 Timer {
                     state: TimerState::Running,
-                    cycle: TimerCycle::new("Break", 2),
+                    cycle: TimerCycle::new("Break", 3),
                     elapsed: 2,
                     ..Timer::default()
                 }
