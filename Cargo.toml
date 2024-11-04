@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+  "compote",
   "email",
   "email-macros",
   "email-testing-server",
@@ -16,6 +17,7 @@ members = [
 ]
 
 [patch.crates-io]
+compote = { path = "./compote" }
 email-lib = { path = "./email" }
 email-macros = { path = "./email-macros" }
 http-lib = { path = "./http" }
