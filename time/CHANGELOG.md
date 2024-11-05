@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Put `serde` support behind cargo feature `derive`, disabled by default.
+
 ## [0.2.1] - 2024-02-03
 
 ### Changed

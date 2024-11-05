@@ -8,6 +8,6 @@ pub mod request;
 pub mod response;
 #[cfg(feature = "server")]
 pub mod server;
-#[cfg(feature = "tcp-any")]
+#[cfg(any(feature = "tcp-binder", feature = "tcp-client"))]
 pub mod tcp;
 pub mod timer;

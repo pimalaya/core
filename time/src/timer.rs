@@ -12,7 +12,6 @@ use std::io::{Error, ErrorKind};
 use futures::lock::Mutex;
 #[cfg(all(feature = "server", test))]
 use mock_instant::Instant;
-use serde::{Deserialize, Serialize};
 #[cfg(all(feature = "server", not(test)))]
 use std::time::Instant;
 use std::{
@@ -30,7 +29,12 @@ use crate::handler::{self, Handler};
 /// When the timer reaches its last cycle, it starts again from the
 /// first cycle. This structure defines the number of loops the timer
 /// should do before stopping by itself.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum TimerLoop {
     /// The timer loops indefinitely and therefore never stops by
     /// itself.
@@ -57,7 +61,12 @@ impl From<usize> for TimerLoop {
 ///
 /// A cycle is a step in the timer lifetime, represented by a name and
 /// a duration.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct TimerCycle {
     /// The name of the timer cycle.
     pub name: String,
@@ -88,7 +97,12 @@ impl<T: ToString> From<(T, usize)> for TimerCycle {
 }
 
 /// The timer cycles list.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(transparent)
+)]
 pub struct TimerCycles(Vec<TimerCycle>);
 
 impl<T: IntoIterator<Item = TimerCycle>> From<T> for TimerCycles {
@@ -115,7 +129,12 @@ impl DerefMut for TimerCycles {
 ///
 /// Enumeration of all the possible state of a timer: running, paused
 /// or stopped.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum TimerState {
     /// The timer is running.
     Running,
@@ -133,6 +152,11 @@ pub enum TimerState {
 /// Enumeration of all possible events that can be triggered during
 /// the timer lifecycle.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum TimerEvent {
     /// The timer started.
     Started,
@@ -172,6 +196,15 @@ pub struct TimerConfig {
     pub handler: Arc<Handler<TimerEvent>>,
 }
 
+impl fmt::Debug for TimerConfig {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("TimerConfig")
+            .field("cycles", &self.cycles)
+            .field("cycles_count", &self.cycles_count)
+            .finish()
+    }
+}
+
 impl Default for TimerConfig {
     fn default() -> Self {
         Self {
@@ -195,10 +228,15 @@ impl TimerConfig {
 }
 
 /// The main timer struct.
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct Timer {
     /// The current timer configuration.
-    #[serde(skip)]
+    #[cfg_attr(feature = "derive", serde(skip))]
     pub config: TimerConfig,
 
     /// The current timer state.
@@ -211,18 +249,11 @@ pub struct Timer {
     pub cycles_count: TimerLoop,
 
     #[cfg(feature = "server")]
-    #[serde(skip)]
+    #[cfg_attr(feature = "derive", serde(skip))]
     pub started_at: Option<Instant>,
 
     #[cfg(feature = "server")]
     pub elapsed: usize,
-}
-
-impl fmt::Debug for Timer {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let timer = serde_json::to_string(self).map_err(|_| fmt::Error)?;
-        write!(f, "{timer}")
-    }
 }
 
 impl Eq for Timer {}

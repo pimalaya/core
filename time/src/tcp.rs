@@ -14,10 +14,14 @@ use futures::{
 };
 #[cfg(feature = "tokio")]
 use futures::{ready, AsyncRead, AsyncWrite};
-use serde::{Deserialize, Serialize};
 
 /// The TCP shared configuration between clients and servers.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct TcpConfig {
     /// The TCP host name.
     pub host: String,
