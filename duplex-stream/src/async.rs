@@ -1,6 +1,6 @@
 use std::{
     future::poll_fn,
-    io::{Error, ErrorKind, Result},
+    io::Result,
     pin::{pin, Pin},
     task::{ready, Context, Poll},
 };
@@ -16,19 +16,7 @@ use crate::escape_byte_string;
 pub const ASYNC: bool = true;
 pub type DuplexStream<S> = crate::DuplexStream<S, ASYNC>;
 
-impl<S: AsyncRead + AsyncWrite + Unpin> crate::DuplexStream<S, ASYNC> {
-    fn validate_byte_count(byte_count: usize) -> Result<usize> {
-        if byte_count == 0 {
-            // The result is 0 if the stream doesn't accept bytes anymore or the write buffer
-            // was already empty before calling `write_buf`. Because we checked the buffer
-            // we know that the first case occurred.
-            let err = Error::new(ErrorKind::UnexpectedEof, "received empty bytes");
-            return Err(err);
-        }
-
-        Ok(byte_count)
-    }
-
+impl<S: AsyncRead + AsyncWrite + Unpin> DuplexStream<S> {
     pub async fn progress_read(&mut self) -> Result<usize> {
         let buf = &mut self.read_buffer;
 
@@ -93,7 +81,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> crate::DuplexStream<S, ASYNC> {
     }
 }
 
-impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for crate::DuplexStream<S, ASYNC> {
+impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for DuplexStream<S> {
     #[instrument(skip_all, target = "duplex-stream::async")]
     fn poll_read(
         self: Pin<&mut Self>,
@@ -106,7 +94,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for crate::DuplexStream<S, ASY
     }
 }
 
-impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for crate::DuplexStream<S, ASYNC> {
+impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for DuplexStream<S> {
     #[instrument(skip_all, target = "duplex-stream::async")]
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize>> {
         let stream = self.get_mut().get_mut();

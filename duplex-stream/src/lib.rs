@@ -3,15 +3,18 @@ pub mod r#async;
 #[cfg(feature = "blocking")]
 pub mod blocking;
 
-use ::std::{collections::VecDeque, io::IoSlice};
+use ::std::{
+    collections::VecDeque,
+    io::{Error, ErrorKind, IoSlice, Result},
+};
 
-pub struct DuplexStream<S, const IS_ASYNC: bool> {
+pub struct DuplexStream<S, const MAYBE_ASYNC: bool> {
     stream: S,
     read_buffer: Box<[u8]>,
     write_buffer: VecDeque<u8>,
 }
 
-impl<S, const IS_ASYNC: bool> DuplexStream<S, IS_ASYNC> {
+impl<S, const MAYBE_ASYNC: bool> DuplexStream<S, MAYBE_ASYNC> {
     pub fn new(stream: S) -> Self {
         Self::new_with_capacity(stream, 1024)
     }
@@ -46,7 +49,7 @@ impl<S, const IS_ASYNC: bool> DuplexStream<S, IS_ASYNC> {
     }
 }
 
-impl<S, const IS_ASYNC: bool> DuplexStream<S, IS_ASYNC> {
+impl<S, const MAYBE_ASYNC: bool> DuplexStream<S, MAYBE_ASYNC> {
     pub fn get_ref(&self) -> &S {
         &self.stream
     }
@@ -57,6 +60,18 @@ impl<S, const IS_ASYNC: bool> DuplexStream<S, IS_ASYNC> {
 
     pub fn into_inner(self) -> S {
         self.stream
+    }
+
+    fn validate_byte_count(byte_count: usize) -> Result<usize> {
+        if byte_count == 0 {
+            // The result is 0 if the stream doesn't accept bytes anymore or the write buffer
+            // was already empty before calling `write_buf`. Because we checked the buffer
+            // we know that the first case occurred.
+            let err = Error::new(ErrorKind::UnexpectedEof, "received empty bytes");
+            return Err(err);
+        }
+
+        Ok(byte_count)
     }
 }
 
