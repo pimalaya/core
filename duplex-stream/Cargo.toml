@@ -1,0 +1,17 @@
+[package]
+name = "duplex-stream"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["blocking", "async"]
+blocking = []
+async = ["dep:futures"]
+
+[dev-dependencies]
+async-std = { version = "1.13", features = ["attributes"] }
+test-log = { version = "0.2", default-features = false, features = ["color", "trace"] }
+
+[dependencies]
+futures = { version = "0.3", optional = true }
+tracing = "0.1"
