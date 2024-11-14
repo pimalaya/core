@@ -4,7 +4,7 @@ use async_std::{
     io::{stdin, stdout},
     net::TcpStream,
 };
-use duplex_stream::r#async::DuplexStream;
+use buf_stream::futures::BufStream;
 use futures::{io::BufReader, AsyncBufReadExt, AsyncWriteExt};
 
 #[async_std::main]
@@ -21,13 +21,13 @@ async fn main() {
     let tcp_stream = TcpStream::connect((host.as_str(), port))
         .await
         .expect("should connect to TCP stream");
-    let mut tcp_stream = DuplexStream::new(tcp_stream);
+    let mut tcp_stream = BufStream::new(tcp_stream);
     println!("connected! waiting for first bytes…");
 
     let count = tcp_stream
         .progress_read()
         .await
-        .expect("should receive first bytes from duplex stream");
+        .expect("should receive first bytes from buf stream");
     let bytes = &tcp_stream.read_buffer()[..count];
     println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
 
@@ -54,7 +54,7 @@ async fn main() {
         let bytes = tcp_stream
             .progress()
             .await
-            .expect("should progress duplex stream");
+            .expect("should progress buf stream");
         println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
     }
 }

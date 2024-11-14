@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-  "duplex-stream",
+  "buf-stream",
   "email",
   "email-macros",
   "email-testing-server",
@@ -17,7 +17,7 @@ members = [
 ]
 
 [patch.crates-io]
-duplex-stream = { path = "./duplex-stream" }
+buf-stream = { path = "./buf-stream" }
 email-lib = { path = "./email" }
 email-macros = { path = "./email-macros" }
 http-lib = { path = "./http" }

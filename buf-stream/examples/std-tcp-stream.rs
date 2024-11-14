@@ -1,6 +1,6 @@
 #![cfg(feature = "blocking")]
 
-use duplex_stream::blocking::DuplexStream;
+use buf_stream::std::BufStream;
 use std::{
     io::{stdin, stdout, BufRead, BufReader, Write},
     net::TcpStream,
@@ -18,12 +18,12 @@ fn main() {
     println!("connecting to {host}:{port} using TCP…");
     let tcp_stream =
         TcpStream::connect((host.as_str(), port)).expect("should connect to TCP stream");
-    let mut tcp_stream = DuplexStream::new(tcp_stream);
+    let mut tcp_stream = BufStream::new(tcp_stream);
     println!("connected! waiting for first bytes…");
 
     let count = tcp_stream
         .progress_read()
-        .expect("should receive first bytes from duplex stream");
+        .expect("should receive first bytes from buf stream");
     let bytes = &tcp_stream.read_buffer()[..count];
     println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
 
@@ -46,9 +46,7 @@ fn main() {
             .collect::<Vec<_>>();
         println!("buffered input: {:?}", String::from_utf8_lossy(&bytes));
 
-        let bytes = tcp_stream
-            .progress()
-            .expect("should progress duplex stream");
+        let bytes = tcp_stream.progress().expect("should progress buf stream");
         println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
     }
 }

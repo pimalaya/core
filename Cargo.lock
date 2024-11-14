@@ -904,6 +904,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "buf-stream"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "env_logger",
+ "futures",
+ "tracing",
+]
+
+[[package]]
 name = "buffer-redux"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1965,16 +1975,6 @@ name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
-
-[[package]]
-name = "duplex-stream"
-version = "0.1.0"
-dependencies = [
- "async-std",
- "env_logger",
- "futures",
- "tracing",
-]
 
 [[package]]
 name = "dyn-clone"

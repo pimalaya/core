@@ -1,5 +1,5 @@
 [package]
-name = "duplex-stream"
+name = "buf-stream"
 version = "0.1.0"
 edition = "2021"
 
