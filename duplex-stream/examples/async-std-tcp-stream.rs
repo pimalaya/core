@@ -5,7 +5,7 @@ use async_std::{
     net::TcpStream,
 };
 use duplex_stream::r#async::DuplexStream;
-use futures::{io::BufReader, AsyncBufReadExt, AsyncWriteExt};
+use futures::{io::BufReader, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
 
 #[test_log::test(async_std::main)]
 async fn main() {
@@ -22,12 +22,15 @@ async fn main() {
     let mut tcp_stream = DuplexStream::new(tcp_stream);
     println!("connected! waiting for first bytes…");
 
+    let mut input_buf = [0; 1024];
+    let mut output_buf;
+
     let count = tcp_stream
-        .progress_read()
+        .read(&mut input_buf)
         .await
         .expect("should receive first bytes from duplex stream");
-    let bytes = &tcp_stream.read_buffer()[..count];
-    println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
+    let bytes = &input_buf[..count];
+    println!("output: {:?}", &String::from_utf8_lossy(bytes));
 
     loop {
         println!();
@@ -40,19 +43,18 @@ async fn main() {
             .await
             .expect("should read line from stdin");
 
-        tcp_stream.push_bytes(line.trim_end().as_bytes());
-        tcp_stream.push_bytes(b"\r\n");
-        let bytes = tcp_stream
-            .write_buffer()
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
-        println!("buffered input: {:?}", String::from_utf8_lossy(&bytes));
-
-        let bytes = tcp_stream
-            .progress()
+        output_buf = line.trim_end().to_owned() + "\r\n";
+        tcp_stream
+            .write(output_buf.as_bytes())
             .await
-            .expect("should progress duplex stream");
-        println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
+            .expect("should write line to duplex stream");
+        println!("input: {output_buf:?}");
+
+        let count = tcp_stream
+            .read(&mut input_buf)
+            .await
+            .expect("should receive bytes from duplex stream");
+        let bytes = &input_buf[..count];
+        println!("output: {:?}", &String::from_utf8_lossy(bytes));
     }
 }
