@@ -1,11 +1,11 @@
-#![cfg(feature = "async")]
+#![cfg(feature = "blocking")]
 
-use async_std::{
-    io::{stdin, stdout},
+use std::{
+    io::{stdin, stdout, BufRead, BufReader, Read, Write},
     net::TcpStream,
 };
-use duplex_stream::r#async::DuplexStream;
-use futures::{io::BufReader, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
+
+use duplex_stream::blocking::DuplexStream;
 
 #[async_std::main]
 async fn main() {
@@ -18,9 +18,8 @@ async fn main() {
         .expect("PORT should be an unsigned integer");
 
     println!("connecting to {host}:{port} using TCP…");
-    let tcp_stream = TcpStream::connect((host.as_str(), port))
-        .await
-        .expect("should connect to TCP stream");
+    let tcp_stream =
+        TcpStream::connect((host.as_str(), port)).expect("should connect to TCP stream");
     let mut tcp_stream = DuplexStream::new(tcp_stream);
     println!("connected! waiting for first bytes…");
 
@@ -29,7 +28,6 @@ async fn main() {
 
     let count = tcp_stream
         .read(&mut input_buf)
-        .await
         .expect("should receive first bytes from duplex stream");
     let bytes = &input_buf[..count];
     println!("output: {:?}", &String::from_utf8_lossy(bytes));
@@ -37,24 +35,21 @@ async fn main() {
     loop {
         println!();
         print!("prompt> ");
-        stdout().flush().await.expect("should flush stdout");
+        stdout().flush().expect("should flush stdout");
 
         let mut line = String::new();
         BufReader::new(stdin())
             .read_line(&mut line)
-            .await
             .expect("should read line from stdin");
 
         output_buf = line.trim_end().to_owned() + "\r\n";
         tcp_stream
             .write(output_buf.as_bytes())
-            .await
             .expect("should write line to duplex stream");
         println!("input: {output_buf:?}");
 
         let count = tcp_stream
             .read(&mut input_buf)
-            .await
             .expect("should receive bytes from duplex stream");
         let bytes = &input_buf[..count];
         println!("output: {:?}", &String::from_utf8_lossy(bytes));

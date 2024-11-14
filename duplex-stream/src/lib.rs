@@ -3,7 +3,7 @@ pub mod r#async;
 #[cfg(feature = "blocking")]
 pub mod blocking;
 
-use ::std::{
+use std::{
     collections::VecDeque,
     io::{Error, ErrorKind, IoSlice, Result},
 };

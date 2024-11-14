@@ -1,14 +1,12 @@
-#![cfg(feature = "async")]
+#![cfg(feature = "blocking")]
 
-use async_std::{
-    io::{stdin, stdout},
+use duplex_stream::blocking::DuplexStream;
+use std::{
+    io::{stdin, stdout, BufRead, BufReader, Write},
     net::TcpStream,
 };
-use duplex_stream::r#async::DuplexStream;
-use futures::{io::BufReader, AsyncBufReadExt, AsyncWriteExt};
 
-#[async_std::main]
-async fn main() {
+fn main() {
     env_logger::builder().is_test(true).init();
 
     let host = std::env::var("HOST").expect("HOST should be defined");
@@ -18,15 +16,13 @@ async fn main() {
         .expect("PORT should be an unsigned integer");
 
     println!("connecting to {host}:{port} using TCP…");
-    let tcp_stream = TcpStream::connect((host.as_str(), port))
-        .await
-        .expect("should connect to TCP stream");
+    let tcp_stream =
+        TcpStream::connect((host.as_str(), port)).expect("should connect to TCP stream");
     let mut tcp_stream = DuplexStream::new(tcp_stream);
     println!("connected! waiting for first bytes…");
 
     let count = tcp_stream
         .progress_read()
-        .await
         .expect("should receive first bytes from duplex stream");
     let bytes = &tcp_stream.read_buffer()[..count];
     println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
@@ -34,12 +30,11 @@ async fn main() {
     loop {
         println!();
         print!("prompt> ");
-        stdout().flush().await.expect("should flush stdout");
+        stdout().flush().expect("should flush stdout");
 
         let mut line = String::new();
         BufReader::new(stdin())
             .read_line(&mut line)
-            .await
             .expect("should read line from stdin");
 
         tcp_stream.push_bytes(line.trim_end().as_bytes());
@@ -53,7 +48,6 @@ async fn main() {
 
         let bytes = tcp_stream
             .progress()
-            .await
             .expect("should progress duplex stream");
         println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
     }

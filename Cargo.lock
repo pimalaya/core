@@ -1971,8 +1971,8 @@ name = "duplex-stream"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "env_logger",
  "futures",
- "test-log",
  "tracing",
 ]
 
@@ -2229,6 +2229,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f2c92ceda6ceec50f43169f9ee8424fe2db276791afde7b2cd8bc084cb376ab"
 dependencies = [
  "log",
+ "regex",
 ]
 
 [[package]]
@@ -2240,6 +2241,7 @@ dependencies = [
  "anstream",
  "anstyle",
  "env_filter",
+ "humantime",
  "log",
 ]
 
@@ -3015,6 +3017,12 @@ name = "httpdate"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
+
+[[package]]
+name = "humantime"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
@@ -7181,6 +7189,7 @@ version = "0.1.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3523ab5a71916ccf420eebdf5521fcef02141234bbc0b8a49f2fdc4544364ef"
 dependencies = [
+ "log",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
