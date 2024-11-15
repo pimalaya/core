@@ -1,16 +1,22 @@
 #![cfg(feature = "blocking")]
 
-use buf_stream::std::BufStream;
 use std::{
-    io::{stdin, stdout, BufRead, BufReader, Write},
+    env,
+    io::{stdin, stdout, BufRead, BufReader, Read, Write},
     net::TcpStream,
 };
+
+use buf_stream::std::BufStream;
+use tracing::debug;
 
 fn main() {
     env_logger::builder().is_test(true).init();
 
-    let host = std::env::var("HOST").expect("HOST should be defined");
-    let port: u16 = std::env::var("PORT")
+    let mut buf = [0; 512];
+    let mut line = String::new();
+
+    let host = env::var("HOST").expect("HOST should be defined");
+    let port: u16 = env::var("PORT")
         .expect("PORT should be defined")
         .parse()
         .expect("PORT should be an unsigned integer");
@@ -21,32 +27,45 @@ fn main() {
     let mut tcp_stream = BufStream::new(tcp_stream);
     println!("connected! waiting for first bytes…");
 
-    let count = tcp_stream
-        .progress_read()
+    tcp_stream
+        .flush()
         .expect("should receive first bytes from buf stream");
-    let bytes = &tcp_stream.read_buffer()[..count];
-    println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
+
+    line.clear();
+    while tcp_stream.wants_read() {
+        let count = tcp_stream.read(&mut buf).expect("should read first bytes");
+        let chunk = String::from_utf8_lossy(&buf[..count]);
+        debug!("output chunk: {chunk:?}");
+        line += &chunk;
+    }
+    println!("output: {line:?}");
 
     loop {
         println!();
         print!("prompt> ");
         stdout().flush().expect("should flush stdout");
 
-        let mut line = String::new();
+        line.clear();
         BufReader::new(stdin())
             .read_line(&mut line)
             .expect("should read line from stdin");
 
-        tcp_stream.push_bytes(line.trim_end().as_bytes());
-        tcp_stream.push_bytes(b"\r\n");
-        let bytes = tcp_stream
-            .write_buffer()
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
-        println!("buffered input: {:?}", String::from_utf8_lossy(&bytes));
+        tcp_stream
+            .write(line.trim_end().as_bytes())
+            .expect("should write line to buffered stream");
+        tcp_stream
+            .write(b"\r\n")
+            .expect("should write line to buffered stream");
 
-        let bytes = tcp_stream.progress().expect("should progress buf stream");
-        println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
+        tcp_stream.flush().expect("should flush buffered stream");
+
+        line.clear();
+        while tcp_stream.wants_read() {
+            let count = tcp_stream.read(&mut buf).expect("should read first bytes");
+            let chunk = String::from_utf8_lossy(&buf[..count]);
+            debug!("output chunk: {chunk:?}");
+            line += &chunk;
+        }
+        println!("output: {line:?}");
     }
 }

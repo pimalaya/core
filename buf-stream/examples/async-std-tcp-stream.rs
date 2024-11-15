@@ -1,18 +1,24 @@
 #![cfg(feature = "async")]
 
+use std::env;
+
 use async_std::{
     io::{stdin, stdout},
     net::TcpStream,
 };
 use buf_stream::futures::BufStream;
-use futures::{io::BufReader, AsyncBufReadExt, AsyncWriteExt};
+use futures::{io::BufReader, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
+use tracing::debug;
 
 #[async_std::main]
 async fn main() {
     env_logger::builder().is_test(true).init();
 
-    let host = std::env::var("HOST").expect("HOST should be defined");
-    let port: u16 = std::env::var("PORT")
+    let mut buf = [0; 512];
+    let mut line = String::new();
+
+    let host = env::var("HOST").expect("HOST should be defined");
+    let port: u16 = env::var("PORT")
         .expect("PORT should be defined")
         .parse()
         .expect("PORT should be an unsigned integer");
@@ -24,37 +30,58 @@ async fn main() {
     let mut tcp_stream = BufStream::new(tcp_stream);
     println!("connected! waiting for first bytes…");
 
-    let count = tcp_stream
-        .progress_read()
+    tcp_stream
+        .flush()
         .await
         .expect("should receive first bytes from buf stream");
-    let bytes = &tcp_stream.read_buffer()[..count];
-    println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
+
+    line.clear();
+    while tcp_stream.wants_read() {
+        let count = tcp_stream
+            .read(&mut buf)
+            .await
+            .expect("should read first bytes");
+        let chunk = String::from_utf8_lossy(&buf[..count]);
+        debug!("output chunk: {chunk:?}");
+        line += &chunk;
+    }
+    println!("output: {line:?}");
 
     loop {
         println!();
         print!("prompt> ");
         stdout().flush().await.expect("should flush stdout");
 
-        let mut line = String::new();
+        line.clear();
         BufReader::new(stdin())
             .read_line(&mut line)
             .await
             .expect("should read line from stdin");
 
-        tcp_stream.push_bytes(line.trim_end().as_bytes());
-        tcp_stream.push_bytes(b"\r\n");
-        let bytes = tcp_stream
-            .write_buffer()
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
-        println!("buffered input: {:?}", String::from_utf8_lossy(&bytes));
-
-        let bytes = tcp_stream
-            .progress()
+        tcp_stream
+            .write(line.trim_end().as_bytes())
             .await
-            .expect("should progress buf stream");
-        println!("buffered output: {:?}", String::from_utf8_lossy(bytes));
+            .expect("should write line to buffered stream");
+        tcp_stream
+            .write(b"\r\n")
+            .await
+            .expect("should write line to buffered stream");
+
+        tcp_stream
+            .flush()
+            .await
+            .expect("should flush buffered stream");
+
+        line.clear();
+        while tcp_stream.wants_read() {
+            let count = tcp_stream
+                .read(&mut buf)
+                .await
+                .expect("should read first bytes");
+            let chunk = String::from_utf8_lossy(&buf[..count]);
+            debug!("output chunk: {chunk:?}");
+            line += &chunk;
+        }
+        println!("output: {line:?}");
     }
 }

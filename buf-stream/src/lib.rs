@@ -8,22 +8,26 @@ use ::std::{
     io::{Error, ErrorKind, IoSlice, IoSliceMut, Result},
 };
 
+use tracing::debug;
+
 pub struct BufStream<S, const MAYBE_ASYNC: bool> {
     stream: S,
-    read_buf: Box<[u8]>,
-    write_buf: VecDeque<u8>,
+    read_buffer: Box<[u8]>,
+    read_cursor: usize,
+    write_buffer: VecDeque<u8>,
 }
 
 impl<S, const MAYBE_ASYNC: bool> BufStream<S, MAYBE_ASYNC> {
     pub fn new(stream: S) -> Self {
-        Self::new_with_capacity(stream, 1024)
+        Self::with_capacity(stream, 1024)
     }
 
-    pub fn new_with_capacity(stream: S, capacity: usize) -> Self {
+    pub fn with_capacity(stream: S, capacity: usize) -> Self {
         Self {
             stream,
-            read_buf: vec![0; capacity].into(),
-            write_buf: VecDeque::new(),
+            read_buffer: vec![0; capacity].into(),
+            read_cursor: 0,
+            write_buffer: VecDeque::new(),
         }
     }
 
@@ -39,20 +43,16 @@ impl<S, const MAYBE_ASYNC: bool> BufStream<S, MAYBE_ASYNC> {
         self.stream
     }
 
-    pub fn push_bytes(&mut self, bytes: impl AsRef<[u8]>) {
-        self.write_buf.extend(bytes.as_ref());
-    }
-
-    pub fn read_buffer(&self) -> &[u8] {
-        &self.read_buf
-    }
-
-    pub fn write_buffer(&self) -> &VecDeque<u8> {
-        &self.write_buf
+    pub fn wants_read(&self) -> bool {
+        self.read_cursor > 0
     }
 }
 
 impl<S, const MAYBE_ASYNC: bool> BufStream<S, MAYBE_ASYNC> {
+    fn wants_write(&self) -> bool {
+        !self.write_buffer.is_empty()
+    }
+
     fn read_slice(buf: &mut Box<[u8]>) -> [IoSliceMut; 1] {
         [IoSliceMut::new(buf.as_mut())]
     }
@@ -62,16 +62,20 @@ impl<S, const MAYBE_ASYNC: bool> BufStream<S, MAYBE_ASYNC> {
         [IoSlice::new(init), IoSlice::new(tail)]
     }
 
-    fn needs_write(&self) -> bool {
-        !self.write_buf.is_empty()
-    }
-
-    fn validate_byte_count(byte_count: usize) -> Result<usize> {
-        if byte_count == 0 {
+    fn check_for_eof(count: usize) -> Result<usize> {
+        if count == 0 {
             let err = Error::new(ErrorKind::UnexpectedEof, "received empty bytes");
             return Err(err);
         }
 
-        Ok(byte_count)
+        Ok(count)
+    }
+
+    fn fill_read_buffer(&mut self, count: usize) {
+        debug!("read {count}/{} bytes", self.read_cursor);
+        let remaining = self.read_buffer.len() - count;
+        self.read_buffer.copy_within(count.., 0);
+        self.read_buffer[remaining..].fill(0);
+        self.read_cursor -= count;
     }
 }
