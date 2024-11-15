@@ -32,7 +32,6 @@ impl<S: Write> BufStream<S> {
             let bytes = self.write_buf.drain(..byte_count);
             trace!(data = ?bytes, "write");
 
-            // Drop written bytes
             drop(bytes);
 
             total_byte_count += Self::validate_byte_count(byte_count)?;

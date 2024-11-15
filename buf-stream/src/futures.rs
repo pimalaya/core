@@ -13,8 +13,8 @@ impl<S: AsyncRead + Unpin> BufStream<S> {
     #[instrument(skip_all)]
     pub async fn progress_read(&mut self) -> Result<usize> {
         let buf = &mut self.read_buf;
-
-        let byte_count = self.stream.read(buf).await?;
+        let read_slice = &mut Self::read_slice(buf);
+        let byte_count = self.stream.read_vectored(read_slice).await?;
         let byte_count = Self::validate_byte_count(byte_count)?;
 
         trace!(data = ?buf[..byte_count], "read");
@@ -29,14 +29,13 @@ impl<S: AsyncWrite + Unpin> BufStream<S> {
         let mut total_byte_count = 0;
 
         while self.needs_write() {
-            let ref write_slices = Self::write_slices(&mut self.write_buf);
-
+            let buf = &mut self.write_buf;
+            let write_slices = &mut Self::write_slices(buf);
             let byte_count = self.stream.write_vectored(write_slices).await?;
 
             let bytes = self.write_buf.drain(..byte_count);
             trace!(data = ?bytes, "write");
 
-            // Drop written bytes
             drop(bytes);
 
             total_byte_count += Self::validate_byte_count(byte_count)?;

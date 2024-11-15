@@ -5,7 +5,7 @@ pub mod std;
 
 use ::std::{
     collections::VecDeque,
-    io::{Error, ErrorKind, IoSlice, Result},
+    io::{Error, ErrorKind, IoSlice, IoSliceMut, Result},
 };
 
 pub struct BufStream<S, const MAYBE_ASYNC: bool> {
@@ -27,29 +27,6 @@ impl<S, const MAYBE_ASYNC: bool> BufStream<S, MAYBE_ASYNC> {
         }
     }
 
-    pub fn read_buffer(&mut self) -> &[u8] {
-        &self.read_buf
-    }
-
-    pub fn write_buffer(&mut self) -> &VecDeque<u8> {
-        &self.write_buf
-    }
-
-    pub fn push_bytes(&mut self, bytes: impl AsRef<[u8]>) {
-        self.write_buf.extend(bytes.as_ref());
-    }
-
-    fn needs_write(&self) -> bool {
-        !self.write_buf.is_empty()
-    }
-
-    fn write_slices(buf: &VecDeque<u8>) -> [IoSlice; 2] {
-        let (init, tail) = buf.as_slices();
-        [IoSlice::new(init), IoSlice::new(tail)]
-    }
-}
-
-impl<S, const MAYBE_ASYNC: bool> BufStream<S, MAYBE_ASYNC> {
     pub fn get_ref(&self) -> &S {
         &self.stream
     }
@@ -62,11 +39,35 @@ impl<S, const MAYBE_ASYNC: bool> BufStream<S, MAYBE_ASYNC> {
         self.stream
     }
 
+    pub fn push_bytes(&mut self, bytes: impl AsRef<[u8]>) {
+        self.write_buf.extend(bytes.as_ref());
+    }
+
+    pub fn read_buffer(&self) -> &[u8] {
+        &self.read_buf
+    }
+
+    pub fn write_buffer(&self) -> &VecDeque<u8> {
+        &self.write_buf
+    }
+}
+
+impl<S, const MAYBE_ASYNC: bool> BufStream<S, MAYBE_ASYNC> {
+    fn read_slice(buf: &mut Box<[u8]>) -> [IoSliceMut; 1] {
+        [IoSliceMut::new(buf.as_mut())]
+    }
+
+    fn write_slices(buf: &VecDeque<u8>) -> [IoSlice; 2] {
+        let (init, tail) = buf.as_slices();
+        [IoSlice::new(init), IoSlice::new(tail)]
+    }
+
+    fn needs_write(&self) -> bool {
+        !self.write_buf.is_empty()
+    }
+
     fn validate_byte_count(byte_count: usize) -> Result<usize> {
         if byte_count == 0 {
-            // The result is 0 if the stream doesn't accept bytes anymore or the write buffer
-            // was already empty before calling `write_buf`. Because we checked the buffer
-            // we know that the first case occurred.
             let err = Error::new(ErrorKind::UnexpectedEof, "received empty bytes");
             return Err(err);
         }
