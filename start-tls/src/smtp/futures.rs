@@ -7,15 +7,27 @@ use std::{
 use futures_io::{AsyncRead, AsyncWrite};
 use tracing::debug;
 
-use crate::StartTlsExt;
+use crate::{futures::Async, StartTlsExt};
 
 use super::SmtpStartTls;
 
-impl<S: AsyncRead + AsyncWrite + Unpin> StartTlsExt<S, true> for SmtpStartTls<'_, S, true> {
-    type Context<'a> = Context<'a>;
-    type Output<T> = Poll<Result<T>>;
+impl<S: AsyncRead + AsyncWrite + Unpin> StartTlsExt<Async, S> for SmtpStartTls<'_, Async, S> {
+    fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>> {
+        if !self.handshake_discarded {
+            match Pin::new(&mut self.stream).poll_read(cx, &mut self.buf)? {
+                Poll::Ready(n) => {
+                    let plain = String::from_utf8_lossy(&self.buf[..n]);
+                    debug!("read then discarded {n} bytes: {plain:?}");
+                    self.buf.fill(0);
+                    self.handshake_discarded = true;
+                }
+                Poll::Pending => {
+                    debug!("reading still ongoing");
+                    return Poll::Pending;
+                }
+            }
+        }
 
-    fn poll(&mut self, cx: &mut Context<'_>) -> Self::Output<()> {
         if !self.command_sent {
             match Pin::new(&mut self.stream).poll_write(cx, Self::COMMAND.as_bytes())? {
                 Poll::Ready(n) => {

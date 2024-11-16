@@ -6,12 +6,19 @@ use std::{
 
 use futures_io::{AsyncRead, AsyncWrite};
 
-use crate::{StartTls, StartTlsExt};
+use crate::{Runtime, StartTls, StartTlsExt};
 
-impl<S, T> StartTls<S, T, true>
+pub struct Async;
+
+impl Runtime for Async {
+    type Context<'a> = Context<'a>;
+    type Output<T> = Poll<T>;
+}
+
+impl<S, T> StartTls<Async, S, T>
 where
     S: AsyncRead + AsyncWrite + Unpin,
-    T: for<'a> StartTlsExt<S, true, Context<'a> = Context<'a>, Output<()> = Poll<Result<()>>>,
+    T: StartTlsExt<Async, S>,
 {
     pub async fn prepare(mut self) -> Result<()> {
         poll_fn(|cx| self.ext.poll(cx)).await

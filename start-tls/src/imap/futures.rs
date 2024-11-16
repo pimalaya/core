@@ -7,16 +7,13 @@ use std::{
 use futures_io::{AsyncRead, AsyncWrite};
 use tracing::{debug, instrument};
 
-use crate::StartTlsExt;
+use crate::{futures::Async, StartTlsExt};
 
 use super::ImapStartTls;
 
-impl<S: AsyncRead + AsyncWrite + Unpin> StartTlsExt<S, true> for ImapStartTls<'_, S, true> {
-    type Context<'a> = Context<'a>;
-    type Output<T> = Poll<Result<T>>;
-
+impl<S: AsyncRead + AsyncWrite + Unpin> StartTlsExt<Async, S> for ImapStartTls<'_, Async, S> {
     #[instrument(skip_all)]
-    fn poll(&mut self, cx: &mut Context<'_>) -> Self::Output<()> {
+    fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>> {
         if !self.handshake_discarded {
             match Pin::new(&mut self.stream).poll_read(cx, &mut self.buf)? {
                 Poll::Ready(n) => {

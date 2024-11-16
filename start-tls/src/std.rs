@@ -1,11 +1,18 @@
 use std::io::{Read, Result, Write};
 
-use crate::{StartTls, StartTlsExt};
+use crate::{Runtime, StartTls, StartTlsExt};
 
-impl<S, T> StartTls<S, T, false>
+pub struct Blocking;
+
+impl Runtime for Blocking {
+    type Context<'a> = ();
+    type Output<T> = T;
+}
+
+impl<S, T> StartTls<Blocking, S, T>
 where
     S: Read + Write,
-    T: for<'a> StartTlsExt<S, false, Context<'a> = (), Output<()> = Result<()>>,
+    T: StartTlsExt<Blocking, S>,
 {
     pub fn prepare(mut self) -> Result<()> {
         self.ext.poll(&mut ())

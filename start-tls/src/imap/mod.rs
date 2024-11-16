@@ -1,20 +1,26 @@
+use ::std::marker::PhantomData;
+
+use crate::Runtime;
+
 #[cfg(feature = "async")]
 pub mod futures;
 #[cfg(feature = "blocking")]
 pub mod std;
 
-pub struct ImapStartTls<'a, S, const IS_ASYNC: bool> {
+pub struct ImapStartTls<'a, R: Runtime, S> {
+    runtime: PhantomData<R>,
     stream: &'a mut S,
     buf: Vec<u8>,
     handshake_discarded: bool,
     command_sent: bool,
 }
 
-impl<'a, S, const IS_ASYNC: bool> ImapStartTls<'a, S, IS_ASYNC> {
+impl<'a, R: Runtime, S> ImapStartTls<'a, R, S> {
     const COMMAND: &'static str = "A1 STARTTLS\r\n";
 
     pub fn new(stream: &'a mut S) -> Self {
         Self {
+            runtime: PhantomData::default(),
             stream,
             buf: vec![0; 512],
             handshake_discarded: false,
