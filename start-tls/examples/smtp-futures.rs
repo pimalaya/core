@@ -4,7 +4,7 @@ use std::env;
 
 use async_std::net::TcpStream;
 use futures::AsyncWriteExt;
-use start_tls::{imap::ImapStartTls, StartTls};
+use start_tls::{smtp::SmtpStartTls, StartTls};
 
 #[async_std::main]
 async fn main() {
@@ -21,10 +21,10 @@ async fn main() {
         .await
         .expect("should connect to TCP stream");
 
-    StartTls::new(ImapStartTls::new(&mut tcp_stream))
+    StartTls::new(SmtpStartTls::new(&mut tcp_stream))
         .prepare()
         .await
-        .expect("should prepare TCP stream for IMAP STARTTLS");
+        .expect("should prepare TCP stream for STARTTLS");
 
     println!("disconnecting…");
     tcp_stream.close().await.expect("should close TCP stream");

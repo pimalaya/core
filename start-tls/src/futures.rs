@@ -1,21 +1,19 @@
-// use std::{
-//     future::poll_fn,
-//     io::Result,
-//     pin::{pin, Pin},
-//     task::Poll,
-// };
+use std::{
+    future::poll_fn,
+    io::Result,
+    task::{Context, Poll},
+};
 
-// use futures::{AsyncRead, AsyncWrite};
+use futures_io::{AsyncRead, AsyncWrite};
 
-// use crate::{PollStartTls, StartTls};
+use crate::{StartTls, StartTlsExt};
 
-// impl<S, T> StartTls<S, T, true>
-// where
-//     S: AsyncRead + AsyncWrite + Unpin,
-//     T: PollStartTls<S, true, Output<()> = Poll<Result<()>>> + Unpin,
-// {
-//     pub async fn prepare(self) -> Result<S> {
-//         let p = pin!(self);
-//         poll_fn(move |cx| p.starttls.poll_start_tls(stream, Some(cx))).await
-//     }
-// }
+impl<S, T> StartTls<S, T, true>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+    T: for<'a> StartTlsExt<S, true, Context<'a> = Context<'a>, Output<()> = Poll<Result<()>>>,
+{
+    pub async fn prepare(mut self) -> Result<()> {
+        poll_fn(|cx| self.ext.poll(cx)).await
+    }
+}

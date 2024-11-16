@@ -4,9 +4,9 @@ use tracing::debug;
 
 use crate::StartTlsExt;
 
-use super::ImapStartTls;
+use super::SmtpStartTls;
 
-impl<S: Read + Write> StartTlsExt<S, false> for ImapStartTls<'_, S, false> {
+impl<S: Read + Write> StartTlsExt<S, false> for SmtpStartTls<'_, S, false> {
     type Context<'a> = ();
     type Output<T> = Result<T>;
 

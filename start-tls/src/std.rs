@@ -1,13 +1,13 @@
-// use std::io::{Read, Result, Write};
+use std::io::{Read, Result, Write};
 
-// use crate::{PollStartTls, StartTls};
+use crate::{StartTls, StartTlsExt};
 
-// impl<S, T> StartTls<S, T, false>
-// where
-//     S: Read + Write,
-//     T: PollStartTls<S, false, Output<()> = Result<()>>,
-// {
-//     pub fn prepare(self, stream: &mut S) -> Result<()> {
-//         self.0.poll_start_tls(stream, None)
-//     }
-// }
+impl<S, T> StartTls<S, T, false>
+where
+    S: Read + Write,
+    T: for<'a> StartTlsExt<S, false, Context<'a> = (), Output<()> = Result<()>>,
+{
+    pub fn prepare(mut self) -> Result<()> {
+        self.ext.poll(&mut ())
+    }
+}
