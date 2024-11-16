@@ -21,7 +21,8 @@ async fn main() {
         .await
         .expect("should connect to TCP stream");
 
-    StartTls::new(ImapStartTls::new(&mut tcp_stream))
+    let spec = ImapStartTls::new(&mut tcp_stream);
+    StartTls::new(spec)
         .prepare()
         .await
         .expect("should prepare TCP stream for IMAP STARTTLS");

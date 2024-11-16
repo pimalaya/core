@@ -20,7 +20,8 @@ fn main() {
     let mut tcp_stream =
         TcpStream::connect((host.as_str(), port)).expect("should connect to TCP stream");
 
-    StartTls::new(SmtpStartTls::new(&mut tcp_stream))
+    let spec = SmtpStartTls::new(&mut tcp_stream);
+    StartTls::new(spec)
         .prepare()
         .expect("should prepare TCP stream for SMTP STARTTLS");
 
