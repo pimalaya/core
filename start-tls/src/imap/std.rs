@@ -4,7 +4,7 @@ use crate::blocking;
 
 use super::ImapStartTls;
 
-impl<S: Read + Write> blocking::StartTlsExt<S> for ImapStartTls {
+impl<S: Read + Write> blocking::PrepareStartTls<S> for ImapStartTls {
     fn prepare(mut self, stream: &mut S) -> Result<()> {
         if !self.handshake_discarded {
             let count = stream.read(&mut self.read_buffer)?;

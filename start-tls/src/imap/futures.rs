@@ -2,11 +2,11 @@ use std::io::Result;
 
 use futures_util::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use crate::StartTlsExt;
+use crate::PrepareStartTls;
 
 use super::ImapStartTls;
 
-impl<S: AsyncRead + AsyncWrite + Unpin> StartTlsExt<S> for ImapStartTls {
+impl<S: AsyncRead + AsyncWrite + Unpin> PrepareStartTls<S> for ImapStartTls {
     async fn prepare(&mut self, stream: &mut S) -> Result<()> {
         if !self.handshake_discarded {
             let count = stream.read(&mut self.read_buffer).await?;

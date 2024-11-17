@@ -1,5 +1,5 @@
 use ::std::io::Result;
 
-pub trait StartTlsExt<S> {
+pub trait PrepareStartTls<S> {
     fn prepare(self, stream: &mut S) -> Result<()>;
 }

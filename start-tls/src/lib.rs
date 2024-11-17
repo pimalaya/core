@@ -6,6 +6,6 @@ pub mod imap;
 pub mod smtp;
 
 #[cfg(feature = "async")]
-pub trait StartTlsExt<S> {
+pub trait PrepareStartTls<S> {
     fn prepare(&mut self, stream: &mut S) -> impl Future<Output = Result<()>>;
 }

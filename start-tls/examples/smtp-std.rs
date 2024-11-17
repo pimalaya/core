@@ -5,7 +5,7 @@ use std::{
     net::{Shutdown, TcpStream},
 };
 
-use start_tls::{blocking::StartTlsExt, smtp::SmtpStartTls};
+use start_tls::{blocking::PrepareStartTls, smtp::SmtpStartTls};
 
 const READ_BUF_CAPACITY: usize = 1024;
 

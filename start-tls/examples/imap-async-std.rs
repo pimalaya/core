@@ -4,7 +4,7 @@ use std::env;
 
 use async_std::net::TcpStream;
 use futures_util::AsyncWriteExt;
-use start_tls::{imap::ImapStartTls, StartTlsExt};
+use start_tls::{imap::ImapStartTls, PrepareStartTls};
 
 const READ_BUF_CAPACITY: usize = 1024;
 
