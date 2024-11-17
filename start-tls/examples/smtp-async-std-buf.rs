@@ -25,6 +25,13 @@ async fn main() {
         .expect("should connect to buffered TCP stream");
     let mut tcp_stream_buffered = BufStream::new(tcp_stream).with_read_capacity(READ_BUF_CAPACITY);
 
+    // with the buffered stream, discarding the first bytes manually
+    // is prefered.
+    tcp_stream_buffered
+        .progress_read()
+        .await
+        .expect("should read first bytes");
+
     println!("preparing buffered TCP connection for STARTTLS…");
     SmtpStartTls::new()
         .with_read_buffer_capacity(READ_BUF_CAPACITY)
