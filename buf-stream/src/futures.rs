@@ -5,42 +5,69 @@ use std::{
     task::{ready, Context, Poll},
 };
 
-use futures::{
-    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, Cursor},
-    FutureExt,
-};
-use tracing::{debug, instrument, trace};
+use futures_util::{io::Cursor, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, FutureExt};
+use tracing::{debug, instrument};
 
-pub const ASYNC: bool = true;
-pub type BufStream<S> = crate::BufStream<S, ASYNC>;
+use crate::{ReadBuffer, WriteBuffer};
+
+pub struct BufStream<S> {
+    stream: S,
+    read_buffer: ReadBuffer,
+    write_buffer: WriteBuffer,
+}
+
+impl<S> BufStream<S> {
+    pub fn new(stream: S) -> Self {
+        Self {
+            stream,
+            read_buffer: Default::default(),
+            write_buffer: Default::default(),
+        }
+    }
+
+    pub fn set_read_capacity(&mut self, capacity: usize) {
+        self.read_buffer.set_capacity(capacity)
+    }
+
+    pub fn with_read_capacity(mut self, capacity: usize) -> Self {
+        self.read_buffer.set_capacity(capacity);
+        self
+    }
+
+    pub fn wants_read(&self) -> bool {
+        self.read_buffer.wants_read()
+    }
+
+    pub fn get_ref(&self) -> &S {
+        &self.stream
+    }
+
+    pub fn get_mut(&mut self) -> &mut S {
+        &mut self.stream
+    }
+
+    pub fn into_inner(self) -> S {
+        self.stream
+    }
+}
 
 impl<S: AsyncRead + AsyncWrite + Unpin> BufStream<S> {
     #[instrument(skip_all)]
     async fn progress_read(&mut self) -> Result<usize> {
-        let read_slice = &mut Self::read_slice(&mut self.read_buffer);
-        let count = self.stream.read_vectored(read_slice).await?;
-        Self::check_for_eof(count)?;
-
-        let bytes = &self.read_buffer[..count];
-        trace!(?bytes, len = count, "read bytes");
-        Ok(count)
+        let slice = &mut self.read_buffer.to_io_slice_mut();
+        let count = self.stream.read_vectored(slice).await?;
+        self.read_buffer.progress(count)
     }
 
     #[instrument(skip_all)]
     async fn progress_write(&mut self) -> Result<usize> {
-        let mut total_count = 0;
-
-        while self.wants_write() {
-            let write_slices = &mut Self::write_slices(&mut self.write_buffer);
-            let count = self.stream.write_vectored(write_slices).await?;
-            total_count += Self::check_for_eof(count)?;
-
-            let bytes = self.write_buffer.drain(..count);
-            trace!(?bytes, len = count, "wrote bytes");
-            drop(bytes)
+        if self.write_buffer.wants_write() {
+            let slices = &mut self.write_buffer.to_io_slices();
+            let count = self.stream.write_vectored(slices).await?;
+            self.write_buffer.progress(count)
+        } else {
+            Ok(0)
         }
-
-        Ok(total_count)
     }
 }
 
@@ -54,12 +81,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for BufStream<S> {
         let this = self.get_mut();
 
         let mut buf = Cursor::new(buf);
-        let write = pin!(buf.write(&this.read_buffer[..this.read_cursor]));
+        let write = pin!(buf.write(&this.read_buffer.as_slice()));
         let count = ready!(write.poll(cx))?;
-        Self::check_for_eof(count)?;
-
-        this.fill_read_buffer(count);
-        Poll::Ready(Ok(count))
+        Poll::Ready(this.read_buffer.sync(count))
     }
 }
 
@@ -81,10 +105,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for BufStream<S> {
             }
         }
 
-        let read_cursor = match pin!(this.progress_read()).poll_unpin(cx)? {
+        match pin!(this.progress_read()).poll_unpin(cx)? {
             Poll::Ready(count) => {
                 debug!("read {count} bytes");
-                count
             }
             Poll::Pending => {
                 debug!("reading still ongoing");
@@ -93,7 +116,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for BufStream<S> {
         };
 
         ready!(Pin::new(this.get_mut()).poll_flush(cx))?;
-        this.read_cursor = read_cursor;
         Poll::Ready(Ok(()))
     }
 

@@ -7,7 +7,7 @@ use async_std::{
     net::TcpStream,
 };
 use buf_stream::futures::BufStream;
-use futures::{io::BufReader, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
+use futures_util::{io::BufReader, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
 use tracing::debug;
 
 #[async_std::main]

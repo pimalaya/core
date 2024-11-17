@@ -6,7 +6,7 @@ edition = "2021"
 [features]
 default = ["blocking", "async"]
 blocking = []
-async = ["dep:futures"]
+async = ["dep:futures-util"]
 
 [dev-dependencies]
 async-std = { version = "1.13", features = ["attributes"] }
@@ -14,5 +14,5 @@ env_logger = "0.11"
 tracing = { version = "0.1", features = ["log"] }
 
 [dependencies]
-futures = { version = "0.3", optional = true }
+futures-util = { version = "0.3", optional = true, default-features = false, features = ["io"] }
 tracing = "0.1"
