@@ -1,39 +1,45 @@
-use ::std::marker::PhantomData;
-
-use crate::Runtime;
-
 #[cfg(feature = "async")]
 pub mod futures;
 #[cfg(feature = "blocking")]
 pub mod std;
 
-pub struct SmtpStartTls<'a, R: Runtime, S> {
-    runtime: PhantomData<R>,
-    stream: &'a mut S,
-    buf: Vec<u8>,
+#[derive(Clone, Debug)]
+pub struct SmtpStartTls {
+    read_buffer: Vec<u8>,
     handshake_discarded: bool,
-    command_sent: bool,
 }
 
-impl<'a, R: Runtime, S> SmtpStartTls<'a, R, S> {
+impl SmtpStartTls {
     const COMMAND: &'static str = "STARTTLS\r\n";
 
-    pub fn new(stream: &'a mut S) -> Self {
+    pub fn new() -> Self {
         Self {
-            runtime: PhantomData::default(),
-            stream,
-            buf: vec![0; 512],
+            read_buffer: vec![0; 1024],
             handshake_discarded: false,
-            command_sent: false,
         }
     }
 
-    pub fn set_capacity(&mut self, capacity: usize) {
-        self.buf = vec![0; capacity];
+    pub fn set_read_buffer_capacity(&mut self, capacity: usize) {
+        self.read_buffer = vec![0; capacity];
     }
 
-    pub fn with_capacity(mut self, capacity: usize) -> Self {
-        self.set_capacity(capacity);
+    pub fn with_read_buffer_capacity(mut self, capacity: usize) -> Self {
+        self.set_read_buffer_capacity(capacity);
         self
+    }
+
+    pub fn set_handshake_discarded(&mut self, discarded: bool) {
+        self.handshake_discarded = discarded;
+    }
+
+    pub fn with_handshake_discarded(mut self, discarded: bool) -> Self {
+        self.set_handshake_discarded(discarded);
+        self
+    }
+}
+
+impl Default for SmtpStartTls {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -3,8 +3,8 @@
 use std::env;
 
 use async_std::net::TcpStream;
-use futures::AsyncWriteExt;
-use start_tls::{smtp::SmtpStartTls, StartTls};
+use futures_util::AsyncWriteExt;
+use start_tls::{smtp::SmtpStartTls, StartTlsExt};
 
 #[async_std::main]
 async fn main() {
@@ -21,12 +21,14 @@ async fn main() {
         .await
         .expect("should connect to TCP stream");
 
-    let spec = SmtpStartTls::new(&mut tcp_stream);
-    StartTls::new(spec)
-        .prepare()
+    println!("preparing TCP connection for STARTTLS…");
+    SmtpStartTls::new()
+        .with_read_buffer_capacity(1024)
+        .with_handshake_discarded(false)
+        .prepare(&mut tcp_stream)
         .await
-        .expect("should prepare TCP stream for STARTTLS");
+        .expect("should prepare TCP stream for SMTP STARTTLS");
 
-    println!("disconnecting…");
+    println!("connection TLS-ready, disconnecting…");
     tcp_stream.close().await.expect("should close TCP stream");
 }

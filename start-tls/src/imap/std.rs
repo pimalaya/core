@@ -2,28 +2,27 @@ use std::io::{Read, Result, Write};
 
 use tracing::debug;
 
-use crate::{std::Blocking, StartTlsExt};
+use crate::blocking;
 
 use super::ImapStartTls;
 
-impl<S: Read + Write> StartTlsExt<Blocking, S> for ImapStartTls<'_, Blocking, S> {
-    fn poll(&mut self, _cx: &mut ()) -> Result<()> {
+impl<S: Read + Write> blocking::StartTlsExt<S> for ImapStartTls {
+    fn prepare(mut self, stream: &mut S) -> Result<()> {
         if !self.handshake_discarded {
-            let n = self.stream.read(&mut self.buf)?;
-            let plain = String::from_utf8_lossy(&self.buf[..n]);
+            let n = stream.read(&mut self.read_buffer)?;
+            let plain = String::from_utf8_lossy(&self.read_buffer[..n]);
             debug!("read and discarded {n} bytes: {plain:?}");
-            self.buf.fill(0);
-            self.handshake_discarded = true;
+            self.read_buffer.fill(0);
         }
 
-        let n = self.stream.write(Self::COMMAND.as_bytes())?;
+        let n = stream.write(Self::COMMAND.as_bytes())?;
         debug!("wrote {n} bytes: {:?}", Self::COMMAND);
 
-        let n = self.stream.read(&mut self.buf)?;
-        let plain = String::from_utf8_lossy(&self.buf[..n]);
+        let n = stream.read(&mut self.read_buffer)?;
+        let plain = String::from_utf8_lossy(&self.read_buffer[..n]);
         debug!("read and discarded {n} bytes: {plain:?}");
-        self.buf.fill(0);
+        self.read_buffer.fill(0);
 
-        self.stream.flush()
+        stream.flush()
     }
 }

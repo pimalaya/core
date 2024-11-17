@@ -5,7 +5,7 @@ use std::{
     net::{Shutdown, TcpStream},
 };
 
-use start_tls::{smtp::SmtpStartTls, StartTls};
+use start_tls::{blocking::StartTlsExt, smtp::SmtpStartTls};
 
 fn main() {
     env_logger::builder().is_test(true).init();
@@ -20,12 +20,14 @@ fn main() {
     let mut tcp_stream =
         TcpStream::connect((host.as_str(), port)).expect("should connect to TCP stream");
 
-    let spec = SmtpStartTls::new(&mut tcp_stream);
-    StartTls::new(spec)
-        .prepare()
+    println!("preparing TCP connection for STARTTLS…");
+    SmtpStartTls::new()
+        .with_read_buffer_capacity(1024)
+        .with_handshake_discarded(false)
+        .prepare(&mut tcp_stream)
         .expect("should prepare TCP stream for SMTP STARTTLS");
 
-    println!("disconnecting…");
+    println!("connection TLS-ready, disconnecting…");
     tcp_stream
         .shutdown(Shutdown::Both)
         .expect("should close TCP stream");

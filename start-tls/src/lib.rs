@@ -1,33 +1,11 @@
-use ::std::{io::Result, marker::PhantomData};
+use ::std::{future::Future, io::Result};
 
-#[cfg(feature = "async")]
-pub mod futures;
+#[cfg(feature = "blocking")]
+pub mod blocking;
 pub mod imap;
 pub mod smtp;
-#[cfg(feature = "blocking")]
-pub mod std;
 
-pub trait Runtime {
-    type Context<'a>;
-    type Output<T>;
-}
-
-pub trait StartTlsExt<R: Runtime, S> {
-    fn poll(&mut self, cx: &mut R::Context<'_>) -> R::Output<Result<()>>;
-}
-
-pub struct StartTls<R: Runtime, S, T: StartTlsExt<R, S>> {
-    runtime: PhantomData<R>,
-    stream: PhantomData<S>,
-    ext: T,
-}
-
-impl<R: Runtime, S, T: StartTlsExt<R, S>> StartTls<R, S, T> {
-    pub fn new(ext: T) -> Self {
-        Self {
-            runtime: PhantomData::default(),
-            stream: PhantomData::default(),
-            ext,
-        }
-    }
+#[cfg(feature = "async")]
+pub trait StartTlsExt<S> {
+    fn prepare(&mut self, stream: &mut S) -> impl Future<Output = Result<()>>;
 }
