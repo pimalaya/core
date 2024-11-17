@@ -70,8 +70,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> BufStream<S> {
         self.write_buffer.progress(count)
     }
 
-    pub async fn progress(&mut self) -> Result<()> {
-        poll_fn(|cx| {
+    pub async fn progress(&mut self) -> Result<&[u8]> {
+        let count = poll_fn(|cx| {
             match pin!(self.progress_write()).poll_unpin(cx)? {
                 Poll::Ready(0) => {
                     debug!("nothing to write");
@@ -87,18 +87,19 @@ impl<S: AsyncRead + AsyncWrite + Unpin> BufStream<S> {
             match pin!(self.progress_read()).poll_unpin(cx)? {
                 Poll::Ready(count) => {
                     debug!("read {count} bytes");
+                    Poll::Ready(Result::Ok(count))
                 }
                 Poll::Pending => {
                     debug!("reading still ongoing");
-                    return Poll::Pending;
+                    Poll::Pending
                 }
-            };
-
-            Poll::Ready(Result::Ok(()))
+            }
         })
         .await?;
 
-        self.stream.flush().await
+        self.stream.flush().await?;
+
+        Ok(&self.read_buffer.as_slice()[..count])
     }
 }
 

@@ -62,14 +62,16 @@ impl<S: Read + Write> BufStream<S> {
         self.write_buffer.progress(count)
     }
 
-    pub fn progress(&mut self) -> Result<()> {
+    pub fn progress(&mut self) -> Result<&[u8]> {
         let count = self.progress_write()?;
         debug!("wrote {count} bytes");
 
         let count = self.progress_read()?;
         debug!("read {count} bytes");
 
-        self.stream.flush()
+        self.stream.flush()?;
+
+        Ok(&self.read_buffer.as_slice()[..count])
     }
 }
 
