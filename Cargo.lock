@@ -6628,6 +6628,7 @@ name = "start-tls"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "buf-stream",
  "env_logger",
  "futures-util",
  "tracing",

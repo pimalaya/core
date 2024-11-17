@@ -6,6 +6,8 @@ use async_std::net::TcpStream;
 use futures_util::AsyncWriteExt;
 use start_tls::{imap::ImapStartTls, StartTlsExt};
 
+const READ_BUF_CAPACITY: usize = 1024;
+
 #[async_std::main]
 async fn main() {
     env_logger::builder().is_test(true).init();
@@ -23,7 +25,7 @@ async fn main() {
 
     println!("preparing TCP connection for STARTTLS…");
     ImapStartTls::new()
-        .with_read_buffer_capacity(1024)
+        .with_read_buffer_capacity(READ_BUF_CAPACITY)
         .with_handshake_discarded(false)
         .prepare(&mut tcp_stream)
         .await

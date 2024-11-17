@@ -10,6 +10,7 @@ async = ["dep:futures-util"]
 
 [dev-dependencies]
 async-std = { version = "1.13", features = ["attributes"] }
+buf-stream = { path = "../buf-stream" }
 env_logger = "0.11"
 tracing = { version = "0.1", features = ["log"] }
 

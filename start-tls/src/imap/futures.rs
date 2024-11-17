@@ -1,7 +1,6 @@
 use std::io::Result;
 
 use futures_util::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tracing::debug;
 
 use crate::StartTlsExt;
 
@@ -10,19 +9,15 @@ use super::ImapStartTls;
 impl<S: AsyncRead + AsyncWrite + Unpin> StartTlsExt<S> for ImapStartTls {
     async fn prepare(&mut self, stream: &mut S) -> Result<()> {
         if !self.handshake_discarded {
-            let n = stream.read(&mut self.read_buffer).await?;
-            let plain = String::from_utf8_lossy(&self.read_buffer[..n]);
-            debug!("read and discarded {n} bytes: {plain:?}");
-            self.read_buffer.fill(0);
+            let count = stream.read(&mut self.read_buffer).await?;
+            self.post_read(count);
         }
 
-        let n = stream.write(Self::COMMAND.as_bytes()).await?;
-        debug!("wrote {n} bytes: {:?}", Self::COMMAND);
+        let count = stream.write(Self::COMMAND.as_bytes()).await?;
+        self.post_write(count);
 
-        let n = stream.read(&mut self.read_buffer).await?;
-        let plain = String::from_utf8_lossy(&self.read_buffer[..n]);
-        debug!("read and discarded {n} bytes: {plain:?}");
-        self.read_buffer.fill(0);
+        let count = stream.read(&mut self.read_buffer).await?;
+        self.post_read(count);
 
         stream.flush().await
     }

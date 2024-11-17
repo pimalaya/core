@@ -65,9 +65,13 @@ impl<S: Read + Write> BufStream<S> {
 
 impl<S: Read + Write> Read for BufStream<S> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let mut buf = Cursor::new(buf);
-        let count = buf.write(self.read_buffer.as_slice())?;
-        self.read_buffer.sync(count)
+        if self.read_buffer.wants_read() {
+            let mut buf = Cursor::new(buf);
+            let count = buf.write(self.read_buffer.as_slice())?;
+            self.read_buffer.sync(count)
+        } else {
+            Ok(0)
+        }
     }
 }
 

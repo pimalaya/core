@@ -1,3 +1,5 @@
+use tracing::debug;
+
 #[cfg(feature = "async")]
 pub mod futures;
 #[cfg(feature = "blocking")]
@@ -35,6 +37,16 @@ impl SmtpStartTls {
     pub fn with_handshake_discarded(mut self, discarded: bool) -> Self {
         self.set_handshake_discarded(discarded);
         self
+    }
+
+    fn post_read(&mut self, count: usize) {
+        let plain = String::from_utf8_lossy(&self.read_buffer[..count]);
+        debug!("read and discarded {count} bytes: {plain:?}");
+        self.read_buffer.fill(0);
+    }
+
+    fn post_write(&mut self, count: usize) {
+        debug!("wrote {count} bytes: {:?}", Self::COMMAND);
     }
 }
 

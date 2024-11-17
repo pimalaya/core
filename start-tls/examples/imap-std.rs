@@ -7,6 +7,8 @@ use std::{
 
 use start_tls::{blocking::StartTlsExt, imap::ImapStartTls};
 
+const READ_BUF_CAPACITY: usize = 1024;
+
 fn main() {
     env_logger::builder().is_test(true).init();
 
@@ -22,7 +24,7 @@ fn main() {
 
     println!("preparing TCP connection for STARTTLS…");
     ImapStartTls::new()
-        .with_read_buffer_capacity(1024)
+        .with_read_buffer_capacity(READ_BUF_CAPACITY)
         .with_handshake_discarded(false)
         .prepare(&mut tcp_stream)
         .expect("should prepare TCP stream for IMAP STARTTLS");
