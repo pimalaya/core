@@ -53,25 +53,35 @@ impl<S: Read + Write> BufStream<S> {
     }
 
     pub fn progress_write(&mut self) -> Result<usize> {
-        if self.write_buffer.wants_write() {
-            let slices = &mut self.write_buffer.to_io_slices();
-            let count = self.stream.write_vectored(slices)?;
-            self.write_buffer.progress(count)
-        } else {
-            Ok(0)
+        if !self.write_buffer.wants_write() {
+            return Ok(0);
         }
+
+        let slices = &mut self.write_buffer.to_io_slices();
+        let count = self.stream.write_vectored(slices)?;
+        self.write_buffer.progress(count)
+    }
+
+    pub fn progress(&mut self) -> Result<()> {
+        let count = self.progress_write()?;
+        debug!("wrote {count} bytes");
+
+        let count = self.progress_read()?;
+        debug!("read {count} bytes");
+
+        self.stream.flush()
     }
 }
 
 impl<S: Read + Write> Read for BufStream<S> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        if self.read_buffer.wants_read() {
-            let mut buf = Cursor::new(buf);
-            let count = buf.write(self.read_buffer.as_slice())?;
-            self.read_buffer.sync(count)
-        } else {
-            Ok(0)
+        if !self.read_buffer.wants_read() {
+            return Ok(0);
         }
+
+        let mut buf = Cursor::new(buf);
+        let count = buf.write(self.read_buffer.as_slice())?;
+        self.read_buffer.sync(count)
     }
 }
 
@@ -82,12 +92,7 @@ impl<S: Read + Write> Write for BufStream<S> {
     }
 
     fn flush(&mut self) -> Result<()> {
-        let count = self.progress_write()?;
-        debug!("wrote {count} bytes");
-
-        let count = self.progress_read()?;
-        debug!("read {count} bytes");
-
+        self.progress_write()?;
         self.stream.flush()
     }
 }
