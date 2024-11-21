@@ -3318,15 +3318,16 @@ dependencies = [
 [[package]]
 name = "imap-client"
 version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e667382fe3b5f75c78af4f7028a44435ed5f6da8e91500037115cee1569d8c5"
+source = "git+https://github.com/pimalaya/imap-client#39d0217a58637a5f7e017e12bd8845f562bfd5b6"
 dependencies = [
+ "futures-util",
  "imap-next",
- "once_cell",
- "rustls-native-certs 0.8.0",
- "thiserror 1.0.69",
+ "rustls-platform-verifier",
+ "start-tls 0.1.0 (git+https://github.com/pimalaya/core)",
+ "thiserror 2.0.3",
  "tokio",
  "tokio-rustls 0.26.0",
+ "tokio-util",
  "tracing",
 ]
 
@@ -3347,14 +3348,11 @@ dependencies = [
 [[package]]
 name = "imap-next"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "793a41b36eb0fbe7eff9d8715717be264c9429d1989a60fd3d7893476b966506"
+source = "git+https://github.com/soywod/imap-next?branch=jakoschiko_futures-stream-without-split#19e850f0c7ad7bf6e643175c90d88cf2f3877312"
 dependencies = [
- "bytes",
+ "futures-util",
  "imap-codec",
  "thiserror 1.0.69",
- "tokio",
- "tokio-rustls 0.26.0",
  "tracing",
 ]
 
@@ -5942,19 +5940,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustls-native-certs"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcaf18a4f2be7326cd874a5fa579fae794320a0f388d365dca7e480e55f83f8a"
-dependencies = [
- "openssl-probe",
- "rustls-pemfile 2.2.0",
- "rustls-pki-types",
- "schannel",
- "security-framework 2.11.1",
-]
-
-[[package]]
 name = "rustls-pemfile"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6640,6 +6625,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "start-tls"
+version = "0.1.0"
+source = "git+https://github.com/pimalaya/core#2f405c35ea6c29a16d127baaa86740b33c06081d"
+dependencies = [
+ "futures-util",
+ "tracing",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7089,6 +7083,7 @@ checksum = "61e7c3654c13bcd040d4a03abee2c75b1d14a37b423cf5a813ceae1cc903ec6a"
 dependencies = [
  "bytes",
  "futures-core",
+ "futures-io",
  "futures-sink",
  "pin-project-lite",
  "tokio",
