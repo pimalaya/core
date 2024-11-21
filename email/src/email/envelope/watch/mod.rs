@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tokio::sync::oneshot::{Receiver, Sender};
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::{account::config::AccountConfig, envelope::Envelope, AnyResult};
 
@@ -32,6 +32,7 @@ pub trait WatchEnvelopes: Send + Sync {
         for (id, envelope) in next_envelopes {
             // a new envelope has been added
             if !prev_envelopes.contains_key(id) {
+                info!(id, "new message detected");
                 debug!("processing received envelope event…");
                 config.exec_received_envelope_hook(envelope).await;
             } else {

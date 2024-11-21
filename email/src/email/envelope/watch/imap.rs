@@ -56,7 +56,9 @@ impl WatchImapEnvelopes {
             HashMap::from_iter(envelopes.into_iter().map(|e| (e.id.clone(), e)));
 
         loop {
+            info!("starting new IMAP IDLE loop…");
             client.idle(wait_for_shutdown_request).await?;
+            info!("received IDLE change notification or timeout");
 
             let next_envelopes = client.fetch_all_envelopes().await?;
             let next_envelopes: HashMap<String, Envelope> =
