@@ -223,10 +223,12 @@ impl ImapAuthConfig {
             }
             #[cfg(feature = "oauth2")]
             Self::OAuth2(config) => {
-                config
-                    .client_secret
-                    .replace_with_keyring_if_empty(format!("{name}-imap-oauth2-client-secret"))
-                    .map_err(Error::ReplacingUnidentifiedFailed)?;
+                if let Some(secret) = config.client_secret.as_mut() {
+                    secret
+                        .replace_with_keyring_if_empty(format!("{name}-imap-oauth2-client-secret"))
+                        .map_err(Error::ReplacingUnidentifiedFailed)?;
+                }
+
                 config
                     .access_token
                     .replace_with_keyring_if_empty(format!("{name}-imap-oauth2-access-token"))

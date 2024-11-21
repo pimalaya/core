@@ -203,10 +203,12 @@ impl SmtpAuthConfig {
             }
             #[cfg(feature = "oauth2")]
             SmtpAuthConfig::OAuth2(config) => {
-                config
-                    .client_secret
-                    .replace_with_keyring_if_empty(format!("{name}-smtp-oauth2-client-secret"))
-                    .map_err(Error::ReplacingKeyringFailed)?;
+                if let Some(secret) = config.client_secret.as_mut() {
+                    secret
+                        .replace_with_keyring_if_empty(format!("{name}-smtp-oauth2-client-secret"))
+                        .map_err(Error::ReplacingKeyringFailed)?;
+                }
+
                 config
                     .access_token
                     .replace_with_keyring_if_empty(format!("{name}-smtp-oauth2-access-token"))

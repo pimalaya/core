@@ -19,7 +19,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 name = "email"
 
 [features]
-default = [
+default = []
+full = [
   "tokio-rustls",
   "imap",
   "maildir",

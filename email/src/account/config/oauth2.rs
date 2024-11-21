@@ -30,11 +30,7 @@ pub struct OAuth2Config {
 
     /// Client password issued to the client during the registration process described by
     /// [Section 2.2](https://datatracker.ietf.org/doc/html/rfc6749#section-2.2).
-    #[cfg_attr(
-        feature = "derive",
-        serde(default, skip_serializing_if = "Secret::is_empty")
-    )]
-    pub client_secret: Secret,
+    pub client_secret: Option<Secret>,
 
     /// URL of the authorization server's authorization endpoint.
     pub auth_url: String,
@@ -84,10 +80,13 @@ impl OAuth2Config {
 
     /// Resets the three secrets of the OAuth 2.0 configuration.
     pub async fn reset(&self) -> Result<()> {
-        self.client_secret
-            .delete_if_keyring()
-            .await
-            .map_err(Error::DeleteClientSecretOauthError)?;
+        if let Some(secret) = self.client_secret.as_ref() {
+            secret
+                .delete_if_keyring()
+                .await
+                .map_err(Error::DeleteClientSecretOauthError)?;
+        }
+
         self.access_token
             .delete_if_keyring()
             .await
@@ -96,6 +95,7 @@ impl OAuth2Config {
             .delete_if_keyring()
             .await
             .map_err(Error::DeleteRefreshTokenOauthError)?;
+
         Ok(())
     }
 
@@ -125,19 +125,23 @@ impl OAuth2Config {
             None => OAuth2Config::get_first_available_port()?,
         };
 
-        let client_secret = match self.client_secret.find().await {
-            Ok(None) => {
-                debug!("cannot find oauth2 client secret from keyring, setting it");
-                self.client_secret
-                    .set_if_keyring(
-                        get_client_secret().map_err(Error::GetClientSecretFromUserOauthError)?,
-                    )
-                    .await
-                    .map_err(Error::SetClientSecretIntoKeyringOauthError)
-            }
-            Ok(Some(client_secret)) => Ok(client_secret),
-            Err(err) => Err(Error::GetClientSecretFromKeyringOauthError(err)),
-        }?;
+        let client_secret = match self.client_secret.as_ref() {
+            None => None,
+            Some(secret) => Some(match secret.find().await {
+                Ok(None) => {
+                    debug!("cannot find oauth2 client secret from keyring, setting it");
+                    secret
+                        .set_if_keyring(
+                            get_client_secret()
+                                .map_err(Error::GetClientSecretFromUserOauthError)?,
+                        )
+                        .await
+                        .map_err(Error::SetClientSecretIntoKeyringOauthError)
+                }
+                Ok(Some(client_secret)) => Ok(client_secret),
+                Err(err) => Err(Error::GetClientSecretFromKeyringOauthError(err)),
+            }?),
+        };
 
         let client = Client::new(
             self.client_id.clone(),
@@ -204,11 +208,16 @@ impl OAuth2Config {
             None => OAuth2Config::get_first_available_port()?,
         };
 
-        let client_secret = self
-            .client_secret
-            .get()
-            .await
-            .map_err(Error::GetClientSecretFromKeyringOauthError)?;
+        let client_secret = match self.client_secret.as_ref() {
+            None => None,
+            Some(secret) => {
+                let secret = secret
+                    .get()
+                    .await
+                    .map_err(Error::GetClientSecretFromKeyringOauthError)?;
+                Some(secret)
+            }
+        };
 
         let client = Client::new(
             self.client_id.clone(),

@@ -35,7 +35,7 @@ pub struct Client {
 impl Client {
     pub fn new(
         client_id: impl ToString,
-        client_secret: impl ToString,
+        client_secret: Option<impl ToString>,
         auth_url: impl ToString,
         token_url: impl ToString,
         redirect_scheme: impl ToString,
@@ -45,8 +45,7 @@ impl Client {
         let redirect_host = redirect_host.to_string();
         let redirect_port = redirect_port.into();
 
-        let client = oauth2::basic::BasicClient::new(ClientId::new(client_id.to_string()))
-            .set_client_secret(ClientSecret::new(client_secret.to_string()))
+        let mut client = oauth2::basic::BasicClient::new(ClientId::new(client_id.to_string()))
             .set_auth_uri(AuthUrl::new(auth_url.to_string()).map_err(Error::BuildAuthUrlError)?)
             .set_token_uri(TokenUrl::new(token_url.to_string()).map_err(Error::BuildTokenUrlError)?)
             .set_redirect_uri({
@@ -54,6 +53,10 @@ impl Client {
                 RedirectUrl::new(format!("{scheme}://{redirect_host}:{redirect_port}"))
                     .map_err(Error::BuildRedirectUrlError)
             }?);
+
+        if let Some(secret) = client_secret {
+            client = client.set_client_secret(ClientSecret::new(secret.to_string()));
+        }
 
         Ok(Self {
             inner: client,
