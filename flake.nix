@@ -2,44 +2,22 @@
   description = "Rust library to manage your personal information (PIM).";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-23.11";
-    flake-utils.url = "github:numtide/flake-utils";
+    # TODO: https://github.com/NixOS/nixpkgs/pull/358989
+    # nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:soywod/nixpkgs";
     fenix = {
-      url = "github:nix-community/fenix";
+      # TODO: https://github.com/nix-community/fenix/pull/145
+      # url = "github:nix-community/fenix";
+      url = "github:soywod/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+    pimalaya = {
+      url = "github:pimalaya/nix";
+      flake = false;
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, fenix }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-        rust-toolchain = fenix.packages.${system}.fromToolchainFile {
-          file = ./rust-toolchain.toml;
-          sha256 = "+syqAd2kX8KVa8/U2gz3blIQTTsYYt3U63xBWaGOSc8=";
-        };
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [ pkg-config ];
-          buildInputs = with pkgs; [
-            # Nix env
-            nil
-            nixpkgs-fmt
-
-            # Rust env
-            rust-toolchain
-            cargo-watch
-
-            # Email env
-            openssl.dev
-            gnupg
-            gpgme
-            msmtp
-            notmuch
-          ];
-        };
-
-        # TODO: find a way to cargo test
-      });
+  outputs = inputs: (import inputs.pimalaya).mkFlakeOutputs inputs {
+    shell = ./shell.nix;
+  };
 }
