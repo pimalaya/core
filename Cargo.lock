@@ -3321,7 +3321,7 @@ dependencies = [
 [[package]]
 name = "imap-client"
 version = "0.1.5"
-source = "git+https://github.com/pimalaya/imap-client#3016ffb23a474d0fdce0392d497958e092f590b8"
+source = "git+https://github.com/pimalaya/imap-client#bca4048458585a4c3ed8e0fc71b82f8835ab8286"
 dependencies = [
  "futures-util",
  "imap-next",
@@ -3351,7 +3351,7 @@ dependencies = [
 [[package]]
 name = "imap-next"
 version = "0.3.0"
-source = "git+https://github.com/soywod/imap-next?branch=jakoschiko_futures-stream-without-split#c26634b4efc9dfcab0af08943fdcb92ed273a2f3"
+source = "git+https://github.com/soywod/imap-next?branch=jakoschiko_futures-stream-without-split#5addf10140ce81e906f114ca2fc767b1c69428a4"
 dependencies = [
  "futures-util",
  "imap-codec",
@@ -3832,9 +3832,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.166"
+version = "0.2.167"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2ccc108bbc0b1331bd061864e7cd823c0cab660bbe6970e66e2c0614decde36"
+checksum = "09d6582e104315a817dff97f75133544b2e094ee22447d2acf4a74e189ba06fc"
 
 [[package]]
 name = "libdbus-sys"
@@ -6624,7 +6624,7 @@ dependencies = [
 [[package]]
 name = "start-tls"
 version = "0.1.0"
-source = "git+https://github.com/pimalaya/core#3e294453e5a34475e5197c1ccf3b534d221ad26f"
+source = "git+https://github.com/pimalaya/core#ad007954bcb40e04dbae99d982ce4b019e30f0ee"
 dependencies = [
  "futures-util",
  "tracing",
