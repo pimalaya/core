@@ -22,15 +22,23 @@ pub mod send;
 pub mod sync;
 pub mod template;
 
-use std::{borrow::Cow, sync::Arc};
+use std::{
+    borrow::Cow,
+    fs, io,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 #[cfg(feature = "imap")]
 use imap_next::imap_types::{core::Vec1, fetch::MessageDataItem};
-use mail_parser::{MessageParser, MimeHeaders};
+use mail_parser::{MessageParser, MimeHeaders, PartType};
 #[cfg(feature = "maildir")]
 use maildirs::MaildirEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use tracing::debug;
+use uuid::Uuid;
 
 use self::{
     attachment::Attachment,
@@ -67,6 +75,158 @@ impl Message<'_> {
     /// Returns the raw version of the message.
     pub fn raw(&self) -> Result<&[u8], Error> {
         self.parsed().map(|parsed| parsed.raw_message())
+    }
+
+    /// Downloads parts in the given destination.
+    pub fn download_parts(&self, dest: impl AsRef<Path>) -> Result<PathBuf, Error> {
+        let dest = dest.as_ref();
+        let dest = if dest.is_file() {
+            dest.parent().unwrap()
+        } else {
+            dest.as_ref()
+        };
+
+        #[derive(Default)]
+        struct Parts<'a> {
+            plain: String,
+            html: String,
+            content_ids: Vec<(&'a str, PathBuf)>,
+        }
+
+        let Parts {
+            mut plain,
+            mut html,
+            content_ids,
+        } = self
+            .parsed()?
+            .parts
+            .par_iter()
+            .try_fold(Parts::default, |mut output, part| {
+                match &part.body {
+                    PartType::Text(text) => {
+                        if let Some(header) = part.content_type() {
+                            let ctype = header.ctype();
+                            if let Some(stype) = header.subtype() {
+                                if !stype.eq_ignore_ascii_case("plain") {
+                                    let mtype = format!("{ctype}/{stype}");
+                                    let exts = mime_guess::get_mime_extensions_str(&mtype);
+                                    let ext = *exts.and_then(|exts| exts.first()).unwrap_or(&"txt");
+
+                                    let name = match part.attachment_name() {
+                                        None => PathBuf::from(Uuid::new_v4().to_string())
+                                            .with_extension(ext),
+                                        Some(name) => {
+                                            let mut name = PathBuf::from(name);
+                                            if name.extension().is_none() {
+                                                name.set_extension(ext);
+                                            }
+                                            name
+                                        }
+                                    };
+
+                                    let path = dest.join(name);
+                                    debug!("download non-plain text part at {}", path.display());
+                                    fs::write(&path, text.as_ref())?;
+
+                                    if let Some(id) = part.content_id() {
+                                        output.content_ids.push((id, path));
+                                    }
+
+                                    return io::Result::Ok(output);
+                                }
+                            }
+                        }
+
+                        if !output.plain.is_empty() {
+                            output.plain.push('\r');
+                            output.plain.push('\n');
+                        }
+
+                        output.plain.push_str(text.as_ref().into());
+                    }
+                    PartType::Html(text) => {
+                        if !output.html.is_empty() {
+                            output.html.push('\r');
+                            output.html.push('\n');
+                        }
+
+                        output.html.push_str(text.as_ref().into());
+                    }
+                    PartType::Binary(bin) | PartType::InlineBinary(bin) => {
+                        let ctype = part.content_type().map(|h| (h.ctype(), h.subtype()));
+                        let mtype = if let Some((ctype, Some(stype))) = ctype {
+                            format!("{ctype}/{stype}")
+                        } else {
+                            tree_magic_mini::from_u8(part.contents()).to_owned()
+                        };
+
+                        let exts = mime_guess::get_mime_extensions_str(&mtype);
+                        let ext = exts.and_then(|exts| exts.first());
+
+                        let mut name = match part.attachment_name() {
+                            Some(name) => PathBuf::from(name),
+                            None => PathBuf::from(Uuid::new_v4().to_string()),
+                        };
+
+                        if let Some(ext) = ext {
+                            name.set_extension(ext);
+                        }
+
+                        let path = dest.join(name);
+                        debug!("download attachment at {}", path.display());
+                        fs::write(&path, bin.as_ref())?;
+
+                        if let Some(id) = part.content_id() {
+                            output.content_ids.push((id, path));
+                        }
+                    }
+                    PartType::Message(message) => {
+                        debug!("download message part");
+
+                        let name = match part.attachment_name() {
+                            Some(name) => name.to_owned(),
+                            None => Uuid::new_v4().to_string(),
+                        };
+
+                        let name = PathBuf::from(name).with_extension("eml");
+
+                        let path = dest.join(name);
+                        debug!("download message at {}", path.display());
+                        fs::write(path, message.raw_message())?;
+                    }
+                    PartType::Multipart(_) => (),
+                };
+
+                Ok(output)
+            })
+            .try_reduce(Parts::default, |mut a, b| {
+                a.content_ids.extend(b.content_ids);
+                Ok(Parts {
+                    plain: a.plain + &b.plain,
+                    html: a.html + &b.html,
+                    content_ids: a.content_ids,
+                })
+            })?;
+
+        for (cid, path) in content_ids {
+            let cid = String::from("cid:") + cid;
+            plain = plain.replace(&cid, path.to_str().unwrap());
+            html = html.replace(&cid, path.to_str().unwrap());
+        }
+
+        if !plain.trim().is_empty() {
+            let path = dest.join("plain.txt");
+            debug!("download plain text at {}", path.display());
+            fs::write(path, plain.as_bytes())?;
+        }
+
+        if !html.trim().is_empty() {
+            let path = dest.join("index.html");
+            debug!("download HTML text at {}", path.display());
+            fs::write(path, html.as_bytes())?;
+        }
+
+        Ok(dest.to_owned())
     }
 
     /// Returns the list of message attachment.

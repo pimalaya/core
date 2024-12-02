@@ -179,6 +179,9 @@ pub enum Error {
     #[cfg(feature = "maildir")]
     #[error(transparent)]
     MaildirsError(#[from] maildirs::Error),
+
+    #[error(transparent)]
+    IoError(#[from] io::Error),
 }
 
 impl AnyError for Error {

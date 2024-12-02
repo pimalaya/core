@@ -169,6 +169,7 @@ mail-builder = "0.3"
 mail-parser = "0.9"
 mail-send = { version = "0.4", optional = true, default-features = false, features = ["logging", "tls12", "ring"] }
 maildirs = { version = "=0.2.2", optional = true }
+mime_guess = "2"
 mml-lib = { version = "1", default-features = false, features = ["compiler", "interpreter"], path = "../mml" }
 notify = { version = "6", optional = true, default-features = false, features = ["macos_kqueue"] }
 notify-rust = { version = "4", optional = true }
@@ -194,3 +195,4 @@ tracing = "0.1"
 tree_magic_mini = "3"
 urlencoding = "2.1"
 utf7-imap = { version = "=0.3.2", optional = true }
+uuid = { version = "1", features = ["v4"] }

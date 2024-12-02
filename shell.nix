@@ -4,7 +4,6 @@
 , fenix ? import (fetchTarball "https://github.com/nix-community/fenix/archive/main.tar.gz") { }
 , pimalaya ? import (fetchTarball "https://github.com/pimalaya/nix/archive/master.tar.gz")
 , extraBuildInputs ? ""
-
 }:
 
 pimalaya.mkShell {
