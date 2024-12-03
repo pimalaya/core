@@ -5,6 +5,7 @@ members = [
   "email",
   "email-macros",
   "email-testing-server",
+  "email-tests",
   "http",
   "keyring",
   "mml",
@@ -21,6 +22,8 @@ members = [
 buf-stream = { path = "./buf-stream" }
 email-lib = { path = "./email" }
 email-macros = { path = "./email-macros" }
+email-testing-server = { path = "./email-testing-server" }
+email-tests = { path = "./email-tests" }
 http-lib = { path = "./http" }
 keyring-lib = { path = "./keyring" }
 mml-lib = { path = "./mml" }

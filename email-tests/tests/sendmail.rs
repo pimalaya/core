@@ -1,5 +1,3 @@
-#![cfg(all(feature = "imap", feature = "sendmail"))]
-
 use std::{sync::Arc, time::Duration};
 
 use email::{

@@ -1,10 +1,3 @@
-#![cfg(all(
-    feature = "imap",
-    feature = "maildir",
-    feature = "notmuch",
-    feature = "sync",
-))]
-
 use std::{iter::FromIterator, sync::Arc};
 
 use email::{

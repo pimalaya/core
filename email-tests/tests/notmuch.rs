@@ -1,5 +1,3 @@
-#![cfg(feature = "notmuch")]
-
 use std::{collections::HashMap, fs, iter::FromIterator, sync::Arc};
 
 use concat_with::concat_line;

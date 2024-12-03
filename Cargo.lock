@@ -2097,7 +2097,6 @@ dependencies = [
  "dirs 4.0.0",
  "email-lib",
  "email-macros",
- "email-testing-server",
  "email_address",
  "futures",
  "hickory-resolver",
@@ -2127,8 +2126,6 @@ dependencies = [
  "serde",
  "serde-xml-rs",
  "shellexpand-utils",
- "tempfile",
- "test-log",
  "thiserror 1.0.69",
  "tokio",
  "tokio-native-tls",
@@ -2168,6 +2165,28 @@ dependencies = [
  "tokio",
  "tokio-rustls 0.26.0",
  "utils",
+]
+
+[[package]]
+name = "email-tests"
+version = "0.0.0"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "chrono",
+ "concat-with",
+ "email-lib",
+ "email-testing-server",
+ "mail-builder",
+ "maildirs",
+ "mml-lib",
+ "notmuch",
+ "once_cell",
+ "process-lib",
+ "secret-lib",
+ "tempfile",
+ "test-log",
+ "tokio",
 ]
 
 [[package]]

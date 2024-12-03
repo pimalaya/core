@@ -1,7 +1,7 @@
 use std::{io, path::PathBuf, result};
 
-#[cfg(feature = "account-discovery")]
-use hyper::{StatusCode, Uri};
+#[cfg(feature = "autoconfig")]
+use http::ureq::http::{StatusCode, Uri};
 use thiserror::Error;
 
 /// The global `Result` alias of the module.
@@ -110,28 +110,28 @@ pub enum Error {
     GetMailconfTxtRecordNotFoundError(String),
     #[error("cannot find any SRV record at {0}")]
     GetSrvRecordNotFoundError(String),
-    #[cfg(feature = "account-discovery")]
+    #[cfg(feature = "autoconfig")]
     #[error("cannot do txt lookup: {0}")]
     TXTLookUpFailure(#[source] hickory_resolver::error::ResolveError),
-    #[cfg(feature = "account-discovery")]
+    #[cfg(feature = "autoconfig")]
     #[error("cannot do mx lookup: {0}")]
     MXLookUpFailure(#[source] hickory_resolver::error::ResolveError),
-    #[cfg(feature = "account-discovery")]
+    #[cfg(feature = "autoconfig")]
     #[error("cannot do srv lookup: {0}")]
     SRVLookUpFailure(#[source] hickory_resolver::error::ResolveError),
-    #[cfg(feature = "account-discovery")]
+    #[cfg(feature = "autoconfig")]
     #[error("cannot get autoconfig from {0}: {1}")]
     GetAutoConfigError(Uri, StatusCode),
-    #[cfg(feature = "account-discovery")]
+    #[cfg(feature = "autoconfig")]
     #[error("cannot do a get request for autoconfig from {0}: {1}")]
-    GetConnectionAutoConfigError(Uri, #[source] hyper::Error),
-    #[cfg(feature = "account-discovery")]
+    GetConnectionAutoConfigError(Uri, #[source] http::Error),
+    #[cfg(feature = "autoconfig")]
     #[error("cannot get the body of response for autoconfig from {0}: {1}")]
-    ToBytesAutoConfigError(Uri, #[source] hyper::Error),
-    #[cfg(feature = "account-discovery")]
+    ToBytesAutoConfigError(Uri, #[source] http::Error),
+    #[cfg(feature = "autoconfig")]
     #[error("cannot decode the body of response for autoconfig from {0}: {1}")]
     SerdeXmlFailedForAutoConfig(Uri, #[source] serde_xml_rs::Error),
-    #[cfg(feature = "account-discovery")]
+    #[cfg(feature = "autoconfig")]
     #[error("cannot parse email {0}: {1}")]
     ParsingEmailAddress(String, #[source] email_address::Error),
 }

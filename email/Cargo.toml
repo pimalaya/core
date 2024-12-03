@@ -142,12 +142,8 @@ native-tls = ["hickory-resolver?/dns-over-native-tls", "http-lib?/native-tls", "
 vendored = ["tokio-native-tls?/vendored", "http-lib?/vendored", "keyring-lib?/vendored", "mml-lib/vendored", "oauth-lib?/vendored", "secret-lib/vendored"]
 
 [dev-dependencies]
-async-std = { version = "1.13", features = ["attributes"] }
 concat-with = "0.2"
 email-lib = { path = ".", features = ["full"] }
-email-testing-server = { path = "../email-testing-server" }
-tempfile = "3.3"
-test-log = { version = "0.2", default-features = false, features = ["color", "trace"] }
 tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]

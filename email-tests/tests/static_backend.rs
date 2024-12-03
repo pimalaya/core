@@ -1,5 +1,3 @@
-#![cfg(all(feature = "imap", feature = "smtp"))]
-
 use std::sync::Arc;
 
 use async_trait::async_trait;

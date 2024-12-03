@@ -1,5 +1,3 @@
-#![cfg(all(feature = "maildir", feature = "sync"))]
-
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::Arc,

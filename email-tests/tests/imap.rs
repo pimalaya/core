@@ -1,5 +1,3 @@
-#![cfg(feature = "imap")]
-
 use std::{collections::HashMap, sync::Arc};
 
 use concat_with::concat_line;

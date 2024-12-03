@@ -30,7 +30,7 @@
 //! See a full example at `../../tests/dynamic_backend.rs`.
 //!
 //! ```rust,ignore
-#![doc = include_str!("../../tests/dynamic_backend.rs")]
+#![doc = include_str!("../../../email-tests/tests/dynamic_backend.rs")]
 //! ```
 //!
 //! ## Static backend
@@ -43,7 +43,7 @@
 //!
 //! See a full example at `../../tests/static_backend.rs`.
 //! ```rust,ignore
-#![doc = include_str!("../../tests/static_backend.rs")]
+#![doc = include_str!("../../../email-tests/tests/static_backend.rs")]
 //! ```
 
 pub mod context;

@@ -1,5 +1,3 @@
-#![cfg(feature = "maildir")]
-
 use std::{collections::HashMap, iter::FromIterator, sync::Arc};
 
 use concat_with::concat_line;

@@ -51,7 +51,7 @@ macro_rules! some_feature_mapper {
 /// See a usage example at `../../tests/dynamic_backend.rs`.
 ///
 /// ```rust,ignore
-#[doc = include_str!("../../tests/dynamic_backend.rs")]
+#[doc = include_str!("../../../email-tests/tests/dynamic_backend.rs")]
 /// ```
 pub trait SomeBackendContextBuilderMapper<CB>
 where
