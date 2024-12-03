@@ -13,7 +13,7 @@ repository = "https://github.com/pimalaya/core/tree/master/pgp/"
 
 [package.metadata.docs.rs]
 features = ["key-discovery"]
-rustdoc-args = ["--cfg", "docs_rs"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = [
