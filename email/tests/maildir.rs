@@ -176,7 +176,7 @@ async fn test_maildir_features() {
         "Plain message!",
     );
 
-    assert_eq!(tpl, expected_tpl);
+    assert_eq!(*tpl, expected_tpl);
 
     // check that the envelope of the added message exists
     let envelopes = mdir

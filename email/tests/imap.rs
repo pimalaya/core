@@ -92,7 +92,7 @@ async fn test_imap_features() {
             "",
         );
 
-        assert_eq!(tpl, expected_tpl);
+        assert_eq!(*tpl, expected_tpl);
 
         // checking that the envelope of the added email exists
         let sent = imap.list_envelopes(SENT, Default::default()).await.unwrap();

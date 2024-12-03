@@ -133,7 +133,7 @@ async fn test_notmuch_features() {
         "Plain message!",
     );
 
-    assert_eq!(tpl, expected_tpl);
+    assert_eq!(*tpl, expected_tpl);
 
     let msgs = notmuch
         .get_messages("custom", &Id::single(&*custom_id))
@@ -157,7 +157,7 @@ async fn test_notmuch_features() {
         "Plain message custom!",
     );
 
-    assert_eq!(tpl, expected_tpl);
+    assert_eq!(*tpl, expected_tpl);
 
     // check that a flag can be added to envelopes
 

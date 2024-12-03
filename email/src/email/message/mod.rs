@@ -37,6 +37,7 @@ use maildirs::MaildirEntry;
 use mml::MimeInterpreterBuilder;
 use ouroboros::self_referencing;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use template::Template;
 use tracing::debug;
 use uuid::Uuid;
 
@@ -257,7 +258,7 @@ impl Message<'_> {
         &self,
         config: &AccountConfig,
         with_interpreter: impl Fn(MimeInterpreterBuilder) -> MimeInterpreterBuilder,
-    ) -> Result<String, Error> {
+    ) -> Result<Template, Error> {
         let interpreter = config
             .generate_tpl_interpreter()
             .with_show_only_headers(config.get_message_read_headers());
@@ -266,7 +267,7 @@ impl Message<'_> {
             .from_msg(self.parsed()?)
             .await
             .map_err(Error::InterpretEmailAsTplError)?;
-        Ok(tpl)
+        Ok(Template::new(tpl))
     }
 
     /// Turns the current message into a reply template builder.
@@ -457,7 +458,7 @@ mod tests {
             "Regards,",
         );
 
-        assert_eq!(tpl, expected_tpl);
+        assert_eq!(*tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -492,7 +493,7 @@ mod tests {
             "Regards,",
         );
 
-        assert_eq!(tpl, expected_tpl);
+        assert_eq!(*tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -533,7 +534,7 @@ mod tests {
             "Regards,",
         );
 
-        assert_eq!(tpl, expected_tpl);
+        assert_eq!(*tpl, expected_tpl);
     }
 
     #[tokio::test]
@@ -582,7 +583,7 @@ mod tests {
             "Regards,",
         );
 
-        assert_eq!(tpl, expected_tpl);
+        assert_eq!(*tpl, expected_tpl);
     }
 
     #[tokio::test]
