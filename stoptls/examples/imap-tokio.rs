@@ -1,15 +1,13 @@
-#![cfg(feature = "blocking")]
+#![cfg(feature = "async")]
 
-use std::{
-    env,
-    net::{Shutdown, TcpStream},
-};
+use std::env;
 
-use start_tls::{blocking::PrepareStartTls, imap::ImapStartTls};
+use stoptls::{imap::ImapStoptls, Stoptls};
+use tokio::{io::AsyncWriteExt, net::TcpStream};
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
-const READ_BUF_CAPACITY: usize = 1024;
-
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::builder().is_test(true).init();
 
     let host = env::var("HOST").expect("HOST should be defined");
@@ -19,18 +17,21 @@ fn main() {
         .expect("PORT should be an unsigned integer");
 
     println!("connecting to {host}:{port} using TCP…");
-    let mut tcp_stream =
-        TcpStream::connect((host.as_str(), port)).expect("should connect to TCP stream");
+    let tcp_stream = TcpStream::connect((host.as_str(), port))
+        .await
+        .expect("should connect to TCP stream")
+        .compat();
 
     println!("preparing TCP connection for STARTTLS…");
-    ImapStartTls::new()
-        .with_read_buffer_capacity(READ_BUF_CAPACITY)
-        .with_handshake_discarded(false)
-        .prepare(&mut tcp_stream)
+    let mut tcp_stream = ImapStoptls::new()
+        .next(tcp_stream)
+        .await
         .expect("should prepare TCP stream for IMAP STARTTLS");
 
     println!("connection TLS-ready, disconnecting…");
     tcp_stream
-        .shutdown(Shutdown::Both)
+        .get_mut()
+        .shutdown()
+        .await
         .expect("should close TCP stream");
 }

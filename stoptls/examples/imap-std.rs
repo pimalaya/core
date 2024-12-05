@@ -5,9 +5,7 @@ use std::{
     net::{Shutdown, TcpStream},
 };
 
-use start_tls::{blocking::PrepareStartTls, smtp::SmtpStartTls};
-
-const READ_BUF_CAPACITY: usize = 1024;
+use stoptls::{blocking::Stoptls, imap::ImapStoptls};
 
 fn main() {
     env_logger::builder().is_test(true).init();
@@ -19,15 +17,13 @@ fn main() {
         .expect("PORT should be an unsigned integer");
 
     println!("connecting to {host}:{port} using TCP…");
-    let mut tcp_stream =
+    let tcp_stream =
         TcpStream::connect((host.as_str(), port)).expect("should connect to TCP stream");
 
     println!("preparing TCP connection for STARTTLS…");
-    SmtpStartTls::new()
-        .with_read_buffer_capacity(READ_BUF_CAPACITY)
-        .with_handshake_discarded(false)
-        .prepare(&mut tcp_stream)
-        .expect("should prepare TCP stream for SMTP STARTTLS");
+    let tcp_stream = ImapStoptls::new()
+        .next(tcp_stream)
+        .expect("should prepare TCP stream for IMAP STARTTLS");
 
     println!("connection TLS-ready, disconnecting…");
     tcp_stream

@@ -14,7 +14,7 @@ members = [
   "process",
   "secret",
   "shellexpand-utils",
-  "start-tls",
+  "stoptls",
   "time",
 ]
 
@@ -32,5 +32,5 @@ pgp-lib = { path = "./pgp" }
 process-lib = { path = "./process" }
 secret-lib = { path = "./secret" }
 shellexpand-utils = { path = "./shellexpand-utils" }
-start-tls = { path = "./start-tls" }
+stoptls = { path = "./stoptls" }
 time-lib = { path = "./time" }
