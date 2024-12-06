@@ -9,6 +9,10 @@ Sans I/O implementation of <https://duesee.dev/p/avoid-implementing-starttls/>, 
 
 *See the full API documentation on [docs.rs](https://docs.rs/rip-starttls/latest/rip_starttls/).*
 
+## Examples
+
+See [`./examples`](https://github.com/pimalaya/core/tree/master/rip-starttls/examples).
+
 ## Sponsoring
 
 [![nlnet](https://nlnet.nl/logo/banner-160x60.png)](https://nlnet.nl/)
