@@ -12,9 +12,9 @@ members = [
   "oauth",
   "pgp",
   "process",
+  "rip-starttls",
   "secret",
   "shellexpand-utils",
-  "stoptls",
   "time",
 ]
 
@@ -30,7 +30,7 @@ mml-lib = { path = "./mml" }
 oauth-lib = { path = "./oauth" }
 pgp-lib = { path = "./pgp" }
 process-lib = { path = "./process" }
+rip-starttls = { path = "./rip-starttls" }
 secret-lib = { path = "./secret" }
 shellexpand-utils = { path = "./shellexpand-utils" }
-stoptls = { path = "./stoptls" }
 time-lib = { path = "./time" }

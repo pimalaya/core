@@ -1,5 +1,5 @@
 [package]
-name = "stoptls"
+name = "rip-starttls"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,7 +11,7 @@ tokio = ["dep:tokio"]
 [dev-dependencies]
 async-std = { version = "1.13", features = ["attributes"] }
 env_logger = "0.11"
-stoptls = { path = ".", features = ["std", "async-std", "tokio"] }
+rip-starttls = { path = ".", features = ["std", "async-std", "tokio"] }
 tokio = { version = "1.37", features = ["full"] }
 tracing = { version = "0.1", features = ["log"] }
 

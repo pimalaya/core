@@ -1,11 +1,11 @@
-#![cfg(feature = "async-std")]
+#![cfg(feature = "tokio")]
 
-use std::{env, net::Shutdown};
+use std::env;
 
-use async_std::net::TcpStream;
-use stoptls::imap::async_std::RipStarttls;
+use rip_starttls::imap::tokio::RipStarttls;
+use tokio::{io::AsyncWriteExt, net::TcpStream};
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     env_logger::builder().is_test(true).init();
 
@@ -21,13 +21,14 @@ async fn main() {
         .expect("should connect to TCP stream");
 
     println!("preparing TCP connection for STARTTLS…");
-    let tcp_stream = RipStarttls::default()
+    let mut tcp_stream = RipStarttls::default()
         .do_starttls_prefix(tcp_stream)
         .await
         .expect("should prepare TCP stream for IMAP STARTTLS");
 
     println!("connection TLS-ready, disconnecting…");
     tcp_stream
-        .shutdown(Shutdown::Both)
+        .shutdown()
+        .await
         .expect("should close TCP stream");
 }
