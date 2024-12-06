@@ -1,3 +1,8 @@
+//! # Async-std
+//!
+//! This module contains the async I/O connector based on
+//! [`async_std`] for [`RipStarttls`](super::RipStarttls).
+
 use std::io::Result;
 
 use async_std::{

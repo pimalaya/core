@@ -1,3 +1,8 @@
+//! # IMAP
+//!
+//! This module contains the sans I/O implementation for the IMAP
+//! protocol, as well as feature-gated I/O connectors.
+
 #[cfg(feature = "async-std")]
 pub mod async_std;
 #[cfg(feature = "std")]
@@ -7,6 +12,10 @@ pub mod tokio;
 
 use tracing::debug;
 
+/// The main structure of the IMAP module.
+///
+/// This structure allows you to move a TCP stream to a TLS-ready
+/// state.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct RipStarttls {
     state: Option<State>,
@@ -25,6 +34,8 @@ impl RipStarttls {
         }
     }
 
+    /// Acts like a coroutine's resume function, where the argument is
+    /// replaced by an event.
     pub fn resume(&mut self, event: Option<Event>) -> Option<State> {
         self.event = event;
         self.next()

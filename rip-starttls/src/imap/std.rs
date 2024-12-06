@@ -1,3 +1,8 @@
+//! # Std
+//!
+//! This module contains the blocking, standard I/O connector for
+//! [`RipStarttls`](super::RipStarttls).
+
 use std::{
     io::{BufRead, BufReader, Result, Write},
     net::TcpStream,

@@ -1,12 +1,24 @@
 [package]
 name = "rip-starttls"
+description = "Sans I/O implementation of <https://duesee.dev/p/avoid-implementing-starttls/>"
 version = "0.1.0"
+authors = ["soywod <clement.douin@posteo.net>"]
 edition = "2021"
+license = "MIT"
+categories = ["asynchronous", "email", "network-programming"]
+keywords = ["starttls", "imap", "tokio", "async-std", "ssl"]
+homepage = "https://pimalaya.org/"
+documentation = "https://docs.rs/rip-starttls/latest/rip_starttls/"
+repository = "https://github.com/pimalaya/core/tree/master/rip-starttls/"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 std = []
-async-std = ["dep:async-std"]
 tokio = ["dep:tokio"]
+async-std = ["dep:async-std"]
 
 [dev-dependencies]
 async-std = { version = "1.13", features = ["attributes"] }

@@ -1,3 +1,8 @@
+//! # Tokio
+//!
+//! This module contains the async I/O connector based on [`tokio`]
+//! for [`RipStarttls`](super::RipStarttls).
+
 use std::io::Result;
 
 use tokio::{
