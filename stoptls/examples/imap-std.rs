@@ -1,11 +1,11 @@
-#![cfg(feature = "blocking")]
+#![cfg(feature = "std")]
 
 use std::{
     env,
     net::{Shutdown, TcpStream},
 };
 
-use stoptls::{blocking::Stoptls, imap::ImapStoptls};
+use stoptls::imap::std::RipStarttls;
 
 fn main() {
     env_logger::builder().is_test(true).init();
@@ -21,8 +21,8 @@ fn main() {
         TcpStream::connect((host.as_str(), port)).expect("should connect to TCP stream");
 
     println!("preparing TCP connection for STARTTLS…");
-    let tcp_stream = ImapStoptls::new()
-        .next(tcp_stream)
+    let tcp_stream = RipStarttls::default()
+        .do_starttls_prefix(tcp_stream)
         .expect("should prepare TCP stream for IMAP STARTTLS");
 
     println!("connection TLS-ready, disconnecting…");

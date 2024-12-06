@@ -1,10 +1,9 @@
-#![cfg(feature = "async")]
+#![cfg(feature = "tokio")]
 
 use std::env;
 
-use stoptls::{imap::ImapStoptls, Stoptls};
+use stoptls::imap::tokio::RipStarttls;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
-use tokio_util::compat::TokioAsyncReadCompatExt;
 
 #[tokio::main]
 async fn main() {
@@ -19,18 +18,16 @@ async fn main() {
     println!("connecting to {host}:{port} using TCP…");
     let tcp_stream = TcpStream::connect((host.as_str(), port))
         .await
-        .expect("should connect to TCP stream")
-        .compat();
+        .expect("should connect to TCP stream");
 
     println!("preparing TCP connection for STARTTLS…");
-    let mut tcp_stream = ImapStoptls::new()
-        .next(tcp_stream)
+    let mut tcp_stream = RipStarttls::default()
+        .do_starttls_prefix(tcp_stream)
         .await
         .expect("should prepare TCP stream for IMAP STARTTLS");
 
     println!("connection TLS-ready, disconnecting…");
     tcp_stream
-        .get_mut()
         .shutdown()
         .await
         .expect("should close TCP stream");

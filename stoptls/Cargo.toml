@@ -4,18 +4,18 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["async"]
-blocking = []
-async = ["dep:futures-util"]
+std = []
+async-std = ["dep:async-std"]
+tokio = ["dep:tokio"]
 
 [dev-dependencies]
 async-std = { version = "1.13", features = ["attributes"] }
 env_logger = "0.11"
-stoptls = { path = ".", features = ["async", "blocking"] }
+stoptls = { path = ".", features = ["std", "async-std", "tokio"] }
 tokio = { version = "1.37", features = ["full"] }
-tokio-util = { version = "0.7", default-features = false, features = ["compat"] }
 tracing = { version = "0.1", features = ["log"] }
 
 [dependencies]
-futures-util = { version = "0.3", optional = true, default-features = false, features = ["io"] }
+async-std = { version = "1.13", optional = true }
+tokio = { version = "1.37", optional = true, default-features = false, features = ["io-util", "net"] }
 tracing = "0.1"

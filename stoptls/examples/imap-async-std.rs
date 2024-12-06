@@ -1,10 +1,9 @@
-#![cfg(feature = "async")]
+#![cfg(feature = "async-std")]
 
-use std::env;
+use std::{env, net::Shutdown};
 
 use async_std::net::TcpStream;
-use futures_util::AsyncWriteExt;
-use stoptls::{imap::ImapStoptls, Stoptls};
+use stoptls::imap::async_std::RipStarttls;
 
 #[async_std::main]
 async fn main() {
@@ -22,11 +21,13 @@ async fn main() {
         .expect("should connect to TCP stream");
 
     println!("preparing TCP connection for STARTTLS…");
-    let mut tcp_stream = ImapStoptls::new()
-        .next(tcp_stream)
+    let tcp_stream = RipStarttls::default()
+        .do_starttls_prefix(tcp_stream)
         .await
         .expect("should prepare TCP stream for IMAP STARTTLS");
 
     println!("connection TLS-ready, disconnecting…");
-    tcp_stream.close().await.expect("should close TCP stream");
+    tcp_stream
+        .shutdown(Shutdown::Both)
+        .expect("should close TCP stream");
 }
