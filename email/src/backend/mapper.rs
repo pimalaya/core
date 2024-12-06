@@ -24,7 +24,7 @@ use crate::{
     },
     message::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
-        peek::PeekMessages, r#move::MoveMessages, send::SendMessage,
+        peek::PeekMessages, r#move::MoveMessages, remove::RemoveMessages, send::SendMessage,
     },
 };
 
@@ -91,6 +91,7 @@ where
     some_feature_mapper!(CopyMessages);
     some_feature_mapper!(MoveMessages);
     some_feature_mapper!(DeleteMessages);
+    some_feature_mapper!(RemoveMessages);
 }
 
 /// Automatically implement [`SomeBackendContextBuilderMapper`].
@@ -154,6 +155,7 @@ where
     feature_mapper!(CopyMessages);
     feature_mapper!(MoveMessages);
     feature_mapper!(DeleteMessages);
+    feature_mapper!(RemoveMessages);
 }
 
 /// Automatically implement [`BackendContextBuilderMapper`].
