@@ -3,7 +3,7 @@ use std::{collections::HashMap, num::NonZeroU32, result};
 use async_trait::async_trait;
 use chrono::TimeDelta;
 use futures::{stream::FuturesUnordered, StreamExt};
-use imap_next::imap_types::{
+use imap_client::imap_next::imap_types::{
     core::Vec1,
     extensions::sort::{SortCriterion, SortKey},
     search::SearchKey,

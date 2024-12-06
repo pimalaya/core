@@ -7,13 +7,11 @@ use std::{
 };
 
 use async_trait::async_trait;
+use config::ImapTlsProvider;
 use futures::{stream::FuturesUnordered, StreamExt};
 use imap_client::{
-    tasks::{tasks::select::SelectDataUnvalidated, SchedulerError},
-    Client, ClientError,
-};
-use imap_next::{
-    imap_types::{
+    client::tokio::{Client, ClientError},
+    imap_next::imap_types::{
         auth::AuthMechanism,
         core::{IString, NString, Vec1},
         extensions::{
@@ -26,6 +24,7 @@ use imap_next::{
         sequence::SequenceSet,
     },
     stream::Error as StreamError,
+    tasks::{tasks::select::SelectDataUnvalidated, SchedulerError},
 };
 use once_cell::sync::Lazy;
 use tokio::{
@@ -207,7 +206,7 @@ impl ImapClient {
     }
 
     pub fn ext_sort_supported(&self) -> bool {
-        self.inner.ext_sort_supported()
+        self.inner.state.ext_sort_supported()
     }
 
     #[instrument(skip_all, fields(client = self.id))]
@@ -1097,34 +1096,64 @@ impl ImapClientBuilder {
     #[instrument(name = "client::build", skip(self))]
     pub async fn build(&mut self) -> Result<Client> {
         let mut client = match &self.config.encryption {
-            Some(ImapEncryptionKind::None) | None => {
-                Client::insecure(&self.config.host, self.config.port)
-                    .await
-                    .map_err(|err| {
-                        let host = self.config.host.clone();
-                        let port = self.config.port.clone();
-                        Error::BuildInsecureClientError(err, host, port)
-                    })?
-            }
-            Some(ImapEncryptionKind::StartTls) => {
-                Client::starttls(&self.config.host, self.config.port)
-                    .await
-                    .map_err(|err| {
-                        let host = self.config.host.clone();
-                        let port = self.config.port.clone();
-                        Error::BuildStartTlsClientError(err, host, port)
-                    })?
-            }
-            Some(ImapEncryptionKind::Tls) => Client::tls(&self.config.host, self.config.port)
+            Some(ImapEncryptionKind::None) => Client::insecure(&self.config.host, self.config.port)
                 .await
                 .map_err(|err| {
                     let host = self.config.host.clone();
                     let port = self.config.port.clone();
-                    Error::BuildTlsClientError(err, host, port)
+                    Error::BuildInsecureClientError(err, host, port)
                 })?,
+            Some(ImapEncryptionKind::StartTls) => match self.config.tls_provider {
+                ImapTlsProvider::None => return Err(Error::BuildTlsClientMissingProvider),
+                #[cfg(feature = "rustls")]
+                ImapTlsProvider::Rustls => {
+                    Client::rustls(&self.config.host, self.config.port, true)
+                        .await
+                        .map_err(|err| {
+                            let host = self.config.host.clone();
+                            let port = self.config.port.clone();
+                            Error::BuildStartTlsClientError(err, host, port)
+                        })?
+                }
+                #[cfg(feature = "native-tls")]
+                ImapTlsProvider::NativeTls => {
+                    Client::native_tls(&self.config.host, self.config.port, true)
+                        .await
+                        .map_err(|err| {
+                            let host = self.config.host.clone();
+                            let port = self.config.port.clone();
+                            Error::BuildStartTlsClientError(err, host, port)
+                        })?
+                }
+            },
+            Some(ImapEncryptionKind::Tls) | None => match self.config.tls_provider {
+                ImapTlsProvider::None => return Err(Error::BuildTlsClientMissingProvider),
+                #[cfg(feature = "rustls")]
+                ImapTlsProvider::Rustls => {
+                    Client::rustls(&self.config.host, self.config.port, false)
+                        .await
+                        .map_err(|err| {
+                            let host = self.config.host.clone();
+                            let port = self.config.port.clone();
+                            Error::BuildTlsClientError(err, host, port)
+                        })?
+                }
+                #[cfg(feature = "native-tls")]
+                ImapTlsProvider::NativeTls => {
+                    Client::native_tls(&self.config.host, self.config.port, false)
+                        .await
+                        .map_err(|err| {
+                            let host = self.config.host.clone();
+                            let port = self.config.port.clone();
+                            Error::BuildTlsClientError(err, host, port)
+                        })?
+                }
+            },
         };
 
-        client.set_some_idle_timeout(self.config.find_watch_timeout().map(Duration::from_secs));
+        client
+            .state
+            .set_some_idle_timeout(self.config.find_watch_timeout().map(Duration::from_secs));
 
         match &self.config.auth {
             ImapAuthConfig::Password(passwd) => {
@@ -1142,7 +1171,8 @@ impl ImapClientBuilder {
                         .to_owned(),
                 };
 
-                let mechanisms: Vec<_> = client.supported_auth_mechanisms().cloned().collect();
+                let mechanisms: Vec<_> =
+                    client.state.supported_auth_mechanisms().cloned().collect();
                 let mut authenticated = false;
 
                 debug!(?mechanisms, "supported auth mechanisms");
@@ -1179,7 +1209,7 @@ impl ImapClientBuilder {
                 }
 
                 if !authenticated {
-                    if !client.login_supported() {
+                    if !client.state.login_supported() {
                         return Err(Error::LoginNotSupportedError);
                     }
 
@@ -1199,8 +1229,8 @@ impl ImapClientBuilder {
 
                 match oauth2.method {
                     OAuth2Method::XOAuth2 => {
-                        if !client.supports_auth_mechanism(AuthMechanism::XOAuth2) {
-                            let auth = client.supported_auth_mechanisms().cloned().collect();
+                        if !client.state.supports_auth_mechanism(AuthMechanism::XOAuth2) {
+                            let auth = client.state.supported_auth_mechanisms().cloned().collect();
                             return Err(Error::AuthenticateXOAuth2NotSupportedError(auth));
                         }
 
@@ -1238,8 +1268,11 @@ impl ImapClientBuilder {
                         }
                     }
                     OAuth2Method::OAuthBearer => {
-                        if !client.supports_auth_mechanism("OAUTHBEARER".try_into().unwrap()) {
-                            let auth = client.supported_auth_mechanisms().cloned().collect();
+                        if !client
+                            .state
+                            .supports_auth_mechanism("OAUTHBEARER".try_into().unwrap())
+                        {
+                            let auth = client.state.supported_auth_mechanisms().cloned().collect();
                             return Err(Error::AuthenticateOAuthBearerNotSupportedError(auth));
                         }
 

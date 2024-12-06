@@ -1,4 +1,4 @@
-use imap_next::imap_types::{
+use imap_client::imap_next::imap_types::{
     core::{Atom, QuotedChar},
     flag::FlagNameAttribute,
     mailbox::Mailbox,

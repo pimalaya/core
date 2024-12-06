@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use imap_next::imap_types::{
+use imap_client::imap_next::imap_types::{
     error::ValidationError,
     flag::{Flag as ImapFlag, FlagFetch},
     search::SearchKey,

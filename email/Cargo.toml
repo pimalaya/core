@@ -43,7 +43,6 @@ full = [
 imap = [
   "dep:utf7-imap",
   "dep:imap-client",
-  "dep:imap-next",
   "tokio?/sync",
 ]
 
@@ -124,8 +123,8 @@ pgp-native = ["dep:pgp-lib", "dep:keyring-lib", "mml-lib/pgp-native", "pgp"]
 #
 #async-std-rustls = ["async-std", "rustls"]
 #async-std-native-tls = ["async-std", "native-tls"]
-tokio-rustls = ["dep:tokio-rustls", "tokio", "rustls"]
-tokio-native-tls = ["dep:tokio-native-tls", "tokio", "native-tls"]
+tokio-rustls = ["dep:tokio-rustls", "imap-client?/tokio-rustls", "tokio", "rustls"]
+tokio-native-tls = ["dep:tokio-native-tls", "imap-client?/tokio-native-tls", "tokio", "native-tls"]
 
 # Async runtime
 #
@@ -158,8 +157,7 @@ email_address = { version = "0.2", optional = true, default-features = false }
 futures = "0.3"
 hickory-resolver = { version = "0.24", optional = true }
 http-lib = { version = "0.1", optional = true, default-features = false, path = "../http" }
-imap-client = { version = "=0.1.5", git = "https://github.com/pimalaya/imap-client", optional = true }
-imap-next = { version = "0.3", git = "https://github.com/soywod/imap-next", branch = "jakoschiko_futures-stream-without-split", optional = true, features = ["expose_stream", "tag_generator", "starttls", "ext_id", "ext_metadata"] }
+imap-client = { version = "0.2", optional = true }
 keyring-lib = { version = "1", optional = true, default-features = false, path = "../keyring" }
 mail-builder = "0.3"
 mail-parser = "0.9"

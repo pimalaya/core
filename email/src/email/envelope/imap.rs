@@ -5,7 +5,7 @@
 
 use std::{collections::HashMap, num::NonZeroU32};
 
-use imap_next::imap_types::{
+use imap_client::imap_next::imap_types::{
     body::{BodyStructure, Disposition},
     core::Vec1,
     fetch::{MacroOrMessageDataItemNames, MessageDataItem, MessageDataItemName},

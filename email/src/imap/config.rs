@@ -38,6 +38,10 @@ pub struct ImapConfig {
     )]
     pub encryption: Option<ImapEncryptionKind>,
 
+    /// The IMAP TLS provider to use.
+    #[cfg_attr(feature = "derive", serde(default))]
+    pub tls_provider: ImapTlsProvider,
+
     /// The IMAP server login.
     ///
     /// Usually, the login is either the email address or its left
@@ -119,6 +123,34 @@ impl crate::sync::hash::SyncHash for ImapConfig {
         Hash::hash(&self.host, state);
         Hash::hash(&self.port, state);
         Hash::hash(&self.login, state);
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
+pub enum ImapTlsProvider {
+    #[cfg(feature = "rustls")]
+    #[default]
+    Rustls,
+    #[cfg(feature = "native-tls")]
+    NativeTls,
+    #[cfg_attr(not(feature = "rustls"), default)]
+    None,
+}
+
+impl fmt::Display for ImapTlsProvider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            #[cfg(feature = "rustls")]
+            Self::Rustls => write!(f, "Rust native (rustls)"),
+            #[cfg(feature = "native-tls")]
+            Self::NativeTls => write!(f, "OS native (native-tls)"),
+            Self::None => write!(f, "None"),
+        }
     }
 }
 

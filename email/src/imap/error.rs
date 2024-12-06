@@ -1,9 +1,11 @@
 use std::{any::Any, collections::HashSet, result};
 
-use imap_client::ClientError;
-use imap_next::{
-    client::Error as ClientFlowError,
-    imap_types::{auth::AuthMechanism, error::ValidationError},
+use imap_client::{
+    client::tokio::ClientError,
+    imap_next::{
+        client::Error as ClientFlowError,
+        imap_types::{auth::AuthMechanism, error::ValidationError},
+    },
     stream::Error as StreamError,
 };
 use thiserror::Error;
@@ -17,6 +19,8 @@ pub type Result<T> = result::Result<T, Error>;
 /// The global `Error` enum of the module.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("cannot build IMAP client: missing TLS provider")]
+    BuildTlsClientMissingProvider,
     #[error("cannot build IMAP client")]
     JoinClientError(#[source] JoinError),
     #[error("cannot build IMAP client")]

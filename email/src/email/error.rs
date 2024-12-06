@@ -2,7 +2,7 @@ use std::{any::Any, io, path::PathBuf, result};
 
 use chumsky::error::Rich;
 #[cfg(feature = "imap")]
-use imap_next::imap_types::error::ValidationError;
+use imap_client::imap_next::imap_types::error::ValidationError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -22,15 +22,21 @@ pub enum Error {
     #[cfg(feature = "imap")]
     #[error("cannot sort IMAP ids using {1:?} and {2:?}")]
     SortUidsError(
-        #[source] imap_client::ClientError,
-        imap_next::imap_types::core::Vec1<imap_next::imap_types::search::SearchKey<'static>>,
-        imap_next::imap_types::core::Vec1<imap_next::imap_types::extensions::sort::SortCriterion>,
+        #[source] imap_client::client::tokio::ClientError,
+        imap_client::imap_next::imap_types::core::Vec1<
+            imap_client::imap_next::imap_types::search::SearchKey<'static>,
+        >,
+        imap_client::imap_next::imap_types::core::Vec1<
+            imap_client::imap_next::imap_types::extensions::sort::SortCriterion,
+        >,
     ),
     #[cfg(feature = "imap")]
     #[error("cannot search IMAP ids using {1:?}")]
     SearchUidsError(
-        #[source] imap_client::ClientError,
-        imap_next::imap_types::core::Vec1<imap_next::imap_types::search::SearchKey<'static>>,
+        #[source] imap_client::client::tokio::ClientError,
+        imap_client::imap_next::imap_types::core::Vec1<
+            imap_client::imap_next::imap_types::search::SearchKey<'static>,
+        >,
     ),
 
     #[cfg(feature = "imap")]

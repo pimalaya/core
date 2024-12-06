@@ -2102,7 +2102,6 @@ dependencies = [
  "hickory-resolver",
  "http-lib",
  "imap-client",
- "imap-next",
  "keyring-lib",
  "mail-builder",
  "mail-parser",
@@ -3341,17 +3340,17 @@ dependencies = [
 
 [[package]]
 name = "imap-client"
-version = "0.1.5"
-source = "git+https://github.com/pimalaya/imap-client#bca4048458585a4c3ed8e0fc71b82f8835ab8286"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd76710ea4d32c874d42a666d71800ba92f29ef4ba8eed3f6f717f5d14b17d1e"
 dependencies = [
- "futures-util",
  "imap-next",
- "rustls-platform-verifier",
- "start-tls",
+ "rip-starttls",
+ "rustls-platform-verifier 0.4.0",
  "thiserror 2.0.3",
  "tokio",
+ "tokio-native-tls",
  "tokio-rustls 0.26.0",
- "tokio-util",
  "tracing",
 ]
 
@@ -3371,12 +3370,15 @@ dependencies = [
 
 [[package]]
 name = "imap-next"
-version = "0.3.0"
-source = "git+https://github.com/soywod/imap-next?branch=jakoschiko_futures-stream-without-split#5addf10140ce81e906f114ca2fc767b1c69428a4"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56d85520e742d9e8d9edbf9df9e0876f560ed08650db8f9de562bc7cd46b9b43"
 dependencies = [
- "futures-util",
+ "bytes",
  "imap-codec",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
+ "tokio",
+ "tokio-rustls 0.26.0",
  "tracing",
 ]
 
@@ -6027,6 +6029,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-platform-verifier"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4c7dc240fec5517e6c4eab3310438636cfe6391dfc345ba013109909a90d136"
+dependencies = [
+ "core-foundation 0.9.4",
+ "core-foundation-sys",
+ "jni",
+ "log",
+ "once_cell",
+ "rustls 0.23.19",
+ "rustls-native-certs 0.7.3",
+ "rustls-platform-verifier-android",
+ "rustls-webpki 0.102.8",
+ "security-framework 2.11.1",
+ "security-framework-sys",
+ "webpki-root-certs",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "rustls-platform-verifier-android"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7102,7 +7125,6 @@ checksum = "61e7c3654c13bcd040d4a03abee2c75b1d14a37b423cf5a813ceae1cc903ec6a"
 dependencies = [
  "bytes",
  "futures-core",
- "futures-io",
  "futures-sink",
  "pin-project-lite",
  "tokio",
@@ -7491,7 +7513,7 @@ dependencies = [
  "rustls 0.23.19",
  "rustls-pemfile 2.2.0",
  "rustls-pki-types",
- "rustls-platform-verifier",
+ "rustls-platform-verifier 0.3.4",
  "ureq-proto",
  "utf-8",
  "webpki-root-certs",

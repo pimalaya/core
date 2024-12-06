@@ -30,7 +30,7 @@ use std::{
 };
 
 #[cfg(feature = "imap")]
-use imap_next::imap_types::{core::Vec1, fetch::MessageDataItem};
+use imap_client::imap_next::imap_types::{core::Vec1, fetch::MessageDataItem};
 use mail_parser::{MessageParser, MimeHeaders, PartType};
 #[cfg(feature = "maildir")]
 use maildirs::MaildirEntry;

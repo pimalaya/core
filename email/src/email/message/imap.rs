@@ -1,4 +1,4 @@
-use imap_next::imap_types::fetch::{
+use imap_client::imap_next::imap_types::fetch::{
     MacroOrMessageDataItemNames, MessageDataItem, MessageDataItemName,
 };
 use once_cell::sync::Lazy;
