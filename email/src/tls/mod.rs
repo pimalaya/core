@@ -8,7 +8,7 @@ pub mod derive;
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case"),
-    serde(tag = "type", content = "provider")
+    serde(tag = "type")
 )]
 pub enum Encryption {
     Tls(Tls),
@@ -32,15 +32,25 @@ impl fmt::Display for Encryption {
     }
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "derive",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
+pub struct Tls {
+    pub provider: Option<TlsProvider>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(
     feature = "derive",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "kebab-case"),
     serde(tag = "type"),
-    serde(from = "derive::Tls")
+    serde(from = "derive::TlsProvider")
 )]
-pub enum Tls {
+pub enum TlsProvider {
     #[cfg(feature = "rustls")]
     Rustls(Rustls),
     #[cfg(feature = "native-tls")]
@@ -49,20 +59,20 @@ pub enum Tls {
 }
 
 #[cfg(feature = "rustls")]
-impl Default for Tls {
+impl Default for TlsProvider {
     fn default() -> Self {
-        Tls::Rustls(Default::default())
+        TlsProvider::Rustls(Default::default())
     }
 }
 
 #[cfg(not(feature = "rustls"))]
-impl Default for Tls {
+impl Default for TlsProvider {
     fn default() -> Self {
         Tls::None
     }
 }
 
-impl fmt::Display for Tls {
+impl fmt::Display for TlsProvider {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             #[cfg(feature = "rustls")]

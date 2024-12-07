@@ -79,7 +79,7 @@ use crate::{
         Messages,
     },
     retry::{self, Retry, RetryState},
-    tls::{Encryption, Tls},
+    tls::{Encryption, Tls, TlsProvider},
     AnyResult,
 };
 
@@ -1102,49 +1102,55 @@ impl ImapClientBuilder {
                     let port = self.config.port.clone();
                     Error::BuildInsecureClientError(err, host, port)
                 })?,
-            Some(Encryption::Tls(Tls::None)) | Some(Encryption::StartTls(Tls::None)) => {
+            Some(Encryption::Tls(Tls {
+                provider: Some(TlsProvider::None),
+            }))
+            | Some(Encryption::StartTls(Tls {
+                provider: Some(TlsProvider::None),
+            })) => {
                 return Err(Error::BuildTlsClientMissingProvider);
             }
             #[cfg(feature = "rustls")]
-            Some(Encryption::Tls(Tls::Rustls(_))) | None => {
-                Client::rustls(&self.config.host, self.config.port, false)
-                    .await
-                    .map_err(|err| {
-                        let host = self.config.host.clone();
-                        let port = self.config.port.clone();
-                        Error::BuildStartTlsClientError(err, host, port)
-                    })?
-            }
+            Some(Encryption::Tls(Tls {
+                provider: Some(TlsProvider::Rustls(_)) | None,
+            }))
+            | None => Client::rustls(&self.config.host, self.config.port, false)
+                .await
+                .map_err(|err| {
+                    let host = self.config.host.clone();
+                    let port = self.config.port.clone();
+                    Error::BuildStartTlsClientError(err, host, port)
+                })?,
             #[cfg(feature = "native-tls")]
-            Some(Encryption::Tls(Tls::NativeTls(_))) => {
-                Client::native_tls(&self.config.host, self.config.port, false)
-                    .await
-                    .map_err(|err| {
-                        let host = self.config.host.clone();
-                        let port = self.config.port.clone();
-                        Error::BuildStartTlsClientError(err, host, port)
-                    })?
-            }
+            Some(Encryption::Tls(Tls {
+                provider: Some(TlsProvider::NativeTls(_)),
+            })) => Client::native_tls(&self.config.host, self.config.port, false)
+                .await
+                .map_err(|err| {
+                    let host = self.config.host.clone();
+                    let port = self.config.port.clone();
+                    Error::BuildStartTlsClientError(err, host, port)
+                })?,
             #[cfg(feature = "rustls")]
-            Some(Encryption::StartTls(Tls::Rustls(_))) => {
-                Client::rustls(&self.config.host, self.config.port, true)
-                    .await
-                    .map_err(|err| {
-                        let host = self.config.host.clone();
-                        let port = self.config.port.clone();
-                        Error::BuildStartTlsClientError(err, host, port)
-                    })?
-            }
+            Some(Encryption::StartTls(Tls {
+                provider: Some(TlsProvider::Rustls(_)) | None,
+            })) => Client::rustls(&self.config.host, self.config.port, true)
+                .await
+                .map_err(|err| {
+                    let host = self.config.host.clone();
+                    let port = self.config.port.clone();
+                    Error::BuildStartTlsClientError(err, host, port)
+                })?,
             #[cfg(feature = "native-tls")]
-            Some(Encryption::StartTls(Tls::NativeTls(_))) => {
-                Client::native_tls(&self.config.host, self.config.port, true)
-                    .await
-                    .map_err(|err| {
-                        let host = self.config.host.clone();
-                        let port = self.config.port.clone();
-                        Error::BuildStartTlsClientError(err, host, port)
-                    })?
-            }
+            Some(Encryption::StartTls(Tls {
+                provider: Some(TlsProvider::NativeTls(_)),
+            })) => Client::native_tls(&self.config.host, self.config.port, true)
+                .await
+                .map_err(|err| {
+                    let host = self.config.host.clone();
+                    let port = self.config.port.clone();
+                    Error::BuildStartTlsClientError(err, host, port)
+                })?,
         };
 
         client

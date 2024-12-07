@@ -7,7 +7,7 @@ use super::Rustls;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "type")]
-pub enum Tls {
+pub enum TlsProvider {
     #[cfg(feature = "rustls")]
     Rustls(Rustls),
     #[cfg(not(feature = "rustls"))]
@@ -21,14 +21,14 @@ pub enum Tls {
     None,
 }
 
-impl From<Tls> for super::Tls {
-    fn from(tls: Tls) -> Self {
-        match tls {
+impl From<TlsProvider> for super::TlsProvider {
+    fn from(provider: TlsProvider) -> Self {
+        match provider {
             #[cfg(feature = "rustls")]
-            Tls::Rustls(tls) => super::Tls::Rustls(tls),
+            TlsProvider::Rustls(provider) => super::TlsProvider::Rustls(provider),
             #[cfg(feature = "native-tls")]
-            Tls::NativeTls(tls) => super::Tls::NativeTls(tls),
-            _ => super::Tls::None,
+            TlsProvider::NativeTls(provider) => super::TlsProvider::NativeTls(provider),
+            _ => super::TlsProvider::None,
         }
     }
 }
