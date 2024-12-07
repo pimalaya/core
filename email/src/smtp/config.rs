@@ -4,8 +4,6 @@
 //! sender.
 
 use std::{fmt, io};
-#[cfg(feature = "derive")]
-use std::{marker::PhantomData, result};
 
 use mail_send::Credentials;
 use tracing::debug;
@@ -14,7 +12,7 @@ use tracing::debug;
 pub use super::{Error, Result};
 #[cfg(feature = "oauth2")]
 use crate::account::config::oauth2::{OAuth2Config, OAuth2Method};
-use crate::account::config::passwd::PasswordConfig;
+use crate::{account::config::passwd::PasswordConfig, tls::Encryption};
 
 /// The SMTP sender configuration.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -33,11 +31,7 @@ pub struct SmtpConfig {
     /// The SMTP encryption protocol to use.
     ///
     /// Supported encryption: SSL/TLS or STARTTLS.
-    #[cfg_attr(
-        feature = "derive",
-        serde(default, deserialize_with = "some_bool_or_kind")
-    )]
-    pub encryption: Option<SmtpEncryptionKind>,
+    pub encryption: Option<Encryption>,
 
     /// The SMTP server login.
     ///
@@ -57,18 +51,18 @@ impl SmtpConfig {
     pub fn is_encryption_enabled(&self) -> bool {
         matches!(
             self.encryption.as_ref(),
-            None | Some(SmtpEncryptionKind::Tls) | Some(SmtpEncryptionKind::StartTls)
+            None | Some(Encryption::Tls(_)) | Some(Encryption::StartTls(_))
         )
     }
 
     /// Return `true` if StartTLS is enabled.
     pub fn is_start_tls_encryption_enabled(&self) -> bool {
-        matches!(self.encryption.as_ref(), Some(SmtpEncryptionKind::StartTls))
+        matches!(self.encryption.as_ref(), Some(Encryption::StartTls(_)))
     }
 
     /// Return `true` if encryption is disabled.
     pub fn is_encryption_disabled(&self) -> bool {
-        matches!(self.encryption.as_ref(), Some(SmtpEncryptionKind::None))
+        matches!(self.encryption.as_ref(), Some(Encryption::None))
     }
 
     /// Builds the SMTP credentials string.
@@ -261,57 +255,4 @@ impl From<SmtpAuthConfigDerive> for SmtpAuthConfig {
             SmtpAuthConfigDerive::OAuth2 => unreachable!(),
         }
     }
-}
-
-#[cfg(feature = "derive")]
-fn some_bool_or_kind<'de, D>(
-    deserializer: D,
-) -> result::Result<Option<SmtpEncryptionKind>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    struct SomeBoolOrKind(PhantomData<fn() -> Option<SmtpEncryptionKind>>);
-
-    impl<'de> serde::de::Visitor<'de> for SomeBoolOrKind {
-        type Value = Option<SmtpEncryptionKind>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("some or none")
-        }
-
-        fn visit_some<D>(self, deserializer: D) -> result::Result<Self::Value, D::Error>
-        where
-            D: serde::Deserializer<'de>,
-        {
-            struct BoolOrKind(PhantomData<fn() -> SmtpEncryptionKind>);
-
-            impl<'de> serde::de::Visitor<'de> for BoolOrKind {
-                type Value = SmtpEncryptionKind;
-
-                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                    formatter.write_str("boolean or string")
-                }
-
-                fn visit_bool<E>(self, v: bool) -> result::Result<Self::Value, E>
-                where
-                    E: serde::de::Error,
-                {
-                    Ok(v.into())
-                }
-
-                fn visit_str<E>(self, v: &str) -> result::Result<Self::Value, E>
-                where
-                    E: serde::de::Error,
-                {
-                    serde::Deserialize::deserialize(serde::de::value::StrDeserializer::new(v))
-                }
-            }
-
-            deserializer
-                .deserialize_any(BoolOrKind(PhantomData))
-                .map(Option::Some)
-        }
-    }
-
-    deserializer.deserialize_option(SomeBoolOrKind(PhantomData))
 }

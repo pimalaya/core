@@ -71,6 +71,8 @@ pub(crate) mod serde;
 pub mod smtp;
 #[cfg(feature = "sync")]
 pub mod sync;
+#[cfg(any(feature = "imap", feature = "smtp"))]
+pub mod tls;
 pub mod watch;
 
 #[doc(inline)]

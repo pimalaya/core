@@ -3,15 +3,11 @@
 //! This module contains the implementation of the IMAP backend and
 //! all associated structures related to it.
 
-use std::fmt;
-#[cfg(feature = "derive")]
-use std::marker::PhantomData;
-
 #[doc(inline)]
 use super::{Error, Result};
 #[cfg(feature = "oauth2")]
 use crate::account::config::oauth2::OAuth2Config;
-use crate::account::config::passwd::PasswordConfig;
+use crate::{account::config::passwd::PasswordConfig, tls::Encryption};
 
 /// Errors related to the IMAP backend configuration.
 
@@ -32,15 +28,7 @@ pub struct ImapConfig {
     /// The IMAP encryption protocol to use.
     ///
     /// Supported encryption: SSL/TLS, STARTTLS or none.
-    #[cfg_attr(
-        feature = "derive",
-        serde(default, deserialize_with = "some_bool_or_kind")
-    )]
-    pub encryption: Option<ImapEncryptionKind>,
-
-    /// The IMAP TLS provider to use.
-    #[cfg_attr(feature = "derive", serde(default))]
-    pub tls_provider: ImapTlsProvider,
+    pub encryption: Option<Encryption>,
 
     /// The IMAP server login.
     ///
@@ -87,18 +75,18 @@ impl ImapConfig {
     pub fn is_encryption_enabled(&self) -> bool {
         matches!(
             self.encryption.as_ref(),
-            None | Some(ImapEncryptionKind::Tls) | Some(ImapEncryptionKind::StartTls)
+            None | Some(Encryption::Tls(_)) | Some(Encryption::StartTls(_))
         )
     }
 
     /// Return `true` if StartTLS is enabled.
     pub fn is_start_tls_encryption_enabled(&self) -> bool {
-        matches!(self.encryption.as_ref(), Some(ImapEncryptionKind::StartTls))
+        matches!(self.encryption.as_ref(), Some(Encryption::StartTls(_)))
     }
 
     /// Return `true` if encryption is disabled.
     pub fn is_encryption_disabled(&self) -> bool {
-        matches!(self.encryption.as_ref(), Some(ImapEncryptionKind::None))
+        matches!(self.encryption.as_ref(), Some(Encryption::None))
     }
 
     /// Builds authentication credentials.
@@ -123,68 +111,6 @@ impl crate::sync::hash::SyncHash for ImapConfig {
         Hash::hash(&self.host, state);
         Hash::hash(&self.port, state);
         Hash::hash(&self.login, state);
-    }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-#[cfg_attr(
-    feature = "derive",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
-)]
-pub enum ImapTlsProvider {
-    #[cfg(feature = "rustls")]
-    #[default]
-    Rustls,
-    #[cfg(feature = "native-tls")]
-    NativeTls,
-    #[cfg_attr(not(feature = "rustls"), default)]
-    None,
-}
-
-impl fmt::Display for ImapTlsProvider {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            #[cfg(feature = "rustls")]
-            Self::Rustls => write!(f, "Rust native (rustls)"),
-            #[cfg(feature = "native-tls")]
-            Self::NativeTls => write!(f, "OS native (native-tls)"),
-            Self::None => write!(f, "None"),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-#[cfg_attr(
-    feature = "derive",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
-)]
-pub enum ImapEncryptionKind {
-    None,
-    #[default]
-    #[cfg_attr(feature = "derive", serde(alias = "ssl"))]
-    Tls,
-    StartTls,
-}
-
-impl fmt::Display for ImapEncryptionKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Tls => write!(f, "SSL/TLS"),
-            Self::StartTls => write!(f, "StartTLS"),
-            Self::None => write!(f, "None"),
-        }
-    }
-}
-
-impl From<bool> for ImapEncryptionKind {
-    fn from(value: bool) -> Self {
-        if value {
-            Self::Tls
-        } else {
-            Self::None
-        }
     }
 }
 
@@ -338,59 +264,6 @@ impl ImapWatchConfig {
     pub fn find_timeout(&self) -> Option<u64> {
         self.timeout
     }
-}
-
-#[cfg(feature = "derive")]
-fn some_bool_or_kind<'de, D>(
-    deserializer: D,
-) -> std::result::Result<Option<ImapEncryptionKind>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    struct SomeBoolOrKind(PhantomData<fn() -> Option<ImapEncryptionKind>>);
-
-    impl<'de> serde::de::Visitor<'de> for SomeBoolOrKind {
-        type Value = Option<ImapEncryptionKind>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("some or none")
-        }
-
-        fn visit_some<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
-        where
-            D: serde::Deserializer<'de>,
-        {
-            struct BoolOrKind(PhantomData<fn() -> ImapEncryptionKind>);
-
-            impl<'de> serde::de::Visitor<'de> for BoolOrKind {
-                type Value = ImapEncryptionKind;
-
-                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                    formatter.write_str("boolean or string")
-                }
-
-                fn visit_bool<E>(self, v: bool) -> std::result::Result<Self::Value, E>
-                where
-                    E: serde::de::Error,
-                {
-                    Ok(v.into())
-                }
-
-                fn visit_str<E>(self, v: &str) -> std::result::Result<Self::Value, E>
-                where
-                    E: serde::de::Error,
-                {
-                    serde::Deserialize::deserialize(serde::de::value::StrDeserializer::new(v))
-                }
-            }
-
-            deserializer
-                .deserialize_any(BoolOrKind(PhantomData))
-                .map(Option::Some)
-        }
-    }
-
-    deserializer.deserialize_option(SomeBoolOrKind(PhantomData))
 }
 
 /// The IMAP configuration dedicated to extensions.
