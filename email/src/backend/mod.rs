@@ -29,10 +29,6 @@
 //!
 //! See a full example at `../../tests/dynamic_backend.rs`.
 //!
-//! ```rust,ignore
-#![doc = include_str!("../../../email-tests/tests/dynamic_backend.rs")]
-//! ```
-//!
 //! ## Static backend
 //!
 //! A static backend is composed of features defined at compilation
@@ -42,9 +38,6 @@
 //! as manually implement backend features.
 //!
 //! See a full example at `../../tests/static_backend.rs`.
-//! ```rust,ignore
-#![doc = include_str!("../../../email-tests/tests/static_backend.rs")]
-//! ```
 
 pub mod context;
 mod error;
