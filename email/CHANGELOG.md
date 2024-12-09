@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1] - 2024-12-09
+
 ### Fixed
 
 - Fixed MML markup shown in reply threads. [himalaya#487]
