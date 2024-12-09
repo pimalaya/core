@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2024-12-09
+
+### Changed
+
+- Changed `Client::new` signature: `client_secret` is now optional `Option<impl ToString>`. This way the client secret is only sent to OAuth flows when present.
+
 ## [1.0.0] - 2024-10-28
 
 ### Added
