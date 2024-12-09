@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2024-12-09
+
 ### Added
 
 - Added `MimeBodyInterpreter::show_parts` to customize whenever MML markup should be shown or not for basic parts.
