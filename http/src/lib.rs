@@ -3,8 +3,6 @@
 
 mod error;
 
-use std::sync::Arc;
-
 pub use ureq;
 use ureq::{
     config::Config,
@@ -35,8 +33,7 @@ compile_error!("Either feature `rustls` or `native-tls` must be enabled for this
 #[derive(Clone, Debug)]
 pub struct Client {
     /// The HTTP agent used to perform calls.
-    // TODO: agent pool?
-    agent: Arc<Agent>,
+    agent: Agent,
 }
 
 impl Client {
@@ -52,7 +49,7 @@ impl Client {
             );
 
         let config = Config::builder().tls_config(tls.build()).build();
-        let agent = Arc::new(config.new_agent());
+        let agent = config.new_agent();
 
         Self { agent }
     }
