@@ -9,14 +9,15 @@ use email::{
         Folder, FolderKind, Folders,
     },
     imap::{
-        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
+        config::{ImapAuthConfig, ImapConfig},
         ImapContext, ImapContextBuilder,
     },
     message::send::{smtp::SendSmtpMessage, SendMessage},
     smtp::{
-        config::{SmtpAuthConfig, SmtpConfig, SmtpEncryptionKind},
+        config::{SmtpAuthConfig, SmtpConfig},
         SmtpContextBuilder, SmtpContextSync,
     },
+    tls::Encryption,
     AnyResult,
 };
 use email_testing_server::with_email_testing_server;
@@ -30,7 +31,7 @@ async fn test_static_backend() {
         let imap_config = Arc::new(ImapConfig {
             host: "localhost".into(),
             port: ports.imap,
-            encryption: Some(ImapEncryptionKind::None),
+            encryption: Some(Encryption::None),
             login: "bob".into(),
             auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
             ..Default::default()
@@ -39,7 +40,7 @@ async fn test_static_backend() {
         let smtp_config = Arc::new(SmtpConfig {
             host: "localhost".into(),
             port: ports.smtp,
-            encryption: Some(SmtpEncryptionKind::None),
+            encryption: Some(Encryption::None),
             login: "alice".into(),
             auth: SmtpAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
         });

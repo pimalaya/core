@@ -20,7 +20,7 @@ pub async fn main() {
 
     let client = Client::new(
         client_id,
-        client_secret,
+        Some(client_secret),
         "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
         "https://login.microsoftonline.com/common/oauth2/v2.0/token",
         scheme,

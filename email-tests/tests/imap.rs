@@ -8,13 +8,14 @@ use email::{
     flag::{add::AddFlags, Flag},
     folder::{add::AddFolder, config::FolderConfig, expunge::ExpungeFolder, SENT},
     imap::{
-        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
+        config::{ImapAuthConfig, ImapConfig},
         ImapContextBuilder,
     },
     message::{
         add::AddMessage, copy::CopyMessages, delete::DeleteMessages, get::GetMessages,
         r#move::MoveMessages,
     },
+    tls::Encryption,
 };
 use email_testing_server::with_email_testing_server;
 use mml::MmlCompilerBuilder;
@@ -34,7 +35,7 @@ async fn test_imap_features() {
         let imap_config = Arc::new(ImapConfig {
             host: "localhost".into(),
             port: ports.imap,
-            encryption: Some(ImapEncryptionKind::None),
+            encryption: Some(Encryption::None),
             login: "bob".into(),
             auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
             ..Default::default()
