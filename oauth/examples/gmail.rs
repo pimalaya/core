@@ -20,7 +20,7 @@ pub async fn main() {
 
     let client = Client::new(
         client_id,
-        client_secret,
+        Some(client_secret),
         "https://accounts.google.com/o/oauth2/v2/auth",
         "https://www.googleapis.com/oauth2/v3/token",
         scheme,

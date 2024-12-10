@@ -142,6 +142,7 @@ vendored = ["tokio-native-tls?/vendored", "http-lib?/vendored", "keyring-lib?/ve
 [dev-dependencies]
 concat-with = "0.2"
 email-lib = { path = ".", features = ["full"] }
+email-testing-server = { path = "../email-testing-server" }
 tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]

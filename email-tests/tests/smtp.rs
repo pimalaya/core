@@ -5,14 +5,15 @@ use email::{
     backend::BackendBuilder,
     envelope::list::ListEnvelopes,
     imap::{
-        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
+        config::{ImapAuthConfig, ImapConfig},
         ImapContextBuilder,
     },
     message::send::SendMessage,
     smtp::{
-        config::{SmtpAuthConfig, SmtpConfig, SmtpEncryptionKind},
+        config::{SmtpAuthConfig, SmtpConfig},
         SmtpContextBuilder,
     },
+    tls::Encryption,
 };
 use email_testing_server::with_email_testing_server;
 use mail_builder::MessageBuilder;
@@ -26,7 +27,7 @@ async fn test_smtp_features() {
         let imap_config = Arc::new(ImapConfig {
             host: "localhost".into(),
             port: ports.imap,
-            encryption: Some(ImapEncryptionKind::None),
+            encryption: Some(Encryption::None),
             login: "bob".into(),
             auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_command("echo 'password'"))),
             ..Default::default()
@@ -35,7 +36,7 @@ async fn test_smtp_features() {
         let smtp_config = Arc::new(SmtpConfig {
             host: "localhost".into(),
             port: ports.smtp,
-            encryption: Some(SmtpEncryptionKind::None),
+            encryption: Some(Encryption::None),
             login: "alice".into(),
             auth: SmtpAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
         });

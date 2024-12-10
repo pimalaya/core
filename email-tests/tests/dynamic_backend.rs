@@ -9,10 +9,11 @@ use email::{
     },
     folder::{list::ListFolders, Folder, FolderKind},
     imap::{
-        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
+        config::{ImapAuthConfig, ImapConfig},
         ImapContext, ImapContextBuilder,
     },
     smtp::{SmtpContextBuilder, SmtpContextSync},
+    tls::Encryption,
     AnyResult,
 };
 use email_testing_server::with_email_testing_server;
@@ -26,7 +27,7 @@ async fn test_dynamic_backend() {
         let imap_config = Arc::new(ImapConfig {
             host: "localhost".into(),
             port: ports.imap,
-            encryption: Some(ImapEncryptionKind::None),
+            encryption: Some(Encryption::None),
             login: "bob".into(),
             auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
             ..Default::default()

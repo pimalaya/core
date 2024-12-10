@@ -10,13 +10,14 @@ use email::{
     flag::{Flag, Flags},
     folder::INBOX,
     imap::{
-        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
+        config::{ImapAuthConfig, ImapConfig},
         ImapContextBuilder,
     },
     maildir::{config::MaildirConfig, MaildirContextBuilder},
     message::add::AddMessage,
     notmuch::{config::NotmuchConfig, NotmuchContextBuilder},
     sync::SyncBuilder,
+    tls::Encryption,
 };
 use email_testing_server::start_email_testing_server;
 use mail_builder::MessageBuilder;
@@ -40,7 +41,7 @@ async fn test_search_emails_query() {
     let imap_config = Arc::new(ImapConfig {
         host: "localhost".into(),
         port: ports.imap,
-        encryption: Some(ImapEncryptionKind::None),
+        encryption: Some(Encryption::None),
         login: "alice".into(),
         auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
         ..Default::default()

@@ -2097,6 +2097,7 @@ dependencies = [
  "dirs 4.0.0",
  "email-lib",
  "email-macros",
+ "email-testing-server",
  "email_address",
  "futures",
  "hickory-resolver",
