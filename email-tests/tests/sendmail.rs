@@ -6,11 +6,12 @@ use email::{
     envelope::list::ListEnvelopes,
     folder::{delete::DeleteFolder, list::ListFolders, purge::PurgeFolder},
     imap::{
-        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
+        config::{ImapAuthConfig, ImapConfig},
         ImapContextBuilder,
     },
     message::send::SendMessage,
     sendmail::{config::SendmailConfig, SendmailContextBuilder},
+    tls::Encryption,
 };
 use email_testing_server::with_email_testing_server;
 use mail_builder::MessageBuilder;
@@ -25,7 +26,7 @@ async fn test_sendmail_features() {
         let imap_config = Arc::new(ImapConfig {
             host: "localhost".into(),
             port: ports.imap,
-            encryption: Some(ImapEncryptionKind::None),
+            encryption: Some(Encryption::None),
             login: "bob".into(),
             auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
             ..Default::default()

@@ -3,7 +3,7 @@
 //! This module contains the configuration specific to the SMTP
 //! sender.
 
-use std::{fmt, io};
+use std::io;
 
 use mail_send::Credentials;
 use tracing::debug;
@@ -95,40 +95,6 @@ impl SmtpConfig {
                 }
             }
         })
-    }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-#[cfg_attr(
-    feature = "derive",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
-)]
-pub enum SmtpEncryptionKind {
-    None,
-    #[default]
-    #[cfg_attr(feature = "derive", serde(alias = "ssl"))]
-    Tls,
-    StartTls,
-}
-
-impl fmt::Display for SmtpEncryptionKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Tls => write!(f, "SSL/TLS"),
-            Self::StartTls => write!(f, "StartTLS"),
-            Self::None => write!(f, "None"),
-        }
-    }
-}
-
-impl From<bool> for SmtpEncryptionKind {
-    fn from(value: bool) -> Self {
-        if value {
-            Self::Tls
-        } else {
-            Self::None
-        }
     }
 }
 

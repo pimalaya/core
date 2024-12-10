@@ -3,17 +3,18 @@ use std::sync::Arc;
 use chrono::NaiveDate;
 use email::{
     account::config::{passwd::PasswordConfig, AccountConfig},
-    backend::{Backend, BackendBuilder},
+    backend::BackendBuilder,
     envelope::list::{ListEnvelopes, ListEnvelopesOptions},
     imap::{
-        config::{ImapAuthConfig, ImapConfig, ImapEncryptionKind},
-        ImapContext, ImapContextBuilder,
+        config::{ImapAuthConfig, ImapConfig},
+        ImapContextBuilder,
     },
     search_query::{
         filter::SearchEmailsFilterQuery,
         sort::{SearchEmailsSorter, SearchEmailsSorterKind, SearchEmailsSorterOrder},
         SearchEmailsQuery,
     },
+    tls::Encryption,
 };
 use email_testing_server::with_email_testing_server;
 use secret::Secret;
@@ -26,14 +27,14 @@ pub async fn main() {
         let imap_config = Arc::new(ImapConfig {
             host: "localhost".into(),
             port: ports.imap,
-            encryption: Some(ImapEncryptionKind::None),
+            encryption: Some(Encryption::None),
             login: "alice".into(),
             auth: ImapAuthConfig::Password(PasswordConfig(Secret::new_raw("password"))),
             ..Default::default()
         });
         let imap_ctx = ImapContextBuilder::new(account_config.clone(), imap_config.clone());
         let imap = BackendBuilder::new(account_config, imap_ctx)
-            .build::<Backend<ImapContext>>()
+            .build()
             .await
             .unwrap();
 
