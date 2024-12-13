@@ -13,7 +13,9 @@ use crate::{
     state::{KeyringState, KeyringState2},
 };
 
-use super::api::{OrgFreedesktopSecretCollection, OrgFreedesktopSecretService};
+use super::api::{
+    OrgFreedesktopSecretCollection, OrgFreedesktopSecretItem, OrgFreedesktopSecretService,
+};
 
 static BUS_NAME: &str = "org.freedesktop.secrets";
 static BUS_PATH: &str = "/org/freedesktop/secrets";
@@ -39,6 +41,10 @@ pub enum Error {
     CreateDefaultCollectionError(#[source] dbus::Error),
     #[error("cannot create secret service collection item")]
     CreateItemError(#[source] dbus::Error),
+    #[error("cannot search items from Secret Service using D-Bus")]
+    SearchItemsError(#[source] dbus::Error),
+    #[error("cannot get secret from Secret Service using D-Bus")]
+    GetSecretError(#[source] dbus::Error),
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -169,6 +175,25 @@ impl<'a> Collection<'a> {
 
         Ok(Item::new(&self.service, item_path))
     }
+
+    pub fn get_secret(
+        &self,
+        service: impl AsRef<str>,
+        account: impl AsRef<str>,
+    ) -> Result<SecretString> {
+        let proxy = self.proxy();
+        let attrs: HashMap<&str, &str> =
+            HashMap::from_iter([("service", service.as_ref()), ("account", account.as_ref())]);
+
+        let items_path = OrgFreedesktopSecretCollection::search_items(&proxy, attrs)
+            .map_err(Error::SearchItemsError)?;
+        let item_path = items_path.into_iter().next().unwrap();
+        let item = Item::new(&self.service, item_path);
+        let (_path, _salt, secret, _mime) = item.get_secret()?;
+        let secret = String::from_utf8(secret).unwrap();
+
+        Ok(secret.into())
+    }
 }
 
 #[derive(Debug)]
@@ -187,13 +212,22 @@ impl<'a> Item<'a> {
             .connection
             .with_proxy(BUS_NAME, &self.path, TIMEOUT)
     }
+
+    pub fn get_secret(&self) -> Result<(Path<'static>, Vec<u8>, Vec<u8>, String)> {
+        self.proxy()
+            .get_secret(self.service.session_path.clone())
+            .map_err(Error::GetSecretError)
+    }
 }
 
 pub fn progress(state: &mut KeyringState2) -> Result<Option<KeyringEvent>> {
     match state.next() {
         None => Ok(None),
         Some(KeyringState::ReadSecret) => {
-            todo!()
+            let secret = SecretService::connect()?
+                .get_default_collection()?
+                .get_secret(state.service.clone(), state.account.clone())?;
+            Ok(Some(KeyringEvent::SecretRead(secret.into())))
             // let ss = SecretService::connect()?;
             // let collection = ss.get_default_collection()?;
             // collection.create_item(state.service.clone(), state.account.clone(), )
@@ -209,17 +243,11 @@ pub fn progress(state: &mut KeyringState2) -> Result<Option<KeyringEvent>> {
             // let (_path, _salt, secret, _mime) =
             //     ss.with_proxy(item).get_secret(ss.session_path.clone())?;
             // let secret = String::from_utf8(secret).unwrap();
-            // Ok(Some(KeyringEvent::SecretRead(secret.into())))
         }
         Some(KeyringState::UpdateSecret(secret)) => {
-            let ss = SecretService::connect()?;
-            let collection = ss.get_default_collection()?;
-            println!("collection: {collection:?}");
-
-            let item =
-                collection.create_item(state.service.clone(), state.account.clone(), secret)?;
-            println!("item: {item:?}");
-
+            SecretService::connect()?
+                .get_default_collection()?
+                .create_item(state.service.clone(), state.account.clone(), secret)?;
             Ok(Some(KeyringEvent::SecretUpdated))
         }
         Some(KeyringState::DeleteSecret) => {
