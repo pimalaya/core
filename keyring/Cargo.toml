@@ -19,43 +19,43 @@ rustdoc-args = ["--cfg", "docsrs"]
 name = "keyring"
 
 [features]
-default = [
-  "tokio",
-  #"async-std",
-  "rustls",
-  #"openssl",
-  #"derive",
-  #"vendored",
-]
 
-# Async runtime
+# MacOS Security framework
 #
-tokio = ["dep:tokio", "keyring-native/tokio"]
-async-std = ["dep:async-std", "keyring-native/async-io"]
+security-framework = ["dep:security-framework"]
 
-# Rust crypto
+# Secret service, based on D-Bus
 #
-rustls = ["keyring-native/crypto-rust"]
-openssl = ["keyring-native/crypto-openssl"]
+secret-service-blocking = ["dep:dbus"]
+secret-service-nonblock = ["dep:dbus", "dbus/futures"]
 
-# Serde (de)serialization
+# I/O connectors
 #
-derive = ["dep:serde"]
+std = []
 
-# Vendored (mostly for OpenSSL)
+# Serde de/serialization
 #
-vendored = ["keyring-native/vendored"]
+# serde = ["dep:serde"]
+
+# Vendored
+#
+# vendored = ["dbus/vendored"]
+
+[build-dependencies]
+dbus-codegen = { version = "0.12", default-features = false }
 
 [dev-dependencies]
-async-std = { version = "1.13", features = ["attributes"] }
-test-log = { version = "0.2", default-features = false, features = ["color", "trace"] }
-tokio = { version = "1.23", features = ["full"] }
+dbus = { version = "0.9" }
+keyring-lib = { path = ".", features = ["security-framework", "secret-service-blocking", "secret-service-nonblock", "std"] }
 
 [dependencies]
-async-std = { version = "1.13", optional = true }
-keyring-native = { version = "3", package = "keyring", default-features = false, features = ["linux-native-async-persistent", "apple-native", "windows-native"] }
-once_cell = "1"
-serde = { version = "1", optional = true, features = ["derive"] }
-thiserror = "1"
-tokio = { version = "1.23", optional = true, default-features = false }
-tracing = "0.1"
+secrecy = { version = "0.10" }
+# serde = { version = "1", features = ["derive"], optional = true }
+thiserror = { version = "2" }
+tracing = { version = "0.1" }
+security-framework = { version = "3", default-features = false, optional = true }
+dbus = { version = "0.9", optional = true }
+
+# [target.'cfg(target_os = "windows")'.dependencies]
+# byteorder = { version = "1.2" }
+# windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Credentials"] }
