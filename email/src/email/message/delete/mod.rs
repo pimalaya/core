@@ -17,7 +17,7 @@ use crate::{
     AnyResult,
 };
 
-/// eature to delete message(s).
+/// Feature to delete message(s).
 #[async_trait]
 pub trait DeleteMessages: Send + Sync {
     /// Delete messages from the given folder matching the given

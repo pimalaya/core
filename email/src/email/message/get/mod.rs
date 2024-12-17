@@ -15,7 +15,7 @@ use crate::{
     AnyResult,
 };
 
-/// Get messages eature.
+/// Get messages feature.
 #[async_trait]
 pub trait GetMessages: Send + Sync {
     /// Get email messages from the given folder matching the given
