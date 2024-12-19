@@ -9,7 +9,7 @@ use async_trait::async_trait;
 
 use crate::{envelope::Id, AnyResult};
 
-/// eature to remove message(s).
+/// Feature to remove message(s).
 #[async_trait]
 pub trait RemoveMessages: Send + Sync {
     /// Remove messages from the given folder matching the given
