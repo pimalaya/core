@@ -98,7 +98,6 @@ oauth2 = [
 
 sync = [
   "dep:advisory-lock",
-  "dep:dirs",
   "maildir",
 ]
 
@@ -151,7 +150,7 @@ async-std = { version = "1.13", optional = true }
 async-trait = "0.1"
 chrono = "0.4"
 chumsky = { version = "=1.0.0-alpha.7", default-features = false, features = ["std", "label"] }
-dirs = { version = "4.0", optional = true }
+dirs = "4.0"
 email-macros = "=0.0.2"
 email_address = { version = "0.2", optional = true, default-features = false }
 futures = "0.3"
