@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Changed default `MessageSendConfig::save_copy` to `true`. [himalaya#536]
 
+### Fixed
+
+- Fixed list envelopes out of bound error when empty result. [himalaya#535]
+
 ## [0.26.2] - 2024-12-09
 
 ### Changed
@@ -978,4 +982,5 @@ First official version of the Himalaya's library. The source code mostly comes f
 [#195]: https://todo.sr.ht/~soywod/pimalaya/195
 
 [himalaya#487]: https://github.com/pimalaya/himalaya/issues/487
+[himalaya#535]: https://github.com/pimalaya/himalaya/issues/535
 [himalaya#536]: https://github.com/pimalaya/himalaya/issues/536
