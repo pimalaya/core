@@ -11,7 +11,7 @@ pub mod pgp;
 
 use std::{
     collections::HashMap,
-    env,
+    env::temp_dir,
     ffi::OsStr,
     fs, io,
     path::{Path, PathBuf},
@@ -20,6 +20,7 @@ use std::{
 
 #[cfg(feature = "sync")]
 use dirs::data_dir;
+use dirs::download_dir;
 use mail_builder::headers::address::{Address, EmailAddress};
 use mail_parser::Address::*;
 use mml::MimeInterpreterBuilder;
@@ -155,12 +156,13 @@ impl AccountConfig {
 
     /// Get then expand the downloads directory path.
     ///
-    /// Falls back to the system's temporary directory.
+    /// Falls back to [`dirs::download_dir`].
     pub fn get_downloads_dir(&self) -> PathBuf {
         self.downloads_dir
             .as_ref()
             .map(shellexpand_path)
-            .unwrap_or_else(env::temp_dir)
+            .or_else(download_dir)
+            .unwrap_or_else(temp_dir)
     }
 
     /// Build the downloadable version of the given path.
