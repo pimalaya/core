@@ -90,6 +90,10 @@ impl ListEnvelopes for ListImapEnvelopes {
             // connection pool
             drop(client);
 
+            if uids.is_empty() {
+                return Ok(Envelopes::default());
+            }
+
             // if the SORT extension is supported by the client,
             // envelopes can be paginated straight away
             let uids = if sort_supported {
