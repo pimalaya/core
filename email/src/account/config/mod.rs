@@ -490,7 +490,7 @@ impl AccountConfig {
             .as_ref()
             .and_then(|c| c.send.as_ref())
             .and_then(|c| c.save_copy)
-            .unwrap_or_default()
+            .unwrap_or(true)
     }
 
     /// Generate a template interpreter with prefilled options from
