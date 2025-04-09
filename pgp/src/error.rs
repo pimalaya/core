@@ -89,6 +89,8 @@ pub enum Error {
     ParseArmoredSecretKeyFromPathError(#[source] native::errors::Error, PathBuf),
     #[error("cannot parse armored secret key from string")]
     ParseArmoredSecretKeyFromStringError(#[source] native::errors::Error),
+    #[error("cannot parse armored secret key from string")]
+    ParseArmoredPublicKeyFromStringError(#[source] native::errors::Error),
 
     #[error("cannot import pgp signature from armor")]
     ReadStandaloneSignatureFromArmoredBytesError(#[source] native::errors::Error),
