@@ -19,8 +19,8 @@ pub use crate::{
     error::{Error, Result},
     sign::sign,
     utils::{
-        gen_key_pair, read_pkey_from_path, read_sig_from_bytes, read_skey_from_file,
-        read_skey_from_string,
+        gen_key_pair, read_pkey_from_path, read_pkey_from_string, read_sig_from_bytes,
+        read_skey_from_file, read_skey_from_string,
     },
     verify::verify,
 };

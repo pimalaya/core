@@ -111,6 +111,19 @@ pub async fn read_skey_from_string(string: String) -> Result<SignedSecretKey> {
     .await?
 }
 
+/// Reads a signed public key from the given raw string.
+///
+/// The given raw string needs to contain a single armored secret key,
+/// otherwise it fails.
+pub async fn read_pkey_from_string(string: String) -> Result<SignedPublicKey> {
+    spawn_blocking(move || {
+        let (skey, _) = SignedPublicKey::from_armor_single(Cursor::new(string))
+            .map_err(Error::ParseArmoredPublicKeyFromStringError)?;
+        Ok(skey)
+    })
+    .await?
+}
+
 /// Reads a standalone signature from the given raw bytes.
 ///
 /// The given raw bytes needs to match a single armored signature,
