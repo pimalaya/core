@@ -5,6 +5,8 @@
 
 #[cfg(feature = "async-std")]
 pub mod async_std;
+#[cfg(feature = "smol")]
+pub mod smol;
 #[cfg(feature = "std")]
 pub mod std;
 #[cfg(feature = "tokio")]

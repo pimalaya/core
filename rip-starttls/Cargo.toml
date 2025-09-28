@@ -19,9 +19,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 std = []
 tokio = ["dep:tokio"]
 async-std = ["dep:async-std"]
+smol = ["dep:futures-lite", "dep:async-net"]
 
 [dev-dependencies]
 async-std = { version = "1.13", features = ["attributes"] }
+smol = { version = "2" }
 env_logger = "0.11"
 rip-starttls = { path = ".", features = ["std", "async-std", "tokio"] }
 tokio = { version = "1.37", features = ["full"] }
@@ -29,5 +31,10 @@ tracing = { version = "0.1", features = ["log"] }
 
 [dependencies]
 async-std = { version = "1.13", optional = true }
-tokio = { version = "1.37", optional = true, default-features = false, features = ["io-util", "net"] }
+tokio = { version = "1.37", optional = true, default-features = false, features = [
+    "io-util",
+    "net",
+] }
+futures-lite = { version = "2.0", optional = true }
+async-net = { version = "2.0", optional = true }
 tracing = "0.1"
