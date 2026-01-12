@@ -415,8 +415,7 @@ where
             .truncate(true)
             .open(&left_lock_file_path)
             .map_err(|err| Error::OpenLockFileError(err, left_lock_file_path.clone()))?;
-        left_lock_file
-            .try_lock(FileLockMode::Exclusive)
+        AdvisoryFileLock::try_lock(&left_lock_file, FileLockMode::Exclusive)
             .map_err(|err| Error::LockFileError(err, left_lock_file_path.clone()))?;
 
         let right_lock_file_path = RUNTIME_DIR.join(format!("{}.lock", self.right_hash));
@@ -427,8 +426,7 @@ where
             .truncate(true)
             .open(&right_lock_file_path)
             .map_err(|err| Error::OpenLockFileError(err, right_lock_file_path.clone()))?;
-        right_lock_file
-            .try_lock(FileLockMode::Exclusive)
+        AdvisoryFileLock::try_lock(&right_lock_file, FileLockMode::Exclusive)
             .map_err(|err| Error::LockFileError(err, right_lock_file_path.clone()))?;
 
         let mut left_cache_builder = self.get_left_cache_builder()?;
@@ -520,11 +518,9 @@ where
         folder::sync::expunge::<L, R>(ctx.clone(), &report.folder.names).await;
 
         debug!("unlocking sync files");
-        left_lock_file
-            .unlock()
+        AdvisoryFileLock::unlock(&left_lock_file)
             .map_err(|err| Error::UnlockFileError(err, left_lock_file_path))?;
-        right_lock_file
-            .unlock()
+        AdvisoryFileLock::unlock(&right_lock_file)
             .map_err(|err| Error::UnlockFileError(err, right_lock_file_path))?;
 
         Ok(report)

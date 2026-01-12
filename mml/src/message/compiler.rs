@@ -121,12 +121,12 @@ pub struct MmlCompileResult<'a> {
 
 impl<'a> MmlCompileResult<'a> {
     /// Return a reference to the final MIME message builder.
-    pub fn as_msg_builder(&self) -> &MessageBuilder {
+    pub fn as_msg_builder(&self) -> &MessageBuilder<'_> {
         &self.mime_msg_builder
     }
 
     /// Return a copy of the final MIME message builder.
-    pub fn to_msg_builder(&self) -> MessageBuilder {
+    pub fn to_msg_builder(&self) -> MessageBuilder<'_> {
         self.mime_msg_builder.clone()
     }
 

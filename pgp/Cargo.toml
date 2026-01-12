@@ -62,7 +62,7 @@ pgp-native = { version = "0.10", package = "pgp" }
 rand = "0.8"
 sha1 = { version = "0.10", optional = true }
 smallvec = "1"
-thiserror = "1"
+thiserror = "2"
 tokio = { version = "1.23", optional = true, default-features = false, features = ["rt"] }
 tracing = "0.1"
 z-base-32 = { version = "0.1", optional = true }

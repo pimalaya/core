@@ -34,3 +34,4 @@ rip-starttls = { path = "./rip-starttls" }
 secret-lib = { path = "./secret" }
 shellexpand-utils = { path = "./shellexpand-utils" }
 time-lib = { path = "./time" }
+imap-client.git = "https://github.com/pimalaya/imap-client"

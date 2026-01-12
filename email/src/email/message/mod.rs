@@ -65,7 +65,7 @@ impl Message<'_> {
     }
 
     /// Returns the parsed version of the message.
-    pub fn parsed(&self) -> Result<&mail_parser::Message, Error> {
+    pub fn parsed(&self) -> Result<&mail_parser::Message<'_>, Error> {
         let msg = self
             .borrow_parsed()
             .as_ref()
@@ -274,7 +274,7 @@ impl Message<'_> {
     ///
     /// The fact to return a template builder makes it easier to
     /// customize the final template from the outside.
-    pub fn to_reply_tpl_builder(&self, config: Arc<AccountConfig>) -> ReplyTemplateBuilder {
+    pub fn to_reply_tpl_builder(&self, config: Arc<AccountConfig>) -> ReplyTemplateBuilder<'_> {
         ReplyTemplateBuilder::new(self, config)
     }
 
@@ -282,7 +282,7 @@ impl Message<'_> {
     ///
     /// The fact to return a template builder makes it easier to
     /// customize the final template from the outside.
-    pub fn to_forward_tpl_builder(&self, config: Arc<AccountConfig>) -> ForwardTemplateBuilder {
+    pub fn to_forward_tpl_builder(&self, config: Arc<AccountConfig>) -> ForwardTemplateBuilder<'_> {
         ForwardTemplateBuilder::new(self, config)
     }
 }
@@ -370,11 +370,11 @@ impl Messages {
         }
     }
 
-    pub fn first(&self) -> Option<&Message> {
+    pub fn first(&self) -> Option<&Message<'_>> {
         self.borrow_emails().iter().next()
     }
 
-    pub fn to_vec(&self) -> Vec<&Message> {
+    pub fn to_vec(&self) -> Vec<&Message<'_>> {
         self.borrow_emails().iter().collect()
     }
 }

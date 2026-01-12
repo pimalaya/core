@@ -53,8 +53,8 @@ pub struct Tls {
 pub enum TlsProvider {
     #[cfg(feature = "rustls")]
     Rustls(Rustls),
-    #[cfg(feature = "native-tls")]
-    NativeTls(NativeTls),
+    // #[cfg(feature = "native-tls")]
+    // NativeTls(NativeTls),
     None,
 }
 
@@ -77,8 +77,8 @@ impl fmt::Display for TlsProvider {
         match self {
             #[cfg(feature = "rustls")]
             Self::Rustls(_) => write!(f, "Rust native (rustls)"),
-            #[cfg(feature = "native-tls")]
-            Self::NativeTls(_) => write!(f, "OS native (native-tls)"),
+            // #[cfg(feature = "native-tls")]
+            // Self::NativeTls(_) => write!(f, "OS native (native-tls)"),
             Self::None => write!(f, "None"),
         }
     }
@@ -95,13 +95,13 @@ pub struct Rustls {
     // TODO: define rustls specific options?
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-#[cfg(feature = "native-tls")]
-#[cfg_attr(
-    feature = "derive",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
-)]
-pub struct NativeTls {
-    // TODO: define native-tls specific options?
-}
+// #[derive(Clone, Debug, Default, Eq, PartialEq)]
+// #[cfg(feature = "native-tls")]
+// #[cfg_attr(
+//     feature = "derive",
+//     derive(serde::Serialize, serde::Deserialize),
+//     serde(rename_all = "kebab-case")
+// )]
+// pub struct NativeTls {
+//     // TODO: define native-tls specific options?
+// }

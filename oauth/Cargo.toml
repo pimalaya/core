@@ -50,6 +50,6 @@ tokio = { version = "1.23", features = ["full"] }
 async-std = { version = "1.13", optional = true }
 http-lib = { version = "0.1", default-features = false, path = "../http" }
 oauth2 = { version = "5.0.0-rc.1", default-features = false }
-thiserror = "1"
+thiserror = "2"
 tokio = { version = "1.23", optional = true, default-features = false, features = ["io-util", "net", "rt-multi-thread"] }
 tracing = "0.1"

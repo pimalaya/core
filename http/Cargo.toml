@@ -50,7 +50,7 @@ tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]
 async-std = { version = "1.13", optional = true }
-thiserror = "1"
+thiserror = "2"
 tokio = { version = "1.23", optional = true, default-features = false, features = ["rt"] }
 tracing = "0.1"
 ureq = { version = "3.0.0-rc.2", default-features = false, features = ["gzip", "platform-verifier"] }

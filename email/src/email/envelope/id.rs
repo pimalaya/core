@@ -25,7 +25,7 @@ impl Id {
         }
     }
 
-    pub fn iter(&self) -> IdIterator {
+    pub fn iter(&self) -> IdIterator<'_> {
         IdIterator::new(self)
     }
 }

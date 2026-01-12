@@ -81,7 +81,7 @@ tokio = { version = "1.23", features = ["full"] }
 
 [dependencies]
 async-recursion = "1"
-chumsky = { version = "=1.0.0-alpha.7", optional = true, features = ["label"] }
+chumsky = { version = "=1.0.0-alpha.8", optional = true, features = ["std"] }
 gpgme = { version = "0.11", optional = true }
 mail-builder = "0.3"
 mail-parser = "0.9"
@@ -91,6 +91,6 @@ process-lib = { version = "1", optional = true, default-features = false, path =
 secret-lib = { version = "1", optional = true, default-features = false, path = "../secret" }
 serde = { version = "1", optional = true, features = ["derive"] }
 shellexpand-utils = { version = "=0.2.1", optional = true }
-thiserror = "1"
+thiserror = "2"
 tracing = "0.1"
 tree_magic_mini = { version = "3", optional = true }

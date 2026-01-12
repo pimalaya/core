@@ -219,7 +219,7 @@ impl<'a> MmlBodyCompiler {
 
     /// Compile given parts parsed from a MML body to a
     /// [MessageBuilder].
-    async fn compile_parts(&'a self, parts: Vec<Part<'a>>) -> Result<MessageBuilder> {
+    async fn compile_parts(&'a self, parts: Vec<Part<'a>>) -> Result<MessageBuilder<'a>> {
         let mut builder = MessageBuilder::new();
 
         builder = match parts.len() {
@@ -242,7 +242,7 @@ impl<'a> MmlBodyCompiler {
 
     /// Compile the given part parsed from MML body to a [MimePart].
     #[async_recursion]
-    async fn compile_part(&'a self, part: Part<'a>) -> Result<MimePart> {
+    async fn compile_part(&'a self, part: Part<'a>) -> Result<MimePart<'a>> {
         match part {
             Part::Multi(props, parts) => {
                 let no_parts = BodyPart::Multipart(Vec::new());
@@ -362,7 +362,7 @@ impl<'a> MmlBodyCompiler {
     }
 
     /// Compile the given raw MML body to MIME body.
-    pub async fn compile(&'a self, mml_body: &'a str) -> Result<MessageBuilder> {
+    pub async fn compile(&'a self, mml_body: &'a str) -> Result<MessageBuilder<'a>> {
         let res = parsers::parts().parse(mml_body);
         if let Some(parts) = res.output() {
             Ok(self.compile_parts(parts.to_owned()).await?)

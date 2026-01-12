@@ -121,26 +121,25 @@ pgp-native = ["dep:pgp-lib", "dep:keyring-lib", "mml-lib/pgp-native", "pgp"]
 #
 #async-std-rustls = ["async-std", "rustls"]
 #async-std-native-tls = ["async-std", "native-tls"]
-tokio-rustls = ["dep:tokio-rustls", "imap-client?/tokio-rustls", "tokio", "rustls"]
-tokio-native-tls = ["dep:tokio-native-tls", "imap-client?/tokio-native-tls", "tokio", "native-tls"]
+tokio-rustls = ["dep:tokio-rustls", "tokio", "rustls"]
+# tokio-native-tls = ["dep:tokio-native-tls", "imap-client?/tokio-native-tls", "tokio", "native-tls"]
 
 # Async runtime
 #
 tokio = ["dep:tokio", "http-lib?/tokio", "keyring-lib?/tokio", "mml-lib/tokio", "oauth-lib?/tokio", "process-lib/tokio", "secret-lib/tokio"]
-async-std = ["dep:async-std", "http-lib?/async-std", "keyring-lib?/async-std", "mml-lib/async-std", "oauth-lib?/async-std", "process-lib/async-std", "secret-lib/async-std"]
+# async-std = ["dep:async-std", "http-lib?/async-std", "keyring-lib?/async-std", "mml-lib/async-std", "oauth-lib?/async-std", "process-lib/async-std", "secret-lib/async-std"]
 
 # Rust crypto
 #
 rustls = ["hickory-resolver?/dns-over-rustls", "http-lib?/rustls", "keyring-lib?/rustls", "mml-lib/rustls", "oauth-lib?/rustls", "secret-lib/rustls"]
-native-tls = ["hickory-resolver?/dns-over-native-tls", "http-lib?/native-tls", "keyring-lib?/openssl", "mml-lib/native-tls", "oauth-lib?/native-tls", "secret-lib/openssl"]
+# native-tls = ["hickory-resolver?/dns-over-native-tls", "http-lib?/native-tls", "keyring-lib?/openssl", "mml-lib/native-tls", "oauth-lib?/native-tls", "secret-lib/openssl"]
 
 # Vendored (mostly for OpenSSL)
 #
-vendored = ["tokio-native-tls?/vendored", "http-lib?/vendored", "keyring-lib?/vendored", "mml-lib/vendored", "oauth-lib?/vendored", "secret-lib/vendored"]
+# vendored = ["tokio-native-tls?/vendored", "http-lib?/vendored", "keyring-lib?/vendored", "mml-lib/vendored", "oauth-lib?/vendored", "secret-lib/vendored"]
 
 [dev-dependencies]
 concat-with = "0.2"
-email-lib = { path = ".", features = ["full"] }
 email-testing-server = { path = "../email-testing-server" }
 tokio = { version = "1.23", features = ["full"] }
 
@@ -149,7 +148,7 @@ advisory-lock = { version = "0.3", optional = true }
 async-std = { version = "1.13", optional = true }
 async-trait = "0.1"
 chrono = "0.4"
-chumsky = { version = "=1.0.0-alpha.7", default-features = false, features = ["std", "label"] }
+chumsky = { version = "=1.0.0-alpha.8", default-features = false, features = ["std"] }
 dirs = "4.0"
 email-macros = "=0.0.2"
 email_address = { version = "0.2", optional = true, default-features = false }
@@ -180,7 +179,7 @@ secret-lib = { version = "1", default-features = false, features = ["command"], 
 serde = { version = "1", optional = true, features = ["derive"] }
 serde-xml-rs = { version = "0.6", optional = true }
 shellexpand-utils = "=0.2.1"
-thiserror = "1"
+thiserror = "2"
 tokio = { version = "1.23", optional = true, default-features = false, features = ["fs", "macros", "net", "rt", "time"] }
 tokio-native-tls = { version = "0.3", optional = true, default-features = false }
 tokio-rustls = { version = "0.26", optional = true, default-features = false, features = ["logging", "tls12", "ring"] }

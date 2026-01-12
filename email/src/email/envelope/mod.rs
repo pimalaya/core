@@ -234,7 +234,7 @@ impl Envelope {
     }
 
     #[cfg(feature = "thread")]
-    pub fn as_threaded(&self) -> ThreadedEnvelope {
+    pub fn as_threaded(&self) -> ThreadedEnvelope<'_> {
         ThreadedEnvelope {
             id: self.id.as_str(),
             message_id: self.message_id.as_str(),
@@ -371,7 +371,7 @@ impl ThreadedEnvelopes {
         self.borrow_inner()
     }
 
-    pub fn graph(&self) -> &DiGraphMap<ThreadedEnvelope, u8> {
+    pub fn graph(&self) -> &DiGraphMap<ThreadedEnvelope<'_>, u8> {
         self.borrow_graph()
     }
 }

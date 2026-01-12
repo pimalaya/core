@@ -127,7 +127,7 @@ impl<'a> SecretKeyTrait for SignedSecretKeyOrSubkey<'a> {
 /// First, tries to use subkeys. If none of the subkeys are suitable
 /// for signing, tries to use primary key. Returns `None` if the
 /// public key cannot be used for signing.
-fn find_skey_for_signing(key: &SignedSecretKey) -> Option<SignedSecretKeyOrSubkey> {
+fn find_skey_for_signing(key: &SignedSecretKey) -> Option<SignedSecretKeyOrSubkey<'_>> {
     if key.is_signing_key() {
         Some(SignedSecretKeyOrSubkey::Key(key))
     } else {
