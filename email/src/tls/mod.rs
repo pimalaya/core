@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, path::PathBuf};
 
 #[cfg(feature = "derive")]
 pub mod derive;
@@ -12,6 +12,7 @@ pub mod derive;
 )]
 pub enum Encryption {
     Tls(Tls),
+    #[cfg_attr(feature = "derive", serde(alias = "starttls"))]
     StartTls(Tls),
     None,
 }
@@ -40,6 +41,7 @@ impl fmt::Display for Encryption {
 )]
 pub struct Tls {
     pub provider: Option<TlsProvider>,
+    pub cert: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

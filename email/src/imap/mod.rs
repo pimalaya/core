@@ -1104,17 +1104,27 @@ impl ImapClientBuilder {
                 })?,
             Some(Encryption::Tls(Tls {
                 provider: Some(TlsProvider::None),
+                ..
             }))
             | Some(Encryption::StartTls(Tls {
                 provider: Some(TlsProvider::None),
+                ..
             })) => {
                 return Err(Error::BuildTlsClientMissingProvider);
             }
             #[cfg(feature = "rustls")]
             Some(Encryption::Tls(Tls {
                 provider: Some(TlsProvider::Rustls(_)) | None,
-            }))
-            | None => Client::rustls(&self.config.host, self.config.port, false)
+                cert,
+            })) => Client::rustls(&self.config.host, self.config.port, false, cert.clone())
+                .await
+                .map_err(|err| {
+                    let host = self.config.host.clone();
+                    let port = self.config.port.clone();
+                    Error::BuildStartTlsClientError(err, host, port)
+                })?,
+            #[cfg(feature = "rustls")]
+            None => Client::rustls(&self.config.host, self.config.port, false, None)
                 .await
                 .map_err(|err| {
                     let host = self.config.host.clone();
@@ -1134,7 +1144,8 @@ impl ImapClientBuilder {
             #[cfg(feature = "rustls")]
             Some(Encryption::StartTls(Tls {
                 provider: Some(TlsProvider::Rustls(_)) | None,
-            })) => Client::rustls(&self.config.host, self.config.port, true)
+                cert,
+            })) => Client::rustls(&self.config.host, self.config.port, true, cert.clone())
                 .await
                 .map_err(|err| {
                     let host = self.config.host.clone();
