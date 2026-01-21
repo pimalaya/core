@@ -176,14 +176,21 @@ impl AccountConfig {
     /// Then, a suffix may be added to the final path if it already
     /// exists on the filesystem in order to prevent any overriding or
     /// data loss.
-    pub fn get_download_file_path(&self, path: impl AsRef<Path>) -> Result<PathBuf> {
+    pub fn get_download_file_path(
+        &self,
+        downloads_dir: Option<&Path>,
+        path: impl AsRef<Path>,
+    ) -> Result<PathBuf> {
         let path = path.as_ref();
 
         let file_name = path
             .file_name()
             .ok_or_else(|| Error::GetFileNameFromPathSyncError(path.to_owned()))?;
 
-        let final_path = self.get_downloads_dir().join(file_name);
+        let final_path = match downloads_dir {
+            Some(dir) => dir.join(file_name),
+            None => self.get_downloads_dir().join(file_name),
+        };
 
         rename_file_if_duplicate(&final_path, |path, _count| path.is_file())
     }
