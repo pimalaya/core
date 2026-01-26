@@ -232,7 +232,9 @@ impl Secret {
     #[cfg(feature = "keyring")]
     pub async fn delete_if_keyring(&self) -> Result<()> {
         if let Self::Keyring(entry) = self {
-            entry.delete_secret().await?;
+            if entry.find_secret().await?.is_some() {
+                entry.delete_secret().await?;
+            }
         }
 
         Ok(())
