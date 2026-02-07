@@ -1190,7 +1190,32 @@ impl ImapClientBuilder {
 
                 debug!(?mechanisms, "supported auth mechanisms");
 
+                // Try LOGIN first if supported.
+                // LOGIN is simpler and more reliable than PLAIN with SASL-IR,
+                // avoiding issues with servers that don't handle PLAIN continuation requests correctly.
+                if client.state.login_supported() {
+                    debug!("trying login…");
+
+                    match client
+                        .login(self.config.login.as_str(), passwd.as_str())
+                        .await
+                    {
+                        Ok(_) => {
+                            debug!("login succeeded!");
+                            authenticated = true;
+                        }
+                        Err(err) => {
+                            debug!("login failed, trying SASL mechanisms: {:?}", err);
+                        }
+                    }
+                }
+
+                // If LOGIN failed or is not supported, try SASL mechanisms
                 for mechanism in mechanisms {
+                    if authenticated {
+                        break;
+                    }
+
                     debug!(?mechanism, "trying auth mechanism…");
 
                     let auth = match mechanism {
@@ -1199,12 +1224,6 @@ impl ImapClientBuilder {
                                 .authenticate_plain(self.config.login.as_str(), passwd.as_str())
                                 .await
                         }
-                        // TODO
-                        // AuthMechanism::Login => {
-                        //     client
-                        //         .authenticate_login(self.config.login.as_str(), passwd.as_str())
-                        //         .await
-                        // }
                         _ => {
                             continue;
                         }
@@ -1222,18 +1241,7 @@ impl ImapClientBuilder {
                 }
 
                 if !authenticated {
-                    if !client.state.login_supported() {
-                        return Err(Error::LoginNotSupportedError);
-                    }
-
-                    debug!("trying login…");
-
-                    client
-                        .login(self.config.login.as_str(), passwd.as_str())
-                        .await
-                        .map_err(Error::LoginError)?;
-
-                    debug!("login succeeded!");
+                    return Err(Error::LoginNotSupportedError);
                 }
             }
             #[cfg(feature = "oauth2")]
