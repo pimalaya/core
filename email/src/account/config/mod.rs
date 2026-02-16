@@ -18,6 +18,8 @@ use std::{
     vec,
 };
 
+#[cfg(feature = "derive")]
+use crate::serde::deserialize_shell_expanded_string;
 #[cfg(feature = "sync")]
 use dirs::data_dir;
 use dirs::download_dir;
@@ -79,6 +81,10 @@ pub struct AccountConfig {
     pub name: String,
 
     /// The email address of the user account.
+    #[cfg_attr(
+        feature = "derive",
+        serde(deserialize_with = "deserialize_shell_expanded_string")
+    )]
     pub email: String,
 
     /// The display name of the user.

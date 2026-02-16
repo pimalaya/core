@@ -66,7 +66,7 @@ pub mod retry;
 #[cfg(feature = "sendmail")]
 pub mod sendmail;
 #[cfg(feature = "derive")]
-pub(crate) mod serde;
+pub mod serde;
 #[cfg(feature = "smtp")]
 pub mod smtp;
 #[cfg(feature = "sync")]

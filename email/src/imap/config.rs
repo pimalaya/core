@@ -7,6 +7,8 @@
 use super::{Error, Result};
 #[cfg(feature = "oauth2")]
 use crate::account::config::oauth2::OAuth2Config;
+#[cfg(feature = "derive")]
+use crate::serde::deserialize_shell_expanded_string;
 use crate::{account::config::passwd::PasswordConfig, tls::Encryption};
 
 /// Errors related to the IMAP backend configuration.
@@ -34,6 +36,10 @@ pub struct ImapConfig {
     ///
     /// Usually, the login is either the email address or its left
     /// part (before @).
+    #[cfg_attr(
+        feature = "derive",
+        serde(deserialize_with = "deserialize_shell_expanded_string")
+    )]
     pub login: String,
 
     /// The IMAP server authentication configuration.

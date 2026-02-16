@@ -12,6 +12,8 @@ use tracing::debug;
 pub use super::{Error, Result};
 #[cfg(feature = "oauth2")]
 use crate::account::config::oauth2::{OAuth2Config, OAuth2Method};
+#[cfg(feature = "derive")]
+use crate::serde::deserialize_shell_expanded_string;
 use crate::{account::config::passwd::PasswordConfig, tls::Encryption};
 
 /// The SMTP sender configuration.
@@ -37,6 +39,10 @@ pub struct SmtpConfig {
     ///
     /// Usually, the login is either the email address or its left
     /// part (before @).
+    #[cfg_attr(
+        feature = "derive",
+        serde(deserialize_with = "deserialize_shell_expanded_string")
+    )]
     pub login: String,
 
     /// The SMTP server authentication configuration.
