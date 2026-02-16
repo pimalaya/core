@@ -70,6 +70,12 @@ impl Envelope {
                         msg.push(b'\n');
                     }
 
+                    if let Some(in_reply_to) = envelope.in_reply_to.0.as_ref() {
+                        msg.extend(b"In-Reply-To: ");
+                        msg.extend(in_reply_to.as_ref());
+                        msg.push(b'\n');
+                    }
+
                     if let Some(date) = envelope.date.0.as_ref() {
                         msg.extend(b"Date: ");
                         msg.extend(date.as_ref());

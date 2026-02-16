@@ -7,10 +7,10 @@ use imap_client::imap_next::imap_types::{
     sequence::{Sequence, SequenceSet},
 };
 use petgraph::{graphmap::DiGraphMap, Direction};
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, warn};
 use utf7_imap::encode_utf7_imap as encode_utf7;
 
-use super::ThreadEnvelopes;
+use super::{build_thread_graph_all, build_thread_graph_for_id, ThreadEnvelopes};
 use crate::{
     envelope::{list::ListEnvelopesOptions, SingleId, ThreadedEnvelope, ThreadedEnvelopes},
     imap::ImapContext,
@@ -66,54 +66,74 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
             }));
         }
 
-        let threads = if let Some(query) = opts.query.as_ref() {
+        // Try server-side UID THREAD first, fall back to client-side
+        // threading if the server doesn't support the THREAD extension.
+        let server_threads = if let Some(query) = opts.query.as_ref() {
             let search_criteria = query.to_imap_search_criteria();
-            client.thread_envelopes(search_criteria).await?
+            client.thread_envelopes(search_criteria).await
         } else {
-            client.thread_envelopes(Some(SearchKey::All)).await?
+            client.thread_envelopes(Some(SearchKey::All)).await
         };
 
-        let mut graph = DiGraphMap::<u32, u8>::new();
+        match server_threads {
+            Ok(threads) => {
+                // Server supports UID THREAD — use the server-provided
+                // thread structure.
+                let mut graph = DiGraphMap::<u32, u8>::new();
 
-        for thread in threads {
-            build_graph_from_thread(&mut graph, 0, 0, thread)
-        }
-
-        let uids: SequenceSet = graph
-            .nodes()
-            .filter_map(NonZeroU32::new)
-            .map(Sequence::from)
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        let envelopes = client.fetch_envelopes_map(uids).await?;
-        let envelopes = ThreadedEnvelopes::new(envelopes, move |envelopes| {
-            let mut final_graph = DiGraphMap::<ThreadedEnvelope, u8>::new();
-
-            for (a, b, w) in graph.all_edges() {
-                let eb = envelopes.get(&b.to_string()).unwrap();
-                match envelopes.get(&a.to_string()) {
-                    Some(ea) => {
-                        final_graph.add_edge(ea.as_threaded(), eb.as_threaded(), *w);
-                    }
-                    None => {
-                        let ea = ThreadedEnvelope {
-                            id: "0",
-                            message_id: "0",
-                            subject: "",
-                            from: "",
-                            date: Default::default(),
-                        };
-                        final_graph.add_edge(ea, eb.as_threaded(), *w);
-                    }
+                for thread in threads {
+                    build_graph_from_thread(&mut graph, 0, 0, thread)
                 }
+
+                let uids: SequenceSet = graph
+                    .nodes()
+                    .filter_map(NonZeroU32::new)
+                    .map(Sequence::from)
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap();
+
+                let envelopes = client.fetch_envelopes_map(uids).await?;
+                let envelopes = ThreadedEnvelopes::new(envelopes, move |envelopes| {
+                    let mut final_graph = DiGraphMap::<ThreadedEnvelope, u8>::new();
+
+                    for (a, b, w) in graph.all_edges() {
+                        let eb = envelopes.get(&b.to_string()).unwrap();
+                        match envelopes.get(&a.to_string()) {
+                            Some(ea) => {
+                                final_graph
+                                    .add_edge(ea.as_threaded(), eb.as_threaded(), *w);
+                            }
+                            None => {
+                                let ea = ThreadedEnvelope {
+                                    id: "0",
+                                    message_id: "0",
+                                    subject: "",
+                                    from: "",
+                                    date: Default::default(),
+                                };
+                                final_graph.add_edge(ea, eb.as_threaded(), *w);
+                            }
+                        }
+                    }
+
+                    final_graph
+                });
+
+                Ok(envelopes)
             }
+            Err(_) => {
+                // Server doesn't support UID THREAD — fall back to
+                // client-side threading using In-Reply-To headers.
+                warn!("server does not support UID THREAD, falling back to client-side threading");
 
-            final_graph
-        });
+                let all_uids: SequenceSet = "1:*".try_into().unwrap();
+                let envelopes = client.fetch_envelopes_map(all_uids).await?;
+                let envelopes = ThreadedEnvelopes::new(envelopes, build_thread_graph_all);
 
-        Ok(envelopes)
+                Ok(envelopes)
+            }
+        }
     }
 
     #[instrument(skip_all)]
@@ -139,59 +159,80 @@ impl ThreadEnvelopes for ThreadImapEnvelopes {
 
         let uid = id.parse::<u32>().unwrap();
 
-        let threads = if let Some(query) = opts.query.as_ref() {
+        // Try server-side UID THREAD first, fall back to client-side.
+        let server_threads = if let Some(query) = opts.query.as_ref() {
             let search_criteria = query.to_imap_search_criteria();
-            client.thread_envelopes(search_criteria).await?
+            client.thread_envelopes(search_criteria).await
         } else {
-            client.thread_envelopes(Some(SearchKey::All)).await?
+            client.thread_envelopes(Some(SearchKey::All)).await
         };
 
-        let mut full_graph = DiGraphMap::<u32, u8>::new();
+        match server_threads {
+            Ok(threads) => {
+                // Server supports UID THREAD — use server-provided
+                // thread structure filtered to the requested envelope.
+                let mut full_graph = DiGraphMap::<u32, u8>::new();
 
-        for thread in threads {
-            build_graph_from_thread(&mut full_graph, 0, 0, thread)
-        }
-
-        let mut graph = DiGraphMap::<u32, u8>::new();
-
-        build_parents_graph(&full_graph, &mut graph, uid);
-        build_children_graph(&full_graph, &mut graph, uid);
-
-        let uids: SequenceSet = graph
-            .nodes()
-            .filter_map(NonZeroU32::new)
-            .map(Sequence::from)
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        let envelopes = client.fetch_envelopes_map(uids).await?;
-        let envelopes = ThreadedEnvelopes::new(envelopes, move |envelopes| {
-            let mut final_graph = DiGraphMap::<ThreadedEnvelope, u8>::new();
-
-            for (a, b, w) in graph.all_edges() {
-                let eb = envelopes.get(&b.to_string()).unwrap();
-                match envelopes.get(&a.to_string()) {
-                    Some(ea) => {
-                        final_graph.add_edge(ea.as_threaded(), eb.as_threaded(), *w);
-                    }
-                    None => {
-                        let ea = ThreadedEnvelope {
-                            id: "0",
-                            message_id: "0",
-                            subject: "",
-                            from: "",
-                            date: Default::default(),
-                        };
-                        final_graph.add_edge(ea, eb.as_threaded(), *w);
-                    }
+                for thread in threads {
+                    build_graph_from_thread(&mut full_graph, 0, 0, thread)
                 }
+
+                let mut graph = DiGraphMap::<u32, u8>::new();
+
+                build_parents_graph(&full_graph, &mut graph, uid);
+                build_children_graph(&full_graph, &mut graph, uid);
+
+                let uids: SequenceSet = graph
+                    .nodes()
+                    .filter_map(NonZeroU32::new)
+                    .map(Sequence::from)
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap();
+
+                let envelopes = client.fetch_envelopes_map(uids).await?;
+                let envelopes = ThreadedEnvelopes::new(envelopes, move |envelopes| {
+                    let mut final_graph = DiGraphMap::<ThreadedEnvelope, u8>::new();
+
+                    for (a, b, w) in graph.all_edges() {
+                        let eb = envelopes.get(&b.to_string()).unwrap();
+                        match envelopes.get(&a.to_string()) {
+                            Some(ea) => {
+                                final_graph
+                                    .add_edge(ea.as_threaded(), eb.as_threaded(), *w);
+                            }
+                            None => {
+                                let ea = ThreadedEnvelope {
+                                    id: "0",
+                                    message_id: "0",
+                                    subject: "",
+                                    from: "",
+                                    date: Default::default(),
+                                };
+                                final_graph.add_edge(ea, eb.as_threaded(), *w);
+                            }
+                        }
+                    }
+
+                    final_graph
+                });
+
+                Ok(envelopes)
             }
+            Err(_) => {
+                // Server doesn't support UID THREAD — fall back to
+                // client-side threading using In-Reply-To headers.
+                warn!("server does not support UID THREAD, falling back to client-side threading");
 
-            final_graph
-        });
+                let all_uids: SequenceSet = "1:*".try_into().unwrap();
+                let envelopes = client.fetch_envelopes_map(all_uids).await?;
+                let envelopes = ThreadedEnvelopes::new(envelopes, move |envelopes| {
+                    build_thread_graph_for_id(envelopes, id.as_str())
+                });
 
-        Ok(envelopes)
+                Ok(envelopes)
+            }
+        }
     }
 }
 
