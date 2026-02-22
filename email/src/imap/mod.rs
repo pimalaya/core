@@ -50,7 +50,7 @@ use crate::{
     },
     envelope::{
         get::{imap::GetImapEnvelope, GetEnvelope},
-        imap::FETCH_ENVELOPES,
+        imap::{FETCH_ENVELOPES, FETCH_FLAGS},
         list::{imap::ListImapEnvelopes, ListEnvelopes},
         Envelope, Envelopes,
     },
@@ -426,6 +426,56 @@ impl ImapClient {
     }
 
     #[instrument(skip_all, fields(client = self.id))]
+    pub async fn fetch_flags(
+        &mut self,
+        uids: SequenceSet,
+    ) -> Result<Envelopes> {
+        let fetches = loop {
+            let res = self
+                .retry
+                .timeout(self.inner.uid_fetch(uids.clone(), FETCH_FLAGS.clone()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::FetchMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::FetchMessagesError),
+            }
+        }?;
+
+        Ok(Envelopes::from_imap_data_items(fetches))
+    }
+
+    #[instrument(skip_all, fields(client = self.id))]
+    pub async fn fetch_flags_map(
+        &mut self,
+        uids: SequenceSet,
+    ) -> Result<HashMap<String, Envelope>> {
+        let fetches = loop {
+            let res = self
+                .retry
+                .timeout(self.inner.uid_fetch(uids.clone(), FETCH_FLAGS.clone()))
+                .await;
+
+            match self.retry(res).await? {
+                ImapRetryState::Retry => continue,
+                ImapRetryState::TimedOut => break Err(Error::FetchMessagesTimedOutError),
+                ImapRetryState::Ok(res) => break res.map_err(Error::FetchMessagesError),
+            }
+        }?;
+
+        let map = fetches
+            .into_values()
+            .map(|items| {
+                let envelope = Envelope::from_imap_data_items(items.as_ref());
+                (envelope.id.clone(), envelope)
+            })
+            .collect();
+
+        Ok(map)
+    }
+
+    #[instrument(skip_all, fields(client = self.id))]
     pub async fn fetch_envelopes_by_sequence(&mut self, seq: SequenceSet) -> Result<Envelopes> {
         let fetches = loop {
             let res = self
@@ -445,7 +495,7 @@ impl ImapClient {
 
     #[instrument(skip_all, fields(client = self.id))]
     pub async fn fetch_all_envelopes(&mut self) -> Result<Envelopes> {
-        self.fetch_envelopes_by_sequence("1:*".try_into().unwrap())
+        self.fetch_envelopes("1:*".try_into().unwrap())
             .await
     }
 
