@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed `oauth2` feature failing to compile without `keyring` feature. [core#47]
+
 ## [0.26.4] - 2025-01-11
 
 ### Changed

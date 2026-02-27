@@ -94,6 +94,7 @@ notify = [
 
 oauth2 = [
   "dep:oauth-lib",
+  "keyring",
 ]
 
 sync = [
