@@ -52,6 +52,10 @@ pub fn build_thread_graph_all(
             Some(msg_id) => {
                 if let Some(id) = msg_id_mapping.get(msg_id.as_str()) {
                     graph.add_edge(*id, envelope.id.as_str(), 0);
+                } else {
+                    // Parent not in this folder — treat as a root node
+                    // rather than silently dropping the envelope.
+                    graph.add_edge("0", envelope.id.as_str(), 0);
                 }
             }
             None => {
@@ -95,6 +99,9 @@ pub fn build_thread_graph_for_id<'a>(
             Some(msg_id) => {
                 if let Some(parent_id) = msg_id_mapping.get(msg_id.as_str()) {
                     graph.add_edge(*parent_id, envelope.id.as_str(), 0);
+                } else {
+                    // Parent not in this folder — treat as a root node
+                    graph.add_edge("0", envelope.id.as_str(), 0);
                 }
             }
             None => {
