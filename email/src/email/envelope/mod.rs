@@ -384,11 +384,34 @@ impl serde::Serialize for ThreadedEnvelopes {
     {
         use serde::ser::SerializeSeq;
 
+        #[derive(serde::Serialize)]
+        #[serde(rename_all = "kebab-case")]
+        struct RichEnvelope<'a> {
+            #[serde(flatten)]
+            base: &'a ThreadedEnvelope<'a>,
+            flags: &'a Flags,
+            has_attachment: bool,
+        }
+
+        let map = self.map();
+        let empty_flags = Flags::default();
         let count = self.graph().all_edges().count();
         let mut seq = serializer.serialize_seq(Some(count))?;
 
-        for ref edge in self.graph().all_edges() {
-            seq.serialize_element(edge)?;
+        for (parent, child, weight) in self.graph().all_edges() {
+            let pe = map.get(parent.id);
+            let ce = map.get(child.id);
+            let rich_parent = RichEnvelope {
+                base: &parent,
+                flags: pe.map(|e| &e.flags).unwrap_or(&empty_flags),
+                has_attachment: pe.map_or(false, |e| e.has_attachment),
+            };
+            let rich_child = RichEnvelope {
+                base: &child,
+                flags: ce.map(|e| &e.flags).unwrap_or(&empty_flags),
+                has_attachment: ce.map_or(false, |e| e.has_attachment),
+            };
+            seq.serialize_element(&(&rich_parent, &rich_child, weight))?;
         }
 
         serde::ser::SerializeSeq::end(seq)
