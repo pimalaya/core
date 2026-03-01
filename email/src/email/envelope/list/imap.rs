@@ -303,7 +303,7 @@ fn paginate<T>(items: &[T], page: usize, page_size: usize) -> Result<&[T]> {
         Err(Error::BuildPageRangeOutOfBoundsImapError(page + 1))?
     }
 
-    Ok(&items[0..page_size.min(total)])
+    Ok(&items[page_cursor..(page_cursor + page_size).min(total)])
 }
 
 fn apply_pagination(
@@ -321,8 +321,8 @@ fn apply_pagination(
         return Ok(());
     }
 
-    let page_size = page_size.min(total);
-    *envelopes = Envelopes(envelopes[0..page_size].to_vec());
+    let end = (page_cursor + page_size).min(total);
+    *envelopes = Envelopes(envelopes[page_cursor..end].to_vec());
     Ok(())
 }
 
