@@ -1,7 +1,7 @@
 pub mod config;
 mod error;
 
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use futures::lock::Mutex;
@@ -12,6 +12,7 @@ use mail_send::{
 };
 #[cfg(feature = "tokio")]
 use tokio::net::TcpStream;
+use tokio::time::timeout;
 #[cfg(feature = "tokio-native-tls")]
 use tokio_native_tls::TlsStream;
 #[cfg(feature = "tokio-rustls")]
@@ -28,7 +29,6 @@ use crate::{
         feature::{BackendFeature, CheckUp},
     },
     message::send::{smtp::SendSmtpMessage, SendMessage},
-    retry::{Retry, RetryState},
     AnyResult,
 };
 
@@ -75,54 +75,22 @@ impl SmtpContext {
             }
         };
 
-        let mut retry = Retry::default();
+        let smtp_msg = into_smtp_msg(msg)?;
 
-        loop {
-            // NOTE: cannot clone the final message
-            let msg = into_smtp_msg(msg.clone())?;
-
-            match retry.next(retry.timeout(self.client.send(msg)).await) {
-                RetryState::Retry => {
-                    debug!(attempt = retry.attempts, "request timed out");
-                    continue;
-                }
-                RetryState::TimedOut => {
-                    break Err(Error::SendMessageTimedOutError);
-                }
-                RetryState::Ok(Ok(res)) => {
-                    break Ok(res);
-                }
-                RetryState::Ok(Err(err)) => {
-                    match err {
-                        mail_send::Error::Timeout => {
-                            warn!("connection timed out");
-                        }
-                        mail_send::Error::Io(err) => {
-                            let reason = err.to_string();
-                            warn!(reason, "connection broke");
-                        }
-                        mail_send::Error::UnexpectedReply(reply) => {
-                            let reason = reply.message;
-                            let code = reply.code;
-                            warn!(reason, "server replied with code {code}");
-                        }
-                        err => {
-                            break Err(Error::SendMessageError(err));
-                        }
-                    };
-
-                    debug!("re-connecting…");
-
-                    self.client = if self.smtp_config.is_encryption_enabled() {
-                        build_tls_client(&self.client_builder).await
-                    } else {
-                        build_tcp_client(&self.client_builder).await
-                    }?;
-
-                    retry.reset();
-                    continue;
-                }
-            }
+        // Send the message once without retrying. The previous retry
+        // logic would reconnect and resend on IO/timeout errors, but
+        // at that point the SMTP server may have already accepted and
+        // delivered the message (the DATA payload was transmitted but
+        // the connection dropped before the 250 OK response arrived).
+        // Retrying in that scenario causes duplicate emails to be
+        // delivered. Since we cannot determine which SMTP transaction
+        // phase an IO error occurred in, the safest behaviour is to
+        // attempt delivery exactly once and surface any errors to the
+        // caller.
+        match timeout(Duration::from_secs(30), self.client.send(smtp_msg)).await {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(err)) => Err(Error::SendMessageError(err)),
+            Err(_) => Err(Error::SendMessageTimedOutError),
         }
     }
 

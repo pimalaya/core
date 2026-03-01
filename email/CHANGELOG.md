@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed `oauth2` feature failing to compile without `keyring` feature. [core#47]
+- Fixed SMTP retry loop causing duplicate email delivery on connection errors. [core#46]
 
 ## [0.26.4] - 2025-01-11
 
