@@ -30,6 +30,13 @@ pub static FETCH_ENVELOPES: Lazy<MacroOrMessageDataItemNames<'static>> = Lazy::n
     ])
 });
 
+pub static FETCH_FLAGS: Lazy<MacroOrMessageDataItemNames<'static>> = Lazy::new(|| {
+    MacroOrMessageDataItemNames::MessageDataItemNames(vec![
+        MessageDataItemName::Uid,
+        MessageDataItemName::Flags,
+    ])
+});
+
 impl Envelopes {
     pub fn from_imap_data_items(fetches: HashMap<NonZeroU32, Vec1<MessageDataItem>>) -> Self {
         fetches
