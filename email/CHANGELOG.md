@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed SMTP retry loop causing duplicate email delivery on connection errors. [core#46]
+
 ## [0.26.4] - 2025-01-11
 
 ### Changed
