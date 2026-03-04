@@ -35,8 +35,10 @@ pub trait WatchEnvelopes: Send + Sync {
                 info!(id, "new message detected");
                 debug!("processing received envelope event…");
                 config.exec_received_envelope_hook(envelope).await;
-            } else {
-                // TODO
+            }
+            // an envelope has its flags changed
+            else {
+                info!(id, "changed message detected");
                 // debug!("processing any envelope event…");
                 // config.exec_any_envelope_hook(envelope).await;
             }
